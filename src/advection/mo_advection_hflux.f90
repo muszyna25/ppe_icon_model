@@ -74,6 +74,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_advection_hflux
 
   USE mo_kind,                ONLY: wp
@@ -463,7 +468,7 @@ CONTAINS
 
     ! loop through all patch edges (and blocks)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,   &
@@ -962,7 +967,7 @@ CONTAINS
     IF (l_consv .AND. p_igrad_c_miura == 1 .AND.                           &
      & (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m)) THEN
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1021,7 +1026,7 @@ CONTAINS
       ! If no slope limiter is applied, a more efficient formulation without the
       ! moments can be used.
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1494,7 +1499,7 @@ CONTAINS
 !$OMP END WORKSHARE
     ENDIF
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1583,7 +1588,7 @@ CONTAINS
 !$OMP END WORKSHARE
     ENDIF
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1637,7 +1642,7 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -2084,7 +2089,7 @@ CONTAINS
 !$OMP END WORKSHARE
     ENDIF
 
- !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+ !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -2320,7 +2325,7 @@ CONTAINS
     npromz_e = p_patch%npromz_int_e
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma

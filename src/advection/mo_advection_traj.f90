@@ -53,6 +53,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_advection_traj
 
   USE mo_kind,                ONLY: wp
@@ -190,7 +194,7 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
@@ -394,7 +398,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,depart_pts,pos_dreg_vert_c, &
-!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos)
+!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
@@ -687,7 +691,7 @@ CONTAINS
     iblk => ptr_p%edges%quad_blk
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
@@ -753,7 +757,7 @@ CONTAINS
 
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,zcell,w1,w2,w3, &
-!$OMP            vn_new,vt_new,z_ntdistv_bary)
+!$OMP            vn_new,vt_new,z_ntdistv_bary) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &

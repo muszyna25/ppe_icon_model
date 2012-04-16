@@ -53,6 +53,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_advection_quadrature
 
   USE mo_advection_config,    ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta
@@ -182,7 +186,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_quad_vector)
+!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -361,7 +365,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_quad_vector)
+!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -543,7 +547,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_quad_vector)
+!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &

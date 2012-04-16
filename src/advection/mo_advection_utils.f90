@@ -53,6 +53,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_advection_utils
 
   USE mo_kind,                ONLY: wp
@@ -157,7 +161,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
 
            CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

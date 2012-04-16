@@ -62,6 +62,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
@@ -473,7 +477,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jkm1,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,jkm1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -776,7 +780,7 @@ CONTAINS
     !
 !$OMP PARALLEL
     IF (ld_compute) THEN
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkm1)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkm1) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -855,7 +859,7 @@ CONTAINS
     !
     !    In addition, copy z_cfl_[m,p]0 to work-array z_cfl_[m,p]
     !
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1_ic,ikp1)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1_ic,ikp1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -959,7 +963,7 @@ CONTAINS
       IF (iequations /= 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_iflx_m,z_iflx_p,z_lext_1, &
-!$OMP            z_lext_2,jkm1,cfl_counter,jkm_int,jk_int,jkkm,jkkp)
+!$OMP            z_lext_2,jkm1,cfl_counter,jkm_int,jk_int,jkkm,jkkp) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1123,7 +1127,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_iflx_m,z_iflx_p,z_lext_1, &
-!$OMP            z_lext_2,jkm1,cfl_counter,jkm_int,jk_int,jkkm,jkkp)
+!$OMP            z_lext_2,jkm1,cfl_counter,jkm_int,jk_int,jkkm,jkkp) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1297,7 +1301,7 @@ CONTAINS
     ! quantity to the edge and finally, calculation of the upwind fluxes
     !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,jkm1)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,jkm1) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1591,7 +1595,7 @@ CONTAINS
     !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1_ic,ikp1, &
-!$OMP            z_slope_u,z_slope_l,ikp2)
+!$OMP            z_slope_u,z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1770,7 +1774,7 @@ CONTAINS
     ELSE
       ! simply copy face values to 'face_up' and 'face_low' arrays
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1796,7 +1800,7 @@ CONTAINS
       !     piecewise parabolic reconstruction
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
-!$OMP            z_delta_p,z_a11,z_a12)
+!$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1869,7 +1873,7 @@ CONTAINS
     !
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
-!$OMP            z_delta_p,z_a11,z_a12)
+!$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2237,7 +2241,7 @@ CONTAINS
     ! The contravariant mass flux should never exactly vanish
     !
     IF (l_out_edgeval) THEN
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2261,7 +2265,7 @@ CONTAINS
     IF (ld_compute) THEN
 !$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,       &
-!$OMP            max_cfl_lay,z_aux_p,z_aux_m)
+!$OMP            max_cfl_lay,z_aux_p,z_aux_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2435,7 +2439,7 @@ CONTAINS
     ! 2. Compute monotonized slope
     !
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,ikp1_ic,ikp1,z_slope_u, &
-!$OMP            z_slope_l,ikp2)
+!$OMP            z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2581,7 +2585,7 @@ CONTAINS
 
      IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
       ! simply copy face values to 'face_up' and 'face_low' arrays
-!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2607,7 +2611,7 @@ CONTAINS
     !
 
 !$OMP DO PRIVATE(jb,jk,jc,nlist,ji_p,ji_m,i_startidx,i_endidx,jk_shift,z_iflx_m, &
-!$OMP            z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2)
+!$OMP z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2853,7 +2857,7 @@ CONTAINS
 
     ! If desired, get edge value of advected quantity 
     IF ( l_out_edgeval ) THEN
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &

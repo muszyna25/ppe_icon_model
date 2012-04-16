@@ -62,6 +62,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_advection_stepping
 
   USE mo_kind,                ONLY: wp
@@ -332,7 +336,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -418,7 +422,7 @@ CONTAINS
         i_rlend    = min_rlcell
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -442,7 +446,7 @@ CONTAINS
         ! nest boundary, since the following horizontal flux calculation
         ! uses a non-local stencil.
 
-!$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
@@ -496,7 +500,7 @@ CONTAINS
           i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
 
             CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -540,7 +544,7 @@ CONTAINS
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -623,7 +627,7 @@ CONTAINS
       i_rlend   = min_rlcell
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-!$OMP DO PRIVATE(jk,jt,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jk,jt,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
           &                i_startidx, i_endidx, i_rlstart, i_rlend)
@@ -674,7 +678,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -715,7 +719,7 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,1)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -787,7 +791,7 @@ CONTAINS
       ! update tracer array
       !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
@@ -845,7 +849,7 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jt,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jt,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,     &

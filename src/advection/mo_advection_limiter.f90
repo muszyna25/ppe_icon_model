@@ -42,6 +42,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_advection_limiter
 
   USE mo_kind,                ONLY: wp
@@ -243,7 +247,7 @@ CONTAINS
     i_endblk     = ptr_patch%edges%end_blk(i_rlend_e,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -285,7 +289,7 @@ CONTAINS
     i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
     i_endblk     = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
@@ -374,7 +378,7 @@ CONTAINS
     i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
     i_endblk     = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -448,7 +452,7 @@ CONTAINS
     i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -654,7 +658,7 @@ CONTAINS
       !    z_mflx < 0: inward
       !
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
@@ -718,7 +722,7 @@ CONTAINS
       !    z_mflx < 0: inward
       !
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
@@ -800,7 +804,7 @@ CONTAINS
       i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
@@ -832,7 +836,7 @@ CONTAINS
       i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
       i_endblk   = ptr_patch%edges%end_blk(min_rledge,i_nchdom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -972,7 +976,8 @@ CONTAINS
     i_endblk     = ptr_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,&
+!$OMP z_signum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1139,7 +1144,7 @@ CONTAINS
     i_endblk    = ptr_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,    &
@@ -1310,7 +1315,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_min,z_max,z_lext_val_1,   &
-!$OMP            z_lext_val_2,z_lext_val_3,z_limit)
+!$OMP            z_lext_val_2,z_lext_val_3,z_limit) ICON_OMP_DEFAULT_SCHEDULE
 
     ! Calculate reconstructed tracer values at Gauss-points provided and limit
     ! the gradient appropriately. Note that one needs to distinguish beween
@@ -1530,7 +1535,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_min,z_max,z_lext_val_1,   &
-!$OMP            z_lext_val_2,z_lext_val_3,z_limit)
+!$OMP            z_lext_val_2,z_lext_val_3,z_limit) ICON_OMP_DEFAULT_SCHEDULE
 
     ! Calculate reconstructed tracer values at Gauss-points provided and limit
     ! the gradient appropriately. Note that one needs to distinguish beween
@@ -1766,7 +1771,7 @@ CONTAINS
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,v_tang_lon,            &
 !$OMP            v_tang_lat,z_v_tang_cc,cc_gausspoint_shifted,       &
-!$OMP            gg_gausspoint_shifted)
+!$OMP            gg_gausspoint_shifted) ICON_OMP_DEFAULT_SCHEDULE
 
     ! Calculate shifted Gauss-points, by calculating backward trajectories
     ! based on the reconstructed tangential velocity component and p_dthalf.
@@ -1823,7 +1828,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,xloc,yloc,xtemp1,xtemp2,xtemp3,  &
-!$OMP            ytemp1,ytemp2,ytemp3,z_dist_g1,z_dist_g2,z_dist_g3)
+!$OMP            ytemp1,ytemp2,ytemp3,z_dist_g1,z_dist_g2,z_dist_g3) ICON_OMP_DEFAULT_SCHEDULE
 
     ! Calculate distance vectors between cell center and shifted gauss points
     DO jb = i_startblk, i_endblk
@@ -1986,7 +1991,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkm1_ic,jkm1,jkp1_ic,jkp1,z_top, &
-!$OMP            z_mid,z_bot,z_min,z_max,z_lext_val_1,z_lext_val_2,z_limit)
+!$OMP            z_mid,z_bot,z_min,z_max,z_lext_val_1,z_lext_val_2,z_limit) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2161,7 +2166,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkm1_ic,jkm1,jkp1_ic,jkp1,z_top,  &
-!$OMP            z_mid,z_bot,z_min,z_lext_val_1,z_lext_val_2,z_limit)
+!$OMP            z_mid,z_bot,z_min,z_lext_val_1,z_lext_val_2,z_limit) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2323,7 +2328,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2458,7 +2463,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
