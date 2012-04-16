@@ -1,1 +1,70 @@
-post.nh35_tri_jws
+#=============================================================================#
+# This section sets up the environment for the proper postprocessing script.
+# Parameters are passed by the "${set_env}" file to be executed by the pp script.
+#
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+# directory of this script, must be in ICON base directory
+#
+DIR=$(pwd -P)
+ICONDIR=${DIR%/*}
+#
+#-----------------------------------------------------------------------------
+
+
+# Set parameters for postprocessing
+#
+EXPN="test_nh35_tri_jws"
+grid_name="iconR2B04-grid"
+ExpName="${EXPN}_${grid_name}"
+Root=2
+Bis=4
+ver_res="L35"
+gridopt="spr0.90"
+
+
+cd ../scripts/postprocessing/testcases
+
+# define individual set-env file
+set_env="Post.${EXP}.set_env"
+
+# Remove old ${set_env} file
+#
+if [ -f ${set_env} ] 
+then 
+  rm -f ${set_env}
+fi
+
+# Write new ${set_env} file
+#
+echo "EXPN=\"${EXPN}\""                                  >  ${set_env}
+echo "grid_name=\"${grid_name}\""                           >> ${set_env}
+echo "ExpName=\"${ExpName}\""                               >> ${set_env}
+echo "Root=\"${Root}\""                                  >> ${set_env}
+echo "Bis=\"${Bis}\""                                    >> ${set_env}
+echo "ver_res=\"${ver_res}\""                            >> ${set_env}
+echo "gridopt=\"${gridopt}\""                            >> ${set_env}
+
+# Load NCL resources
+#
+
+export NCARG_USRRESFILE=${ICONDIR}/scripts/postprocessing/.hluresfile
+
+# Start postprocessing script
+echo "-- ---------------------------------------------------------"
+echo "-- error_postpro_driver.bash starts at $(date) --"
+echo "-- ---------------------------------------------------------"
+#
+./error_postpro_driver.bash ${set_env}
+STATUS=$?
+
+echo "-- ---------------------------------------------------------"
+echo "-- error_postpro_driver.bash ends at $(date) --"
+echo "-- ---------------------------------------------------------"
+rm -f ${set_env}
+
+check_error $STATUS "Creating of Plots"
+
+exit $STATUS
