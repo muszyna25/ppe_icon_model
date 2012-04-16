@@ -43,22 +43,17 @@ MODULE mo_nwp_turb_interface
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
-
   USE mo_model_domain,         ONLY: t_patch
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: alv, rd_o_cpd
-
+  USE mo_physical_constants,   ONLY: alv, rd_o_cpd, grav
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
-    &                                t_nh_metrics
+  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
-
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, &
-    &                                iqi, iqr, iqs, nqtendphy
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: organize_turbdiff
@@ -71,6 +66,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, nsfc_subs
 
   IMPLICIT NONE
 
@@ -102,13 +98,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
-  TYPE(t_nwp_phy_tend),TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
+  TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
 
-  ! Local array bounds:
+  ! Local array bounds
 
   INTEGER :: nblks_c, nblks_e        !> number of blocks for cells / edges
   INTEGER :: npromz_e, npromz_c      !> length of last block line
@@ -122,6 +118,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   INTEGER :: jc,jk,jb,jt,jg      !block indeces
 
   ! local variables for turbdiff
+
   INTEGER :: ierrstat=0
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
@@ -130,6 +127,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !DR    &  z_ddt_tke(nproma,p_patch%nlevp1,p_patch%nblks_c) ! tvs tendency [m/s2]
 
   ! local variables for vdiff
+
   INTEGER, PARAMETER :: itrac = 1
   REAL(wp) ::  &                     !< cloud water + cloud ice 
     &  z_plitot(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -143,7 +141,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     & z_dummy_shflx(nproma,1:nsfc_type,p_patch%nblks_c)
   REAL(wp) ::  &                     !< dummy variable for output
     & z_dummy_lhflx(nproma,1:nsfc_type,p_patch%nblks_c)
-  !
   REAL(wp) ::  &                     !< dummy variable for input
     &  zdummy_i(nproma,p_patch%nlev,p_patch%nblks_c)
   REAL(wp) ::  &                     !< dummy variable for input
@@ -173,7 +170,20 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   REAL(wp) ::  &                     !< dummy variable for output
     &  zdummy_oh(nproma,p_patch%nblks_c) 
   INTEGER  :: idummy_oh(nproma ,p_patch%nblks_c)    !< dummy variable for output
-  INTEGER  :: nlev, nlevp1           !< number of full and half levels
+  INTEGER  :: nlev, nlevp1                          !< number of full and half levels
+
+  ! local variables for edmf
+
+  INTEGER  :: icnt
+  INTEGER  :: idummy_vdf(nproma)
+  REAL(wp) :: zdummy_vdf(nproma), zdummy_vdf2(nproma,p_patch%nlev), zdummy_vdf3(nproma,nlev_soil), &
+    &         zdummy_vdf4(nproma,nsfc_subs)
+  REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma), zucurr(nproma), zvcurr(nproma),          &
+    &         zsoteu(nproma,p_patch%nlev), zsotev(nproma,p_patch%nlev), zsobeta(nproma,p_patch%nlev), &
+    &         sobs_t(nproma,nsfc_subs)   , shfl_s_t(nproma,nsfc_subs) , lhfl_s_t(nproma,nsfc_subs),   &
+    &         evap_s_t(nproma,nsfc_subs) , tskin_t(nproma,nsfc_subs)  , ustr_s_t(nproma,nsfc_subs),   &
+    &         vstr_s_t(nproma,nsfc_subs) , zae(nproma,p_patch%nlev)   , zvar(nproma,p_patch%nlev)
+  LOGICAL  :: l_land(nproma)
 
   ! number of vertical levels
   nlev   = p_patch%nlev
@@ -512,146 +522,177 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !      !-------------------------------------------------------------------------
 !      !> Calculate vertical velocity in p-system
 !      !-------------------------------------------------------------------------
-!      !
-!      DO jk = 1,nlev
-!        DO jc = i_startidx,i_endidx
-!          z_omega_p(jc,jk,jb)= -p_prog%w(jc,jk,jb)*p_prog%rho(jc,jk,jb)*grav
-!        ENDDO
-!      ENDDO
-!
-!      icnt = 0
-!      CALL vdfouter ( &
-!        & CDCONF ???                                                  ,&! (IN)    
-!        & KIDIA  = i_startidx                                         ,&! (IN)   
-!        & KFDIA  = i_endidx                                           ,&! (IN)   
-!        & KLON   = nproma                                             ,&! (IN)   
-!        & KLEV   = nlev                                               ,&! (IN)   
-!        & KLEVS  = ???                                                ,&! (IN)   
-!        & KSTEP  = 1 ???                                              ,&! (IN)   
-!        & KTILES = ???                                                ,&! (IN)   
-!        & KTRAC  = 0  ???itrac ???                                    ,&! (IN)   
-!        & KLEVSN = ???                                                ,&! (IN)   
-!        & KLEVI  = 0 ???                                              ,&! (IN)   
-!        & KDHVTLS =                                                   ,&! (IN)   
-!        & KDHFTLS =                                                   ,&! (IN)   
-!        & KDHVTSS =                                                   ,&! (IN)   
-!        & KDHFTSS =                                                   ,&! (IN)   
-!        & KDHVTTS =                                                   ,&! (IN)   
-!        & KDHFTTS =                                                   ,&! (IN)   
-!        & KDHVTIS = 0                                                 ,&! (IN)   
-!        & KDHFTIS = 0                                                 ,&! (IN)   
-!        & PTSPHY  = tcall_turb_jg                                     ,&! (IN)   
-!        & KTVL(KLON) = ??                                             ,&! (IN)   
-!        & KTVH(KLON) = ??                                             ,&! (IN)   
-!        & KCNT = icnt                                                 ,&! (INOUT)
-!        & PCVL(KLON) =  ??                                            ,&! (IN)   
-!        & PCVH(KLON) =    ??                                          ,&! (IN)   
-!        & PSIGFLT(KLON) = ext_data%atm%sso_stdh(:,jb)    (needs to be passed down)   ,&! (IN)   
-!        & PUM1(KLON,KLEV) = p_diag%u(:,:,jb)                          ,&! (IN)   
-!        & PVM1(KLON,KLEV) = p_diag%v(:,:,jb)                          ,&! (IN)   
-!        & PTM1(KLON,KLEV) = p_diag%temp(:,:,jb)                       ,&! (IN)   
-!        & PQM1(KLON,KLEV) = p_prog_rcf%tracer(:,:,jb,iqv)             ,&! (IN)   
-!        & PLM1(KLON,KLEV) = p_prog_rcf%tracer(:,:,jb,iqc)             ,&! (IN)   
-!        & PIM1(KLON,KLEV) = p_prog_rcf%tracer(:,:,jb,iqi) pass it down (iqi)         ,&! (IN)   
-!        & PAM1(KLON,KLEV) = prm_diag%tot_cld(:,:,jb,icc) pass it down (icc)          ,&! (IN)   
-!        & PCM1(KLON,KLEV,KTRAC) = dummy                               ,&! (IN)   
-!        & PAPHM1(KLON,0:KLEV) = p_diag%pres_ifc(:,:,jb)               ,&! (IN)   
-!        & PAPM1(KLON,KLEV)    = p_diag%pres(:,:,jb)                   ,&! (IN)   
-!        & PGEOM1(KLON,KLEV)   = p_metrics%geopot_agl(:,:,jb)          ,&! (IN)   
-!        & PGEOH(KLON,0:KLEV)  = p_metrics%geopot_agl_ifc(:,:,jb)      ,&! (IN)   
-!        & PTSKM1M(KLON)       = ???                                   ,&! (IN)   
-!        & PTSAM1M(KLON,KLEVS) = ???                                   ,&! (IN) in???  
-!        & PWSAM1M(KLON,KLEVS) = ???                                   ,&! (IN) in???  
-!        & PSSRFL(KLON)  = prm_diag%swflxsfc (:,jb)                    ,&! (IN)   
-!        & PSLRFL(KLON)  = prm_diag%lwflxsfc (:,jb)                    ,&! (IN)   
-!        & PEMIS(KLON)   = ext_data%atm%emis_rad(:,jb)                 ,&! (IN)   
-!        & PHRLW(KLON,KLEV) = prm_nwp_tend%ddt_temp_radlw(:,:,jb),     ,&! (IN)   
-!        & PHRSW(KLON,KLEV) = prm_nwp_tend%ddt_temp_radsw(:,:,jb)      ,&! (IN)   
-!        & PTSNOW(KLON) = lnd_prog_now%t_snow(:,jb,isubs)              ,&! (IN)?? 
-!        & PTICE(KLON)  = ???                                          ,&! (IN)   
-!        & PHLICE(KLON) = ???                                          ,&! (IN)   
-!        & PTLICE(KLON) = ???                                          ,&! (IN)   
-!        & PTLWML(KLON) = ???                                          ,&! (IN)   
-!        & PSST(KLON)   = lnd_prog_now%t_g(:,jb)                       ,&! (IN)   
-!        & KSOTY(KLON)   ???                                           ,&! (IN)   
-!        & PFRTI(KLON,KTILES) = 1 :)  ???                              ,&! (IN)   
-!        & PALBTI(KLON,KTILES) = ...not active...                      ,&! (IN)   
-!        & PWLMX(KLON) =         ...not active...                      ,&! (IN)   
-!        & PCHAR(KLON) = const = 0.018 (no wave model)                 ,&! (IN)   
-!        & PUCURR(KLON) = 0                                            ,&! (IN)   
-!        & PVCURR(KLON) = 0                                            ,&! (IN)   
-!        & PTSKRAD(KLON) = prm_diag%tsfctrad(:,jb)  ???                ,&! (IN)   
-!        & PCFLX(KLON,KTRAC)  = 0                                      ,&! (IN)   
-!        & PSOTEU(KLON,KLEV)  = 0                                      ,&! (IN)   
-!        & PSOTEV(KLON,KLEV)  = 0                                      ,&! (IN)   
-!        & PSOBETA(KLON,KLEV) = 0                                      ,&! (IN)   
-!        & PVERVEL(KLON,KLEV) = z_omega_p(:,:,jb)                      ,&! (IN)   
-!        & PZ0M(KLON) = prm_diag%z0m(:,jb)         (reduced for TOFD)  ,&! (INOUT)
-!        & PZ0H(KLON) = prm_diag%z0m(:,jb) * factor ????               ,&! (INOUT)
-!        & PVDIS(KLON)         = ...                                   ,&! (OUT)  
-!        & PVDISG(KLON)        = ...                                   ,&! (OUT)  
-!        & PDISGW3D(KLON,KLEV) = ...                                   ,&! (OUT)  
-!        & PAHFLEV(KLON) =  ...                                        ,&! (OUT)  
-!        & PAHFLSB(KLON) =  ...                                        ,&! (OUT)  
-!        & PFWSB(KLON)   = ...                                         ,&! (OUT)  
-!        & PBIR(KLON)      = ...                                       ,&! (OUT)  
-!        & PVAR(KLON,KLEV) = ... qt,variance > extra tracer ??? Daniel ,&! (OUT)  
-!        & PU10M(KLON)   = prm_diag%u_10m(:,jb)                        ,&! (OUT)  
-!        & PV10M(KLON)   = prm_diag%v_10m(:,jb)                        ,&! (OUT)  
-!        & PT2M(KLON)    = prm_diag%t_2m(:,jb)                         ,&! (OUT)  
-!        & PD2M(KLON)    = prm_diag%td_2m(:,jb)                        ,&! (OUT)  
-!        & PQ2M(KLON)    = prm_diag%qv_2m(:,jb)                        ,&! (OUT)  
-!        & PZINV(KLON)   = out                                         ,&! (OUT)  
-!        & PBLH(KLON)    = out                                         ,&! (OUT)  
-!        & KHPBLN(KLON)  = out                                         ,&! (OUT)  
-!        & KVARTOP(KLON) =   ???                                       ,&! (OUT)  
-!        & PSSRFLTI(KLON,KTILES) = out   (in????)                      ,&! (INOUT)
-!        & PEVAPSNW(KLON) = out                                        ,&! (OUT)  
-!        & PGUST(KLON)    = out                                        ,&! (OUT)  
-!        & PWUAVG(KLON)   = out                                        ,&! (OUT)  
-!        & LDNODECP(KLON) = ???                                        ,&! (OUT)  
-!        & KPBLTYPE(KLON) = out                                        ,&! (OUT)  
-!        & PLDIFF(KLON,KLEV)    = out                                  ,&! (OUT)  
-!        & PFPLVL(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PFPLVN(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PFHPVL(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PFHPVN(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PEXTR2(KLON,KFLDX2)      =                                  ,&! (INOUT)
-!        & KFLDX2                   =                                  ,&! (IN)   
-!        & PEXTRA(KLON,KLEVX,KFLDX) =                                  ,&! (INOUT)
-!        & KLEVX                    =                                  ,&! (IN)   
-!        & KFLDX                    =                                  ,&! (IN)   
-!        & LLDIAG                   =                                  ,&! (IN)   
-!        & PTE(KLON,KLEV)  = prm_nwp_tend%ddt_temp_turb(:,:,jb         ,&! (INOUT)
-!        & PQE(KLON,KLEV)  = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)  ,&! (INOUT)
-!        & PLE(KLON,KLEV)  = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)  ,&! (INOUT)
-!        & PIE(KLON,KLEV)  = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)  ,&! (INOUT)
-!        & PAE(KLON,KLEV)  = ???                                       ,&! (INOUT)
-!        & PVOM(KLON,KLEV) =  prm_nwp_tend%ddt_v_turb(:,:,jb)          ,&! (INOUT)
-!        & PVOL(KLON,KLEV) =  prm_nwp_tend%ddt_u_turb(:,:,jb)          ,&! (INOUT)
-!        & PTENC(KLON,KLEV,KTRAC) = out                                ,&! (INOUT)
-!        & PTSKE1(KLON)    = ???                                       ,&! (INOUT)
-!        & PUSTRTI(KLON,KTILES) =                                      ,&! (INOUT)
-!        & PVSTRTI(KLON,KTILES) =                                      ,&! (INOUT)
-!        & PAHFSTI(KLON,KTILES) = prm_diag%shfl_s(:,jb)  (tile mean)   ,&! (INOUT)
-!        & PEVAPTI(KLON,KTILES) = prm_diag%lhfl_s(:,jb)  (W/m2!!!)     ,&! (INOUT)
-!        & PTSKTI(KLON,KTILES)  = lnd_prog_new%t_g(:,jb) (now or new??),&! (INOUT)
-!        & PDIFTS(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PDIFTQ(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PDIFTL(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PDIFTI(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PSTRTU(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PSTRTV(KLON,0:KLEV)  = out                                  ,&! (OUT)  
-!        & PTOFDU(KLON)         = out                                  ,&! (INOUT)
-!        & PTOFDV(KLON)         = out                                  ,&! (INOUT)
-!        & PSTRSOU(KLON,0:KLEV) = out                                  ,&! (OUT)  
-!        & PSTRSOV(KLON,0:KLEV) = out                                  ,&! (OUT)  
-!        & PKH(KLON,KLEV) = prm_diag%tkvh(:,:,jb)                      ,&! (OUT)  
-!        & LDLAND(KLON) = convert to logical ... ext_data%atm%fr_land(:,jb)     ,&!      (IN)  
-!        & PDHTLS(KLON,KTILES,KDHVTLS+KDHFTLS) = out                   ,&! (OUT)  
-!        & PDHTSS(KLON,KLEVSN,KDHVTSS+KDHFTSS) = out                   ,&! (OUT)  
-!        & PDHTTS(KLON,KLEVS,KDHVTTS+KDHFTTS)  = out                   ,&! (OUT)  
-!        & PDHTIS(KLON,KLEVI,KDHVTIS+KDHFTIS)  = out      )              ! (OUT)  
+      
+      DO jk = 1,p_patch%nlev
+        DO jc = i_startidx,i_endidx
+          z_omega_p(jc,jk) = - p_prog%w(jc,jk,jb) * p_prog%rho(jc,jk,jb) * grav
+        ENDDO
+      ENDDO
+
+      icnt = 0
+
+      DO jc = i_startidx, i_endidx
+
+        zchar  (jc)   = 0.018_wp   ! default value from IFS if no wave model
+        zucurr (jc)   = 0.0_wp
+        zvcurr (jc)   = 0.0_wp
+        zsoteu (jc,:) = 0.0_wp
+        zsotev (jc,:) = 0.0_wp
+        zsobeta(jc,:) = 0.0_wp
+
+        sobs_t  (jc,:) = prm_diag%swflxsfc(jc,jb)   ! simple grid-mean flux (should be tile albedo specific)!!!!!
+        shfl_s_t(jc,:) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
+        lhfl_s_t(jc,:) = prm_diag%lhfl_s  (jc,jb)   ! should be tile specific !!!
+        evap_s_t(jc,:) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
+        tskin_t (jc,:) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
+        ustr_s_t(jc,:) = 0.0_wp                     ! prognostic surface stress U  !!!
+        vstr_s_t(jc,:) = 0.0_wp                     ! prognostic surface stress V  !!!
+
+        IF ( ext_data%atm%fr_land(jc,jb) > 0.5_wp ) THEN
+          l_land(jc) = .true.
+        ELSE
+          l_land(jc) = .false.
+        ENDIF
+
+        zae (jc,:) = 0.0_wp   ! cloud tendency ???
+        zvar(jc,:) = 0.0_wp   ! qt,var should be prognostic !!!
+
+      ENDDO
+
+      CALL vdfouter ( &
+        & CDCONF  = ' '                                        ,&! (IN)  unused
+        & KIDIA   = i_startidx                                 ,&! (IN)   
+        & KFDIA   = i_endidx                                   ,&! (IN)   
+        & KLON    = nproma                                     ,&! (IN)   
+        & KLEV    = p_patch%nlev                               ,&! (IN)   
+        & KLEVS   = nlev_soil                                  ,&! (IN)
+        & KSTEP   = 0                                          ,&! (IN)  unused: current time step
+        & KTILES  = nsfc_subs                                  ,&! (IN)
+        & KTRAC   = 0                                          ,&! (IN)  default 0 (itrac?)
+        & KLEVSN  = nlev_snow                                  ,&! (IN)  # snow layers (1!)
+        & KLEVI   = 1                                          ,&! (IN)  # sea ice layers
+        & KDHVTLS = 3                                          ,&! (IN)  DDH dimensions
+        & KDHFTLS = 8                                          ,&! (IN)   - " -
+        & KDHVTSS = 6                                          ,&! (IN)   - " -  
+        & KDHFTSS = 9                                          ,&! (IN)   - " -  
+        & KDHVTTS = 4                                          ,&! (IN)   - " -  
+        & KDHFTTS = 11                                         ,&! (IN)   - " -  
+        & KDHVTIS = 4                                          ,&! (IN)   - " - 
+        & KDHFTIS = 9                                          ,&! (IN)   - " - 
+        & PTSPHY  = tcall_turb_jg                              ,&! (IN)   
+        & KTVL    = idummy_vdf                                 ,&! (IN)  input for TESSEL   
+        & KTVH    = idummy_vdf                                 ,&! (IN)  input for TESSEL
+        & KCNT    = icnt                                       ,&! (INOUT)
+        & PCVL    = zdummy_vdf                                 ,&! (IN)  input for TESSEL
+        & PCVH    = zdummy_vdf                                 ,&! (IN)  input for TESSEL   
+        & PSIGFLT = ext_data%atm%sso_stdh(:,jb)                ,&! (IN)  input for TOFD (needs to be passed down)
+        & PUM1    = p_diag%u(:,:,jb)                           ,&! (IN)   
+        & PVM1    = p_diag%v(:,:,jb)                           ,&! (IN)   
+        & PTM1    = p_diag%temp(:,:,jb)                        ,&! (IN)   
+        & PQM1    = p_prog_rcf%tracer(:,:,jb,iqv)              ,&! (IN)   
+        & PLM1    = p_prog_rcf%tracer(:,:,jb,iqc)              ,&! (IN)   
+        & PIM1    = p_prog_rcf%tracer(:,:,jb,iqi)              ,&! (IN)   
+        & PAM1    = prm_diag%tot_cld(:,:,jb,icc)               ,&! (IN)   
+        & PCM1    = zdummy_vdf2                                ,&! (IN)  tracer - for VDF transport
+        & PAPHM1  = p_diag%pres_ifc(:,:,jb)                    ,&! (IN)   
+        & PAPM1   = p_diag%pres(:,:,jb)                        ,&! (IN)   
+        & PGEOM1  = p_metrics%geopot_agl(:,:,jb)               ,&! (IN)   
+        & PGEOH   = p_metrics%geopot_agl_ifc(:,:,jb)           ,&! (IN)   
+        & PTSKM1M = zdummy_vdf                                 ,&! (IN)  T,skin - unused    
+        & PTSAM1M = zdummy_vdf3                                ,&! (IN)  T,soil - unused 
+        & PWSAM1M = zdummy_vdf3                                ,&! (IN)  Q,soil - unused
+        & PSSRFL  = prm_diag%swflxsfc (:,jb)                   ,&! (IN)   
+        & PSLRFL  = prm_diag%lwflxsfc (:,jb)                   ,&! (IN)   
+        & PEMIS   = ext_data%atm%emis_rad(:,jb)                ,&! (IN)   
+        & PHRLW   = prm_nwp_tend%ddt_temp_radlw(:,:,jb)        ,&! (IN)   
+        & PHRSW   = prm_nwp_tend%ddt_temp_radsw(:,:,jb)        ,&! (IN)   
+        & PTSNOW  = lnd_prog_now%t_snow(:,jb,1)                ,&! (IN)  T,snow - unused (attention: tile 1????)
+        & PTICE   = zdummy_vdf                                 ,&! (IN)  T,ice  - unused   
+        & PHLICE  = zdummy_vdf                                 ,&! (IN)  lake ice thickness   - unused
+        & PTLICE  = zdummy_vdf                                 ,&! (IN)  lake ice temperature - unused 
+        & PTLWML  = zdummy_vdf                                 ,&! (IN)  lake mean water T    - unused
+        & PSST    = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  SST
+        & KSOTY   = idummy_vdf                                 ,&! (IN)  unused: soil type
+        & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
+        & PALBTI  = zdummy_vdf4                                ,&! (IN)  unused: tile albedo
+        & PWLMX   = zdummy_vdf                                 ,&! (IN)  unused: maximum skin reservoir capacity
+        & PCHAR   = zchar                                      ,&! (IN)  Charnock parameter (for z0 over ocean)
+        & PUCURR  = zucurr                                     ,&! (IN)  Ocean current x 
+        & PVCURR  = zvcurr                                     ,&! (IN)  Ocean current y
+        & PTSKRAD = zdummy_vdf                                 ,&! (IN)  unused: T,skin at last radiation step 
+        & PCFLX   = zdummy_vdf                                 ,&! (IN)  unused: surface trace flux
+        & PSOTEU  = zsoteu                                     ,&! (IN)  unused: Explicit part of U-tendency from SSO
+        & PSOTEV  = zsotev                                     ,&! (IN)  unused: Explicit part of V-tendency from SSO  
+        & PSOBETA = zsobeta                                    ,&! (IN)  unused: Implicit part of subgrid orography
+        & PVERVEL = z_omega_p                                  ,&! (IN)   
+        & PZ0M    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,m (reduced for TOFD???) 
+        & PZ0H    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,h (* factor ????)    
+!       & PVDIS   = ...                                        ,&! (OUT) optional out: turbulent dissipation
+!       & PVDISG  = ...                                        ,&! (OUT) optional out: SO dissipation
+!       & PDISGW3D= ...                                        ,&! (OUT) optional out: 3D stoch. phys. dissipation
+!       & PAHFLEV = ...                                        ,&! (OUT) optional out: latent heat flux (snow/ice free part)
+!       & PAHFLSB = ...                                        ,&! (OUT) optional out: latent heat flux (snow/ice covered part)
+!       & PFWSB   = ...                                        ,&! (OUT) optional out: evaporation of snow
+!       & PBIR    = ...                                        ,&! (OUT) optional out: BIR buoyancy flux integral ratio
+        & PVAR    = zvar                                       ,&! (INOUT) qt,variance - prognostic advected tracer
+        & PU10M   = prm_diag%u_10m(:,jb)                       ,&! (OUT)  
+        & PV10M   = prm_diag%v_10m(:,jb)                       ,&! (OUT)  
+        & PT2M    = prm_diag%t_2m(:,jb)                        ,&! (OUT)  
+        & PD2M    = prm_diag%td_2m(:,jb)                       ,&! (OUT)  
+        & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  
+!       & PZINV   = ...                                        ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
+!       & PBLH    = ...                                        ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
+!       & KHPBLN  = ...                                        ,&! (OUT) optional out: PBL top level 
+!       & KVARTOP = ...                                        ,&! (OUT) optional out: top level of predictied qt,var
+        & PSSRFLTI= sobs_t                                     ,&! (INOUT) net SW sfc flux for each tile (use tile ablbedo!!!)
+!       & PEVAPSNW= ...                                        ,&! (OUT) optional out: evaporation from snow under forest
+!       & PGUST   = ...                                        ,&! (OUT) optional out: 10m gust
+!       & PWUAVG  = ...                                        ,&! (OUT) optional out: w,up averaged
+!       & LDNODECP= ...                                        ,&! (OUT) optional out: no decoupling allowed 
+!       & KPBLTYPE= ...                                        ,&! (OUT) optional out: PBL type
+!       & PLDIFF  = ...                                        ,&! (OUT) optional out: contrib to PBL cond. by passive clouds
+!       & PFPLVL  = ...                                        ,&! (OUT) optional out: PBL rain flux 
+!       & PFPLVN  = ...                                        ,&! (OUT) optional out: PBL snow flux
+!       & PFHPVL  = ...                                        ,&! (OUT) optional out: PBL rain enthalpy flux
+!       & PFHPVN  = ...                                        ,&! (OUT) optional out: PBL snow enthalpy flux
+!       & PEXTR2  = ...                                        ,&! (IN)    optional out:  - " -
+!       & PEXTRA  = ...                                        ,&! (INOUT) optional out:  - " -
+        & KLEVX   = p_patch%nlev                               ,&! (IN)    out
+        & KFLDX   = 0                                          ,&! (IN)    out
+        & KFLDX2  = 0                                          ,&! (IN)    out
+        & JCNT    = icnt                                       ,&! 
+        & LLDIAG  = .FALSE.                                    ,&! (IN)    out
+        & PTE     = prm_nwp_tend%ddt_temp_turb  (:,:,jb)       ,&! (INOUT)
+        & PQE     = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)   ,&! (INOUT)
+        & PLE     = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)   ,&! (INOUT)
+        & PIE     = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)   ,&! (INOUT)
+        & PAE     = zae                                        ,&! (INOUT)
+        & PVOM    = prm_nwp_tend%ddt_v_turb(:,:,jb)            ,&! (INOUT)
+        & PVOL    = prm_nwp_tend%ddt_u_turb(:,:,jb)            ,&! (INOUT)
+!       & PTENC   = ...                                        ,&! (INOUT) optional inout: tracer tendency
+        & PTSKE1  = zdummy_vdf                                 ,&! (INOUT) unused: T,skin tendency
+        & PUSTRTI = ustr_s_t                                   ,&! (INOUT) tile u stress
+        & PVSTRTI = vstr_s_t                                   ,&! (INOUT) tile v stress
+        & PAHFSTI = shfl_s_t                                   ,&! (INOUT) tile sensible heat flux
+        & PEVAPTI = evap_s_t                                   ,&! (INOUT) tile latent heat flux
+        & PTSKTI  = lnd_prog_now%t_g(:,jb)                     ,&! (INOUT) now or new?
+!       & PDIFTS  = ...                                        ,&! (OUT)  optional out: turbulent heat flux
+!       & PDIFTQ  = ...                                        ,&! (OUT)  optional out: turbulent moisture flux
+!       & PDIFTL  = ...                                        ,&! (OUT)  optional out: turbulent liquid water flux
+!       & PDIFTI  = ...                                        ,&! (OUT)  optional out: turbulent ice water flux
+!       & PSTRTU  = ...                                        ,&! (OUT)  optional out: turbulent U flux
+!       & PSTRTV  = ...                                        ,&! (OUT)  optional out: turbulent V flux
+!       & PTOFDU  = ...                                        ,&! (OUT)  optional out: TOFD U flux
+!       & PTOFDV  = ...                                        ,&! (OUT)  optional out: TOFD V flux
+!       & PSTRSOU = ...                                        ,&! (OUT)  optional out: SSO U flux 
+!       & PSTRSOV = ...                                        ,&! (OUT)  optional out: SSO V flux
+        & PKH     = prm_diag%tkvh(:,:,jb)                      ,&! (OUT)
+        & LDLAND  = l_land                                      &! (IN)   logical for land
+!       & PDHTLS  = ...                                        ,&! (OUT)  optional out: DDH
+!       & PDHTSS  = ...                                        ,&! (OUT)  optional out: DDH
+!       & PDHTTS  = ...                                        ,&! (OUT)  optional out: DDH
+!       & PDHTIS  = ...                                         &! (OUT)  optional out: DDH
+        & )
 
     ENDIF !inwp_turb
 
