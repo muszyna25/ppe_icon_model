@@ -3152,9 +3152,20 @@ CONTAINS
              '     ',                                             &
              TRIM(this_list_element%field%info%cf%units)
         CALL message('', message_text)
+        !
         WRITE (message_text,'(a,a)')                           &
              ' CF convention long name                     : ',&
              TRIM(this_list_element%field%info%cf%long_name)
+        CALL message('', message_text)
+        !
+        WRITE (message_text,'(a,i2)')                          &
+             ' horizontal grid type used (C=1,V=2,E=3)     : ',&
+             this_list_element%field%info%hgrid
+        CALL message('', message_text)
+        !
+        WRITE (message_text,'(a,i2)')                          &
+             ' vertical grid type used (see cdilib.c)      : ',&
+             this_list_element%field%info%vgrid
         CALL message('', message_text)
         !
         IF (this_list_element%field%info%laccu) THEN
