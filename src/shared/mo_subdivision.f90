@@ -3387,7 +3387,7 @@ CONTAINS
     ! work contains workspace for sort_array_by_row to avoid local allocation there
 
     INTEGER cpu_m, n_cells_m
-    REAL(wp) :: xmax(2), xmin(2)
+    REAL(wp) :: xmax(2), xmin(2), avglat
     !-----------------------------------------------------------------------
 
     ! If there is only 1 CPU for distribution, we are done
@@ -3397,12 +3397,19 @@ CONTAINS
       RETURN
     ENDIF
 
-    ! Get geometric extensions and total number of points of all batches
+    ! Get geometric extensions and total number of points of all patches
 
     xmin(1) = MINVAL(cell_desc(1,:))
     xmin(2) = MINVAL(cell_desc(2,:))
     xmax(1) = MAXVAL(cell_desc(1,:))
     xmax(2) = MAXVAL(cell_desc(2,:))
+
+    ! average latitude in patch
+    avglat  = SUM(cell_desc(1,:))/REAL(n_cells,wp)
+
+    ! account for convergence of meridians
+    xmin(2) = xmin(2)*SQRT(COS(avglat))
+    xmax(2) = xmax(2)*SQRT(COS(avglat))
 
     ! Get dimension with biggest distance from min to max
     ! and sort cells in this dimension
