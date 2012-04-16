@@ -1514,7 +1514,7 @@ CONTAINS
     CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
     DO jk = slev, elev
       DO je= i_startidx_e, i_endidx_e
-        IF ( v_base%lsm_oce_e(je,jk,jb) >= boundary ) THEN
+        IF ( v_base%lsm_oce_e(je,jk,jb) >= BOUNDARY ) THEN
           vn(je,jk,jb) = 0.0_wp
         ENDIF
 
