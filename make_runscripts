@@ -127,7 +127,7 @@ omp_stacksize=200M
 
 for filename in $exp_list
 do
-  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status && -r $input_folder/$filename ]] ; then
     # Note: hydrostatic ocean model (hom) not yet parallelized
     name=${filename#*.}
     if [[ ${name} == test* ]]; then
@@ -250,7 +250,7 @@ done
 #==============================================================================
 for filename in $post_list
 do
-  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status  && -r $input_folder/$filename ]] ; then
     $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
     with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
   fi
