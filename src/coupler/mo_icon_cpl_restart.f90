@@ -156,7 +156,8 @@ CONTAINS
 
   ! ---------------------------------------------------------------------
 
-  SUBROUTINE cpl_write_restart ( field_id, field_shape, coupling_field, count, l_checkpoint, ierror )
+  SUBROUTINE cpl_write_restart ( field_id, field_shape, coupling_field, count, &
+                                 l_checkpoint, ierror )
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
     INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of send field
