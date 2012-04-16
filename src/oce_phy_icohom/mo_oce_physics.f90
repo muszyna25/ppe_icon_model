@@ -772,7 +772,7 @@ CONTAINS
           z_dolic = v_base%dolic_e(je, jb)
           DO jk = 2, z_dolic
             ! Set to zero for land + boundary locations edges
-            IF (SEA < v_base%lsm_oce_e(je,jk,jb)) THEN
+            IF (v_base%lsm_oce_e(je,jk,jb) > SEA) THEN
                params_oce%A_veloc_v(je,jk,jb) = 0.0_wp
             ELSE
               ! TODO: the following expect equally sized cells
