@@ -501,6 +501,13 @@ MODULE mo_prepicon_utils
           ENDIF
        ENDIF
 
+        IF(p_test_run) THEN
+          mpi_comm = p_comm_work_test 
+        ELSE
+          mpi_comm = p_comm_work
+        ENDIF
+
+        CALL p_bcast(alb_snow_var, p_io, mpi_comm)
 
         CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
