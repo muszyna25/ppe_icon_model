@@ -122,7 +122,8 @@ exec_and_check "make clean"
 error_status=$?
 
 #------------------------------------------------------------------------------
-./make_runscripts
+# this is done in buildbot
+#./make_runscripts
 #------------------------------------------------------------------------------
 
 if [ "${STATUS_FILE}" != "" ]

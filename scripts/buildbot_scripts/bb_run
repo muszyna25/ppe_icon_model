@@ -419,7 +419,7 @@ echo "$scriptname: target          = $target (source = $source)"
 # define which account to use, and recreate run scripts
 # only effective on blizzard
 echo "use_account_no=mh0287" >> ./config/set-up.info
-./make_runscripts
+./make_runscripts "test"
 
 #------------------------------------------------------------------------------\
 # read set-up info
@@ -584,7 +584,7 @@ then
      cp config/set-up.info config/set-up.info.bac
      echo  'use_target="hpc"' >> config/set-up.info
   #   ./configure postscripts setup=hpc
-     ./make_runscripts only_post
+     ./make_runscripts "post_test"
      cp config/set-up.info config/set-up.info.hpc
      cp config/set-up.info.bac config/set-up.info
   fi

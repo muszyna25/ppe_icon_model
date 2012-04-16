@@ -37,23 +37,57 @@
 #
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
-# set -x
+set -x
 echo "-----------------------------------------------------------"
+
 base_folder=$(pwd)
 input_folder=run
-make_grid='true'
-make_exp='true'
-make_post='true'
-if [ x$1 = "only_post" ] ; then
-  make_grid='false'
-  make_exp='false'
-fi
+
+param=${1:="all"}
+echo $param
   
 #==============================================================================
 . $base_folder/config/set-up.info
 use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
+
+
+#==============================================================================
+# define the runscripts to be created
+make_restart_exp="false"
+make_restart_post="false"
+
+cd $input_folder
+case $param in
+  all)  # create all but not the restarts
+    make_bb_grid="true"
+    grid_list=`ls grid.*`
+    exp_list=`ls exp.*`
+    post_list=`ls post.*`
+    ;;
+  test)  # create only tests for buildbot
+    make_restart_exp="true"
+    make_restart_post="true"
+    make_bb_grid="true"
+    grid_list=""
+    exp_list=`ls exp.test_*`
+    post_list=`ls post.test_*`
+    ;;
+  post_test)  # create only postprocessing for buildbot
+    make_restart_post="true"
+    make_bb_grid="false"
+    grid_list=""
+    exp_list=""
+    post_list=`ls post.test_*`
+    ;;
+  *)  # create only one experiment
+    make_bb_grid="false"
+    grid_list=""
+    exp_list="exp.$param"
+    post_list="post.$param"
+esac
+cd $base_folder
 
 #==============================================================================
 # use express queue for builtbot experiments on blizzard
@@ -68,18 +102,15 @@ fi
 #  NOTE: The grid generator runs with 1 MPI proccess, but can use the default OPENMP threads
 #==============================================================================
 
-if [ $make_grid = "true" ] ; then
-  cd $input_folder
-  file_list=`ls grid.*`
-  cd $base_folder
-  for filename in $file_list
-  do
-    if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1\
-      queue="$use_queue" cpu_time="00:30:00"
-    fi
-  done
+for filename in $grid_list
+do
+  if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
+    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1\
+    queue="$use_queue" cpu_time="00:30:00"
+  fi
+done
   #  Create the grid generator for builtbot
+if [ $make_bb_grid = "true" ] ; then
   $make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids\
     in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run\
     mpi_procs=1 queue="$use_queue" cpu_time="00:30:00"
@@ -94,64 +125,113 @@ fi
 #==============================================================================
 omp_stacksize=200M
 
-if [ $make_exp = "true" ] ; then
+for filename in $exp_list
+do
+  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+    # Note: hydrostatic ocean model (hom) not yet parallelized
+    name=${filename#*.}
+    if [[ ${name} == test* ]]; then
+      queue="$use_queue"
+    else
+      queue="default"
+    fi
+    case $name in
+    test_hom_*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      memory_model="large" cpu_time="01:00:00" queue="express"
+      ;;    
+    hom_*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+      ;;
+    *_nwp_*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
+      ;;    
+    *_nah_jww*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+      ;;    
+    *_nh35_tri_jws*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="03:00:00" memory_model="small" queue="$queue"
+      ;;    
+    *)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+      ;;
+    esac
 
-  cd $input_folder
-  file_list=`ls exp.*`
-  cd $base_folder
-  for filename in $file_list
-  do
-    if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-      # Note: hydrostatic ocean model (hom) not yet parallelized
-      name=${filename#*.}
-      if [[ ${name} == test* ]]; then
-        queue="$use_queue"
-      else
-        queue="default"
+    # special cases for queuing on blizzard
+    if [ $use_target = "blizzard" ] ; then
+      if [ $name = test_nh3_tri_tracer_solid_body ] ; then
+        $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+        EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
       fi
-
-      if [[ ${name} == test_hom_* ]]; then
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        memory_model="large" cpu_time="01:00:00" queue="express"
-      elif [[ ${name} == *hom_* ]]; then
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        mpi_procs=1 memory_model="large" cpu_time="08:00:00"
-      elif [[ ${name} == *_nwp_* ]] ; then
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
-      elif [[ ${name} == *_nah_jww* ]] ; then
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
-      elif [[ ${name} == *_nh35_tri_jws* ]] ; then
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        cpu_time="03:00:00" memory_model="small" queue="$queue"
-      else
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+      if [ $use_openmp = "yes" ] ; then
+        if [ $name = test_nh35_tri_jws ] ; then
+          $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+          EXPNAME="$name"  memory_model="small" queue="express"
+        fi
       fi
     fi
-  done
-fi
+    
+  fi
+done
+#==============================================================================
+
+# for filename in $exp_list
+# do
+#   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+#     # Note: hydrostatic ocean model (hom) not yet parallelized
+#     name=${filename#*.}
+#     if [[ ${name} == test* ]]; then
+#       queue="$use_queue"
+#     else
+#       queue="default"
+#     fi
+# 
+#     if [[ ${name} == test_hom_* ]]; then
+#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+#       memory_model="large" cpu_time="01:00:00" queue="express"
+#     elif [[ ${name} == *hom_* ]]; then
+#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+#       mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+#     elif [[ ${name} == *_nwp_* ]] ; then
+#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+#       cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
+#     elif [[ ${name} == *_nah_jww* ]] ; then
+#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+#       cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+#     elif [[ ${name} == *_nh35_tri_jws* ]] ; then
+#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+#       cpu_time="03:00:00" memory_model="small" queue="$queue"
+#     else
+#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+#       cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+#     fi
+#   fi
+# done
 #==============================================================================
 
 #==============================================================================
 # use express queue for some of the builtbot seq,openmp experiments on blizzard
-if [ $make_exp = "true" ] ; then
-  if [[ $use_target = "blizzard" ]] ; then
-
-    name=test_nh3_tri_tracer_solid_body
-    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-
-    if [[ $use_openmp = "yes" ]] ; then
-
-      name=test_nh35_tri_jws
-      $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-      EXPNAME="$name"  memory_model="small" queue="express"
-
-    fi
-  fi
-fi
+# if [ $make_restart_exp = "true" ] ; then
+#   if [[ $use_target = "blizzard" ]] ; then
+# 
+#     name=test_nh3_tri_tracer_solid_body
+#     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#     EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+# 
+#     if [[ $use_openmp = "yes" ]] ; then
+# 
+#       name=test_nh35_tri_jws
+#       $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#       EXPNAME="$name"  memory_model="small" queue="express"
+# 
+#     fi
+#   fi
+# fi
 
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation
@@ -168,18 +248,18 @@ fi
 # NOTE: The postprocessing scripts are all sequential, so we define:
 #    with_mpi="no" with_openmp="no"
 #==============================================================================
-if [ $make_post = "true" ] ; then
-  cd $input_folder
-  file_list=`ls post.*`
-  cd $base_folder
-  for filename in $file_list
-  do
-    if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
-      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
-    fi
-  done
-fi
+for filename in $post_list
+do
+  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
+  fi
+done
+
+
+#==============================================================================
+# following is the section for cretaing the restart tests
+#==============================================================================
 
 #==============================================================================
 # special treatment for test_hat_jww-moist_cld-cnv-vdf
@@ -193,7 +273,7 @@ fi
 
 name=test_hat_jww-moist_cld-cnv-vdf
 
-if [ $make_exp = "true" ] ; then
+if [ $make_restart_exp = "true" ] ; then
   restart_script=${name}_restart.tmp
   tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
@@ -210,7 +290,7 @@ EOF
 fi
 
 # postprocessing for comparing the restarts
-if [ $make_post = "true" ] ; then
+if [ $make_restart_post = "true" ] ; then
   restart_1="../experiments/${name}/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
   restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
   out_file=${name}_compare_restarts.diff
@@ -226,7 +306,7 @@ fi
 #
 name=test_hat_jww
 
-if [ $make_exp = "true" ] ; then
+if [ $make_restart_exp = "true" ] ; then
   restart_script=${name}_restart.tmp
   tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
@@ -243,7 +323,7 @@ EOF
 fi
 
 # postprocessing for comparing the restarts
-if [ $make_post = "true" ] ; then
+if [ $make_restart_post = "true" ] ; then
   restart_1="../experiments/${name}/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
   restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
   out_file=${name}_compare_restarts.diff
@@ -261,7 +341,7 @@ queue="express"
 
 name=test_hom_lsm
 
-if [ $make_exp = "true" ] ; then
+if [ $make_restart_exp = "true" ] ; then
   restart_script=${name}_restart.tmp
   tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
@@ -278,7 +358,7 @@ EOF
 fi
 
 # postprocessing for comparing the restarts
-if [ $make_post = "true" ] ; then 
+if [ $make_restart_post = "true" ] ; then
   restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20010102T000000Z_oce.nc"
   restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20010102T000000Z_oce.nc"
   out_file=${name}_compare_restarts.diff
@@ -296,7 +376,7 @@ queue="$use_queue"
 
 name=test_nh35_tri_jws
 
-if [ $make_exp = "true" ] ; then
+if [ $make_restart_exp = "true" ] ; then
   restart_script=${name}_restart.tmp
   tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
@@ -313,7 +393,7 @@ EOF
 fi
 
 # postprocessing for comparing the restarts
-if [ $make_post = "true" ] ; then 
+if [ $make_restart_post = "true" ] ; then
   restart_1="../experiments/${name}/restart.iconR2B04-grid_20080913T000000Z_atm.nc"
   restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080913T000000Z_atm.nc"
   out_file=${name}_compare_restarts.diff
@@ -325,7 +405,7 @@ fi
 
 #==============================================================================
 # check typical nh ape setup for exp.nat_ape-dec
-# if [ $make_exp = "true" ] ; then
+# if [ $make_restart_exp = "true" ] ; then
 #   if [ $use_mpi = "yes" ] ; then
 #   name=nat_ape-dec
 #   exp_name=test_nat_ape-dec
