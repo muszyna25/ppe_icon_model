@@ -34,6 +34,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_echam_phy_interface
 
   USE mo_kind,              ONLY: wp
@@ -231,7 +236,7 @@ CONTAINS
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !     nblks = p_patch%nblks_int_c
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce)
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
@@ -243,7 +248,7 @@ CONTAINS
       CALL full_level_pressure( prm_field(jg)%presi_new(:,:,jb), nproma, jce, &! in
                               & prm_field(jg)%presm_new(:,:,jb)               )! out
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !--------------------------------
@@ -274,13 +279,13 @@ CONTAINS
 !    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%v )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce)
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       prm_tend(jg)% temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
       prm_tend(jg)%    q(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     IF (ltimer)  THEN
@@ -334,11 +339,7 @@ CONTAINS
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !     nblks = p_patch%nblks_int_c
 !$OMP PARALLEL
-#ifdef __SX__
-!$OMP DO PRIVATE(jb,jcs,jce), SCHEDULE(guided)
-#else 
-!$OMP DO PRIVATE(jb,jcs,jce), SCHEDULE(runtime)
-#endif
+!$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk,i_endblk
 
       CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -361,7 +362,7 @@ CONTAINS
                 & ztime_radtran,ztime_radheat )
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -522,13 +523,13 @@ CONTAINS
     ! conservative re-mapping will be called here.
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce)
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% temp(jcs:jce,:,jb)
       dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)%    q(jcs:jce,:,jb,:)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
      IF (use_icon_comm) THEN
@@ -584,7 +585,7 @@ CONTAINS
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !       nblks = p_patch%nblks_int_e
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2)
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,p_patch%nblks_int_e
         CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_int_e, &
           & jcs,jce, grf_bdywidth_e+1)
@@ -607,7 +608,7 @@ CONTAINS
           ENDDO !column loop
         ENDDO !vertical level loop
       ENDDO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       DEALLOCATE(zdudt, zdvdt)
  

@@ -34,6 +34,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
@@ -278,7 +283,7 @@ CONTAINS
         CASE('APE') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
@@ -292,7 +297,7 @@ CONTAINS
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
           END DO
-!$OMP END DO 
+!$OMP END DO  NOWAIT
 !$OMP END PARALLEL
 
           IF ( is_coupled_run() ) THEN
@@ -421,7 +426,7 @@ CONTAINS
         CASE('JWw-Moist','LDF-Moist')
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
            ! Set the surface temperature to the same value as the lowest model
@@ -439,14 +444,14 @@ CONTAINS
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
           END DO
-!$OMP END DO 
+!$OMP END DO  NOWAIT
 !$OMP END PARALLEL
           
         END SELECT
       ENDIF ! ltestcase
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
         ! Compute pressure at half and full levels
@@ -497,7 +502,7 @@ CONTAINS
           END DO !jc
         END DO   !jk
       ENDDO      !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ! Assign initial values for some components of the "field" and 
@@ -563,12 +568,12 @@ CONTAINS
 
       IF (phy_config%lvdiff) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce)
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
         field% coriol(jcs:jce,jb) = p_patch(jg)%cells%f_c(jcs:jce,jb)
       ENDDO 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !$OMP PARALLEL WORKSHARE
@@ -668,7 +673,7 @@ CONTAINS
       nblks_c = p_patch(jg)%nblks_int_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,zlat)
+!$OMP DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
 
@@ -719,7 +724,7 @@ CONTAINS
         ! field%lfglac(jc,jb) = ext_data(jg)%atm%soiltyp  (jc,jb) == 1 ! soiltyp=ice
         ENDDO !jc
       ENDDO   !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       !----------------------------------------
