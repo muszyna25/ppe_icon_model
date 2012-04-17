@@ -52,7 +52,8 @@ MODULE mo_nh_diffusion
   USE mo_interpol_config,     ONLY: nudge_max_coeff
   USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
                                     cells2verts_scalar, cells2edges_scalar, &
-                                    edges2cells_scalar, verts2cells_scalar
+                                    edges2cells_scalar, verts2cells_scalar, &
+                                    edges2cells_vector
   USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff, &
                                       iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
@@ -125,6 +126,7 @@ MODULE mo_nh_diffusion
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset,     &
                 diff_multfac_smag, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, &
                 vn_cell1, vn_cell2
+    REAL(wp) :: smag_limit(p_patch%nlev)
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
     INTEGER  :: nlev              !< number of full levels
 
@@ -184,17 +186,21 @@ MODULE mo_nh_diffusion
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*diffusion_config(jg)%hdiff_efdt_ratio
       smag_offset        =  0.0_wp
       diffu_type = 5 ! always combine nabla4 background diffusion with Smagorinsky diffusion for initial filtering call
+      smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
     ELSE IF (lhdiff_rcf) THEN ! combination with divergence damping inside the dynamical core
       diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
                                3._wp*p_nh_metrics%enhfac_diffu(:))
       IF (diffu_type == 3) THEN
-        smag_offset = 0._wp
+        smag_offset   = 0._wp
+        smag_limit(:) = 0.125_wp
       ELSE
-        smag_offset =  0.2_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+        smag_offset   = 0.2_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+        smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
       ENDIF
     ELSE           ! enhanced diffusion near model top only
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
-      smag_offset        =  0.2_wp*diffusion_config(jg)%k4
+      smag_offset        = 0.2_wp*diffusion_config(jg)%k4
+      smag_limit(:)      = 0.125_wp-4._wp*diff_multfac_vn(:)
       ! pure Smagorinsky diffusion does not work without divergence damping
       IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
     ENDIF
@@ -329,7 +335,7 @@ MODULE mo_nh_diffusion
             ! Subtract part of the fourth-order background diffusion coefficient
             kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
-            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
+            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
         ENDDO
 
@@ -337,14 +343,19 @@ MODULE mo_nh_diffusion
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 2) THEN
+    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn >= 2) THEN
 
       !  RBF reconstruction of velocity at vertices and cells
       CALL rbf_vec_interpol_vertex( p_nh_prog%vn, p_patch, p_int, &
                                     u_vert, v_vert, opt_rlend=min_rlvert_int-1 )
 
-      CALL rbf_vec_interpol_cell( p_nh_prog%vn, p_patch, p_int, &
+      IF (discr_vn == 2) THEN
+        CALL rbf_vec_interpol_cell( p_nh_prog%vn, p_patch, p_int, &
                                     u_cell, v_cell, opt_rlend=min_rlcell_int-1 )
+      ELSE
+        CALL edges2cells_vector( p_nh_prog%vn, p_nh_diag%vt, p_patch, p_int, &
+                                 u_cell, v_cell, opt_rlend=min_rlcell_int-1 )
+      ENDIF
 
       IF (p_test_run) THEN
         z_nabla2_e = 0._wp
@@ -438,7 +449,7 @@ MODULE mo_nh_diffusion
             ! Subtract part of the fourth-order background diffusion coefficient
             kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
-            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
+            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
         ENDDO
 
@@ -448,7 +459,9 @@ MODULE mo_nh_diffusion
 
     ENDIF
 
-    IF (diffu_type == 5  .AND. discr_vn == 1) THEN ! Add fourth-order background diffusion
+    IF (diffu_type == 5) THEN ! Add fourth-order background diffusion
+
+      IF (discr_vn > 1) CALL sync_patch_array(SYNC_E,p_patch,z_nabla2_e)
 
       ! Interpolate nabla2(v) to vertices in order to compute nabla2(nabla2(v))
 
@@ -524,75 +537,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-    ELSE IF (diffu_type == 5  .AND. discr_vn == 2) THEN ! Add fourth-order background diffusion
-
-      CALL sync_patch_array(SYNC_E,p_patch,z_nabla2_e)
-
-      ! Interpolate nabla2(v) to vertices and cells in order to compute nabla2(nabla2(v))
-
-      CALL rbf_vec_interpol_vertex( z_nabla2_e, p_patch, p_int, u_vert, v_vert, &
-                                    opt_rlstart=4, opt_rlend=min_rlvert_int-1 )
-      CALL rbf_vec_interpol_cell( z_nabla2_e, p_patch, p_int, u_cell, v_cell, &
-                                  opt_rlstart=4 ,opt_rlend=min_rlcell_int-1 )
-
-      rl_start = grf_bdywidth_e+1
-      rl_end   = min_rledge_int
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), ICON_OMP_RUNTIME_SCHEDULE
-        DO jb = i_startblk,i_endblk
-
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
-         ! Compute nabla4(v)
-#ifdef __LOOP_EXCHANGE
-          DO je = i_startidx, i_endidx
-            DO jk = 1, nlev
-#else
-!CDIR UNROLL=5
-          DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
-#endif
-
-              nabv_tang = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
-                          v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,1)%v2 + &
-                          u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
-                          v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,2)%v2
-
-              nabv_norm = u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
-                          p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                          v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
-                          p_patch%edges%primal_normal_cell(je,jb,1)%v2 + &
-                          u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
-                          p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                          v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
-                          p_patch%edges%primal_normal_cell(je,jb,2)%v2
-
-              ! The factor of 4 comes from dividing by twice the "correct" length
-              z_nabla4_e(je,jk,jb) = 4._wp * (                        &
-                (nabv_norm - 2._wp*z_nabla2_e(je,jk,jb))              &
-                *p_patch%edges%inv_dual_edge_length(je,jb)**2 +       &
-                (nabv_tang - 2._wp*z_nabla2_e(je,jk,jb))              &
-                *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
-
-            ENDDO
-          ENDDO
-
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-     ENDIF ! diffu_type = 5
-
+    ENDIF
 
     ! For nested domains, the diffusion contribution is already
     ! included in the time tendency interpolated from the parent
@@ -1347,3 +1292,4 @@ MODULE mo_nh_diffusion
   END SUBROUTINE diffusion_hex
 
 END MODULE mo_nh_diffusion
+
