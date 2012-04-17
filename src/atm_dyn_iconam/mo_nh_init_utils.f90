@@ -1329,7 +1329,8 @@ CONTAINS
     ierr(:) = 0
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing, dvct, wfac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing,&
+!$OMP dvct, wfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks
 
       IF (jb /= nblks) THEN

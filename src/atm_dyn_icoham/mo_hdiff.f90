@@ -231,7 +231,8 @@ MODULE mo_hdiff
        min_diffu  = diffusion_config(k_jg)%k2/SQRT(3._wp)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,dvn_cell,dvt_cell,dvn_vert,dvt_vert) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,dvn_cell,dvt_cell,dvn_vert,&
+!$OMP dvt_vert) ICON_OMP_DEFAULT_SCHEDULE
          DO jb = i_startblk,i_endblk
 
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &

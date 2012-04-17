@@ -1021,7 +1021,8 @@ MODULE mo_vertical_grid
       ! Compute level indices of neighbor cells within which the local edge is located
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, l_found, lfound_all, &
-!$OMP            z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, &
+!$OMP dn6) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_e
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -1234,7 +1235,8 @@ MODULE mo_vertical_grid
         ! Recompute indices and height differences if truly horizontal pressure gradient 
         ! computation would intersect the ground
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, &
+!$OMP z_aux2) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_e
 
           CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &

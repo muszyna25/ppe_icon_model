@@ -1560,7 +1560,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jkm,jkp,jkz,jc,nlen,jkm_start,jkz_start,bot_idx_ml,bot_idx_zl, &
-!$OMP            idx0_ml,idx0_zl,z_up,z_down,wfac_ml,wfac_zl,dtvdz,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            idx0_ml,idx0_zl,z_up,z_down,wfac_ml,wfac_zl,dtvdz,l_found,&
+!$OMP lfound_all) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN

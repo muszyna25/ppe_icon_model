@@ -1669,7 +1669,8 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,    &
-!$OMP            z_exner_expl,z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_exner_expl,z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,&
+!$OMP z_raylfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
