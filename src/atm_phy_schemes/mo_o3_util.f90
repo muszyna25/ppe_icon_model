@@ -39,6 +39,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_o3_util
 
   USE mo_datetime,             ONLY: t_datetime
@@ -398,7 +403,8 @@ END SUBROUTINE o3_timeint
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, zalp, jmm, jc, zvio3_f ,zhmo3_f, mmm, mnc, mns, jnn ) 
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, zalp, jmm, jc, zvio3_f ,zhmo3_f, mmm, mnc,&
+!$OMP  mns, jnn )  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -492,7 +498,7 @@ END SUBROUTINE o3_timeint
 !!$        ENDDO
 
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL 
 
   END SUBROUTINE calc_o3_clim
@@ -1033,7 +1039,8 @@ END SUBROUTINE o3_timeint
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,jkk,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,zint,zviozo)
+!$OMP DO PRIVATE(jb,jc,jk,jkk,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
+!$OMP zint,zviozo) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1112,7 +1119,7 @@ END SUBROUTINE o3_timeint
       ENDDO
 
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL     
 
   END SUBROUTINE calc_o3_gems

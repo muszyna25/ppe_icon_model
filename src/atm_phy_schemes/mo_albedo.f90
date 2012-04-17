@@ -40,6 +40,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_albedo
 
   USE mo_kind,                 ONLY: wp
@@ -121,7 +126,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jc,i_startidx,i_endidx,isubs,ist,zvege,zsnow, &
-!$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea)
+!$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -303,7 +308,7 @@ CONTAINS
 
 
     ENDDO  ! jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE sfc_albedo
