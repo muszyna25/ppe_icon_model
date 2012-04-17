@@ -570,9 +570,10 @@ MODULE mo_nh_stepping
     ! - if (MOD(jstep,n_diag) == 0), or
     ! - in the very last time step (jstep==nsteps)
 
-    l_supervise_total_integrals = (lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
+    l_supervise_total_integrals =((lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
       &                           (MOD(jstep,n_diag) == 0)                 .OR. &
-      &                           (jstep==nsteps)
+      &                           (jstep==nsteps))                         .AND.&
+      &                           (.NOT. no_output)
     kstep = jstep
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
