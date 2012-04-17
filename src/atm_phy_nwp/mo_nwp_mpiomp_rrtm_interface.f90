@@ -34,6 +34,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_mpiomp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -608,12 +613,7 @@ CONTAINS
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype)
-#else
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype),SCHEDULE(guided)
-#endif
-    !
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(omp_radiation_data%pt_patch, jb, i_startblk, i_endblk, &
@@ -685,7 +685,7 @@ CONTAINS
         & opt_halo_cosmu0 = .FALSE. )
       ENDDO ! blocks
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE nwp_rrtm_radiation_ompthread

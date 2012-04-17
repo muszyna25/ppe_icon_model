@@ -43,6 +43,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_diagnosis
 
 
@@ -162,7 +167,7 @@ CONTAINS
 
     IF ( lcall_phy_jg(itccov) ) THEN
 
-!$OMP DO PRIVATE(jb, z_help,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb, z_help,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -183,7 +188,7 @@ CONTAINS
 
 ! Calculation of cloud cover (Maximum-Random Overlap) (icc)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, ioverlap, cld_cov)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, ioverlap, cld_cov) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -216,7 +221,7 @@ CONTAINS
 
     IF ( p_sim_time > 1.e-1_wp ) THEN
 
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -237,7 +242,7 @@ CONTAINS
  !! Calculate vertically integrated values of the grid-scale tracers q1, q2 and q3 
  !! and average values of the vertically integrated values from the model start 
  
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk,z_help)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk,z_help) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -273,7 +278,7 @@ CONTAINS
 
     IF ( p_sim_time > 1.e-1_wp ) THEN
 
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -300,7 +305,7 @@ CONTAINS
 
     IF ( p_sim_time > 1.e-1_wp .AND. lflux_avg) THEN
 
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -337,7 +342,7 @@ CONTAINS
 !$OMP END DO
 
     ELSEIF (.NOT. lflux_avg) THEN
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -372,7 +377,7 @@ CONTAINS
 
 
     IF ( p_sim_time > 1.e-1_wp ) THEN
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -416,7 +421,7 @@ CONTAINS
 
    
     IF (l_s6avg ) THEN
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -451,7 +456,7 @@ CONTAINS
                                     & / p_sim_time_s6
           ENDDO
       ENDDO ! nblks     
-!$OMP END DO
+!$OMP END DO NOWAIT
     END IF
 
 !$OMP END PARALLEL  

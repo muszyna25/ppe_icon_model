@@ -34,6 +34,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_rrtm_interface
 
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
@@ -198,7 +203,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_endidx, &
-!$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, zaequn,zaeqdn,zaetr_bot,zaetr )
+!$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
+!$OMP zaequn,zaeqdn,zaetr_bot,zaetr )  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -545,7 +551,7 @@ CONTAINS
       ENDIF !irad_o3
 
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -637,11 +643,7 @@ CONTAINS
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype)
-#else
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype),SCHEDULE(guided)
-#endif
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -724,7 +726,7 @@ CONTAINS
 
       ENDDO ! blocks
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE nwp_rrtm_radiation
@@ -923,7 +925,7 @@ CONTAINS
       ! *** this parallel section will be removed later once real data are
       !     are available as input for radiation ***
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -948,7 +950,7 @@ CONTAINS
 
       ENDDO ! blocks
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       CALL upscale_rad_input(pt_patch, pt_par_patch, pt_par_grf_state,  &
@@ -1087,11 +1089,7 @@ CONTAINS
       ENDIF ! msg_level >= 16
 
 !$OMP PARALLEL
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype)
-#else
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype),SCHEDULE(guided)      
-#endif
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -1187,7 +1185,7 @@ CONTAINS
 
       ENDDO ! blocks
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       CALL downscale_rad_output(pt_patch, pt_par_patch, pt_par_int_state,                  &

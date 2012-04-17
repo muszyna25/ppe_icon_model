@@ -34,6 +34,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_phys_nest_utilities
 !
 !
@@ -299,7 +304,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                                &
@@ -483,7 +488,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
     ENDIF
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -512,7 +517,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
     i_endblk   = p_par_patch%cells%end_blk(min_rlcell,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_par_patch, jb, i_startblk, i_endblk, &
@@ -531,7 +536,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, z_albvisdif,&
@@ -798,7 +803,8 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,pfacswc,pfacswa,     &
 !$OMP            dlwem_o_dtg,swfac1,swfac2,lwfac1,lwfac2,dtrans_o_dalb_clr,dtrans_o_dalb_all,   &
-!$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3,jb4)
+!$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3,&
+!$OMP  jb4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
@@ -921,7 +927,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   IF (l_parallel .AND. jgp == 0) THEN
@@ -1133,7 +1139,8 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,z_help_pres_ratio,z_rho_1)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,z_help_pres_ratio,&
+!$OMP z_rho_1) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                                &
@@ -1299,7 +1306,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
     ENDIF
     
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1329,7 +1336,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
     i_endblk   = p_par_patch%cells%end_blk(min_rlcell,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_par_patch, jb, i_startblk, i_endblk, &
@@ -1343,7 +1350,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     DEALLOCATE(z_cosmu0, z_albvisdir, z_alb_ther, z_temp_ifc, z_dpres_mc,z_tot_cld, &
@@ -1615,7 +1622,8 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,pfacswc,pfacswa,     &
 !$OMP            dlwem_o_dtg,swfac2,lwfac1,lwfac2,dtrans_o_dalb_all,            &
-!$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3,jb4)
+!$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3, &
+!$OMP jb4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
@@ -1723,7 +1731,7 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
     ENDDO
 
   ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   
   IF (l_parallel .AND. jgp == 0) THEN
@@ -1769,7 +1777,7 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
   i_endblk   = ptr_pp%nblks_c
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
@@ -1789,7 +1797,7 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
 
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
@@ -1804,7 +1812,7 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
   i_endblk   = ptr_pc%cells%end_blk(grf_bdywidth_c,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -1824,7 +1832,7 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
 
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE interpol_phys_grf
@@ -1871,7 +1879,7 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   i_endblk   = ptr_pp%nblks_c
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
@@ -1882,7 +1890,7 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
       z_aux3d_p(jc,2,jb) = prm_diagp%albvisdif(jc,jb)
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
@@ -1900,7 +1908,7 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   ! errors when radiation calls for parent and child grids are not properly 
   ! synchronized
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -1914,7 +1922,7 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
 
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE interpol_rrg_grf
@@ -1999,7 +2007,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
@@ -2052,7 +2060,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -2067,7 +2075,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
   i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
@@ -2084,7 +2092,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

@@ -39,6 +39,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_turb_interface
 
   USE mo_kind,                 ONLY: wp
@@ -216,12 +221,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ENDIF
 
 !$OMP PARALLEL
-
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine)
-#else
-!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine), SCHEDULE(guided)
-#endif
+!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,&
+!$OMP eroutine) ICON_OMP_GUIDED_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -699,7 +700,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     ENDIF !inwp_turb
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE nwp_turbulence

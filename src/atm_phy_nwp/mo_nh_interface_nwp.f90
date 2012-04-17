@@ -45,6 +45,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_interface_nwp
 
   USE mo_datetime,           ONLY: t_datetime
@@ -336,7 +341,7 @@ CONTAINS
         i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -355,7 +360,7 @@ CONTAINS
             ENDDO
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
         DO jk = 1, nlev
@@ -414,7 +419,7 @@ CONTAINS
         z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -468,7 +473,7 @@ CONTAINS
         IF (timers_level > 2) CALL timer_stop(timer_phys_exner)
       ENDDO ! nblks
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ELSE ! satad turned off
@@ -587,7 +592,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum )
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -645,7 +650,7 @@ CONTAINS
         ENDDO
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
@@ -741,11 +746,7 @@ CONTAINS
       !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,rcld)
-#else
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,rcld),SCHEDULE(guided)
-#endif
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,rcld) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -783,7 +784,7 @@ CONTAINS
 
       ENDDO
   
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ENDIF! cloud cover
@@ -837,7 +838,7 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_radheat)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,zi0,z_airmass)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,zi0,z_airmass) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
         !
@@ -937,7 +938,7 @@ CONTAINS
 
       ENDDO ! blocks
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
@@ -994,7 +995,8 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, rfric_fac)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
+!$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
@@ -1080,7 +1082,7 @@ CONTAINS
    &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
           ENDIF
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1120,7 +1122,7 @@ CONTAINS
         i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 
         DO jb = i_startblk, i_endblk
           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1165,7 +1167,7 @@ CONTAINS
             ENDDO
           ENDIF
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ENDIF
@@ -1225,7 +1227,7 @@ CONTAINS
     i_endblk   = pt_patch%edges%end_blk(rl_end,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,jk,jce,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jce,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = i_startblk, i_endblk
 
@@ -1309,7 +1311,7 @@ CONTAINS
         i_startblk = pt_patch%cells%start_blk(rl_start,1)
         i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1335,7 +1337,7 @@ CONTAINS
         i_startblk = pt_patch%cells%start_blk(rl_start,1)
         i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1371,7 +1373,7 @@ CONTAINS
         i_startblk = pt_patch%cells%start_blk(rl_start,1)
         i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1393,7 +1395,7 @@ CONTAINS
           ENDDO
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
       ENDIF
 
@@ -1520,7 +1522,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1565,7 +1567,7 @@ CONTAINS
         &                              +  prm_diag%tracer_rate (i_startidx:i_endidx,jb,4))
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

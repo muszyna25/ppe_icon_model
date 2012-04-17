@@ -34,6 +34,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
@@ -359,7 +364,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk,zprat,zpres,lland,lglac,zn1,zn2,zcdnc)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk,zprat,zpres,lland,lglac,zn1,&
+!$OMP zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -414,7 +420,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
     ENDDO      !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL    
 
     IF ( irad_aero == 5 ) THEN
@@ -511,7 +517,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_endidx)
+!$OMP DO PRIVATE(jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -527,7 +533,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT 
 
       ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ENDIF ! (irad_o3 == io3_ape)
@@ -624,7 +630,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = i_startblk, i_endblk
 

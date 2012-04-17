@@ -37,6 +37,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_gw_interface
 
   USE mo_kind,                 ONLY: wp
@@ -134,11 +139,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate)
-#else
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate),SCHEDULE(guided)
-#endif
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -223,7 +224,7 @@ CONTAINS
       ENDIF
 
     ENDDO ! jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE nwp_gwdrag
