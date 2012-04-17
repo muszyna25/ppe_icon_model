@@ -40,6 +40,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
@@ -162,7 +167,7 @@ CONTAINS
     ! horizontal (contravariant) mass flux at full level edges
     ! Taken from dynamical core (corrector-step)
     !
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,           &
@@ -211,7 +216,7 @@ CONTAINS
     ! Time averaged contravariant vertical velocity
     ! and vertical mass flux at half level centers
     !
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,w_tavg)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,w_tavg) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
         &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
@@ -259,7 +264,7 @@ CONTAINS
     IF (lclean_mflx) THEN   ! first time step after call of transport
 
       i_endblk = p_patch%cells%end_blk(min_rlcell,i_nchdom)
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
@@ -279,7 +284,7 @@ CONTAINS
     IF (lstep_advphy) THEN
 
       i_endblk = p_patch%cells%end_blk(min_rlcell,i_nchdom)
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
@@ -320,7 +325,7 @@ CONTAINS
       i_startblk   = p_patch%edges%start_blk(i_rlstart_e,1)
       i_endblk     = p_patch%edges%end_blk(i_rlend_e,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,           &
@@ -364,7 +369,7 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
@@ -392,7 +397,7 @@ CONTAINS
       i_startblk  = p_patch%edges%start_blk(i_rlstart_e,1)
       i_endblk    = p_patch%edges%end_blk(i_rlend_e,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,           &
@@ -417,7 +422,7 @@ CONTAINS
         ENDDO
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ENDIF
 

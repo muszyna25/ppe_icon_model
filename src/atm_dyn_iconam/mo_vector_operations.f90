@@ -36,6 +36,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_vector_operations
 
   USE mo_kind,             ONLY: wp
@@ -107,7 +112,7 @@ MODULE mo_vector_operations
     npromz_e  = p_patch%npromz_int_e
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_q, z_fac)
+!$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_q, z_fac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -133,7 +138,7 @@ MODULE mo_vector_operations
         p_vi(1:nlen,jk,jb) = p_vi(1:nlen,jk,jb)+z_q(1:nlen,jk)*p_vi(1:nlen,jk+1,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE impl_vert_adv_vn
@@ -191,7 +196,7 @@ MODULE mo_vector_operations
     nlevp1 = p_patch%nlevp1
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -206,12 +211,12 @@ MODULE mo_vector_operations
         &*(p_diag%w_cov(1:nlen,jk,jb)+p_diag%w_cov(1:nlen,jk+1,jb))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     CALL cells2edges_scalar(z_w_k, p_patch, p_int%c_lin_e, &
          &                  z_w_k_e, nflat+1, nlev)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -226,7 +231,7 @@ MODULE mo_vector_operations
         & p_metrics%ddxn_z_full(1:nlen,jk,jb)*z_w_k_e(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE covariant_velocities
@@ -280,7 +285,7 @@ MODULE mo_vector_operations
     !! done by direct distance weighting. Upper and lower boundary conditions
     !! are zero (rigid upper lid, bottom free slip).
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -294,13 +299,13 @@ MODULE mo_vector_operations
         &    *p_metrics%ddqz_z_full_e(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,z_metric_corr,nflat+1,nlev)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, nstart)
+!$OMP DO PRIVATE(jb, nlen, jk, nstart) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -329,7 +334,7 @@ MODULE mo_vector_operations
         ENDDO
       ENDIF
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE contravariant_vert_mass_flux
@@ -389,7 +394,7 @@ MODULE mo_vector_operations
     p_diag%omega_z(:,1:nflat,:) = p_diag%omega_z_con(:,1:nflat,:)
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     ! Metric correction term
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
@@ -404,11 +409,11 @@ MODULE mo_vector_operations
         & +p_metrics%ddqz_z_half_e(1:nlen,jk+1,jb)*p_diag%omega_t_con(1:nlen,jk+1,jb))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !start a new parallel section here, because the next loop wants the z_tmp_e as neighbors
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jv)
+!$OMP DO PRIVATE(jb, nlen, jk, jv) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_v
       IF (jb /= nblks_v) THEN
         nlen = nproma
@@ -432,7 +437,7 @@ MODULE mo_vector_operations
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE orthogonal_vorticities
@@ -485,7 +490,7 @@ MODULE mo_vector_operations
     nblks_e  = p_patch%nblks_int_e
     npromz_e = p_patch%npromz_int_e
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -507,7 +512,7 @@ MODULE mo_vector_operations
       p_diag%omega_t_con(1:nlen,nlevp1,jb)= -z_wcov_grad(1:nlen,nlevp1,jb) &
       &                          /p_metrics%ddqz_z_half_e(1:nlen,nlevp1,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE contravariant_vorticities
@@ -575,7 +580,7 @@ MODULE mo_vector_operations
 
       ! Horizontal part
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -587,7 +592,7 @@ MODULE mo_vector_operations
           &              *p_metrics%ddqz_z_full_e(1:nlen,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       CALL edges2cells_scalar(z_kin_hor_e,p_patch,p_int%e_inn_c,z_kin_hor_c)
@@ -597,7 +602,7 @@ MODULE mo_vector_operations
       CALL verts2cells_scalar(z_kin_hor_v,p_patch,p_int%verts_aw_cells,z_kin_hor_a)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -613,7 +618,7 @@ MODULE mo_vector_operations
 
       ! Merge horizontal and vertical part
 
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -637,7 +642,7 @@ MODULE mo_vector_operations
           ENDDO
         ENDIF
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ENDDO
@@ -728,7 +733,7 @@ MODULE mo_vector_operations
 
  
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -770,7 +775,7 @@ MODULE mo_vector_operations
         ENDDO
       ENDIF
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_E,p_patch,z_ddt_w_e_l)
@@ -781,7 +786,7 @@ MODULE mo_vector_operations
     CALL verts2cells_scalar(z_tmp_v_l,p_patch,p_int%verts_aw_cells,z_tmp_c_l,2,nlev)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -796,7 +801,7 @@ MODULE mo_vector_operations
       ENDDO
     ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_v
       IF (jb /= nblks_v) THEN
         nlen = nproma
@@ -810,7 +815,7 @@ MODULE mo_vector_operations
         &  /z_rho_v(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL verts2edges_scalar(z_potvort_v,p_patch,p_int%tria_aw_rhom,z_potvort_e)
@@ -832,7 +837,7 @@ MODULE mo_vector_operations
         nincr = 10
       END SELECT
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,ji,je)
+!$OMP DO PRIVATE(jb,nlen,jk,ji,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -858,7 +863,7 @@ MODULE mo_vector_operations
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CASE (3) ! my method for Coriolis term
@@ -885,7 +890,7 @@ MODULE mo_vector_operations
 
       ! third, multiply the absolute vorticities with the velocities,
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -900,7 +905,7 @@ MODULE mo_vector_operations
         ENDDO
       ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -914,12 +919,12 @@ MODULE mo_vector_operations
           &                             / p_metrics%ddqz_z_full(1:nlen,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !$OMP PARALLEL
       ! fourth, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je)
+!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -951,7 +956,7 @@ MODULE mo_vector_operations
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     END SELECT ! i_cori_method
@@ -974,7 +979,7 @@ MODULE mo_vector_operations
       CALL edges2cells_scalar(p_diag%omega_t,p_patch,p_int%hex_east,&
                               z_tan_o_c,1,nlevp1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -988,7 +993,7 @@ MODULE mo_vector_operations
           &                                     z_tan_o_c(1:nlen,jk+1,jb))
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ENDIF
 

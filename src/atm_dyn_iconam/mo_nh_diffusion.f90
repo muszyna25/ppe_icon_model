@@ -36,6 +36,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_diffusion
 
   USE mo_kind,                ONLY: wp
@@ -245,7 +250,7 @@ MODULE mo_nh_diffusion
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4,&
-!$OMP             dvt_norm,dvt_tang), SCHEDULE(runtime)
+!$OMP             dvt_norm,dvt_tang),  ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -329,7 +334,7 @@ MODULE mo_nh_diffusion
         ENDDO
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 2) THEN
@@ -354,7 +359,7 @@ MODULE mo_nh_diffusion
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_cell1,vn_cell2,&
-!$OMP             dvt_norm,dvt_tang), SCHEDULE(runtime)
+!$OMP             dvt_norm,dvt_tang), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -438,7 +443,7 @@ MODULE mo_nh_diffusion
         ENDDO
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ENDIF
@@ -472,7 +477,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -517,7 +522,7 @@ MODULE mo_nh_diffusion
           ENDDO
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ELSE IF (diffu_type == 5  .AND. discr_vn == 2) THEN ! Add fourth-order background diffusion
@@ -539,7 +544,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -584,7 +589,7 @@ MODULE mo_nh_diffusion
           ENDDO
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
      ENDIF ! diffu_type = 5
 
@@ -603,7 +608,7 @@ MODULE mo_nh_diffusion
 
     IF (diffu_type == 5) THEN ! Smagorinsky diffusion combined with fourth-order background diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -621,7 +626,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
       ELSE IF (jg > 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -639,7 +644,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
       ELSE
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -658,7 +663,7 @@ MODULE mo_nh_diffusion
       ENDIF
     ELSE IF (diffu_type == 3) THEN ! Only Smagorinsky diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -675,7 +680,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
       ELSE
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -691,7 +696,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO
       ENDIF
     ELSE
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -714,7 +719,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(start_bdydiff_e,1)
       i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
 
-!$OMP DO PRIVATE(jk,jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -773,7 +778,7 @@ MODULE mo_nh_diffusion
         i_startblk = p_patch%cells%start_blk(rl_start,1)
         i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -809,7 +814,7 @@ MODULE mo_nh_diffusion
         i_startblk = p_patch%edges%start_blk(rl_start,1)
         i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -840,7 +845,7 @@ MODULE mo_nh_diffusion
         i_startblk = p_patch%cells%start_blk(rl_start,1)
         i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -869,7 +874,7 @@ MODULE mo_nh_diffusion
 
       IF (l_zdiffu_t) THEN ! Compute temperature diffusion truly horizontally over steep slopes
                            ! A conservative discretization is not possible here
-!$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu)
+!$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, nblks_zdiffu
           IF (jb == nblks_zdiffu) THEN
             nlen_zdiffu = npromz_zdiffu
@@ -896,7 +901,7 @@ MODULE mo_nh_diffusion
       ENDIF
 
       IF (lhdiff_rcf) THEN
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -922,9 +927,9 @@ MODULE mo_nh_diffusion
           ENDIF
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
       ELSE ! diffusion is called at every sound-wave time step
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -938,7 +943,7 @@ MODULE mo_nh_diffusion
           ENDDO
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
       ENDIF
 !$OMP END PARALLEL
 
@@ -1033,7 +1038,7 @@ MODULE mo_nh_diffusion
       i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1047,7 +1052,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn)
@@ -1093,7 +1098,7 @@ MODULE mo_nh_diffusion
 
       i_startblk = p_patch%edges%start_blk(3,1)
       i_endblk   = p_patch%edges%end_blk(min_rledge,1)
-!$OMP DO PRIVATE(jb,jk,je,i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                  i_startidx, i_endidx, 3, min_rledge)
@@ -1156,7 +1161,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       CALL sync_patch_array(SYNC_E, p_patch, kh_smag_e)
@@ -1173,7 +1178,7 @@ MODULE mo_nh_diffusion
 !$OMP PARALLEL
       i_startblk = p_patch%edges%start_blk(3,1)
       i_endblk   = p_patch%edges%end_blk(min_rledge,1)
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                  i_startidx, i_endidx, 3, min_rledge)
@@ -1204,7 +1209,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       IF (diffusion_config(jg)%lhdiff_temp) THEN
@@ -1214,7 +1219,7 @@ MODULE mo_nh_diffusion
         i_startblk = p_patch%cells%start_blk(2,1)
         i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,je,zhelp,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,je,zhelp,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                  i_startidx, i_endidx, 2, min_rlcell)
@@ -1241,7 +1246,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO
         i_startblk = p_patch%verts%start_blk(2,1)
         i_endblk   = p_patch%verts%end_blk(min_rlvert,1)
-!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
           CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
           &                  i_startidx, i_endidx, 2, min_rlvert)
@@ -1273,7 +1278,7 @@ MODULE mo_nh_diffusion
             ENDDO
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ENDIF
@@ -1281,7 +1286,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(3,1)
       i_endblk   = p_patch%edges%end_blk(min_rledge,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                  i_startidx, i_endidx, 3, min_rledge)
@@ -1298,7 +1303,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn )
@@ -1309,7 +1314,7 @@ MODULE mo_nh_diffusion
         i_startblk = p_patch%cells%start_blk(2,1)
         i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,z_old_rth,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,z_old_rth,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                  i_startidx, i_endidx, 2, min_rlcell)
@@ -1330,7 +1335,7 @@ MODULE mo_nh_diffusion
             & /p_nh_prog%rho(i_startidx:i_endidx,jk,jb)
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
         CALL sync_patch_array_mult(SYNC_C,p_patch,3,&
                                    p_nh_prog%rhotheta_v,&

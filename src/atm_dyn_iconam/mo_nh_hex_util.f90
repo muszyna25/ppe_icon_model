@@ -33,6 +33,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_hex_util
 
   USE mo_kind,                ONLY: wp
@@ -107,7 +112,7 @@ CONTAINS
 
     ! Vertical part
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk,kp1,km1)
+!$OMP DO PRIVATE(jb, nlen, jk,kp1,km1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -123,11 +128,11 @@ CONTAINS
            /(p_metrics%ddqz_z_full_e(1:nlen,jk,jb)**2))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk,kp1,km1)
+!$OMP DO PRIVATE(jb, nlen, jk,kp1,km1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -154,7 +159,7 @@ CONTAINS
           /(p_metrics%ddqz_z_half(1:nlen,jk,jb)**2))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE forcing_straka
@@ -221,7 +226,7 @@ CONTAINS
       CALL cells2verts_scalar(p_nh%prog(know)%rho,p_patch,p_int%cells_aw_verts,z_rho_v)
       CALL verts2edges_scalar(z_rho_v,p_patch,p_int%v_1o2_e,z_rho_a)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -233,7 +238,7 @@ CONTAINS
           &                      +sick_o*p_nh%diag%rho_e(1:nlen,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       p_rho_e => p_nh%diag%rho_e
@@ -248,7 +253,7 @@ CONTAINS
       CALL cells2verts_scalar(p_nh%prog(knew)%rho,p_patch,p_int%cells_aw_verts,z_rho_v)
       CALL verts2edges_scalar(z_rho_v,p_patch,p_int%v_1o2_e,z_rho_a)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -260,7 +265,7 @@ CONTAINS
           &                      +sick_o*p_nh%diag%rho_star_e(1:nlen,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       p_rho_e => p_nh%diag%rho_star_e
@@ -271,7 +276,7 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk)
+!$OMP DO PRIVATE(jb, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,p_patch%nblks_c
       ! density at half levels
       z_rho_l(1:nproma,1,jb)     = p_rho(1:nproma,1,jb)
@@ -284,11 +289,9 @@ CONTAINS
         z_wmflx_ort(1:nproma,jk,jb)= p_w(1:nproma,jk,jb)*z_rho_l(1:nproma,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!$OMP END DO NOWAIT
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk)
+!$OMP DO PRIVATE(jb, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,p_patch%nblks_e
       ! density at half levels and edges with tilde
       z_rho_e_l(1:nproma,1,jb)     = p_rho_e(1:nproma,1,jb)
@@ -297,7 +300,7 @@ CONTAINS
       ENDDO
       z_rho_e_l(1:nproma,nlevp1,jb)= p_rho_e(1:nproma,nlev,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! unaveraged rho at half level edges (needed for horiz. pot. vorticity)
@@ -318,7 +321,7 @@ CONTAINS
     ENDIF
     IF (l_predictor) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -327,11 +330,11 @@ CONTAINS
         ENDIF
         p_nh%diag%theta_v_impl(1:nlen,:,jb)=z_theta_v_impl(1:nlen,:,jb)
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ELSE
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -343,7 +346,7 @@ CONTAINS
         p_nh%diag%theta_v_ave(1:nlen,:,jb)  = &
           & 0.5_wp*( p_nh%prog(know)%theta_v(1:nlen,:,jb) +p_nh%prog(knew)%theta_v(1:nlen,:,jb) )
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ENDIF
 
@@ -355,7 +358,7 @@ CONTAINS
     CALL cells2verts_scalar(z_wmflx_ort,p_patch,p_int%cells_aw_verts,z_tmp_v_l,1,nlevp1)
     CALL verts2edges_scalar(z_tmp_v_l,p_patch,p_int%v_1o2_e,z_tmp_e_l,1,nlevp1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -376,12 +379,12 @@ CONTAINS
         z_wmflx_con_e(1:nlen,jk,jb) = z_wmflx_con_e(1:nlen,jk,jb)+z_wmflx_ort_e(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -394,7 +397,7 @@ CONTAINS
         z_wmflx_con_e(1:nlen,jk,jb) = z_wmflx_con_e(1:nlen,jk,jb)/z_rho_e_lnt(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! implicit vertical advection for horizontal velocity

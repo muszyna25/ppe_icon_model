@@ -38,6 +38,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_solve_nonhydro
 
   USE mo_kind,                 ONLY: wp
@@ -175,7 +180,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, z_vt_ie)
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, z_vt_ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -273,7 +278,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -327,7 +332,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -379,7 +384,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -439,7 +444,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -480,7 +485,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -508,7 +513,7 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -753,7 +758,7 @@ MODULE mo_solve_nonhydro
 !$OMP END WORKSHARE
         ENDIF
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -779,7 +784,7 @@ MODULE mo_solve_nonhydro
           ENDDO   ! loop over vertical levels
 
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ELSE IF (iadv_rhotheta == 3) THEN
@@ -840,7 +845,7 @@ MODULE mo_solve_nonhydro
     ! Computations at cell points; to be executed in predictor step only
     IF (istep == 1) THEN
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -925,7 +930,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_theta_v_pr_mc,z_theta_v_pr_ic)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_theta_v_pr_mc,z_theta_v_pr_ic) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1047,7 +1052,7 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
     IF (istep == 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2,ikp1,ikp2)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2,ikp1,ikp2) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1209,7 +1214,7 @@ MODULE mo_solve_nonhydro
 
     IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
 
-!$OMP DO PRIVATE(jb,je,ie,nlen_gradp)
+!$OMP DO PRIVATE(jb,je,ie,nlen_gradp) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_gradp
         IF (jb == nblks_gradp) THEN
           nlen_gradp = npromz_gradp
@@ -1231,7 +1236,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Update horizontal velocity field
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1281,7 +1286,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 
     IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
-!$OMP DO PRIVATE(jb,jk,je,ic)
+!$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
@@ -1311,7 +1316,7 @@ MODULE mo_solve_nonhydro
       i_endblk   = p_patch%edges%end_blk(rl_end,1)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1364,7 +1369,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1471,7 +1476,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1506,7 +1511,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vt_ie)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vt_ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1580,7 +1585,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1616,7 +1621,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1636,7 +1641,7 @@ MODULE mo_solve_nonhydro
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1664,7 +1669,7 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,    &
-!$OMP            z_exner_expl,z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac)
+!$OMP            z_exner_expl,z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1890,7 +1895,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1937,7 +1942,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2006,7 +2011,7 @@ MODULE mo_solve_nonhydro
 
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points 
-!!$OMP DO PRIVATE(jb,ic,jk,jc)
+!!$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO ic = 1, p_nh%metrics%bdy_halo_c_dim
 
         jb = p_nh%metrics%bdy_halo_c_blk(ic)
@@ -2033,7 +2038,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2064,7 +2069,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2084,7 +2089,7 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
     ENDDO
-!!$OMP END DO
+!!$OMP END DO NOWAIT
 !!$OMP END PARALLEL
 
    IF (ltimer) CALL timer_stop(timer_solve_nh)

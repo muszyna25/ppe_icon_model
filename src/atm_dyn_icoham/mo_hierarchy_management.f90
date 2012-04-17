@@ -54,6 +54,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_hierarchy_management
 
   USE mo_kind,                ONLY: wp, dp

@@ -39,6 +39,11 @@
 !! software.
 !!
 
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
+
 MODULE mo_vertical_grid
 
   USE mo_kind,                  ONLY: wp
@@ -175,7 +180,7 @@ MODULE mo_vertical_grid
                            l_half_lev_centr                                                  )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -262,7 +267,7 @@ MODULE mo_vertical_grid
            &              + p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,jk    ,jb))
           ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     IF (msg_level >= 15) THEN
@@ -336,7 +341,7 @@ MODULE mo_vertical_grid
       nblks_e   = p_patch(jg)%nblks_int_e
       npromz_e  = p_patch(jg)%npromz_int_e
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_e
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -353,7 +358,7 @@ MODULE mo_vertical_grid
         ENDIF
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       IF (p_test_run) p_nh(jg)%metrics%ddqz_z_full_e = 0._wp
@@ -395,7 +400,7 @@ MODULE mo_vertical_grid
         iidx => p_patch(jg)%verts%edge_idx
         iblk => p_patch(jg)%verts%edge_blk
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jv)
+!$OMP DO PRIVATE(jb, nlen, jk, jv) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1,nblks_v
           IF (jb /= nblks_v) THEN
              nlen = nproma
@@ -421,7 +426,7 @@ MODULE mo_vertical_grid
             ENDDO
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       ENDIF
 
@@ -513,7 +518,7 @@ MODULE mo_vertical_grid
         z_maxhgtd(:,:,:) = 0._wp
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, z_maxslope, z_offctr)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, z_maxslope, z_offctr) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_c
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
@@ -569,7 +574,7 @@ MODULE mo_vertical_grid
 
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       ENDIF
 
@@ -751,7 +756,7 @@ MODULE mo_vertical_grid
       ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jc, z1, z2, z3)
+!$OMP DO PRIVATE(jb, nlen, jk, jc, z1, z2, z3) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -808,7 +813,7 @@ MODULE mo_vertical_grid
             p_nh(jg)%metrics%wgtfacq1_c(jc,3,jb))
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
@@ -858,7 +863,7 @@ MODULE mo_vertical_grid
 
       ! Reference atmosphere fields for triangular code
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_help, z_temp, z_aux1, z_aux2)
+!$OMP DO PRIVATE(jb, nlen, jk, z_help, z_temp, z_aux1, z_aux2) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1,nblks_c
           IF (jb /= nblks_c) THEN
              nlen = nproma
@@ -934,7 +939,7 @@ MODULE mo_vertical_grid
 
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       ENDIF
 
@@ -966,7 +971,7 @@ MODULE mo_vertical_grid
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_e
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -999,7 +1004,7 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ! Compute global minimum of flat_idx
@@ -1016,7 +1021,7 @@ MODULE mo_vertical_grid
       ! Compute level indices of neighbor cells within which the local edge is located
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, l_found, lfound_all, &
-!$OMP            z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6)
+!$OMP            z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_e
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -1214,7 +1219,7 @@ MODULE mo_vertical_grid
         ENDIF
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       IF (igradp_method == 3 .OR. igradp_method == 5) THEN
@@ -1229,7 +1234,7 @@ MODULE mo_vertical_grid
         ! Recompute indices and height differences if truly horizontal pressure gradient 
         ! computation would intersect the ground
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_e
 
           CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -1438,7 +1443,7 @@ MODULE mo_vertical_grid
             ENDIF
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
         ! Generate index list for grid points requiring downward extrapolation of the pressure gradient
@@ -1558,7 +1563,7 @@ MODULE mo_vertical_grid
 
 !$OMP PARALLEL
     ! Vertical start and end indices for each grid point
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, ji, max_nbhgt)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, ji, max_nbhgt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_c
 
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
@@ -1593,7 +1598,7 @@ MODULE mo_vertical_grid
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     i_listdim = i_listdim - SUM(i_listreduce)
@@ -1617,7 +1622,7 @@ MODULE mo_vertical_grid
 !$OMP PARALLEL
 
     ! Vertical indices for neighbor cells and related vertical interpolation coefficients
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, jk1, jk_start)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, jk1, jk_start) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_c
 
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
@@ -1688,7 +1693,7 @@ MODULE mo_vertical_grid
         ENDIF
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

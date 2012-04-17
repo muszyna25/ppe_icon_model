@@ -32,6 +32,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_diagnose_pres_temp
 
   USE mo_kind,                ONLY: wp
@@ -158,7 +163,7 @@ MODULE mo_nh_diagnose_pres_temp
     i_endblk   = pt_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, dz, z_qsum)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, dz, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( pt_patch, jb, i_startblk, i_endblk,      &
@@ -320,7 +325,7 @@ MODULE mo_nh_diagnose_pres_temp
       ENDIF !l_opt_calc_temp_ifc
       
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
     IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)

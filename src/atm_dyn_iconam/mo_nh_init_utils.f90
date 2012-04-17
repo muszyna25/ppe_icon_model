@@ -35,6 +35,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_init_utils
 
   USE mo_kind,                  ONLY: wp
@@ -124,7 +129,7 @@ CONTAINS
     nlev = p_patch%nlev
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,temp_v,z_fac1,z_fac2,z_fac3,za,zb,zc)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,temp_v,z_fac1,z_fac2,z_fac3,za,zb,zc) ICON_OMP_DEFAULT_SCHEDULE
 
     ! The full model grid including the lateral boundary interpolation zone of
     ! nested domains and MPI-halo points is processed; depending on the setup
@@ -194,7 +199,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE hydro_adjust
@@ -234,7 +239,7 @@ CONTAINS
     nlev = p_patch%nlev
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc)
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
@@ -252,7 +257,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE convert_thdvars
@@ -295,7 +300,7 @@ CONTAINS
     INTEGER :: nlen
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc)
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -311,7 +316,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE convert_omega2w
@@ -356,7 +361,7 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc)
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
@@ -381,7 +386,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE virtual_temp
@@ -428,7 +433,7 @@ CONTAINS
     iblk => p_patch%edges%cell_blk
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, nblks_e
 
@@ -453,7 +458,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE interp_uv_2_vn
@@ -538,7 +543,7 @@ CONTAINS
 !$OMP END WORKSHARE
 
     ! specify a reasonable initial vertical wind speed
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, nblks_c
 
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
@@ -553,7 +558,7 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE init_w
@@ -633,7 +638,7 @@ CONTAINS
 
     ! specify lower boundary condition and merge with w field provided on input
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,wfac)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,wfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, nblks_c
 
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
@@ -663,7 +668,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE adjust_w
@@ -1324,7 +1329,7 @@ CONTAINS
     ierr(:) = 0
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing, dvct, wfac)
+!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing, dvct, wfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks
 
       IF (jb /= nblks) THEN
@@ -1399,7 +1404,7 @@ CONTAINS
      ENDIF
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    nerr = SUM(ierr(1:nblks))

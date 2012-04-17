@@ -36,6 +36,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_stepping
 !-------------------------------------------------------------------------
 !
@@ -436,7 +441,7 @@ MODULE mo_nh_stepping
       i_nchdom = MAX(1,p_patch(1)%n_childdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)
         IF (jb /= p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)) THEN
           nlen = nproma
@@ -446,7 +451,7 @@ MODULE mo_nh_stepping
         vn_aux(jb) = MAXVAL(ABS(p_vn(1:nlen,:,jb)))
       ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)
         IF (jb /=  p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)) THEN
           nlen = nproma
@@ -455,7 +460,7 @@ MODULE mo_nh_stepping
         ENDIF
         w_aux(jb) = MAXVAL(ABS(p_w(1:nlen,:,jb)))
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       vmax(1) = MAXVAL(vn_aux)

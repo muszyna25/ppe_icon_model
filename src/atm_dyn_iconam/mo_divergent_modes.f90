@@ -50,6 +50,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_divergent_modes
 
   USE mo_kind,                  ONLY: wp
@@ -170,7 +175,7 @@ MODULE mo_divergent_modes
     !======================================================
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -236,7 +241,7 @@ MODULE mo_divergent_modes
         &   +z_grad_corr_c_l(1:nlen,jk+1,jb)*p_nh%metrics%ddqz_z_half(1:nlen,jk+1,jb))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! 2) What can be done on edges
@@ -260,7 +265,7 @@ MODULE mo_divergent_modes
     !========================================
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -289,7 +294,7 @@ MODULE mo_divergent_modes
         & +p_nh%metrics%ddxn_z_full(1:nlen,jk,jb)*z_grad_corr_e_k(1:nlen,jk,jb))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(knew)%vn)
@@ -322,7 +327,7 @@ MODULE mo_divergent_modes
 !$OMP WORKSHARE
     p_nh%prog(knew)%vn(:,nlev,:)=z_vn_surf(:,:)
 !$OMP END WORKSHARE
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -334,13 +339,13 @@ MODULE mo_divergent_modes
       &                     * p_nh%metrics%ddxn_z_full(1:nlen,nlev,jb) &
       &                   * p_nh%metrics%ddqz_z_full_e(1:nlen,nlev,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ! prog(knew)%w(:,nlevp1,:)
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,&
          &                  p_nh%prog(knew)%w,nlevp1,nlevp1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -355,7 +360,7 @@ MODULE mo_divergent_modes
 
     ! 4) finalize horizontal part
     !============================
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -383,7 +388,7 @@ MODULE mo_divergent_modes
         &                   *p_nh%metrics%ddxn_z_full(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,&
@@ -396,7 +401,7 @@ MODULE mo_divergent_modes
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -408,7 +413,7 @@ MODULE mo_divergent_modes
         &                                    *z_theta_v_e(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! horizontal divergences
@@ -422,7 +427,7 @@ MODULE mo_divergent_modes
 !$OMP DO PRIVATE(jb,nlen,jk,z_w_expl,z_rho_expl,z_exner_expl,&
 !$OMP    z_rho_expl_ic,z_kinw_expl_ic,z_kinw_expl_mc,&
 !$OMP    z_alpha,z_beta,z_gamma,z_delta,z_epsil,z_gaep,z_gaepd,z_gaepm,&
-!$OMP    z_a,z_b,z_c,z_d,z_e,z_r,z_q,z_m,z_k,z_l,z_u,z_v)
+!$OMP    z_a,z_b,z_c,z_d,z_e,z_r,z_q,z_m,z_k,z_l,z_u,z_v) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -616,7 +621,7 @@ MODULE mo_divergent_modes
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array_mult(SYNC_C,p_patch,5,p_nh%prog(knew)%theta_v,       &
@@ -669,7 +674,7 @@ MODULE mo_divergent_modes
     nlevp1 = p_patch%nlevp1
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -680,13 +685,13 @@ MODULE mo_divergent_modes
       & *p_metrics%ddxn_z_full(1:nlen,nlev,jb) &
       & *p_metrics%ddqz_z_full_e(1:nlen,nlev,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,w_knew_c,1,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -699,13 +704,13 @@ MODULE mo_divergent_modes
       &       *p_metrics%ddqz_z_half(1:nlen,nlevp1,jb)&
       &       *p_coeff
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL cells2edges_scalar(w_knew_c,p_patch,p_int%c_lin_e,w_knew_e,1,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -715,7 +720,7 @@ MODULE mo_divergent_modes
       p_lhs(1:nlen,jb) = p_vn(1:nlen,jb) + w_knew_e(1:nlen,1   ,jb) &
       &                     * p_metrics%ddxn_z_full(1:nlen,nlev,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_E,p_patch,p_lhs)
@@ -760,7 +765,7 @@ MODULE mo_divergent_modes
     nlev = p_patch%nlev
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_q, z_fac)
+!$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_q, z_fac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -788,7 +793,7 @@ MODULE mo_divergent_modes
         p_ti(1:nlen,jk,jb) = p_ti(1:nlen,jk,jb)+z_q(1:nlen,jk)*p_ti(1:nlen,jk+1,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE impl_vert_adv_theta
@@ -841,7 +846,7 @@ MODULE mo_divergent_modes
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_d, z_e, z_q, z_r, z_fac, z_sig_p, z_sig_m, &
-!$OMP            z_k, z_l, z_u, z_v, z_m)
+!$OMP            z_k, z_l, z_u, z_v, z_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -938,7 +943,7 @@ MODULE mo_divergent_modes
         p_ti(1:nlen,jk,jb) = z_m(1:nlen,jk)
       ENDDO 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE impl_vert_adv_theta_5diag
@@ -986,7 +991,7 @@ MODULE mo_divergent_modes
     IF (ltheta_up_hori) THEN
       !include terrain following correction here
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -1005,7 +1010,7 @@ MODULE mo_divergent_modes
           &*(z_ddz_s_cl(1:nlen,jk,jb)+z_ddz_s_cl(1:nlen,jk+1,jb))
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       !3) average to edges
       CALL cells2edges_scalar(z_ddz_s_ck,p_patch,p_int%c_lin_e,z_ddz_s_ek)
@@ -1024,7 +1029,7 @@ MODULE mo_divergent_modes
       ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -1042,7 +1047,7 @@ MODULE mo_divergent_modes
             & /6.0_wp * z_lapl_s_e(1:nlen,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ENDIF
 

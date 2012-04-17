@@ -33,6 +33,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_nest_utilities
 !
 !
@@ -346,7 +351,7 @@ ENDIF
 i_startblk = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -395,7 +400,7 @@ ENDDO
 
 IF (ltransport .AND. lstep_adv) THEN
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -420,7 +425,7 @@ ENDIF
 i_startblk = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
 i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -441,7 +446,7 @@ DO jb = i_startblk, i_endblk
   ENDIF
 
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE compute_tendencies
@@ -1078,7 +1083,7 @@ ELSE
   i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1110,7 +1115,7 @@ ELSE
   i_startblk = p_gep%start_blk(grf_nudgintp_start_e+2,i_chidx)
   i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1123,7 +1128,7 @@ ELSE
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ENDIF
 
@@ -1137,7 +1142,7 @@ i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1211,7 +1216,7 @@ ENDDO
 i_startblk = p_gep%start_blk(grf_nudgintp_start_e+2,i_chidx)
 i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1235,7 +1240,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1421,7 +1426,7 @@ ELSE
   i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1434,7 +1439,7 @@ ELSE
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 ENDIF
@@ -1448,7 +1453,7 @@ i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1474,7 +1479,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -1549,7 +1554,7 @@ nlev = p_patch%nlev
 i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1593,7 +1598,7 @@ ENDDO
 i_startblk = p_patch%edges%start_blk(grf_nudge_start_e,1)
 i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1616,8 +1621,8 @@ ENDDO
 i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!DR!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!DR!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1639,7 +1644,7 @@ DO jb = i_startblk, i_endblk
     ENDDO
   ENDDO
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -1682,7 +1687,7 @@ SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jk,jc,jb,ic)
+!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
   DO ic = 1, p_nh%metrics%nudge_c_dim
     jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1718,7 +1723,7 @@ SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
 !$OMP END DO
 
   IF (ltransport) THEN
-!$OMP DO PRIVATE(jk,jc,jb,jt,ic)
+!$OMP DO PRIVATE(jk,jc,jb,jt,ic) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
     DO ic = 1, p_nh%metrics%nudge_c_dim
       jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1740,7 +1745,7 @@ SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
   ENDIF
 
 !$OMP END PARALLEL
@@ -1784,7 +1789,7 @@ SUBROUTINE density_boundary_nudging(p_patch, p_nh, p_int, nnew, rcffac)
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jk,jc,jb,ic)
+!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
   DO ic = 1, p_nh%metrics%nudge_c_dim
     jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1809,7 +1814,7 @@ SUBROUTINE density_boundary_nudging(p_patch, p_nh, p_int, nnew, rcffac)
 
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 

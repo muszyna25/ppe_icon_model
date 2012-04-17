@@ -35,6 +35,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_vert_interp
 
   USE mo_kind,                ONLY: wp
@@ -232,7 +237,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, jc, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
-!$OMP            rdalpha, geop_mc)
+!$OMP            rdalpha, geop_mc) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1,p_patch%nblks_c
 
@@ -261,7 +266,7 @@ CONTAINS
       prepicon%atm_in%z3d(1:nlen,1:nlev_in,jb) = geop_mc(1:nlen,1:nlev_in)/grav
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -476,7 +481,7 @@ CONTAINS
     ! Fill z3d field of pressure-level data and pressure field of height-level data
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
+!$OMP DO PRIVATE(jb,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,p_patch%nblks_c
 
       IF (jb /= p_patch%nblks_c) THEN
@@ -491,7 +496,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Part 1: Interpolation to z-level fields
@@ -908,7 +913,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -978,7 +983,7 @@ CONTAINS
 
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     nerror = SUM(ierror)
@@ -1029,7 +1034,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1071,7 +1076,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1126,7 +1131,7 @@ CONTAINS
       "Error, number of levels too small for cubic interpolation")
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1195,7 +1200,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     nerror = SUM(ierror)
@@ -1275,7 +1280,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,zf_in,f3d_z1,f3d_z2,vgrad_f3d)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,zf_in,f3d_z1,f3d_z2,vgrad_f3d) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1337,7 +1342,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE lin_intp
@@ -1402,7 +1407,7 @@ CONTAINS
     dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down)
+!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1481,7 +1486,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE pressure_intp
@@ -1555,7 +1560,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jkm,jkp,jkz,jc,nlen,jkm_start,jkz_start,bot_idx_ml,bot_idx_zl, &
-!$OMP            idx0_ml,idx0_zl,z_up,z_down,wfac_ml,wfac_zl,dtvdz,l_found,lfound_all)
+!$OMP            idx0_ml,idx0_zl,z_up,z_down,wfac_ml,wfac_zl,dtvdz,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1745,7 +1750,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE z_at_plevels
@@ -1933,7 +1938,7 @@ CONTAINS
 
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,sfcinv,&
 !$OMP            temp1,temp2,vtgrad_up,zdiff_inout,redinv1,redinv2,l_found,          &
-!$OMP            zalml_in,zalml_out,temp_mod,sfc_inv,g1,g2,g3)
+!$OMP            zalml_in,zalml_out,temp_mod,sfc_inv,g1,g2,g3) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -2140,7 +2145,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE temperature_intp
@@ -2245,7 +2250,7 @@ CONTAINS
 
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,fricred,&
 !$OMP            uv1,uv2,dudz_up,zdiff_inout,red_speed,l_found,zalml_in,zalml_out,    &
-!$OMP            uv_mod,fric_red,g1,g2,g3)
+!$OMP            uv_mod,fric_red,g1,g2,g3) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -2440,7 +2445,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE uv_intp
@@ -2542,7 +2547,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,pbldev,&
 !$OMP            rhum,qtot,qv1,qv2,dqvdz_up,l_found,zalml_in,zalml_out,              &
-!$OMP            qv_mod,pbl_dev,g1,g2,g3,qsat_in,qsat_out)
+!$OMP            qv_mod,pbl_dev,g1,g2,g3,qsat_in,qsat_out) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -2757,7 +2762,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE qv_intp

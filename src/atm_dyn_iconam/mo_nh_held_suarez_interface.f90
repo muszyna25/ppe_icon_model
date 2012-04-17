@@ -36,6 +36,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_held_suarez_interface
 
   USE mo_kind,                  ONLY: wp
@@ -139,7 +144,7 @@ CONTAINS
     ddt_temp(:,:,:)=0.0_wp
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb,is,ie,jk,zlat)
+!$OMP DO PRIVATE(jb,is,ie,jk,zlat) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )
 
@@ -163,7 +168,7 @@ CONTAINS
        ptr_ddt_exner(is:ie,:,jb)=rd_o_cpd/p_nh_prog%theta_v(is:ie,:,jb)*ddt_temp(is:ie,:,jb)
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !-------------------------------------------------------------------------
@@ -179,7 +184,7 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk( grf_bdywidth_e+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
        CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1 )
 
@@ -188,7 +193,7 @@ CONTAINS
                                   & nlev, nproma, is, ie,  &! in
                                   & ptr_ddt_vn(:,:,jb)  )   ! inout
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !--------------------------------------------------------------------------
