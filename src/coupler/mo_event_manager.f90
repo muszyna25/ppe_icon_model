@@ -197,13 +197,10 @@ CONTAINS
     events(id)%restart_time     = NINT(time_config%dt_restart)
     events(id)%check_time       = NINT(dt_checkpoint)
 
-    ! Something is needed here for check poitning as well
-
     IF ( lag > 0 ) THEN
 
        ! fast-forward internal event by lag coupling time steps
 
-       !rr events(id)%elapsed_time  = time_step
        events(id)%event_time    = -1 * lag * time_step
        events(id)%lag           = lag
 

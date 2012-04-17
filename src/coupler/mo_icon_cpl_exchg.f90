@@ -67,8 +67,9 @@ MODULE mo_icon_cpl_exchg
    &                      datatype,         &
    &                      cpl_field_none,   &
    &                      cpl_field_avg
-  
+
   USE mo_icon_cpl_restart, ONLY : cpl_read_restart, cpl_write_restart
+  USE mo_master_control,  ONLY  : is_restart_run
   USE mo_io_config, ONLY        : dt_checkpoint
   USE mo_time_config, ONLY      : time_config
   USE mo_datetime, ONLY         : iso8601
@@ -203,12 +204,16 @@ CONTAINS
                             events(fptr%event_id)%time_step,    &
                             events(fptr%event_id)%delta_time,   &
                             events(fptr%event_id)%elapsed_time, &
-                            events(fptr%event_id)%event_time
+                            events(fptr%event_id)%event_time,   &
+                            events(fptr%event_id)%restart_time, &
+                            events(fptr%event_id)%lag
     ENDIF
 
-    l_end_of_run = events(fptr%event_id)%elapsed_time >= events(fptr%event_id)%restart_time + &
-                                                         events(fptr%event_id)%lag *          &
-                                                         events(fptr%event_id)%time_step
+    l_end_of_run = events(fptr%event_id)%elapsed_time >  &
+                   events(fptr%event_id)%restart_time -  &
+                   events(fptr%event_id)%lag *           &
+                   events(fptr%event_id)%time_step
+
     IF ( .NOT. l_action ) RETURN
 
     IF ( debug_coupler_level > 1 ) THEN
@@ -471,6 +476,8 @@ CONTAINS
                             fptr%event_id
 
     ENDIF
+
+    IF ( .NOT. is_restart_run() ) events(fptr%event_id)%event_time = 0
 
     ! ----------------------------------------------------------------------
     ! First check whether this process has to receive data from someone else
@@ -870,7 +877,8 @@ CONTAINS
        !
        IF ( events(fptr%event_id)%elapsed_time > &
      &      events(fptr%event_id)%lag * events(fptr%event_id)%time_step ) THEN 
-
+          IF ( debug_coupler_level > 1 ) &
+          WRITE ( cplout , * ) 'Accumulation for ', TRIM(cpl_fields(field_id)%field_name)
           fptr%accumulation_count  = fptr%accumulation_count + 1
           fptr%send_field_acc(:,:) = fptr%send_field_acc(:,:) + send_field(:,:)
 
@@ -1124,6 +1132,7 @@ CONTAINS
     CALL cpl_read_restart ( field_id, field_shape, rest_field, info, ierror )
 
     IF ( info == 0 ) THEN
+       ! no restart available
        rest_field = send_field
        msg_type   = INITIAL
        ! This is bad coding style, but ...
