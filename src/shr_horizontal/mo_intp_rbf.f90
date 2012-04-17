@@ -142,6 +142,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_intp_rbf
 !-------------------------------------------------------------------------
 !
@@ -286,7 +291,7 @@ i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
 
 DO jb = i_startblk, i_endblk
 
@@ -327,7 +332,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE rbf_vec_interpol_cell
@@ -428,7 +433,7 @@ IF (ptr_patch%id > 1) THEN
 !$OMP END WORKSHARE
 ENDIF
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
 
 DO jb = i_startblk, i_endblk
 
@@ -471,7 +476,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE rbf_interpol_c2grad
@@ -575,7 +580,7 @@ i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -609,7 +614,7 @@ DO jb = i_startblk, i_endblk
     ENDDO
 
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE rbf_vec_interpol_vertex
@@ -705,7 +710,7 @@ i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -729,7 +734,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
       ENDDO
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE rbf_vec_interpol_edge

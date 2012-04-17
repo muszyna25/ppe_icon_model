@@ -98,6 +98,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_model_domimp_patches
   !-------------------------------------------------------------------------
   
@@ -594,17 +599,13 @@ CONTAINS
       i_nchdom = p_pp%n_childdom
       IF (i_nchdom == 0) CYCLE
       
-#ifdef __SX__
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
       
       i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
       i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
       
       ! Complete parent edge information
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id)
-#endif
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         
         CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -624,10 +625,8 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-#ifdef  __SX__
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
       
     ENDDO
     

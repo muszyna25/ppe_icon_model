@@ -2,7 +2,7 @@
 #ifdef __xlC__
 ! @PROCESS nosmp
 ! @PROCESS NOOPTimize
-@PROCESS smp=noopt
+! @PROCESS smp=noopt
 @PROCESS noopt
 #endif
 #ifdef __PGI
@@ -152,6 +152,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_intp_coeffs
 !-------------------------------------------------------------------------
 !
@@ -1016,7 +1021,8 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 inv_neighbor_id = 0
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,&
+!$OMP ibc3) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1080,7 +1086,7 @@ END DO !block loop
 ! Compute coefficients for bilinear interpolation
 
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
-!$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y)
+!$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1165,7 +1171,7 @@ END DO !block loop
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 z_inv_neighbor_id = inv_neighbor_id
@@ -1197,7 +1203,8 @@ DO iter = 1, niter
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,inb1,inb2,inb3)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,inb1,&
+!$OMP inb2,inb3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1226,14 +1233,14 @@ DO iter = 1, niter
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   rl_start = 3
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1251,14 +1258,15 @@ DO iter = 1, niter
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 CALL sync_patch_array(SYNC_C,ptr_patch,resid)
 
 IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,&
+!$OMP ilc3,ibc3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1298,14 +1306,14 @@ IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
 
 ELSE ! In the last iteration, enforce the mass conservation condition
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1322,7 +1330,7 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
@@ -1339,7 +1347,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,inb2,inb3,ie4,ie5)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,&
+!$OMP inb2,inb3,ie4,ie5) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1418,7 +1427,7 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%e_flx_avg)
@@ -1428,7 +1437,7 @@ ELSE ! In the last iteration, enforce the mass conservation condition
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,inb2,inb3,ie4,ie5, &
-!$OMP            ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4,iie1,iie2,iie3,iie4)
+!$OMP            ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4,iie1,iie2,iie3,iie4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1551,7 +1560,7 @@ ELSE ! In the last iteration, enforce the mass conservation condition
   ! yield the right result for a constant wind field
 
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4, &
-!$OMP            z_nx1,z_nx2,z_nx3,z_nx4,z_nx5)
+!$OMP            z_nx1,z_nx2,z_nx3,z_nx4,z_nx5) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1594,7 +1603,7 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
@@ -1710,7 +1719,7 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(grf_nudge_start_c,1)
 i_endblk   = ptr_patch%cells%end_blk(0,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1736,7 +1745,7 @@ i_endblk   = ptr_patch%edges%end_blk(0,i_nchdom)
 
 IF (ptr_patch%id > 1 .AND. lfeedback(ptr_patch%id)) THEN
   ! Use nudging coefficients optimized for velocity boundary diffusion
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1753,10 +1762,10 @@ IF (ptr_patch%id > 1 .AND. lfeedback(ptr_patch%id)) THEN
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 ELSE
   ! Use nudging coefficients from namelist
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1774,7 +1783,7 @@ ELSE
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 ENDIF
 
 !$OMP END PARALLEL
@@ -1842,7 +1851,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells (and blocks)
 !
-!$OMP DO PRIVATE(jb,je,jc,i_startidx,i_endidx,ile,ibe)
+!$OMP DO PRIVATE(jb,je,jc,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1884,7 +1893,7 @@ rl_end = min_rlvert
   !
   ! loop through all patch cells (and blocks)
   !
-!$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe)
+!$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1922,7 +1931,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! loop through all patch cells (and blocks)
 !
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!$OMP    ilc2,ibc2,ilnc,ibnc)
+!$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2012,7 +2021,7 @@ IF (ptr_patch%cell_type == 3) THEN
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe)
+!$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2053,7 +2062,7 @@ IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe,ile1,ibe1,ile2,ibe2,ile3,ibe3,&
-!$OMP            ilc1,ilc2,ibc1,ibc2)
+!$OMP            ilc1,ilc2,ibc1,ibc2) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2191,7 +2200,7 @@ ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,z_pn_k,z_pt_k,&
 !$OMP ilc1,ibc1,ilc2,ibc2,ilv1,ibv1,ilv2,ibv2,je1,ile,ibe,z_proj,z_pn_j,&
-!$OMP jm,jn,nincr,ilr,ibr,jr1,z_lon,z_lat,z_norm,z_cart_no,z_cart_ea)
+!$OMP jm,jn,nincr,ilr,ibr,jr1,z_lon,z_lat,z_norm,z_cart_no,z_cart_ea) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         &                  i_startidx, i_endidx, rl_start, rl_end)
@@ -2473,7 +2482,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! loop through all patch cells (and blocks)
 !
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!$OMP    ilc2,ibc2,ilnc,ibnc)
+!$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2536,7 +2545,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -2640,7 +2649,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! First step: compute Cartesian coordinates of cell centers on full domain
 ! this is needed for least squares gradient reconstruction;
 !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2675,7 +2684,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! In addition, the fields for the inverse primal and dual edge lengths are
 ! initialized here.
 !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2732,7 +2741,7 @@ ENDIF
 !
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
 !$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
-!$OMP            cc_ev3,cc_ev4,z_norm)
+!$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2980,7 +2989,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -3044,7 +3053,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells
 !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,ile1,ibe1)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,ile1,ibe1) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3087,7 +3096,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -3194,7 +3203,7 @@ END SUBROUTINE complete_patchinfo
 !$OMP DO PRIVATE(jb,je,ne,nv,ilc1,ibc1,ilc2,ibc2,ilq,ibq,ilv,ibv,i_startidx, &
 !$OMP            i_endidx,xyloc_edge,xyloc_n1,xyloc_n2,xyloc_plane_n1,       &
 !$OMP            xyloc_plane_n2,xyloc_quad,xyloc_plane_quad,xyloc_ve,        &
-!$OMP            xyloc_plane_ve)
+!$OMP            xyloc_plane_ve) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3343,7 +3352,8 @@ END SUBROUTINE complete_patchinfo
     ! normalization not necessary fo cartesian vectors since these are
     ! exactly =1.
     !
-!$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,z_nx_quad,z_ny_quad)
+!$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,&
+!$OMP z_nx_quad,z_ny_quad) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3385,7 +3395,7 @@ END SUBROUTINE complete_patchinfo
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     DO ne=1,8
@@ -3501,7 +3511,7 @@ END SUBROUTINE complete_patchinfo
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,nv,nq,i_startidx,i_endidx,ilv,ibv,z_vert_cc,z_quad_cc, &
-!$OMP           z_quad_gg)
+!$OMP           z_quad_gg) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3607,7 +3617,7 @@ END SUBROUTINE complete_patchinfo
 
       END DO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_l(:,:)%lat)
@@ -4820,7 +4830,7 @@ END SUBROUTINE complete_patchinfo
     !
     ! loop through all patch cells (and blocks)
     !
-!$OMP DO PRIVATE(jb,je,jc,i_startidx,i_endidx,ile,ibe)
+!$OMP DO PRIVATE(jb,je,jc,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
@@ -4880,7 +4890,7 @@ END SUBROUTINE complete_patchinfo
     !
     ! loop through all patch cells (and blocks)
     !
-!$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe)
+!$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, jb, i_startidx, i_endidx)
 
@@ -4916,7 +4926,7 @@ END SUBROUTINE complete_patchinfo
     ! loop through all patch cells (and blocks)
     !
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!$OMP    ilc2,ibc2,ilnc,ibnc)
+!$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -5013,7 +5023,7 @@ END SUBROUTINE complete_patchinfo
       i_startblk = ptr_patch%edges%start_blk(rl_start,1)
       i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe)
+!$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -5049,7 +5059,7 @@ END SUBROUTINE complete_patchinfo
     !
     ! loop through all patch edges
     !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -5065,7 +5075,7 @@ END SUBROUTINE complete_patchinfo
       ENDDO
 
     END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 

@@ -45,6 +45,11 @@
 !!
 !! $Id: n/a$
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_grf_intp_coeffs
 !-------------------------------------------------------------------------
 !
@@ -509,16 +514,12 @@ DO jg = n_dom_start+1, n_dom
       &          'size of nested domain is too small')
   ENDIF
 
-#ifdef  __SX__
 !$OMP PARALLEL PRIVATE(wgt,i_startblk,i_endblk)
-#endif
   i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
   IF (grf_scalfbk == 1) THEN
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,sum1,ici1,icb1)
-#endif
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,sum1,ici1,icb1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -539,17 +540,14 @@ DO jg = n_dom_start+1, n_dom
         p_grfp%fbk_wgt_c(jc,jb,1:4) = wgt(1:4)/sum1
       ENDDO
     ENDDO
-#ifdef  __SX__
 !$OMP END DO
-#endif
 
   ELSE IF (grf_scalfbk == 2) THEN
 
-#ifdef  __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,z_lon,z_lat,z_norm,z_nx1,z_nx2,x,y, &
 !$OMP            ici1,icb1,ici2,icb2,ici3,icb3,ici4,icb4,cc_center,            &
-!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,cc_dis4)
-#endif
+!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,&
+!$OMP  cc_dis4) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -647,15 +645,11 @@ DO jg = n_dom_start+1, n_dom
         p_grfp%fbk_wgt_c(jc,jb,1:4) = wgt(1:4)
       ENDDO
     ENDDO
-#ifdef  __SX__
 !$OMP END DO
-#endif
   ENDIF
 
   IF (grf_tracfbk == 1) THEN
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,sum1,ici1,icb1)
-#endif
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,sum1,ici1,icb1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -676,17 +670,14 @@ DO jg = n_dom_start+1, n_dom
         p_grfp%fbk_wgt_ct(jc,jb,1:4) = wgt(1:4)/sum1
       ENDDO
     ENDDO
-#ifdef  __SX__
 !$OMP END DO
-#endif
 
   ELSE IF (grf_tracfbk == 2) THEN
 
-#ifdef  __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,z_lon,z_lat,z_norm,z_nx1,z_nx2,x,y, &
 !$OMP            ici1,icb1,ici2,icb2,ici3,icb3,ici4,icb4,cc_center,            &
-!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,cc_dis4)
-#endif
+!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,&
+!$OMP cc_dis4) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -781,9 +772,7 @@ DO jg = n_dom_start+1, n_dom
         p_grfp%fbk_wgt_ct(jc,jb,1:4) = wgt(1:4)
       ENDDO
     ENDDO
-#ifdef  __SX__
 !$OMP END DO
-#endif
   ENDIF
 
 
@@ -794,9 +783,7 @@ DO jg = n_dom_start+1, n_dom
     i_startblk = p_gep%start_blk(grf_bdyintp_start_e,i_chidx)
     i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,j,sum1,ki,kb)
-#endif
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,j,sum1,ki,kb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -816,9 +803,7 @@ DO jg = n_dom_start+1, n_dom
         ENDDO
       ENDDO
     ENDDO
-#ifdef  __SX__
 !$OMP END DO
-#endif
 
   ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
                                  ! using RBF reconstruction to child vertices
@@ -826,9 +811,7 @@ DO jg = n_dom_start+1, n_dom
     i_startblk = p_gep%start_blk(grf_bdyintp_start_e,i_chidx)
     i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,j,j1,j2,ki,kb,js1,js2)
-#endif
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,j,j1,j2,ki,kb,js1,js2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -868,14 +851,10 @@ DO jg = n_dom_start+1, n_dom
         ENDIF
       ENDDO
     ENDDO
-#ifdef  __SX__
-!$OMP END DO
-#endif
+!$OMP END DO NOWAIT
 
   ENDIF
-#ifdef  __SX__
 !$OMP END PARALLEL
-#endif
 
   IF (ANY(ierrcount(:) > 0)) THEN
     CALL finish ('init_fbk_wgt',  &
@@ -984,7 +963,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,iipv1,ibpv1,iipv2,ibpv2,ierror, &
 !$OMP    iice,ibce,iicc,ibcc,iipc,ibpc,ii2,ii3,ii4,ii5,iie,ibe,            &
-!$OMP    z_nx1,z_nx2)
+!$OMP    z_nx1,z_nx2) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = i_startblk, i_endblk
 
@@ -1256,7 +1235,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       ENDIF
 
     ENDDO ! block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ENDDO CD_LOOP
@@ -1405,7 +1384,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je1,je2,je,istencil,iie1,ibe1,iie2,ibe2,       &
 !$OMP            cc_e1,cc_e2,z_nx1,z_nx2,z_dist,z_nxprod, &
-!$OMP            iiec,ibec,cc_childedge,cc_cer,cc_e2r,checksum_vt)
+!$OMP            iiec,ibec,cc_childedge,cc_cer,cc_e2r,checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx,&
@@ -1556,7 +1535,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1699,7 +1678,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 ! Note: OMP directives do not work in combination with subroutine inlining on the NEC
 !$OMP DO PRIVATE (je,je1,iie1,ibe1,cc_e,cc_e1,                       &
 !$OMP    z_mindist,z_nx1,z_wgtsum,      &
-!$OMP    z_nx2,z_nxprod,z_dist,iiec,ibec,cc_childedge)
+!$OMP    z_nx2,z_nxprod,z_dist,iiec,ibec,cc_childedge) ICON_OMP_DEFAULT_SCHEDULE
     DO je = i_startidx, i_endidx
 
       ! 1a) child edge 1
@@ -1940,7 +1919,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       END DO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
   ENDDO ! blocks
 
   ! deallocate temporary array

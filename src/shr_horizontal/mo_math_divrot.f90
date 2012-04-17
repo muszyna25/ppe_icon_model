@@ -102,6 +102,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_math_divrot
 !-------------------------------------------------------------------------
 !
@@ -272,7 +277,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ! 1. reconstruction of cell based gradient (geographical components)
   !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -342,7 +347,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ENDIF
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE recon_lsq_cell_l
@@ -460,7 +465,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ! 1. reconstruction of cell based gradient (geographical components)
   !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -524,7 +529,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ENDIF
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE recon_lsq_cell_l_svd
@@ -672,7 +677,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -759,13 +764,13 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ELSEIF (ptr_patch%cell_type == 6) THEN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -845,7 +850,7 @@ ELSEIF (ptr_patch%cell_type == 6) THEN
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ENDIF
@@ -980,7 +985,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1050,13 +1055,13 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ELSEIF (ptr_patch%cell_type == 6) THEN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b) ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1119,7 +1124,7 @@ ELSEIF (ptr_patch%cell_type == 6) THEN
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ENDIF
@@ -1268,7 +1273,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1373,7 +1378,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1508,7 +1513,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1582,7 +1587,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1731,7 +1736,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1857,7 +1862,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1996,7 +2001,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2076,7 +2081,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -2210,7 +2215,7 @@ SELECT CASE (ptr_patch%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2276,7 +2281,7 @@ CASE (3) ! (cell_type == 3)
 
     ENDIF
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 CASE (6) ! (cell_type == 6)
 
@@ -2284,7 +2289,7 @@ CASE (6) ! (cell_type == 6)
   nblks_c   = ptr_patch%nblks_int_c
   npromz_c  = ptr_patch%npromz_int_c
 
-!$OMP DO PRIVATE(jb,nlen,jc,jk)
+!$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -2313,7 +2318,7 @@ CASE (6) ! (cell_type == 6)
       END DO
     END DO
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 END SELECT
 !$OMP END PARALLEL
@@ -2420,7 +2425,7 @@ SELECT CASE (ptr_patch%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2447,7 +2452,7 @@ CASE (3) ! (cell_type == 3)
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 CASE (6) ! (cell_type == 6)
 
@@ -2455,7 +2460,7 @@ CASE (6) ! (cell_type == 6)
   nblks_c   = ptr_patch%nblks_int_c
   npromz_c  = ptr_patch%npromz_int_c
 
-!$OMP DO PRIVATE(jb,nlen,jc,jk,ji)
+!$OMP DO PRIVATE(jb,nlen,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -2488,7 +2493,7 @@ CASE (6) ! (cell_type == 6)
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 END SELECT
 !$OMP END PARALLEL
@@ -2621,7 +2626,7 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end_l1,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2700,7 +2705,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! loop through all patch cells (and blocks)
 !
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2759,7 +2764,7 @@ DO jb = i_startblk, i_endblk
   ENDIF
 
 END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE div_avg
@@ -2863,7 +2868,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! loop through all patch edges (and blocks)
 !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2888,7 +2893,7 @@ DO jb = i_startblk, i_endblk
   END DO
 
 END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE div_quad_twoadjcells
@@ -3004,7 +3009,7 @@ CASE (3)
   i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3052,7 +3057,7 @@ CASE (3)
     END DO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 CASE (6) ! (cell_type == 6)
@@ -3066,7 +3071,7 @@ CASE (6) ! (cell_type == 6)
   npromz_v  = ptr_patch%npromz_int_v
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jv,jk)
+!$OMP DO PRIVATE(jb,nlen,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_v
     IF (jb /= nblks_v) THEN
       nlen = nproma
@@ -3099,7 +3104,7 @@ CASE (6) ! (cell_type == 6)
     END DO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 END SELECT
 

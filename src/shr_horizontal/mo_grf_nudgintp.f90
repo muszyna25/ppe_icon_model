@@ -38,6 +38,11 @@
 !!
 !! $Id: n/a$
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_grf_nudgintp
 !-------------------------------------------------------------------------
 !
@@ -176,7 +181,7 @@ i_nchdom = MAX(1,ptr_pc%n_childdom)
 i_startblk = ptr_pp%verts%start_blk(grf_nudgintp_start_c,i_chidx)
 i_endblk   = ptr_pp%verts%end_blk(min_rlvert_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_pp, jb, i_startblk, i_endblk, &
@@ -215,7 +220,7 @@ ENDDO
 i_startblk = ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx)
 i_endblk   = ptr_pp%edges%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,dvn_tang)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
 DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
@@ -305,7 +310,7 @@ ENDDO ! blocks
 i_startblk = ptr_pc%edges%start_blk(grf_nudge_start_e,1)
 i_endblk   = ptr_pc%edges%end_blk(min_rledge_int,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pc, jb, i_startblk, i_endblk, &
@@ -325,7 +330,7 @@ DO jb =  i_startblk, i_endblk
   ENDDO
 #endif
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -501,7 +506,7 @@ DO jn = 1, nfields
 
 !$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx,grad_x,grad_y,min_expval, &
 !$OMP   max_expval,limfac1,limfac2,limfac,maxval_neighb,minval_neighb,   &
-!$OMP   relaxed_minval,relaxed_maxval)
+!$OMP   relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -644,7 +649,7 @@ DO jn = 1, nfields
 
   elev = UBOUND(p_out(jn)%fld,2)
 
-!$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -693,7 +698,7 @@ DO jn = 1, nfields
 
     ENDIF
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 ENDDO
 
 !$OMP END PARALLEL

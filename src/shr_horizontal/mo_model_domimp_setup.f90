@@ -95,6 +95,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_model_domimp_setup
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
@@ -160,7 +165,7 @@ CONTAINS
     npromz_e = p_patch%npromz_e
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,nlen,z_lon,z_lat,z_u,z_v,z_norm,z_vec)
+!$OMP DO PRIVATE(jb,je,nlen,z_lon,z_lat,z_u,z_v,z_norm,z_vec) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       
       IF (jb /= nblks_e) THEN
@@ -216,7 +221,7 @@ CONTAINS
       END DO
       
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
   END SUBROUTINE calculate_cart_normal
@@ -273,7 +278,8 @@ CONTAINS
     ENDIF
     
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,iie,ilc1,ibc1,ilc2,ibc2,ile1,ibe1,ile2,ibe2,&
-!$OMP            ile3,ibe3,iie1,iie2,ierror,ilv1,ibv1,ilv2,ibv2,ilev,ibev,jjev)
+!$OMP            ile3,ibe3,iie1,iie2,ierror,ilv1,ibv1,ilv2,ibv2,ilev,ibev,&
+!$OMP jjev) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, nblks_e
       
       CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, &
@@ -431,7 +437,7 @@ CONTAINS
       ENDIF ! cell_type
       
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
     CALL sync_patch_array(sync_e,p_patch,p_patch%edges%quad_area)

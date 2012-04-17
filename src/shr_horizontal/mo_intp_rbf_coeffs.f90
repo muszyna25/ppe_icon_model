@@ -151,6 +151,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_intp_rbf_coeffs
 !-------------------------------------------------------------------------
 !
@@ -496,7 +501,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
     CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
       &             'allocation for ile, ibe failed')
   ENDIF
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jje,istencil,ll_pent,iie)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jje,istencil,ll_pent,iie) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_v
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, nblks_v, &
@@ -558,7 +563,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
     END DO ! end vertex loop
 
   END DO ! end block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   DEALLOCATE( ile, ibe, STAT=ist )
   IF (ist /= SUCCESS) THEN
@@ -792,7 +797,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 !$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,      &
 !$OMP             ist,ile1,ibe1,cc_e1,z_lon,z_lat,z_norm,      &
 !$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,z_nx2,z_nxprod,z_dist,      &
-!$OMP             cc_center,z_nx3,checksum_u,checksum_v)
+!$OMP             cc_center,z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
@@ -982,7 +987,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, z_rhs1, z_rhs2,  &
     STAT=ist )
@@ -1058,7 +1063,7 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jcc,jc,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!$OMP    ilc2,ibc2,ilcc,ibcc,aux_coeff)
+!$OMP    ilc2,ibc2,ilcc,ibcc,aux_coeff) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
@@ -1119,7 +1124,7 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
     ENDDO
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   DO jcc = 1, rbf_c2grad_dim
@@ -1244,7 +1249,8 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
 !$OMP DO PRIVATE (jb,jv,i_startidx,i_endidx,je1,je2,istencil,ist,ile1,ibe1, &
 !$OMP             cc_e1,z_lon,z_lat,z_norm,z_nx1,ile2,ibe2,cc_e2,cc_v,      &
-!$OMP             z_nx2,z_nxprod,z_dist,cc_vertex,z_nx3,checksum_u,checksum_v)
+!$OMP             z_nx2,z_nxprod,z_dist,cc_vertex,z_nx3,checksum_u,&
+!$OMP checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_v
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, nblks_v, &
@@ -1436,7 +1442,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, z_rhs1, z_rhs2,  &
     STAT=ist )
@@ -1591,7 +1597,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
 !$OMP DO PRIVATE (jb,je,i_startidx,i_endidx,je1,je2,istencil,        &
 !$OMP    ist,ile1,ibe1,cc_e1,z_nu,z_nv,z_lon,z_lat,z_norm,z_nx1,     &
-!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,cc_edge,checksum_vt)
+!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,cc_edge,&
+!$OMP checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
@@ -1762,7 +1769,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
   IF (ist /= SUCCESS) THEN

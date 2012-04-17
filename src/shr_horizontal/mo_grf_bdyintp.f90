@@ -38,6 +38,11 @@
 !!
 !! $Id: n/a$
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_grf_bdyintp
 !-------------------------------------------------------------------------
 !
@@ -236,7 +241,7 @@ DO jb =  i_startblk, i_endblk
   ENDDO
 #else
 
-!$OMP DO PRIVATE (jk,je)
+!$OMP DO PRIVATE (jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 
@@ -310,7 +315,7 @@ IF (my_process_is_mpi_seq()) THEN
     CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
       i_startidx, i_endidx, grf_bdyintp_start_e, grf_bdyintp_end_e, i_chidx)
 
-!$OMP DO PRIVATE (jk,je)
+!$OMP DO PRIVATE (jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jk = 1, nlev_c
 !CDIR NODEP,VOVERTAKE,VOB
       DO je = i_startidx, i_endidx
@@ -325,7 +330,7 @@ IF (my_process_is_mpi_seq()) THEN
 
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
   ENDDO
 
 ENDIF
@@ -440,7 +445,7 @@ js = ptr_pc%nshift
 i_startblk = ptr_pp%verts%start_blk(grf_bdyintp_start_c,i_chidx)
 i_endblk   = ptr_pp%verts%end_blk(grf_bdyintp_end_c-1,i_chidx)
 
-!$OMP DO PRIVATE(jk,jv)
+!$OMP DO PRIVATE(jk,jv) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_pp, jb, i_startblk, i_endblk, &
@@ -481,7 +486,7 @@ ENDDO
 i_startblk = ptr_pp%edges%start_blk(grf_bdyintp_start_e,i_chidx)
 i_endblk   = ptr_pp%edges%end_blk(grf_bdyintp_end_e,i_chidx)
 
-!$OMP DO PRIVATE (jk,je,dvn_tang)
+!$OMP DO PRIVATE (jk,je,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
 DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
@@ -599,7 +604,7 @@ ENDDO ! blocks
 
 IF (my_process_is_mpi_seq()) THEN
 
-!$OMP DO PRIVATE (jk,je)
+!$OMP DO PRIVATE (jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
@@ -827,7 +832,7 @@ IF (p_test_run) h_aux = 0._wp
 IF (l_par_fields) THEN ! parallelization over fields
 !$OMP DO PRIVATE (jk,jc,grad_x,grad_y,min_expval,max_expval,limfac1, &
 !$OMP   limfac2,limfac,maxval_neighb,minval_neighb,relaxed_minval,   &
-!$OMP   relaxed_maxval)
+!$OMP   relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
 
   DO jn = 1, nfields
 
@@ -995,7 +1000,7 @@ ELSE ! parallelization over jb loop
 
 !$OMP DO PRIVATE (jk,jc,grad_x,grad_y,min_expval,max_expval,limfac1,  &
 !$OMP   limfac2,limfac,maxval_neighb,minval_neighb,relaxed_minval,    &
-!$OMP   relaxed_maxval)
+!$OMP   relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -1163,7 +1168,7 @@ IF (my_process_is_mpi_seq()) THEN
 
     elev = UBOUND(p_out(jn)%fld,2)
 
-!$OMP DO PRIVATE (jk,jc)
+!$OMP DO PRIVATE (jk,jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -1186,7 +1191,7 @@ IF (my_process_is_mpi_seq()) THEN
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
   ENDDO
 
 ENDIF

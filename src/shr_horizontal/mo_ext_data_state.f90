@@ -47,6 +47,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
@@ -304,7 +309,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,it_count)
+!$OMP            tile_mask,lu_subs,sum_frac,it_count) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -428,7 +433,7 @@ CONTAINS
          END DO ! jc
 
        END DO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
          ! Some useful diagnostics

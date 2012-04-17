@@ -142,6 +142,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_intp
   !-------------------------------------------------------------------------
   !
@@ -259,7 +264,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 
 ! loop over edges and blocks
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -285,7 +290,7 @@ DO jb = i_startblk, i_endblk
   END DO
 
 END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 IF (ltimer) CALL timer_stop(timer_intp)
@@ -388,7 +393,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 
 !$OMP PARALLEL
 IF (slev > 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -413,9 +418,9 @@ IF (slev > 1) THEN
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 ELSE
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -440,7 +445,7 @@ ELSE
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 ENDIF
 !$OMP END PARALLEL
 
@@ -537,7 +542,7 @@ IF (ptr_patch%cell_type == 6) THEN
   nblks_v   = ptr_patch%nblks_int_v
   npromz_v  = ptr_patch%npromz_int_v
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jv,jk)
+!$OMP DO PRIVATE(jb,nlen,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_v
 
     IF (jb /= nblks_v) THEN
@@ -569,7 +574,7 @@ IF (ptr_patch%cell_type == 6) THEN
 ELSE IF (ptr_patch%cell_type == 3) THEN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -596,7 +601,7 @@ ELSE IF (ptr_patch%cell_type == 3) THEN
     ENDDO
 
   ENDDO  !loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ENDIF
 
@@ -688,7 +693,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 !loop over blocks and cells
 IF (ptr_patch%cell_type == 3) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -712,13 +717,13 @@ IF (ptr_patch%cell_type == 3) THEN
     ENDDO
 
   ENDDO  !loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ELSE IF (ptr_patch%cell_type == 6) THEN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -745,7 +750,7 @@ ELSE IF (ptr_patch%cell_type == 6) THEN
     ENDDO
 
   ENDDO  !loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ENDIF
 
@@ -837,7 +842,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 IF (ltimer) CALL timer_start(timer_intp)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -872,7 +877,7 @@ DO jb = i_startblk, i_endblk
      ENDDO
    ENDDO
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 IF (ltimer) CALL timer_stop(timer_intp)
@@ -957,7 +962,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 
 IF (ptr_patch%cell_type == 6) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -982,11 +987,11 @@ IF (ptr_patch%cell_type == 6) THEN
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ELSE IF (ptr_patch%cell_type == 3) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1014,7 +1019,7 @@ ELSE IF (ptr_patch%cell_type == 3) THEN
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ENDIF
 
@@ -1082,7 +1087,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 
 IF (ptr_patch%cell_type == 3) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jc,jk)
+!$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -1109,11 +1114,11 @@ IF (ptr_patch%cell_type == 3) THEN
     ENDDO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ELSE IF (ptr_patch%cell_type == 6) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jc,jk)
+!$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -1143,7 +1148,7 @@ ELSE IF (ptr_patch%cell_type == 6) THEN
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ENDIF
@@ -1217,7 +1222,7 @@ npromz_e = ptr_patch%npromz_int_e
 IF (ltimer) CALL timer_start(timer_intp)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,je,jk)
+!$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
     IF (jb /= nblks_e) THEN
       nlen = nproma
@@ -1241,7 +1246,7 @@ IF (ltimer) CALL timer_start(timer_intp)
       ENDDO
     ENDDO
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 IF (ltimer) CALL timer_stop(timer_intp)
@@ -1350,7 +1355,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   IF (ltimer) CALL timer_start(timer_intp)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1378,7 +1383,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
     END DO !vertical levels loop
 
   END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   IF (ltimer) CALL timer_stop(timer_intp)

@@ -96,6 +96,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_math_gradients
 !-------------------------------------------------------------------------
 !
@@ -248,7 +253,7 @@ CASE (3) ! (cell_type == 3)
 
 #ifdef __SX__
 IF (slev > 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -283,7 +288,7 @@ IF (slev > 1) THEN
 ELSE
 #endif
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -315,7 +320,7 @@ ELSE
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 #ifdef __SX__
 ENDIF
 #endif
@@ -325,7 +330,7 @@ CASE (6) ! (cell_type == 6)
   nblks_e   = ptr_patch%nblks_int_e
   npromz_e  = ptr_patch%npromz_int_e
 
-!$OMP DO PRIVATE(jb,nlen,je,jk)
+!$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
 
     IF (jb /= nblks_e) THEN
@@ -358,7 +363,7 @@ CASE (6) ! (cell_type == 6)
 
 END DO
 
-!$OMP END DO
+!$OMP END DO NOWAIT
 END SELECT
 !$OMP END PARALLEL
 
@@ -636,7 +641,7 @@ SELECT CASE (ptr_patch%cell_type)
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -709,7 +714,7 @@ SELECT CASE (ptr_patch%cell_type)
     ENDIF
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 CASE(6) ! (cell_type == 6)
@@ -719,7 +724,7 @@ CASE(6) ! (cell_type == 6)
   nblks_c = ptr_patch%nblks_int_c
   npromz_c = ptr_patch%npromz_int_c
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,nlen)
+!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
     IF (jb /= nblks_c) THEN
       nlen = nproma
@@ -760,7 +765,7 @@ CASE(6) ! (cell_type == 6)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 END SELECT
 END SUBROUTINE grad_green_gauss_cell
@@ -812,7 +817,7 @@ END SUBROUTINE grad_green_gauss_cell
     nlev = pt_patch%nlev
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,je,z_sign)
+!$OMP DO PRIVATE(jb,nlen,jk,je,z_sign) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -865,7 +870,7 @@ END SUBROUTINE grad_green_gauss_cell
       ENDDO
 #endif
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE grad_dir_edge

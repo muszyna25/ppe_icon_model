@@ -35,6 +35,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_prepicon_utils
 
   USE mo_kind
@@ -741,7 +746,7 @@ MODULE mo_prepicon_utils
       ntl       = nnow(jg)
       ntlr      = nnow_rcf(jg)
 
-!$OMP DO PRIVATE(jb,jk,je,nlen)
+!$OMP DO PRIVATE(jb,jk,je,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
 
         IF (jb /= nblks_e) THEN
@@ -760,7 +765,7 @@ MODULE mo_prepicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js,jp)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js,jp) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -868,7 +873,7 @@ MODULE mo_prepicon_utils
         ENDIF
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ENDDO
 !$OMP END PARALLEL

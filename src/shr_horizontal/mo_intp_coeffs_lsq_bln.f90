@@ -2,7 +2,7 @@
 #ifdef __xlC__
 ! @PROCESS nosmp
 ! @PROCESS NOOPTimize
-@PROCESS smp=noopt
+! @PROCESS smp=noopt
 @PROCESS noopt
 #endif
 #ifdef __PGI
@@ -152,6 +152,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_intp_coeffs_lsq_bln
 !-------------------------------------------------------------------------
 !
@@ -265,7 +270,8 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
     ! The stencil consists of 9 cells surrounding the control volume. The 3 direct
     ! neighbors and the neighbors of the direct neighbors are taken.
     !
-!$OMP DO PRIVATE(jb,jc,jec,jj,i_startidx,i_endidx,cnt,ilc,ibc,ilc_n,ibc_n)
+!$OMP DO PRIVATE(jb,jc,jec,jj,i_startidx,i_endidx,cnt,ilc,ibc,ilc_n,&
+!$OMP ibc_n) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, nblks_c
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c,     &
@@ -320,7 +326,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
     ! Note: At pentagon points the size of the stencil reduces to 11.
     !
 !$OMP DO PRIVATE(jb,jc,jec,jj,jtri,i_startidx,i_endidx,cnt,ilv,ibv, &
-!$OMP            ilc_v,ibc_v,ilc_n,ibc_n)
+!$OMP            ilc_v,ibc_v,ilc_n,ibc_n) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, nblks_c
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c,     &
@@ -382,7 +388,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
       ENDDO ! loop over cells
 
     ENDDO ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   ENDIF
 !$OMP END PARALLEL
@@ -558,7 +564,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 !!$OMP PARALLEL
 !!$OMP DO PRIVATE(jb,jc,js,jec,i_startidx,i_endidx,jlv,jbv,ilc_s,ibc_s, &
 !!$OMP            xloc,yloc,xytemp_c,xytemp_v,z_norm,distxy_v,z_rcarea, &
-!!$OMP            delx,dely,fx,fy,fxx,fyy,fxy,jecp,nverts)
+!!$OMP            delx,dely,fx,fy,fxx,fyy,fxy,jecp,nverts) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c,     &
@@ -863,7 +869,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     END DO  ! loop over cells
 
   END DO  ! loop over blocks
-!!$OMP END DO
+!!$OMP END DO NOWAIT
 !! For unknown reasons, closing the parallel section here is needed to get the above
 !! loop parallelized.
 !!$OMP END PARALLEL
@@ -879,7 +885,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 !$OMP PARALLEL PRIVATE(jb,jc,js,ju,jja,jjb,jjk,i_startidx,i_endidx,ilc_s,ibc_s, &
 !$OMP            z_lsq_mat_c,zs,zu,zv_t,zwork,ziwork,ist,icheck,za_debug, &
 !$OMP            z_qmat,z_rmat,cnt,jrow,nel)
-!$OMP DO
+!$OMP DO ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
@@ -1142,7 +1148,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ENDIF  ! llsq_svd
 
   END DO  ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   DO ju = 1, lsq_dim_unk
@@ -1222,7 +1228,7 @@ REAL(wp) :: z_sum
   ! loop over all blocks and edges
 
 !$OMP PARALLEL PRIVATE(i_startblk)
-!$OMP DO PRIVATE(jb,je,nlen)
+!$OMP DO PRIVATE(jb,je,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
 
     IF (jb /= nblks_e) THEN
@@ -1245,7 +1251,7 @@ REAL(wp) :: z_sum
   ! The calculation cannot be done for boundary edges
   i_startblk = ptr_patch%edges%start_blk(2,1)
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2,ilv1,ilv2,&
-!$OMP            ibv1,ibv2)
+!$OMP            ibv1,ibv2) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
@@ -1287,7 +1293,7 @@ REAL(wp) :: z_sum
   IF (ptr_patch%cell_type == 6) THEN
     ! The calculation cannot be done for boundary edges
     i_startblk = ptr_patch%edges%start_blk(2,1)
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, nblks_e
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
@@ -1312,7 +1318,8 @@ REAL(wp) :: z_sum
   !-------------------------------------------------------
   ! loop over all blocks and cells
 
-!$OMP DO PRIVATE(jb,jc,je,jv,nlen,ile,ibe,idx_ce,ilv1,ilv2,ibv1,ibv2,ilv,ibv,z_sum)
+!$OMP DO PRIVATE(jb,jc,je,jv,nlen,ile,ibe,idx_ce,ilv1,ilv2,ibv1,ibv2,&
+!$OMP ilv,ibv,z_sum) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
     IF (jb /= nblks_c) THEN
       nlen = nproma
@@ -1396,7 +1403,7 @@ REAL(wp) :: z_sum
 
   i_startblk = ptr_patch%verts%start_blk(2,1)
 !$OMP DO PRIVATE(jb,jc,je,jv,i_startidx,i_endidx,ile,ibe,idx_ve,ilc,ibc, &
-!$OMP            ilc1,ilc2,ibc1,ibc2 )
+!$OMP            ilc1,ilc2,ibc1,ibc2 ) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_v
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, nblks_v, &
@@ -1462,7 +1469,7 @@ REAL(wp) :: z_sum
     ENDDO !loop over all cells
 
   ENDDO   !loop over all blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%area_edge)
@@ -1527,7 +1534,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! loop through all patch cells (and blocks)
 !
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
-!$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y)
+!$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1619,7 +1626,8 @@ rl_start = 2
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,ile3,ibe3)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,&
+!$OMP ile3,ibe3) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1722,7 +1730,7 @@ DO jb = i_startblk, i_endblk
   ENDDO !cell loop
 
 END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)

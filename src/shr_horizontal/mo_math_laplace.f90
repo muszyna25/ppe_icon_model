@@ -96,6 +96,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_math_laplace
 !-------------------------------------------------------------------------
 !
@@ -298,7 +303,7 @@ CASE (3) ! (cell_type == 3)
                    opt_rlstart=rl_start_v, opt_rlend=rl_end_v)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -326,7 +331,7 @@ CASE (3) ! (cell_type == 3)
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 CASE (6) ! (cell_type == 6)
@@ -349,7 +354,7 @@ CASE (6) ! (cell_type == 6)
   npromz_e  = ptr_patch%npromz_int_e
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,je,jk)
+!$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
 
     IF (jb /= nblks_e) THEN
@@ -380,7 +385,7 @@ CASE (6) ! (cell_type == 6)
     END DO
 
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 END SELECT
 
@@ -757,7 +762,7 @@ CASE (3) ! (cell_type == 3)
 IF (slev == elev) THEN
   jk = slev
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     IF (jb == i_startblk) THEN
@@ -785,13 +790,13 @@ IF (slev == elev) THEN
 
     END DO
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ELSE
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -819,7 +824,7 @@ ELSE
 
     END DO !vertical levels loop
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 ENDIF
 CASE (6) ! (cell_type == 6) THEN ! Use unoptimized version for the time being
@@ -926,7 +931,7 @@ IF (slev == elev) THEN
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     IF (jb == i_startblk) THEN
@@ -974,7 +979,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     IF (jb == i_startblk) THEN
@@ -1013,7 +1018,7 @@ ELSE
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1061,7 +1066,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1299,7 +1304,7 @@ END SUBROUTINE nabla4_scalar
     npromz_e = pt_patch%npromz_int_e
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,je,z_sign)
+!$OMP DO PRIVATE(jb,nlen,jk,je,z_sign) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -1344,7 +1349,7 @@ END SUBROUTINE nabla4_scalar
       ENDDO
 #endif
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE directional_laplace

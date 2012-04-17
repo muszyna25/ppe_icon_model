@@ -52,6 +52,11 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nonlinear_adv
 !-------------------------------------------------------------------------
 !
@@ -189,7 +194,7 @@ CASE (3) ! for triangular grid (cell_type == 3)
   i_rcstartlev = 2  ! for rbf_vec_dim_edge==4
   i_startblk = pt_patch%edges%start_blk(i_rcstartlev,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 
     CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -203,7 +208,7 @@ CASE (3) ! for triangular grid (cell_type == 3)
       ENDDO
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ! Bilinear interpolation of kinetic energy from the edges to the cells
   CALL edges2cells_scalar( z_kin_e, pt_patch, pt_int%e_bln_c_s,  &
@@ -219,7 +224,7 @@ CASE (6) ! for hexagonal/pentagonal grids (cell_type == 6)
   ! kinetic energy is only formed of normal components
   !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,je)
+!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
     IF (jb /= nblks_e) THEN
       nlen = nproma
@@ -232,7 +237,7 @@ CASE (6) ! for hexagonal/pentagonal grids (cell_type == 6)
       ENDDO
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL edges2cells_scalar( z_kin_e,        & ! kin energy comp at edges
@@ -252,7 +257,7 @@ CASE (6) ! for hexagonal/pentagonal grids (cell_type == 6)
                              pt_int%verts_aw_cells,&! interpolation coeffs
                              z_aux   ) ! kine at centers
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -264,7 +269,7 @@ CASE (6) ! for hexagonal/pentagonal grids (cell_type == 6)
         &  sick_a*z_aux(1:nlen,jk,jb) + sick_o*pt_diag%e_kin(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ENDIF
@@ -375,7 +380,7 @@ CASE (3) ! triangles (cell_type == 3)
   i_endblk   = pt_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
@@ -392,7 +397,7 @@ CASE (3) ! triangles (cell_type == 3)
     !!    in fact the opposite from what is written in BR05.
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
           !
 CASE (6)  ! hexagons/pentagons (cell_type == 6)
@@ -405,7 +410,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
   npromz_e  = pt_patch%npromz_int_e
   ! loop over blocks and verts
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
     IF (jb /= nblks_e) THEN
       nlen = nproma
@@ -418,7 +423,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
                                   /pt_diag%delp_e(1:nlen,jk,jb)
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   !
@@ -436,7 +441,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
       nincr = 10
     END SELECT
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,ji,je)
+!$OMP DO PRIVATE(jb,nlen,jk,ji,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -461,7 +466,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CASE (3)
@@ -491,7 +496,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
 
     ! third, multiply the absolute vorticities with the velocities,
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -503,8 +508,8 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
         z_v_e(1:nlen,jk,jb) = z_v_e(1:nlen,jk,jb)*z_potvort_r(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP END DO NOWAIT
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -516,12 +521,12 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
         z_v_c(1:nlen,jk,jb) = z_v_c(1:nlen,jk,jb)*z_potvort_c(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !$OMP PARALLEL
     ! fourth, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je)
+!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -553,7 +558,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CASE (4)
@@ -582,7 +587,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
 
 !$OMP PARALLEL
     ! third, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je)
+!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -620,7 +625,7 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

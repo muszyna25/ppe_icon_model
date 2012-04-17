@@ -38,6 +38,11 @@
 !!
 !! $Id: n/a$
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_grf_ubcintp
 !-------------------------------------------------------------------------
 !
@@ -147,7 +152,7 @@ i_nchdom = MAX(1,ptr_pc%n_childdom)
 i_startblk = ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx)
 i_endblk   = ptr_pp%edges%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
@@ -214,7 +219,7 @@ ENDDO
 
 IF (my_process_is_mpi_seq()) THEN
 
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
@@ -230,7 +235,7 @@ IF (my_process_is_mpi_seq()) THEN
     ENDDO
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 ENDIF ! not MPI-parallel
 
@@ -342,7 +347,7 @@ ichcblk => ptr_pp%cells%child_blk
 
 !$OMP DO PRIVATE (jc,grad_x,grad_y,min_expval,max_expval,limfac1,  &
 !$OMP   limfac2,limfac,maxval_neighb,minval_neighb,relaxed_minval, &
-!$OMP   relaxed_maxval)
+!$OMP   relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -502,7 +507,7 @@ ichcblk => ptr_pp%cells%child_blk
 
   IF (my_process_is_mpi_seq()) THEN
 
-!$OMP DO PRIVATE (jc,jn)
+!$OMP DO PRIVATE (jc,jn) ICON_OMP_DEFAULT_SCHEDULE
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -526,7 +531,7 @@ ichcblk => ptr_pp%cells%child_blk
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   ENDIF
 !$OMP END PARALLEL
