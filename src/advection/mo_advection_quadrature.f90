@@ -101,7 +101,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE prep_gauss_quadrature_q( p_patch, p_coords_dreg_v,         &
-    &                                 p_quad_vector_sum, p_rdreg_area,  &
+    &                                 p_quad_vector_sum, p_dreg_area,   &
     &                                 opt_rlstart, opt_rlend, opt_slev, &
     &                                 opt_elev )
 
@@ -117,8 +117,8 @@ CONTAINS
     REAL(wp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,6,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< reciprocal area of departure region
-      &  p_rdreg_area(:,:,:)        !< dim: (nproma,nlev,nblks_e)
+    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+      &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
       &  opt_rlstart
@@ -247,8 +247,8 @@ CONTAINS
           p_quad_vector_sum(je,6,jk,jb) = SUM(z_quad_vector(:,6))
 
 
-          ! reciprocal area of departure region
-          p_rdreg_area(je,jk,jb) = 1._wp/SUM(wgt_t_detjac(1:4))
+          ! area of departure region
+          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
 
         ENDDO ! loop over edges
 
@@ -281,7 +281,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE prep_gauss_quadrature_cpoor( p_patch, p_coords_dreg_v,         &
-    &                                     p_quad_vector_sum, p_rdreg_area,  &
+    &                                     p_quad_vector_sum, p_dreg_area,   &
     &                                     opt_rlstart, opt_rlend, opt_slev, &
     &                                     opt_elev                          )
 
@@ -297,8 +297,8 @@ CONTAINS
     REAL(wp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,8,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< reciprocal area of departure region
-      &  p_rdreg_area(:,:,:)        !< dim: (nproma,nlev,nblks_e)
+    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+      &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
       &  opt_rlstart
@@ -431,8 +431,8 @@ CONTAINS
           p_quad_vector_sum(je,8,jk,jb) = SUM(z_quad_vector(:,8))
 
 
-          ! reciprocal area of departure region
-          p_rdreg_area(je,jk,jb) = 1._wp/SUM(wgt_t_detjac(1:4))
+          ! area of departure region
+          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
 
         ENDDO ! loop over edges
 
@@ -464,7 +464,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE prep_gauss_quadrature_c( p_patch, p_coords_dreg_v,         &
-    &                                 p_quad_vector_sum, p_rdreg_area,  &
+    &                                 p_quad_vector_sum, p_dreg_area,   &
     &                                 opt_rlstart, opt_rlend, opt_slev, &
     &                                 opt_elev                          )
 
@@ -480,8 +480,8 @@ CONTAINS
     REAL(wp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,8,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< reciprocal area of departure region
-      &  p_rdreg_area(:,:,:)        !< dim: (nproma,nlev,nblks_e)
+    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+      &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
       &  opt_rlstart
@@ -618,8 +618,8 @@ CONTAINS
           p_quad_vector_sum(je,10,jk,jb)= SUM(z_quad_vector(:,10))
 
 
-          ! reciprocal area of departure region
-          p_rdreg_area(je,jk,jb) = 1._wp/SUM(wgt_t_detjac(1:4))
+          ! area of departure region
+          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
 
         ENDDO ! loop over edges
 
@@ -632,6 +632,46 @@ CONTAINS
 
   END SUBROUTINE prep_gauss_quadrature_c
 
+
+
+!!$  !-------------------------------------------------------------------------
+!!$  !
+!!$  !
+!!$  !>
+!!$  !! Computes Jacobian determinant for gaussian quadrature
+!!$  !!
+!!$  !! Computes Jacobian determinant for gaussian quadrature
+!!$  !!
+!!$  !! @par Revision History
+!!$  !! Developed by Daniel Reinert, DWD (2010-05-14)
+!!$  !!
+!!$  !!
+!!$  FUNCTION jac(x, y, zeta, eta)  RESULT(det_jac)
+!!$
+!!$    IMPLICIT NONE
+!!$
+!!$    REAL(wp), INTENT(IN) :: x(1:4), y(1:4)  !< coordinates of vertices in x-y-system
+!!$    REAL(wp), INTENT(IN) :: zeta, eta       !< integration point in \zeta,\eta-system
+!!$
+!!$    ! RETURN VALUE:
+!!$    REAL(wp) :: det_jac
+!!$
+!!$    REAL(wp), DIMENSION(2,2) :: jacob
+!!$
+!!$  !-----------------------------------------------------------------------
+!!$
+!!$    jacob(1,1) = -(1._wp - eta) * x(1) + (1._wp - eta) * x(2)  &
+!!$      &        +  (1._wp + eta) * x(3) - (1._wp + eta) * x(4)
+!!$    jacob(1,2) = -(1._wp - eta) * y(1) + (1._wp - eta) * y(2)  &
+!!$      &        +  (1._wp + eta) * y(3) - (1._wp + eta) * y(4)
+!!$    jacob(2,1) = -(1._wp - zeta)* x(1) - (1._wp + zeta)* x(2)  &
+!!$      &        +  (1._wp + zeta)* x(3) + (1._wp - zeta)* x(4)
+!!$    jacob(2,2) = -(1._wp - zeta)* y(1) - (1._wp + zeta)* y(2)  &
+!!$      &        +  (1._wp + zeta)* y(3) + (1._wp - zeta)* y(4)
+!!$
+!!$    det_jac = 0.0625_wp * (jacob(1,1)*jacob(2,2) - jacob(1,2)*jacob(2,1))
+!!$
+!!$  END FUNCTION jac
 
 
   !-------------------------------------------------------------------------
@@ -660,14 +700,14 @@ CONTAINS
 
   !-----------------------------------------------------------------------
 
-    jacob(1,1) = -(1._wp - eta) * x(1) + (1._wp - eta) * x(2)  &
-      &        +  (1._wp + eta) * x(3) - (1._wp + eta) * x(4)
-    jacob(1,2) = -(1._wp - eta) * y(1) + (1._wp - eta) * y(2)  &
-      &        +  (1._wp + eta) * y(3) - (1._wp + eta) * y(4)
-    jacob(2,1) = -(1._wp - zeta)* x(1) - (1._wp + zeta)* x(2)  &
-      &        +  (1._wp + zeta)* x(3) + (1._wp - zeta)* x(4)
-    jacob(2,2) = -(1._wp - zeta)* y(1) - (1._wp + zeta)* y(2)  &
-      &        +  (1._wp + zeta)* y(3) + (1._wp - zeta)* y(4)
+    jacob(1,1) = (1._wp - eta) * ( x(2) - x(1))   &
+      &        + (1._wp + eta) * ( x(3) - x(4))
+    jacob(1,2) = (1._wp - eta) * ( y(2) - y(1))   &
+      &        + (1._wp + eta) * ( y(3) - y(4))
+    jacob(2,1) = (1._wp - zeta)* ( x(4) - x(1))   &
+      &        - (1._wp + zeta)* ( x(2) - x(3))
+    jacob(2,2) = (1._wp - zeta)* ( y(4) - y(1))   &
+      &        - (1._wp + zeta)* ( y(2) - y(3))
 
     det_jac = 0.0625_wp * (jacob(1,1)*jacob(2,2) - jacob(1,2)*jacob(2,1))
 

@@ -1780,8 +1780,8 @@ CONTAINS
     REAL(wp), ALLOCATABLE, SAVE ::  & !< gauss quadrature vector
       &  z_quad_vector_sum(:,:,:,:)   !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< reciprocal of departure region area
-      &  z_rdreg_area(:,:,:)          !< dim: (nproma,nlev,nblks_e)
+    REAL(wp), ALLOCATABLE, SAVE ::  & !< area departure region [m**2]
+      &  z_dreg_area(:,:,:)           !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line and block indices of upwind cell
       &  z_cell_indices(:,:,:,:)             !< dim: (nproma,nlev,p_patch%nblks_e,2)
@@ -1869,12 +1869,12 @@ CONTAINS
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for quadrature and upwind cells
       ALLOCATE( z_quad_vector_sum(nproma,dim_unk,nlev,p_patch%nblks_e), &
-        &       z_rdreg_area(nproma,nlev,p_patch%nblks_e),              &
+        &       z_dreg_area(nproma,nlev,p_patch%nblks_e),               &
         &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),          &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                 &
-          &  'allocation for z_quad_vector_sum, z_rdreg_area, ' //   &
+          &  'allocation for z_quad_vector_sum, z_dreg_area, ' //    &
           &  'z_cell_indices failed' )
       ENDIF
     END IF
@@ -2024,7 +2024,7 @@ CONTAINS
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a quadratic 2D polynomial
         CALL prep_gauss_quadrature_q( p_patch, z_coords_dreg_v,           &! in
-          &                      z_quad_vector_sum, z_rdreg_area,         &! out
+          &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev, opt_elev=elev             )! in
 
@@ -2032,7 +2032,7 @@ CONTAINS
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a cubic 2D polynomial without cross derivatives
         CALL prep_gauss_quadrature_cpoor( p_patch, z_coords_dreg_v,       &! in
-          &                      z_quad_vector_sum, z_rdreg_area,         &! out
+          &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev, opt_elev=elev             )! in
 
@@ -2040,7 +2040,7 @@ CONTAINS
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a full cubic 2D polynomial
         CALL prep_gauss_quadrature_c( p_patch, z_coords_dreg_v,           &! in
-          &                      z_quad_vector_sum, z_rdreg_area,         &! out
+          &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev, opt_elev=elev             )! in
       ENDIF
@@ -2112,7 +2112,7 @@ CONTAINS
 !CDIR EXPAND=6
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:6,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:6,jk,jb) ) * z_rdreg_area(je,jk,jb)
+              &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
         ENDDO
@@ -2126,7 +2126,7 @@ CONTAINS
 !CDIR EXPAND=8
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:8,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:8,jk,jb) ) * z_rdreg_area(je,jk,jb)
+              &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
         ENDDO
@@ -2140,7 +2140,7 @@ CONTAINS
 !CDIR EXPAND=10
             p_out_e(je,jk,jb) =                                                        &
               &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:10,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:10,jk,jb) ) * z_rdreg_area(je,jk,jb)
+              &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
         ENDDO
@@ -2166,7 +2166,7 @@ CONTAINS
 !CDIR EXPAND=6
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:6,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:6,jk,jb) ) * z_rdreg_area(je,jk,jb)           &
+              &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)            &
               &  * p_mass_flx_e(je,jk,jb)
 
           ENDDO
@@ -2181,7 +2181,7 @@ CONTAINS
 !CDIR EXPAND=8
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:8,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:8,jk,jb) ) * z_rdreg_area(je,jk,jb)           &
+              &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)            &
               &  * p_mass_flx_e(je,jk,jb)
 
           ENDDO
@@ -2196,7 +2196,7 @@ CONTAINS
 !CDIR EXPAND=10
             p_out_e(je,jk,jb) =                                                        &
               &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:10,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:10,jk,jb) ) * z_rdreg_area(je,jk,jb)           &
+              &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)            &
               &  * p_mass_flx_e(je,jk,jb)
 
           ENDDO
@@ -2229,11 +2229,11 @@ CONTAINS
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for quadrature, departure region and
       ! upwind cell indices
-      DEALLOCATE( z_quad_vector_sum, z_rdreg_area, z_cell_indices,   &
+      DEALLOCATE( z_quad_vector_sum, z_dreg_area, z_cell_indices,    &
         &         STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                 &
-          &  'deallocation for z_quad_vector_sum, z_rdreg_area, ' // &
+          &  'deallocation for z_quad_vector_sum, z_dreg_area, ' //  &
           &  ' z_cell_indices failed' )
       ENDIF
     END IF
