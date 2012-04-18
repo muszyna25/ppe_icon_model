@@ -25,7 +25,13 @@
 # They may be overwritten here
 #
 #-----------------------------------------------------------------------------
-if [ $mpi_total_procs -lt 2 ] ; then
+#
+# Number of ocean processes
+#
+mpi_ocean_procs=1
+#
+#-----------------------------------------------------------------------------
+if [ $mpi_total_procs -lt `expr $mpi_ocean_procs + 1` ] ; then
    echo "The coupled runs require at least 2 mpi procs. Exiting."
    check_error 0
    exit
@@ -486,8 +492,8 @@ fi
 
 #-----------------------------------------------------------------------------
 #split the number of procs in two for each of the dummy component
-ocean_min_rank=`expr ${mpi_total_procs} - 1`
-ocean_max_rank=$ocean_min_rank
+ocean_min_rank=`expr ${mpi_total_procs} - ${mpi_ocean_procs}`
+ocean_max_rank=`expr ${ocean_min_rank} + ${mpi_ocean_procs} - 1`
 ocean_inc_rank=1
 atmo_min_rank=0
 atmo_max_rank=`expr ${ocean_min_rank} - 1`
