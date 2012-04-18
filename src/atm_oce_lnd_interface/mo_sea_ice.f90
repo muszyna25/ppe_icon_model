@@ -101,6 +101,7 @@ MODULE mo_sea_ice
   PUBLIC :: upper_ocean_TS
   PUBLIC :: new_ice_growth
   PUBLIC :: calc_atm_fluxes_from_bulk
+  PUBLIC :: prepareAfterRestart
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -1011,12 +1012,12 @@ CONTAINS
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
-    
+
     !local variables
     REAL(wp), DIMENSION(nproma,i_no_ice_thick_class, ppatch%nblks_c) :: &
       & Tinterface, & ! temperature at snow-ice interface
       & draft         ! position of ice-ocean interface below sea level
-    
+
     !INTEGER i,j,k      ! counter for loops
     INTEGER k      ! counter for loops
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_init'
@@ -1092,6 +1093,7 @@ CONTAINS
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
 
     !------------------------------------------------------------------------- 
+    CALL prepareAfterRestart(ice)
 
     !CALL get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
     CALL set_ice_albedo(ppatch,ice)
@@ -1101,7 +1103,7 @@ CONTAINS
    END SUBROUTINE ice_fast
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !  ice_slow: Ice routines for oceand time step. Calculates average of atmospheric
   ! !           time steps, ice velocity, ice growth rates and updates ice structure
@@ -1998,5 +2000,17 @@ CONTAINS
       p_ice%restart_isice = 0.0_wp
     ENDWHERE
   END SUBROUTINE prepare4restart
+
+  SUBROUTINE prepareAfterRestart(p_ice)
+    TYPE (t_sea_ice),  INTENT(IN) :: p_ice
+
+    IF (is_restart_run()) THEN
+      WHERE (p_ice%restart_isice < 0.5_wp)
+        p_ice%isice = .FALSE.
+      ELSEWHERE
+        p_ice%isice = .TRUE.
+      ENDWHERE
+    END IF
+  END SUBROUTINE prepareAfterRestart
 
 END MODULE mo_sea_ice

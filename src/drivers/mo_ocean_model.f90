@@ -213,17 +213,17 @@ CONTAINS
       ! specified something different for this integraion.
 
       CALL read_restart_namelists('restart_oce.nc')
-      CALL message(TRIM(routine), 'read namelists from atm restart file')
+      CALL message(TRIM(routine), 'read namelists from ocean restart file')
 
       ! Read all global attributs in the restart file and store them in a buffer.
 
       CALL read_restart_attributes('restart_oce.nc')
-      CALL message(TRIM(routine), 'read global attributes from atm restart file')
+      CALL message(TRIM(routine), 'read global attributes from ocean restart file')
 
     END IF ! is_restart_run()
 
     !---------------------------------------------------------------------
-    ! 1.1 Read namelists (newly) specified by the user; fill the 
+    ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
 

@@ -84,7 +84,7 @@ USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
                                   calc_atm_fluxes_from_bulk, set_ice_albedo, set_ice_temp, &
-                                  ice_slow
+                                  ice_slow, prepareAfterRestart
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
@@ -494,6 +494,7 @@ CONTAINS
           & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
 
         ! This is a stripped down version of ice_fast for ice-ocean model only
+        CALL prepareAfterRestart(p_ice)
         CALL set_ice_albedo(p_patch,p_ice)
         CALL set_ice_temp(p_patch,p_ice,Qatm)
 
@@ -673,6 +674,7 @@ CONTAINS
           Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
           ! For now the ice albedo is the same as ocean albedo
+          CALL prepareAfterRestart(p_ice)
           ! CALL set_ice_albedo(p_patch,p_ice)
           CALL set_ice_temp(p_patch,p_ice,Qatm)
           Qatm%counter = 1
