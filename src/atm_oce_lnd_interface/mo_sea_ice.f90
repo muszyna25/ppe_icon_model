@@ -226,8 +226,9 @@ MODULE mo_sea_ice
       & surfmelt(:,:,:)    ,   & ! surface melt water running into ocean         [m]
       & surfmeltT(:,:,:)   ,   & ! Mean temperature of surface melt water        [C]
       & evapwi(:,:,:)      ,   & ! amount of evaporated water if no ice left     [kg/m2]
-      & conc(:,:,:)              ! ice concentration in each ice class           
-                                                                               
+      & conc(:,:,:)        ,   & ! ice concentration in each ice class
+      & restart_isice(:,:,:)     ! ice mask as a read field for getting it into restart
+
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity                                [m/s]
       & v(:,:)          ,      & ! Meridional velocity                           [m/s]
@@ -277,6 +278,11 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for isice failed')
     END IF
 
+    CALL add_var(ocean_var_list, 'isice', p_ice%restart_isice ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
+      &          t_cf_var('isice', '', 'ice mask'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'alb', p_ice%alb ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('alb', '', 'albedo of snow-ice system'),&
@@ -1015,10 +1021,6 @@ CONTAINS
     INTEGER k      ! counter for loops
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_init'
     !-------------------------------------------------------------------------
-
-    ! Don't need to do anything if we're restarting
-    IF ( is_restart_run() ) RETURN
-
     CALL message(TRIM(routine), 'start' )
 
     !Constructor basic init already done at this point
@@ -1130,6 +1132,7 @@ CONTAINS
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
 
+    CALL prepare4restart(ice)
   END SUBROUTINE ice_slow
   !-------------------------------------------------------------------------  
   !
@@ -1985,5 +1988,15 @@ CONTAINS
   END SUBROUTINE calc_atm_fluxes_from_bulk
  
   !-------------------------------------------------------------------------
+
+  SUBROUTINE prepare4restart(p_ice)
+    TYPE (t_sea_ice),  INTENT(IN) :: p_ice
+
+    WHERE (p_ice%isice)
+      p_ice%restart_isice = 1.0_wp
+    ELSEWHERE
+      p_ice%restart_isice = 0.0_wp
+    ENDWHERE
+  END SUBROUTINE prepare4restart
 
 END MODULE mo_sea_ice
