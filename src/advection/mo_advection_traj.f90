@@ -315,7 +315,7 @@ CONTAINS
       &  p_coords_dreg_v(:,:,:,:,:)!< of the coordinate system is at the circumcenter of
                                    !< the upwind cell. Unit vectors point to local East
                                    !< and North. (geographical coordinates)
-                                   !< dim: (nproma,nlev,ptr_p%nblks_e,4,2)
+                                   !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(OUT)  ::    &  !< line and block indices of upwind cell
       &  p_cell_indices(:,:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
@@ -349,7 +349,6 @@ CONTAINS
       &  pn_cell(2), dn_cell(2)    !< in the direction of vn
 
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
-    INTEGER :: nlev                !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev          !< vertical start and end level
@@ -383,8 +382,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = ptr_p%nlev
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
@@ -429,8 +426,8 @@ CONTAINS
 
           !
           ! Calculate backward trajectories, starting at the two edge vertices
-          ! (arrival points). It is assumed the velocity vector is constant along 
-          ! the edge.
+          ! (arrival points). It is assumed that the velocity vector is constant 
+          ! along the edge.
           !
 
           ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
@@ -509,30 +506,30 @@ CONTAINS
             &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
           ! components in longitudinal direction
-          p_coords_dreg_v(je,jk,jb,1,1) =                                         &
+          p_coords_dreg_v(je,1,1,jk,jb) =                                         &
             & pos_dreg_vert_c(1,1) * pn_cell(1) + pos_dreg_vert_c(1,2) * dn_cell(1)
 
-          p_coords_dreg_v(je,jk,jb,2,1) =                                         &
+          p_coords_dreg_v(je,2,1,jk,jb) =                                         &
             & pos_dreg_vert_c(2,1) * pn_cell(1) + pos_dreg_vert_c(2,2) * dn_cell(1)
 
-          p_coords_dreg_v(je,jk,jb,3,1) =                                        &
+          p_coords_dreg_v(je,3,1,jk,jb) =                                        &
             & pos_dreg_vert_c(3,1) * pn_cell(1) + pos_dreg_vert_c(3,2) * dn_cell(1)
 
-          p_coords_dreg_v(je,jk,jb,4,1) =                                         &
+          p_coords_dreg_v(je,4,1,jk,jb) =                                         &
             & pos_dreg_vert_c(4,1) * pn_cell(1) + pos_dreg_vert_c(4,2) * dn_cell(1)
 
 
           ! components in latitudinal direction
-          p_coords_dreg_v(je,jk,jb,1,2) =                                         &
+          p_coords_dreg_v(je,1,2,jk,jb) =                                         &
             & pos_dreg_vert_c(1,1) * pn_cell(2) + pos_dreg_vert_c(1,2) * dn_cell(2)
 
-          p_coords_dreg_v(je,jk,jb,2,2) =                                         &
+          p_coords_dreg_v(je,2,2,jk,jb) =                                         &
             & pos_dreg_vert_c(2,1) * pn_cell(2) + pos_dreg_vert_c(2,2) * dn_cell(2)
 
-          p_coords_dreg_v(je,jk,jb,3,2) =                                         &
+          p_coords_dreg_v(je,3,2,jk,jb) =                                         &
             & pos_dreg_vert_c(3,1) * pn_cell(2) + pos_dreg_vert_c(3,2) * dn_cell(2)
 
-          p_coords_dreg_v(je,jk,jb,4,2) =                                         &
+          p_coords_dreg_v(je,4,2,jk,jb) =                                         &
             & pos_dreg_vert_c(4,1) * pn_cell(2) + pos_dreg_vert_c(4,2) * dn_cell(2)
 
 

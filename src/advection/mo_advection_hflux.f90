@@ -1771,11 +1771,11 @@ CONTAINS
     REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
 
     REAL(wp) ::  &                    !< coordinates of departure region vertices. The origin
-      &  z_coords_dreg_v(nproma,p_patch%nlev,p_patch%nblks_e,4,2)
+      &  z_coords_dreg_v(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
                                       !< of the coordinate system is at the circumcenter of
                                       !< the upwind cell. Unit vectors point to local East
                                       !< and North. (geographical coordinates)
-                                      !< dim: (nproma,nlev,ptr_p%nblks_e,4,2)
+                                      !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
     REAL(wp), ALLOCATABLE, SAVE ::  & !< gauss quadrature vector
       &  z_quad_vector_sum(:,:,:,:)   !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
@@ -1966,19 +1966,19 @@ CONTAINS
 !        DO jk = 1, nlev
 
 !          DO je = i_startidx, i_endidx
-!            v23_x = z_coords_dreg_v(je,jk,jb,3,1) - z_coords_dreg_v(je,jk,jb,2,1)
-!            v23_y = z_coords_dreg_v(je,jk,jb,3,2) - z_coords_dreg_v(je,jk,jb,2,2)
+!            v23_x = z_coords_dreg_v(je,3,1,jk,jb) - z_coords_dreg_v(je,2,1,jk,jb)
+!            v23_y = z_coords_dreg_v(je,3,2,jk,jb) - z_coords_dreg_v(je,2,2,jk,jb)
 
-!            v21_x = z_coords_dreg_v(je,jk,jb,1,1) - z_coords_dreg_v(je,jk,jb,2,1)
-!            v21_y = z_coords_dreg_v(je,jk,jb,1,2) - z_coords_dreg_v(je,jk,jb,2,2)
+!            v21_x = z_coords_dreg_v(je,1,1,jk,jb) - z_coords_dreg_v(je,2,1,jk,jb)
+!            v21_y = z_coords_dreg_v(je,1,2,jk,jb) - z_coords_dreg_v(je,2,2,jk,jb)
 !            ccw_check = (v23_x * v21_y) - (v23_y * v21_x)
 
 !            IF (ccw_check < 0._wp) THEN
 !              print*, 'wrong numbering, ccw_check, je,jk,jb ',ccw_check, je,jk,jb
 
-!              z_dummy(1:2) = z_coords_dreg_v(je,jk,jb,2,1:2)
-!              z_coords_dreg_v(je,jk,jb,2,1:2) = z_coords_dreg_v(je,jk,jb,4,1:2)
-!              z_coords_dreg_v(je,jk,jb,4,1:2) = z_dummy(1:2)
+!              z_dummy(1:2) = z_coords_dreg_v(je,2,1:2,jk,jb)
+!              z_coords_dreg_v(je,2,1:2,jk,jb) = z_coords_dreg_v(je,4,1:2,jk,jb)
+!              z_coords_dreg_v(je,4,1:2,jk,jb) = z_dummy(1:2)
 !            ENDIF
 !          ENDDO
 !        ENDDO
