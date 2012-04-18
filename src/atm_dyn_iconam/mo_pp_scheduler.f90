@@ -152,12 +152,12 @@ MODULE mo_pp_scheduler
 
     INTEGER                            :: jg ! domain ID
 
-    TYPE(t_patch),             POINTER :: p_patch         => NULL()
-    TYPE(t_int_state),         POINTER :: p_int_state     => NULL()
-    TYPE(t_nh_state),          POINTER :: p_nh_state      => NULL()
-    TYPE(t_nwp_phy_diag),      POINTER :: prm_diag        => NULL()
-    TYPE(t_nh_opt_diag),       POINTER :: p_nh_opt_diag   => NULL()
-    TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config => NULL()
+    TYPE(t_patch),             POINTER :: p_patch         
+    TYPE(t_int_state),         POINTER :: p_int_state     
+    TYPE(t_nh_state),          POINTER :: p_nh_state      
+    TYPE(t_nwp_phy_diag),      POINTER :: prm_diag        
+    TYPE(t_nh_opt_diag),       POINTER :: p_nh_opt_diag   
+    TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config 
   END TYPE t_data_input
 
 
@@ -455,6 +455,11 @@ CONTAINS
             
             !-- create and add post-processing task
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
+
+          task%data_input%p_nh_state      => NULL()
+          task%data_input%prm_diag        => NULL()
+          task%data_input%nh_pzlev_config => NULL()
+
           task%data_input%jg            =  jg           
           task%data_input%p_patch       => p_patch(jg)
           task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
@@ -552,6 +557,9 @@ CONTAINS
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
 
       !-- create data structure for post-processing task
+      task%data_input%p_int_state    => NULL()
+      task%data_input%prm_diag       => NULL()
+
       task%data_input%jg               =  jg           
       task%data_input%p_patch          => p_patch(jg)
       task%data_input%p_nh_state       => p_nh_state(jg)
