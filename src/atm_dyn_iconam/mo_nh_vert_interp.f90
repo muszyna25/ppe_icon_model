@@ -656,7 +656,7 @@ CONTAINS
     TYPE(t_patch),       TARGET,       INTENT(IN)    :: p_patch
     TYPE(t_nh_prog),     POINTER                     :: p_prog
     TYPE(t_nh_diag),     POINTER                     :: p_diag
-    TYPE(t_nwp_phy_diag),              INTENT(INOUT) :: prm_diag
+    TYPE(t_nwp_phy_diag), POINTER                    :: prm_diag
     INTEGER,                           INTENT(IN)    :: nzlev     !< number of output levels (height)
     INTEGER,                           INTENT(IN)    :: nplev     !< number of output levels (pres)
     REAL(wp),                          INTENT(INOUT) :: &
@@ -788,6 +788,10 @@ CONTAINS
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
 
       ! Final interpolation of diagnostic QV, without supersaturation limiting
+      IF (.NOT. ASSOCIATED(prm_diag)) THEN
+        CALL finish(routine, "No prm_diag state available!")
+      END IF
+
       CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                       & !inout
         &          tot_cld_z_qv_out,                                  & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in

@@ -370,10 +370,12 @@ CONTAINS
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
 
-      ! Currently, async name_list IO is used if at leat one name_list was read
+      ! Currently, async name_list IO is used if at least one name_list was read
       IF(name_list_output_active) THEN
         use_async_name_list_io = .TRUE.
-        IF (my_process_is_io()) CALL name_list_io_main_proc
+        IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+          CALL name_list_io_main_proc
+        END IF
       ELSE
         use_async_vlist_io = .TRUE.
         IF (my_process_is_io()) CALL vlist_io_main_proc

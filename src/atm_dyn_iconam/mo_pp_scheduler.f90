@@ -244,7 +244,7 @@ CONTAINS
     TYPE (t_output_name_list),  POINTER                :: first_output_name_list
     TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
     INTEGER,                             INTENT(IN)    :: nvar_lists
-    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN), OPTIONAL :: opt_prm_diag(:)
+    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(INOUT), OPTIONAL :: opt_prm_diag(:)
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
@@ -506,7 +506,7 @@ CONTAINS
     TYPE (t_output_name_list),  POINTER                :: first_output_name_list
     TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
     INTEGER,                             INTENT(IN)    :: nvar_lists
-    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN), OPTIONAL :: opt_prm_diag(:)
+    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(INOUT), OPTIONAL :: opt_prm_diag(:)
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &

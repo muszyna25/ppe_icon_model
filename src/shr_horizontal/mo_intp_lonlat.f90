@@ -80,7 +80,8 @@
     USE mo_physical_constants,  ONLY: re
     USE mo_mpi,                 ONLY: p_gather_field, my_process_is_mpi_workroot, &
       &                               get_my_mpi_work_id, p_n_work,               &
-      &                               p_max, get_my_mpi_work_communicator
+      &                               p_max, get_my_mpi_work_communicator,        &
+      &                               my_process_is_mpi_seq
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no, &
       &                               setup_comm_pattern
     USE mo_mpi,                 ONLY: p_pe
@@ -211,12 +212,13 @@
         &                     ist, glb_idx, my_id, nthis_local_pts
       INTEGER, ALLOCATABLE :: glb_owner(:), local_index(:)
       TYPE(t_lon_lat_grid), POINTER  :: grid
-      
+
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
 
         ! compute some entries of lon-lat grid specification:
         CALL compute_lonlat_specs(lonlat_grid_list(i)%grid)
+ 
         CALL compute_lonlat_blocking(lonlat_grid_list(i)%grid, nproma)
         
         ! allocate and compute coefficients needed for lon-lat
@@ -263,16 +265,18 @@
             ! on work root PE we have to gather owner ranks for all points
             glb_owner = p_max(glb_owner, comm=get_my_mpi_work_communicator(), root=0)
 
-            IF (my_process_is_mpi_workroot()) THEN
-              CALL setup_comm_pattern(n_points, glb_owner, local_index=local_index, &
-                &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
-            ELSE
-              ! We don't want to receive any data, i.e. the number of
-              ! lon-lat points is 0 and owner/global index are
-              ! dummies!
-              glb_owner(:) = -1
-              CALL setup_comm_pattern(0, glb_owner, local_index=local_index, &
-                &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
+            IF (.NOT. my_process_is_mpi_seq()) THEN
+              IF (my_process_is_mpi_workroot()) THEN
+                CALL setup_comm_pattern(n_points, glb_owner, local_index=local_index, &
+                  &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
+              ELSE
+                ! We don't want to receive any data, i.e. the number of
+                ! lon-lat points is 0 and owner/global index are
+                ! dummies!
+                glb_owner(:) = -1
+                CALL setup_comm_pattern(0, glb_owner, local_index=local_index, &
+                  &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
+              END IF
             END IF
 
             DEALLOCATE( glb_owner, local_index, STAT=ist )

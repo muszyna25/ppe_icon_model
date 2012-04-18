@@ -612,7 +612,8 @@ CONTAINS
 
     ! Replicate physical domain setup, only the number of domains and
     ! the logical ID is needed
-    IF(use_async_name_list_io) THEN
+    IF (use_async_name_list_io .AND.  &
+      & .NOT. my_process_is_mpi_test()) THEN
       CALL p_bcast(n_phys_dom, bcast_root, p_comm_work_2_io)
       DO jg = 1, n_phys_dom
         CALL p_bcast(p_phys_patch(jg)%logical_id, bcast_root, p_comm_work_2_io)
@@ -624,6 +625,7 @@ CONTAINS
     ELSE
       n_dom_out = n_dom
     ENDIF
+
     ! allocate patch info data structure
     ALLOCATE(patch_info(n_dom_out))
     ! Set number of global cells/edges/verts and logical patch ID
@@ -726,11 +728,12 @@ CONTAINS
 #ifndef NOMPI
     IF(use_async_name_list_io) THEN
       CALL replicate_data_on_io_procs
-      
+
       IF (.NOT. l_grid_info_from_file) THEN
         ! Clear patch_info fields clon, clat, etc. (especially on work
         ! PE 0) since they aren't needed there any longer.
-        IF(.NOT.my_process_is_io()) THEN
+        IF ( (.NOT. my_process_is_io()) .AND. &
+          &  (.NOT. my_process_is_mpi_test())) THEN
           DO idom = 1, n_dom_out
             DEALLOCATE(patch_info(idom)%grid_c%lon,  patch_info(idom)%grid_c%lat,  &
               &        patch_info(idom)%grid_e%lon,  patch_info(idom)%grid_e%lat,  &
@@ -769,6 +772,7 @@ CONTAINS
           p_onl%dom(i) = i
         ENDDO
       ENDIF
+
 
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
@@ -1139,7 +1143,7 @@ CONTAINS
         patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
       ENDIF
 #ifndef NOMPI
-      IF(use_async_name_list_io) THEN
+      IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
         ! Transfer reorder_info to IO PEs
         CALL transfer_reorder_info(patch_info(jp)%cells)
         CALL transfer_reorder_info(patch_info(jp)%edges)
@@ -1163,7 +1167,7 @@ CONTAINS
             &                          lonlat_info(jl,jg))
         ENDIF
 #ifndef NOMPI
-        IF(use_async_name_list_io) THEN
+        IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg))
         ENDIF
@@ -2728,7 +2732,7 @@ CONTAINS
       IF (is_output_file_active(output_file(i), sim_time, dtime, iadv_rcf, last_step)) THEN
 
         IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
-          IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
+          IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(p_onl%n_output_steps == 0) THEN
               CALL setup_output_vlist(output_file(i))
             ELSE
@@ -2753,7 +2757,7 @@ CONTAINS
       ! Check if output is due for this file
       IF (is_output_file_active(output_file(i), sim_time, dtime, iadv_rcf, last_step)) THEN
 
-        IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
+        IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
 
@@ -3024,7 +3028,7 @@ CONTAINS
         !
         ! write data
         !
-        IF (my_process_is_stdio()) &
+        IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) &
           CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out, 0)
 
         DEALLOCATE(r_tmp)
@@ -3152,11 +3156,9 @@ CONTAINS
     END DO
 
     ! Initialize name list output, this is a collective call for all PEs
-
     CALL init_name_list_output
 
     ! Tell the compute PEs that we are ready to work
-
     CALL async_io_send_ready_message
 
     ! write recent samples of meteogram output
