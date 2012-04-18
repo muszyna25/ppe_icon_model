@@ -455,14 +455,14 @@ CONTAINS
    ENDDO krylov
 
    ! 7) evaluate the Krylov expansion
-!$OMP PARALLEL PRIVATE(i)
-   DO i = 1, nkry
-!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-     DO jb = 1, mnblks
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, i) ICON_OMP_DEFAULT_SCHEDULE
+   DO jb = 1, mnblks
+     DO i = 1, nkry
        x(:,:,jb) = x(:,:,jb) + c(i)*v(:,:,jb,i)
     ENDDO
-!$OMP END DO NOWAIT
    ENDDO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
    IF (ltimer) CALL timer_stop(timer_gmres)
 

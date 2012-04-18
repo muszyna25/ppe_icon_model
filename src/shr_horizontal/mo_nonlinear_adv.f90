@@ -521,11 +521,9 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
         z_v_c(1:nlen,jk,jb) = z_v_c(1:nlen,jk,jb)*z_potvort_c(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-!$OMP PARALLEL
-    ! fourth, compute vorticity flux term
+!$OMP END DO
+    
+! fourth, compute vorticity flux term
 !$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN

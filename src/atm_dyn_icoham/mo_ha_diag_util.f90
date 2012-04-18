@@ -324,7 +324,7 @@ CONTAINS
                                & - p_pres_ic(1:nlen,1:nlev  ,jb)
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ELSE ! shallow water
 !$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE

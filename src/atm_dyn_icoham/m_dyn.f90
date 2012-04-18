@@ -389,7 +389,7 @@ MODULE m_dyn
       ENDDO
 
    ENDDO
-!$OMP END DO NOWAIT
+!$OMP END DO
 
    ! For nested domains, tendencies are interpolated from the parent domain
    ! on a boundary zone with a width of grf_bdywidth_c for cells and
