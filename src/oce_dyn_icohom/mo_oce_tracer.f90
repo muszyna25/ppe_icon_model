@@ -416,7 +416,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,           &
   trac_tmp   = 0.0_wp
 
   ipl_src=1  ! output print level (1-5, fix)
-  CALL print_mxmn('on entry - Tracer',1,trac_old(:,:,:),n_zlev, p_patch%nblks_c,'trc',ipl_src)
+  DO jk = 1, n_zlev
+    CALL print_mxmn('on entry - Tracer',jk,trac_old(:,:,:),n_zlev, p_patch%nblks_c,'trc',ipl_src)
+  END DO
 
   CALL advect_horizontal(p_patch, trac_old,           &
                        & p_os,p_op_coeff,&! G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
@@ -424,17 +426,17 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,           &
                        & trac_tmp, timestep, delta_t,p_os%p_diag%h_e, p_os%p_diag%cons_thick_c,&
                        & FLUX_CALCULATION_HORZ)
     !write(123,*)'-------------timestep---------------',timestep
-  ! DO jk = 1, n_zlev
-  ! !   ipl_src=3  ! output print level (1-5, fix)
-  ! !     CALL print_mxmn('adv-horz trac-old',jk,trac_old(:,:,:),n_zlev, &
-  ! !       &              p_patch%nblks_c,'trc',ipl_src)
-  ! !     CALL print_mxmn('adv-horz trac-tmp',jk,trac_tmp(:,:,:),n_zlev, &
-  ! !       &              p_patch%nblks_c,'trc',ipl_src)
-  !   write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-  !                                         & minval(trac_old(:,jk,:)),&
-  !                                         & maxval(trac_tmp(:,jk,:)),&
-  !                                         & minval(trac_tmp(:,jk,:))
-  !  END DO
+  DO jk = 1, n_zlev
+      ipl_src=3  ! output print level (1-5, fix)
+        CALL print_mxmn('aft.adv-horz trac-old',jk,trac_old(:,:,:),n_zlev, &
+          &              p_patch%nblks_c,'trc',ipl_src)
+        CALL print_mxmn('aft.adv-horz trac-tmp',jk,trac_tmp(:,:,:),n_zlev, &
+          &              p_patch%nblks_c,'trc',ipl_src)
+  ! write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+  !                                       & minval(trac_old(:,jk,:)),&
+  !                                       & maxval(trac_tmp(:,jk,:)),&
+  !                                       & minval(trac_tmp(:,jk,:))
+  END DO
 
   IF( iswm_oce /= 1) THEN
     CALL advect_vertical(p_patch, trac_tmp,              &
@@ -444,29 +446,26 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,           &
                         & A_v,                            &
                         & trac_new, timestep, delta_t, p_os%p_diag%cons_thick_c,&
                         & FLUX_CALCULATION_VERT)
-  !  DO jk = 1, n_zlev
-  !    write(*,*)'After vertical max/min old-new tracer:',jk,&
-  !    & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
-  !    & maxval(trac_new(:,jk,:)),minval(trac_new(:,jk,:))
-  !         ipl_src=3  ! output print level (1-5, fix)
-  !         CALL print_mxmn('adv-vert trac-old',jk,trac_old(:,:,:),n_zlev, &
-  !           &              p_patch%nblks_c,'trc',ipl_src)
-  !         CALL print_mxmn('adv-vert trac-new',jk,trac_new(:,:,:),n_zlev, &
-  !           &              p_patch%nblks_c,'trc',ipl_src)
-  !   END DO
+
+    ! slo - test: switch vertical tracer advection off:
+ !  trac_new = trac_tmp
+
   ELSEIF( iswm_oce == 1) THEN
 
     trac_new = trac_tmp
 
-    DO jk = 1, n_zlev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('adv-vert trac-old',jk,trac_old(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'trc',ipl_src)
-      CALL print_mxmn('adv-vert trac-new',jk,trac_new(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'trc',ipl_src)
-    END DO
-
   ENDIF
+
+  DO jk = 1, n_zlev
+    ! write(*,*)'After vertical max/min old-new tracer:',jk,&
+    ! & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
+    ! & maxval(trac_new(:,jk,:)),minval(trac_new(:,jk,:))
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('aft.adv-vert trac-tmp',jk,trac_tmp(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    CALL print_mxmn('aft.adv-vert trac-new',jk,trac_new(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+  END DO
 
   DO jk = 1, n_zlev
 
