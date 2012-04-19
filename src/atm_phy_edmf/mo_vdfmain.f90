@@ -680,6 +680,11 @@ ELSE
   ZEXTLHF(:) = 0.0_JPRB
 ENDIF
 
+!amk  turn on specified surface fluxes everywhere globally
+LLSFCFLX = .TRUE.
+ZEXTSHF(:) = -10.0_JPRB
+ZEXTLHF(:) = -60.0_JPRB
+!xxx
 
 !*         1.1  Store initial tendencies for flux calculation
 !*              and initialize variable.
