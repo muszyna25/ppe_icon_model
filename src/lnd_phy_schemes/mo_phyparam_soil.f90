@@ -94,6 +94,33 @@ PUBLIC           ! All constants and variables in this module are public
          e_surf     = 1.0_ireals,     & ! exponent to get the effective surface area
          red_fac                        ! reduction factor for effective area indeces multiplication
 
+    REAL (ireals) :: z0_lu(23)  = (/ &  !< lookup table landuse class to roughness length [m]
+         &          1.00,       &       ! evergreen broadleaf forest   
+         &          1.00,       &       ! deciduous broadleaf closed forest
+         &          0.15,       &       ! deciduous broadleaf open   forest
+         &          1.00,       &       ! evergreen needleleaf forest   
+         &          1.00,       &       ! deciduous needleleaf forest
+         &          1.00,       &       ! mixed leaf trees            
+         &          1.00,       &       ! fresh water flooded trees
+         &          1.00,       &       ! saline water flooded trees
+         &          0.20,       &       ! mosaic tree / natural vegetation
+         &          0.05,       &       ! burnt tree cover
+         &          0.20,       &       ! evergreen shrubs closed-open
+         &          0.15,       &       ! decidous shrubs closed-open
+         &          0.03,       &       ! herbaceous vegetation closed-open
+         &          0.05,       &       ! sparse herbaceous or grass 
+         &          0.05,       &       ! flooded shrubs or herbaceous
+         &          0.07,       &       ! cultivated & managed areas
+         &          0.25,       &       ! mosaic crop / tree / natural vegetation
+         &          0.07,       &       ! mosaic crop / shrub / grass
+         &          0.05,       &       ! bare areas                       
+         &          0.0002,     &       ! water
+         &          0.01,       &       ! snow & ice 
+         &          1.00,       &       ! artificial surface  
+         &          0.         /)        ! undefined
+
+
+
     REAL (ireals) :: zplcmxc_lu(23)  = (/ &     !< lookup table landuse class to maximal plant cover
          &            0.80, &       ! 1 evergreen broadleaf forest   
          &            0.90, &       ! 2 deciduous broadleaf closed forest
@@ -194,6 +221,33 @@ PUBLIC           ! All constants and variables in this module are public
          &          120.0,      &       ! snow & ice 
          &          120.0,     &       ! artificial surface   
          &          0.         /)       ! undefined
+
+    REAL (ireals) :: zsnowalb_lu(23) =(/ &
+         &          0.38,      &       ! evergreen broadleaf forest   
+         &          0.31,      &       ! deciduous broadleaf closed forest
+         &          0.31,      &       ! deciduous broadleaf open   forest
+         &          0.27,      &       ! evergreen needleleaf forest   
+         &          0.33,      &       ! deciduous needleleaf forest
+         &          0.29,      &       ! mixed leaf trees            
+! set other landuse classe on csalb_snow_min
+         &          0.5,      &       ! fresh water flooded trees
+         &          0.5,      &       ! saline water flooded trees
+         &          0.5,      &       ! mosaic tree / natural vegetation
+         &          0.5,      &       ! burnt tree cover
+         &          0.5,      &       ! evergreen shrubs closed-open
+         &          0.5,      &       ! decidous shrubs closed-open
+         &          0.5,      &       ! herbaceous vegetation closed-open
+         &          0.5,      &       ! sparse herbaceous or grass 
+         &          0.5,      &       ! flooded shrubs or herbaceous
+         &          0.5,      &       ! cultivated & managed areas
+         &          0.5,      &       ! mosaic crop / tree / natural vegetation
+         &          0.5,      &       ! mosaic crop / shrub / grass
+         &          0.5,      &       ! bare areas                       
+         &          0.5,      &       ! water
+         &          0.5,      &       ! snow & ice 
+         &          0.5,      &       ! artificial surface   
+         &          0.5         /)       ! undefined
+
  
   REAL  (KIND=ireals) ::  &
 !   a) parameters describing the soil water budget
