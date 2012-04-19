@@ -166,6 +166,7 @@ CONTAINS
     dummy_h_c_new  = 0.0_wp
     z_h_tmp_c      = 0.0_wp
     z_diff_flux_v  = 0.0_wp
+
     !z_h           = 0.0_wp
     !z_transport_w = 0.0_wp
     !z_trac_c      = 0.0_wp
@@ -204,14 +205,12 @@ CONTAINS
 
         z_dolic = v_base%dolic_c(jc,jb)
         DO jk = 1, z_dolic
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-           z_h_tmp_c(jc,jk,jb)=(  p_os%p_diag%w_time_weighted(jc,jk,jb)&
-                              & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))&
-                              &   *v_base%wet_c(jc,jk,jb)
+           z_h_tmp_c(jc,jk,jb) = (   p_os%p_diag%w_time_weighted(jc,jk  ,jb)    &
+             &                     - p_os%p_diag%w_time_weighted(jc,jk+1,jb) )  &
+             &                   *v_base%wet_c(jc,jk,jb)
 
   !          z_h_tmp_c(jc,jk,jb)=(z_transport_w(jc,jk,jb)&
   !                             & - z_transport_w(jc,jk+1,jb))
-          !ENDIF
         END DO
       END DO
     END DO
@@ -221,10 +220,8 @@ CONTAINS
       DO jc = i_startidx_c, i_endidx_c
         z_dolic = v_base%dolic_c(jc,jb)
         DO jk = 1, z_dolic
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              dummy_h_c_new(jc,jk,jb) = (dummy_h_c(jc,jk,jb) - dtime*z_h_tmp_c(jc,jk,jb))&
-                                      &*v_base%wet_c(jc,jk,jb)
-          !ENDIF
+          dummy_h_c_new(jc,jk,jb) = (dummy_h_c(jc,jk,jb) - dtime*z_h_tmp_c(jc,jk,jb)) &
+            &                       *v_base%wet_c(jc,jk,jb)
         END DO
       END DO
     END DO
@@ -241,6 +238,14 @@ CONTAINS
       END DO
     ENDIF
 
+    ipl_src = 5  ! output print level (1-5, fix)
+    DO jk = 1, n_zlev
+      CALL print_mxmn('z_h_tmp_c'    ,jk,z_h_tmp_c(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+      CALL print_mxmn('dummy_h_c_new',jk,dummy_h_c_new(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+    END DO
+
 
     ! Initialize timer for horizontal advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
@@ -248,22 +253,22 @@ CONTAINS
     SELECT CASE(FLUX_CALCULATION_VERT)
 
     CASE(UPWIND)
-      CALL upwind_vflux_oce( p_patch,       &
-                           & trac_in,       &
-                           & p_os%p_diag%w_time_weighted, & 
-                           & bc_top_tracer, &
-                           & z_adv_flux_v )
+      CALL upwind_vflux_oce( p_patch,                     &
+        &                    trac_in,                     &
+        &                    p_os%p_diag%w_time_weighted, & 
+        &                    bc_top_tracer,               &
+        &                    z_adv_flux_v )
     CASE(CENTRAL)
-      CALL central_vflux_oce( p_patch,     &
-                           & trac_in,      &
-                           & p_os%p_diag%w_time_weighted,&
-                           & z_adv_flux_v )
+      CALL central_vflux_oce( p_patch,                    &
+        &                    trac_in,                     &
+        &                    p_os%p_diag%w_time_weighted, &
+        &                    z_adv_flux_v )
     CASE(MIMETIC,MIMETIC_MIURA)
-      CALL upwind_vflux_ppm( p_patch, trac_in,           &
-        &                    p_os%p_diag%w_time_weighted,&
-        &                    dtime,&
-        &                    1 ,                  &!p_itype_vlimit,             &
-        &                    dummy_h_c_new,       &!p_cellhgt_mc_now, &
+      CALL upwind_vflux_ppm( p_patch, trac_in,            &
+        &                    p_os%p_diag%w_time_weighted, &
+        &                    dtime,                       &
+        &                    1,                           & ! p_itype_vlimit,   &
+        &                    dummy_h_c_new,               & ! p_cellhgt_mc_now, &
         &                    z_adv_flux_v)
     END SELECT
 
@@ -286,7 +291,7 @@ CONTAINS
       END DO
     END DO
 
-    ipl_src = 5  ! output print level (1-5, fix)
+    ipl_src = 4  ! output print level (1-5, fix)
     DO jk = 1, n_zlev
       CALL print_mxmn('adv flux_v',jk,z_adv_flux_v(:,:,:),n_zlev+1, &
         &              p_patch%nblks_c,'trc',ipl_src)
@@ -298,11 +303,9 @@ CONTAINS
     DO jk = 1, n_zlev
       CALL print_mxmn('div adv-flux_v',jk,z_div_adv_v(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'trc',ipl_src)
-      CALL print_mxmn('dummy_h_c_new',jk,dummy_h_c_new(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'trc',ipl_src)
       IF (ldbg) THEN
-      write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
-      &maxval(z_div_adv_v(:,jk,:))
+        write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
+        &maxval(z_div_adv_v(:,jk,:))
       ENDIF
     END DO
 
@@ -320,35 +323,28 @@ CONTAINS
             z_dolic = v_base%dolic_c(jc,jb)
             IF(z_dolic>=MIN_DOLIC)THEN
               DO jk = 1, z_dolic
-                !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                !delta_z = v_base%del_zlev_m(jk)
-                !IF(jk==1) delta_z = v_base%del_zlev_m(top)+p_os%p_prog(nnew(1))%h(jc,jb)
+                z_bc                 = 0.0_wp
+                if (jk == 1) z_bc    = bc_top_tracer(jc,jb)
 
-                  z_bc                 = 0.0_wp
-                  if (jk == 1) z_bc    = bc_top_tracer(jc,jb)
-
-                  z_temp(jc,jk,jb)= (trac_in(jc,jk,jb)*dummy_h_c(jc,jk,jb) &
-                                  & -delta_t*z_div_adv_v(jc,jk,jb)&
-                                  & +delta_t*z_bc)*v_base%wet_c(jc,jk,jb)&
-                                  &/dummy_h_c_new(jc,jk,jb)
-
-                  !IF(jk==1)z_temp(jc,jk,jb)=z_temp(jc,jk,jb)&
-                  !&+dtime*bc_top_tracer(jc,jb)/dummy_h_c_new(jc,jk,jb)
-                !ENDIF
+                z_temp(jc,jk,jb)= ( trac_in(jc,jk,jb)*dummy_h_c(jc,jk,jb) &
+                  &                 - delta_t*z_div_adv_v(jc,jk,jb)       &
+                  &                 + delta_t*z_bc                 )      &
+                  &               *v_base%wet_c(jc,jk,jb)/dummy_h_c_new(jc,jk,jb)
               END DO
             ENDIF
         END DO
       END DO
+
       IF (ldbg) THEN
         DO jk = 1, n_zlev
           write(*,*)'before impl-diff: max/min:',jk,&
           &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:))
         END DO
       ENDIF
-      ipl_src = 5  ! output print level (1-5, fix)
+      ipl_src = 4  ! output print level (1-5, fix)
       DO jk = 1, n_zlev
-        CALL print_mxmn('bef impl vdiff z_temp:',jk,z_temp(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'trc',ipl_src)
+        CALL print_mxmn('before impl-diff z_temp:',jk,z_temp(:,:,:),n_zlev, &
+          &            p_patch%nblks_c,'trc',ipl_src)
       END DO
 
 
@@ -364,6 +360,11 @@ CONTAINS
           &maxval(trac_out(:,jk,:)), minval(trac_out(:,jk,:)) 
         END DO
       ENDIF
+      ipl_src = 4  ! output print level (1-5, fix)
+      DO jk = 1, n_zlev
+        CALL print_mxmn('aft impl vdiff trac_out:',jk,trac_out(:,:,:),n_zlev, &
+          &              p_patch%nblks_c,'trc',ipl_src)
+      END DO
 
 
     !vertival diffusion is calculated explicitely
@@ -393,15 +394,13 @@ CONTAINS
       END DO
 
       ipl_src = 5  ! output print level (1-5, fix)
-      IF (ldbg) THEN
-        DO jk = 1, n_zlev
-          CALL print_mxmn('diff flux_v',jk,z_diff_flux_v(:,:,:),n_zlev+1, &
-            &              p_patch%nblks_c,'trc',ipl_src)
-        END DO
-      ENDIF
       DO jk = 1, n_zlev
-        CALL print_mxmn('div diff-flux_v',jk,z_div_diff_v(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'trc',ipl_src)
+        CALL print_mxmn('aft expl diff flux_v',jk,z_diff_flux_v(:,:,:),n_zlev+1, &
+          &              p_patch%nblks_c,'trc',ipl_src)
+      END DO
+      DO jk = 1, n_zlev
+        CALL print_mxmn('aft expl div diff-flx',jk,z_div_diff_v(:,:,:),n_zlev, &
+          &            p_patch%nblks_c,'trc',ipl_src)
       END DO
 
       IF( is_initial_timestep(timestep))THEN
@@ -454,7 +453,15 @@ CONTAINS
           ENDIF
         END DO
       END DO
-    ENDIF!(lvertical_diff_implicit)THEN
+
+      ipl_src = 4  ! output print level (1-5, fix)
+      DO jk = 1, n_zlev
+        CALL print_mxmn('aft expl diff trac_out',jk,trac_out(:,:,:),n_zlev, &
+          &              p_patch%nblks_c,'trc',ipl_src)
+      END DO
+
+    ENDIF ! (lvertical_diff_implicit)THEN
+
     IF (ltimer) CALL timer_stop(timer_dif_vert)
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_out)
@@ -476,12 +483,12 @@ CONTAINS
   !! - adapted to hydrostatic ocean core
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE upwind_vflux_oce( ppatch, pvar_c, pw_c,top_bc_t, pupflux_i )
+  SUBROUTINE upwind_vflux_oce( ppatch, pvar_c, pw_c, top_bc_t, pupflux_i )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch           !< patch on which computation is performed
     REAL(wp), INTENT(IN   )           :: pvar_c(:,:,:)    !< advected cell centered variable
     REAL(wp), INTENT(IN   )           :: pw_c(:,:,:)      !< vertical velocity on cells 
-    REAL(wp), INTENT(IN   )           :: top_bc_t(:,:)    !< top boundary condition traver!vertical velocity on cells
+    REAL(wp), INTENT(IN   )           :: top_bc_t(:,:)    !< top boundary condition tracer ! unused
     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
                                                           !< dim: (nproma,n_zlev+1,nblks_c)
     ! local variables
@@ -798,8 +805,8 @@ CONTAINS
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: ikm1, ikp1, ikp1_ic, & !< vertical level minus and plus one, plus two
       &  ikp2
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_startidx, i_endidx! , i_startblk, i_endblk
+    !INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: jc, jk, jb              !< index of cell, vertical level and block
     INTEGER  :: jg                      !< patch ID
     REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
@@ -827,7 +834,7 @@ CONTAINS
     jg         = p_patch%id
     coeff_grid = -1.0_wp! for height based vertical coordinate system advection_config(jg)%coeff_grid
     ! number of child domains
-    i_nchdom   = MAX(1,p_patch%n_childdom)
+    !i_nchdom   = MAX(1,p_patch%n_childdom)
 
     ! advection is done with an upwind scheme and a piecwise parabolic
     ! approx. of the subgrid distribution is used.
