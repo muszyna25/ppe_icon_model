@@ -342,7 +342,7 @@ CONTAINS
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
-    IF (.NOT. ltestcase) THEN
+    IF (.NOT. ltestcase .OR. iforcing == inwp) THEN
       CALL pp_scheduler_init(p_patch(1:), p_nh_state, p_nh_opt_diag,                      &
         &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
         &                    var_lists, nvar_lists, prm_diag )     
@@ -403,7 +403,7 @@ CONTAINS
       !
       CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
-      IF (.NOT. ltestcase) &
+      IF (.NOT. ltestcase .OR. iforcing == inwp) &
         CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
 
     END IF ! not is_restart_run()
