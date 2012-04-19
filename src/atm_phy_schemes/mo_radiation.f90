@@ -1493,7 +1493,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSE ! ntiles == 1
+      ELSE IF (PRESENT(pflxsfcsw_t) .AND. PRESENT(pflxsfclw_t)) THEN
 
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, lp_count
