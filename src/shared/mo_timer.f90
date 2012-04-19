@@ -91,9 +91,13 @@ MODULE mo_timer
   PUBLIC :: timer_nwp_radiation
   PUBLIC :: timer_pre_radiation_nwp
   PUBLIC :: timer_radheat
-  PUBLIC :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
-  PUBLIC :: timer_physic_sync, timer_physic_acc_2_2
-
+  PUBLIC :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
+  PUBLIC :: timer_phys_sync_tracers
+  PUBLIC :: timer_phys_sync_tempv
+  PUBLIC :: timer_phys_acc_par
+  PUBLIC :: timer_phys_sync_ddt_u
+  PUBLIC :: timer_phys_sync_vn
+ 
   PUBLIC :: timer_held_suarez_intr
   
 !   PUBLIC :: timer_sync_wait
@@ -163,8 +167,12 @@ MODULE mo_timer
   INTEGER :: timer_nwp_convection
   INTEGER :: timer_nwp_radiation
   INTEGER :: timer_pre_radiation_nwp
-  INTEGER :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
-  INTEGER :: timer_physic_sync, timer_physic_acc_2_2
+  INTEGER :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
+  INTEGER :: timer_phys_sync_tracers
+  INTEGER :: timer_phys_sync_tempv
+  INTEGER :: timer_phys_acc_par
+  INTEGER :: timer_phys_sync_ddt_u
+  INTEGER :: timer_phys_sync_vn
   INTEGER :: timer_dyn_theta, timer_dyn_temp
 !   INTEGER :: timer_sync_wait
 !   INTEGER :: timer_sync_delay,timer_sync_outbuffer
@@ -305,15 +313,18 @@ CONTAINS
     timer_phy2dyn   = new_timer("phy2dyn")
     timer_echam_sync_temp= new_timer("echam_sync_temp")
     timer_echam_sync_tracers= new_timer("echam_sync_tracers")
-    timer_physic_acc = new_timer("physic_acc")
+    timer_phys_acc = new_timer("phys_acc")
     timer_phys_exner = new_timer("phys_exner")
-    timer_physic_acc_1 = new_timer("physic_acc_1")
-    timer_physic_acc_2 = new_timer("physic_acc_2")
-    timer_physic_sync = new_timer("physic_sync")
+    timer_phys_acc_1 = new_timer("phys_acc_1")
+    timer_phys_acc_2 = new_timer("phys_acc_2")
+    timer_phys_sync_tracers = new_timer("phys_sync_tracer")
+    timer_phys_sync_tempv    = new_timer("phys_sync_tempv")
+    timer_phys_acc_par  = new_timer("phys_acc_par")
+    timer_phys_sync_ddt_u  = new_timer("phys_sync_ddt_u")
+    timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
-    timer_prep_phy = new_timer      ("prep_phy")
+    timer_prep_phy = new_timer("prep_phy")
     
-    timer_physic_acc_2_2 = new_timer("physic_acc_2_2")
     timer_update_prog_phy = new_timer("update_prog_phy")
  
     

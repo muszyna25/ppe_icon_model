@@ -56,8 +56,7 @@ MODULE mo_nh_interface_nwp
   USE mo_kind,               ONLY: wp
 
  ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
-  USE mo_timer
-  
+  USE mo_timer 
   USE mo_exception,          ONLY: message, message_text !, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat, &
@@ -982,8 +981,9 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_stop(timer_sso)
     ENDIF ! inwp_sso
+    !-------------------------------------------------------------------------
      
-    IF (ltimer) CALL timer_start(timer_physic_acc)
+    IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
     !>  accumulate tendencies of slow_physics
     !-------------------------------------------------------------------------
@@ -994,7 +994,7 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-      IF (timers_level > 2) CALL timer_start(timer_physic_acc_1)
+      IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
 
       ! Coefficients for extra Rayleigh friction
       ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
@@ -1099,9 +1099,7 @@ CONTAINS
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-
-      IF (timers_level > 2) CALL timer_stop(timer_physic_acc_1)
+      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
     ENDIF ! slow physics tendency accumulation
 
     !--------------------------------------------------------
@@ -1112,22 +1110,29 @@ CONTAINS
 
     IF (l_any_fastphys) THEN
 
-      IF (timers_level > 1) CALL timer_start(timer_phys_sync_patch)
+      IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
 
       ! Synchronize tracers if any of the updating (fast-physics) processes was active
       CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
                                  lpart4d=.TRUE.)
-
+      IF (timers_level > 3) THEN
+        CALL timer_stop(timer_phys_sync_tracers)
+        CALL timer_start(timer_phys_sync_tempv)
+      ENDIF
       ! Synchronize tempv, then recompute thermodynamic variables on halo points
       ! (This is more efficient than synchronizing three variables)
+      
       IF (lhdiff_rcf) THEN ! in this case, exner_old also needs to be synchronized
         CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_diag%tempv, pt_diag%exner_old)
       ELSE
         CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
       ENDIF
 
-      IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
-
+      IF (timers_level > 3) THEN
+        CALL timer_stop(timer_phys_sync_tempv)
+        CALL timer_start(timer_phys_acc_par)
+      ENDIF
+      
       IF (my_process_is_mpi_all_parallel() ) THEN
 
         rl_start = min_rlcell_int-1
@@ -1185,9 +1190,12 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ENDIF
+      ENDIF ! my_process_is_mpi_all_parallel
+    
+      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_par)
 
     ENDIF ! fast-physics synchronization
+    
 
     ! Initialize fields for runtime diagnostics
     ! In case that average ABS(dpsdt) is diagnosed
@@ -1210,6 +1218,7 @@ CONTAINS
     ENDIF
 
 
+    IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
     IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
 
       CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
@@ -1221,9 +1230,10 @@ CONTAINS
                                  prm_nwp_tend%ddt_v_turb)
 
     ENDIF
-
-
-    IF (ltimer) CALL timer_start(timer_physic_acc_2)
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_phys_sync_ddt_u)
+      CALL timer_start(timer_phys_acc_2)
+    ENDIF
 
     !-------------------------------------------------------------------------
     !>
@@ -1416,7 +1426,13 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-      IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_phys_acc_2)
+      CALL timer_start(timer_phys_sync_vn)
+    ENDIF
+    IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
+    IF (timers_level > 3) CALL timer_stop(timer_phys_sync_vn)
+    IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
@@ -1473,10 +1489,7 @@ CONTAINS
         CALL message('', TRIM(message_text))
       ENDIF
 
-    IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
-
-    IF (ltimer) CALL timer_stop(timer_physic_acc)
-
+    
 
     IF (jstep > 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
      CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,         & !input
