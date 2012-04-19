@@ -122,7 +122,7 @@ CONTAINS
     INTEGER                           :: FLUX_CALCULATION_VERT
 
     !Local variables
-    REAL(wp) :: delta_z!, delta_zp1,delta_z2
+    REAL(wp) :: delta_z, z_bc  !, delta_zp1,delta_z2
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb!, je!jkp1        !< index of edge, vert level, block
     INTEGER  :: z_dolic
@@ -156,9 +156,9 @@ CONTAINS
     !-------------------------------------------------------------------------------
     cells_in_domain => p_patch%cells%in_domain
 
-    !z_tol         = 1.0E-13
-    !trac_in       = 10.0_wp
+    z_dolic        = 0
 
+    z_bc           = 0.0_wp
     z_adv_flux_v   = 0.0_wp
     z_div_adv_v    = 0.0_wp
     z_div_diff_v   = 0.0_wp
@@ -248,7 +248,6 @@ CONTAINS
     SELECT CASE(FLUX_CALCULATION_VERT)
 
     CASE(UPWIND)
-
       CALL upwind_vflux_oce( p_patch,       &
                            & trac_in,       &
                            & p_os%p_diag%w_time_weighted, & 
@@ -299,6 +298,8 @@ CONTAINS
     DO jk = 1, n_zlev
       CALL print_mxmn('div adv-flux_v',jk,z_div_adv_v(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'trc',ipl_src)
+      CALL print_mxmn('dummy_h_c_new',jk,dummy_h_c_new(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
       IF (ldbg) THEN
       write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
       &maxval(z_div_adv_v(:,jk,:))
@@ -323,9 +324,12 @@ CONTAINS
                 !delta_z = v_base%del_zlev_m(jk)
                 !IF(jk==1) delta_z = v_base%del_zlev_m(top)+p_os%p_prog(nnew(1))%h(jc,jb)
 
+                  z_bc                 = 0.0_wp
+                  if (jk == 1) z_bc    = bc_top_tracer(jc,jb)
+
                   z_temp(jc,jk,jb)= (trac_in(jc,jk,jb)*dummy_h_c(jc,jk,jb) &
                                   & -delta_t*z_div_adv_v(jc,jk,jb)&
-                                  & +delta_t*bc_top_tracer(jc,jb))*v_base%wet_c(jc,jk,jb)&
+                                  & +delta_t*z_bc)*v_base%wet_c(jc,jk,jb)&
                                   &/dummy_h_c_new(jc,jk,jb)
 
                   !IF(jk==1)z_temp(jc,jk,jb)=z_temp(jc,jk,jb)&
@@ -343,11 +347,7 @@ CONTAINS
       ENDIF
       ipl_src = 5  ! output print level (1-5, fix)
       DO jk = 1, n_zlev
-        CALL print_mxmn('bef impl v-trc:',jk,z_temp(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'trc',ipl_src)
-      END DO
-      DO jk = 1, n_zlev
-        CALL print_mxmn('adv-flux-v',jk,z_adv_flux_v(:,:,:),n_zlev+1, &
+        CALL print_mxmn('bef impl vdiff z_temp:',jk,z_temp(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'trc',ipl_src)
       END DO
 
