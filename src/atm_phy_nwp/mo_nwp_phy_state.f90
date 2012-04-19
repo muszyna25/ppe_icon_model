@@ -186,9 +186,11 @@ TYPE t_nwp_phy_diag
        &  lwflxclr(:,:,:),      & !! longwave clear-sky net flux [W/m2]
        &  lwflxall(:,:,:),      & !! longwave net flux           [W/m2]
        &  lwflxsfc(:,:),        & !! longwave net flux at surface [W/m2]
+       &  lwflxsfc_t(:,:,:),    & !! tile-based longwave net flux at surface [W/m2]
        &  trsolclr(:,:,:),      & !! shortwave clear-sky net tranmissivity []
        &  trsolall(:,:,:),      & !! shortwave net tranmissivity []
        &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
+       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
        &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
        &  lwflxsfc_a(:,:),      & !! longwave net flux at surface [W/m2], accumulated or mean since last output
        &  swflxsfc_a(:,:),      & !! shortwave net flux at surface [W/m2], accumulated or mean since last output
@@ -871,7 +873,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'SOB_S', diag%swflxsfc,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
-        
+        ! &      diag%swflxsfc_t(nproma,nblks_c,nsfc_subs)
+        cf_desc    = t_cf_var('SOB_S_T', 'W m-2', 'tile-based shortwave net flux at surface')
+        grib2_desc = t_grib2_var(0, 4, 0, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'SOB_S_T', diag%swflxsfc_t,                             &
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+            ldims=(/nproma,kblks,nsfc_subs/))
+
         ! &      diag%swflxtoa(nproma,nblks_c)
         cf_desc    = t_cf_var('SOB_T', 'W m-2', ' shortwave net flux at TOA')
         grib2_desc = t_grib2_var(0, 4, 1, ientr, GRID_REFERENCE, GRID_CELL)
@@ -879,13 +887,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. )
 
-        
         ! &      diag%lwflxsfc(nproma,nblks_c)
         cf_desc    = t_cf_var('THB_S', 'W m-2', 'longwave net flux at surface')
         grib2_desc = t_grib2_var(0, 5, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'THB_S', diag%lwflxsfc,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
+        ! &      diag%lwflxsfc_t(nproma,nblks_c)
+        cf_desc    = t_cf_var('THB_S_T', 'W m-2', 'tile_based longwave net flux at surface')
+        grib2_desc = t_grib2_var(0, 5, 0, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'THB_S_T', diag%lwflxsfc_t,                             &
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+            ldims=(/nproma,kblks,nsfc_subs/))
 
         IF (lflux_avg ) THEN
             prefix = "A"

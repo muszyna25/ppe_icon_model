@@ -84,6 +84,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_lnd_nwp_config,     ONLY: nsfc_subs
   USE mo_lnd_nwp_config,     ONLY: t_tiles
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
@@ -855,6 +856,8 @@ CONTAINS
 
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
+        prm_diag%swflxsfc_t (:,jb,:)=0._wp
+        prm_diag%lwflxsfc_t (:,jb,:)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
 
 !!GZ: The computation of heating rates in radheat needs to be changed from constant pressure (c_pd)
@@ -870,6 +873,7 @@ CONTAINS
         & kbdim=nproma                           ,&! in     loop length and dimension size
         & klev=nlev                              ,&! in     vertical dimension size
         & klevp1=nlevp1                          ,&! in     vertical dimension size
+        & ntiles=nsfc_subs,                       &! in     number of tiles of sfc flux fields
         & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
         & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
         & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
@@ -877,8 +881,17 @@ CONTAINS
         & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
         & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
         & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
-        & opt_adapt_lw=.TRUE.                    ,&! in     switch for lw correction
+        & albedo=prm_diag%albvisdif(:,jb),        &! in     grid-box average albedo
+        & albedo_t=prm_diag%albvisdif_t(:,jb,:),  &! in     tile-specific albedo
+        & lp_count=ext_data%atm%lp_count(jb),     &! in     number of land points
+        & gp_count_t=ext_data%atm%gp_count_t(jb,:), &! in   number of land points per tile
+        & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
+        & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
+        & lc_frac_t=ext_data%atm%lc_frac_t(:,jb,:), &! in   land cover fraction per tile
+        & cosmu0=zcosmu0(:,jb),                   &! in     cosine of solar zenith angle
+        & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
         & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
+        & ptsfc_t=lnd_prog_new%t_gt(:,jb,:)      ,&! in     tile-specific surface temperature         [K]
         & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]
         & ptrmsw=prm_diag%trsolall (:,:,jb)      ,&! in     shortwave net tranmissivity []
         & pflxlw=prm_diag%lwflxall (:,:,jb)      ,&! in     longwave net flux           [W/m2]
@@ -891,6 +904,8 @@ CONTAINS
         & pdtdtradlw=prm_nwp_tend%ddt_temp_radlw(:,:,jb),&! out    rad. heating by lw        [K/s]
         & pflxsfcsw =prm_diag%swflxsfc (:,jb)   ,&        ! out shortwave surface net flux [W/m2]
         & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
+        & pflxsfcsw_t=prm_diag%swflxsfc_t (:,jb,:)   ,&   ! out tile-specific shortwave surface net flux [W/m2]
+        & pflxsfclw_t=prm_diag%lwflxsfc_t (:,jb,:)   ,&   ! out tile-specific longwave surface net flux  [W/m2]
         & pflxtoasw =prm_diag%swflxtoa (:,jb) )           ! out shortwave toa net flux     [W/m2]
 
         IF ( p_sim_time > 1.e-1_wp .AND. lflux_avg) THEN

@@ -314,16 +314,15 @@ CONTAINS
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s(jc,jb,isubs) 
           runoff_g_t(ic,jb,isubs)            =  lnd_diag%runoff_g(jc,jb,isubs)
 
-!GZ: Why do these local fields need to be dimensioned with ntiles?
           t_2m_t(ic,jb,isubs)                =  prm_diag%t_2m(jc,jb) 
           u_10m_t(ic,jb,isubs)               =  prm_diag%u_10m(jc,jb)
           v_10m_t(ic,jb,isubs)               =  prm_diag%v_10m(jc,jb)  
           tch_t(ic,jb,isubs)                 =  prm_diag%tch(jc,jb)
           tcm_t(ic,jb,isubs)                 =  prm_diag%tcm(jc,jb)
           tfv_t(ic,jb,isubs)                 =  prm_diag%tfv(jc,jb)
-          sobs_t(ic,jb,isubs)                =  prm_diag%swflxsfc(jc,jb) 
-          thbs_t(ic,jb,isubs)                =  prm_diag%lwflxsfc(jc,jb) 
-          pabs_t(ic,jb,isubs)                =  prm_diag%swflxsfc(jc,jb) 
+          sobs_t(ic,jb,isubs)                =  prm_diag%swflxsfc_t(jc,jb,isubs) 
+          thbs_t(ic,jb,isubs)                =  prm_diag%lwflxsfc_t(jc,jb,isubs) 
+          pabs_t(ic,jb,isubs)                =  prm_diag%swflxsfc_t(jc,jb,isubs) 
 
           t_so_now_t(ic,nlev_soil+2,jb,isubs) = lnd_prog_now%t_so(jc,nlev_soil+2,jb,isubs)
 
@@ -613,12 +612,13 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_lp(ic,jb)
-           lnd_prog_new%t_g(jc,jb)  = &
-             (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
-              ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
-           lnd_diag%qv_s(jc,jb)     = &
-             (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
-              ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
+           lnd_prog_new%t_g(jc,jb)  = t_g_s(jc) ! &
+    !      ! This does not work in combination with disaggregating the surface radiation flux terms
+    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
+    !          ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
+           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc) ! &
+    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
+    !          ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
          ENDDO
 
        ENDIF

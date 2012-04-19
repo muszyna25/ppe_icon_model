@@ -1285,30 +1285,41 @@ CONTAINS
 
   SUBROUTINE radheat (jcs, jce, kbdim, &
     &                 klev  , klevp1,  &
+    &                 ntiles        ,  &
     &                 pmair         ,  &
     &                 pqv           ,  &
     &                 pi0           ,  &
     &                 pemiss        ,  &
     &                 ptsfc         ,  &
+    &                 ptsfc_t       ,  & ! optional: tile-specific ground temperature
     &                 ptsfctrad     ,  &
     &                 ptemp_klev    ,  & ! optional ! must be present if dflxlw_dt is present
-    &                 pqc           ,  & ! optional ! must be present if opt_adapt_lw=.true.
-    &                 pqi           ,  & ! optional ! must be present if opt_adapt_lw=.true.
-    &                 ppres_ifc     ,  & ! optional ! must be present if opt_adapt_lw=.true.
-    &                 opt_adapt_lw  ,  & ! optional
+    &                 pqc           ,  & ! optional ! must be present if opt_nh_corr=.true.
+    &                 pqi           ,  & ! optional ! must be present if opt_nh_corr=.true.
+    &                 ppres_ifc     ,  & ! optional ! must be present if opt_nh_corr=.true.
+    &                 albedo, albedo_t,& ! optional: albedo fields
+    &                 lp_count,        & ! optional: number of land points
+    &                 gp_count_t,      & ! optional: number of land points per tile
+    &                 idx_lst_lp,      & ! optional: index list of land points
+    &                 idx_lst_t,       & ! optional: index list of land points per tile
+    &                 lc_frac_t,       & ! optional: land cover fraction per tile
+    &                 cosmu0,          & ! optional: cosine of zenith angle
+    &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
     &                 pflxsfclw     ,  &
+    &                 pflxsfcsw_t   ,  &
+    &                 pflxsfclw_t   ,  &
     &                 pflxtoasw     ,  &
     &                 dflxlw_dT     ,  &
     &                 opt_use_cv       )
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
-      &     klev,   klevp1
+      &     klev,   klevp1, ntiles
 
     REAL(wp), INTENT(in)  ::         &
       &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
@@ -1326,10 +1337,19 @@ CONTAINS
     REAL(wp), INTENT(in), OPTIONAL  ::         &
       &     pqc       (kbdim,klev),  & ! specific cloud water               [kg/kg]
       &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
-      &     ppres_ifc (kbdim,klevp1)   ! pressure at interfaces             [Pa]
+      &     ppres_ifc (kbdim,klevp1),& ! pressure at interfaces             [Pa]
+      &     ptsfc_t   (kbdim,ntiles),& ! tile-specific surface temperature at t  [K]
+      &     cosmu0    (kbdim),       & ! cosine of solar zenith angle
+      &     albedo    (kbdim),       & ! grid-box average albedo
+      &     albedo_t  (kbdim,ntiles),& ! tile-specific albedo
+      &     lc_frac_t (kbdim,ntiles)   ! land cover fraction per tile
+
+    INTEGER, INTENT(in), OPTIONAL  ::     &
+      &     lp_count, gp_count_t(ntiles), &  ! number of land points
+      &     idx_lst_lp(kbdim), idx_lst_t(kbdim,ntiles) ! corresponding index lists
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
-      &     opt_adapt_lw, opt_use_cv
+      &     opt_nh_corr, opt_use_cv
 
     REAL(wp), INTENT(out) ::         &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1338,6 +1358,8 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
+      &     pflxsfcsw_t(kbdim,ntiles), & ! tile-specific shortwave surface net flux [W/m2]
+      &     pflxsfclw_t(kbdim,ntiles), & ! tile-specific longwave surface net flux [W/m2]
       &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &
@@ -1354,33 +1376,37 @@ CONTAINS
       &     lwfac1 (kbdim)       , &
       &     lwfac2 (kbdim)       , &
       &     intclw (kbdim,klevp1), &
-      &     intcli (kbdim,klevp1)
+      &     intcli (kbdim,klevp1), &
+      &     dlwflxall_o_dtg(kbdim,klevp1)
+
+    REAL(wp) :: sum_lw(kbdim), sum_sw(kbdim), corr_lw(kbdim), corr_sw(kbdim), &
+                swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim)
 
     ! local scalars
-    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, dlwflxall_o_dtg
+    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, trsolclr
 
     REAL(wp), PARAMETER  :: pscal = 1._wp/4000._wp ! pressure scale for longwave correction
 
-    INTEGER :: jc,jk
+    INTEGER :: jc,jk,jt,ic
 
-    LOGICAL  :: l_opt_adapt_lw, l_opt_use_cv
+    LOGICAL  :: l_nh_corr, l_use_cv
 
-    IF ( PRESENT(opt_adapt_lw) ) THEN
-      l_opt_adapt_lw = opt_adapt_lw
-      IF (l_opt_adapt_lw .AND. .NOT.(PRESENT(pqc).AND.PRESENT(pqi).AND.PRESENT(ppres_ifc))) THEN
-        CALL finish('radheat','error: if opt_adapt_lw, pqc, pqi, and ppres_ifc must be present.')
+    IF ( PRESENT(opt_nh_corr) ) THEN
+      l_nh_corr = opt_nh_corr
+      IF (l_nh_corr .AND. .NOT.(PRESENT(pqc).AND.PRESENT(pqi).AND.PRESENT(ppres_ifc))) THEN
+        CALL finish('radheat','error: if opt_nh_corr, pqc, pqi, and ppres_ifc must be present.')
       ENDIF
     ELSE
-      l_opt_adapt_lw = .FALSE.
+      l_nh_corr = .FALSE.
     ENDIF
 
     IF (PRESENT(opt_use_cv)) THEN
-      l_opt_use_cv = opt_use_cv
+      l_use_cv = opt_use_cv
     ELSE
-      l_opt_use_cv = .FALSE.
+      l_use_cv = .FALSE.
     ENDIF
     
-    IF (l_opt_use_cv) THEN
+    IF (l_use_cv) THEN
       ! Conversion factor for heating rates - use heat capacity at constant volume for NH model
       zconv(jcs:jce,1:klev) = rcvd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
     ELSE
@@ -1402,8 +1428,8 @@ CONTAINS
 !    ! - Atmosphere
 !    zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
 
-    IF (l_opt_adapt_lw) THEN !
-      ! Longwave fluxes,  empirical corrections like in mo_phys_nest_utilities
+    IF (l_nh_corr) THEN !
+      ! Disaggregation of longwave and shortwave fluxes for tile approach
       
       tqv(:)            = 0._wp
       intclw(:,klevp1)  = 0._wp
@@ -1434,13 +1460,52 @@ CONTAINS
           intqctot = MIN(0.30119_wp,MAX(1.008e-3_wp,intclw(jc,jk)+0.2_wp*intcli(jc,jk)))
 
           dlwflxclr_o_dtg = -dlwem_o_dtg(jc)*pfaclw
-          dlwflxall_o_dtg = dlwflxclr_o_dtg*(1._wp-(6.9_wp+LOG(intqctot))/5.7_wp)
+
+          ! derivative of LW flux w.r.t. ground temperature
+          dlwflxall_o_dtg(jc,jk) = dlwflxclr_o_dtg*(1._wp-(6.9_wp+LOG(intqctot))/5.7_wp)
           ! Now apply the correction
-          zflxlw(jc,jk) =  pflxlw(jc,jk) + dlwflxall_o_dtg * ( ptsfc(jc) - ptsfctrad(jc) )
+          zflxlw(jc,jk) =  pflxlw(jc,jk) + dlwflxall_o_dtg(jc,jk) * (ptsfc(jc) - ptsfctrad(jc))
         ENDDO
       ENDDO
 
-    ELSE !old version
+      IF (ntiles > 1) THEN ! Additional corrections for tile approach
+        DO jc = jcs, jce
+          ! parameterization of clear-air solar transmissivity in order to use the same 
+          ! formulation as in mo_phys_nest_utilities:downscale_rad_output
+          trsolclr = MAX(0.02_wp,0.8_wp*cosmu0(jc)/(0.25_wp*tqv(jc))**0.15)**0.333_wp*&
+           (1._wp-albedo(jc))**(1._wp-0.2_wp*cosmu0(jc)+0.1_wp*MIN(10._wp,tqv(jc))**0.33)
+
+          swfac1(jc) = (MAX(1.e-3_wp,ptrmsw(jc,klevp1))/MAX(1.e-3_wp,trsolclr))**0.36_wp
+          swfac2(jc) =  MAX(0.25_wp,3._wp*cosmu0(jc))**0.1_wp
+
+          ! derivative of SW surface flux w.r.t. albedo
+          dflxsw_o_dalb(jc) = - zflxsw(jc,klevp1)*swfac1(jc)/((1._wp-albedo(jc))*swfac2(jc))
+        ENDDO
+
+        DO jt = 1,ntiles
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, gp_count_t(jt)
+            jc = idx_lst_t(ic,jt)
+            pflxsfcsw_t(jc,jt) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) + &
+                                 dflxsw_o_dalb(jc)*(albedo_t(jc,jt)-albedo(jc)))
+            pflxsfclw_t(jc,jt) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1)* &
+                                 (ptsfc_t(jc,jt)-ptsfc(jc))
+          ENDDO
+        ENDDO
+
+      ELSE ! ntiles == 1
+
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, lp_count
+          jc = idx_lst_lp(ic)
+          pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
+          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1) 
+        ENDDO
+
+      ENDIF ! ntiles
+
+
+    ELSE ! hydrostatic version
 
       ! Longwave fluxes
       ! - TOA
