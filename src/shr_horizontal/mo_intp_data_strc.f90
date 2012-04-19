@@ -418,6 +418,11 @@ TYPE t_int_state
                                                      ! edge midpoint and edge midpoints of
                                                      ! corresponding quadrilateral cell.
                                                      ! (nproma,nblks_e,4,4)
+  TYPE(t_geographical_coordinates), ALLOCATABLE ::  &! positions of vertices and butterfly
+    &  pos_on_tplane_c_edge(:,:,:,:)                 ! neighbors on local plane tangential to the 
+                                                     ! cell circumcenter.
+                                                     ! stored in an edge-based data structure
+                                                     ! (nproma,nblks_e,2,5)
                                                      
 
   ! i) fields related to weighted least squares polynomial reconstruction

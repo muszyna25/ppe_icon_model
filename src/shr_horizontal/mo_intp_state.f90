@@ -184,9 +184,9 @@ USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               scalar_int_coeff, bln_int_coeff_e2c,                 &
   &                               compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
-  &                               init_geo_factors_oce, init_scalar_product_oce,       &
-  &                               init_nudgecoeffs, tri_quadrature_pts,                &
-  &                               par_init_scalar_product_oce
+  &                               init_tplane_c, init_geo_factors_oce,                 &
+  &                               init_scalar_product_oce, init_nudgecoeffs,           &
+  &                               tri_quadrature_pts, par_init_scalar_product_oce
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
@@ -625,14 +625,14 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       CALL finish ('mo_interpolation:construct_int_state',&
       &            'allocation for tplane_e_dotprod failed')
     ENDIF
-!!$    !
-!!$    ! pos_on_tplane_c_edge
-!!$    !
-!!$    ALLOCATE (ptr_int%pos_on_tplane_c_edge(nproma, nblks_e, 2, 3, 2), STAT=ist )
-!!$    IF (ist /= SUCCESS) THEN
-!!$      CALL finish ('mo_interpolation:construct_int_state',&
-!!$      &            'allocation for pos_on_tplane_c_edge failed')
-!!$    ENDIF
+    !
+    ! pos_on_tplane_c_edge
+    !
+    ALLOCATE (ptr_int%pos_on_tplane_c_edge(nproma, nblks_e, 2, 5), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state',&
+      &            'allocation for pos_on_tplane_c_edge failed')
+    ENDIF
 
     !
     ! Least squares reconstruction
@@ -1345,7 +1345,8 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
     ptr_int%pos_on_tplane_e           = 0._wp
     ptr_int%tplane_e_dotprod          = 0._wp
-!!$    ptr_int%pos_on_tplane_c_edge      = 0._wp
+    ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lon = 0._wp
+    ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lat = 0._wp
 
     ptr_int%lsq_lin%lsq_dim_stencil   = 0
     ptr_int%lsq_lin%lsq_idx_c         = 0
@@ -1570,6 +1571,8 @@ DO jg = n_dom_start, n_dom
   IF ( (ltransport .OR. iequations == 3) .AND. (.NOT. lplane)) THEN
 
     CALL init_tplane_e(ptr_patch(jg), ptr_int_state(jg))
+
+    CALL init_tplane_c(ptr_patch(jg), ptr_int_state(jg))
 
     IF (ptr_patch(jg)%cell_type==3) THEN
       CALL lsq_stencil_create( ptr_patch(jg), ptr_int_state(jg)%lsq_lin,      &
@@ -2393,14 +2396,14 @@ INTEGER :: ist
       CALL finish ('mo_interpolation:destruct_int_state',                      &
         &             'deallocation for tplane_e_dotprod failed')
     ENDIF
-!!$    !
-!!$    ! pos_on_tplane_c_edge
-!!$    !
-!!$    DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
-!!$    IF (ist /= SUCCESS) THEN
-!!$      CALL finish ('mo_interpolation:destruct_int_state',                      &
-!!$        &             'deallocation for pos_on_tplane_c_edge failed')
-!!$    ENDIF
+    !
+    ! pos_on_tplane_c_edge
+    !
+    DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',                      &
+        &             'deallocation for pos_on_tplane_c_edge failed')
+    ENDIF
 
     !
     ! Least squares reconstruction

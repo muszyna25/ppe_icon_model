@@ -66,6 +66,9 @@
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Constantin Junk, MPI-M (2011-04-05)
+!! - ...
+!! Modification by Daniel Reinert, DWD (2012-04-11)
+!!  - new routine which initializes the butterfly data structure
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -111,7 +114,7 @@ MODULE mo_model_domimp_setup
   USE mo_math_constants,     ONLY: pi_2
   USE mo_loopindices,        ONLY: get_indices_e
   USE mo_grid_config,        ONLY: corio_lat
-  USE mo_sync,               ONLY: sync_e, sync_patch_array, sync_idx
+  USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
   USE mo_util_subset,        ONLY: fill_subset
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling
@@ -120,8 +123,13 @@ MODULE mo_model_domimp_setup
   
   PRIVATE
   
-  PUBLIC :: reshape_int, reshape_real, calculate_cart_normal, &
-    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id
+  PUBLIC :: reshape_int
+  PUBLIC :: reshape_real
+  PUBLIC :: calculate_cart_normal
+  PUBLIC :: init_quad_twoadjcells
+  PUBLIC :: init_coriolis
+  PUBLIC :: set_verts_phys_id
+  PUBLIC :: init_butterfly_idx
   
   PUBLIC :: fill_grid_subsets
   
@@ -247,7 +255,7 @@ CONTAINS
     !
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
     
-    INTEGER :: nblks_e, npromz_e
+    INTEGER :: nblks_e
     INTEGER :: je, jb                   ! loop index
     INTEGER :: iie, iie1(nproma), iie2(nproma), ierror(nproma)
     INTEGER :: ilc1, ibc1, ilc2, ibc2                   ! cell indices
@@ -260,7 +268,6 @@ CONTAINS
     
     ! values for the blocking
     nblks_e  = p_patch%nblks_e
-    npromz_e = p_patch%npromz_e
     
     ! Quad cells cannot be computed along the lateral edges of a nested domain
     i_startblk = p_patch%edges%start_blk(2,1)
@@ -453,6 +460,198 @@ CONTAINS
   END SUBROUTINE init_quad_twoadjcells
   !-------------------------------------------------------------------------
   
+
+  !-------------------------------------------------------------------------
+  !>
+  !! This routine initializes the butterfly index field.
+  !!
+  !! This routine initializes the butterfly index field, formed by the 
+  !! 4 cells sharing the 2 vertices which bound a given edge.
+  !! The 4 cell indices are stored in the derived type for the edges.
+  !!
+  !!     -------------------------------
+  !!       \          /\          /
+  !!        \ (2,2)  /  \  (2,1) /             (edge_neighbor,cell)
+  !!         \      /    \      /
+  !!          \    /      \    /
+  !!           \  /   2    \  /             ^  : edge normal
+  !!            \/          \/             /|\
+  !!       ----2-============-1---------    |
+  !!            /\          /\ 
+  !!           /  \   1    /  \
+  !!          /    \      /    \
+  !!         /      \    /      \
+  !!        /  (1,2) \  /  (1,1) \
+  !!       /          \/          \
+  !!     -------------------------------
+  !!
+  !!
+  !! Storage order:  butterfly_idx(nproma,nblks_c,edge_neighbor,cell)
+  !!                 butterfly_blk(nproma,nblks_c,edge_neighbor,cell)
+  !!
+  !! The cells are subdivided into two classes: Cells which are 
+  !! neighbors of edge-neighbor 1 and cells which are neighbors of edge-
+  !! neighbor 2. These cells are then numbered according to the number 
+  !! of the edge-vertex they share. (see ASCII-ART)
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert (2012-04-05)
+  !!
+  SUBROUTINE init_butterfly_idx( p_patch )
+    !
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
+
+    INTEGER :: cnt               ! counter
+    INTEGER :: nblks_e
+    INTEGER :: rl_start
+    INTEGER :: je, jen, jn, jv, jb                   ! loop index
+    INTEGER :: iln, ibn                              ! cell indices (neighbors)
+    INTEGER :: iie, ije
+    INTEGER :: il_bf1(2), ib_bf1(2)
+    INTEGER :: il_bf2(2), ib_bf2(2)
+    INTEGER :: ilc1, ibc1, ilc2, ibc2                ! cell indices
+    INTEGER :: ilv1, ibv1, ilv2, ibv2, ilv, ibv      ! vertex indices
+    INTEGER :: i_startblk, i_startidx, i_endidx
+    
+    
+    !-----------------------------------------------------------------------
+    
+    ! values for the blocking
+    nblks_e  = p_patch%nblks_e
+    
+    rl_start = 3
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    
+!$OMP PARALLEL
+    
+    ! Initialize array elements along nest boundaries with zero
+    IF (p_patch%id > 1) THEN
+!$OMP WORKSHARE
+      p_patch%edges%butterfly_idx(:,1:i_startblk,:,:)  = 0
+      p_patch%edges%butterfly_blk(:,1:i_startblk,:,:)  = 0
+!$OMP END WORKSHARE
+    ENDIF
+    
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2, &
+!$OMP            cnt,jen,iln,ibn,il_bf1,ib_bf1,il_bf2,ib_bf2,   &
+!$OMP            ilv1,ilv2,ibv1,ibv2,jn,jv,ilv,ibv)
+    DO jb = i_startblk, nblks_e
+      
+      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, &
+        & i_startidx, i_endidx, rl_start)
+      
+        
+      DO je = i_startidx, i_endidx
+          
+        IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
+
+        !
+        ! get global indices of the two neighboring cells
+        !
+        ilc1 = p_patch%edges%cell_idx(je,jb,1)
+        ibc1 = p_patch%edges%cell_blk(je,jb,1)
+        ilc2 = p_patch%edges%cell_idx(je,jb,2)
+        ibc2 = p_patch%edges%cell_blk(je,jb,2)
+          
+
+        ! get global indices of the two cells neighboring 
+        ! each edge-neighbor, while excluding the other 
+        ! edge neighbor.
+        !
+        ! neighbor 1 (ilc1,ibc1)
+        cnt = 0
+        DO jen = 1,3
+          iln= p_patch%cells%neighbor_idx(ilc1,ibc1,jen)
+          ibn= p_patch%cells%neighbor_blk(ilc1,ibc1,jen)
+          IF ((iln == ilc2) .AND. (ibn == ibc2)) CYCLE
+          cnt = cnt + 1
+          il_bf1(cnt) = iln
+          ib_bf1(cnt) = ibn
+        ENDDO
+
+
+        ! neighbor 2 (ilc2,ibc2)
+        cnt = 0
+        DO jen = 1,3
+          iln= p_patch%cells%neighbor_idx(ilc2,ibc2,jen)
+          ibn= p_patch%cells%neighbor_blk(ilc2,ibc2,jen)
+          IF ((iln == ilc1) .AND. (ibn == ibc1)) CYCLE
+          cnt = cnt + 1
+          il_bf2(cnt) = iln
+          ib_bf2(cnt) = ibn
+        ENDDO
+
+
+        ! Now, the global indices of the 4 cells are known, and 
+        ! they are already distinguished with respect to the edge 
+        ! neighbor. However, we do not know yet, whether they share 
+        ! vertex 1 or 2.
+
+        ! Indices of vertices bounding edge je
+        !
+        ilv1= p_patch%edges%vertex_idx(je,jb,1)
+        ibv1= p_patch%edges%vertex_blk(je,jb,1)
+        ilv2= p_patch%edges%vertex_idx(je,jb,2)
+        ibv2= p_patch%edges%vertex_blk(je,jb,2)
+
+
+        ! check neighbors of neighbor 1, whether they share 
+        ! vertex 1 or 2
+        DO jn= 1, 2   ! loop over 2 neighbors of neighbor 1
+          !
+          ! get vertex indices of neighbor jn
+          DO jv=1,3
+            ilv = p_patch%cells%vertex_idx(il_bf1(jn),ib_bf1(jn),jv)
+            ibv = p_patch%cells%vertex_blk(il_bf1(jn),ib_bf1(jn),jv)
+
+            IF ( ilv == ilv1 .AND. ibv == ibv1 ) THEN
+              p_patch%edges%butterfly_idx(je,jb,1,1) = il_bf1(jn)
+              p_patch%edges%butterfly_blk(je,jb,1,1) = ib_bf1(jn)
+            ELSE IF ( ilv == ilv2 .AND. ibv == ibv2 ) THEN
+              p_patch%edges%butterfly_idx(je,jb,1,2) = il_bf1(jn)
+              p_patch%edges%butterfly_blk(je,jb,1,2) = ib_bf1(jn)
+            ENDIF
+          ENDDO
+        ENDDO
+
+        ! check neighbors of neighbor 2, whether they share 
+        ! vertex 1 or 2
+        DO jn= 1, 2   ! loop over 2 neighbors of neighbor 2
+          !
+          ! get vertex indices of neighbor jn
+          DO jv=1,3
+            ilv = p_patch%cells%vertex_idx(il_bf2(jn),ib_bf2(jn),jv)
+            ibv = p_patch%cells%vertex_blk(il_bf2(jn),ib_bf2(jn),jv)
+
+            IF ( ilv == ilv1 .AND. ibv == ibv1 ) THEN
+              p_patch%edges%butterfly_idx(je,jb,2,1) = il_bf2(jn)
+              p_patch%edges%butterfly_blk(je,jb,2,1) = ib_bf2(jn)
+            ELSE IF ( ilv == ilv2 .AND. ibv == ibv2 ) THEN
+              p_patch%edges%butterfly_idx(je,jb,2,2) = il_bf2(jn)
+              p_patch%edges%butterfly_blk(je,jb,2,2) = ib_bf2(jn)
+            ENDIF
+          ENDDO
+        ENDDO       
+
+      END DO  ! je      
+    END DO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    DO iie = 1, 2
+      DO ije = 1, 2
+        CALL sync_idx(sync_e,sync_c,p_patch,            &
+          &  p_patch%edges%butterfly_idx(:,:,iie,ije),  &
+          &  p_patch%edges%butterfly_blk(:,:,iie,ije),  &
+          &  opt_remap=.FALSE.)
+      ENDDO
+    ENDDO
+    
+    
+  END SUBROUTINE init_butterfly_idx
+
+
+
   !-------------------------------------------------------------------------
   !>
   !! Initializes the Coriolis components of the grid with analytical values.

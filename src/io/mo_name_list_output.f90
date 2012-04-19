@@ -1896,14 +1896,14 @@ CONTAINS
       ALLOCATE(levels(znlev_soil+2))
       levels(1) = 0._wp
       DO k = 1, znlev_soil+1
-        levels(k+1) = zml_soil(k)*100._wp
+        levels(k+1) = zml_soil(k)*1000._wp  ! in mm
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
       DEALLOCATE(levels)
 
       of%cdiZaxisID(ZA_depth_below_land) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land), zml_soil*100._wp)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land), zml_soil*1000._wp) ! in mm
       !
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))

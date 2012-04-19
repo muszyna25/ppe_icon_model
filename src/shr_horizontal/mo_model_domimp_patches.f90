@@ -119,7 +119,7 @@ MODULE mo_model_domimp_patches
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domain,       ONLY: p_patch_local_parent
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
-    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id
+    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, init_butterfly_idx
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & l_limited_area, max_childdom, &
     & lfeedback, l_limited_area, max_childdom, &
@@ -542,7 +542,11 @@ CONTAINS
       ! formed by the two adjacent cells of an edge.
       ! (later this should be provided by the grid generator)
       CALL init_quad_twoadjcells( p_patch(jg) )
-      
+
+      ! Initialize butterfly data structure, formed by the 
+      ! 4 cells sharing the 2 vertices which bound a given edge.
+      CALL init_butterfly_idx( p_patch(jg) )
+
       CALL init_coriolis( lcoriolis, lplane, p_patch(jg) )
       
       CALL set_verts_phys_id( p_patch(jg) )
@@ -2614,6 +2618,13 @@ CONTAINS
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch edge quad orientation failed')
     ENDIF
+    DEALLOCATE( p_patch%edges%butterfly_idx,  &
+      & p_patch%edges%butterfly_blk,  &
+      & stat=ist)
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge butterfly index failed')
+    ENDIF
     DEALLOCATE( p_patch%edges%center,  &
       & stat=ist )
     IF(ist/=success)THEN
@@ -3223,6 +3234,8 @@ CONTAINS
     ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
     ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%butterfly_idx(nproma,p_patch%nblks_e,2,2) )
+    ALLOCATE( p_patch%edges%butterfly_blk(nproma,p_patch%nblks_e,2,2) )
     ALLOCATE( p_patch%edges%quad_orientation(nproma,p_patch%nblks_e,4) )
     ALLOCATE( p_patch%edges%center(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%primal_normal(nproma,p_patch%nblks_e) )
@@ -3286,6 +3299,8 @@ CONTAINS
     p_patch%edges%system_orientation = 0._wp
     p_patch%edges%quad_idx = 0
     p_patch%edges%quad_blk = 0
+    p_patch%edges%butterfly_idx = 0
+    p_patch%edges%butterfly_blk = 0
     p_patch%edges%quad_orientation = 0._wp
     p_patch%edges%center(:,:)%lon = 0._wp
     p_patch%edges%center(:,:)%lat = 0._wp

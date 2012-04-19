@@ -332,6 +332,22 @@ MODULE mo_model_domain
     ! orientation of vectors normal to quad cell edges:
     ! index1=nproma, index2=1,nblks_e, index3=1,4
     REAL(wp), ALLOCATABLE :: quad_orientation(:,:,:)
+
+    ! line indices of cells which share the two vertices 
+    ! of a given edge. These cells are subdivided into two classes:
+    ! Cells which are neighbors of edge neighbor 1 and cells which are 
+    ! neighbors of edge neighbor 2. These cells are then numbered 
+    ! according to the number of the edge-vertex they share.
+    ! index1=nproma, index2=1,nblks_e, index3=1,2 (cell), index4=1,2 (vert)
+    INTEGER, ALLOCATABLE :: butterfly_idx(:,:,:,:)
+    ! block indices of cells which share the two vertices 
+    ! of a given edge. These cells are subdivided into two classes:
+    ! Cells which are neighbors of edge neighbor 1 and cells which are 
+    ! neighbors of edge neighbor 2. These cells are then numbered 
+    ! according to the number of the edge-vertex they share.
+    ! index1=nproma, index2=1,nblks_e, index3=1,2 (cell), index4=1,2 (vert)
+    INTEGER, ALLOCATABLE :: butterfly_blk(:,:,:,:)
+
     
     !-------------------------------------------------
     ! edges geometry
