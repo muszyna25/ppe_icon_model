@@ -1825,11 +1825,11 @@ CONTAINS
       CALL gridDefNvertex(of%cdiEdgeGridID, 4)
       !
       CALL gridDefXname(of%cdiEdgeGridID, 'elon')
-      CALL gridDefXlongname(of%cdiEdgeGridID, 'edge longitude')
+      CALL gridDefXlongname(of%cdiEdgeGridID, 'edge midpoint longitude')
       CALL gridDefXunits(of%cdiEdgeGridID, 'radian')
       !
       CALL gridDefYname(of%cdiEdgeGridID, 'elat')
-      CALL gridDefYlongname(of%cdiEdgeGridID, 'edge latitude')
+      CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
 
       of%cdiLonLatGridID = CDI_UNDEFID

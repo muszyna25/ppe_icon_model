@@ -600,11 +600,11 @@ CONTAINS
             CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, hgrid_def(ihg)%nvertices)
             !
             CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge longitude')
+            CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge midpoint longitude')
             CALL gridDefXunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
             !
             CALL gridDefYname(var_lists(i)%p%cdiEdgeGridID, 'elat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge latitude')
+            CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge midpoint latitude')
             CALL gridDefYunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
             !
           END SELECT

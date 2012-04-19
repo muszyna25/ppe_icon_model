@@ -282,13 +282,14 @@ MODULE mo_ext_data_types
 
     !
     ! *** vegetation parameters ***
-    REAL(wp), POINTER ::   &   !< normalized difference vegetation index [ ]
-      &  ndvi(:,:,:)           !< (monthly mean)
-                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
     REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
                                ! index1=1,nproma, index2=1,nblks_c
+
+!!$    REAL(wp), POINTER ::   &   !< normalized difference vegetation index [ ]
+!!$      &  ndvi(:,:,:)           !< (monthly mean)
+!!$                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
 
   END TYPE t_external_atmos_td
 
