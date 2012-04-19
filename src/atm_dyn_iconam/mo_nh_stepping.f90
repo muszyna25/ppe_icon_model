@@ -492,13 +492,13 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Set output flags
     !--------------------------------------------------------------------------
-
-    l_vlist_output = (jstep==nsteps) .OR. &
-      &              ((.NOT. no_output) .AND. istime4output(sim_time(1)+dtime))
-    l_nml_output   = (jstep==nsteps) .OR. &
+    l_vlist_output = (.NOT. no_output) .AND. &
+                  & ((jstep==nsteps) .OR. istime4output(sim_time(1)+dtime))
+    l_nml_output   = (.NOT. no_output) .AND. &
+      &              ((jstep==nsteps) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
-      &                  istime4name_list_output(sim_time(1)+dtime)))
-
+      &                  istime4name_list_output(sim_time(1)+dtime))))
+    
     ! Output criteria:
     ! - last time step
     ! - output interval, "old" vlist output
@@ -512,10 +512,12 @@ MODULE mo_nh_stepping
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
     END DO
-
+    l_compute_diagnostic_quants = l_compute_diagnostic_quants .AND. .NOT. no_output
+    
     ! another flag defining whether diagnostic quantities are computed.
     ! TODO[FP] Decide whether this "l_diagtime" flag is obsolete.
-    l_diagtime = (jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps)
+    l_diagtime = (.NOT. no_output) .AND. &
+      & ((jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps))
 
     !--------------------------------------------------------------------------
     !
@@ -529,9 +531,11 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
-    simulation_status = new_simulation_status(l_output_step=l_outputtime, &
-      &                                       l_last_step=(jstep==nsteps))
-    CALL pp_scheduler_process(simulation_status)
+    IF (.NOT. no_output) THEN
+      simulation_status = new_simulation_status(l_output_step=l_outputtime, &
+        &                                       l_last_step=(jstep==nsteps))
+      CALL pp_scheduler_process(simulation_status)
+    ENDIF
     
 
     ! output of results
@@ -552,7 +556,7 @@ MODULE mo_nh_stepping
     ENDIF
 
     ! sample meteogram output
-    IF (.NOT. ltestcase) THEN
+    IF (.NOT. ltestcase ) THEN
       DO jg = 1, n_dom
         IF (meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
           CALL meteogram_sample_vars(jg, jstep, datetime, ierr)
@@ -592,7 +596,7 @@ MODULE mo_nh_stepping
 
 
     ! close the current output file and trigger a new one
-    IF (MOD(jstep,n_file) == 0 .and. jstep/=nsteps) THEN
+    IF (MOD(jstep,n_file) == 0 .AND. jstep/=nsteps .AND. .NOT. no_output ) THEN
 
       jfile = jfile +1
       call init_output_files(jfile,lclose=l_have_output)
@@ -603,7 +607,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (is_checkpoint_time(jstep,n_checkpoint)) THEN
+    IF (is_checkpoint_time(jstep,n_checkpoint) .AND. .NOT. no_output) THEN
       DO jg = 1, n_dom
         CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   & 
                                 & jfile                      = jfile,                      &
