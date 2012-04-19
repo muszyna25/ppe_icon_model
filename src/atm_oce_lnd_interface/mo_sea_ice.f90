@@ -1992,7 +1992,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE prepare4restart(p_ice)
-    TYPE (t_sea_ice),  INTENT(IN) :: p_ice
+    TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
 
     WHERE (p_ice%isice)
       p_ice%restart_isice = 1.0_wp
@@ -2002,7 +2002,7 @@ CONTAINS
   END SUBROUTINE prepare4restart
 
   SUBROUTINE prepareAfterRestart(p_ice)
-    TYPE (t_sea_ice),  INTENT(IN) :: p_ice
+    TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
 
     IF (is_restart_run()) THEN
       WHERE (p_ice%restart_isice < 0.5_wp)
