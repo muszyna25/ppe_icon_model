@@ -93,6 +93,7 @@ MODULE mo_ext_data_state
     &                              associate_keyword, with_keywords
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, zplcmxc_lu, zlaimxc_lu, &
     &                              zrd_lu, zrs_min_lu ! soil and vegetation parameters for TILES
+  USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_cdi_constants
 
   IMPLICIT NONE
@@ -120,6 +121,7 @@ MODULE mo_ext_data_state
   PUBLIC :: nlev_o3, nmonths
 
   PUBLIC :: init_ext_data
+  PUBLIC :: init_climatology
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
 
@@ -153,6 +155,7 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_int_state), INTENT(IN)        :: p_int_state(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
 
     INTEGER :: jg
 
@@ -267,6 +270,44 @@ CONTAINS
 
   END SUBROUTINE init_ext_data
 
+  SUBROUTINE init_climatology (p_patch, p_int_state, ext_data, datetime)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_int_state), INTENT(IN)        :: p_int_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    TYPE(t_datetime),      INTENT(IN)    :: datetime
+
+
+    INTEGER :: jg,mo1,mo2
+    REAL(wp):: zw1,zw2
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:init_climatology'
+
+
+      CALL  month2hour( datetime, mo1, mo2, zw2 )
+      zw1 = 1._wp - zw2
+
+        DO jg = 1, n_dom
+    ext_data(jg)%atm%lai_mx(:,:) = (zw1*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo1)  + & 
+   &                                zw2*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo2)) * &
+   &                               ext_data(jg)%atm%lai_mx(:,:)
+
+
+    ext_data(jg)%atm%plcov_mx(:,:) = (zw1*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo1)  + & 
+   &                                  zw2*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo2)) * &
+   &                                ext_data(jg)%atm%plcov_mx(:,:)
+
+!!$    aer_su(:,:,:) = zw1*aer_su12(:,:,mo1,:) + zw2*aer_su12(:,:,mo2,:)
+!!$    aer_du(:,:,:) = zw1*aer_du12(:,:,mo1,:) + zw2*aer_du12(:,:,mo2,:)
+!!$    aer_or(:,:,:) = zw1*aer_or12(:,:,mo1,:) + zw2*aer_or12(:,:,mo2,:)
+!!$    aer_bc(:,:,:) = zw1*aer_bc12(:,:,mo1,:) + zw2*aer_bc12(:,:,mo2,:)
+!!$    aer_ss(:,:,:) = zw1*aer_ss12(:,:,mo1,:) + zw2*aer_ss12(:,:,mo2,:)
+        END DO
+
+      CALL message( TRIM(routine),'Finished interpolation of climatology' )
+
+  END SUBROUTINE init_climatology
 
 
   SUBROUTINE init_index_lists (p_patch, ext_data)
