@@ -45,7 +45,7 @@ VECTFLAGS = -Wf,-pvctl loopcnt=1000000 shape=1000000 fullmsg
 MSGFLAGS =  -Wf,'-L fmtlist transform summary' -R2 -Wf,-s -Wf,'-msg d o'
 
 # Preprocessing
-PREPFLAGS = -Ep -USX  
+PREPFLAGS = -EP -USX  
 
 # Floating point exception trapping (not used except for debugging purposes)
 FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'  
