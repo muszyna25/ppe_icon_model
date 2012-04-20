@@ -545,7 +545,10 @@ CONTAINS
 
       ! Initialize butterfly data structure, formed by the 
       ! 4 cells sharing the 2 vertices which bound a given edge.
-      CALL init_butterfly_idx( p_patch(jg) )
+      IF (p_patch(jg)%cell_type == 3) THEN
+        ! not useful for hexagonal grid 
+        CALL init_butterfly_idx( p_patch(jg) )
+      ENDIF
 
       CALL init_coriolis( lcoriolis, lplane, p_patch(jg) )
       
