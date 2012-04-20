@@ -13,7 +13,7 @@ ifile      = ARGV[0]
 varname    = ARGV[1]
 operation  = ARGV[2].nil? ? 'fldmin' : ARGV[2]
 plotfile   = ARGV[3]
-createPlot = (not ARGV[4].nil?)
+createPlot = (not ARGV[3].nil?)
 
 #_plotfile  = "plot_#{varname}-#{Time.new.strftime("%Y%m%d-%H%M%S")}"
 
