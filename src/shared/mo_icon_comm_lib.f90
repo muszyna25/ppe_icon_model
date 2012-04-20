@@ -71,7 +71,7 @@ MODULE mo_icon_comm_lib
   PRIVATE
 
   ! public constants
-  PUBLIC :: cells_not_owned, cells_not_in_domain
+  PUBLIC :: cells_not_owned, cells_not_in_domain, cells_one_edge_in_domain
   PUBLIC :: edges_not_owned, edges_not_in_domain
   PUBLIC :: verts_not_owned, verts_not_in_domain
   
@@ -264,6 +264,7 @@ MODULE mo_icon_comm_lib
   INTERFACE new_icon_comm_variable
     MODULE PROCEDURE new_comm_variable_r2d
     MODULE PROCEDURE new_comm_variable_r3d
+!     MODULE PROCEDURE new_comm_variable_r3d_target
     MODULE PROCEDURE new_comm_variable_r4d
   END INTERFACE
   !-------------------------------------------------------------------------
@@ -856,6 +857,34 @@ CONTAINS
   END FUNCTION new_comm_variable_r4d
   !-----------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------
+  !>
+  !! Creates a new comm_variable and returns its id.
+!   INTEGER FUNCTION new_comm_variable_r3d_target(var,  grid_location, p_patch, &
+!     & vertical_layers, status, scope, name)
+!     
+!     INTEGER, INTENT(IN)       :: grid_location
+!     TYPE(t_patch), INTENT(IN) :: p_patch
+! !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
+!     REAL(wp), TARGET, INTENT(inout) :: var(:,:,:)
+!     
+! !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
+! !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
+!     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+! !     TYPE(t_comm_pattern), INTENT(IN), POINTER, OPTIONAL :: comm_pattern
+!     INTEGER, INTENT(IN), OPTIONAL :: status    
+!     INTEGER, INTENT(IN), OPTIONAL :: scope
+!     CHARACTER(*), INTENT(IN), OPTIONAL :: name
+!     
+!     REAL(wp), POINTER :: p_var(:,:,:)
+! 
+!     p_var => var
+!     new_comm_variable_r3d_target = &
+!       & new_comm_variable_r3d(p_var, grid_location, p_patch, &
+!       & vertical_layers, status, scope, name)
+!       
+!   END FUNCTION new_comm_variable_r3d_target
+  !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   !>
@@ -888,7 +917,7 @@ CONTAINS
 
     ! where the variable lives
     SELECT CASE (grid_location)
-    CASE ( cells_not_in_domain,  edges_not_owned, verts_not_owned)
+    CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
       comm_variable(new_comm_variable_r3d)%grid_location = grid_location
    CASE default
       CALL finish(method_name, "Unrecoginzed grid_location")
@@ -975,7 +1004,7 @@ CONTAINS
 
     ! where the variable lives
     SELECT CASE (grid_location)
-    CASE ( cells_not_in_domain,  edges_not_owned, verts_not_owned)
+    CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
       comm_variable(new_comm_variable_r2d)%grid_location = grid_location
    CASE default
       CALL finish(method_name, "Unrecoginzed grid_location")

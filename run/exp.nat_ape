@@ -24,7 +24,7 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #-----------------------------------------------------------------------------
 # model timing
 dtime=${dtime:=120}
-ndays=${ndays:=2}
+ndays=${ndays:=1}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 dt_rad=${dt_rad:=3600}             # compute radiative transfer every other hour
 dt_conv=${dt_conv:=$dtime}
@@ -32,14 +32,14 @@ dt_sso=${dt_sso:=$dt_conv}
 #
 #-----------------------------------------------------------------------------
 # the grid files if not defined
-atmo_dyn_grids=${atmo_dyn_grids:='iconR2B04-grid.nc'}
+atmo_dyn_grids=${atmo_dyn_grids:='iconR2B02-grid.nc'}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
 no_output=${no_output:=".true."}
-out_diag_hours=${out_diag_hours:=6}         # global integral output each 6 hours
-out_data_hours=${out_data_hours:=6}         # write output every 6 hours
-dt_diag=`expr ${out_diag_hours} \* 3600  `   
+out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
+out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
+dt_diag=`expr ${out_diag_hours} \* 3600  `
 dt_data=`expr ${out_data_hours} \* 3600  `
 out_newfile_days=${out_newfile_days:=1}     # 1 day per file
 dt_file=`expr ${out_newfile_days} \* 86400 `
@@ -126,6 +126,8 @@ cat >> ${atmo_namelist} << EOF
 &parallel_nml
  iorder_sendrecv = ${iorder_sendrecv}
  nproma         = ${nproma}
+ use_icon_comm   = .true.
+ max_send_recv_buffer_size = 262144
  p_test_run     = ${p_test_run}
  l_test_openmp  = ${l_test_openmp}
  l_log_checks   = ${l_log_checks}

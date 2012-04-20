@@ -74,7 +74,8 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,    ONLY: nproma, p_test_run
+  USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
+
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &
     &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
@@ -99,6 +100,9 @@ MODULE mo_nh_interface_nwp
                                    SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
+  USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
+     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, cells_not_in_domain,&
+     & is_ready, until_sync, cells_one_edge_in_domain
 !  USE mo_communication,      ONLY: time_sync
 
   IMPLICIT NONE
@@ -184,7 +188,7 @@ CONTAINS
 
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
 
-    REAL(wp):: &                                              !> temporal arrays for 
+    REAL(wp), TARGET :: &                                              !> temporal arrays for 
       & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
@@ -220,6 +224,11 @@ CONTAINS
     REAL(wp), DIMENSION(pt_patch%nlev) :: umax, vmax, tmax, tmin, qvmax, qvmin, qcmax, &
       tturbmax, uturbmax, vturbmax
 
+    ! communication ids, these do not need to be different variables,
+    ! since they are not treated individualy
+    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
+      & tracers_comm, tempv_comm, exner_old_comm
+    REAL(wp), POINTER :: p_comm_3d(:,:,:)
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -1149,9 +1158,15 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
 
-      ! Synchronize tracers if any of the updating (fast-physics) processes was active
-      CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
-                                 lpart4d=.TRUE.)
+      IF (use_icon_comm) THEN
+        tracers_comm = new_icon_comm_variable(pt_prog_rcf%tracer, cells_not_in_domain, pt_patch, &
+          & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
+      ELSE
+        ! Synchronize tracers if any of the updating (fast-physics) processes was active
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
+                                lpart4d=.TRUE.)
+      ENDIF
+        
       IF (timers_level > 3) THEN
         CALL timer_stop(timer_phys_sync_tracers)
         CALL timer_start(timer_phys_sync_tempv)
@@ -1160,16 +1175,76 @@ CONTAINS
       ! (This is more efficient than synchronizing three variables)
       
       IF (lhdiff_rcf) THEN ! in this case, exner_old also needs to be synchronized
-        CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_diag%tempv, pt_diag%exner_old)
+        IF (use_icon_comm) THEN
+          tempv_comm = new_icon_comm_variable(pt_diag%tempv, cells_not_in_domain, pt_patch, &
+            & status=is_ready, scope=until_sync, name="pt_diag%tempv")
+          exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, cells_not_in_domain, &
+            & pt_patch, status=is_ready, scope=until_sync, name="pt_diag%exner_old")
+        ELSE
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_diag%tempv, pt_diag%exner_old)
+        ENDIF
       ELSE
-        CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
+        IF (use_icon_comm) THEN
+          tempv_comm = new_icon_comm_variable(pt_diag%tempv, cells_not_in_domain, pt_patch, &
+            & status=is_ready, scope=until_sync, name="pt_diag%tempv")
+        ELSE
+          CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
+        ENDIF
       ENDIF
 
       IF (timers_level > 3) THEN
         CALL timer_stop(timer_phys_sync_tempv)
-        CALL timer_start(timer_phys_acc_par)
+      ENDIF
+    ENDIF
+          
+    !------------------------------------------------------------ 
+    ! sync here the slowphys for aggregation
+    IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
+    IF (use_icon_comm) THEN
+    
+      IF (lcall_phy_jg(itturb) ) THEN
+        ddt_u_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_u_turb, &
+          & cells_one_edge_in_domain, pt_patch, status=is_ready, scope=until_sync, &
+          & name="prm_nwp_tend%ddt_u_turb")
+        ddt_v_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_v_turb, &
+          & cells_one_edge_in_domain, pt_patch, status=is_ready, scope=until_sync, &
+          & name="prm_nwp_tend%ddt_v_turb")
+          
+        IF ( l_any_slowphys ) THEN
+          p_comm_3d => z_ddt_u_tot
+          z_ddt_u_tot_comm = new_icon_comm_variable(p_comm_3d, cells_one_edge_in_domain, &
+            & pt_patch, status=is_ready, scope=until_sync, name="z_ddt_u_tot")
+          p_comm_3d => z_ddt_v_tot
+          z_ddt_v_tot_comm = new_icon_comm_variable(p_comm_3d, cells_one_edge_in_domain, &
+            & pt_patch, status=is_ready, scope=until_sync, name="z_ddt_v_tot")
+        ENDIF        
       ENDIF
       
+       ! sync everything here
+      CALL icon_comm_sync_all()
+
+    ELSE
+          
+      IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
+          
+        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
+                                 prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
+
+      ELSE IF (lcall_phy_jg(itturb) ) THEN
+
+        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
+                                 prm_nwp_tend%ddt_v_turb)
+      ENDIF
+    ENDIF
+    
+    IF (timers_level > 3) CALL timer_stop(timer_phys_sync_ddt_u)
+    !------------------------------------------------------------
+    
+      
+    !------------------------------------------------------------
+    ! compute on the halos
+    IF (timers_level > 4) CALL timer_start(timer_phys_acc_par)
+    IF (l_any_fastphys) THEN
       IF (my_process_is_mpi_all_parallel() ) THEN
 
         rl_start = min_rlcell_int-1
@@ -1228,10 +1303,8 @@ CONTAINS
 !$OMP END PARALLEL
 
       ENDIF ! my_process_is_mpi_all_parallel
-    
-      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_par)
-
-    ENDIF ! fast-physics synchronization
+    ENDIF ! fast-physics synchronization    
+    IF (timers_level > 4) CALL timer_stop(timer_phys_acc_par)
     
 
     ! Initialize fields for runtime diagnostics
@@ -1255,22 +1328,19 @@ CONTAINS
     ENDIF
 
 
-    IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
-    IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
-
-      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
-                                 prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
-
-    ELSE IF (lcall_phy_jg(itturb) ) THEN
-
-      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
-                                 prm_nwp_tend%ddt_v_turb)
-
-    ENDIF
-    IF (timers_level > 3) THEN
-      CALL timer_stop(timer_phys_sync_ddt_u)
-      CALL timer_start(timer_phys_acc_2)
-    ENDIF
+!    moved with the sync of the fast physics
+!     IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
+!     IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
+! 
+!       CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
+!                                  prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
+! 
+!     ELSE IF (lcall_phy_jg(itturb) ) THEN
+! 
+!       CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
+!                                  prm_nwp_tend%ddt_v_turb)
+! 
+!     ENDIF
 
     !-------------------------------------------------------------------------
     !>
@@ -1279,6 +1349,7 @@ CONTAINS
     !!      Calculate normal velocity at edge midpoints
     !-------------------------------------------------------------------------
 
+    IF (timers_level > 4)  CALL timer_start(timer_phys_acc_2)
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
     ! exclude boundary interpolation zone of nested domains
@@ -1463,10 +1534,8 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-    IF (timers_level > 3) THEN
-      CALL timer_stop(timer_phys_acc_2)
-      CALL timer_start(timer_phys_sync_vn)
-    ENDIF
+    IF (timers_level > 4) CALL timer_stop(timer_phys_acc_2)
+    IF (timers_level > 3) CALL timer_start(timer_phys_sync_vn)
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
     IF (timers_level > 3) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)

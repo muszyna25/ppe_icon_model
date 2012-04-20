@@ -32,19 +32,18 @@
 #    <free_variable>=<value> Free variables can be passed to the run script
 #       using this syntax. For example: EXPNAME=test, will result the
 #       definition of the variable EXPNAME=test in the run script. 
-   
-
 #
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
-set -x
 echo "-----------------------------------------------------------"
 
 base_folder=$(pwd)
 input_folder=run
-
-param=${1:="all"}
-echo $param
+if [ x$1 = x ] ; then
+  param=all
+else  
+  param=$1
+fi
   
 #==============================================================================
 . $base_folder/config/set-up.info

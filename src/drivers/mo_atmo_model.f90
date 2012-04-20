@@ -47,7 +47,8 @@ USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
-  &                               num_io_procs, nproma
+  &                               num_io_procs, nproma, use_icon_comm
+
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
   &                               destroy_lonlat_grid_list
@@ -176,6 +177,9 @@ USE mo_diffusion_config,   ONLY: configure_diffusion
 
 USE mo_atmo_hydrostatic,    ONLY: atmo_hydrostatic 
 USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic 
+  
+USE mo_icon_comm_interface,  ONLY: construct_icon_communication, &
+    & destruct_icon_communication
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -689,6 +693,13 @@ CONTAINS
       CALL init_index_lists (p_patch(1:), ext_data)
     ENDIF
 
+    !-------------------------------------------------------------------
+    ! Initialize icon_comm_lib
+    !-------------------------------------------------------------------
+    IF (use_icon_comm) THEN
+      CALL construct_icon_communication()
+    ENDIF
+    
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
@@ -748,6 +759,10 @@ CONTAINS
     ! clear restart namelist buffer
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
+    
+    IF (use_icon_comm) THEN
+      CALL destruct_icon_communication()
+    ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')
     

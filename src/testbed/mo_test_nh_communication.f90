@@ -48,7 +48,7 @@ MODULE mo_test_nh_communication
   
   USE mo_parallel_config,    ONLY: itype_comm, iorder_sendrecv
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
-  USE mo_icon_comm_interface,ONLY: construct_icoham_communication, destruct_icoham_communication
+!   USE mo_icon_comm_interface,ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_icon_comm_lib
   USE mo_atmo_nonhydrostatic, ONLY: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
@@ -192,7 +192,7 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL destruct_atmo_nonhydrostatic()
     CALL destruct_atmo_model()
-    CALL destruct_icoham_communication()
+!     CALL destruct_icon_communication()
     CALL message(TRIM(method_name),'clean-up finished')
 
     !---------------------------------------------------------------------

@@ -56,19 +56,19 @@ MODULE mo_icon_comm_interface
   PRIVATE
 
   ! public constants
-  PUBLIC :: construct_icoham_communication
-  PUBLIC :: destruct_icoham_communication
+  PUBLIC :: construct_icon_communication
+  PUBLIC :: destruct_icon_communication
   
   !-------------------------------------------------------------------------
 CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE construct_icoham_communication()
+  SUBROUTINE construct_icon_communication()
 
     INTEGER :: grid_id
     
-    CHARACTER(*), PARAMETER :: method_name = "construct_icoham_communication"
+    CHARACTER(*), PARAMETER :: method_name = "construct_icon_communication"
 
 
     CALL init_icon_comm_lib()
@@ -86,16 +86,16 @@ CONTAINS
     
     RETURN
 
-  END SUBROUTINE construct_icoham_communication
+  END SUBROUTINE construct_icon_communication
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE destruct_icoham_communication()
+  SUBROUTINE destruct_icon_communication()
 
      CALL destruct_icon_comm_lib()
      
-  END SUBROUTINE destruct_icoham_communication
+  END SUBROUTINE destruct_icon_communication
   
 
 END MODULE mo_icon_comm_interface
