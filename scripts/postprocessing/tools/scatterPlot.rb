@@ -16,14 +16,30 @@ createPlot = (not ARGV[3].nil?)
 plotfile  = "plot_#{varnames.join}-#{Time.new.strftime("%Y%m%d-%H%M%S")}"
 
 
-if varnames.size > 2
+pp varnames
+if varnames.size > 3
   warn "Please provide only to variable names"
   exit -1
 end
+if varnames[2].nil?
+  varnames[2] = 'rregio_c'
+  regionName  = varnames[2]
+else
+  regionName = varnames[2]
+end
 
-#check, if region variable is available
-regionName = 'rregio_c'
+# check, if region variable is available
 hasRegion = Cdo.showname(:in => ifile).join.split.include?(regionName)
+unless hasRegion
+  warn "Variable '#{regionName}' for showing regions is NOT found in the input '#{ifile}'!"
+  warn "Going on without plotting regions!"
+  varnames = varnames[0,2]
+  groupBy = []
+else
+  groupBy = [regionName]
+end
+
+pp hasRegion
 
 # queue for parallel processing
 jq = JobQueue.new
@@ -34,8 +50,8 @@ outs = []
 outs << [] if hasRegion
 
 # Get the data from the input file
-variables = hasRegion ? [varnames,regionName].flatten : varnames
-variables.each_with_index {|varname,i|
+varnames.each_with_index {|varname,i|
+  puts i
   jq.push {
     out  = outs[i]
     out << Cdo.outputkey('value', :in => "-selname,#{varname} -seltimestep,#{timestep} #{ifile}")
@@ -46,8 +62,8 @@ jq.run
 # Create the object
 hash = hasRegion ? { varnames[0].to_sym => outs[0][0],
                      varnames[1].to_sym => outs[1][0],
-                     regionName.to_sym  => outs[2][0]*10 } : {varnames[0].to_sym => outX[0],
-                                                           varnames[1].to_sym => outY[0]}
+                     varnames[2].to_sym => outs[2][0]*10 } : {varnames[0].to_sym => outs[0][0],
+                                                              varnames[1].to_sym => outs[1][0]}
 icon = ExtCsv.new("hash","plain",hash)
 
 #remove salinity values smaller than 1
@@ -66,9 +82,9 @@ icon = ExtCsv.new("hash","plain",hash)
 $VERBOSE=false
 
 # Plot data with automatic splitting by depth
-ExtCsvDiagram.plot_xy(icon,varnames.first,varnames.last,
+ExtCsvDiagram.plot_xy(icon,varnames[0],varnames[1],
                       "ICON: Scatterplot on #{varnames.join(' and ')}", # Change title here
-                      :groupBy => [:rregio_c],
+                      :groupBy => groupBy,
                       :label_position => 'below',:skipColumnCheck => true,
                       :type => 'points', :onlyGroupTitle => true,
                       :terminal => createPlot ? 'png' : 'x11',
@@ -80,9 +96,8 @@ ExtCsvDiagram.plot_xy(icon,varnames.first,varnames.last,
 # Plot an image fore each region separately
 (icon.send(regionName).uniq.each {|r|
   jq.push {
-    ExtCsvDiagram.plot_xy(icon.selectBy(:rregio_c => r),varnames.first,varnames.last,
+    ExtCsvDiagram.plot_xy(icon.selectBy(:rregio_c => r),varnames[0],varnames[1],
                           "ICON: Scatterplot on #{varnames.join(' and ')}", # Change title here
-                          :groupBy => [],
                           :label_position => 'below',:skipColumnCheck => true,
                           :type => 'points', :onlyGroupTitle => true,
                           :terminal => createPlot ? 'png' : 'x11',
