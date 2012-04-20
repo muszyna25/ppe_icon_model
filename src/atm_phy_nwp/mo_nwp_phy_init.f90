@@ -637,6 +637,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
+!DR
+!DR WARNING: plcov_mx and lai_mx have not been multiplied by ndvi_mrat in order 
+!DR          to account for seasonal variations.!!
+!DR
       CALL init_canopy( ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
          &  istartpar=i_startidx, iendpar=i_endidx, jstartpar=1, jendpar=1, &
 !

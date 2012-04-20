@@ -66,9 +66,10 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: nsfc_subs, frac_thresh
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
-  USE mo_smooth_topo,        ONLY: smooth_topography
+  USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
+  USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -115,19 +116,19 @@ MODULE mo_ext_data_state
 
   REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp
 
+  INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
+                                        !< dim: n_dom
+  INTEGER, ALLOCATABLE :: nmonths_ext(:)!< number of months in external data file
+                                        !< dim: n_dom
 
   PUBLIC :: ext_data
-  PUBLIC :: nclass_lu
-  PUBLIC :: nlev_o3, nmonths
+  PUBLIC :: nmonths
+  PUBLIC :: nlev_o3
 
   PUBLIC :: init_ext_data
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
 
-
-
-  INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
-                                        !< dim: n_dom
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
@@ -172,6 +173,11 @@ CONTAINS
     ! Set default value for nclass_lu. Will be overwritten, if external data 
     ! are read from file
     nclass_lu(1:n_dom) = 1
+
+    ALLOCATE(nmonths_ext(n_dom))
+    ! Set default value for nmonths_ext. Will be overwritten, if external data 
+    ! are read from file
+    nmonths_ext(1:n_dom) = 1
 
     CALL inquire_external_files(p_patch)
 
@@ -254,6 +260,15 @@ CONTAINS
       ENDDO
 
       CALL message( TRIM(routine),'Finished reading external data' )
+
+      ! Get interpolated ndvi_mrat. Interpolation is done in time, based 
+      ! on ini_datetime. For NWP applications it is assumed, that 
+      ! ndvi_mrat is constant in time.
+      !
+      SELECT CASE ( iforcing )
+      CASE ( inwp )
+        CALL interpol_ndvi_time (p_patch, ext_data, time_config%ini_datetime)
+      END SELECT
 
     CASE DEFAULT
 
@@ -694,24 +709,24 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,nsfc_subs)
-      cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
-        &                   'Leaf Area Index Maximum')
+      cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
+        &                   'Surface Area Index')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai_t', p_ext_atm%sai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
       ! tai_t       p_ext_atm%tai_t(nproma,nblks_c,nsfc_subs)
-      cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
-        &                   'Leaf Area Index Maximum')
+      cf_desc    = t_cf_var('transpiration_area_index_vegetation_period', '-',&
+        &                   'Transpiration Area Index')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'tai_t', p_ext_atm%tai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
       ! eai_t       p_ext_atm%eai_t(nproma,nblks_c,nsfc_subs)
-      cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
-        &                   'Leaf Area Index Maximum')
+      cf_desc    = t_cf_var('evaporative_surface_area_index_vegetation_period', '-',&
+        &                   'Earth Area (evaporative surface area) Index')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'eai_t', p_ext_atm%eai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
@@ -794,6 +809,17 @@ CONTAINS
         &                   'NDVI yearly maximum')
       grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'ndvi_max', p_ext_atm%ndvi_max, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
+
+      ! proportion of actual value/maximum NDVI (at ini_datetime)
+      !
+      ! ndvi_mrat        p_ext_atm%ndvi_mrat(nproma,nblks_c)
+      cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-',     &
+        &                   '(monthly) proportion of actual value/maximum ' // &
+        &                   'NDVI (at init time)')
+      grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'ndvi_mrat', p_ext_atm%ndvi_mrat, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
 
@@ -959,25 +985,28 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: nblks_c      !< number of cell blocks to allocate
+    INTEGER :: jg           !< patch ID
 
     INTEGER :: shape3d_c(3)
     INTEGER :: shape3d_ape(3)
     INTEGER :: shape4d_c(4)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
-    INTEGER :: ntimes        !< number of time slices
     !--------------------------------------------------------------
 
     !determine size of arrays
     nblks_c = p_patch%nblks_c
 
+    ! get patch ID
+    jg = p_patch%id
+
     ientr  = 16   ! "entropy" of horizontal slice
-    ntimes = 12   ! number of time slices
 
     ! predefined array shapes
-    shape3d_c = (/ nproma, nblks_c, ntimes /)
-    shape4d_c = (/ nproma, nlev_o3, nblks_c, nmonths /) 
-    shape3d_ape = (/ nproma, nlev_o3, nblks_c/) 
+    shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
+    shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /) 
+    shape3d_ape = (/ nproma, nlev_o3, nblks_c          /) 
+
 
     !
     ! Register a field list and apply default settings
@@ -1113,15 +1142,6 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c, loutput=.FALSE. )
 
-!!$    ! monthly mean normalized difference vegetation index
-!!$    !
-!!$    ! ndvi         p_ext_atm%ndvi(nproma,nblks_c,ntimes)
-!!$    cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
-!!$      &                   'monthly mean NDVI')
-!!$    grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL)
-!!$    CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
-!!$      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-!!$      &           ldims=shape3d_c, loutput=.FALSE.  )
 
     ENDIF ! inwp
 
@@ -1400,6 +1420,16 @@ CONTAINS
           CALL nf(nf_inq_dimid (ncid, 'nclass_lu', dimid))
           CALL nf(nf_inq_dimlen(ncid, dimid, nclass_lu(jg)))
 
+
+          ! get time dimension from external data file
+          CALL nf(nf_inq_dimid (ncid, 'time', dimid))
+          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths_ext(jg)))
+
+          WRITE(message_text,'(A,I4)')  &
+            & 'Number of months in external data file = ', &
+            & nmonths_ext(jg)
+          CALL message(TRIM(ROUTINE),message_text)
+
           !
           ! close file
           !
@@ -1407,8 +1437,11 @@ CONTAINS
 
         ENDIF ! my_process_is_stdio()
 
-        ! broadcast from nclass_lu I-Pe to WORK Pes
+        ! broadcast nclass_lu from I-Pe to WORK Pes
         CALL p_bcast(nclass_lu(jg), p_io, mpi_comm)
+
+        ! broadcast nmonths from I-Pe to WORK Pes
+        CALL p_bcast(nmonths_ext(jg), p_io, mpi_comm)
 
       ENDIF
 
@@ -1698,39 +1731,6 @@ CONTAINS
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     ext_data(jg)%atm%fr_ice)
 
-            IF ( irad_aero == 6 ) THEN
-
-              CALL read_netcdf_data (ncid, 12, 'AER_SS',           &
-                &                    p_patch(jg)%n_patch_cells_g,  &
-                &                    p_patch(jg)%n_patch_cells,    &
-                &                    p_patch(jg)%cells%glb_index,  & 
-                &                    ext_data(jg)%atm_td%aer_ss)
-
-              CALL read_netcdf_data (ncid, 12, 'AER_DUST',         &
-                &                    p_patch(jg)%n_patch_cells_g,  &
-                &                    p_patch(jg)%n_patch_cells,    &
-                &                    p_patch(jg)%cells%glb_index,  & 
-                &                    ext_data(jg)%atm_td%aer_dust)
-
-              CALL read_netcdf_data (ncid, 12, 'AER_ORG',          &
-                &                    p_patch(jg)%n_patch_cells_g,  &
-                &                    p_patch(jg)%n_patch_cells,    &
-                &                    p_patch(jg)%cells%glb_index,  & 
-                &                    ext_data(jg)%atm_td%aer_org)
-
-              CALL read_netcdf_data (ncid, 12, 'AER_SO4',          &
-                &                    p_patch(jg)%n_patch_cells_g,  &
-                &                    p_patch(jg)%n_patch_cells,    &
-                &                    p_patch(jg)%cells%glb_index,  & 
-                &                    ext_data(jg)%atm_td%aer_so4)
-
-              CALL read_netcdf_data (ncid, 12, 'AER_BC',           &
-                &                    p_patch(jg)%n_patch_cells_g,  &
-                &                    p_patch(jg)%n_patch_cells,    &
-                &                    p_patch(jg)%cells%glb_index,  & 
-                &                    ext_data(jg)%atm_td%aer_bc)
-
-            ENDIF
            
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
@@ -1767,6 +1767,52 @@ CONTAINS
             CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     ext_data(jg)%atm%depth_lk)
+
+
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!
+            ! Read time dependent data
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!
+            IF ( irad_aero == 6 ) THEN
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_SS', &
+                &                    p_patch(jg)%n_patch_cells_g,     &
+                &                    p_patch(jg)%n_patch_cells,       &
+                &                    p_patch(jg)%cells%glb_index,     & 
+                &                    ext_data(jg)%atm_td%aer_ss)
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_DUST',&
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%aer_dust)
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_ORG', &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%aer_org)
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_SO4', &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%aer_so4)
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_BC',  &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%aer_bc)
+
+            ENDIF
+
+
+            CALL read_netcdf_data (ncid, nmonths_ext(jg), 'NDVI_MRAT', &
+              &                    p_patch(jg)%n_patch_cells_g,        &
+              &                    p_patch(jg)%n_patch_cells,          &
+              &                    p_patch(jg)%cells%glb_index,        &
+              &                    ext_data(jg)%atm_td%ndvi_mrat)
+           
 
           CASE ( iecham, ildf_echam )
 
@@ -1849,7 +1895,7 @@ CONTAINS
         !
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
 
-      ENDDO
+      ENDDO  ! jg
 
     ENDIF ! itopo
 
@@ -2354,6 +2400,9 @@ CONTAINS
     INTEGER  :: lu_subs, it_count(nsfc_subs)
     INTEGER  :: npoints, npoints_sea
 
+    REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
+      &  ptr_ndvi_mrat(:,:)   !< NDVI (for starting time of model integration)
+
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
     !-------------------------------------------------------------------------
@@ -2366,6 +2415,8 @@ CONTAINS
     DO jg = 1, n_dom 
 
        n_lu = nclass_lu(jg)
+
+       ptr_ndvi_mrat => ext_data(jg)%atm%ndvi_mrat(:,:)
 
        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
@@ -2408,9 +2459,10 @@ CONTAINS
 
                ! i_lu=1 contains grid-box mean values from EXTPAR!
                ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-               ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)
-               ext_data(jg)%atm%tai_t    (i_count,jb,1)  = &
-                 & ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+               ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ptr_ndvi_mrat(jc,jb)  &
+                 &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
+               ext_data(jg)%atm%tai_t    (i_count,jb,1)  = ptr_ndvi_mrat(jc,jb)**2  &
+                 & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
                ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
                  & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
                ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
@@ -2473,14 +2525,15 @@ CONTAINS
                  ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
 
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  = zplcmxc_lu(lu_subs)
+                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  =    &
+                   &         ptr_ndvi_mrat(jc,jb) * zplcmxc_lu(lu_subs)
 
                  ! max leaf area index
-                 ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  = &
-                   zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
+                 ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  =    &
+                   &  ptr_ndvi_mrat(jc,jb)**2 * zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
 
                  ! max leaf area index
-                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  = &
+                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
                    c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
 
                  ! max leaf area index
@@ -2528,44 +2581,72 @@ CONTAINS
   END SUBROUTINE init_index_lists
 
 
-  SUBROUTINE init_climatology (p_patch, p_int_state, ext_data, datetime)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_int_state), INTENT(IN)        :: p_int_state(:)
+  !-------------------------------------------------------------------------
+  !>
+  !! Get ndvi_mrat for starting time of model integration
+  !!
+  !! Get ndvi_mrat for starting time of model integration.
+  !! Linear interpolation in time. 
+  !!
+  !! @par Revision History
+  !! Initial revision by Juergen Helmert, DWD (2012-04-17)
+  !!
+  SUBROUTINE interpol_ndvi_time(p_patch, ext_data, datetime)
+
+    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_datetime),      INTENT(IN)    :: datetime
 
 
-    INTEGER :: jg,mo1,mo2
-    REAL(wp):: zw1,zw2
+    INTEGER :: jg, mo1, mo2
+    INTEGER :: jc, jb               !< loop index
+    INTEGER :: i_startblk, i_endblk, i_nchdom
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startidx, i_endidx
+    REAL(wp):: zw1, zw2
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:init_climatology'
+      routine = 'mo_ext_data: interpol_ndvi_time'
 
+    !---------------------------------------------------------------
 
-      CALL  month2hour( datetime, mo1, mo2, zw2 )
-      zw1 = 1._wp - zw2
+    ! Find the 2 nearest months m1, m2 and the weights pw1, pw2 
+    ! to the actual date and time
+    CALL month2hour( datetime, mo1, mo2, zw2 )
 
-        DO jg = 1, n_dom
-    ext_data(jg)%atm%lai_mx(:,:) = (zw1*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo1)  + & 
-   &                                zw2*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo2)) * &
-   &                               ext_data(jg)%atm%lai_mx(:,:)
+    zw1 = 1._wp - zw2
 
+    ! Get interpolated ndvi_mrat
+    DO jg = 1, n_dom
 
-    ext_data(jg)%atm%plcov_mx(:,:) = (zw1*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo1)  + & 
-   &                                  zw2*ext_data(jg)%atm_td%ndvi_mrat(:,:,mo2)) * &
-   &                                ext_data(jg)%atm%plcov_mx(:,:)
+      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-!!$    aer_su(:,:,:) = zw1*aer_su12(:,:,mo1,:) + zw2*aer_su12(:,:,mo2,:)
-!!$    aer_du(:,:,:) = zw1*aer_du12(:,:,mo1,:) + zw2*aer_du12(:,:,mo2,:)
-!!$    aer_or(:,:,:) = zw1*aer_or12(:,:,mo1,:) + zw2*aer_or12(:,:,mo2,:)
-!!$    aer_bc(:,:,:) = zw1*aer_bc12(:,:,mo1,:) + zw2*aer_bc12(:,:,mo2,:)
-!!$    aer_ss(:,:,:) = zw1*aer_ss12(:,:,mo1,:) + zw2*aer_ss12(:,:,mo2,:)
-        END DO
+      ! exclude the boundary interpolation zone of nested domains
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
 
-      CALL message( TRIM(routine),'Finished interpolation of climatology' )
+      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
-  END SUBROUTINE init_climatology
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+      DO jb=i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+           & i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx
+          ext_data(jg)%atm%ndvi_mrat(jc,jb) = zw1*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo1) & 
+            &                               + zw2*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo2)
+        ENDDO
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    END DO ! jg
+
+  END SUBROUTINE interpol_ndvi_time
 
 
 END MODULE mo_ext_data_state

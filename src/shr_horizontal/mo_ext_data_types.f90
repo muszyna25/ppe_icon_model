@@ -154,14 +154,15 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
       & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
 
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
+    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)            [ ]
       &  lai_mx(:,:)           ! index1=1,nproma, index2=1,nblks_c
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
+    REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
       &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
+    REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
       &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  eai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+    REAL(wp), POINTER ::   &   !< earth area (evaporative surface area)          [ ]
+      &  eai_t(:,:,:)          !< index (vegetation period)
+                               ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
 
     REAL(wp), POINTER ::   &   !< root depth                              [m]
       &  rootdp(:,:)           ! index1=1,nproma, index2=1,nblks_c
@@ -185,6 +186,11 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< annual maximum NDVI                     [ ]
       &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< proportion of actual value/maximum 
+      &  ndvi_mrat(:,:)        !< normalized differential vegetation index [ ]
+                               !< for starting time of model integration
+                               !< (derived from atm_td%ndvi_mrat)
+                               ! index1=1,nproma, index2=1,nblks_c
 
 
     !
@@ -236,9 +242,6 @@ MODULE mo_ext_data_types
   END TYPE t_external_atmos
 
 
-  INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
-                                        !< dim: n_dom
-
 
   !>
   !! atmosphere external data class (time dependent)
@@ -285,11 +288,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
                                ! index1=1,nproma, index2=1,nblks_c
-
-!!$    REAL(wp), POINTER ::   &   !< normalized difference vegetation index [ ]
-!!$      &  ndvi(:,:,:)           !< (monthly mean)
-!!$                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
 
   END TYPE t_external_atmos_td
 
