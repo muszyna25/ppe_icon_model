@@ -166,41 +166,46 @@ CONTAINS
 
         !>
         !! define convective-related fields
-        !! NOTA: heat fluxes are  defined positive when directed upwards
-        !!       so POSITIVE during day over land
-        !!      - in Call of convection code sign is reversed
-        !! thus pass fluxes to cumastrn that are negative when upwards
+        !! NOTE: Heat fluxes are defined negative upwards in the convection scheme. 
+        !!       In the turbulences scheme (1,2,3) they defined either positive or
+        !!       negative upward. 
+        !! Thus pass fluxes to cumastrn that are negative when upwards!!!
 
         IF(atm_phy_nwp_config(jg)%inwp_turb == 0 ) THEN
 
-          z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux W/m**2
+          z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
         ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
+          ! In turb1, the flux is positive upwards.
           prm_diag%qhfl_s(i_startidx:i_endidx,jb) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) & 
              &                                   / alv
-          ! PR. In turb1, the flux is positive upwards
-
           z_qhfl(i_startidx:i_endidx,nlevp1) = - prm_diag%qhfl_s(i_startidx:i_endidx,jb)
           z_shfl(i_startidx:i_endidx,nlevp1) = - prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
         ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
-         ! PR. In turb2, the flux is negative upwards
+          ! In turb2, the flux is negative upwards.
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
 
           IF (nsfc_type == 1  ) THEN
             IF (ilnd <= nsfc_type ) THEN   ! sensible heat flux not implemented over land
               z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp  !! sens. heat fl W/m**2
-
-            ELSE              ! These is the case for which sensible heat
-                              ! is implementead in vdiff
+            ELSE      ! This is the case when sensible heat is implementead in vdiff.
               z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
             END IF
           ELSE
             z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
           ENDIF
+
+        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+
+          ! In turb3, the flux is negative upwards.
+          ! (attention: number here and in mo_vdfmain.f90)
+          z_qhfl(i_startidx:i_endidx,nlevp1) = - 60._wp / alv   !> moisture flux kg/m2/s
+          z_shfl(i_startidx:i_endidx,nlevp1) = - 15._wp         !! sens. heat fl W/m**2
+
         ENDIF
 
         z_omega_p (:,1:kstart_moist(jg)-1) = 0._wp

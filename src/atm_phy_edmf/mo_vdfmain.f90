@@ -601,8 +601,6 @@ REAL(KIND=JPRB) ::    ZCLDFRAC(KLON,KLEV),ZQLAV(KLON,KLEV)
 
 !RN ---------------------------------------------------------------------
 
-REAL(KIND=JPRB) ::    ZTSKINTIOLD(KLON,KTILES)
-
 REAL(KIND=JPRB) ::    ZEXTSHF(KLON)     , ZEXTLHF(KLON)
 
 REAL(KIND=JPRB) ::    ZCPTSTI(KLON,KTILES), ZQSTI(KLON,KTILES)  ,&
@@ -681,8 +679,9 @@ ELSE
 ENDIF
 
 !amk  turn on specified surface fluxes everywhere globally
+!     (attention: number here and in mo_nwp_conv_interactive.f90)
 LLSFCFLX = .TRUE.
-ZEXTSHF(:) = -10.0_JPRB
+ZEXTSHF(:) = -15.0_JPRB
 ZEXTLHF(:) = -60.0_JPRB
 !xxx
 
@@ -758,12 +757,6 @@ ENDDO
 
 !*         3.  Compute all surface related quantities
 !          ------------------------------------------
-
-DO JL=KIDIA,KFDIA
-  DO JK = 1,KTILES
-    ZTSKINTIOLD(JL,JK) = PTSKTI(JL,JK)
-  ENDDO   
-ENDDO   
 
 !DMK??
 !  CALL SURFEXCDRIVER(CDCONF=CDCONF, &

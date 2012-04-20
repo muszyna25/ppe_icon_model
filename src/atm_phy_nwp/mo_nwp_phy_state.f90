@@ -231,7 +231,7 @@ TYPE t_nwp_phy_diag
        edr   (:,:,:)          !! eddy dissipation rate
 
 
-    ! need only for vdiff ++++
+    ! need only for vdiff (and some for EDMF)
     REAL(wp),POINTER :: &
       & ri      (:,:,:),    &!< moist Richardson number at layer interfaces
       & mixlen  (:,:,:),    &!< mixing length at layer interfaces
@@ -1234,10 +1234,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
+  !
+  ! vdiff
+  !
 
-  ! +++vdiff
-  !
-  !
     IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
 
       ! &      diag%cfm_tile(nproma,nblks_c)
@@ -1398,6 +1398,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     ENDIF  !inwp_turb == 2 (vdiff)
 
 
+  !
+  ! EDMF
+  !
+
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 3) THEN
+
+       ! &      diag%z0m(nproma,nblks_c)
+       cf_desc    = t_cf_var('z0m', '','geopotential of the top of the atmospheric boundary layer')
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( diag_list, 'z0m', diag%z0m,                             &
+         & GRID_UNSTRUCTURED_CELL,ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    ENDIF  !inwp_turb == 3 (EDMF)
 
 
     !------------------
