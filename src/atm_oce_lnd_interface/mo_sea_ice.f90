@@ -1484,7 +1484,11 @@ CONTAINS
 
     INTEGER k
 
+    ! Necessary initialisation
     delh2=0._wp
+    surfmelti1 = 0.0_wp
+    surfmelti2 = 0.0_wp
+
 
     !-------------------------------------------------------------------------------
     ! Calculate snow fall and create array split into ice categories
