@@ -50,7 +50,7 @@ MODULE mo_run_config
   PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
-  PUBLIC :: iqv, iqc, iqi, iqs, iqr, nqtendphy, iqt, ico2
+  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqash1 !K.L. Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: check_epsilon, testbed_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
@@ -102,6 +102,7 @@ MODULE mo_run_config
     INTEGER :: iqi        !< cloud ice
     INTEGER :: iqr        !< rain water
     INTEGER :: iqs        !< snow
+    INTEGER :: iqtvar     !< total water variance
     INTEGER :: nqtendphy  !< number of water species for which physical tendencies are stored
   
     ! Tracer indices of other species

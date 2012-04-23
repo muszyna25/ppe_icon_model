@@ -95,8 +95,8 @@ SUBROUTINE VDFSTCUCRIT (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
 !     *PQTM1*        TOTAL SPECIFIC HUMIDITY AT T-1                   KG/KG
 !     *PAPM1*        PRESSURE AT FULL LEVEL AT T-1                    PA
 !     *PGEOM1*       GEOPOTENTIAL AT T-1                              M2/S2
-!     *PSTABTHRESH*  STABILITY CRITERION (Klein & Hartmann criteria)  K                      
-!     *PEISTHRESH*   STABILITY CRITERION (Wood & Bretherton criteria) K                      
+!     *PSTABTHRESH*  STABILITY CRITERION (Klein & Hartmann criteria)  K
+!     *PEISTHRESH*   STABILITY CRITERION (Wood & Bretherton criteria) K
 !     *PCLDDEPTH*    THRESHOLD CLOUD THICKNESS FOR STCU/CU TRANSITION M
 !     *PBIRTHTHRASH* THRESHOLD BIR (TKE DECOUPLING CRITERIA)          1
 !     *PDZCLOUD*     CLOUD THICKNESS                                  M
@@ -254,7 +254,7 @@ ZRG         = 1.0_JPRB/RG
     ELSE
       PSTABILITY(JL) = 0.0_JPRB
     ENDIF
- ENDDO
+  ENDDO
 
 
 !*         2.2  Estimated Inversion Strength (EIS) criteria from Wood & Bretherton (2006)
@@ -284,6 +284,7 @@ ZRG         = 1.0_JPRB/RG
   DO JL=KIDIA,KFDIA
 
    IF ( .FALSE. ) THEN
+
     IF ( KPBLTYPE(JL) == 2) THEN
 
       JK            = KPTOP(JL,1)  ! PBL top full level taken as K+1
@@ -317,6 +318,7 @@ ZRG         = 1.0_JPRB/RG
       ZDCTEI(JL) = 1.0
 
     ENDIF
+
    ENDIF
 
 

@@ -47,7 +47,7 @@ CONTAINS
 !! #ifdef RS6K
 !! @PROCESS NOSTRICT
 !! #endif
-SUBROUTINE VDFMAIN    ( CDCONF, &
+SUBROUTINE VDFMAIN ( CDCONF , &
  & KIDIA  , KFDIA  , KLON   , KLEV   , KLEVS  , KSTEP  , KTILES , &
  & KTRAC  , KLEVSN , KLEVI  , KDHVTLS, KDHFTLS, KDHVTSS, KDHFTSS, &
  & KDHVTTS, KDHFTTS, KDHVTIS, KDHFTIS, &
@@ -62,12 +62,12 @@ SUBROUTINE VDFMAIN    ( CDCONF, &
  & PSOTEU , PSOTEV , PSOBETA, PVERVEL, &
  ! OUTPUT
  & PZ0M   , PZ0H   , &
- & PVDIS  , PVDISG , PDISGW3D, PAHFLEV, PAHFLSB, PFWSB  , PBIR   , PVAR   , &
+ & PVDIS  , PVDISG , PDISGW3D,PAHFLEV, PAHFLSB, PFWSB  , PBIR   , PVAR   , &
  & PU10M  , PV10M  , PT2M   , PD2M   , PQ2M   , PZINV  , PBLH   , KHPBLN , KVARTOP, &
- & PSSRFLTI,PEVAPSNW,PGUST  , PWUAVG , LDNODECP,KPBLTYPE, PLDIFF,&
+ & PSSRFLTI,PEVAPSNW,PGUST  , PWUAVG , LDNODECP,KPBLTYPE,PLDIFF , &
  & PFPLVL , PFPLVN , PFHPVL , PFHPVN , &
  ! DIAGNOSTIC OUTPUT
- & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , JCNT   , LLDIAG,&
+ & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , JCNT   , LLDIAG , &
  ! OUTPUT TENDENCIES
  & PTE    , PQE    , PLE    , PIE    , PAE    , PVOM   , PVOL   , &
  & PTENC  , PTSKE1 , &
@@ -75,7 +75,7 @@ SUBROUTINE VDFMAIN    ( CDCONF, &
  & PUSTRTI, PVSTRTI, PAHFSTI, PEVAPTI, PTSKTI , &
  ! OUTPUT FLUXES
  & PDIFTS , PDIFTQ , PDIFTL , PDIFTI , PSTRTU , PSTRTV , PTOFDU , PTOFDV, &
- & PSTRSOU, PSTRSOV,   PKH  , &
+ & PSTRSOU, PSTRSOV, PKH    , &
 !amk
  & LDLAND , &   
 !xxx
@@ -795,6 +795,13 @@ ENDDO
 !   & )
 !XMK??
 
+!amk ATTENTION: needs to specify surface layer diffusion coefficients
+  ZCFM   = 1.0_JPRB
+  ZCFHTI = 1.0_JPRB
+  ZCFQTI = 1.0_JPRB
+  ZBLEND = 75.0_JPRB   !blending height for U10 diagnostic
+!xxx
+
 
 
 !     ------------------------------------------------------------------
@@ -822,6 +829,9 @@ IF (LLSFCFLX) THEN
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
     ZKHFL(JL) = ZEXTSHF(JL) / ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) / ZRHO
     ZKQFL(JL) = ZEXTLHF(JL) / RLVTT / ZRHO
+!amk ATTENTION: surface momentum flux needs to be calculated in surfexcdriver!!!
+    ZKMFL(JL) = 0.0_JPRB
+!xxx
   ENDDO
 ENDIF
 

@@ -67,7 +67,7 @@ MODULE mo_nml_crosscheck
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
-    &                              iqs, iqr, iqt, ico2, ltimer,               &
+    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              activate_sync_timers, timers_level,iqash1 !K.L. ICON-ART
                                   
 !  USE mo_io_config
@@ -509,10 +509,16 @@ CONTAINS
       ! according to the selected radiation scheme (following section).
       !
       do jg=1,n_dom
-        IF ( (ntracer /= 5) .AND. (.NOT. art_config(jg)%lart)) THEN
+        IF ( (ntracer /= 5) .AND. (.NOT. art_config(jg)%lart) ) THEN
           ntracer = 5
           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
-                                      'ntracer is set to',ntracer
+                                       'ntracer is set to',ntracer
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+        IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == 3) ) THEN
+          ntracer = 6
+          WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+                                       'ntracer is set to',ntracer
           CALL message(TRIM(routine),message_text)
         ENDIF
       enddo
@@ -522,6 +528,7 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
+      iqtvar = 6     !! qt variance
       
       ! Note: Indices for additional tracers are assigned automatically 
       ! via add_tracer_ref in mo_nonhydro_state.

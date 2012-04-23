@@ -67,7 +67,7 @@ MODULE mo_nonhydro_state
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
-    &                                iqv, iqc, iqi, iqr, iqs,              &
+    &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
     &                                nqtendphy, iqash1 
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
@@ -82,8 +82,9 @@ MODULE mo_nonhydro_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
   USE mo_cdi_constants
-  USE mo_art_config,          ONLY: t_art_config,art_config
+  USE mo_art_config,           ONLY: t_art_config,art_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
 
@@ -544,7 +545,7 @@ MODULE mo_nonhydro_state
 
         ktracer=ntracer+ntracer_static
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
-           !QV
+        !QV
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qv'//suffix, p_prog%tracer_ptr(iqv)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
@@ -561,9 +562,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_method=VINTP_METHOD_QV,                  &
                     &             l_satlimit=.FALSE.,                                &
                     &             lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ) )
-
-
-           !QC
+        !QC
         CALL add_ref( p_prog_list, 'tracer',&
                     & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
@@ -581,8 +580,7 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ) )
-
-           !QI
+        !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
@@ -600,7 +598,7 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  )  )
-           !QR
+        !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
@@ -618,7 +616,7 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  )  )
-           !QS
+        !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
@@ -636,11 +634,31 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  )  )
-       IF (artconf%lart) THEN
+        ! EDMF: total water variance
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_turb == 3) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                       &
+                    & TRIM(vname_prefix)//'qtvar'//suffix, p_prog%tracer_ptr(iqtvar)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
+                    & t_cf_var(TRIM(vname_prefix)//'qtvar',                          &
+                    &  'kg2 kg-2','total water variance'),                           &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(),                          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                  &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  )  )
+        ENDIF
+
+        ! art
+        IF (artconf%lart) THEN
           CALL art_tracer_interface(p_patch,p_prog_list,vname_prefix, p_prog%tracer_ptr,&
                     & timelev,ldims=shape3d_c,tlev_source=1)
-       ENDIF !lart     
-
+        ENDIF
+   
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')
         grib2_desc = t_grib2_var(0, 19, 11, ientr, GRID_REFERENCE, GRID_CELL)

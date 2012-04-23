@@ -58,7 +58,7 @@ MODULE mo_nwp_turb_interface
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, nqtendphy
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: organize_turbdiff
@@ -435,7 +435,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       prm_nwp_tend%ddt_tracer_turb(1:i_endidx,:,jb,iqv:iqi) = 0._wp
       prm_nwp_tend%ddt_u_turb     (1:i_endidx,:,jb)         = 0._wp
       prm_nwp_tend%ddt_v_turb     (1:i_endidx,:,jb)         = 0._wp
-!      p_prog_rcf%tke              (1:i_endidx,:,jb)         = 0._wp
+!     p_prog_rcf%tke              (1:i_endidx,:,jb)         = 0._wp
 
       ! KF as long as if nsfc_type = 1 !!!!!
       zdummy_tsfc (1:i_endidx,nsfc_type,jb) = &
@@ -448,7 +448,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         p_diag%u(1:i_startidx-1,jk,jb) = 0._wp
         p_diag%v(1:i_startidx-1,jk,jb) = 0._wp
       ENDDO
-         
+
 
       CALL vdiff( lsfc_mom_flux  = vdiff_config%lsfc_mom_flux                        ,&! in
             &     lsfc_heat_flux = vdiff_config%lsfc_heat_flux                       ,&! in
@@ -459,24 +459,24 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & pdtime = tcall_turb_jg,       pstep_len = tcall_turb_jg                ,&! in
             !
             & pfrc      = zfrc(:,:,jb)                                               ,&! in
-            !& pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                     ,&! in
-            & pocu      = prm_diag%ocu    (:,jb),  pocv   = prm_diag%ocv      (:,jb) ,&! in
+            !& pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                    ,&! in
+            & pocu      = prm_diag%ocu   (:,jb),  pocv   = prm_diag%ocv     (:,jb)   ,&! in
             & ppsfc     = p_diag%pres_sfc(:,jb),  pcoriol= p_patch%cells%f_c(:,jb)   ,&! in
             !
-            & pum1      = p_diag% u  (:,:,jb),   pvm1 = p_diag% v        (:,:,jb)    ,&! in
+            & pum1      = p_diag%u   (:,:,jb),   pvm1 = p_diag%v         (:,:,jb)    ,&! in
             & ptm1      = p_diag%temp(:,:,jb),   pqm1 = p_prog_rcf%tracer(:,:,jb,iqv),&! in
             & pxlm1     = p_prog_rcf%tracer(:,:,jb,iqc)                              ,&! in
             & pxim1     = p_prog_rcf%tracer(:,:,jb,iqi)                              ,&! in
-            & pxm1      = z_plitot (:,:,jb) ,    pxtm1 = zdummy_it        (:,:,:,jb) ,&! in
+            & pxm1      = z_plitot (:,:,jb) ,    pxtm1 = zdummy_it       (:,:,:,jb)  ,&! in
             !
-            & paphm1 = p_diag%pres_ifc(:,:,jb),  papm1 = p_diag%pres        (:,:,jb) ,&! in
+            & paphm1 = p_diag%pres_ifc(:,:,jb),  papm1 = p_diag%pres         (:,:,jb),&! in
             & pdelpm1= p_diag%dpres_mc(:,:,jb),  pgeom1= p_metrics%geopot_agl(:,:,jb),&! in 
             & ptvm1  = p_diag%tempv   (:,:,jb),  paclc = prm_diag%tot_cld(:,:,jb,icc),&! in
             & ptkem1 = p_prog_now_rcf%tke (:,2:nlevp1,jb)                            ,&! in
             !
-            & pxt_emis= zdummy_ith     (:,:,jb)                                      ,&! in
+            & pxt_emis= zdummy_ith    (:,:,jb)                                       ,&! in
             & ptsfc_tile = zdummy_tsfc(:,:,jb)                                       ,&! inout
-            & pxvar   = zdummy_i     (:,:,jb)                                        ,&! inout
+            & pxvar   = zdummy_i      (:,:,jb)                                       ,&! inout
             & pthvvar = prm_diag%thvvar(:,2:nlevp1,jb), pustar = prm_diag%ustar(:,jb),&! inout
             & pz0m_tile = prm_diag%z0m_tile(:,jb,:)                                  ,&! inout
             & pkedisp  = prm_diag%kedisp(:,jb)                                       ,&! inout
@@ -501,15 +501,15 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)    ,&! out
             & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)      ,&! out
             & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)    ,&! inout
-            & pghpbl   = prm_diag%ghpbl (:,jb), pri =  prm_diag%ri (:,2:nlevp1,jb)   ,&! out
-            & pmixlen  = prm_diag%mixlen (:,2:nlevp1,jb)                             ,&! out
-            & pcfm     = prm_diag%cfm    (:,2:nlevp1,jb)                             ,&! out
-            & pcfh     = prm_diag%cfh    (:,2:nlevp1,jb)                             ,&! out
-            & pcfv     = prm_diag%cfv    (:,2:nlevp1,jb)                             ,&! out
+            & pghpbl   = prm_diag%ghpbl (:,jb),     pri = prm_diag%ri (:,2:nlevp1,jb),&! out
+            & pmixlen  = prm_diag%mixlen(:,2:nlevp1,jb)                              ,&! out
+            & pcfm     = prm_diag%cfm   (:,2:nlevp1,jb)                              ,&! out
+            & pcfh     = prm_diag%cfh   (:,2:nlevp1,jb)                              ,&! out
+            & pcfv     = prm_diag%cfv   (:,2:nlevp1,jb)                              ,&! out
             & pcfm_tile= prm_diag%cfm_tile(:,jb,:)                                   ,&! out
             & pcfh_tile= prm_diag%cfh_tile(:,jb,:)                                   ,&! out
-            & pcftke   = prm_diag%cftke  (:,2:nlevp1,jb)                             ,&! out
-            & pcfthv   = prm_diag%cfthv  (:,2:nlevp1,jb))                              ! out
+            & pcftke   = prm_diag%cftke (:,2:nlevp1,jb)                              ,&! out
+            & pcfthv   = prm_diag%cfthv (:,2:nlevp1,jb))                              ! out
 
 
       !-------------------------------------------------------------------------
@@ -661,7 +661,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PAHFLSB = zdummy_vdf_1m                              ,&! (OUT) optional out: latent heat flux (snow/ice covered part)
         & PFWSB   = zdummy_vdf_1n                              ,&! (OUT) optional out: evaporation of snow
         & PBIR    = zdummy_vdf_1o                              ,&! (OUT) optional out: BIR buoyancy flux integral ratio
-        & PVAR    = zvar                                       ,&! (INOUT) qt,variance - prognostic advected tracer
+        & PVAR    = p_prog_rcf%tracer(:,:,jb,iqtvar)           ,&! (INOUT) qt,variance - prognostic advected tracer
         & PU10M   = prm_diag%u_10m(:,jb)                       ,&! (OUT)  
         & PV10M   = prm_diag%v_10m(:,jb)                       ,&! (OUT)  
         & PT2M    = prm_diag%t_2m (:,jb)                       ,&! (OUT)  
