@@ -625,13 +625,16 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       CALL finish ('mo_interpolation:construct_int_state',&
       &            'allocation for tplane_e_dotprod failed')
     ENDIF
-    !
-    ! pos_on_tplane_c_edge
-    !
-    ALLOCATE (ptr_int%pos_on_tplane_c_edge(nproma, nblks_e, 2, 5), STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',&
-      &            'allocation for pos_on_tplane_c_edge failed')
+
+    IF (ptr_patch%cell_type == 3) THEN
+      !
+      ! pos_on_tplane_c_edge
+      !
+      ALLOCATE (ptr_int%pos_on_tplane_c_edge(nproma, nblks_e, 2, 5), STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ('mo_interpolation:construct_int_state',&
+        &            'allocation for pos_on_tplane_c_edge failed')
+      ENDIF
     ENDIF
 
     !
@@ -1345,8 +1348,11 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
     ptr_int%pos_on_tplane_e           = 0._wp
     ptr_int%tplane_e_dotprod          = 0._wp
-    ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lon = 0._wp
-    ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lat = 0._wp
+
+    IF (ptr_patch%cell_type == 3) THEN
+      ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lon = 0._wp
+      ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lat = 0._wp
+    ENDIF
 
     ptr_int%lsq_lin%lsq_dim_stencil   = 0
     ptr_int%lsq_lin%lsq_idx_c         = 0
@@ -1564,6 +1570,8 @@ DO jg = n_dom_start, n_dom
   !
   ! - Initialization of tangential plane (at edge midpoints) for calculation
   !   of backward trajectories.
+  ! - Initialization of tangential plane (at cell centers) - for triangular
+  !   grid only
   ! - stencil generation
   ! - initialization of coefficients for least squares gradient
   ! reconstruction at cell centers
@@ -1572,9 +1580,10 @@ DO jg = n_dom_start, n_dom
 
     CALL init_tplane_e(ptr_patch(jg), ptr_int_state(jg))
 
-    CALL init_tplane_c(ptr_patch(jg), ptr_int_state(jg))
-
     IF (ptr_patch(jg)%cell_type==3) THEN
+      !
+      CALL init_tplane_c(ptr_patch(jg), ptr_int_state(jg))
+
       CALL lsq_stencil_create( ptr_patch(jg), ptr_int_state(jg)%lsq_lin,      &
         &                      lsq_lin_set%dim_c )
       CALL lsq_compute_coeff_cell( ptr_patch(jg), ptr_int_state(jg)%lsq_lin,  &
@@ -2396,13 +2405,16 @@ INTEGER :: ist
       CALL finish ('mo_interpolation:destruct_int_state',                      &
         &             'deallocation for tplane_e_dotprod failed')
     ENDIF
-    !
-    ! pos_on_tplane_c_edge
-    !
-    DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for pos_on_tplane_c_edge failed')
+
+    IF ( global_cell_type == 3 ) THEN
+      !
+      ! pos_on_tplane_c_edge
+      !
+      DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ('mo_interpolation:destruct_int_state',                      &
+          &             'deallocation for pos_on_tplane_c_edge failed')
+      ENDIF
     ENDIF
 
     !
