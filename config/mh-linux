@@ -372,9 +372,28 @@ case "$ac_sitename" in
 		esac
 		;;
                #-------------------------------------
-	    x86_64-*-linux-*)        # 64 bit lenny MPI/ZMAW workstation
-		HDF5ROOT = /sw/lenny-x64/hdf5-1.8.5-p1-static
-		SZIPROOT = /sw/lenny-x64/szip-2.1-static
+	    x86_64-*-linux-*)        # 64 bit lenny or squeeze MPI/ZMAW workstation
+                dist_codename=$(lsb_release -c)
+		case "$dist_codename" in
+		    *lenny*)
+			SOFTWARE_TREE=/sw/lenny-x64
+		        HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.5-p1-static
+			NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.1-static
+                        ;;		   
+		    *squeeze*)
+			SOFTWARE_TREE=/sw/squeeze-x64
+		        HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.7-static
+			NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.3-static
+                        ;;
+		    *)
+			echo
+			echo
+			echo Unsupported Linux distribution, codename: $dist_codename
+			echo
+			exit
+			;;			
+		esac		   
+		SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
 		ZLIBROOT = /usr
 		load_modules = "ncl/6.0.0-gccsys" "${load_modules}"
 		load_profile = "." "/client/etc/profile.zmaw"
@@ -394,23 +413,23 @@ case "$ac_sitename" in
 		
 		case "$fortran_compiler" in
 		    default|gcc)
-			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-gcc45
-			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-gcc45
+			NETCDFROOT         = "${NETCDFVERS}-gcc45"
+			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-gcc45
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-gcc45"
 #                        load_modules="gcc/4.6.0" "${load_modules}"
                         load_modules       = "gcc/4.5.2" "${load_modules}"
 			;;
 		    nag)
-			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-nag52
-			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
+			NETCDFROOT         = "${NETCDFVERS}-nag52"
+			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-nag52
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.2.1p1-static-nag52"
 			load_modules       = "nag/5.2.747" "gcc/4.5.2" "${load_modules}"
 			;;
 		    pgi)
-			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-pgi12
-			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi12
+			NETCDFROOT         = "${NETCDFVERS}-pgi12"
+			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-pgi12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
                         FC          = pgfortran
 			load_mpi_modules   = "mpich2/1.3.1-static-pgi12"
@@ -418,16 +437,16 @@ case "$ac_sitename" in
                         load_modules       = "pgi/12.3" "gcc/4.6.0" "${load_modules}"
 			;;
 		    intel)
-			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-intel12
-			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-intel12
+			NETCDFROOT         = "${NETCDFVERS}-intel12"
+			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-intel12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-intel12"
                         # load_modules       = "intel/12.0.084" "gcc/4.5.2" "${load_modules}"
                         load_modules      = "intel/12.4.191" "gcc/4.5.2" "${load_modules}"
 			;;
 		    sun)
-			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-sun12
-			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-sun12
+			NETCDFROOT         = "${NETCDFVERS}-sun12"
+			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-sun12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-sun12"
 			load_modules       = "sun/Studio12.1-3" "gcc/4.5.2" "${load_modules}"
