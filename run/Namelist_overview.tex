@@ -1321,6 +1321,17 @@ controls how much printout is written during runtime. \\
 For values less than 5, only the time step is written.&
 \tabularnewline
 
+\hline 
+output &
+L(:)& ``vlist'',''totint'' & &
+Main switch for enabling/disabling components of the model output:
+``none'': switch off all output;
+``vlist'' : old, vlist-based output mode;
+``nml'': new output mode (cf.\ \texttt{output\_nml});
+``totint'': computation of total integrals
+ &
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
@@ -2290,12 +2301,6 @@ Defined and used in: src/namelists/mo\_diffusion\_nml.f90
 %------------------------------------------------------------------------------
 \subsection{io\_nml}
 \begin{longtab}
-
-\hline 
-no\_output &
-L& .FALSE. & &
-Main switch for turning off `old' output &
-\tabularnewline
 
 \hline 
 out\_expname &
