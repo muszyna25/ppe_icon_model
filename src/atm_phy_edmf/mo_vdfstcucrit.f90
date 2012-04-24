@@ -219,7 +219,9 @@ ZRG         = 1.0_JPRB/RG
 
 !*         2.1  stability criteria == theta(700hPa) - theta(sfc)
 
-!          find index I700 of pressure closest to 700hPa (and I850)
+!          Find index I700 of pressure closest to 700hPa (and I850).
+!          Details: 150hPa and 300hPa over ground (for 850hPa, 700hPa levels)
+!          are used, otherwise problems over orography.
 
   DO JL=KIDIA,KFDIA
     I700(JL) = 0
@@ -227,25 +229,23 @@ ZRG         = 1.0_JPRB/RG
   ENDDO
   DO JK=1,KLEV
     DO JL=KIDIA,KFDIA
-      IF ( I700(JL) == 0  .AND.  PAPM1(JL,JK) > 70000.0_JPRB ) THEN
+      IF ( I700(JL) == 0  .AND.  (PAPM1(JL,KLEV)-PAPM1(JL,JK)) < 30000.0_JPRB ) THEN
         I700(JL) = JK
       ENDIF
-    ENDDO
-    DO JL=KIDIA,KFDIA
-      IF ( I850(JL) == 0  .AND.  PAPM1(JL,JK) > 85000.0_JPRB ) THEN
+      IF ( I850(JL) == 0  .AND.  (PAPM1(JL,KLEV)-PAPM1(JL,JK)) < 15000.0_JPRB ) THEN
         I850(JL) = JK
       ENDIF
     ENDDO
   ENDDO
   DO JL=KIDIA,KFDIA
     IF ( I700(JL) > 1  .AND. &
-       & ABS(PAPM1(JL,I700(JL)-1)-70000.0_JPRB) <  &
-       & ABS(PAPM1(JL,I700(JL))  -70000.0_JPRB)   ) THEN  
+       & ABS(PAPM1(JL,KLEV) - PAPM1(JL,I700(JL)-1) - 30000.0_JPRB) <  &
+       & ABS(PAPM1(JL,KLEV) - PAPM1(JL,I700(JL)  ) - 30000.0_JPRB)   ) THEN  
       I700(JL) = I700(JL)-1
     ENDIF
     IF ( I850(JL) > 1  .AND. &
-       & ABS(PAPM1(JL,I850(JL)-1)-85000.0_JPRB) <  &
-       & ABS(PAPM1(JL,I850(JL))  -85000.0_JPRB)   ) THEN  
+       & ABS(PAPM1(JL,KLEV) - PAPM1(JL,I850(JL)-1) - 15000.0_JPRB) <  &
+       & ABS(PAPM1(JL,KLEV) - PAPM1(JL,I850(JL)  ) - 15000.0_JPRB)   ) THEN  
       I850(JL) = I850(JL)-1
     ENDIF
     IF ( I700(JL) > 0 ) THEN
