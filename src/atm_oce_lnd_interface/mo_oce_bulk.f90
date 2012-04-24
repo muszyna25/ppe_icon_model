@@ -133,10 +133,11 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
     INTEGER  :: jmon, jdmon, jmon1, jmon2
     INTEGER  :: iniyear, curyear, offset
-    INTEGER  :: jc, jb, i, no_set
+    INTEGER  :: jc, jb, i, no_set, k
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
     REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+    REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
 
     ! Local declarations for coupling:
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
@@ -353,7 +354,7 @@ CONTAINS
           &                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
 
         ! #slo# This is a first try for "simple flux coupling"
-        IF (i_sea_ice == 1) THEN
+        IF (i_sea_ice >= 1) THEN
           Qatm%SWin   (:,:)   = 0.0_wp  ! not available - very hot shot
           DO i = 1, p_ice%kice
             Qatm%LWnet  (:,i,:)   = p_sfc_flx%forc_hflx(:,:)
@@ -425,7 +426,7 @@ CONTAINS
         CALL print_mxmn('OMIP: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
         ! call of sea ice model
-        IF (i_sea_ice == 1) THEN
+        IF (i_sea_ice >= 1) THEN
 
           Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
@@ -489,11 +490,18 @@ CONTAINS
       z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)
       CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
-      IF (i_sea_ice == 1) THEN
+      IF (i_sea_ice >= 1) THEN
         IF (iforc_type == 2 .OR. iforc_type == 5) &
           & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
 
-        CALL ice_fast(p_patch, p_ice, Qatm, Qatm)
+        IF ( no_tracer >= 2 ) THEN
+          DO k=1,p_ice%kice
+            Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+          ENDDO
+        ELSE
+          Tfw = Tf
+        ENDIF
+        CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm)
         ! Ice_fast and ice_slow are designed for an ice model that's split between the
         ! atmosphere and ocean models. For ice-ocean only we need to do some minor corrections.
         Qatm%counter = 2
@@ -660,7 +668,7 @@ CONTAINS
         IF (ltimer) CALL timer_stop(timer_coupling)
 
         ! call of sea ice model
-        IF (i_sea_ice == 1) THEN
+        IF (i_sea_ice >= 1) THEN
 
           Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
@@ -677,7 +685,14 @@ CONTAINS
           ! For now the ice albedo is the same as ocean albedo
           CALL prepareAfterRestart(p_ice)
           ! CALL set_ice_albedo(p_patch,p_ice)
-          CALL set_ice_temp(p_patch,p_ice,Qatm)
+          IF ( no_tracer >= 2 ) THEN
+            DO k=1,p_ice%kice
+              Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+            ENDDO
+          ELSE
+            Tfw = Tf
+          ENDIF
+          CALL set_ice_temp(p_patch,p_ice,Tfw,Qatm)
           Qatm%counter = 1
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
@@ -902,7 +917,7 @@ CONTAINS
     !  - heat flux is applied alternatively to temperature relaxation for coupling
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
 
-    IF (temperature_relaxation == -1 .OR. i_sea_ice == 1) THEN
+    IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1) THEN
 
       ! Heat flux boundary condition for diffusion
       !   D = d/dz(K_v*dT/dz)  where
