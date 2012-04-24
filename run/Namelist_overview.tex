@@ -1324,11 +1324,14 @@ For values less than 5, only the time step is written.&
 \hline 
 output &
 L(:)& ``vlist'',''totint'' & &
-Main switch for enabling/disabling components of the model output:
-``none'': switch off all output;
-``vlist'' : old, vlist-based output mode;
-``nml'': new output mode (cf.\ \texttt{output\_nml});
-``totint'': computation of total integrals
+Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
+\begin{itemize}
+\item ``none'': switch off all output;
+\item ``vlist'' : old, vlist-based output mode;
+\item``nml'': new output mode (cf.\ \texttt{output\_nml});
+\item``totint'': computation of total integrals.
+\end{itemize}
+If the \texttt{output} namelist parameter is not set explicitly, the default setting ``vlist'',''totint'' is assumed.
  &
 \tabularnewline
 
