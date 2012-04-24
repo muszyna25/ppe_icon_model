@@ -52,11 +52,14 @@ MODULE mo_run_nml
                          & config_timers_level    => timers_level,    &
                          & config_activate_sync_timers => activate_sync_timers, &
                          & config_msg_level       => msg_level,       &
+                         & config_output          => output,          &
+                         & config_output_mode     => output_mode,     &
                          & config_check_epsilon   => check_epsilon,   &
                          & config_testbed_mode    => testbed_mode,    &
                          & config_dump_filename   => dump_filename,   &
                          & config_lonlat_dump_filename => lonlat_dump_filename, &
-                         & config_dd_filename     => dd_filename
+                         & config_dd_filename     => dd_filename,     &
+                         & t_output_mode, max_output_modes
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
@@ -66,6 +69,7 @@ MODULE mo_run_nml
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
   USE mo_master_control, ONLY: is_restart_run
+  USE mo_util_string,    ONLY: one_of
 
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
                                     & open_and_restore_namelist, close_tmpfile
@@ -121,6 +125,10 @@ MODULE mo_run_nml
   INTEGER :: testbed_mode  ! if =0 then run the standard version, otherwise
                            ! run using testbed methods
 
+  !> output mode (logicals)
+  !  one or multiple of "none", "vlist", "nml", "totint"
+  CHARACTER(len=32) :: output(max_output_modes)
+
   ! dump/restore file names, may contain keywords
   CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
 
@@ -139,7 +147,7 @@ MODULE mo_run_nml
                      msg_level, check_epsilon,      &
                      testbed_mode,                  &
                      dump_filename, dd_filename,    &
-                     lonlat_dump_filename
+                     lonlat_dump_filename, output
 
 CONTAINS
   !>
@@ -187,6 +195,9 @@ CONTAINS
     msg_level    = 10
     check_epsilon=1.e-6_wp
     testbed_mode = 0
+
+    output(:) = " "
+    output(1) = "default"
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -272,6 +283,15 @@ CONTAINS
     config_dump_filename   = dump_filename
     config_dd_filename     = dd_filename
     config_lonlat_dump_filename = lonlat_dump_filename
+
+    IF (TRIM(output(1)) /= "default") THEN
+      config_output(:) = output(:)
+    ELSE
+      config_output(:) = " "
+      config_output(1) = "vlist"
+      config_output(2) = "totint"
+    END IF
+    CALL parse_output_mode(config_output, config_output_mode)
     
     !-----------------------------------------------------
     ! Store the namelist for restart
@@ -286,5 +306,49 @@ CONTAINS
 
   END SUBROUTINE read_run_namelist
   !-------------
+
+
+  !> Sets LOGICAL values in "output_mode" according to user input
+  !
+  SUBROUTINE parse_output_mode(output, om)
+    CHARACTER(len=32)   , INTENT(IN)  :: output(max_output_modes)
+    TYPE (t_output_mode), INTENT(OUT) :: om
+    ! local variables
+    CHARACTER(len=*), PARAMETER :: routine = &
+      &  TRIM('mo_run_nml:parse_output_mode')
+    CHARACTER(len=32) :: valid_names(4)
+    INTEGER :: i
+
+    ! define a list of valid names, check if user input is valid:
+    valid_names(1) = "none"
+    valid_names(2) = "vlist"
+    valid_names(3) = "nml"
+    valid_names(4) = "totint"
+    DO i=1,max_output_modes
+      IF (TRIM(output(i)) /= "") THEN
+        IF (one_of(output(i), valid_names) == -1) THEN
+          CALL finish(routine, "Syntax error: unknown output mode.")
+        END IF
+      END IF
+    END DO
+
+    ! for each logical of type t_output_mode, check if the
+    ! corresponding keyword is in the list of strings
+    om%l_none   = ( one_of("none",   output(:)) /= -1)
+    om%l_vlist  = ( one_of("vlist",  output(:)) /= -1)
+    om%l_nml    = ( one_of("nml",    output(:)) /= -1)
+    om%l_totint = ( one_of("totint", output(:)) /= -1)
+
+    ! consistency checks:
+    !
+    IF (.NOT. (om%l_vlist .OR. om%l_nml .OR. om%l_totint)) THEN
+      om%l_none = .TRUE.
+    END IF
+    ! error: "none" has been chosen in combination with others:
+    IF (om%l_none .AND. (om%l_vlist .OR. om%l_nml .OR. om%l_totint)) THEN
+      CALL finish(routine, "Syntax error when setting output to 'none'.")
+    END IF
+    
+  END SUBROUTINE parse_output_mode
 
 END MODULE mo_run_nml

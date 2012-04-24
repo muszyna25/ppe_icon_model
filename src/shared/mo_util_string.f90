@@ -60,6 +60,7 @@ MODULE mo_util_string
   PUBLIC :: MAX_STRING_LEN
   PUBLIC :: remove_duplicates
   PUBLIC :: difference
+  PUBLIC :: one_of
 
   !
   PUBLIC :: normal, bold
@@ -273,6 +274,25 @@ CONTAINS
     logical2string = ADJUSTL(logical2string)
     !
   END FUNCTION logical2string
+
+
+  !> Function for convenience 
+  !
+  !  If "in_str" is matching one of the arguments "arg(i)" return the
+  !  index "i". Returns "-1" if none of the strings matches.
+  !  
+  FUNCTION one_of(in_str, arg)
+    INTEGER :: one_of
+    CHARACTER(len=*), INTENT(IN)           :: in_str    ! input string
+    CHARACTER(len=*), INTENT(IN)           :: arg(:)
+    ! local variables:
+    INTEGER :: i
+    
+    one_of = -1
+    DO i=1,SIZE(arg)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(arg(i))))  one_of=i
+    END DO
+  END FUNCTION one_of
 
 
   !> parses a character string, splits string into words.

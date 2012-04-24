@@ -78,10 +78,10 @@ MODULE m_dyn
   USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, no_output
+  USE mo_io_config,          ONLY: l_outputtime, lwrite_omega
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1,iqv, iforcing, &
-                                   iqc, iqi, iqr, iqs
+                                   iqc, iqi, iqr, iqs, output_mode
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
   USE mo_intp,               ONLY: cell_avg,                    &
@@ -856,7 +856,7 @@ MODULE m_dyn
 ! For theta advection, the following computations are needed only
 ! if omega is requested as an output field
 
-IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
+IF (lwrite_omega .AND. l_outputtime .AND. .NOT. output_mode%l_none) THEN
 
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(4,1)

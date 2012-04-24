@@ -55,6 +55,7 @@ MODULE mo_run_config
   PUBLIC :: check_epsilon, testbed_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
+  PUBLIC :: output, t_output_mode, output_mode, max_output_modes
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -90,6 +91,11 @@ MODULE mo_run_config
     INTEGER :: testbed_mode
 
     INTEGER :: msg_level       !< how much printout is generated during runtime
+ 
+    !> output mode (string)
+    !  one or multiple of "none", "vlist", "nml", "totint"
+    INTEGER, PARAMETER :: max_output_modes = 5
+    CHARACTER(len=32) :: output(max_output_modes)
 
     ! dump/restore file names, may contain keywords
     CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
@@ -122,6 +128,14 @@ MODULE mo_run_config
     INTEGER :: ntracer_static     !< Total number of non-advected tracers
 
     LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
+
+    !> output mode (logicals)
+    !  one or multiple of "none", "vlist", "nml", "totint"
+    TYPE t_output_mode
+      LOGICAL :: l_none, l_vlist, l_nml, l_totint
+    END TYPE t_output_mode
+
+    TYPE (t_output_mode) output_mode
 
 CONTAINS
   !>

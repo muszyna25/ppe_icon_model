@@ -58,11 +58,11 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
-    &                                istime4output, no_output
+    &                                istime4output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level, testbed_mode
+    &                                msg_level, testbed_mode, output_mode
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                               timer_model_init, timer_nudging,                 &
     &                               timer_bdy_interp, timer_feedback, timer_nesting, &
@@ -492,9 +492,9 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Set output flags
     !--------------------------------------------------------------------------
-    l_vlist_output = (.NOT. no_output) .AND. &
+    l_vlist_output = output_mode%l_vlist .AND. &
                   & ((jstep==nsteps) .OR. istime4output(sim_time(1)+dtime))
-    l_nml_output   = (.NOT. no_output) .AND. &
+    l_nml_output   = output_mode%l_nml   .AND. &
       &              ((jstep==nsteps) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
       &                  istime4name_list_output(sim_time(1)+dtime))))
@@ -512,11 +512,12 @@ MODULE mo_nh_stepping
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
     END DO
-    l_compute_diagnostic_quants = l_compute_diagnostic_quants .AND. .NOT. no_output
+    l_compute_diagnostic_quants = l_compute_diagnostic_quants .AND. &
+      &                           .NOT. output_mode%l_none
     
     ! another flag defining whether diagnostic quantities are computed.
     ! TODO[FP] Decide whether this "l_diagtime" flag is obsolete.
-    l_diagtime = (.NOT. no_output) .AND. &
+    l_diagtime = (.NOT. output_mode%l_none) .AND. &
       & ((jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps))
 
     !--------------------------------------------------------------------------
@@ -531,12 +532,9 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
-    IF (.NOT. no_output) THEN
-      simulation_status = new_simulation_status(l_output_step=l_outputtime, &
-        &                                       l_last_step=(jstep==nsteps))
-      CALL pp_scheduler_process(simulation_status)
-    ENDIF
-    
+    simulation_status = new_simulation_status(l_output_step=l_outputtime, &
+      &                                       l_last_step=(jstep==nsteps))
+    CALL pp_scheduler_process(simulation_status)
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
@@ -577,7 +575,7 @@ MODULE mo_nh_stepping
     l_supervise_total_integrals =((lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
       &                           (MOD(jstep,n_diag) == 0)                 .OR. &
       &                           (jstep==nsteps))                         .AND.&
-      &                           (.NOT. no_output)
+      &                           (output_mode%l_totint)
     kstep = jstep
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
@@ -596,7 +594,8 @@ MODULE mo_nh_stepping
 
 
     ! close the current output file and trigger a new one
-    IF (MOD(jstep,n_file) == 0 .AND. jstep/=nsteps .AND. .NOT. no_output ) THEN
+    IF (MOD(jstep,n_file) == 0 .AND. jstep/=nsteps .AND. &
+      & output_mode%l_vlist ) THEN
 
       jfile = jfile +1
       call init_output_files(jfile,lclose=l_have_output)
@@ -607,7 +606,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (is_checkpoint_time(jstep,n_checkpoint) .AND. .NOT. no_output) THEN
+    IF (is_checkpoint_time(jstep,n_checkpoint) .AND. .NOT. output_mode%l_none) THEN
       DO jg = 1, n_dom
         CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   & 
                                 & jfile                      = jfile,                      &

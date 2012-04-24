@@ -96,7 +96,6 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa
 /
 &io_nml
- ! no_output        = .true.
  out_expname      = '${EXPNAME}'     ! file name base
  dt_data          = ${dt_data}       ! [s] write output
  dt_file          = ${dt_file}       ! [s] trigger new output file

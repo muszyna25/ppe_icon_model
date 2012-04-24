@@ -49,9 +49,10 @@ MODULE mo_ha_diag_util
   USE mo_math_divrot,        ONLY: div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_io_config,          ONLY: lwrite_omega, l_outputtime, no_output
+  USE mo_io_config,          ONLY: lwrite_omega, l_outputtime
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
-  USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
+  USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, &
+  &                                iforcing, output_mode
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
@@ -676,7 +677,7 @@ CONTAINS
 
     IF (use_icon_comm) CALL icon_comm_sync_all()
     
-    IF ( no_output ) RETURN
+    IF ( output_mode%l_none ) RETURN
     ! Diagnose divergence
 
     SELECT CASE(idiv_method)

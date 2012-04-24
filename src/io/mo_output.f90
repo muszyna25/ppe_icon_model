@@ -44,7 +44,7 @@ MODULE mo_output
   USE mo_io_units,            ONLY: filename_max
   USE mo_grid_config,         ONLY: n_dom, &
     &                               n_dom_start !, nroot, lplane
-  USE mo_io_config,           ONLY: out_expname, no_output
+  USE mo_io_config,           ONLY: out_expname
   USE mo_impl_constants,      ONLY: ihs_ocean !,            &
 !     &                              ihs_atm_temp,         &
 !     &                              ihs_atm_theta,        &
@@ -67,7 +67,7 @@ MODULE mo_output
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
-  USE mo_run_config,          ONLY: ltimer
+  USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
@@ -111,7 +111,7 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: outputfile
     CHARACTER(LEN=filename_max) :: grid_filename
 
-    IF ( no_output ) RETURN
+    IF (.NOT. output_mode%l_vlist) RETURN
     
     IF(.NOT.lclose) THEN
 
@@ -245,8 +245,8 @@ CONTAINS
 
     INTEGER jg
 
-    IF ( no_output ) RETURN
-
+    IF (.NOT. output_mode%l_vlist) RETURN
+    
     DO jg = n_dom, 1, -1
       IF(.NOT.use_async_vlist_io .AND. p_pe == p_io) CALL close_output_vlist(jg)
       CALL destruct_vlist( jg )
@@ -282,7 +282,7 @@ CONTAINS
 !      CALL output_async(outptime)
 !    ENDIF
 !
-    IF ( no_output ) RETURN
+    IF (.NOT. output_mode%l_vlist) RETURN
 
     IF (ltimer) CALL timer_start(timer_write_output)
 

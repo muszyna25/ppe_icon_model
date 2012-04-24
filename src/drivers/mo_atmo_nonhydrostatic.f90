@@ -53,7 +53,8 @@ USE mo_run_config,           ONLY: &
   &                               ltestcase,            &
   &                               nsteps,               & !    :
   &                               ltimer,               & !    :
-  &                               iforcing                !    namelist parameter
+  &                               iforcing,             & !    namelist parameter
+  &                               output_mode
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
 USE mo_impl_constants,       ONLY: inwp
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp, nsfc_subs, p_tiles, &
@@ -354,7 +355,9 @@ CONTAINS
 
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
-    CALL init_name_list_output
+    IF (output_mode%l_nml) THEN
+      CALL init_name_list_output
+    END IF
 
     !------------------------------------------------------------------
     !  get and write out some of the inital values
@@ -401,10 +404,14 @@ CONTAINS
       ! Note: here the derived output variables are not yet available
       ! (divergence, vorticity)
       !
-      CALL write_output( time_config%cur_datetime )
-      l_have_output = .TRUE.
-      IF (.NOT. ltestcase .OR. iforcing == inwp) &
+      IF (output_mode%l_vlist) THEN
+        CALL write_output( time_config%cur_datetime )
+        l_have_output = .TRUE.
+      END IF
+
+      IF (output_mode%l_nml .AND. (.NOT. ltestcase .OR. iforcing == inwp)) THEN
         CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
+      END IF
 
     END IF ! not is_restart_run()
 
@@ -447,8 +454,12 @@ CONTAINS
     CALL destruct_nwp_lnd_state( p_lnd_state )
 
     ! Delete output variable lists
-    IF (l_have_output) CALL close_output_files
-    CALL close_name_list_output
+    IF (output_mode%l_vlist) THEN
+      IF (l_have_output) CALL close_output_files
+    END IF
+    IF (output_mode%l_nml) THEN
+      CALL close_name_list_output
+    END IF
 
     ! finalize meteogram output
     IF (.NOT. ltestcase) THEN
