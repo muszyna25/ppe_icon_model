@@ -407,6 +407,8 @@ CONTAINS
         G_nimd_c_v(:,:,:) = G_n_c_v(:,:,:)
       ELSE
         G_nimd_c_v(:,:,:) = (1.5_wp+AB_const)* G_n_c_v(:,:,:)   &
+      ! #slo# caution - NAG: Automatic variable G_NM1_C_V referenced but never set
+      ! explicit diffusion incorrect (currently not used - 2012/04/25)
           &               - (0.5_wp+AB_const)*G_nm1_c_v(:,:,:)
       ENDIF
 

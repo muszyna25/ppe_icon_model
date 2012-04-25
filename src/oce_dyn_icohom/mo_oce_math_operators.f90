@@ -577,7 +577,6 @@ CONTAINS
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
     INTEGER :: i_startidx, i_endidx
-    INTEGER :: nlen, nblks_e, npromz_e
 
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: edges_in_domain
@@ -681,14 +680,12 @@ CONTAINS
 
     CASE (6) ! (cell_type == 6)
       ! no grid refinement in hexagonal model
-      nblks_e   = ptr_patch%nblks_int_e
-      npromz_e  = ptr_patch%npromz_int_e
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 
         DO jk = slev, elev
-          DO je = 1, nlen
+          DO je = i_startidx, i_endidx
             !
             ! compute the normal derivative
             ! by the finite difference approximation

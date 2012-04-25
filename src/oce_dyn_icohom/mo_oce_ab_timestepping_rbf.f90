@@ -272,6 +272,8 @@ IF(.NOT.l_RIGID_LID)THEN
 !         &        zresidual )                 ! inout: the residual (array)  
 
   IF (l_maxiter) THEN
+  ! #slo# caution - NAG: variables n_iter and l_maxiter referenced but never set!
+  ! rbf-interpolation incorrect (currently not used - 2012/04/25)
     CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
   ELSE
     IF (lverbose) THEN
