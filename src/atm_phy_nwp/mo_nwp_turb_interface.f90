@@ -257,7 +257,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP zdummy_vdf_1m, zdummy_vdf_1n, zdummy_vdf_1o, &
 !$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
 !$OMP zdummy_vdf_1s, zdummy_vdf_1t, zdummy_vdf_1u, &
-!$OMP zdummy_vdf_1v, zdummy_vdf_1w
+!$OMP zdummy_vdf_1v, zdummy_vdf_1w, &
 !$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
 !$OMP zdummy_vdf_3a, zdummy_vdf_3b, &
 !$OMP zdummy_vdf_3c, zdummy_vdf_3d, &
