@@ -190,9 +190,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_1m(nproma), zdummy_vdf_1n(nproma), zdummy_vdf_1o(nproma), &
     &         zdummy_vdf_1p(nproma), zdummy_vdf_1q(nproma), zdummy_vdf_1r(nproma), &
     &         zdummy_vdf_1s(nproma), zdummy_vdf_1t(nproma), zdummy_vdf_1u(nproma), &
-    &         zdummy_vdf_1v(nproma), zdummy_vdf_1w(nproma), zdummy_vdf_1x(nproma), &
-    &         zdummy_vdf_1y(nproma)
-  REAL(wp) :: zdummy_vdf_2a(nproma,p_patch%nlev), zdummy_vdf_2b(nproma,p_patch%nlev)
+    &         zdummy_vdf_1v(nproma), zdummy_vdf_1w(nproma)
+  REAL(wp) :: zdummy_vdf_2a(nproma,p_patch%nlev),   zdummy_vdf_2b(nproma,p_patch%nlev)
   REAL(wp) :: zdummy_vdf_3a(nproma,p_patch%nlev+1), zdummy_vdf_3b(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3c(nproma,p_patch%nlev+1), zdummy_vdf_3d(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3e(nproma,p_patch%nlev+1), zdummy_vdf_3f(nproma,p_patch%nlev+1), &
@@ -204,6 +203,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6c(nproma,itrac_vdf)
+  REAL(wp) :: zdummy_vdf_7a(nproma,0), zdummy_vdf_7b(nproma,p_patch%nlev,0)
+
   REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma),                    &
     &         zucurr(nproma)                , zvcurr(nproma),                   &
     &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev),      &
@@ -244,8 +245,44 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,&
-!$OMP eroutine) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg, &
+!$OMP eroutine, &
+!$OMP icnt, &
+!$OMP idummy_vdf_0a, idummy_vdf_0b, idummy_vdf_0c, & 
+!$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
+!$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
+!$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
+!$OMP zdummy_vdf_1g, zdummy_vdf_1h, zdummy_vdf_1i, &
+!$OMP zdummy_vdf_1j, zdummy_vdf_1k, zdummy_vdf_1l, &
+!$OMP zdummy_vdf_1m, zdummy_vdf_1n, zdummy_vdf_1o, &
+!$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
+!$OMP zdummy_vdf_1s, zdummy_vdf_1t, zdummy_vdf_1u, &
+!$OMP zdummy_vdf_1v, zdummy_vdf_1w
+!$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
+!$OMP zdummy_vdf_3a, zdummy_vdf_3b, &
+!$OMP zdummy_vdf_3c, zdummy_vdf_3d, &
+!$OMP zdummy_vdf_3e, zdummy_vdf_3f, &
+!$OMP zdummy_vdf_3g, zdummy_vdf_3h, &
+!$OMP zdummy_vdf_3i, zdummy_vdf_3j, &
+!$OMP zdummy_vdf_3k, zdummy_vdf_3l, &
+!$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
+!$OMP zdummy_vdf_5a, zdummy_vdf_5b, &
+!$OMP zdummy_vdf_6a, &
+!$OMP zdummy_vdf_6b, &
+!$OMP zdummy_vdf_6c, &
+!$OMP zdummy_vdf_7a, zdummy_vdf_7b, &
+!$OMP z_omega_p, zchar, &
+!$OMP zucurr,    zvcurr, &
+!$OMP zsoteu,    zsotev, &
+!$OMP zsobeta,   sobs_t, &
+!$OMP shfl_s_t,  lhfl_s_t, &
+!$OMP evap_s_t,  tskin_t, &
+!$OMP ustr_s_t,  vstr_s_t, &
+!$OMP zae,       zvar, &
+!$OMP ztice, &
+!$OMP l_land,   ldummy_vdf_a &
+!$OMP ) ICON_OMP_GUIDED_SCHEDULE
+
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -294,7 +331,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ierrstat = 0
 
       !KF tendencies  have to be set to zero
-      ! GZ: this should be replaced by an appropriate switch in turbdiff
+      !GZ: this should be replaced by an appropriate switch in turbdiff
       prm_nwp_tend%ddt_u_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_v_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_temp_turb(:,:,jb) = 0._wp
@@ -305,7 +342,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbdiff is timestep now
-!      ! Artificial limitation of input TKE to 60 m^2/s^2
+!     ! Artificial limitation of input TKE to 60 m^2/s^2
 !      z_tvs(i_startidx:i_endidx,:,jb,1)=  &
 !        &     SQRT(2._wp * MIN(60._wp,p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb)))
       z_tvs(i_startidx:i_endidx,:,jb,1)=  &
@@ -509,7 +546,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & pcfm_tile= prm_diag%cfm_tile(:,jb,:)                                   ,&! out
             & pcfh_tile= prm_diag%cfh_tile(:,jb,:)                                   ,&! out
             & pcftke   = prm_diag%cftke (:,2:nlevp1,jb)                              ,&! out
-            & pcfthv   = prm_diag%cfthv (:,2:nlevp1,jb))                              ! out
+            & pcfthv   = prm_diag%cfthv (:,2:nlevp1,jb))                               ! out
 
 
       !-------------------------------------------------------------------------
@@ -545,9 +582,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !> EDMF DUALM turbulence scheme (eddy-diffusivity/mass-flux dual mass-flux)
 !-------------------------------------------------------------------------
 
-!      !-------------------------------------------------------------------------
-!      !> Calculate vertical velocity in p-system
-!      !-------------------------------------------------------------------------
+!     Calculate vertical velocity in p-system
       
       DO jk = 1,p_patch%nlev
         DO jc = i_startidx,i_endidx
@@ -558,33 +593,56 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       icnt = 0
 
       DO jc = i_startidx, i_endidx
+        zchar (jc) = 0.018_wp ! default value from IFS if no wave model
+        zucurr(jc) = 0.0_wp
+        zvcurr(jc) = 0.0_wp
+        ztice (jc) = 273.0_wp ! top level ice temperature ???????
+      ENDDO
 
-        zchar  (jc)   = 0.018_wp   ! default value from IFS if no wave model
-        zucurr (jc)   = 0.0_wp
-        zvcurr (jc)   = 0.0_wp
-        zsoteu (jc,:) = 0.0_wp
-        zsotev (jc,:) = 0.0_wp
-        zsobeta(jc,:) = 0.0_wp
+      DO jk = 1,p_patch%nlev
+        DO jc = i_startidx, i_endidx
+          zsoteu (jc,jk) = 0.0_wp
+          zsotev (jc,jk) = 0.0_wp
+          zsobeta(jc,jk) = 0.0_wp
+          zae    (jc,jk) = 0.0_wp   ! cloud tendency ???
+          zvar   (jc,jk) = 0.0_wp   ! qt,var should be prognostic !!!
+        ENDDO
+      ENDDO
 
-        sobs_t  (jc,:) = prm_diag%swflxsfc(jc,jb)   ! simple grid-mean flux (should be tile albedo specific)!!!!!
-        shfl_s_t(jc,:) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
-        lhfl_s_t(jc,:) = prm_diag%lhfl_s  (jc,jb)   ! should be tile specific !!!
-        evap_s_t(jc,:) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
-        tskin_t (jc,:) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
-        ustr_s_t(jc,:) = 0.0_wp                     ! prognostic surface stress U  !!!
-        vstr_s_t(jc,:) = 0.0_wp                     ! prognostic surface stress V  !!!
+      DO jt = 1,nsfc_subs
+        DO jc = i_startidx, i_endidx
+          sobs_t  (jc,jt) = prm_diag%swflxsfc(jc,jb)   ! simple grid-mean flux (should be tile albedo specific)!!!!!
+          shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
+          lhfl_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb)   ! should be tile specific !!!
+          evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
+          tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
+          ustr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress U  !!!
+          vstr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress V  !!!
+        ENDDO
+      ENDDO
 
+      DO jc = i_startidx, i_endidx
         IF ( ext_data%atm%fr_land(jc,jb) > 0.5_wp ) THEN
           l_land(jc) = .true.
         ELSE
           l_land(jc) = .false.
         ENDIF
-
-        zae (jc,:) = 0.0_wp   ! cloud tendency ???
-        zvar(jc,:) = 0.0_wp   ! qt,var should be prognostic !!!
-        ztice(jc)  = 273.0_wp ! top level ice temperature ???????
-
       ENDDO
+
+      zdummy_vdf_1c = 0.0_wp 
+      zdummy_vdf_1i = 0.0_wp 
+      zdummy_vdf_1w = 0.0_wp 
+      zdummy_vdf_5b = 0.0_wp 
+
+!     Tendencies are set to include dynamics and radiation
+!     ATTENTION: currently for simplicity all input tendencies = 0
+!                when updated after vdfouter difference needed (see convection)
+
+      prm_nwp_tend%ddt_u_turb     (:,:,jb)     = 0._wp
+      prm_nwp_tend%ddt_v_turb     (:,:,jb)     = 0._wp
+      prm_nwp_tend%ddt_temp_turb  (:,:,jb)     = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
 
       CALL vdfouter ( &
         & CDCONF  = ' '                                        ,&! (IN)  unused
@@ -612,18 +670,18 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & KCNT    = icnt                                       ,&! (INOUT)
         & PCVL    = zdummy_vdf_1a                              ,&! (IN)  input for TESSEL
         & PCVH    = zdummy_vdf_1b                              ,&! (IN)  input for TESSEL   
-        & PSIGFLT = ext_data%atm%sso_stdh(:,jb)                ,&! (IN)  input for TOFD (needs to be passed down)
+        & PSIGFLT = ext_data%atm%sso_stdh(:,jb)                ,&! (IN)  input for TOFD (needs to be passed down!!!)
         & PUM1    = p_diag%u(:,:,jb)                           ,&! (IN)   
         & PVM1    = p_diag%v(:,:,jb)                           ,&! (IN)   
         & PTM1    = p_diag%temp(:,:,jb)                        ,&! (IN)   
         & PQM1    = p_prog_rcf%tracer(:,:,jb,iqv)              ,&! (IN)   
         & PLM1    = p_prog_rcf%tracer(:,:,jb,iqc)              ,&! (IN)   
         & PIM1    = p_prog_rcf%tracer(:,:,jb,iqi)              ,&! (IN)   
-        & PAM1    = prm_diag%tot_cld(:,:,jb,icc)               ,&! (IN)   
+        & PAM1    = prm_diag%tot_cld (:,:,jb,icc)              ,&! (IN)   
         & PCM1    = zdummy_vdf_6a                              ,&! (IN)  tracer - for VDF transport
-        & PAPHM1  = p_diag%pres_ifc(:,:,jb)                    ,&! (IN)   
-        & PAPM1   = p_diag%pres(:,:,jb)                        ,&! (IN)   
-        & PGEOM1  = p_metrics%geopot_agl(:,:,jb)               ,&! (IN)   
+        & PAPHM1  = p_diag%pres_ifc         (:,:,jb)           ,&! (IN)   
+        & PAPM1   = p_diag%pres             (:,:,jb)           ,&! (IN)   
+        & PGEOM1  = p_metrics%geopot_agl    (:,:,jb)           ,&! (IN)   
         & PGEOH   = p_metrics%geopot_agl_ifc(:,:,jb)           ,&! (IN)   
         & PTSKM1M = zdummy_vdf_1c                              ,&! (IN)  T,skin - unused    
         & PTSAM1M = zdummy_vdf_4a                              ,&! (IN)  T,soil - unused 
@@ -682,8 +740,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PFPLVN  = zdummy_vdf_3b                              ,&! (OUT) optional out: PBL snow flux
         & PFHPVL  = zdummy_vdf_3c                              ,&! (OUT) optional out: PBL rain enthalpy flux
         & PFHPVN  = zdummy_vdf_3d                              ,&! (OUT) optional out: PBL snow enthalpy flux
-        & PEXTR2  = zdummy_vdf_1u                              ,&! (IN)    optional out:  - " -
-        & PEXTRA  = zdummy_vdf_1v                              ,&! (INOUT) optional out:  - " -
+        & PEXTR2  = zdummy_vdf_7a                              ,&! (IN)    optional out:  - " -
+        & PEXTRA  = zdummy_vdf_7b                              ,&! (INOUT) optional out:  - " -
         & KLEVX   = p_patch%nlev                               ,&! (IN)    out
         & KFLDX   = 0                                          ,&! (IN)    out
         & KFLDX2  = 0                                          ,&! (IN)    out
@@ -697,7 +755,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PVOM    = prm_nwp_tend%ddt_v_turb(:,:,jb)            ,&! (INOUT)
         & PVOL    = prm_nwp_tend%ddt_u_turb(:,:,jb)            ,&! (INOUT)
         & PTENC   = zdummy_vdf_6b                              ,&! (INOUT) optional inout: tracer tendency
-        & PTSKE1  = zdummy_vdf_1w                              ,&! (INOUT) unused: T,skin tendency
+        & PTSKE1  = zdummy_vdf_1u                              ,&! (INOUT) unused: T,skin tendency
         & PUSTRTI = ustr_s_t                                   ,&! (INOUT) tile u stress
         & PVSTRTI = vstr_s_t                                   ,&! (INOUT) tile v stress
         & PAHFSTI = shfl_s_t                                   ,&! (INOUT) tile sensible heat flux
@@ -709,8 +767,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PDIFTI  = zdummy_vdf_3h                              ,&! (OUT)  optional out: turbulent ice water flux
         & PSTRTU  = zdummy_vdf_3i                              ,&! (OUT)  optional out: turbulent U flux
         & PSTRTV  = zdummy_vdf_3j                              ,&! (OUT)  optional out: turbulent V flux
-        & PTOFDU  = zdummy_vdf_1x                              ,&! (OUT)  optional out: TOFD U flux
-        & PTOFDV  = zdummy_vdf_1y                              ,&! (OUT)  optional out: TOFD V flux
+        & PTOFDU  = zdummy_vdf_1v                              ,&! (OUT)  optional out: TOFD U flux
+        & PTOFDV  = zdummy_vdf_1w                              ,&! (OUT)  optional out: TOFD V flux
         & PSTRSOU = zdummy_vdf_3k                              ,&! (OUT)  optional out: SSO U flux 
         & PSTRSOV = zdummy_vdf_3l                              ,&! (OUT)  optional out: SSO V flux
         & PKH     = prm_diag%tkvh(:,:,jb)                      ,&! (OUT)
@@ -720,6 +778,21 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !       & PDHTTS  = ...                                        ,&! (OUT)  optional out: DDH
 !       & PDHTIS  = ...                                         &! (OUT)  optional out: DDH
         & )
+
+! Update QV, QC, QI and temperature with turbulence tendencies
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
+               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
+          p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
+               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+          p_prog_rcf%tracer(jc,jk,jb,iqi) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
+               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
+          p_diag%temp(jc,jk,jb) =                         p_diag%temp(jc,jk,jb) &
+           &               + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+        ENDDO
+      ENDDO
 
     ENDIF !inwp_turb
 
