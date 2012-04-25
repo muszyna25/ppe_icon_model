@@ -168,7 +168,6 @@ MODULE mo_math_utilities
     REAL(wp) :: lat
   END TYPE t_geographical_coordinates
 
-
   ! line class
   !
   TYPE t_line
@@ -1896,72 +1895,15 @@ END SUBROUTINE mean_domain_values
     !-----------------------------------------------------------------------
 
     intersect1 = ccw(line1%p1,line1%p2,line2%p1)      &
-      &           * ccw(line1%p1,line1%p2,line2%p2)
+      &        * ccw(line1%p1,line1%p2,line2%p2)
+
     intersect2 = ccw(line2%p1,line2%p2,line1%p1)      &
-      &           * ccw(line2%p1,line2%p2,line1%p2)
+      &        * ccw(line2%p1,line2%p2,line1%p2)
 
     lintersect = (intersect1 + intersect2) == -2
 
   END FUNCTION lintersect
 
-
-
-!!$  !-------------------------------------------------------------------------
-!!$  !
-!!$  !
-!!$  !>
-!!$  !! Checking turn when travelling along three points
-!!$  !!
-!!$  !! Given three points in a cartesian system, we want to know 
-!!$  !! whether, in travelling from the first to the second to the third 
-!!$  !! we turn counterclockwise or clockwise.
-!!$  !! Can be used to check whether two line segments intersect, or not.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! Initial revision by Daniel Reinert  (2012-04-03)
-!!$  !!
-!!$  !! @par LITERATURE
-!!$  !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 350
-!!$  !!
-!!$  FUNCTION ccw( p0, p1, p2 )
-!!$    !
-!!$
-!!$    IMPLICIT NONE
-!!$
-!!$    REAL(wp), INTENT(in) :: p0(:)
-!!$    REAL(wp), INTENT(in) :: p1(:)
-!!$    REAL(wp), INTENT(in) :: p2(:)
-!!$
-!!$    INTEGER :: ccw
-!!$
-!!$    REAL(wp) :: dx1, dx2, dy1, dy2
-!!$    REAL(wp) :: dx1dy2, dy1dx2
-!!$    LOGICAL  :: lccw
-!!$
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    ! segment lengths in x and y direction P0-->P1
-!!$    dx1 = p1(1) - p0(1)
-!!$    dy1 = p1(2) - p0(2)
-!!$
-!!$    ! segment lengths in x and y direction P0-->P2
-!!$    dx2 = p2(1) - p0(1)
-!!$    dy2 = p2(2) - p0(2)
-!!$
-!!$    dx1dy2 = dx1 * dy2
-!!$    dy1dx2 = dy1 * dx2 
-!!$
-!!$    ! in this case we turn counterclockwise
-!!$    ! dy2/dx2 > dy1/dx1
-!!$    lccw = dx1dy2 > dy1dx2
-!!$
-!!$    ! we set ccw=1 when turning counterclockwise and -1 when 
-!!$    ! turning clockwise. 
-!!$    ! The case dy2/dx2 = dy1/dx1 is neglected. In this case 
-!!$    ! we set ccw = -1 
-!!$    ccw = MERGE(1, -1, lccw)
-!!$
-!!$  END FUNCTION ccw
 
 
   !-------------------------------------------------------------------------

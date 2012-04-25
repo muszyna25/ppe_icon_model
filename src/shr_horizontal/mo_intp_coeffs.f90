@@ -3434,12 +3434,12 @@ END SUBROUTINE complete_patchinfo
   !!
   !! Order of storage for pos_on_tplane_c_edge:
   !! pos_on_tplane_c_edge(nproma,nblks_e,ncells=2,npts=5)%lon/lat
-  !! - cell ordering given by edge%cell_idx/blk
+  !! - cell ordering according to edge%cell_idx/blk
   !! - npts 1-3: cell vertices
-  !!   - ordering of first 2 vertices given by edge%vertex_idx/blk
+  !!   - ordering of first 2 vertices according to edge%vertex_idx/blk
   !!   - ordering of coordinates: 1=x, 2=y
   !! - npts 4-5: coordinates of neighboring cell centers (share vertex 1 and 2, respectively)
-  !!   - only those 2 neighbors that do not include the given edge.
+  !!   - only those 2 neighbors that do not share the given edge.
   !!   - no "projection error" added to cell center
   !!        
   !! @par Revision History
@@ -3627,12 +3627,7 @@ END SUBROUTINE complete_patchinfo
         xyloc_trans2_v(1:4,1) = xyloc_plane_nt_v(1:4,1) - xyloc_plane_nt_n2(1)
         xyloc_trans2_v(1:4,2) = xyloc_plane_nt_v(1:4,2) - xyloc_plane_nt_n2(2)
 
-!!$IF (jb==1 .AND. je==58) THEN
-!!$  DO nv=1,4
-!!$    WRITE(0,*) "xyloc_trans1_v_lon, xyloc_trans1_v_lat, nv: ",re*xyloc_trans1_v(nv,1), re*xyloc_trans1_v(nv,2), nv 
-!!$    WRITE(0,*) "xyloc_trans2_v_lon, xyloc_trans2_v_lat, nv: ",re*xyloc_trans2_v(nv,1), re*xyloc_trans2_v(nv,2), nv 
-!!$  ENDDO
-!!$ENDIF
+
 
         ! 4. Rotate points into coordinate system pointing into local north 
         !    and local east direction. Store in edge-based data structure. This 
@@ -3669,23 +3664,16 @@ END SUBROUTINE complete_patchinfo
           &             *( xyloc_trans2_v((/1,2,4/),1) * pn_cell2(2) &
           &             +  xyloc_trans2_v((/1,2,4/),2) * dn_cell2(2) )
 
-!!$IF (jb==1 .AND. je==58) THEN
-!!$  DO nv=1,3
-!!$    WRITE(0,*) "pos_on_tplane_c_edge_lon1, pos_on_tplane_c_edge_lat1, nv: ",  &
-!!$      &         ptr_int%pos_on_tplane_c_edge(je,jb,1,nv)%lon,                 &
-!!$      &         ptr_int%pos_on_tplane_c_edge(je,jb,1,nv)%lat,nv
-!!$    WRITE(0,*) "pos_on_tplane_c_edge_lon2, pos_on_tplane_c_edge_lat2, nv: ",  &
-!!$      &         ptr_int%pos_on_tplane_c_edge(je,jb,2,nv)%lon,                 &
-!!$      &         ptr_int%pos_on_tplane_c_edge(je,jb,2,nv)%lat,nv 
-!!$  ENDDO
-!!$ENDIF
-
       ENDDO  ! je
     ENDDO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 
 
+
+    !
+    ! Projection of butterfly cell centers
+    !
 
     i_rcstartlev = 3
 
@@ -3696,8 +3684,7 @@ END SUBROUTINE complete_patchinfo
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2,xyloc_n1,&
 !$OMP            xyloc_n2,ilc_bf1,ibc_bf1,ilc_bf2,ibc_bf2,xyloc_bf1,    &
-!$OMP            xyloc_bf2,xyloc_plane_bf1,xyloc_plane_bf2,pn_cell1,    &
-!$OMP            pn_cell2,dn_cell1,dn_cell2)
+!$OMP            xyloc_bf2,xyloc_plane_bf1,xyloc_plane_bf2)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3731,7 +3718,6 @@ END SUBROUTINE complete_patchinfo
         ! get line and block indices of the neighbors of edge-neighbor 1
         ilc_bf1(1:2) = ptr_patch%edges%butterfly_idx(je,jb,1,1:2)
         ibc_bf1(1:2) = ptr_patch%edges%butterfly_blk(je,jb,1,1:2)
-
 
         ! get line and block indices of the neighbors of edge-neighbor 2
         ilc_bf2(1:2) = ptr_patch%edges%butterfly_idx(je,jb,2,1:2)
@@ -3768,42 +3754,18 @@ END SUBROUTINE complete_patchinfo
           &                 xyloc_plane_bf2(2,1), xyloc_plane_bf2(2,2) )               ! out
 
 
-        ! 5b. Rotate points into coordinate system pointing into local north 
-        !    and local east direction. Store in edge-based data structure. This 
-        !    is done twice (for both neighboring cells).
-        ! e_n= pn_cell1(1)*e_\lambda + pn_cell1(2)*e_\phi
-        ! e_t= dn_cell1(1)*e_\lambda + dn_cell1(2)*e_\phi
-
-        pn_cell1(1) = ptr_patch%edges%primal_normal_cell(je,jb,1)%v1
-        pn_cell1(2) = ptr_patch%edges%primal_normal_cell(je,jb,1)%v2
-        dn_cell1(1) = ptr_patch%edges%dual_normal_cell(je,jb,1)%v1
-        dn_cell1(2) = ptr_patch%edges%dual_normal_cell(je,jb,1)%v2
-
-        pn_cell2(1) = ptr_patch%edges%primal_normal_cell(je,jb,2)%v1
-        pn_cell2(2) = ptr_patch%edges%primal_normal_cell(je,jb,2)%v2
-        dn_cell2(1) = ptr_patch%edges%dual_normal_cell(je,jb,2)%v1
-        dn_cell2(2) = ptr_patch%edges%dual_normal_cell(je,jb,2)%v2
-
         ! components in longitudinal direction (cell 1)
-        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lon =  re          &
-          &             *( xyloc_plane_bf1(1:2,1) * pn_cell1(1)      &
-          &             +  xyloc_plane_bf1(1:2,2) * dn_cell1(1) )
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lon =  re * xyloc_plane_bf1(1:2,1)
 
         ! components in latitudinal direction (cell 1)
-        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lat =  re          &
-          &             *( xyloc_plane_bf1(1:2,1) * pn_cell1(2)      &
-          &             +  xyloc_plane_bf1(1:2,2) * dn_cell1(2) )
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lat =  re * xyloc_plane_bf1(1:2,2)
 
 
         ! components in longitudinal direction (cell 2)
-        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lon =  re          &
-          &             *( xyloc_plane_bf2(1:2,1) * pn_cell2(1)      &
-          &             +  xyloc_plane_bf2(1:2,2) * dn_cell2(1) )
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lon =  re * xyloc_plane_bf2(1:2,1)
 
         ! components in latitudinal direction (cell 2)
-        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lat =  re          &
-          &             *( xyloc_plane_bf2(1:2,1) * pn_cell2(2)      &
-          &             +  xyloc_plane_bf2(1:2,2) * dn_cell2(2) )
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lat =  re * xyloc_plane_bf2(1:2,2)
 
       ENDDO  ! je
     ENDDO  ! jb
