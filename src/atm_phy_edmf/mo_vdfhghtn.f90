@@ -450,7 +450,7 @@ DO JD=1,KDRAFT
     KPLCL(JL,JD)   = 0           ! default value: 0 (no PBL cloud)
     KPTOP(JL,JD)   = 0          
     KPLZB(JL,JD)   = 0          
-    LLDONE(JL,JD)  = .TRUE.       ! default: TRUE (don't launch the parcel)
+    LLDONE(JL,JD)  = .TRUE.      ! default: TRUE (don't launch the parcel)
     ZFRACB(JL,JD)  = 0._JPRB 
     PFRACB(JL,JD)  = 0._JPRB 
     ZFACEXC(JL,JD) = 0._JPRB 
@@ -798,7 +798,7 @@ ENDDO
           ZZI(JL)   = PZPLCL(JL,1)
           IZI(JL,1) = KPLCL(JL,1)
 		
-      END SELECT 
+      END SELECT
 
       !--- Mixed layer convective velocity scale ---
       ZWSTAR(JL) = ( -ZKHVFL(JL) * RG * ZZI(JL) / ZTHVEN(JL,KLEV)  ) ** (1._JPRB/3._JPRB)
@@ -878,7 +878,7 @@ ENDDO
         !--- Transition layer depth, Scale I: Dry entrainment layer depth ---
         !       using thv gradient averaged over a number of layers above h
         !
-        ZDTHVDZ  = MAX( 0.01_JPRB,ZTHVEN(JL,IZI(JL,1)-2)-ZTHVEN(JL,IZI(JL,1)) ) * RG / &
+        ZDTHVDZ  = MAX( 0.01_JPRB, ZTHVEN(JL,IZI(JL,1)-2) - ZTHVEN(JL,IZI(JL,1)) ) * RG / &
                & ( PGEOM1(JL,IZI(JL,1)-2) - PGEOM1(JL,IZI(JL,1)) )
 
         ZWSTARCAPE(JL) = MAX( 0._JPRB, ZCAPE1(JL) )**0.5_JPRB

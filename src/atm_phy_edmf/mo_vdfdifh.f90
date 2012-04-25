@@ -497,7 +497,7 @@ ENDDO
 
 !*         1.9    ADD SNOW EVAPORATION TO FLUXES
 
-!dmk  This need to be done special !!!
+!dmk  This needs to be done special !!!
 !
 !PJQ (KIDIA:KFDIA,7)=PJQ (KIDIA:KFDIA,7)+PEVAPSNW(KIDIA:KFDIA)
 !PSLH(KIDIA:KFDIA,7)=PSLH(KIDIA:KFDIA,7)+PEVAPSNW(KIDIA:KFDIA)*RLSTT

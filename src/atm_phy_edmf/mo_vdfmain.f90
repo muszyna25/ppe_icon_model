@@ -612,7 +612,7 @@ REAL(KIND=JPRB) ::    ZSTR(KLON,KTILES)   , ZG0(KLON,KTILES)
 
 LOGICAL ::            LLRUNDRY(KLON), LLPBL(KLON,KLEV)
 
-INTEGER(KIND=JPIM) :: ITOP, JD, JK, JL, KCAP
+INTEGER(KIND=JPIM) :: ITOP, JD, JK, JL, JT, KCAP
 
 REAL(KIND=JPRB) ::    ZGDPH, ZRHO, ZTMST, ZRG, ZRTMST
 LOGICAL ::            LLSFCFLX
@@ -796,9 +796,10 @@ ENDDO
 !XMK??
 
 !amk ATTENTION: needs to specify surface layer diffusion coefficients
-  ZCFM   = 1.0_JPRB
-  ZCFHTI = 1.0_JPRB
-  ZCFQTI = 1.0_JPRB
+  ZCFM   = 1.0_JPRB / 200000.0_JPRB  ! normalization??
+  ZCFM   = 1.0_JPRB / 200000.0_JPRB  !   -
+  ZCFHTI = 1.0_JPRB / 200000.0_JPRB  !   -
+  ZCFQTI = 1.0_JPRB / 200000.0_JPRB  !   -
   ZBLEND = 75.0_JPRB   !blending height for U10 diagnostic
 !xxx
 
@@ -1200,6 +1201,17 @@ CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
 
 ! Wrap-up computations for the surface and 2T/2D/10U/10V/gustiness computation
 
+!amk  ATTENTION: Surface fluxes need to be aggregated from tiles in SURFPP!!!
+PDIFTS(KIDIA:KFDIA,KLEV) = 0.0_JPRB
+PDIFTQ(KIDIA:KFDIA,KLEV) = 0.0_JPRB
+DO JT=1,KTILES
+  DO JL=KIDIA,KFDIA
+    PDIFTS(JL,KLEV) = PDIFTS(JL,KLEV) + PFRTI(JL,JT) * PAHFSTI(JL,JT)
+    PDIFTQ(JL,KLEV) = PDIFTQ(JL,KLEV) + PFRTI(JL,JT) * PEVAPTI(JL,JT)
+  ENDDO
+ENDDO
+!xxx
+
 !DMK??
 !  CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
 !   & KDHVTLS=KDHVTLS,KDHFTLS=KDHFTLS, &
@@ -1224,6 +1236,7 @@ CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
 !   & PDHTLS=PDHTLS &
 !   & )
 !XMK??
+
 
 PDIFTL  (KIDIA:KFDIA,KLEV) = 0.0_JPRB
 PDIFTI  (KIDIA:KFDIA,KLEV) = 0.0_JPRB
@@ -1576,14 +1589,20 @@ ENDDO
       PIE(JL,JK) = ( ZIUPD(JL,JK) - PIM1(JL,JK) ) * ZRTMST
       PAE(JL,JK) = ( ZAUPD(JL,JK) - PAM1(JL,JK) ) * ZRTMST
       
+!amk: debug
+IF ( PTE(JL,JK) > 10.0/3600.0 ) THEN
+  WRITE(*,*) 'PTE>10K/h PTE(JL,JK), JK', PTE(JL,JK), JK
+ENDIF
+!xxx
+
     ENDDO
   ENDDO
 
 !amk: debug
   DO JK=1,KLEV
     DO JL=KIDIA,KFDIA
-      IF ( ZTUPD(JL,JK) < 50.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
-        WRITE(*,*) 'vdfmain T<50 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
+      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
+        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
       ENDIF
       IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
         WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
