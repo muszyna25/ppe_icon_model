@@ -1954,6 +1954,15 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
+      ! Reference atmosphere field exner
+      ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
+      &                     'Reference atmosphere field exner')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'exner_ref_mc', p_metrics%exner_ref_mc,     &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_c )
 
 
     IF (p_patch%cell_type== 3) THEN
@@ -2033,16 +2042,6 @@ MODULE mo_nonhydro_state
       CALL add_var( p_metrics_list, 'tsfc_ref', p_metrics%tsfc_ref,     &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,        &
                   & ldims=shape2d_c )
-
-      ! Reference atmosphere field exner
-      ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
-      &                     'Reference atmosphere field exner')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'exner_ref_mc', p_metrics%exner_ref_mc,     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_c )
 
 
       ! Reference atmosphere field density

@@ -427,6 +427,27 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
 !$OMP END DO NOWAIT
+
+        ! The reference Exner pressure field is needed for physics initialization
+!$OMP DO PRIVATE(jb, nlen, jk, z_aux1) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = 1,nblks_c
+          IF (jb /= nblks_c) THEN
+             nlen = nproma
+          ELSE
+             nlen = npromz_c
+          ENDIF
+
+          DO jk = 1, nlev
+            ! Reference pressure, full level mass points
+            z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
+              &  *LOG((EXP(p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)      &
+              &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
+
+            ! Reference Exner pressure, full level mass points
+            p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb) = (z_aux1(1:nlen)/p0ref)**rd_o_cpd
+          ENDDO
+        ENDDO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       ENDIF
 
