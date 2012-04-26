@@ -63,7 +63,7 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
  & PSSRFLTI,PEVAPSNW,PGUST  , PWUAVG , LDNODECP,KPBLTYPE, PLDIFF,&
  & PFPLVL , PFPLVN , PFHPVL , PFHPVN , &
  ! DIAGNOSTIC OUTPUT
- & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , JCNT   , LLDIAG,&
+ & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , LLDIAG,&
  ! OUTPUT TENDENCIES
  & PTE    , PQE    , PLE    , PIE    , PAE    , PVOM   , PVOL   , &
  & PTENC  , PTSKE1 , &
@@ -499,8 +499,8 @@ REAL(KIND=JPRB) ::    ZUM1(KLON,KLEV) ,ZVM1(KLON,KLEV) ,&
  & ZQM1(KLON,KLEV) , ZLM1(KLON,KLEV), ZIM1(KLON,KLEV), &
  & ZAM1(KLON,KLEV) , ZCM1(KLON,KLEV,KTRAC)
 REAL(KIND=JPRB) ::    ZDIFTQ(KLON,0:KLEV) , ZDIFTL(KLON,0:KLEV),&
- & ZDIFTI(KLON,0:KLEV) , ZDIFTS(KLON,0:KLEV),&
- & ZSTRTU(KLON,0:KLEV) , ZSTRTV(KLON,0:KLEV),& 
+ & ZDIFTI(KLON,0:KLEV)  , ZDIFTS(KLON,0:KLEV),&
+ & ZSTRTU(KLON,0:KLEV)  , ZSTRTV(KLON,0:KLEV),& 
  & ZSTRSOU(KLON,0:KLEV) , ZSTRSOV(KLON,0:KLEV)  
 REAL(KIND=JPRB) ::    ZTSKE1(KLON)
 REAL(KIND=JPRB) ::    ZQE(KLON,KLEV,2), ZLE(KLON,KLEV,2), ZIE(KLON,KLEV,2), &
@@ -675,6 +675,14 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
     ENDDO
   ENDIF
 
+!amk
+!write(*,*) 'hello 11 ', shape(ZTSKM1M), minval(ZTSKM1M), maxval(ZTSKM1M), sum(ZTSKM1M)
+!write(*,*) 'hello 22 ', shape(ZTSKE1) , minval(ZTSKE1), maxval(ZTSKE1), sum(ZTSKE1)
+!write(*,*) 'hello 33 ', ZTSPHY
+!write(*,*) 'hello 44 ', shape(ZAE(:,:,1))    , minval(ZAE(:,:,1)), maxval(ZAE(:,:,1)), sum(ZAE(:,:,1))
+!write(*,*) 'hello 55 ', shape(ZAE(:,:,2))    , minval(ZAE(:,:,2)), maxval(ZAE(:,:,2)), sum(ZAE(:,:,2))
+!xxx
+
 !*         2.2    CALL VDFMAIN EACH SMALL TIME STEP
 !                 ---------------------------------
 
@@ -682,7 +690,7 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
    & KIDIA  , KFDIA  , KLON   , KLEV   , KLEVS  , KSTEP  , KTILES , &
    & KTRAC  , KLEVSN , KLEVI  , KDHVTLS, KDHFTLS, KDHVTSS, KDHFTSS, &
    & KDHVTTS, KDHFTTS, KDHVTIS, KDHFTIS, &
-   & ZTSPHY , KTVL   , KTVH   , KCNT   , PCVL   , PCVH   , PSIGFLT,&
+   & ZTSPHY , KTVL   , KTVH   , KCNT   , PCVL   , PCVH   , PSIGFLT, &
    & ZUM1   , ZVM1   , ZTM1   , ZQM1   , ZLM1   , ZIM1   , ZAM1   , ZCM1   , &
    & PAPHM1 , PAPM1  , PGEOM1 , PGEOH  , ZTSKM1M, PTSAM1M, PWSAM1M, &
    & PSSRFL , PSLRFL , PEMIS  , PHRLW  , PHRSW  , &
@@ -693,21 +701,21 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
    & PSOTEU , PSOTEV , PSOBETA, PVERVEL, &
    ! OUTPUT
    & PZ0M   , PZ0H   , &
-   & ZVDIS  , ZVDISG , PDISGW3D, ZAHFLEV, ZAHFLSB, ZFWSB  , PBIR   , PVAR   , &
+   & ZVDIS  , ZVDISG , PDISGW3D,ZAHFLEV, ZAHFLSB, ZFWSB  , PBIR   , PVAR   , &
    & ZU10M  , ZV10M  , ZT2M   , ZD2M   , ZQ2M   , PZINV  , ZBLH   , KHPBLN , KVARTOP , &
    & PSSRFLTI,ZEVAPSNW,ZGUST  , PWUAVG , LDNODECP,KPBLTYPE, PLDIFF, &
    & PFPLVL , PFPLVN , PFHPVL , PFHPVN , &
    ! DIAGNOSTIC OUTPUT
-   & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , JCNT   , LLDIAG,&
+   & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , LLDIAG , &
    ! OUTPUT TENDENDCIES
-   & ZTE(1,1,J1)     , ZQE(1,1,J1)     , ZLE(1,1,J1)     , ZIE(1,1,J1)     , &
-   & ZAE(1,1,J1)     , ZVOM(1,1,J1)    , ZVOL(1,1,J1)    , ZTENC(1,1,1,J1) , &
+   & ZTE(:,:,J1)     , ZQE (:,:,J1)    , ZLE (:,:,J1)    , ZIE  (:,:,J1)   , &
+   & ZAE(:,:,J1)     , ZVOM(:,:,J1)    , ZVOL(:,:,J1)    , ZTENC(:,:,:,J1) , &
    & ZTSKE1 , &
    ! UPDATED FIELDS FOR TILES
    & ZUSTRTI, ZVSTRTI, ZAHFSTI, ZEVAPTI, ZTSKTI , &
    ! FLUX OUTPUTS
    & ZDIFTS , ZDIFTQ , ZDIFTL , ZDIFTI , ZSTRTU , ZSTRTV , PTOFDU , PTOFDV ,&
-   & ZSTRSOU, ZSTRSOV,   ZKH  , &
+   & ZSTRSOU, ZSTRSOV, ZKH    , &
 !amk
    & LDLAND , &   
 !xxx
@@ -752,6 +760,13 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
 
 !*         3.1    UPDATE SKIN TEMPERATURE
 !                 -----------------------
+
+!amk
+!write(*,*) 'hello 1 ', shape(ZTSKM1M), minval(ZTSKM1M), maxval(ZTSKM1M), sum(ZTSKM1M)
+!write(*,*) 'hello 2 ', shape(ZTSKE1) , minval(ZTSKE1), maxval(ZTSKE1), sum(ZTSKE1)
+!write(*,*) 'hello 3 ', ZTSPHY
+!write(*,*) 'hello 4 ', shape(ZAE)    , minval(ZAE), maxval(ZAE), sum(ZAE)
+!xxx
 
   ZTSKM1M(KIDIA:KFDIA)=ZTSKM1M(KIDIA:KFDIA)+ZTSKE1(KIDIA:KFDIA)*ZTSPHY
 
@@ -856,7 +871,7 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
       DO JROF=KIDIA,KFDIA
         PSTRSOU(JROF,JLEV)=ZSTRSOU(JROF,JLEV)*ZINVDF
         PSTRSOV(JROF,JLEV)=ZSTRSOV(JROF,JLEV)*ZINVDF
-     ENDDO
+      ENDDO
     ENDDO
   ELSE
     DO JLEV=0,KLEV
@@ -884,6 +899,16 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
       ENDDO
     ENDDO
   ENDIF
+
+!amk debug
+write(*,*) 'hello 66 ', shape(PSTRSOU) , minval(PSTRSOU), maxval(PSTRSOU), sum(PSTRSOU)
+write(*,*) 'hello 77 ', shape(PSTRSOV) , minval(PSTRSOV), maxval(PSTRSOV), sum(PSTRSOV)
+write(*,*) 'hello 88 ', PSTRSOV(1,0:KLEV)
+write(*,*) 'hello 91 ', JCNT, J1, PEVAPSNW(1)
+write(*,*) 'hello 92 ', JCNT, J1, ZEVAPSNW(1)
+write(*,*) 'hello 93 ', JCNT, J1, PFWSB(1)
+write(*,*) 'hello 94 ', JCNT, J1, ZFWSB(1)
+!xxx
 
 !*         4.2    ACCUMULATE FLUXES AND DERIVATIVES OF SURF QUANTITIES
 !                 ----------------------------------------------------

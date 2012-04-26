@@ -333,9 +333,9 @@ DO JK=ILEV,KLEV
 !    Output: PSLGE   liquid static energy tendency
 !----------------------------------------------------
 
-      PSLGDIF(JL,JK)   =   PSLGDIF(JL,JK) + ZTPFAC3 * PSLGM1(JL,JK)
-      PSLGE(JL,JK)     = ( PSLGDIF(JL,JK) + ZVDFDIS+ZSODIS-PSLGM1(JL,JK) ) * ZCONS1
-      PSLGEWODIS(JL,JK)= ( PSLGDIF(JL,JK)          - PSLGM1(JL,JK) ) * ZCONS1
+    PSLGDIF(JL,JK)   =   PSLGDIF(JL,JK) + ZTPFAC3 * PSLGM1(JL,JK)
+    PSLGE(JL,JK)     = ( PSLGDIF(JL,JK) + ZVDFDIS+ZSODIS-PSLGM1(JL,JK) ) * ZCONS1
+    PSLGEWODIS(JL,JK)= ( PSLGDIF(JL,JK)                - PSLGM1(JL,JK) ) * ZCONS1
 
   ENDDO
 ENDDO

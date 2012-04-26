@@ -67,7 +67,7 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & PSSRFLTI,PEVAPSNW,PGUST  , PWUAVG , LDNODECP,KPBLTYPE,PLDIFF , &
  & PFPLVL , PFPLVN , PFHPVL , PFHPVN , &
  ! DIAGNOSTIC OUTPUT
- & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , JCNT   , LLDIAG , &
+ & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , LLDIAG , &
  ! OUTPUT TENDENCIES
  & PTE    , PQE    , PLE    , PIE    , PAE    , PVOM   , PVOL   , &
  & PTENC  , PTSKE1 , &
@@ -228,7 +228,7 @@ SUBROUTINE VDFMAIN ( CDCONF , &
 !     CONTRIBUTIONS TO BUDGETS (OUTPUT,REAL):
 
 !    *PVDIS*        TURBULENT DISSIPATION                         W/M2
-!    *PVDISG*        SUBGRID OROGRAPHY DISSIPATION                 W/M2
+!    *PVDISG*       SUBGRID OROGRAPHY DISSIPATION                 W/M2
 !    *PAHFLEV*      LATENT HEAT FLUX  (SNOW/ICE FREE PART)        W/M2
 !    *PAHFLSB*      LATENT HEAT FLUX  (SNOW/ICE COVERED PART)     W/M2
 
@@ -534,7 +534,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PVERVEL(KLON,KLEV)
 LOGICAL                          :: LDLAND(KLON)
 !xxx
 !          DIAGNOSTIC OUTPUT
-INTEGER(KIND=JPIM),INTENT(IN)    :: KFLDX2, KLEVX, KFLDX, JCNT
+INTEGER(KIND=JPIM),INTENT(IN)    :: KFLDX2, KLEVX, KFLDX
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX)
 LOGICAL           ,INTENT(IN)    :: LLDIAG
 
@@ -558,15 +558,15 @@ REAL(KIND=JPRB) ::    ZQTEP(KLON,KLEV)  , ZSLGEP(KLON,KLEV), ZDZRHOI
 INTEGER(KIND=JPIM), PARAMETER   ::   IDRAFT = 3    ! nr of updrafts
 
    !  thermodynamic transport
-REAL(KIND=JPRB) ::  ZMFLX(KLON,0:KLEV,IDRAFT)  ,  ZQTUH(KLON,0:KLEV,IDRAFT),&   
-                  & ZSLGUH(KLON,0:KLEV,IDRAFT) ,  ZWUH(KLON,0:KLEV,IDRAFT)
+REAL(KIND=JPRB) ::    ZMFLX(KLON,0:KLEV,IDRAFT)  ,  ZQTUH(KLON,0:KLEV,IDRAFT)   ,&   
+                    & ZSLGUH(KLON,0:KLEV,IDRAFT) ,  ZWUH(KLON,0:KLEV,IDRAFT)
    !  momentum transport
-REAL(KIND=JPRB) ::    ZMFLXM(KLON,0:KLEV,IDRAFT)            , ZUUH(KLON,0:KLEV,IDRAFT),&
+REAL(KIND=JPRB) ::    ZMFLXM(KLON,0:KLEV,IDRAFT)              , ZUUH(KLON,0:KLEV,IDRAFT),&
                     & ZVUH(KLON,0:KLEV,IDRAFT) ,&
-                    & ZUCURR(KLON)      , ZVCURR(KLON)      , ZTAUX(KLON)       ,&
+                    & ZUCURR(KLON)       , ZVCURR(KLON)        , ZTAUX(KLON)    ,&
                     & ZTAUY(KLON)
 
-REAL(KIND=JPRB) ::   ZFRACB(KLON,IDRAFT) , ZZPTOP(KLON,IDRAFT) , ZZPLCL(KLON,IDRAFT)
+REAL(KIND=JPRB) ::    ZFRACB(KLON,IDRAFT), ZZPTOP(KLON,IDRAFT) , ZZPLCL(KLON,IDRAFT)
 INTEGER(KIND=JPIM) :: IPTOP(KLON,IDRAFT) , IPLCL(KLON,IDRAFT)  , IPLZB(KLON,IDRAFT)  
 
 !RN --------------------------------------------------------------------
@@ -629,6 +629,10 @@ REAL(KIND=JPRB) ::    ZDHPBL(KLON), ZMSCALE(KLON), ZMGEOM, &
 LOGICAL ::            LMPBLEQU
 !xxx
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
+
+!amk testing only!!!
+REAL(KIND=JPRB) ::    ZCFNC1  
+!xxx
 
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
@@ -795,12 +799,24 @@ ENDDO
 !   & )
 !XMK??
 
+!amk dummy (unused!!)
+  DO JL=KIDIA,KFDIA
+    PEVAPSNW(JL) = 0.0_JPRB
+  ENDDO
+!xxx
+
 !amk ATTENTION: needs to specify surface layer diffusion coefficients
-  ZCFM   = 1.0_JPRB / 200000.0_JPRB  ! normalization??
-  ZCFM   = 1.0_JPRB / 200000.0_JPRB  !   -
-  ZCFHTI = 1.0_JPRB / 200000.0_JPRB  !   -
-  ZCFQTI = 1.0_JPRB / 200000.0_JPRB  !   -
-  ZBLEND = 75.0_JPRB   !blending height for U10 diagnostic
+  JK = KLEV
+  DO JL=KIDIA,KFDIA
+    ZCFNC1 = RVDIFTS * ZTMST * RG * PAPHM1(JL,JK) / RD &
+           & /( PTM1(JL,JK) * (1.0_JPRB+RETV*PQM1(JL,JK)) )
+    ZCFNC1 = 0.0_JPRB
+    ZCFM(JL,KLEV) = 1.0_JPRB * ZCFNC1  ! normalization??
+    ZCFH(JL,KLEV) = 1.0_JPRB * ZCFNC1  !   -
+    ZCFQTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
+    ZCFHTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
+    ZBLEND(JL)    = 75.0_JPRB   !blending height for U10 diagnostic
+  ENDDO
 !xxx
 
 
@@ -851,7 +867,7 @@ CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , KSTE
              & PAPHM1  , PAPM1   , PGEOM1  , PGEOH   , PVERVEL  , PQE     , PTE     , &
              & ZKMFL   , ZKHFL   , ZKQFL   , ZMFLX   , &
 ! DIAGNOSTIC OUTPUT
-             & PEXTR2  , KFLDX2  , PEXTRA  , KLEVX   , KFLDX    , JCNT    , LLDIAG  , &
+             & PEXTR2  , KFLDX2  , PEXTRA  , KLEVX   , KFLDX    , KCNT    , LLDIAG  , &
 !              
              & ZUUH    , ZVUH    , ZSLGUH  , ZQTUH   , ZFRACB   , ZWUH    , &
              & ZZPTOP  , IPTOP   , ZZPLCL  , IPLCL   , IPLZB    , &
@@ -1130,7 +1146,7 @@ CALL VDFINCR (KIDIA  , KFDIA  , KLON   , KLEV   , ITOP   , ZTMST  , &
             & PVOM   , PVOL   , ZSLGE  , ZQTE   , ZSLGEWODIS, &
             & PVDIS  , PVDISG , PSTRTU , PSTRTV , PSTRSOU, PSTRSOV , PTOFDU , PTOFDV, & 
 ! DIAGNOSTIC OUTPUT
-            & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , JCNT   , LLDIAG,&
+            & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , KCNT   , LLDIAG,&
             & PDISGW3D)  
 
 
@@ -1237,6 +1253,11 @@ ENDDO
 !   & )
 !XMK??
 
+!amk dummy (unused!!)
+DO JL=KIDIA,KFDIA
+  PFWSB(JL) = 0.0_JPRB
+ENDDO
+!xxx
 
 PDIFTL  (KIDIA:KFDIA,KLEV) = 0.0_JPRB
 PDIFTI  (KIDIA:KFDIA,KLEV) = 0.0_JPRB
@@ -1590,8 +1611,14 @@ ENDDO
       PAE(JL,JK) = ( ZAUPD(JL,JK) - PAM1(JL,JK) ) * ZRTMST
       
 !amk: debug
-IF ( PTE(JL,JK) > 10.0/3600.0 ) THEN
+IF ( PTE(JL,JK) > 30.0/3600 ) THEN
   WRITE(*,*) 'PTE>10K/h PTE(JL,JK), JK', PTE(JL,JK), JK
+ENDIF
+IF ( PVOM(JL,JK) > 10.0/3600 ) THEN
+  WRITE(*,*) 'PVOM>10m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
+ENDIF
+IF ( PVOL(JL,JK) > 10.0/3600 ) THEN
+  WRITE(*,*) 'PVOL>10m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
 ENDIF
 !xxx
 

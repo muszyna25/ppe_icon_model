@@ -191,9 +191,9 @@ USE mo_edmf_param   ,ONLY : &
 
 IMPLICIT NONE
 
-INTERFACE
+!INTERFACE
 ! #include "surfseb.h"
-END INTERFACE
+!END INTERFACE
 
 
 !*         0.1    GLOBAL VARIABLES

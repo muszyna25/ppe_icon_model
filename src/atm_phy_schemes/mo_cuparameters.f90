@@ -1280,7 +1280,8 @@ CONTAINS
 
     IMPLICIT NONE
 
-    rvtmp2=rcpv/rcpd-1._jprb
+!   rvtmp2=rcpv/rcpd-1._jprb   !use cp,moist
+    rvtmp2=0._jprb             !neglect cp,moist (as in IFS)
     rhoh2o=ratm/100._jprb
     !IFS original (Bolton(1980) for water and Buck(1981) for ice)
     r2es=611.21_JPRB*rd/rv

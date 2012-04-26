@@ -189,8 +189,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_1j(nproma), zdummy_vdf_1k(nproma), zdummy_vdf_1l(nproma), &
     &         zdummy_vdf_1m(nproma), zdummy_vdf_1n(nproma), zdummy_vdf_1o(nproma), &
     &         zdummy_vdf_1p(nproma), zdummy_vdf_1q(nproma), zdummy_vdf_1r(nproma), &
-    &         zdummy_vdf_1s(nproma), zdummy_vdf_1t(nproma), zdummy_vdf_1u(nproma), &
-    &         zdummy_vdf_1v(nproma), zdummy_vdf_1w(nproma)
+    &         zdummy_vdf_1s(nproma)
   REAL(wp) :: zdummy_vdf_2a(nproma,p_patch%nlev),   zdummy_vdf_2b(nproma,p_patch%nlev)
   REAL(wp) :: zdummy_vdf_3a(nproma,p_patch%nlev+1), zdummy_vdf_3b(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3c(nproma,p_patch%nlev+1), zdummy_vdf_3d(nproma,p_patch%nlev+1), &
@@ -199,7 +198,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
   REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil), zdummy_vdf_4b(nproma,nlev_soil)
-  REAL(wp) :: zdummy_vdf_5a(nproma,nsfc_subs), zdummy_vdf_5b(nproma,nsfc_subs)
+  REAL(wp) :: zdummy_vdf_5a(nproma,nsfc_subs)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6c(nproma,itrac_vdf)
@@ -213,7 +212,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         evap_s_t(nproma,nsfc_subs)    , tskin_t(nproma,nsfc_subs),        &
     &         ustr_s_t(nproma,nsfc_subs)    , vstr_s_t(nproma,nsfc_subs),       &
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
-    &         ztice(nproma)
+    &         ztice(nproma)                 , ztske1(nproma),                   &
+    &         ztskm1m(nproma)               , ztskrad(nproma)
   LOGICAL  :: l_land(nproma), ldummy_vdf_a(nproma)
 
   ! number of vertical levels
@@ -256,8 +256,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP zdummy_vdf_1j, zdummy_vdf_1k, zdummy_vdf_1l, &
 !$OMP zdummy_vdf_1m, zdummy_vdf_1n, zdummy_vdf_1o, &
 !$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
-!$OMP zdummy_vdf_1s, zdummy_vdf_1t, zdummy_vdf_1u, &
-!$OMP zdummy_vdf_1v, zdummy_vdf_1w, &
+!$OMP zdummy_vdf_1s, &
 !$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
 !$OMP zdummy_vdf_3a, zdummy_vdf_3b, &
 !$OMP zdummy_vdf_3c, zdummy_vdf_3d, &
@@ -266,7 +265,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP zdummy_vdf_3i, zdummy_vdf_3j, &
 !$OMP zdummy_vdf_3k, zdummy_vdf_3l, &
 !$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
-!$OMP zdummy_vdf_5a, zdummy_vdf_5b, &
+!$OMP zdummy_vdf_5a, &
 !$OMP zdummy_vdf_6a, &
 !$OMP zdummy_vdf_6b, &
 !$OMP zdummy_vdf_6c, &
@@ -279,8 +278,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP evap_s_t,  tskin_t, &
 !$OMP ustr_s_t,  vstr_s_t, &
 !$OMP zae,       zvar, &
-!$OMP ztice, &
-!$OMP l_land,   ldummy_vdf_a &
+!$OMP ztice,     ztske1, &
+!$OMP ztskm1m,   ztskrad, &
+!$OMP l_land,    ldummy_vdf_a &
 !$OMP ) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -593,11 +593,18 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       icnt = 0
 
       DO jc = i_startidx, i_endidx
-        zchar (jc) = 0.018_wp ! default value from IFS if no wave model
-        zucurr(jc) = 0.0_wp
-        zvcurr(jc) = 0.0_wp
-        ztice (jc) = 273.0_wp ! top level ice temperature ???????
+        zchar  (jc) = 0.018_wp ! default value from IFS if no wave model
+        zucurr (jc) = 0.0_wp
+        zvcurr (jc) = 0.0_wp
+        ztice  (jc) = 273.0_wp ! top level ice temperature ???????
+        ztske1 (jc) = 0.0_wp   ! skin temperature tendency
+        ztskm1m(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature
+        ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
       ENDDO
+
+!amk debug
+write(*,*) 'hello 9, nlev ', p_patch%nlev, i_startidx, i_endidx
+!xxx
 
       DO jk = 1,p_patch%nlev
         DO jc = i_startidx, i_endidx
@@ -629,10 +636,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDIF
       ENDDO
 
-      zdummy_vdf_1c = 0.0_wp 
-      zdummy_vdf_1i = 0.0_wp 
-      zdummy_vdf_1w = 0.0_wp 
-      zdummy_vdf_5b = 0.0_wp 
 
 !     Tendencies are set to include dynamics and radiation
 !     ATTENTION: currently for simplicity all input tendencies = 0
@@ -643,6 +646,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       prm_nwp_tend%ddt_temp_turb  (:,:,jb)     = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0._wp
 
       CALL vdfouter ( &
         & CDCONF  = ' '                                        ,&! (IN)  unused
@@ -683,7 +687,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PAPM1   = p_diag%pres             (:,:,jb)           ,&! (IN)   
         & PGEOM1  = p_metrics%geopot_agl    (:,:,jb)           ,&! (IN)   
         & PGEOH   = p_metrics%geopot_agl_ifc(:,:,jb)           ,&! (IN)   
-        & PTSKM1M = zdummy_vdf_1c                              ,&! (IN)  T,skin - unused    
+        & PTSKM1M = ztskm1m                                    ,&! (IN)  T,skin - unused    
         & PTSAM1M = zdummy_vdf_4a                              ,&! (IN)  T,soil - unused 
         & PWSAM1M = zdummy_vdf_4b                              ,&! (IN)  Q,soil - unused
         & PSSRFL  = prm_diag%swflxsfc(:,jb)                    ,&! (IN)   
@@ -693,18 +697,18 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PHRSW   = prm_nwp_tend%ddt_temp_radsw(:,:,jb)        ,&! (IN)   
         & PTSNOW  = lnd_prog_now%t_snow(:,jb,1)                ,&! (IN)  T,snow - unused (attention: tile 1????)
         & PTICE   = ztice                                      ,&! (IN)  T,ice  - unused   
-        & PHLICE  = zdummy_vdf_1e                              ,&! (IN)  lake ice thickness   - unused
-        & PTLICE  = zdummy_vdf_1f                              ,&! (IN)  lake ice temperature - unused 
-        & PTLWML  = zdummy_vdf_1g                              ,&! (IN)  lake mean water T    - unused
+        & PHLICE  = zdummy_vdf_1c                              ,&! (IN)  lake ice thickness   - unused
+        & PTLICE  = zdummy_vdf_1d                              ,&! (IN)  lake ice temperature - unused 
+        & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
         & PSST    = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  SST
         & KSOTY   = idummy_vdf_0c                              ,&! (IN)  unused: soil type
         & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
         & PALBTI  = zdummy_vdf_5a                              ,&! (IN)  unused: tile albedo
-        & PWLMX   = zdummy_vdf_1h                              ,&! (IN)  unused: maximum skin reservoir capacity
+        & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  unused: maximum skin reservoir capacity
         & PCHAR   = zchar                                      ,&! (IN)  Charnock parameter (for z0 over ocean)
         & PUCURR  = zucurr                                     ,&! (IN)  Ocean current x 
         & PVCURR  = zvcurr                                     ,&! (IN)  Ocean current y
-        & PTSKRAD = zdummy_vdf_1i                              ,&! (IN)  unused: T,skin at last radiation step 
+        & PTSKRAD = ztskrad                                    ,&! (IN)  unused: T,skin at last radiation step 
         & PCFLX   = zdummy_vdf_6c                              ,&! (IN)  unused: surface trace flux
         & PSOTEU  = zsoteu                                     ,&! (IN)  unused: Explicit part of U-tendency from SSO
         & PSOTEV  = zsotev                                     ,&! (IN)  unused: Explicit part of V-tendency from SSO  
@@ -712,27 +716,27 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PVERVEL = z_omega_p                                  ,&! (IN)   
         & PZ0M    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,m (reduced for TOFD???) 
         & PZ0H    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,h (* factor ????)    
-        & PVDIS   = zdummy_vdf_1j                              ,&! (OUT) optional out: turbulent dissipation
-        & PVDISG  = zdummy_vdf_1k                              ,&! (OUT) optional out: SO dissipation
+        & PVDIS   = zdummy_vdf_1g                              ,&! (OUT) optional out: turbulent dissipation
+        & PVDISG  = zdummy_vdf_1h                              ,&! (OUT) optional out: SO dissipation
         & PDISGW3D= zdummy_vdf_2a                              ,&! (OUT) optional out: 3D stoch. phys. dissipation
-        & PAHFLEV = zdummy_vdf_1l                              ,&! (OUT) optional out: latent heat flux (snow/ice free part)
-        & PAHFLSB = zdummy_vdf_1m                              ,&! (OUT) optional out: latent heat flux (snow/ice covered part)
-        & PFWSB   = zdummy_vdf_1n                              ,&! (OUT) optional out: evaporation of snow
-        & PBIR    = zdummy_vdf_1o                              ,&! (OUT) optional out: BIR buoyancy flux integral ratio
+        & PAHFLEV = zdummy_vdf_1i                              ,&! (OUT) optional out: latent heat flux (snow/ice free part)
+        & PAHFLSB = zdummy_vdf_1j                              ,&! (OUT) optional out: latent heat flux (snow/ice covered part)
+        & PFWSB   = zdummy_vdf_1k                              ,&! (OUT) optional out: evaporation of snow
+        & PBIR    = zdummy_vdf_1l                              ,&! (OUT) optional out: BIR buoyancy flux integral ratio
         & PVAR    = p_prog_rcf%tracer(:,:,jb,iqtvar)           ,&! (INOUT) qt,variance - prognostic advected tracer
         & PU10M   = prm_diag%u_10m(:,jb)                       ,&! (OUT)  
         & PV10M   = prm_diag%v_10m(:,jb)                       ,&! (OUT)  
         & PT2M    = prm_diag%t_2m (:,jb)                       ,&! (OUT)  
         & PD2M    = prm_diag%td_2m(:,jb)                       ,&! (OUT)  
         & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  
-        & PZINV   = zdummy_vdf_1p                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
-        & PBLH    = zdummy_vdf_1q                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
+        & PZINV   = zdummy_vdf_1m                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
+        & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
         & KHPBLN  = idummy_vdf_0d                              ,&! (OUT) optional out: PBL top level 
         & KVARTOP = idummy_vdf_0e                              ,&! (OUT) optional out: top level of predictied qt,var
         & PSSRFLTI= sobs_t                                     ,&! (INOUT) net SW sfc flux for each tile (use tile ablbedo!!!)
-        & PEVAPSNW= zdummy_vdf_1r                              ,&! (OUT) optional out: evaporation from snow under forest
-        & PGUST   = zdummy_vdf_1s                              ,&! (OUT) optional out: 10m gust
-        & PWUAVG  = zdummy_vdf_1t                              ,&! (OUT) optional out: w,up averaged
+        & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
+        & PGUST   = zdummy_vdf_1p                              ,&! (OUT) optional out: 10m gust
+        & PWUAVG  = zdummy_vdf_1q                              ,&! (OUT) optional out: w,up averaged
         & LDNODECP= ldummy_vdf_a                               ,&! (OUT) optional out: no decoupling allowed 
         & KPBLTYPE= idummy_vdf_0f                              ,&! (OUT) optional out: PBL type
         & PLDIFF  = zdummy_vdf_2b                              ,&! (OUT) optional out: contrib to PBL cond. by passive clouds
@@ -745,30 +749,29 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & KLEVX   = p_patch%nlev                               ,&! (IN)    out
         & KFLDX   = 0                                          ,&! (IN)    out
         & KFLDX2  = 0                                          ,&! (IN)    out
-        & JCNT    = icnt                                       ,&! 
         & LLDIAG  = .FALSE.                                    ,&! (IN)    out
         & PTE     = prm_nwp_tend%ddt_temp_turb  (:,:,jb)       ,&! (INOUT)
         & PQE     = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)   ,&! (INOUT)
         & PLE     = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)   ,&! (INOUT)
         & PIE     = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)   ,&! (INOUT)
         & PAE     = zae                                        ,&! (INOUT)
-        & PVOM    = prm_nwp_tend%ddt_v_turb(:,:,jb)            ,&! (INOUT)
-        & PVOL    = prm_nwp_tend%ddt_u_turb(:,:,jb)            ,&! (INOUT)
+        & PVOM    = prm_nwp_tend%ddt_u_turb(:,:,jb)            ,&! (INOUT)
+        & PVOL    = prm_nwp_tend%ddt_v_turb(:,:,jb)            ,&! (INOUT)
         & PTENC   = zdummy_vdf_6b                              ,&! (INOUT) optional inout: tracer tendency
-        & PTSKE1  = zdummy_vdf_1u                              ,&! (INOUT) unused: T,skin tendency
+        & PTSKE1  = ztske1                                     ,&! (INOUT) unused: T,skin tendency
         & PUSTRTI = ustr_s_t                                   ,&! (INOUT) tile u stress
         & PVSTRTI = vstr_s_t                                   ,&! (INOUT) tile v stress
         & PAHFSTI = shfl_s_t                                   ,&! (INOUT) tile sensible heat flux
         & PEVAPTI = evap_s_t                                   ,&! (INOUT) tile latent heat flux
-        & PTSKTI  = zdummy_vdf_5b                              ,&! (INOUT) now! ???ocean???  lnd_prog_now%t_g(:,jb)
+        & PTSKTI  = tskin_t                                    ,&! (INOUT) now! ???ocean???  lnd_prog_now%t_g(:,jb)
         & PDIFTS  = zdummy_vdf_3e                              ,&! (OUT)  optional out: turbulent heat flux
         & PDIFTQ  = zdummy_vdf_3f                              ,&! (OUT)  optional out: turbulent moisture flux
         & PDIFTL  = zdummy_vdf_3g                              ,&! (OUT)  optional out: turbulent liquid water flux
         & PDIFTI  = zdummy_vdf_3h                              ,&! (OUT)  optional out: turbulent ice water flux
         & PSTRTU  = zdummy_vdf_3i                              ,&! (OUT)  optional out: turbulent U flux
         & PSTRTV  = zdummy_vdf_3j                              ,&! (OUT)  optional out: turbulent V flux
-        & PTOFDU  = zdummy_vdf_1v                              ,&! (OUT)  optional out: TOFD U flux
-        & PTOFDV  = zdummy_vdf_1w                              ,&! (OUT)  optional out: TOFD V flux
+        & PTOFDU  = zdummy_vdf_1r                              ,&! (OUT)  optional out: TOFD U flux
+        & PTOFDV  = zdummy_vdf_1s                              ,&! (OUT)  optional out: TOFD V flux
         & PSTRSOU = zdummy_vdf_3k                              ,&! (OUT)  optional out: SSO U flux 
         & PSTRSOV = zdummy_vdf_3l                              ,&! (OUT)  optional out: SSO V flux
         & PKH     = prm_diag%tkvh(:,:,jb)                      ,&! (OUT)
