@@ -706,6 +706,8 @@ SUBROUTINE calc_psi (p_patch, u, datetime)
           lbrei=MAX(lbrei,1)
           lbrei=MIN(lbrei,180)
 
+          jbrei=1
+
           ! get neighbor edge for scaling
           il_e = p_patch%cells%edge_idx(jc,jb,1)
           ib_e = p_patch%cells%edge_blk(jc,jb,1)
