@@ -1969,7 +1969,7 @@ CONTAINS
     ! 5. output does contain absolute time 
 
 !PR    !
-    WRITE(6,'(a,i)') 'mode ',of%name_list%mode
+    !WRITE(6,'(a,i)') 'mode ',of%name_list%mode
     SELECT CASE (of%name_list%mode)
     CASE (1)  ! forecast mode
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
@@ -2618,7 +2618,7 @@ CONTAINS
 
     ! assign the vlist (which must have ben set before)
 !PR 
-    WRITE(6,'(a,i)') 'taxisTunit openning ',taxisInqTunit(of%cdiTaxisID)
+    !WRITE(6,'(a,i)') 'taxisTunit openning ',taxisInqTunit(of%cdiTaxisID)
 
     CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
 
@@ -2795,10 +2795,10 @@ CONTAINS
 !PR
     !WRITE(6,'(a,i,a,i)')'idate forc and ref',idate,' ',taxisInqRdate(output_file(i)%cdiTaxisID)
     !WRITE(6,'(a,i,a,i)')'itime forc and ref',itime,' ',taxisInqRtime(output_file(i)%cdiTaxisID)
-    WRITE(6,'(a,i,i)')'validation date and time ',taxisInqVdate(output_file(i)%cdiTaxisID), &
-                 & taxisInqVtime(output_file(i)%cdiTaxisID)
+    !WRITE(6,'(a,i,i)')'validation date and time ',taxisInqVdate(output_file(i)%cdiTaxisID), &
+    !             & taxisInqVtime(output_file(i)%cdiTaxisID)
  
-    WRITE(6,'(a,i)') 'taxisTunit writing ',taxisInqTunit(output_file(i)%cdiTaxisID)
+    !WRITE(6,'(a,i)') 'taxisTunit writing ',taxisInqTunit(output_file(i)%cdiTaxisID)
 
 !PR
           iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
