@@ -379,6 +379,7 @@ CONTAINS
 
     datetime%calday  = INT(time,i8)
     datetime%caltime = MOD(time,1._wp)
+    datetime%daysec = datetime%second+REAL(60*(datetime%minute+60*datetime%hour),wp)
 
   END SUBROUTINE date_to_julianday
 
@@ -436,6 +437,8 @@ CONTAINS
     ! input components
     ! - calendar
     ! - calday, caltime
+    ! -daysec this now an input component, now julianday_to_date
+    !  calculates hour, minute and second from daysec and not caltime
     !
     ! output component
     ! - year, month, day, hour, minute, second
@@ -486,6 +489,8 @@ CONTAINS
     ! input components
     ! - calendar
     ! - calday, caltime
+    ! - daysec, this now an input component, now  hour, 
+    !   minute and second are calculated from daysec and not caltime
     !
     ! output component
     ! - year, month, day, hour, minute, second
@@ -513,11 +518,15 @@ CONTAINS
     datetime%day    = INT(zc-ze- REAL(FLOOR(30.6001_wp*zf),wp))
     datetime%month  = INT(zf-REAL(1+12*FLOOR(zf/REAL(14,wp)),wp))
     datetime%year   = INT(zd-4715._wp-REAL((7+datetime%month)/10,wp))
-
-    daytim          = MODULO(time-0.5_wp,1._wp)
-    datetime%hour   = INT(daytim*24._wp)
-    datetime%minute = INT(MODULO(daytim*1440._wp,60._wp))
-    datetime%second = MODULO(MODULO(daytim*rdaylen,3600._wp),60._wp)
+!PR calculation from daysec to improve precision
+   ! daytim          = MODULO(time-0.5_wp,1._wp)
+   ! daytim          = MODULO(datetime%caltime+0.5_wp,1._wp)
+   ! datetime%hour   = INT(daytim*24._wp)
+   ! datetime%minute = INT(MODULO(daytim*1440._wp,60._wp))
+   ! datetime%second = MODULO(MODULO(daytim*rdaylen,3600._wp),60._wp)
+    datetime%hour   = INT(datetime%daysec/3600._wp)
+    datetime%minute = MODULO(datetime%daysec/60._wp, 60._wp)
+    datetime%second = MODULO(datetime%daysec,60._wp)
 
   END SUBROUTINE julianday_to_date
 
@@ -797,11 +806,14 @@ CONTAINS
     !
 
     REAL(wp) :: timesum
+    REAL(wp) :: daysec
 
     timesum = datetime%caltime + (seconds+REAL(60*(minutes+60*hours),wp))/rdaylen
+    daysec  = datetime%daysec  + seconds+REAL(60*(minutes+60*hours),wp)
 
     datetime%caltime = MODULO(timesum,1._wp)
     datetime%calday  = datetime%calday + INT(days + FLOOR(timesum),i8)
+    datetime%daysec  = MODULO(daysec,rdaylen)
 
     CALL time_to_date(datetime)
     CALL check_date  (datetime)

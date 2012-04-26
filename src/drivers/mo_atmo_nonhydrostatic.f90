@@ -409,7 +409,7 @@ CONTAINS
         l_have_output = .TRUE.
       END IF
 
-      IF (output_mode%l_nml .AND. (.NOT. ltestcase .OR. iforcing == inwp)) THEN
+      IF (output_mode%l_nml) THEN
         CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
       END IF
 

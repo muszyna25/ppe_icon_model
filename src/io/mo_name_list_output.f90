@@ -70,6 +70,7 @@ MODULE mo_name_list_output
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
+  USE mo_time_config,           ONLY: time_config
   USE mo_lonlat_grid,           ONLY: t_lon_lat_grid
   USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
     &                                 t_lon_lat_data, get_free_lonlat_grid,   &
@@ -344,7 +345,7 @@ CONTAINS
       filetype           = FILETYPE_NC2 ! NetCDF
       namespace          = 'ECMWF'
       map_file           = ' '
-      mode               = 1
+      mode               = 2
       dom(:)             = -1
       output_time_unit   = 1
       output_bounds(:,:) = 0._wp
@@ -1702,6 +1703,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
     TYPE(t_lon_lat_data), POINTER :: lonlat
     LOGICAL :: lwrite_pzlev
+    INTEGER :: idate, itime
+    TYPE(t_datetime) :: ini_datetime
 
 
     ! Read map_file - we do it here and not during initialization
@@ -1964,8 +1967,35 @@ CONTAINS
 
     !
     ! 5. output does contain absolute time 
+
+!PR    !
+    WRITE(6,'(a,i)') 'mode ',of%name_list%mode
+    SELECT CASE (of%name_list%mode)
+    CASE (1)  ! forecast mode
+     of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
+     !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_SECOND)
+     !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_MINUTE)
+     CALL taxisDefTunit (of%cdiTaxisID, TUNIT_HOUR)
+     ini_datetime = time_config%ini_datetime
+     CALL taxisDefCalendar (of%cdiTaxisID, time_config%calendar)
+     idate = cdiEncodeDate(ini_datetime%year, ini_datetime%month, ini_datetime%day)
+     itime = cdiEncodeTime(ini_datetime%hour, ini_datetime%minute, & 
+                           NINT(ini_datetime%second))
+     !WRITE(6,'(a,i,a)')'calendar ', time_config%calendar, & 
+     !                & 'julian_gregorian 0 -  proleptic_gregorian 1 -  cly360 2'
+     CALL taxisDefRdate (of%cdiTaxisID, idate )
+     CALL taxisDefRtime (of%cdiTaxisID, itime )
+
+     !WRITE(6,'(a,i,a,i)')'idate ',idate,' ',taxisInqRdate(of%cdiTaxisID)
+     !WRITE(6,'(a,i,a,i)')'itime ',itime,' ',taxisInqRtime(of%cdiTaxisID)
+    CASE (2)  ! climate mode
+     of%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
+    CASE DEFAULT
+     of%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
+    END SELECT
+     
     !
-    of%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
+
     CALL vlistDefTaxis(of%cdiVlistID, of%cdiTaxisID)
 
     !
@@ -2587,6 +2617,8 @@ CONTAINS
     END IF
 
     ! assign the vlist (which must have ben set before)
+!PR 
+    WRITE(6,'(a,i)') 'taxisTunit openning ',taxisInqTunit(of%cdiTaxisID)
 
     CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
 
@@ -2760,7 +2792,15 @@ CONTAINS
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
+!PR
+    !WRITE(6,'(a,i,a,i)')'idate forc and ref',idate,' ',taxisInqRdate(output_file(i)%cdiTaxisID)
+    !WRITE(6,'(a,i,a,i)')'itime forc and ref',itime,' ',taxisInqRtime(output_file(i)%cdiTaxisID)
+    WRITE(6,'(a,i,i)')'validation date and time ',taxisInqVdate(output_file(i)%cdiTaxisID), &
+                 & taxisInqVtime(output_file(i)%cdiTaxisID)
+ 
+    WRITE(6,'(a,i)') 'taxisTunit writing ',taxisInqTunit(output_file(i)%cdiTaxisID)
 
+!PR
           iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
           output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
 
