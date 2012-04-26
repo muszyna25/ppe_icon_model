@@ -610,21 +610,27 @@ CONTAINS
 
 
           ! Sum quadrature vectors over all integration points
-          p_quad_vector_sum(je,1,jk,jb) = SUM(z_quad_vector(:,1))
-          p_quad_vector_sum(je,2,jk,jb) = SUM(z_quad_vector(:,2))
-          p_quad_vector_sum(je,3,jk,jb) = SUM(z_quad_vector(:,3))
-          p_quad_vector_sum(je,4,jk,jb) = SUM(z_quad_vector(:,4))
-          p_quad_vector_sum(je,5,jk,jb) = SUM(z_quad_vector(:,5))
-          p_quad_vector_sum(je,6,jk,jb) = SUM(z_quad_vector(:,6))
-          p_quad_vector_sum(je,7,jk,jb) = SUM(z_quad_vector(:,7))
-          p_quad_vector_sum(je,8,jk,jb) = SUM(z_quad_vector(:,8))
-          p_quad_vector_sum(je,9,jk,jb) = SUM(z_quad_vector(:,9))
-          p_quad_vector_sum(je,10,jk,jb)= SUM(z_quad_vector(:,10))
+          p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(:,1))
+          p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(:,2))
+          p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(:,3))
+          p_quad_vector_sum(je, 4,jk,jb) = SUM(z_quad_vector(:,4))
+          p_quad_vector_sum(je, 5,jk,jb) = SUM(z_quad_vector(:,5))
+          p_quad_vector_sum(je, 6,jk,jb) = SUM(z_quad_vector(:,6))
+          p_quad_vector_sum(je, 7,jk,jb) = SUM(z_quad_vector(:,7))
+          p_quad_vector_sum(je, 8,jk,jb) = SUM(z_quad_vector(:,8))
+          p_quad_vector_sum(je, 9,jk,jb) = SUM(z_quad_vector(:,9))
+          p_quad_vector_sum(je,10,jk,jb) = SUM(z_quad_vector(:,10))
 
 
           ! area of departure region
           p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
 
+!!$IF (p_dreg_area(je,jk,jb) < 0._wp) THEN
+!!$  WRITE(0,*) "ATTENTION: negative areas at je,jk,jb= ", je, jk, jb, p_dreg_area(je,jk,jb)
+!!$  WRITE(0,*) "system orientation: ", p_patch%edges%system_orientation(je,jb)
+!!$  ELSE IF ((p_dreg_area(je,jk,jb) >= 0._wp)) THEN
+!!$  WRITE(0,*) "OK for system orientation= ", je, jk, jb, p_patch%edges%system_orientation(je,jb)
+!!$ENDIF
         ENDDO ! loop over edges
 
       ENDDO  ! loop over levels

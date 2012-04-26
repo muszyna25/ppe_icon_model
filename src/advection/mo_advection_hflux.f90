@@ -85,10 +85,11 @@ MODULE mo_advection_hflux
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
-    &                               UP, MIURA, MIURA3, MCYCL, MIURA_MCYCL,      &
-    &                               MIURA3_MCYCL, UP3, islopel_sm, islopel_m,   &
-    &                               ifluxl_m, ifluxl_sm, INH_ATMOSPHERE,        &
-    &                               IHS_ATM_TEMP, ISHALLOW_WATER, IHS_ATM_THETA
+    &                               UP, MIURA, MIURA3, FFSL, MCYCL,             &
+    &                               MIURA_MCYCL, MIURA3_MCYCL, UP3, islopel_sm, &
+    &                               islopel_m, ifluxl_m, ifluxl_sm,             &
+    &                               INH_ATMOSPHERE, IHS_ATM_TEMP,               &
+    &                               ISHALLOW_WATER, IHS_ATM_THETA
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell
@@ -116,8 +117,8 @@ MODULE mo_advection_hflux
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_q,                    &
     &                               prep_gauss_quadrature_cpoor,                &
     &                               prep_gauss_quadrature_c
-  USE mo_advection_traj,      ONLY: back_traj_o1, back_traj_o2,                 &
-    &                               back_traj_dreg_o1 
+  USE mo_advection_traj,      ONLY: btraj, btraj_o2, btraj_dreg,                &
+    &                               btraj_dreg_nosort, divide_flux_area 
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm,           &
     &                               h_miura_slimiter_mo, h_miura_slimiter_sm,   &
     &                               shift_gauss_points
@@ -130,8 +131,12 @@ MODULE mo_advection_hflux
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: hor_upwind_flux, upwind_hflux_up, upwind_hflux_miura,   &
-    &       upwind_hflux_miura3, upwind_hflux_hex
+
+  PUBLIC :: hor_upwind_flux
+  PUBLIC :: upwind_hflux_up
+  PUBLIC :: upwind_hflux_miura
+  PUBLIC :: upwind_hflux_miura3
+
 
   !-------------------------------------------------------------------------
 
@@ -290,6 +295,15 @@ CONTAINS
           &                 lcleanup%miura3_h(jt), p_itype_hlimit(jt),   &! in
           &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,   &! inout,in
           &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
+
+      CASE( FFSL )
+        ! CALL Flux form semi lagrangian scheme (extension of MIURA3-scheme) 
+        ! with second or third order accurate reconstruction
+        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
+          &                 p_vn, p_dtime, p_int, lcompute%ffsl_h(jt),    &! in
+          &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
+          &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,    &! inout,in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend   )! in
 
 
       CASE( UP3 )
@@ -820,18 +834,18 @@ CONTAINS
       IF (p_iord_backtraj == 1)  THEN
 
         ! first order backward trajectory
-        CALL back_traj_o1( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,  &! in
-          &               z_cell_indices, z_distv_bary,                  &! out
-          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &               opt_slev=slev, opt_elev=elev                   )! in
+        CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
+          &            z_cell_indices, z_distv_bary,                  &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
+          &            opt_slev=slev, opt_elev=elev                   )! in
 
       ELSE
 
         ! second order backward trajectory
-        CALL back_traj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,  &! in
-          &               z_cell_indices, z_distv_bary,                  &! out
-          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &               opt_slev=slev, opt_elev=elev                   )! in
+        CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
+          &            z_cell_indices, z_distv_bary,                  &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
+          &            opt_slev=slev, opt_elev=elev                   )! in
 
       ENDIF
 
@@ -1398,18 +1412,18 @@ CONTAINS
       IF (p_iord_backtraj == 1)  THEN
 
         ! first order backward trajectory
-        CALL back_traj_o1( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,  &! in
-          &               z_cell_indices, z_distv_bary,                  &! out
-          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &               opt_slev=slev, opt_elev=elev                   )! in
+        CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
+          &            z_cell_indices, z_distv_bary,                  &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
+          &            opt_slev=slev, opt_elev=elev                   )! in
 
       ELSE
 
         ! second order backward trajectory
-        CALL back_traj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,  &! in
-          &               z_cell_indices, z_distv_bary,                  &! out
-          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &               opt_slev=slev, opt_elev=elev                   )! in
+        CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
+          &            z_cell_indices, z_distv_bary,                  &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
+          &            opt_slev=slev, opt_elev=elev                   )! in
 
       ENDIF
 
@@ -1696,8 +1710,7 @@ CONTAINS
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
   !! - Ollivier-Gooch, C. (2002), JCP, 181, 729-752 (for lsq reconstruction)
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
-  !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.,
-  !!   in Press
+  !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
   !!
   SUBROUTINE upwind_hflux_miura3( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,   &
     &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
@@ -1950,10 +1963,10 @@ CONTAINS
 
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
-      CALL back_traj_dreg_o1( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
-        &                     z_cell_indices, z_coords_dreg_v,            &! out
-        &                     opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
-        &                     opt_slev=slev, opt_elev=elev                )! in
+      CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
+        &              z_cell_indices, z_coords_dreg_v,            &! out
+        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
+        &              opt_slev=slev, opt_elev=elev                )! in
 
 
 !      ! In order to check, whether the vertices are stored in clockwise or
@@ -2240,6 +2253,530 @@ CONTAINS
 
 
   END SUBROUTINE upwind_hflux_miura3
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Flux-form semi Lagrangian scheme (extended MIURA3 scheme)
+  !!
+  !! Flux form semi Lagrangian scheme (extended MIURA3 scheme), where the overlap 
+  !! between the flux area and the underlying grid cells is taken into account.
+  !! The scheme provides the time averaged horizontal tracer fluxes at triangle 
+  !! edges. A third or fourth order accurate (i.e. quadratic, cubic) least squares 
+  !! reconstruction can be selected.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2012-04-12)
+  !!
+  !! @par !LITERATURE
+  !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
+  !! - Ollivier-Gooch, C. (2002), JCP, 181, 729-752 (for lsq reconstruction)
+  !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
+  !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
+  !!
+  SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,     &
+    &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
+    &                      p_out_e, opt_rlstart, opt_rlend, opt_lout_edge,      &
+    &                      opt_real_vt, opt_slev, opt_elev )
+
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_advection_hflux: upwind_hflux_ffsl'
+
+    TYPE(t_patch), INTENT(IN)     ::  &  !< patch on which computation is performed
+      &  p_patch
+
+    TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
+      &  p_int
+
+    REAL(wp), INTENT(IN) ::    &    !< cell centered variable to be advected
+      &  p_cc(:,:,:)                !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< contravariant horizontal mass flux at cell edge
+      &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(IN) ::    &    !< normal component of velocity field
+      &  p_vn(:,:,:)                !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(IN) :: p_dtime !< time step
+
+    LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. compute geometrical terms
+      &  ld_compute
+
+    LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. clean up geometrical terms
+      &  ld_cleanup
+
+    INTEGER, INTENT(IN) ::     &    !< parameter to select the limiter
+      &  p_itype_hlimit             !< for horizontal transport
+
+    REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the tracer mass flux
+      &  p_out_e(:,:,:)             !< or the reconstructed edge value
+                                    !< dim: (nproma,nlev,nblks_e)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
+     &  opt_rlstart                    !< only valid for calculation of 'edge value'
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
+     &  opt_rlend                      !< (to avoid calculation of halo points)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
+     & opt_lout_edge                   !< or the flux across the edge (.FALSE./not specified)
+
+    REAL(wp), INTENT(IN), OPTIONAL,  & !< optional: tangential velocity
+     & TARGET :: opt_real_vt(:,:,:)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
+
+    LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
+                                       !< i.e. output flux across the edge
+
+   REAL(wp) ::   &                     !< coefficients of lsq reconstruction
+      &  z_lsq_coeff(nproma,p_patch%nlev,lsq_high_set%dim_unk+1,p_patch%nblks_c) 
+                                       !< at cell center
+                                       !< includes c0 and gradients in zonal and
+                                       !< meridional direction
+
+    REAL(wp), TARGET ::   &                    !< tangential component of velocity field
+      &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< at edges
+
+    REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
+
+
+    REAL(wp) ::                &       !< coordinates of arrival points. The origin
+      &  arrival_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)
+                                       !< of the coordinate system is at the circumcenter of
+                                       !< the upwind cell. Unit vectors point to local East
+                                       !< and North. (geographical coordinates)
+                                       !< dim: (nproma,nlev,ptr_p%nblks_e,2,2)
+
+    REAL(wp) ::  &                    !< coordinates of departure points. The origin
+      &  depart_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)
+                                      !< of the coordinate system is at the circumcenter of
+                                      !< the upwind cell. Unit vectors point to local East
+                                      !< and North. (geographical coordinates)
+                                      !< dim: (nproma,nlev,ptr_p%nblks_e,2,2)
+
+    REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
+      & dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
+      & dreg_patch1(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &
+      & dreg_patch2(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
+
+
+    REAL(wp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
+      &  z_quad_vector_sum0(:,:,:,:),& !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
+      &  z_quad_vector_sum1(:,:,:,:),&
+      &  z_quad_vector_sum2(:,:,:,:)
+
+    REAL(wp), ALLOCATABLE, SAVE ::  & !< area of each departure region patch
+      &  z_dreg_area0(:,:,:),       & !< dim: (nproma,nlev,nblks_e)
+      &  z_dreg_area1(:,:,:),       &
+      &  z_dreg_area2(:,:,:)
+
+    INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line and block indices of underlying cell
+      & patch0_cell_idx(:,:,:), patch0_cell_blk(:,:,:), & !< dim: (nproma,nlev,p_patch%nblks_e)
+      & patch1_cell_idx(:,:,:), patch1_cell_blk(:,:,:), &
+      & patch2_cell_idx(:,:,:), patch2_cell_blk(:,:,:)
+
+    INTEGER, POINTER ::                    & !< Pointer to line and block indices of the cells
+      &  ptr_ilc0(:,:,:), ptr_ibc0(:,:,:), & !< to which the departure region patches belong.
+      &  ptr_ilc1(:,:,:), ptr_ibc1(:,:,:), &
+      &  ptr_ilc2(:,:,:), ptr_ibc2(:,:,:)
+
+    INTEGER  :: nlev               !< number of full levels
+    INTEGER  :: slev, elev         !< vertical start and end level
+    INTEGER  :: ist                !< status variable
+    INTEGER  :: je, jk, jb         !< index of edge, vert level, block
+    INTEGER  :: dim_unk
+    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
+    INTEGER  :: pid                !< patch ID
+
+   !-------------------------------------------------------------------------
+
+    ! number of vertical levels
+    nlev = p_patch%nlev
+
+    ! get patch ID
+    pid = p_patch%id
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = nlev
+    END IF
+
+    IF ( PRESENT(opt_lout_edge) ) THEN
+      l_out_edgeval = opt_lout_edge
+    ELSE
+      l_out_edgeval = .FALSE.
+    ENDIF
+
+    IF ( PRESENT(opt_real_vt) ) THEN
+      ptr_real_vt => opt_real_vt
+    ELSE
+      ptr_real_vt => z_real_vt
+    ENDIF
+
+    IF ( PRESENT(opt_rlstart) ) THEN
+      i_rlstart = opt_rlstart
+    ELSE
+      i_rlstart = 5
+    ENDIF
+
+    IF ( PRESENT(opt_rlend) ) THEN
+      i_rlend = opt_rlend
+    ELSE
+      i_rlend = min_rledge_int - 1
+    ENDIF
+
+    i_rlend_c = min_rlcell_int
+
+    ! number of child domains
+    i_nchdom = MAX(1,p_patch%n_childdom)
+
+    IF (p_test_run) THEN
+      z_lsq_coeff(:,:,:,:) = 0._wp
+    ENDIF
+
+    dim_unk = lsq_high_set%dim_unk+1
+
+    !
+    ! advection is done with an upwind scheme and a piecewise quadratic
+    ! or cubic approximation of the tracer subgrid distribution.
+    ! This approx. is integrated over a rhomboidal approximation of the
+    ! departure region which is advected across the edge under consideration.
+    ! The approximation is based on the (reconstructed) full 2D velocity
+    ! field at edge midpoints (at time t+\Delta t/2) and \Delta t.
+    !
+    ! 3 options:  without limiter
+    !             with monotone flux limiter following Zalesak (1979)
+    !             with positive definite flux limiter following Zalesak (1979)
+    !
+
+    IF ( ld_compute ) THEN
+      ! allocate temporary arrays for quadrature and upwind cells
+      ALLOCATE( z_quad_vector_sum0(nproma,dim_unk,nlev,p_patch%nblks_e), &
+        &       z_quad_vector_sum1(nproma,dim_unk,nlev,p_patch%nblks_e), &
+        &       z_quad_vector_sum2(nproma,dim_unk,nlev,p_patch%nblks_e), &
+        &       z_dreg_area0(nproma,nlev,p_patch%nblks_e),               &
+        &       z_dreg_area1(nproma,nlev,p_patch%nblks_e),               &
+        &       z_dreg_area2(nproma,nlev,p_patch%nblks_e),               &
+        &       patch0_cell_idx(nproma,nlev,p_patch%nblks_e),            &
+        &       patch1_cell_idx(nproma,nlev,p_patch%nblks_e),            &
+        &       patch2_cell_idx(nproma,nlev,p_patch%nblks_e),            &
+        &       patch0_cell_blk(nproma,nlev,p_patch%nblks_e),            &
+        &       patch1_cell_blk(nproma,nlev,p_patch%nblks_e),            &
+        &       patch2_cell_blk(nproma,nlev,p_patch%nblks_e),            &
+        &       STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine),                                        &
+          &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, ' // &
+          &  'patch0/1/2_cell_idx,  patch0/1/2_cell_blk failed' )
+      ENDIF
+    END IF
+
+
+    !
+    ! 1. reconstruction of the tracer subgrid distribution
+    !    least squares method
+    !    Note: for rlstart=2 we run into a sync-error with nests
+    !
+    IF (lsq_high_ord == 2) THEN
+      ! quadratic reconstruction
+      ! (computation of 6 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ELSE
+      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ENDIF
+    ELSE IF (lsq_high_ord == 30) THEN
+      ! cubic reconstruction without cross derivatives
+      ! (computation of 8 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ELSE
+      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ENDIF
+    ELSE IF (lsq_high_ord == 3) THEN
+      ! cubic reconstruction with cross derivatives
+      ! (computation of 10 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ELSE
+      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ENDIF
+    ENDIF
+
+
+    ! Synchronize polynomial coefficients
+    ! Note: a special sync routine is needed here because the fourth dimension
+    ! of z_lsq_coeff is (for efficiency reasons) on the third index
+!DR    CALL sync_patch_array_4de3(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+    CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+
+
+    !
+    ! 2. Approximation of the 'departure region'. The coordinates of
+    !    all vertices are computed and stored in an edge-based data
+    !    structure.
+    !    In addition the Gauss-Legendre quadrature is prepared by
+    !    calculating some tracer-invariant (i.e. purely geometric) fields.
+    !
+    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+    IF (ld_compute) THEN
+
+      IF (.NOT. PRESENT(opt_real_vt)) THEN
+        ! reconstruct tangential velocity component at edge midpoints
+        CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,          &! in
+          &                         ptr_real_vt, opt_rlend=i_rlend )! inout
+      ENDIF
+
+      ! compute vertex coordinates for the departure region using a first
+      ! order accurate (O(\Delta t)) backward trajectory-method
+      CALL btraj_dreg_nosort( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
+        &                     patch0_cell_idx, patch0_cell_blk,           &! out
+        &                     arrival_pts, depart_pts,                    &! out
+        &                     opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
+        &                     opt_slev=slev, opt_elev=elev                )! in
+
+
+
+      ! Flux area (aka. departure region) is subdivided according to its overlap 
+      ! with the underlying grid.
+      CALL divide_flux_area(p_patch, p_int, p_vn, ptr_real_vt,             &! in
+        &                   depart_pts, arrival_pts,                       &! in
+        &                   dreg_patch0, dreg_patch1, dreg_patch2,         &! out
+        &                   patch1_cell_idx, patch1_cell_blk,              &! out
+        &                   patch2_cell_idx, patch2_cell_blk,              &! out
+        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,      &! in
+        &                   opt_slev=slev, opt_elev=elev                   )! in
+
+
+
+      ! maps quadrilateral onto the standard rectangle of edge length 2.
+      ! provides quadrature points and the corresponding determinant of the
+      ! Jacobian for each departure region.
+      ! This is done for each of the three patch fragments.
+      IF (lsq_high_ord == 2) THEN
+        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
+        ! a quadratic 2D polynomial
+        CALL prep_gauss_quadrature_q( p_patch, dreg_patch0,               &! in
+          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_q( p_patch, dreg_patch1,               &! in
+          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_q( p_patch, dreg_patch2,               &! in
+          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+      ELSE IF (lsq_high_ord == 30) THEN
+        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
+        ! a cubic 2D polynomial without cross derivatives
+        CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch0,           &! in
+          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch1,           &! in
+          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch2,           &! in
+          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+      ELSE IF (lsq_high_ord == 3) THEN
+        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
+        ! a full cubic 2D polynomial
+        CALL prep_gauss_quadrature_c( p_patch, dreg_patch0,               &! in
+          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_c( p_patch, dreg_patch1,               &! in
+          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_c( p_patch, dreg_patch2,               &! in
+          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+      ENDIF
+
+    END IF ! ld_compute
+
+
+    ! Pointer to line and block indices of the cells to which the departure 
+    ! region patches belong.
+    ptr_ilc0 => patch0_cell_idx(:,:,:)
+    ptr_ibc0 => patch0_cell_blk(:,:,:)
+    ptr_ilc1 => patch1_cell_idx(:,:,:)
+    ptr_ibc1 => patch1_cell_blk(:,:,:)
+    ptr_ilc2 => patch2_cell_idx(:,:,:)
+    ptr_ibc2 => patch2_cell_blk(:,:,:)
+
+    !
+    ! 3. Calculate approximation to the area average \Phi_{avg} of the tracer
+    !    in each rhomboidal area.
+    !    Then calculate the flux v_n*\Delta p*\Phi_{avg}
+    !    The fact that the rhomboidal area inevitably overlaps with neighboring
+    !    triangles is at least partly taken into account. Depending on the   
+    !    The fact that the rhomboidal area inevitably overlaps with neighboring
+    !    triangles is neglected (local quadratic/cubic approximation instead
+    !    of piecewise quadratic/cubic approximation). Only the reconstruction for
+    !    the local cell is taken into account.
+
+    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      ! Calculate flux at cell edge 
+      !
+      ! Integral over departure region, normalized by departure region area
+      ! (equals the tracer area average) times the mass flux
+      ! - z_quad_vector_sum : tracer independent part
+      ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
+
+      SELECT  CASE( lsq_high_ord )
+      CASE( 2 )  ! quadratic reconstruction
+
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+
+!CDIR EXPAND=6
+          p_out_e(je,jk,jb) =                                                            &
+            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:6,ptr_ibc0(je,jk,jb)), &
+            &     z_quad_vector_sum0(je,1:6,jk,jb) )                                     &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:6,ptr_ibc1(je,jk,jb)), &
+            &     z_quad_vector_sum1(je,1:6,jk,jb) )                                     &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:6,ptr_ibc2(je,jk,jb)), &
+            &     z_quad_vector_sum2(je,1:6,jk,jb) ) )                                   &
+            &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
+            &   * p_mass_flx_e(je,jk,jb)
+
+        ENDDO
+      ENDDO
+
+      CASE( 30 )  ! cubic reconstruction without third order cross derivatives
+
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+
+!CDIR EXPAND=8
+          p_out_e(je,jk,jb) =                                                            &
+            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:8,ptr_ibc0(je,jk,jb)), &
+            &     z_quad_vector_sum0(je,1:8,jk,jb) )                                     &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:8,ptr_ibc1(je,jk,jb)), &
+            &     z_quad_vector_sum1(je,1:8,jk,jb) )                                     &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:8,ptr_ibc2(je,jk,jb)), &
+            &     z_quad_vector_sum2(je,1:8,jk,jb) ) )                                   &
+            &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
+            &   * p_mass_flx_e(je,jk,jb)
+
+        ENDDO
+      ENDDO
+
+      CASE( 3 )  ! cubic reconstruction with third order cross derivatives
+
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+
+!CDIR EXPAND=10
+          p_out_e(je,jk,jb) =                                                            &
+            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:10,ptr_ibc0(je,jk,jb)),&
+            &     z_quad_vector_sum0(je,1:10,jk,jb) )                                    &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:10,ptr_ibc1(je,jk,jb)),&
+            &     z_quad_vector_sum1(je,1:10,jk,jb) )                                    &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:10,ptr_ibc2(je,jk,jb)),&
+            &     z_quad_vector_sum2(je,1:10,jk,jb) ) )                                  &
+            &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
+            &   * p_mass_flx_e(je,jk,jb)
+
+
+        ENDDO
+      ENDDO
+
+      END SELECT
+
+    ENDDO  ! loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+    !
+    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    !    The flux limiter is based on work by Zalesak (1979)
+    !
+    IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
+      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
+        &                p_out_e, opt_rlend=i_rlend, opt_slev=slev,      & !inout,in
+        &                opt_elev=elev                                   ) !in
+    ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
+      ! no MPI-sync necessary
+      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
+        &                   opt_rlend=i_rlend, opt_slev=slev,            & !in
+        &                   opt_elev=elev                                ) !in
+    ENDIF
+
+
+    IF ( ld_cleanup ) THEN
+      ! deallocate temporary arrays for quadrature, departure region and
+      ! upwind cell indices
+      DEALLOCATE( z_quad_vector_sum0, z_quad_vector_sum1, z_quad_vector_sum2, &
+        &         z_dreg_area0, z_dreg_area1, z_dreg_area2, patch0_cell_idx,  &
+        &         patch1_cell_idx, patch2_cell_idx, patch0_cell_blk,          &
+        &         patch1_cell_blk, patch2_cell_blk, STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine),                                           &
+          &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
+          &  'patch0/1/2_cell_idx, patch0/1/2_cell_blk failed' )
+      ENDIF
+    END IF
+
+
+  END SUBROUTINE upwind_hflux_ffsl
+
 
   !-----------------------------------------------------------------------
   !>

@@ -1823,7 +1823,7 @@ END SUBROUTINE mean_domain_values
   !! @par LITERATURE
   !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 350
   !!
-  FUNCTION ccw( p0, p1, p2 )
+  ELEMENTAL FUNCTION ccw( p0, p1, p2 )
     !
 
     IMPLICIT NONE
@@ -1853,6 +1853,7 @@ END SUBROUTINE mean_domain_values
     dx1dy2 = dx1 * dy2
     dy1dx2 = dy1 * dx2 
 
+
     ! in this case we turn counterclockwise
     ! dy2/dx2 > dy1/dx1
     lccw = dx1dy2 > dy1dx2
@@ -1880,7 +1881,7 @@ END SUBROUTINE mean_domain_values
   !! @par LITERATURE
   !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 351
   !!
-  FUNCTION lintersect( line1, line2 )
+  ELEMENTAL FUNCTION lintersect( line1, line2 )
     !
 
     IMPLICIT NONE

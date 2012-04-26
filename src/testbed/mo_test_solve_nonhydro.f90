@@ -62,7 +62,7 @@ MODULE mo_test_solve_nonhydro
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
-  USE mo_advection_traj,    ONLY: back_traj_o1
+  USE mo_advection_traj,    ONLY: btraj
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
@@ -678,9 +678,9 @@ MODULE mo_test_solve_nonhydro
 
         ! Operations from upwind_hflux_miura are inlined in order to process both
         ! fields in one step
-        CALL back_traj_o1(p_patch, p_int, p_nh%prog(nnow)%vn, p_nh%diag%vt, &
-                          0.5_wp*dtime, z_cell_indices, z_distv_bary,       &
-                          opt_rlstart=7, opt_rlend=min_rledge_int-1 )
+        CALL btraj(p_patch, p_int, p_nh%prog(nnow)%vn, p_nh%diag%vt, &
+                   0.5_wp*dtime, z_cell_indices, z_distv_bary,       &
+                   opt_rlstart=7, opt_rlend=min_rledge_int-1 )
 
         CALL grad_green_gauss_cell(p_nh%prog(nnow)%rho, p_patch, p_int, z_grad_rth, &
                                    opt_rlend=min_rlcell_int-1, opt_dynmode=.TRUE.,  &

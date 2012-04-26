@@ -43,37 +43,39 @@
 MODULE mo_advection_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
-    &                              MIURA, MIURA3, MCYCL, MIURA_MCYCL,      &
-    &                              MIURA3_MCYCL, ippm_vcfl, ippm_v,        &
-    &                              ino_flx, izero_grad, iparent_flx, inwp, &
+  USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,      &
+    &                              MIURA, MIURA3, FFSL, MCYCL, MIURA_MCYCL,    &
+    &                              MIURA3_MCYCL, ippm_vcfl, ippm_v,            &
+    &                              ino_flx, izero_grad, iparent_flx, inwp,     &
     &                              imuscl_vcfl, imuscl_v
 
   IMPLICIT NONE
   PUBLIC
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
 
 
   ! Derived types to allow for the onetime computation of tracer independent parts
   !
   TYPE t_compute                                                               
-    LOGICAL :: muscl_v (MAX_NTRACER)                                           
-    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
-    LOGICAL :: miura_h (MAX_NTRACER)                                           
-    LOGICAL :: miura3_h(MAX_NTRACER)
-    LOGICAL :: mcycl_h (MAX_NTRACER)
+    LOGICAL :: muscl_v  (MAX_NTRACER)                                           
+    LOGICAL :: ppm_v    (MAX_NTRACER)                                           
+    LOGICAL :: miura_h  (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h (MAX_NTRACER)
+    LOGICAL :: ffsl_h   (MAX_NTRACER)
+    LOGICAL :: mcycl_h  (MAX_NTRACER)
     LOGICAL :: miura_mcycl_h (MAX_NTRACER)
     LOGICAL :: miura3_mcycl_h(MAX_NTRACER)                                          
   END TYPE t_compute                                                           
                                                                                
   TYPE t_cleanup                                                              
-    LOGICAL :: muscl_v (MAX_NTRACER)                                           
-    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
-    LOGICAL :: miura_h (MAX_NTRACER)                                           
-    LOGICAL :: miura3_h(MAX_NTRACER)
-    LOGICAL :: mcycl_h (MAX_NTRACER)
+    LOGICAL :: muscl_v  (MAX_NTRACER)                                           
+    LOGICAL :: ppm_v    (MAX_NTRACER)                                           
+    LOGICAL :: miura_h  (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h (MAX_NTRACER)
+    LOGICAL :: ffsl_h   (MAX_NTRACER)
+    LOGICAL :: mcycl_h  (MAX_NTRACER)
     LOGICAL :: miura_mcycl_h (MAX_NTRACER)
     LOGICAL :: miura3_mcycl_h(MAX_NTRACER)                                          
   END TYPE t_cleanup
@@ -395,6 +397,31 @@ CONTAINS
     DO jt=ntracer,1,-1
       IF ( ANY( (/MIURA3, MIURA3_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         lcleanup%miura3_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+
+    !
+    ! FFSL specific settings (horizontal transport)
+    !
+    lcompute%ffsl_h(:) = .FALSE.
+    lcleanup%ffsl_h(:) = .FALSE.
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type FFSL has been selected.
+    DO jt=1,ntracer
+      IF ( ANY( (/FFSL/) == ihadv_tracer(jt) ) ) THEN
+        lcompute%ffsl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type FFSL has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ANY( (/FFSL/) == ihadv_tracer(jt) ) ) THEN
+        lcleanup%ffsl_h(jt) = .TRUE.
         exit
       ENDIF
     ENDDO
