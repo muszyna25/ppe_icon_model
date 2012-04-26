@@ -89,6 +89,7 @@ PUBLIC :: destruct_oce_diagnostics
 PUBLIC :: t_oce_monitor
 PUBLIC :: t_oce_timeseries
 PUBLIC :: calc_moc
+PUBLIC :: calc_psi
 
 TYPE t_oce_monitor
     REAL(wp) :: volume 
@@ -509,12 +510,12 @@ END SUBROUTINE destruct_oce_diagnostics
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 ! TODO: calculate the 1 deg resolution meridional distance
 !! 
-SUBROUTINE calc_moc (p_patch, wo, datetime)
+SUBROUTINE calc_moc (p_patch, w, datetime)
 
-  TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
-  REAL(wp), INTENT(in)               :: wo(:,:,:)  ! vertical velocity at cell centers
+  TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+  REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
                                                    ! dims: (nproma,nlev+1,nblks_c)
-  TYPE(t_datetime), INTENT(INOUT)    :: datetime
+  TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
   ! INTEGER :: i
@@ -528,8 +529,7 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
 
   TYPE(t_subset_range), POINTER :: all_cells
   
-  CHARACTER(len=max_char_length), PARAMETER :: &
-    &       routine = ('mo_oce_diagnostics:calc_moc')
+  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
 
   !-----------------------------------------------------------------------
 
@@ -577,7 +577,7 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
             lbrei=MIN(lbrei,180)
       
             global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
-              &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+              &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
               &                    REAL(2*jbrei + 1, wp)
       
          ! horizontal transports
@@ -591,11 +591,11 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
             IF (v_base%basin_c(jc,jb) <2) THEN
 
               atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
-                &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
             ELSE
               pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
-                &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
             END IF
 
@@ -642,6 +642,101 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
 !-----------------------------------------------------------------------
 
 END SUBROUTINE calc_moc
+!-------------------------------------------------------------------------  
+
+!-------------------------------------------------------------------------  
+!
+!
+!!  Calculation of horizontal stream function
+!
+!>
+!!
+!! @par Revision History
+!! Developed  by  Stephan Lorenz, MPI-M (2012).
+!!  based on code from MPIOM
+!
+! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
+!! 
+!SUBROUTINE calc_psi (p_patch, u, datetime, psi)
+SUBROUTINE calc_psi (p_patch, u, datetime)
+
+  TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+  REAL(wp), INTENT(IN)               :: u(:,:,:)       ! zonal velocity at cell centers
+                                                       ! dims: (nproma,nlev,nblks_c)
+! REAL(wp), INTENT(OUT)              :: psi(360,180)   ! horizontal stream function
+  TYPE(t_datetime), INTENT(IN)       :: datetime
+  !
+  ! local variables
+  ! INTEGER :: i
+  INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
+  INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
+  INTEGER :: lbrei, lbr, jbr, idate
+  INTEGER(i8) :: i1,i2,i3,i4
+
+  REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
+  REAL(wp) :: psi(360,180)   ! horizontal stream function
+
+  TYPE(t_subset_range), POINTER :: all_cells
+  
+  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
+
+  !-----------------------------------------------------------------------
+
+  psi(:,:)=0.0_wp
+   
+
+  ! with all cells no sync is necessary
+  !owned_cells => p_patch%cells%owned
+  all_cells   => p_patch%cells%all
+
+  !write(81,*) 'PSI: datetime:',datetime
+
+  DO jk = 1, n_zlev   !  not yet on intermediate levels
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jc = i_startidx, i_endidx
+        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+   
+          ! lbrei: corresponding latitude row of 1 deg extension
+          !       1 south pole
+          !     180 north pole
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lat_deg = z_lat*rad2deg
+          lbrei = NINT(90.0_wp + z_lat_deg)
+          lbrei=MAX(lbrei,1)
+          lbrei=MIN(lbrei,180)
+
+          ! get neighbor edge for scaling
+          il_e = p_patch%cells%edge_idx(jc,jb,1)
+          ib_e = p_patch%cells%edge_blk(jc,jb,1)
+
+          psi(lbrei,jbrei)=0.0_wp
+   
+          ! z_lat_dim: scale to 1 deg resolution
+          ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
+      !   z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
+      !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
+          z_lat_dim = 1.0_wp
+   
+        END IF
+      END DO
+    END DO
+  END DO
+
+  ! write out in extra format - integer*8
+  idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+  write(81,*) 'global PSI at iyear, idate:',datetime%year, idate
+
+  i1=idate
+  i2=780
+  i3=360
+  i4=180
+  write(80) i1,i2,i3,i4
+  write(80) ((psi(lbr,jbr),lbr=1,180),jbr=1,360)
+
+!-----------------------------------------------------------------------
+
+END SUBROUTINE calc_psi
 !-------------------------------------------------------------------------  
 
 END MODULE mo_oce_diagnostics
