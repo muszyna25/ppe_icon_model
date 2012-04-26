@@ -691,7 +691,8 @@ SUBROUTINE calc_psi (p_patch, u, datetime)
 
   !write(81,*) 'PSI: datetime:',datetime
 
-  DO jk = 1, n_zlev   !  not yet on intermediate levels
+  ! Vertical integration of zonal velocity
+  DO jk = 1, n_zlev
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
@@ -706,13 +707,14 @@ SUBROUTINE calc_psi (p_patch, u, datetime)
           lbrei=MAX(lbrei,1)
           lbrei=MIN(lbrei,180)
 
-          jbrei=1
+          lbr=1    ! not calculated yet
+          jbr=1    ! not calculated yet
 
           ! get neighbor edge for scaling
           il_e = p_patch%cells%edge_idx(jc,jb,1)
           ib_e = p_patch%cells%edge_blk(jc,jb,1)
 
-          psi(lbrei,jbrei)=0.0_wp
+          psi(lbr,jbr)=0.0_wp    ! not calculated yet
    
           ! z_lat_dim: scale to 1 deg resolution
           ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
