@@ -2538,10 +2538,12 @@ C&' '& &
 
 \hline
  mode &
-I&1& &
+I&2& &
  1 = forecast mode, 2 = climate mode \\
- {\color{red} Currently unused.} \\
- RJ: For what exactly should that be used?
+ In climate mode the time axis of the output file 
+ is set to TAXIS\_ABSOLUTE. In forecast mode it is set 
+ to TAXIS\_RELATIVE. Till now the forecast mode only 
+ works if the output is at multiples of 1 hour 
 &
 \tabularnewline
 
