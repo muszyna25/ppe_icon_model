@@ -387,10 +387,10 @@ case "$ac_sitename" in
                         ;;
 		    *)
 			echo
+			echo WARNING:
+			echo No default setup for you Linux distribution , codename: $dist_codename
 			echo
-			echo Unsupported Linux distribution, codename: $dist_codename
 			echo
-			exit
 			;;			
 		esac		   
 		SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
