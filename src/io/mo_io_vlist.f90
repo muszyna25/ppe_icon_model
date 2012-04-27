@@ -1986,15 +1986,15 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF
-    IF (temperature_relaxation >= 1 ) THEN
-      CALL addVar(TimeVar('forc_tdata',&
-      &                   'temperature relaxation data',&
-      &                   'K',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+  ! IF (temperature_relaxation >= 1 ) THEN
+  !   CALL addVar(TimeVar('forc_tdata',&
+  !   &                   'temperature relaxation data',&
+  !   &                   'K',15,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  ! END IF 
     IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc_t',&
       &                   'temperature relaxation flux',&
@@ -2013,15 +2013,15 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    IF (irelax_2d_S >= 1 ) THEN
-      CALL addVar(TimeVar('forc_sdata',&
-      &                   'salinity relaxation data',&
-      &                   'psu',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+  ! IF (irelax_2d_S >= 1 ) THEN
+  !   CALL addVar(TimeVar('forc_sdata',&
+  !   &                   'salinity relaxation data',&
+  !   &                   'psu',15,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  ! END IF 
     IF (irelax_2d_S /= 0 ) THEN
       CALL addVar(TimeVar('forc_s',&
       &                   'salinity relaxation flux at centers',&
@@ -2127,29 +2127,29 @@ CONTAINS
       &                   gridEdgeID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('Horz_Mixing_V',&
-      &                   'horizontal mixing coeff veloc',&
-      &                   'm^2/s', 6, 128,&
-      &                   vlistid(k_jg),&
-      &                   gridEdgeID(k_jg),&
-      &                   zaxisIDdepth_m(k_jg)),&
-      &           k_jg)
-      IF (no_tracer > 0) THEN
-        CALL addVar(TimeVar('Vert_Mixing_T',&
-        &                   'vertical mixing coeff temp',&
-        &                   'm^2/s', 6, 128,&
-        &                   vlistid(k_jg),&
-        &                   gridCellID(k_jg),&
-        &                   zaxisID_halfdepth(k_jg)),&
-        &           k_jg)
-      END IF
-      CALL addVar(TimeVar('press_grad',&
-      &                   'pressure-gradient at edges',&
-      &                   'm/s',5,128,&
-      &                   vlistID(k_jg), &
-      &                   gridEdgeID(k_jg), &
-      &                   zaxisIDdepth_m(k_jg)),&
-      &                   k_jg)
+   !  CALL addVar(TimeVar('Horz_Mixing_V',&
+   !  &                   'horizontal mixing coeff veloc',&
+   !  &                   'm^2/s', 6, 128,&
+   !  &                   vlistid(k_jg),&
+   !  &                   gridEdgeID(k_jg),&
+   !  &                   zaxisIDdepth_m(k_jg)),&
+   !  &           k_jg)
+   !  IF (no_tracer > 0) THEN
+   !    CALL addVar(TimeVar('Vert_Mixing_T',&
+   !    &                   'vertical mixing coeff temp',&
+   !    &                   'm^2/s', 6, 128,&
+   !    &                   vlistid(k_jg),&
+   !    &                   gridCellID(k_jg),&
+   !    &                   zaxisID_halfdepth(k_jg)),&
+   !    &           k_jg)
+   !  END IF
+   !  CALL addVar(TimeVar('press_grad',&
+   !  &                   'pressure-gradient at edges',&
+   !  &                   'm/s',5,128,&
+   !  &                   vlistID(k_jg), &
+   !  &                   gridEdgeID(k_jg), &
+   !  &                   zaxisIDdepth_m(k_jg)),&
+   !  &                   k_jg)
       CALL addVar(TimeVar('rho',&
       &                   'density cells',&
       &                   'kg/m**3', 6, 128,&
