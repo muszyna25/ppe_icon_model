@@ -239,7 +239,7 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$init_oce" = "x1" ]] ; then
 
      PROGNAME=iconR${R}B0${B}-prog.nc
-     OININAME=ts_phc_annual-iconR${R}B0${B}-$init_oce_suff
+     OININAME=ts_phc_annual-iconR${R}B0${B}-${init_oce_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
@@ -267,7 +267,7 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$init_relax" = "x1" ]] ; then
 
      RELAXNAME=iconR${R}B0${B}-relax.nc
-     ORELNAME=ts_surf_annual-iconR${R}B0${B}-50m.nc
+     ORELNAME=ts_surf_annual-iconR${R}B0${B}-${init_oce_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
