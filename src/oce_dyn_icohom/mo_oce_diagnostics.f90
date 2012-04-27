@@ -699,23 +699,29 @@ END SUBROUTINE calc_moc
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
 !SUBROUTINE calc_psi (p_patch, u, datetime, psi)
-SUBROUTINE calc_psi (p_patch, u, datetime)
+SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
   REAL(wp), INTENT(IN)               :: u(:,:,:)       ! zonal velocity at cell centers
+  REAL(wp), INTENT(IN)               :: h(:,:)         ! elevation on cell centers
                                                        ! dims: (nproma,nlev,nblks_c)
-! REAL(wp), INTENT(OUT)              :: psi(360,180)   ! horizontal stream function
+! REAL(wp), INTENT(OUT)              :: psi(:,:)       ! horizontal stream function
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
   ! INTEGER :: i
-  INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
+
+  INTEGER, PARAMETER ::  nlat = 180                    ! meridional dimension of regular grid
+  INTEGER, PARAMETER ::  nlon = 360                    ! zonal dimension of regular grid
   INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
-  INTEGER :: lbrei, lbr, jbr, idate
+  INTEGER :: idate, llat, llon
   INTEGER(i8) :: i1,i2,i3,i4
 
-  REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
-  REAL(wp) :: psi(360,180)   ! horizontal stream function
+
+  REAL(wp) :: z_lat, z_lon, z_lat_deg, z_lon_deg, z_lat_dist, delta_z
+  REAL(wp) :: z_uint(nproma,p_patch%nblks_c)            ! vertical integral of horizontal velocity
+  REAL(wp) :: z_uint_reg(nlat,nlon)                     ! vertical integral on regular grid
+  REAL(wp) :: psi(nlat,nlon)                            ! horizontal stream function
 
   TYPE(t_subset_range), POINTER :: all_cells
   
@@ -723,61 +729,84 @@ SUBROUTINE calc_psi (p_patch, u, datetime)
 
   !-----------------------------------------------------------------------
 
-  psi(:,:)=0.0_wp
+  psi(:,:)        = 0.0_wp
+  z_uint(:,:)     = 0.0_wp
+  z_uint_reg(:,:) = 0.0_wp
    
 
   ! with all cells no sync is necessary
   !owned_cells => p_patch%cells%owned
   all_cells   => p_patch%cells%all
 
-  !write(81,*) 'PSI: datetime:',datetime
+  ! (1) vertical integration of zonal velocity times vertical layer thickness [m/s*m]
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+    DO jk = 1, n_zlev
 
-  ! Vertical integration of zonal velocity
-  DO jk = 1, n_zlev
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-   
-          ! lbrei: corresponding latitude row of 1 deg extension
-          !       1 south pole
-          !     180 north pole
-          z_lat = p_patch%cells%center(jc,jb)%lat
-          z_lat_deg = z_lat*rad2deg
-          lbrei = NINT(90.0_wp + z_lat_deg)
-          lbrei=MAX(lbrei,1)
-          lbrei=MIN(lbrei,180)
-
-          lbr=1    ! not calculated yet
-          jbr=1    ! not calculated yet
-
-          ! get neighbor edge for scaling
-          il_e = p_patch%cells%edge_idx(jc,jb,1)
-          ib_e = p_patch%cells%edge_blk(jc,jb,1)
-
-          psi(lbr,jbr)=0.0_wp    ! not calculated yet
-   
-          ! z_lat_dim: scale to 1 deg resolution
-          ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-      !   z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
-      !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
-          z_lat_dim = 1.0_wp
-   
-        END IF
+        delta_z = v_base%del_zlev_m(jk)
+        IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + h(jc,jb)
+        z_uint(jc,jb) = z_uint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
       END DO
     END DO
   END DO
 
+  ! meridional distance of 1 deg
+  ! ATTENTION - there must be no holes in this grid - higher and variable resolution necessary
+  z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
+
+  ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
+  DO jk = 1, n_zlev
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jc = i_startidx, i_endidx
+   
+        ! llat/llon: corresponding latitude/longitude coordinates of 1 deg extension
+        ! llat: 1 = south pole; 180 = north pole
+        ! llon: 1 = 1 deg east; 360 = 360 deg east=0 deg west
+        z_lat = p_patch%cells%center(jc,jb)%lat
+        z_lon = p_patch%cells%center(jc,jb)%lon
+        z_lat_deg = z_lat*rad2deg
+        z_lon_deg = z_lon*rad2deg
+
+        IF (z_lon_deg < 0.0_wp ) z_lon_deg = z_lon_deg + 180.0_wp
+
+        llat = NINT(90.0_wp + z_lat_deg)
+        llon = NINT(z_lon_deg)
+
+        z_uint_reg(llat,llon) = z_uint(jc,jb)
+
+      END DO
+    END DO
+  END DO
+
+  ! (3) calculate stream function 
+
+  psi(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref
+
+! DO jk = 1, n_zlev
+!   DO jb = all_cells%start_block, all_cells%end_block
+!     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+!     DO jc = i_startidx, i_endidx
+
+!       psi(llat,llon) = z_uint_reg(llat,llon) * z_lat_dist * rho_ref
+
+!     END DO
+!   END DO
+! END DO
+
+
   ! write out in extra format - integer*8
-  idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+  idate = datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
   write(81,*) 'global PSI at iyear, idate:',datetime%year, idate
 
-  i1=idate
-  i2=780
-  i3=360
-  i4=180
+  i1 = idate
+  i2 = 780
+  i3 = nlon
+  i4 = nlat
+
   write(80) i1,i2,i3,i4
-  write(80) ((psi(lbr,jbr),lbr=1,180),jbr=1,360)
+  write(80) ((psi(llat,llon),llat=1,nlat),llon=1,nlon)
 
 !-----------------------------------------------------------------------
 
