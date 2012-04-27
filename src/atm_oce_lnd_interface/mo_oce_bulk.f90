@@ -137,6 +137,7 @@ CONTAINS
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
     REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+    REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
 
     ! Local declarations for coupling:
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
@@ -493,7 +494,14 @@ CONTAINS
         IF (iforc_type == 2 .OR. iforc_type == 5) &
           & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
 
-        CALL ice_fast(p_patch, p_ice, Qatm, Qatm)
+        IF ( no_tracer >= 2 ) THEN
+          DO k=1,p_ice%kice
+            Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+          ENDDO
+        ELSE
+          Tfw = Tf
+        ENDIF
+        CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm)
         ! Ice_fast and ice_slow are designed for an ice model that's split between the
         ! atmosphere and ocean models. For ice-ocean only we need to do some minor corrections.
         Qatm%counter = 2
@@ -677,7 +685,14 @@ CONTAINS
           ! For now the ice albedo is the same as ocean albedo
           CALL prepareAfterRestart(p_ice)
           ! CALL set_ice_albedo(p_patch,p_ice)
-          CALL set_ice_temp(p_patch,p_ice,Qatm)
+          IF ( no_tracer >= 2 ) THEN
+            DO k=1,p_ice%kice
+              Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+            ENDDO
+          ELSE
+            Tfw = Tf
+          ENDIF
+          CALL set_ice_temp(p_patch,p_ice,Tfw,Qatm)
           Qatm%counter = 1
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
