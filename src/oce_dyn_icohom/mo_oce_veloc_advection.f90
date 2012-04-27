@@ -150,8 +150,8 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
-      CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
-        & veloc_adv_vert_e)
+      !CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
+      !  & veloc_adv_vert_e)
       CALL veloc_adv_vert_mimetic_rot2( p_patch, p_diag,&
         & veloc_adv_vert_e)
     ELSEIF (velocity_advection_form == divergence_form) THEN

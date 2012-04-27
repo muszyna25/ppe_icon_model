@@ -774,6 +774,11 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
           inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
           inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
 
+           !inv_zinv_i(1) = 1.0_wp/(v_base%del_zlev_i(1)+h_c(jc,jb))
+           !inv_zinv_m(1) = 1.0_wp/(v_base%del_zlev_m(1)+h_c(jc,jb))
+          !inv_zinv_i(:) = 1.0_wp/h_c(jc,:,jb)
+          !inv_zinv_m(:) = 1.0_wp/h_c(jc,:,jb)
+
           !Fill triangular matrix
           !b is diagonal a and c are upper and lower band
           DO jk = slev+1, z_dolic-1
@@ -817,7 +822,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
           DO jk = z_dolic-1,1,-1
             field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
           END DO
-          DO jk = 1,z_dolic-1
+          DO jk = 1,z_dolic!-1
             diff_column(jc,jk,jb) = field_column(jc,jk,jb)
           END DO
         ELSEIF ( z_dolic < MIN_DOLIC ) THEN
@@ -944,7 +949,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
           DO jk = z_dolic-1,1,-1
             field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
           END DO
-          DO jk = 1,z_dolic-1
+          DO jk = 1,z_dolic!-1
             diff_column(jc,jk,jb) = field_column(jc,jk,jb)
           END DO
         ELSEIF ( z_dolic < MIN_DOLIC ) THEN

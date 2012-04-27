@@ -166,8 +166,8 @@ MODULE mo_ocean_nml
   ! parameters for Adams-Bashforth semi-implicit time stepping scheme
   ! are set according to Marshall et al paper
   REAL(wp) :: ab_const              = 0.1_wp     ! Adams-Bashforth constant
-  REAL(wp) :: ab_beta               = 0.7_wp     ! Parameter in semi-implicit timestepping
-  REAL(wp) :: ab_gam                = 0.7_wp     ! Parameter in semi-implicit timestepping
+  REAL(wp) :: ab_beta               = 0.6_wp     ! Parameter in semi-implicit timestepping
+  REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
   REAL(wp) :: solver_tolerance      = 1.e-6_wp   ! Maximum value allowed for solver tolerance
                                                 
   INTEGER :: EOS_TYPE               = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)

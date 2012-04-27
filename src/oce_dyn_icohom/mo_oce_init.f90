@@ -794,6 +794,8 @@ CONTAINS
            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
              ! #slo# 2011-09-02: testcase now with warm water in first layer only
              !IF ( jk == 1 ) THEN
+!p_os%p_diag%temp_insitu = 30.0_wp
+!p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=12.0_wp-REAL(jk,wp)! tprof(jk)!30.0_wp
 
              !constant salinity
              IF(no_tracer==2)THEN
@@ -825,8 +827,9 @@ CONTAINS
 
              ELSEIF(abs(z_lat_deg)<40.0_wp .AND. abs(z_lat_deg)>20.0_wp)THEN
                  z_tmp = pi*((abs(z_lat_deg) -20.0_wp)/20.0_wp)
-                 p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
-                                         & + 0.5_wp*25.0_wp*(1.0_wp+cos(z_tmp))
+                  p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
+                                          & + 0.5_wp*25.0_wp*(1.0_wp+cos(z_tmp))
+
                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=p_os%p_diag%temp_insitu(jc,jk,jb)!&
 !                 &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
 !                                                &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
@@ -1714,8 +1717,8 @@ ELSEIF( iswm_oce == 1 )THEN
       END DO
 
       !init normal velocity
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
           z_lat = ppatch%edges%center(je,jb)%lat
           z_lon = ppatch%edges%center(je,jb)%lon
@@ -1814,6 +1817,7 @@ ELSEIF( iswm_oce == 1 )THEN
             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
             p_os%p_diag%h_e(je,jb) = 1.0_wp
+            p_os%p_diag%vn_time_weighted(je,1,jb)=p_os%p_prog(nnew(1))%vn(je,1,jb)
           ENDIF
         END DO
       END DO

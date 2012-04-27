@@ -53,7 +53,8 @@ MODULE mo_oce_boundcond
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
-  USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2d
+  USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2d,&
+                                 & map_cell2edges
   USE mo_sea_ice,            ONLY: t_sfc_flx
   USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce
@@ -147,7 +148,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
           top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)/z_scale
           top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)/z_scale
           top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x/z_scale
@@ -155,10 +156,10 @@ CONTAINS
           ! top_bc_u_c(jc,jb)    =0.0_wp
           ! top_bc_v_c(jc,jb)    =0.0_wp
           ! top_bc_u_cc(jc,jb)%x =0.0_wp
-          !ENDIF
+          ENDIF
         END DO
       END DO
-      
+
     CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
       
       ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
@@ -183,13 +184,13 @@ CONTAINS
     END SELECT
     ! LL: no sync rquired
     
-    CALL map_cell2edges_2d( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn)
+    CALL map_cell2edges( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn, level=1)
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_top_vn)
     
-    ! write(*,*)'MAX/MIN: wind:u/v',maxval(p_sfc_flx%forc_wind_u),&
-    !                             & minval(p_sfc_flx%forc_wind_u)&
-    !                             &,maxval(p_sfc_flx%forc_wind_v), &
-    !                             &minval(p_sfc_flx%forc_wind_v)
+     write(*,*)'BC: MAX/MIN: wind:u/v',maxval(p_os%p_aux%bc_top_vn),&
+                                 & minval(p_os%p_aux%bc_top_vn)&
+                                 &,maxval(p_sfc_flx%forc_wind_v), &
+                                 &minval(p_sfc_flx%forc_wind_v)
     
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:)=top_bc_u_c(:,:)

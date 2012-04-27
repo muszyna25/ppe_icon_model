@@ -1667,7 +1667,9 @@ CONTAINS
 
     !  surface level and second level of lsm_oce_c defined by gridgenerator, not the current bathymetry
     v_base%lsm_oce_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    v_base%lsm_oce_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+
+   IF(n_zlev>=2)&
+   & v_base%lsm_oce_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
 
     !  first and second level of dolic_c defined by gridgenerator
     WHERE (p_ext_data%oce%lsm_ctr_c(:,:) <= SEA_BOUNDARY) v_base%dolic_c(:,:) = 2

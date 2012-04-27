@@ -184,7 +184,7 @@ CONTAINS
                                  & p_os,                   &
                                  & p_os%p_diag,            &
                                  & p_op_coeff,             &
-                                 & p_os%p_prog(nnew(1))%h, &
+                                 & p_os%p_prog(nold(1))%h, &
                                  & p_os%p_diag%h_e,        &
                                  !& p_os%p_aux%bc_top_w,    &
                                  & p_os%p_aux%bc_bot_w,    &

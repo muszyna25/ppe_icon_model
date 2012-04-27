@@ -864,9 +864,15 @@ CONTAINS
           ENDIF
 
           DO je = 1, boundary_counter
+!-original
+!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(je) )=&
+!               & 0.5_wp*z_orientation(je) * &
+!               & patch%edges%primal_edge_length(ibnd_edge_idx(je),ibnd_edge_blk(je))
+
             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(je) )=&
-              & 0.5_wp*z_orientation(je) * &
+              & 0.5_wp*patch%edges%system_orientation(ibnd_edge_idx(je),ibnd_edge_blk(je)) * &
               & patch%edges%primal_edge_length(ibnd_edge_idx(je),ibnd_edge_blk(je))
+
           ENDDO
 
           ! LL: the above loop should be equivelant to the following

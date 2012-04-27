@@ -382,27 +382,25 @@ CONTAINS
     !vt_e(:,:,:) = 0.0_wp
     !In this loop vorticity and velocity reconstruction at vertices are calculated
     DO jb = i_startblk_v, i_endblk_v
-      
+
       CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
         & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
       DO jk = slev, elev
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
         DO jv = i_startidx_v, i_endidx_v
-          
+
           z_vort_tmp          = 0.0_wp
           zarea_fraction      = 0.0_wp
           !i_bdr_ctr           = 0
           !z_weight(jv,jk,jb) = 0.0_wp
-          
-          
           !ibnd_edge_idx(1:4)      = 0
           !ibnd_edge_blk(1:4)      = 0
           !z_orientation(1:4)      = 0.0_wp
-          
+
           vertex_cc = gc2cc(p_patch%verts%vertex(jv,jb))
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
@@ -770,13 +768,13 @@ CONTAINS
     REAL(wp), INTENT(in)           :: h_e(:,:)
     TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
     TYPE(t_subset_range), OPTIONAL :: subset_range
-    
+
     !Local variables
     !
     !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp) :: zarea_fraction
     REAL(wp) :: z_area_scaled
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb,jev
     INTEGER :: ile, ibe
@@ -784,56 +782,55 @@ CONTAINS
     !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
     INTEGER,PARAMETER :: rl_start_v = 2
     INTEGER,PARAMETER :: rl_end_v   = min_rlvert
-    
+
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     !INTEGER :: il_v1, il_v2,ib_v1, ib_v2
     INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
     INTEGER,PARAMETER :: ino_dual_edges = 6
-     
+
     TYPE(t_subset_range), POINTER :: verts_in_domain
-   
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
-    
+
     i_v_ctr(:,:,:) = 0
     slev         = 1
     elev         = n_zlev
-    
+
     i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
     i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
-    
+
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
         DO jv = i_startidx_v, i_endidx_v
-          
+
           zarea_fraction      = 0.0_wp
           z_area_scaled       = 0.0_wp
           !i_bdr_ctr           = 0
           !z_weight(jv,jk,jb) = 0.0_wp
           p_vn_dual(jv,jk,jb)%x = 0.0_wp
-          
+
           vertex_cc = gc2cc(p_patch%verts%vertex(jv,jb))
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
             !Check, if edge is sea or boundary edge and take care of dummy edge
             ! edge with indices ile, ibe is sea edge
             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
-              
+
               p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x        &
                 & +p_int_state(1)%edge2vert_coeff_cc(jv,jb,jev)%x &
                 & *vn(ile,jk,ibe)!*z_thick
-              
+
               !z_weight might be an alternative to dual_area and can include
               !varying height in top layer. Differences have to be explored.
               !z_weight(jv,jk,jb) = z_weight(jv,jk,jb) &
               !&+ p_int_state(1)%variable_dual_vol_norm(jv,jb,jev)!*z_thick
-              
+
               !increase wet edge ctr
               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
             END IF
@@ -841,15 +838,15 @@ CONTAINS
           !
           !divide by hex/pentagon area, if all dual cells are in the ocean interior
           !divide by apropriate fraction if boundaries are involved
-          
+
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
-            
+
             z_area_scaled         = p_patch%verts%dual_area(jv,jb)/(re*re)
             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)
-            
-            
+
+
           ELSEIF(i_v_ctr(jv,jk,jb)/=0)THEN!boundary edges are involved
-            
+
             !Modified area calculation
             DO jev = 1, p_patch%verts%num_edges(jv,jb)
               ! get line and block indices of edge jev around vertex jv
@@ -874,7 +871,7 @@ CONTAINS
                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
               END IF
             END DO
-            
+
             ! no division by zero
             IF (zarea_fraction /= 0.0_wp) THEN
               !z_area_scaled   = zarea_fraction
@@ -882,20 +879,19 @@ CONTAINS
               p_vn_dual(jv,jk,jb)%x  = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)!
             ENDIF
           ENDIF
-          
+
         END DO
       END DO
     END DO
-    
+
     IF (PRESENT(subset_range)) THEN
       IF (.NOT.  subset_range%is_in_domain) THEN
         CALL sync_patch_array(SYNC_E, p_patch, p_vn_dual(:,:,:)%x(1))
         CALL sync_patch_array(SYNC_E, p_patch, p_vn_dual(:,:,:)%x(2))
         CALL sync_patch_array(SYNC_E, p_patch, p_vn_dual(:,:,:)%x(3))
       ENDIF
-    ENDIF   
-       
-        
+    ENDIF
+
   END SUBROUTINE map_edges2vert
   !-------------------------------------------------------------------------
   
@@ -1140,11 +1136,13 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-  SUBROUTINE map_cell2edges_mlevels( p_patch, p_vn_c, ptp_vn, opt_slev, opt_elev, subset_range )
+  SUBROUTINE map_cell2edges_mlevels( p_patch, p_vn_c, ptp_vn, &
+                                   & opt_slev, opt_elev, subset_range )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    !TYPE(t_operator_coeff)                    :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev        ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev        ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
@@ -1229,6 +1227,7 @@ CONTAINS
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    !TYPE(t_operator_coeff)                    :: p_op_coeff
     INTEGER, INTENT(in) :: level          ! vertical level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     
