@@ -698,7 +698,6 @@ END SUBROUTINE calc_moc
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
-!SUBROUTINE calc_psi (p_patch, u, datetime, psi)
 SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch

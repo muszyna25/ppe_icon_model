@@ -324,8 +324,8 @@ CONTAINS
       !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
       !CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
       !  &                        pstate_oce(jg)%p_diag%wet_c, datetime)
-      CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
-        &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), datetime)
+      !CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
+      !  &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), datetime)
 
     END IF
 
