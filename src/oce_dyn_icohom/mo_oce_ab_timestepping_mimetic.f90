@@ -529,8 +529,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
      
   ipl_src=4  ! output print level (1-5, fix)
   DO jk=1, n_zlev
- write(*,*)'LAPLACIAN',jk,&
- &maxval(p_os%p_diag%laplacian_horz(:,jk,:)),minval(p_os%p_diag%laplacian_horz(:,jk,:))
+!   write(*,*)'LAPLACIAN',jk,&
+!   &maxval(p_os%p_diag%laplacian_horz(:,jk,:)),minval(p_os%p_diag%laplacian_horz(:,jk,:))
     CALL print_mxmn('horizontal diffusion',jk,p_os%p_diag%laplacian_horz(:,:,:),n_zlev, &
       &              p_patch%nblks_e,'abt',ipl_src)
   END DO
@@ -744,7 +744,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         END DO
       END DO
     ENDIF 
-write(*,*)'max/min wind', maxval(p_os%p_aux%bc_top_vn), minval(p_os%p_aux%bc_top_vn)
+  !write(*,*)'max/min wind', maxval(p_os%p_aux%bc_top_vn), minval(p_os%p_aux%bc_top_vn)
   !In the SW-case the external forcing is applied as volume force.
   !This force is stored in data type top-boundary-condition. 
   ELSEIF ( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
@@ -1458,8 +1458,8 @@ ipl_src=2  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
    CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
      &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-  write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
-                                 maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
+! write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
+!                                maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
 END DO
 ipl_src=3  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
@@ -1599,8 +1599,8 @@ CHARACTER(len=*), PARAMETER :: &
        ENDIF
     ENDDO
   END DO
-write(*,*)'update column thickness', maxval(p_os%p_diag%cons_thick_c),&
-&minval(p_os%p_diag%cons_thick_c)
+!write(*,*)'update column thickness', maxval(p_os%p_diag%cons_thick_c),&
+!&minval(p_os%p_diag%cons_thick_c)
 
 
 

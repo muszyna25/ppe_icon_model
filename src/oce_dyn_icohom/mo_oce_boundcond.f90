@@ -187,10 +187,10 @@ CONTAINS
     CALL map_cell2edges( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn, level=1)
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_top_vn)
     
-     write(*,*)'BC: MAX/MIN: wind:u/v',maxval(p_os%p_aux%bc_top_vn),&
-                                 & minval(p_os%p_aux%bc_top_vn)&
-                                 &,maxval(p_sfc_flx%forc_wind_v), &
-                                 &minval(p_sfc_flx%forc_wind_v)
+  !  write(*,*)'BC: MAX/MIN: wind:u/v',maxval(p_os%p_aux%bc_top_vn),&
+  !                              & minval(p_os%p_aux%bc_top_vn)&
+  !                              &,maxval(p_sfc_flx%forc_wind_v), &
+  !                              &minval(p_sfc_flx%forc_wind_v)
     
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:)=top_bc_u_c(:,:)
