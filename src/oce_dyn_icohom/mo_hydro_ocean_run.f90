@@ -62,9 +62,9 @@ USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data_types,         ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab, &
-  &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc!, &
-!  &                                  timer_oce_init
+USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
+  &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
+  &                                  timer_upd_phys, timer_upd_flx  !,timer_oce_init
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity,       &
@@ -216,6 +216,7 @@ CONTAINS
 
 
       !In case of a time-varying forcing:
+      IF (ltimer) CALL timer_start(timer_upd_flx)
       CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
 
@@ -246,7 +247,9 @@ CONTAINS
            & ptr_op_coeff)
 
       ENDIF
+      IF (ltimer) CALL timer_stop(timer_upd_flx)
 
+      IF (ltimer) CALL timer_start(timer_upd_phys)
       SELECT CASE (EOS_TYPE)
       CASE(1)
         CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
@@ -260,6 +263,7 @@ CONTAINS
           &                   calc_density_JMDWFG06_EOS_func)
       CASE DEFAULT
       END SELECT
+      IF (ltimer) CALL timer_stop(timer_upd_phys)
 
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
