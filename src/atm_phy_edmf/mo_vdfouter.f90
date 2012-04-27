@@ -675,14 +675,6 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
     ENDDO
   ENDIF
 
-!amk
-!write(*,*) 'hello 11 ', shape(ZTSKM1M), minval(ZTSKM1M), maxval(ZTSKM1M), sum(ZTSKM1M)
-!write(*,*) 'hello 22 ', shape(ZTSKE1) , minval(ZTSKE1), maxval(ZTSKE1), sum(ZTSKE1)
-!write(*,*) 'hello 33 ', ZTSPHY
-!write(*,*) 'hello 44 ', shape(ZAE(:,:,1))    , minval(ZAE(:,:,1)), maxval(ZAE(:,:,1)), sum(ZAE(:,:,1))
-!write(*,*) 'hello 55 ', shape(ZAE(:,:,2))    , minval(ZAE(:,:,2)), maxval(ZAE(:,:,2)), sum(ZAE(:,:,2))
-!xxx
-
 !*         2.2    CALL VDFMAIN EACH SMALL TIME STEP
 !                 ---------------------------------
 
@@ -760,13 +752,6 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
 
 !*         3.1    UPDATE SKIN TEMPERATURE
 !                 -----------------------
-
-!amk
-!write(*,*) 'hello 1 ', shape(ZTSKM1M), minval(ZTSKM1M), maxval(ZTSKM1M), sum(ZTSKM1M)
-!write(*,*) 'hello 2 ', shape(ZTSKE1) , minval(ZTSKE1), maxval(ZTSKE1), sum(ZTSKE1)
-!write(*,*) 'hello 3 ', ZTSPHY
-!write(*,*) 'hello 4 ', shape(ZAE)    , minval(ZAE), maxval(ZAE), sum(ZAE)
-!xxx
 
   ZTSKM1M(KIDIA:KFDIA)=ZTSKM1M(KIDIA:KFDIA)+ZTSKE1(KIDIA:KFDIA)*ZTSPHY
 
@@ -899,16 +884,6 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
       ENDDO
     ENDDO
   ENDIF
-
-!amk debug
-write(*,*) 'hello 66 ', shape(PSTRSOU) , minval(PSTRSOU), maxval(PSTRSOU), sum(PSTRSOU)
-write(*,*) 'hello 77 ', shape(PSTRSOV) , minval(PSTRSOV), maxval(PSTRSOV), sum(PSTRSOV)
-write(*,*) 'hello 88 ', PSTRSOV(1,0:KLEV)
-write(*,*) 'hello 91 ', JCNT, J1, PEVAPSNW(1)
-write(*,*) 'hello 92 ', JCNT, J1, ZEVAPSNW(1)
-write(*,*) 'hello 93 ', JCNT, J1, PFWSB(1)
-write(*,*) 'hello 94 ', JCNT, J1, ZFWSB(1)
-!xxx
 
 !*         4.2    ACCUMULATE FLUXES AND DERIVATIVES OF SURF QUANTITIES
 !                 ----------------------------------------------------

@@ -193,20 +193,21 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          ioverlap(:) = 1
-          cld_cov(:)  = 0.0_wp
+        ioverlap(:) = 1
+        cld_cov(:)  = 0.0_wp
         DO jk = kstart_moist, nlev
           DO jc = i_startidx, i_endidx
-           IF (ioverlap(jc) == 1) THEN
-            cld_cov(jc) = MAX(prm_diag%tot_cld(jc,jk,jb,icc), cld_cov(jc))
-           ELSE
-            cld_cov(jc) = 1._wp - (1._wp-cld_cov(jc)) * (1._wp - prm_diag%tot_cld(jc,jk,jb,icc))
-           END IF
-           IF (prm_diag%tot_cld(jc,jk,jb,icc) <= 1.e-6_wp) THEN
-             ioverlap(jc)=0
-           ELSE
-             ioverlap(jc)=1
-           ENDIF
+            IF (ioverlap(jc) == 1) THEN
+              cld_cov(jc) = MAX(prm_diag%tot_cld(jc,jk,jb,icc), cld_cov(jc))
+            ELSE
+              cld_cov(jc) = 1._wp - (1._wp-cld_cov(jc)) * &
+                         & (1._wp - prm_diag%tot_cld(jc,jk,jb,icc) )
+            END IF
+            IF (prm_diag%tot_cld(jc,jk,jb,icc) <= 1.e-6_wp) THEN
+              ioverlap(jc)=0
+            ELSE
+              ioverlap(jc)=1
+            ENDIF
           ENDDO
         ENDDO
         prm_diag%tot_cld_vi(:,jb,icc) = cld_cov(:)
@@ -226,14 +227,14 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
+        DO jc = i_startidx, i_endidx
 
-           prm_diag%tot_cld_vi_avg(jc,jb,1:4) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:4) &
+         prm_diag%tot_cld_vi_avg(jc,jb,1:4) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:4) &
                                &  * (p_sim_time - dt_phy_jg(itfastphy))       &
                                &  + prm_diag%tot_cld_vi(jc,jb,1:4)            &
                                &  * dt_phy_jg(itfastphy) )                    &
                                & / p_sim_time 
-          ENDDO
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
 
@@ -243,32 +244,32 @@ CONTAINS
  !! and average values of the vertically integrated values from the model start 
  
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk,z_help) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
 
-        pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
-        DO jk = kstart_moist, nlev
-          DO jc = i_startidx, i_endidx 
+      pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
+      DO jk = kstart_moist, nlev
+        DO jc = i_startidx, i_endidx 
 
-            z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
-            pt_diag%tracer_vi(jc, jb,1:3) = pt_diag%tracer_vi(jc, jb,1:3)    + &
-                                            z_help * pt_prog_rcf%tracer(jc,jk,jb,1:3) 
+          z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
+          pt_diag%tracer_vi(jc, jb,1:3) = pt_diag%tracer_vi(jc, jb,1:3)    + &
+                                          z_help * pt_prog_rcf%tracer(jc,jk,jb,1:3) 
 
-          ENDDO
         ENDDO
-        IF ( p_sim_time > 1.e-1_wp ) THEN
-         DO jc = i_startidx, i_endidx 
+      ENDDO
+      IF ( p_sim_time > 1.e-1_wp ) THEN
+        DO jc = i_startidx, i_endidx 
 
           pt_diag%tracer_vi_avg(jc,jb,1:3) = ( pt_diag%tracer_vi_avg(jc,jb,1:3) &
-                              &  * (p_sim_time - dt_phy_jg(itfastphy))      &
-                              &  + pt_diag%tracer_vi(jc,jb,1:3)             &
-                              &  * dt_phy_jg(itfastphy) )                   &
-                              & / p_sim_time
-         ENDDO
-        END IF
-      ENDDO ! nblks   
+                            &  * (p_sim_time - dt_phy_jg(itfastphy))      &
+                            &  + pt_diag%tracer_vi(jc,jb,1:3)             &
+                            &  * dt_phy_jg(itfastphy) )                   &
+                            & / p_sim_time
+        ENDDO
+      END IF
+    ENDDO ! nblks   
 !$OMP END DO
 
 
@@ -283,21 +284,21 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
+        DO jc = i_startidx, i_endidx
 
-           prm_diag%tot_prec_rate_avg(jc,jb) =  prm_diag%tot_prec(jc,jb) &
+          prm_diag%tot_prec_rate_avg(jc,jb) =  prm_diag%tot_prec(jc,jb) &
                                & / p_sim_time  
-           prm_diag%con_prec_rate_avg(jc,jb) =  (prm_diag%rain_con(jc,jb) & 
+          prm_diag%con_prec_rate_avg(jc,jb) =  (prm_diag%rain_con(jc,jb) & 
                                & + prm_diag%snow_con(jc,jb))             &
                                & / p_sim_time 
-           prm_diag%gsp_prec_rate_avg(jc,jb) =  (prm_diag%rain_gsp(jc,jb) &
+          prm_diag%gsp_prec_rate_avg(jc,jb) =  (prm_diag%rain_gsp(jc,jb) &
                                & + prm_diag%snow_gsp(jc,jb)) &
                                & / p_sim_time
 
-          ENDDO
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
-     END IF
+    END IF
 
 
 ! latent heat and  sensible heat at surface. Calculation of 
@@ -310,9 +311,9 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
+        DO jc = i_startidx, i_endidx
 
-           IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+          IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  - prm_diag%lhfl_s(jc,jb)              &!attention to the sign, in the output all fluxes 
@@ -323,7 +324,8 @@ CONTAINS
                                &  - prm_diag%shfl_s(jc,jb)              &!attention to the sign, in the output all fluxes
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & / p_sim_time 
-           ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v         &
@@ -335,21 +337,32 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
                                & / p_sim_time 
 
-           ENDIF
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%lhfl_s(jc,jb)              &
+                               &  * dt_phy_jg(itfastphy) )              &
+                               & / p_sim_time 
+            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%shfl_s(jc,jb)              &! it is 0 at the moment, with turb2 the
+                               &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
+                               & / p_sim_time 
+          ENDIF
 
-          ENDDO
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
 
     ELSEIF (.NOT. lflux_avg) THEN
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
-        !
+
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
+        DO jc = i_startidx, i_endidx
 
-           IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+          IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  - prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
@@ -357,7 +370,7 @@ CONTAINS
                                &  - prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
 
-           ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
                                &  * dt_phy_jg(itfastphy)
@@ -365,8 +378,16 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
 
-           ENDIF
-          ENDDO
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
+                               &  + prm_diag%lhfl_s(jc,jb)           &
+                               &  * dt_phy_jg(itfastphy)
+            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
+                               &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
+                               &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
+
+          ENDIF
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO    
 
@@ -382,26 +403,33 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
+        DO jc = i_startidx, i_endidx
 
-           IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
+          IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+            prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  - prm_diag%lhfl_s(jc,jb)/lh_v         & !attention to the sign, in the output all fluxes  
                                &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
                                & / p_sim_time
 
-           ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)              &
                                &  * dt_phy_jg(itfastphy) )              &
                                & / p_sim_time
-           ENDIF
-          ENDDO
+
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%lhfl_s(jc,jb)/lh_v         &
+                               &  * dt_phy_jg(itfastphy) )              &
+                               & / p_sim_time
+          ENDIF
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
-     END IF
+    END IF
 
 
  
@@ -410,11 +438,11 @@ CONTAINS
 
     IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0._wp &
       & .AND. p_sim_time > 0.1_wp) THEN
-       l_s6avg = .TRUE.
-       p_sim_time_s6 = REAL(INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg),wp) &
+      l_s6avg = .TRUE.
+      p_sim_time_s6 = REAL(INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg),wp) &
          &             * dt_s6avg
     ELSE
-       l_s6avg = .FALSE.
+      l_s6avg = .FALSE.
     END IF
    ! WRITE(0,*) "diag", p_sim_time, time_config%ini_datetime%daysec, dt_s6avg, & 
    !               & MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg), l_s6avg
@@ -426,35 +454,35 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
-            prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)   &
+        DO jc = i_startidx, i_endidx
+          prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
                                     & + prm_diag%u_10m(jc,jb)             &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
-            prm_diag%v_10m_s6avg(jc,jb) = ( prm_diag%v_10m_s6avg(jc,jb)   &
+          prm_diag%v_10m_s6avg(jc,jb) = ( prm_diag%v_10m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
                                     & + prm_diag%v_10m(jc,jb)             &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
-            prm_diag%t_2m_s6avg(jc,jb) = ( prm_diag%t_2m_s6avg(jc,jb)     &
+          prm_diag%t_2m_s6avg(jc,jb) = ( prm_diag%t_2m_s6avg(jc,jb)     &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
                                     & + prm_diag%t_2m(jc,jb)              &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
-            prm_diag%qv_2m_s6avg(jc,jb) = ( prm_diag%qv_2m_s6avg(jc,jb)   &
+          prm_diag%qv_2m_s6avg(jc,jb) = ( prm_diag%qv_2m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
                                     & + prm_diag%qv_2m(jc,jb)             &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
 
 
-            pt_diag%pres_sfc_s6avg(jc,jb) = ( pt_diag%pres_sfc_s6avg(jc,jb) &
+          pt_diag%pres_sfc_s6avg(jc,jb) = ( pt_diag%pres_sfc_s6avg(jc,jb) &
                                     & * (p_sim_time_s6 - dt_s6avg)          &
                                     & + pt_diag%pres_sfc(jc,jb)             &
                                     & * dt_s6avg )                          &
                                     & / p_sim_time_s6
-          ENDDO
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO NOWAIT
     END IF

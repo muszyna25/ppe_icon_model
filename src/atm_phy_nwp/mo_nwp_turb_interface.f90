@@ -208,12 +208,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zucurr(nproma)                , zvcurr(nproma),                   &
     &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev),      &
     &         zsobeta(nproma,p_patch%nlev)  , sobs_t(nproma,nsfc_subs),         &
-    &         shfl_s_t(nproma,nsfc_subs)    , lhfl_s_t(nproma,nsfc_subs),       &
+    &         shfl_s_t(nproma,nsfc_subs)    , &
     &         evap_s_t(nproma,nsfc_subs)    , tskin_t(nproma,nsfc_subs),        &
     &         ustr_s_t(nproma,nsfc_subs)    , vstr_s_t(nproma,nsfc_subs),       &
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
     &         ztice(nproma)                 , ztske1(nproma),                   &
-    &         ztskm1m(nproma)               , ztskrad(nproma)
+    &         ztskm1m(nproma)               , ztskrad(nproma),                  &
+    &         zsigflt(nproma)
   LOGICAL  :: l_land(nproma), ldummy_vdf_a(nproma)
 
   ! number of vertical levels
@@ -274,12 +275,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP zucurr,    zvcurr, &
 !$OMP zsoteu,    zsotev, &
 !$OMP zsobeta,   sobs_t, &
-!$OMP shfl_s_t,  lhfl_s_t, &
+!$OMP shfl_s_t, &
 !$OMP evap_s_t,  tskin_t, &
 !$OMP ustr_s_t,  vstr_s_t, &
 !$OMP zae,       zvar, &
 !$OMP ztice,     ztske1, &
 !$OMP ztskm1m,   ztskrad, &
+!$OMP zsigflt, &
 !$OMP l_land,    ldummy_vdf_a &
 !$OMP ) ICON_OMP_GUIDED_SCHEDULE
 
@@ -600,11 +602,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ztske1 (jc) = 0.0_wp   ! skin temperature tendency
         ztskm1m(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature
         ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
+        zsigflt(jc) = 0.0_wp   ! just for testing (standard dev. of filtered orogrphy)
       ENDDO
-
-!amk debug
-write(*,*) 'hello 9, nlev ', p_patch%nlev, i_startidx, i_endidx
-!xxx
 
       DO jk = 1,p_patch%nlev
         DO jc = i_startidx, i_endidx
@@ -620,7 +619,6 @@ write(*,*) 'hello 9, nlev ', p_patch%nlev, i_startidx, i_endidx
         DO jc = i_startidx, i_endidx
           sobs_t  (jc,jt) = prm_diag%swflxsfc(jc,jb)   ! simple grid-mean flux (should be tile albedo specific)!!!!!
           shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
-          lhfl_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb)   ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
           tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
           ustr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress U  !!!
@@ -674,7 +672,8 @@ write(*,*) 'hello 9, nlev ', p_patch%nlev, i_startidx, i_endidx
         & KCNT    = icnt                                       ,&! (INOUT)
         & PCVL    = zdummy_vdf_1a                              ,&! (IN)  input for TESSEL
         & PCVH    = zdummy_vdf_1b                              ,&! (IN)  input for TESSEL   
-        & PSIGFLT = ext_data%atm%sso_stdh(:,jb)                ,&! (IN)  input for TOFD (needs to be passed down!!!)
+!xmk ?  & PSIGFLT = ext_data%atm%sso_stdh(:,jb)                ,&! (IN)  input for TOFD (needs to be passed down!!!)
+        & PSIGFLT = zsigflt                                    ,&! (IN)  input for TOFD (needs to be passed down!!!)
         & PUM1    = p_diag%u(:,:,jb)                           ,&! (IN)   
         & PVM1    = p_diag%v(:,:,jb)                           ,&! (IN)   
         & PTM1    = p_diag%temp(:,:,jb)                        ,&! (IN)   
@@ -792,10 +791,15 @@ write(*,*) 'hello 9, nlev ', p_patch%nlev, i_startidx, i_endidx
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
           p_prog_rcf%tracer(jc,jk,jb,iqi) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
-          p_diag%temp(jc,jk,jb) =                         p_diag%temp(jc,jk,jb) &
+          p_diag%temp(jc,jk,jb) =                           p_diag%temp(jc,jk,jb) &
            &               + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
       ENDDO
+
+! Some diagnostic values have to be set !!!!
+      prm_diag%rh_2m(:,jb)  = 0.0_wp
+      prm_diag%shfl_s(:,jb) = shfl_s_t(:,1)           ! should be tile mean !!!
+      prm_diag%lhfl_s(:,jb) = evap_s_t(:,1) * alv     ! should be tile mean !!!
 
     ENDIF !inwp_turb
 
