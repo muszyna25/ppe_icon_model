@@ -798,7 +798,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
   ! write out in extra format - integer*8
   idate = datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
-  write(81,*) 'global PSI at iyear, idate:',datetime%year, idate
+  write(0,*) 'write global PSI at iyear, idate:',datetime%year, idate
 
   i1 = idate
   i2 = 780
