@@ -657,6 +657,7 @@ run/grid.create_nested_grids -text
 run/grid.create_ocean_grids -text
 run/grid.create_patches_R2B7N13 -text
 run/grid.create_torus_grid -text
+run/grid.decompose_metis -text
 run/ico_grd_spr_sw_ref -text
 run/mapfile_vlist.txt -text
 run/post.plot_icon_grids -text

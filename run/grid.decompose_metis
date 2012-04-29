@@ -1,0 +1,34 @@
+#!/bin/ksh
+#-----------------------------------------------------------------------------
+# Leonidas Linardakis   MPI-M,   2010-10 
+#
+# This script creates optimized ICON grids using
+# a combination of optimizations
+#-----------------------------------------------------------------------------
+set -x
+#-----------------------------------------------------------------------------
+# paths of directories
+GRIDDIR=grids
+WRKDIR=${basedir}/$GRIDDIR
+run_commmand="${start} $bindir/grid_command"
+commandFile=command.grid
+command=decompose_metis
+cd $WRKDIR
+#-----------------------------------------------------------------------------
+
+grid_file="iconR2B01-grid"
+dec_size=12
+use_sea_land_mask=yes
+decomposition_file=${grid_file}-dec_size-metis.cell_domain_ids
+
+#-----------------------------------------------------------------------------
+if [ $use_sea_land_mask = yes ] ; then
+  sea_land_mask="use_sea_land_mask"
+else
+  sea_land_mask="no_sea_land_mask"
+fi
+
+echo $command $grid_file.nc $dec_size $decomposition_file 1 $sea_land_mask > $commandFile
+${run_commmand}
+
+#-----------------------------------------------------------------------------

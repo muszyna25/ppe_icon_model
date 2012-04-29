@@ -704,6 +704,8 @@ CONTAINS
     CALL check_active_grid_id(grid_id)
 
     get_grid_object(grid_id)%file_name = file_name
+    IF (get_grid_object(grid_id)%out_file_name == "" ) &
+      get_grid_object(grid_id)%out_file_name = file_name
 
   END SUBROUTINE set_grid_filename
   !-------------------------------------------------------------------------

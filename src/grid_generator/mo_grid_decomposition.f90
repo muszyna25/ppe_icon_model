@@ -45,7 +45,8 @@ MODULE mo_grid_decomposition
 
   USE mo_local_grid
   USE mo_grid_toolbox,       ONLY: add_to_list_if_not_exist
-  USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_ascii_decomposition
+  USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid, &
+    & write_ascii_decomposition
 
   IMPLICIT NONE
 
@@ -56,11 +57,13 @@ MODULE mo_grid_decomposition
 
   PUBLIC :: decompose_all_cells
   PUBLIC :: redecompose_file_round_robin, redecompose_round_robin
+  PUBLIC :: decompose_file_metis, decompose_metis
   PUBLIC :: print_decomposition_statistics
   PUBLIC :: get_max_domain_id, get_no_of_domains
   !-------------------------------------------------------------------------
 
   INTEGER, PARAMETER   :: max_halos = 4096! assume we have max of 32 neighbors, for statistics
+  
 
 CONTAINS
 
@@ -138,6 +141,156 @@ CONTAINS
     
   END SUBROUTINE redecompose_round_robin
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! decompose a grid file using metis
+  SUBROUTINE decompose_file_metis(grid_file, dec_size, out_ascii_file, &
+    & decomposition_id, use_sea_land_mask )
+    
+    CHARACTER(LEN=*), INTENT(in) :: grid_file, out_ascii_file
+    INTEGER, INTENT(in)  :: dec_size, decomposition_id
+    LOGICAL, INTENT(in)  :: use_sea_land_mask
+
+    INTEGER :: grid_id
+
+    grid_id = read_new_netcdf_grid(grid_file)
+    CALL decompose_metis(grid_id, dec_size, decomposition_id, use_sea_land_mask)
+    CALL write_ascii_decomposition(grid_id, decomposition_id, out_ascii_file)
+    
+    CALL delete_grid(grid_id)    
+
+  END SUBROUTINE decompose_file_metis
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! decompose a grid using metis
+  SUBROUTINE decompose_metis(grid_id, dec_size, decomposition_id, use_sea_land_mask)
+    !-------------------------------------------------------------------------
+#ifdef __HAS_METIS__    
+    use iso_c_binding
+    INTERFACE F_metis_partgraphrecursive
+      SUBROUTINE C_metis_partgraphrecursive(nvtxs, ncon, xadj,&
+                    adjncy, vwgt, vsize, adjwgt,              &
+                    nparts, tpwgts, ubvec, options,           &
+                    edgecut, part) BIND(C, NAME='METIS_PARTGRAPHRECURSIVE')
+      use iso_c_binding
+      INTEGER(C_INT)  :: nvtxs, nparts, ncon, edgecut
+      INTEGER(C_INT), DIMENSION(*)  :: xadj, adjncy, vwgt, adjwgt, &
+                    options, part
+!      TYPE(C_PTR) :: vsize, tpwgts, ubvec
+      INTEGER(C_INT), DIMENSION(*) :: vsize
+      REAL(C_FLOAT), DIMENSION(*)  :: tpwgts, ubvec
+      END SUBROUTINE C_metis_partgraphrecursive
+    END INTERFACE F_metis_partgraphrecursive
+    !-------------------------------------------------------------------------
+    
+    TYPE(t_grid_cells), POINTER :: cells
+    TYPE(t_grid_edges), POINTER :: edges
+    INTEGER :: no_of_cells, no_of_edges
+    INTEGER :: cell_no, neighbor, connect, adjacency_index, adjacency_size
+    
+    INTEGER, POINTER :: metis_xadj(:), metis_adjncy(:), metis_color(:)
+    INTEGER, POINTER :: metis_cell_weights(:), metis_edge_weights(:), metis_options(:)
+    INTEGER :: metis_constrains, metis_edgecut
+    INTEGER, POINTER :: null_int(:)
+    REAL, POINTER :: null_real(:)
+#endif
+
+    INTEGER, INTENT(in)  :: grid_id, dec_size, decomposition_id
+    LOGICAL, INTENT(in)  :: use_sea_land_mask
+    CHARACTER(*), PARAMETER :: method_name = "decompose_metis"
+
+#ifndef __HAS_METIS__
+   CALL finish(method_name, "no metis library is defined")
+   RETURN
+#else 
+    
+
+    cells => get_cells(grid_id)
+    edges => get_edges(grid_id)
+    no_of_cells=cells%no_of_existcells
+    no_of_edges=edges%no_of_existedges
+
+    ! fill metis parameters
+    adjacency_size = no_of_edges * 2
+    ALLOCATE(metis_xadj(0:no_of_cells))
+    ALLOCATE(metis_adjncy(0:adjacency_size))
+    ALLOCATE(metis_color(0:no_of_cells - 1))
+    ALLOCATE(metis_cell_weights(0:no_of_cells - 1))
+    ALLOCATE(metis_edge_weights(0:adjacency_size))
+    ALLOCATE(metis_options(0:40))
+    NULLIFY(null_int)
+    NULLIFY(null_real)
+    ! ALLOCATE(metis_constrains(0:1))
+    
+    metis_constrains = 1
+    metis_options(:)    =-1
+
+    
+    !fill adjacency
+    adjacency_index=0
+    ! fill edges weights
+    DO cell_no = 1, cells%no_of_existcells
+      metis_xadj(cell_no - 1) = adjacency_index
+      
+      ! fill cells weights
+      metis_cell_weights(cell_no - 1) = 1
+      IF (use_sea_land_mask) THEN
+        IF (cells%sea_land_mask(cell_no) > 0) &
+          metis_cell_weights(cell_no - 1) = 0
+      ENDIF
+      
+      DO connect=1, cells%max_no_of_vertices
+        neighbor = cells%get_neighbor_index(cell_no, connect)
+        IF (neighbor <= 0) CYCLE
+        metis_adjncy(adjacency_index) = neighbor - 1
+        
+        ! fill edgesweights
+        metis_edge_weights(adjacency_index) = 1
+        ! this will be used once the communication has been adapted
+!         IF (use_sea_land_mask) THEN
+!           IF (cells%sea_land_mask(cell_no) > 0 .OR. &
+!               cells%sea_land_mask(neighbor) >0  ) &
+!            metis_edge_weights(adjacency_index) = 1
+!         ENDIF
+        
+        adjacency_index = adjacency_index + 1
+        IF (adjacency_index > adjacency_size) &
+          CALL finish(method_name, "adjacency_index > adjacency_size")
+      ENDDO !connect=1, max_no_of_vertices
+      
+    ENDDO
+    metis_xadj(cell_no - 1) = adjacency_index
+    
+    ! call metis
+    CALL F_metis_partgraphrecursive(no_of_cells, metis_constrains, &
+      & metis_xadj, metis_adjncy,                                &
+      & metis_cell_weights, null_int, metis_edge_weights,      &
+      & dec_size, null_real, null_real, metis_options, metis_edgecut, metis_color)
+! C_NULL_PTR
+    cells%no_of_domains(decomposition_id) = dec_size
+
+    !fill the domain ids
+!$OMP PARALLEL
+!$OMP DO PRIVATE(cell_no)
+    DO cell_no = 1, cells%no_of_existcells
+      cells%get_domain_id(decomposition_id, cell_no) = metis_color(cell_no - 1)
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+    DEALLOCATE(metis_xadj,metis_adjncy,metis_color,          &
+      & metis_cell_weights,metis_edge_weights,metis_options)
+
+    ! for plotting
+!     cells%sea_land_mask(:) = cells%get_domain_id(decomposition_id, :)
+!     CALL write_netcdf_grid(grid_id)
+#endif
+
+  END SUBROUTINE decompose_metis
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>

@@ -259,6 +259,8 @@ case "$ac_sitename" in
                 submit="qsub"
                 sync_submit=qsub -sync y
                 NETCDFROOT  = /sw/sles10-x64/netcdf-4.0.1-without-hdf5
+             #   FFLAGS  = "$FFLAGS" "$DEFOPT""__HAS_METIS__"
+             #   METIS_LIB = -L/zmaw/home/m300056/lib/tornado -lmetis
                 
                 case "$fortran_compiler" in
                     default|gcc)
@@ -379,6 +381,8 @@ case "$ac_sitename" in
 			SOFTWARE_TREE=/sw/lenny-x64
 		        HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.5-p1-static
 			NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.1-static
+                        FFLAGS  = "$FFLAGS" "$DEFOPT""__HAS_METIS__"
+                        METIS_LIB = -L/zmaw/home/m300056/lib/mpipc -lmetis
                         ;;		   
 		    *squeeze*)
 			SOFTWARE_TREE=/sw/squeeze-x64

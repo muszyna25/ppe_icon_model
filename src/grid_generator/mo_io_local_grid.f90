@@ -298,9 +298,9 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(in) :: read_grid_ids
     
     new_grid_id = new_grid()
-    IF (PRESENT(file_name)) THEN
+    IF (PRESENT(file_name)) &
       CALL set_grid_filename(new_grid_id, file_name)
-    ENDIF
+    
     IF (PRESENT(read_grid_ids)) THEN
       CALL read_netcdf_grid(new_grid_id, read_grid_ids=read_grid_ids)
     ELSE
@@ -329,9 +329,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "mo_io_local_grid:read_netcdf_grid"
     
     grid_obj => get_grid(grid_id)
-    IF (PRESENT(file_name)) THEN
-       grid_obj%file_name = file_name
-    ENDIF
+    IF (PRESENT(file_name)) &
+      CALL set_grid_filename(grid_id, file_name)
     !-------------------------------------------------------------------------
     WRITE(message_text,'(a,a)') 'Read gridmap file ', &
       & TRIM(grid_obj%file_name)
@@ -775,7 +774,10 @@ CONTAINS
     edges => grid_obj%edges
     verts => grid_obj%verts
 
+!     write(0,*) "grid_obj%file_name:", TRIM(grid_obj%file_name)
+!     write(0,*) "grid_obj%out_file_name:", TRIM(grid_obj%out_file_name)
     IF (PRESENT(write_file_name)) THEN
+!       write(0,*) "write_file_name:", TRIM(write_file_name)
        grid_obj%file_name = write_file_name
     ELSE
        grid_obj%file_name = grid_obj%out_file_name
@@ -1993,6 +1995,11 @@ CONTAINS
 
     INTEGER :: file_id, error_status, cell_no
     
+    WRITE(message_text,'(a,a,a,i1)')                          &
+      &  'Write decomposition file: ', TRIM(ascii_file_name), &
+      &  ',       decomposition_id: ', decomposition_id
+    CALL message ('', TRIM(message_text))
+    !----------------------------------------------------------------------
     cells => get_cells(grid_id)
     file_id = find_next_free_unit(100,1000)
     OPEN (file_id, FILE=TRIM(ascii_file_name),IOSTAT=error_status)

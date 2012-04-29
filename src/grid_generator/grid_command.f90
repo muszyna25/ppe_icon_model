@@ -16,7 +16,7 @@ PROGRAM grid_command
   USE mo_icosahedron_grid,      ONLY: create_icon_grid
   USE mo_grid_conditions,       ONLY: cut_local_grid, cut_local_grid_ascii
   USE mo_grid_decomposition,    ONLY: redecompose_file_round_robin, &
-    & print_decomposition_statistics
+    & print_decomposition_statistics, decompose_file_metis
   USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry
   
 #ifndef __ICON_GRID_GENERATOR__
@@ -48,6 +48,7 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: shift_grid_ids_c ='shift_grid_ids'
   CHARACTER(len=32), PARAMETER :: coarsen_grid_c ='coarsen_grid'
   CHARACTER(len=32), PARAMETER :: redecompose_round_robin_c ='redecompose_round_robin'
+  CHARACTER(len=32), PARAMETER :: decompose_metis_c ='decompose_metis'
   CHARACTER(len=32), PARAMETER :: decomposition_statistics_c = &
     & 'decomposition_statistics'
   
@@ -62,6 +63,7 @@ PROGRAM grid_command
   CHARACTER(len=filename_max) :: param_3 = ''
 
   INTEGER :: int_param_1, int_param_2
+  LOGICAL :: logical_flag
 !   CALL get_command_argument(1, command)
 !   CALL get_command_argument(2, param_1)
 
@@ -143,6 +145,14 @@ PROGRAM grid_command
 
     CASE (check_grid_c)
       CALL check_grid_file(param_1)
+
+    CASE (decompose_metis_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, int_param_1, param_2, int_param_2, param_3
+      CLOSE(500)
+      logical_flag = (param_3 == "use_sea_land_mask")
+      CALL decompose_file_metis(param_1, int_param_1, param_2, int_param_2, logical_flag)
+      ! decompose_file_metis(grid_file, dec_size, out_ascii_file, decomposition_id )
 
     CASE (redecompose_round_robin_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')

@@ -703,6 +703,7 @@ MPI_INCLUDE
 LAPACKROOT
 LAPACK_LIB_PATH
 LAPACK_LIB
+METIS_LIB
 PROFILE_LIB
 PROFILE_INCLUDE
 AR
@@ -6186,6 +6187,9 @@ LAPACK_LIB_PATH=$LAPACK_LIB_PATH
 LAPACK_LIB=$LAPACK_LIB
 
 
+METIS_LIB=$METIS_LIB
+
+
 PROFILE_LIB=$PROFILE_LIB
 
 PROFILE_INCLUDE=$PROFILE_INCLUDE
@@ -6933,6 +6937,7 @@ MPI_INCLUDE!$MPI_INCLUDE$ac_delim
 LAPACKROOT!$LAPACKROOT$ac_delim
 LAPACK_LIB_PATH!$LAPACK_LIB_PATH$ac_delim
 LAPACK_LIB!$LAPACK_LIB$ac_delim
+METIS_LIB!$METIS_LIB$ac_delim
 PROFILE_LIB!$PROFILE_LIB$ac_delim
 PROFILE_INCLUDE!$PROFILE_INCLUDE$ac_delim
 AR!$AR$ac_delim
@@ -6942,7 +6947,6 @@ ARFLAGS!$ARFLAGS$ac_delim
 FFLAGS!$FFLAGS$ac_delim
 F77FLAGS!$F77FLAGS$ac_delim
 LIB!$LIB$ac_delim
-MODDIR!$MODDIR$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -6984,13 +6988,14 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+MODDIR!$MODDIR$ac_delim
 SRCDIRS!$SRCDIRS$ac_delim
 OBJDIRS!$OBJDIRS$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 4; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 5; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
