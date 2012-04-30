@@ -57,7 +57,7 @@ MODULE mo_sea_ice
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
-!  USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
+  USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, FORCING_FROM_FILE_FLUX
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
   USE mo_oce_index,           ONLY: print_mxmn, ipl_src
@@ -1493,7 +1493,7 @@ CONTAINS
       & surfmeltsn,  & ! Surface melt water from snow melt with T=0�C       [m]
       & surfmelti1,  & ! Surface melt water from upper ice with T=-muS      [m]
       & surfmelti2,  & ! Surface melt water from lower ice with T=-muS      [m]
-      & heatocei,    & ! Oceanic heat flux                                  [W/m^2]
+      & zHeatOceI,   & ! Oceanic heat flux                                  [W/m^2]
       & Tfw            ! Ocean freezing temperature [°C]
 
     INTEGER k
@@ -1522,9 +1522,9 @@ CONTAINS
     ! freezing point. This is not very physical.
     DO k=1,ice%kice
       WHERE (ice%isice(:,k,:)) 
-        heatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tfw(:,k,:) ) &
+        zHeatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tfw(:,k,:) ) &
           &                 * ice%zUnderIce * clw*rho_ref/dtime
-        ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + heatOceI(:,k,:)
+        ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + zHeatOceI(:,k,:)
       ENDWHERE
     END DO
    
@@ -1684,7 +1684,7 @@ CONTAINS
         ice%conc (:,:,:) = 0.0_wp
         ice%hi   (:,:,:) = 0.0_wp
       ELSEWHERE
-        ice%heatOceI(:,:,:) = ice%heatOceI(:,:,:) - heatOceI(:,:,:)
+        ice%heatOceI(:,:,:) = ice%heatOceI(:,:,:) - zHeatOceI(:,:,:)
       END WHERE
     
     END WHERE !isice
@@ -1907,7 +1907,7 @@ CONTAINS
       & fakts,          &  ! Effect of cloudiness on LW radiation
       & humi,           &  ! Effect of air humidity on LW radiation
       & fa, fw, fi,     &  ! Enhancment factor for vapor pressure
-      & dsphumididesti, & ! Derivative of sphumidi w.r.t. esti
+      & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
     
@@ -1962,11 +1962,15 @@ CONTAINS
     !         0.058*sqrt(esta)
     !-----------------------------------------------------------------------
 
-    humi    = 0.601_wp+ 5.95_wp*1.0e-7_wp*esta*EXP(1500.0_wp/tafoK)
-    fakts   =  1.0_wp + 0.3_wp*p_as%fclou**2
+!    humi    = 0.601_wp+ 5.95_wp*1.0e-7_wp*esta*EXP(1500.0_wp/tafoK)
+    humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
+!    fakts   =  1.0_wp + 0.3_wp*p_as%fclou**2
+    fakts   =  1.0_wp - &
+      & (0.5_wp + 0.4_wp/90._wp*rad2deg*ppatch%cells%center(:,:)%lat) * p_as%fclou**2
     Qatm%LWin = fakts * humi * zemiss_def*StBo * tafoK**4
 
-    Qatm%LWoutw = zemiss_def*StBo * (Tsurf+tmelt)**4
+!    Qatm%LWoutw = zemiss_def*StBo * (Tsurf+tmelt)**4
+    Qatm%LWoutw = 4._wp*zemiss_def*StBo*tafoK**3 * (Tsurf - p_as%tafo)
     Qatm%LWnetw = Qatm%LWin - Qatm%LWoutw
 
     Qatm%SWin = p_as%fswr
@@ -2000,9 +2004,11 @@ CONTAINS
         dragl    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
         drags    = 0.95_wp * dragl
 
-        Qatm%LWout (:,i,:) = zemiss_def*StBo * (Tsurf+tmelt)**4
+!        Qatm%LWout (:,i,:) = zemiss_def*StBo * (Tsurf+tmelt)**4
+        Qatm%LWout (:,i,:) = 4._wp*zemiss_def*StBo*tafoK**3 * (Tsurf - p_as%tafo)
         Qatm%LWnet (:,i,:) = Qatm%LWin - Qatm%LWout(:,i,:)
-        Qatm%dLWdT (:,i,:) = - 4.0_wp * zemiss_def*StBo * (Tsurf + tmelt)**3
+!        Qatm%dLWdT (:,i,:) = - 4.0_wp * zemiss_def*StBo * (Tsurf + tmelt)**3
+        Qatm%dLWdT (:,i,:) = 4._wp*zemiss_def*StBo*tafoK**3
         Qatm%sens  (:,i,:) = drags * rhoair*cpd*p_as%fu10 * (p_as%tafo -Tsurf)
         Qatm%lat   (:,i,:) = dragl * rhoair* alf *p_as%fu10 * (sphumida-sphumidi)
 
