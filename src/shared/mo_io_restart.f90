@@ -1083,6 +1083,8 @@ CONTAINS
         ENDDO
       ENDIF
     ENDDO
+!PR
+  CALL message('','Finished Write netCDF2 restart for : '//TRIM(private_restart_time))
     !
   END SUBROUTINE write_restart
   !------------------------------------------------------------------------------------------------

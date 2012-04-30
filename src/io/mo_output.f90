@@ -372,6 +372,8 @@ CONTAINS
 
     CALL set_restart_attribute( 'current_caltime', datetime%caltime )
     CALL set_restart_attribute( 'current_calday' , datetime%calday )
+!PR
+    CALL set_restart_attribute( 'current_daysec' , datetime%daysec )
 
     CALL set_restart_attribute( 'nold'    , nold    (jg))
     CALL set_restart_attribute( 'nnow'    , nnow    (jg))

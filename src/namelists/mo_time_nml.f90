@@ -101,6 +101,7 @@ CONTAINS
    CHARACTER(len=32) :: ini_datetime_string_old
    INTEGER(i8) :: restart_calday
    REAL(wp)    :: restart_caltime
+   REAL(wp)    :: restart_daysec
 
 
    !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
@@ -142,6 +143,7 @@ CONTAINS
 
       CALL get_restart_attribute( 'current_caltime', restart_caltime )
       CALL get_restart_attribute( 'current_calday' , restart_calday  )
+      CALL get_restart_attribute( 'current_daysec' , restart_daysec  )
 
   END IF
 
@@ -184,6 +186,7 @@ CONTAINS
         time_config%cur_datetime%calendar = time_config%calendar
         time_config%cur_datetime%caltime  = restart_caltime
         time_config%cur_datetime%calday   = restart_calday
+        time_config%cur_datetime%daysec   = restart_daysec
 
         CALL time_to_date(time_config%cur_datetime) ! fill date time structure
 
