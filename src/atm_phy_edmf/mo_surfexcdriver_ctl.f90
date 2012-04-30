@@ -92,11 +92,11 @@ USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
       & LEFLAKE  ,RH_ICE_MIN_FLK                            !yoephy  (& yos_flake)
 
+USE mo_vupdz0       ,ONLY : vupdz0
+USE mo_vexcs        ,ONLY : vexcs
 
-USE MO_VUPDZ0
 !dmk USE VSURF_MOD
-USE MO_VEXCS
-!dmk USE VEVAP_MOD
+!    USE VEVAP_MOD
 !    USE SURFSEB_CTL_MOD
 !    USE SRFCOTWO_MOD
 !xxx USE VSFLX_MOD

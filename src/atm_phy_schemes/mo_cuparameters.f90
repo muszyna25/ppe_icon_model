@@ -1842,8 +1842,8 @@ CONTAINS
   SUBROUTINE vdiv(p1,p2,p3,k1)
     !USE PARKIND1  ,ONLY : JPIM     ,JPRB
     IMPLICIT NONE
-    REAL(KIND=jprb)::p1(k1),p2(k1),p3(k1)
     INTEGER(KIND=jpim)::k1
+    REAL(KIND=jprb)::p1(k1),p2(k1),p3(k1)
   END SUBROUTINE vdiv
 
   

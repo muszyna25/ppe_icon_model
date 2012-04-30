@@ -78,14 +78,16 @@ SUBROUTINE SURFEXCDRIVER    (CDCONF &
 ! USE YOMHOOK   ,ONLY : LHOOK, DR_HOOK
 
 ! USE ABORT_SURF_MOD
-USE MO_SURFEXCDRIVER_CTL
 
 !endif INTERFACE
 
 !ICON definitions:
-USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
-USE mo_cuparameters ,ONLY : lhook    ,dr_hook               !yomcst  (& yos_exc)
-USE mo_edmf_param   ,ONLY : abort_surf
+USE mo_kind             ,ONLY : JPRB=>wp ,JPIM=>i4
+USE mo_cuparameters     ,ONLY : lhook    ,dr_hook           !yomcst  (& yos_exc)
+
+USE mo_edmf_param       ,ONLY : abort_surf
+USE mo_surfexcdriver_ctl,ONLY : surfexcdriver_ctl
+
 !------------------------------------------------------------------------
 
 !  PURPOSE:
