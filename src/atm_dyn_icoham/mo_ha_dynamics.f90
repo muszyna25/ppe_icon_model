@@ -49,7 +49,7 @@ MODULE mo_ha_dynamics
   USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: lshallow_water, idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config 
-  USE mo_parallel_config,    ONLY: nproma, use_icon_comm
+  USE mo_parallel_config,    ONLY: nproma, use_icon_comm, p_test_run
 
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -246,8 +246,8 @@ CONTAINS
 
   !! Arguments
 
-  REAL(wp),       INTENT(in) :: p_vn    (:,:,:) !< normal velocity
-  REAL(wp),       INTENT(in) :: p_delp_e(:,:,:) !< layer thickness at edges
+  REAL(wp), INTENT(in)  :: p_vn    (:,:,:) !< normal velocity
+  REAL(wp), INTENT(in)  :: p_delp_e(:,:,:) !< layer thickness at edges
   TYPE(t_patch), TARGET, INTENT(in) :: pt_patch   !< grid information
   TYPE(t_int_state),INTENT(in) :: pt_int_state    !< interpolation coefficients
 
@@ -278,6 +278,10 @@ CONTAINS
   nblks_c  = pt_patch%nblks_int_c
 
 ! Divergence of mass flux at full levels
+  IF (p_test_run) p_mflux(:,:,:) = 0.0_wp
+!  CALL sync_patch_array(SYNC_E, pt_patch, p_delp_e)
+!  CALL sync_patch_array(SYNC_E, pt_patch, p_vn)
+
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(2,1)

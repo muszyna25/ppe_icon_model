@@ -55,7 +55,7 @@ MODULE mo_echam_phy_interface
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_cell
   USE mo_intp,              ONLY: edges2cells_scalar
                                 
-  USE mo_parallel_config,   ONLY: nproma, use_icon_comm
+  USE mo_parallel_config,   ONLY: nproma, use_icon_comm, p_test_run
   
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, cells_not_in_domain,&
@@ -556,7 +556,10 @@ CONTAINS
          & zdvdt (nproma,nlev,p_patch%nblks_c) ,stat=return_status)
        IF (return_status > 0) &
          CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
-
+       IF (p_test_run) THEN
+         zdudt(:,:,:) = 0.0_wp
+         zdvdt(:,:,:) = 0.0_wp
+       ENDIF
       ! Accumulate wind tendencies contributed by various parameterized processes.
 
 !       jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
@@ -613,6 +616,10 @@ CONTAINS
       DEALLOCATE(zdudt, zdvdt)
  
   END IF !any_uv_tend
+
+  CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%temp )
+  CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=prm_tend(jg)%q, &
+       &                        lpart4d=.TRUE.) 
 
    IF (use_icon_comm) THEN
      CALL icon_comm_sync_all()

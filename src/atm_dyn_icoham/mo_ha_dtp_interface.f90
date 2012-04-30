@@ -58,7 +58,7 @@ MODULE mo_ha_dtp_interface
                                    update_tempv_geopot
   USE mo_math_divrot,        ONLY: rot_vertex
   USE mo_physical_constants, ONLY: rd_o_cpd, p0ref
-  USE mo_sync,               ONLY: SYNC_E, SYNC_V, sync_patch_array
+  USE mo_sync,               ONLY: SYNC_E,SYNC_C, SYNC_V, sync_patch_array
   USE mo_impl_constants,     ONLY: SUCCESS, TWO_TL_SI
   USE mo_timer,              ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy, timer_prep_phy, timer_prep_tracer_leapfrog, timer_prep_tracer, &
@@ -197,13 +197,14 @@ CONTAINS
 !     REAL(wp), POINTER, INTENT(inout) :: p_mflux_me(:,:,:)
     REAL(wp), POINTER :: p_mflux_me(:,:,:)
 
-    REAL(wp),INTENT(out) :: p_vn_traj    (nproma,nlev,  p_patch%nblks_e)
-    REAL(wp),INTENT(out) :: p_mflux_ic   (nproma,nlevp1,p_patch%nblks_c)
-    REAL(wp),INTENT(out) :: p_weta_traj  (nproma,nlevp1,p_patch%nblks_c)
+    ! these are in fact intent(out) but we use intent(inout) for keeping the initialization
+    REAL(wp),INTENT(inout) :: p_vn_traj    (nproma,nlev,  p_patch%nblks_e)
+    REAL(wp),INTENT(inout) :: p_mflux_ic   (nproma,nlevp1,p_patch%nblks_c)
+    REAL(wp),INTENT(inout) :: p_weta_traj  (nproma,nlevp1,p_patch%nblks_c)
 
-    REAL(wp),INTENT(out) :: p_delp_mc_now(nproma,nlev  ,p_patch%nblks_c)
-    REAL(wp),INTENT(out) :: p_pres_mc_now(nproma,nlev  ,p_patch%nblks_c)
-    REAL(wp),INTENT(out) :: p_pres_ic_now(nproma,nlevp1,p_patch%nblks_c)
+    REAL(wp),INTENT(inout) :: p_delp_mc_now(nproma,nlev  ,p_patch%nblks_c)
+    REAL(wp),INTENT(inout) :: p_pres_mc_now(nproma,nlev  ,p_patch%nblks_c)
+    REAL(wp),INTENT(inout) :: p_pres_ic_now(nproma,nlevp1,p_patch%nblks_c)
 
     ! Local variables
 
@@ -232,13 +233,15 @@ CONTAINS
     ! full- and half-level pressure values, and layer thickess, all
     ! computed at cell centers (mass points).
 
-    CALL update_pres_delp_c( p_patch, p_now%pres_sfc,       &! in
+   CALL update_pres_delp_c( p_patch, p_now%pres_sfc,       &! in
                            & p_pres_mc_now, p_pres_ic_now,  &! out
                            & p_delp_mc_now                  )! out
 
     ! Layer thickness associated to edges. Needed for calculating mass flux
 
+    ! CALL sync_patch_array(SYNC_C, p_patch, p_delp_mc_now)
     CALL update_delp_e( p_patch, p_int_state, p_delp_mc_now, z_delp_me_now)
+    ! CALL sync_patch_array(SYNC_E, p_patch, z_delp_me_now)
 
     !---------------------------------------------------------
     ! Mass fluxes

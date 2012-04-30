@@ -370,6 +370,7 @@ CONTAINS
     nblks_e = p_patch%nblks_int_e
 
     ! Edge-based layer thickness: pressure levels
+    IF (p_test_run)  p_delp_e(:,:,:) = 0
 
     jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
@@ -384,6 +385,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ! CALL sync_patch_array(SYNC_E, p_patch, p_delp_e)
     ! Edge-based layer thickness: sigma and transition levels
 
     CALL cells2edges_scalar (p_delp_c, p_patch,   &! in
@@ -391,7 +393,10 @@ CONTAINS
                              p_delp_e,            &! out
                              nplvp1, nlev )        ! optional input
 
+!    CALL sync_patch_array(SYNC_E, p_patch, p_delp_e)
     IF (i_cori_method >= 2) THEN
+
+!      write(0,*) "In i_cori_method >= 2"
 
       ! avoid SICK instability and conserve energy
       IF (p_test_run) z_tmp_v=0.0_wp
@@ -403,6 +408,8 @@ CONTAINS
       CALL verts2edges_scalar(z_tmp_v, p_patch, p_int_state%v_1o2_e, &
                               z_tmp_e, nplvp1, nlev)
                               
+    !  CALL sync_patch_array(SYNC_E,p_patch,z_tmp_e)
+
       jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -417,7 +424,12 @@ CONTAINS
 
     ENDIF
 
+    CALL sync_patch_array(SYNC_E, p_patch, p_delp_e)
+
   END SUBROUTINE update_delp_e
+  !------------------
+
+
   !------------------
   !>
   !! Compute full- and half-level pressure values, layerthickess

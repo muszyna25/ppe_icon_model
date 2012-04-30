@@ -277,12 +277,12 @@ i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 ! Initialization of unused elements of nabla2_vec_e
-DO jb = 1, i_startblk
-  nabla2_vec_e(:,:,jb) = 0._wp
-ENDDO
-DO jb = i_endblk, ptr_patch%nblks_e
-  nabla2_vec_e(:,:,jb) = 0._wp
-ENDDO
+! DO jb = 1, i_startblk
+!   nabla2_vec_e(:,:,jb) = 0._wp
+! ENDDO
+! DO jb = i_endblk, ptr_patch%nblks_e
+!   nabla2_vec_e(:,:,jb) = 0._wp
+! ENDDO
 
 ! compute divergence of vector field
 CALL div( vec_e, ptr_patch, ptr_int, z_div_c, slev, elev, &
@@ -1219,14 +1219,21 @@ ELSE
 ENDIF
 
 ! apply second order Laplacian twice
+ IF (p_test_run) p_nabla2(:,:,:) = 0.0_wp
 
 CALL nabla2_scalar( psi_c, ptr_patch, ptr_int, p_nabla2, &
                     slev, elev, opt_rlstart=rl_start_s1, opt_rlend=rl_end_s1 )
 
-IF (ptr_patch%cell_type == 6) CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
+! IF (ptr_patch%cell_type == 6) CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
+CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
 
 CALL nabla2_scalar( p_nabla2, ptr_patch, ptr_int, nabla4_psi_c, &
                     slev, elev, opt_rlstart=rl_start, opt_rlend=rl_end )
+
+
+IF ( .NOT. PRESENT(opt_nabla2) ) THEN
+  DEALLOCATE (z_nab2_c)
+ENDIF
 
 END SUBROUTINE nabla4_scalar
 

@@ -46,6 +46,7 @@
 MODULE mo_hdiff_hyb_lin
 
   USE mo_kind,              ONLY: wp
+  USE mo_exception,         ONLY: message, finish
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_math_laplace,      ONLY: nabla2_vec, nabla2_scalar, &
@@ -53,7 +54,7 @@ MODULE mo_hdiff_hyb_lin
   USE mo_model_domain,      ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,   ONLY: nproma, p_test_run
   USE mo_impl_constants,    ONLY: min_rlcell, min_rledge
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -105,6 +106,9 @@ CONTAINS
     !===================================================================
     ! 0. Some constants
     !===================================================================
+    ! CALL sync_patch_array(SYNC_C, patch, prog%temp)
+    ! CALL sync_patch_array(SYNC_E, patch, prog%vn)
+
     ltheta_dyn = ha_dyn_config%ltheta_dyn
     nlev       = patch%nlev
 
@@ -149,6 +153,9 @@ CONTAINS
     ! Velocity
     !-----------
     IF (diffusion_config(jg)%lhdiff_vn) THEN
+  !    CALL sync_patch_array(SYNC_e, patch, prog%vn)
+  !    write(0,*) "start nabla vn"
+      IF (p_test_run) znabla_e(:,:,:) = 0.0_wp
       CALL nabla2_vec( prog%vn, patch, pint, znabla_e,     &
                        opt_slev=ik2s,  opt_elev=ik2e,      &
                        opt_rlstart=5, opt_rlend=min_rledge )
@@ -157,12 +164,16 @@ CONTAINS
                        opt_nabla2=znabla2_e,               &
                        opt_slev=ik4s,  opt_elev=ik4e,      &
                        opt_rlstart=7, opt_rlend=min_rledge )
+  !     write(0,*) "start sync znabla_e"
+  !    CALL sync_patch_array(SYNC_e, patch, znabla_e)
     END IF
     !-------------
     ! Temperature 
     !-------------
     IF (diffusion_config(jg)%lhdiff_temp.AND.(.NOT.ltheta_dyn)) THEN
 
+      ! CALL sync_patch_array(SYNC_C, patch, prog%temp)
+      IF (p_test_run) znabla_c(:,:,:) = 0.0_wp
       CALL nabla2_scalar( prog%temp, patch, pint, znabla_c,   &
                           opt_slev=ik2s,  opt_elev=ik2e,      &
                           opt_rlstart=3, opt_rlend=min_rlcell )
@@ -172,7 +183,10 @@ CONTAINS
                           opt_slev=ik4s,  opt_elev=ik4e,      &
                           opt_rlstart=4, opt_rlend=min_rlcell )
 
-    !---------------------------------------------------------------
+!       write(0,*) "start sync znabla_c"
+!       CALL sync_patch_array(SYNC_C, patch, znabla_c)
+
+   !---------------------------------------------------------------
     ! Potential temperature, if not using temperature as the 
     ! thermodynamic variable. Note that in this case the component
     ! %theta of the prognostic state is in fact theta*delta_p,
@@ -288,6 +302,7 @@ CONTAINS
       ENDIF ! if ltheta_dyn
     ENDIF   ! if lhdiff_temp
 
+ 
     !===================================================================
     ! 3. Apply 2nd order diffusion for the boundary of refined region
     !===================================================================
