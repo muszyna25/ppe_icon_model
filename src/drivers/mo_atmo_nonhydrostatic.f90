@@ -69,8 +69,7 @@ USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
-USE mo_opt_diagnostics,      ONLY: p_nh_opt_diag, construct_opt_diag,          &
-  &                                destruct_opt_diag
+USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state,                    &
   &                                destruct_nwp_phy_state, prm_diag
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
@@ -87,12 +86,9 @@ USE mo_ext_data_state,      ONLY: ext_data
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
-USE mo_name_list_output_config, ONLY: first_output_name_list
 USE mo_name_list_output,    ONLY: init_name_list_output,  &
   &                               write_name_list_output, &
   &                               close_name_list_output
-USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config
-USE mo_var_list,            ONLY: nvar_lists, var_lists
 USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
   &                               pp_scheduler_init, pp_scheduler_process, pp_scheduler_finalize
 
@@ -343,15 +339,7 @@ CONTAINS
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
-    IF (.NOT. ltestcase .OR. iforcing == inwp) THEN
-      CALL pp_scheduler_init(p_patch(1:), p_nh_state, p_nh_opt_diag,                      &
-        &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
-        &                    var_lists, nvar_lists, prm_diag )     
-    ELSE
-      CALL pp_scheduler_init(p_patch(1:), p_nh_state, p_nh_opt_diag,                      &
-        &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
-        &                    var_lists, nvar_lists )     
-    END IF
+    CALL pp_scheduler_init( (.NOT. ltestcase .OR. iforcing == inwp) )
 
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO

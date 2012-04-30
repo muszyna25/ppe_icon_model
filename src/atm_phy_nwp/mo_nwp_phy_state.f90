@@ -305,8 +305,8 @@ END TYPE t_nwp_phy_tend
 !!--------------------------------------------------------------------------
 !!                          STATE VARIABLES 
 !!--------------------------------------------------------------------------
-  TYPE(t_nwp_phy_diag), ALLOCATABLE :: prm_diag(:)     !< shape: (n_dom)
-  TYPE(t_nwp_phy_tend), ALLOCATABLE :: prm_nwp_tend(:) !< shape: (n_dom)
+  TYPE(t_nwp_phy_diag), ALLOCATABLE, TARGET :: prm_diag(:) !< shape: (n_dom)
+  TYPE(t_nwp_phy_tend), ALLOCATABLE :: prm_nwp_tend(:)     !< shape: (n_dom)
 !-------------------------------------------------------------------------
   
 !!--------------------------------------------------------------------------

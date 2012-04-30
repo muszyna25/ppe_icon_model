@@ -62,26 +62,29 @@ MODULE mo_pp_scheduler
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
     & max_dom, max_var_ml, max_var_pl, max_var_hl
-  USE mo_model_domain,            ONLY: t_patch
+  USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list,                ONLY: t_var_list, new_var_list,           &
     &                                   default_var_list_settings, add_var, &
     &                                   get_all_var_names,                  &
-    &                                   create_hor_interp_metadata
+    &                                   create_hor_interp_metadata,         &
+    &                                   nvar_lists, var_lists
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
   USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
   USE mo_intp,                    ONLY: verts2cells_scalar
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list, &
-    &                                   t_lon_lat_intp
+    &                                   t_lon_lat_intp, p_int_state
   USE mo_nh_vert_interp,          ONLY: prepare_vert_interp, &
     &                                   lin_intp, uv_intp, qv_intp 
-  USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
+    &                                   t_nh_metrics
+  USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
-    &                                   vcoeff_deallocate
-  USE mo_nwp_phy_state,           ONLY: t_nwp_phy_diag
-  USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config
+    &                                   vcoeff_deallocate, p_nh_opt_diag
+  USE mo_nwp_phy_state,           ONLY: t_nwp_phy_diag, prm_diag
+  USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
   USE mo_name_list_output_config, ONLY: t_output_name_list, &
-    &                                   vname_len
+    &                                   vname_len, first_output_name_list
   USE mo_parallel_config,         ONLY: nproma
   USE mo_dynamics_config,         ONLY: nnow
   USE mo_util_string,             ONLY: int2string, remove_duplicates, &
@@ -232,19 +235,8 @@ CONTAINS
   !       read and the nh_state has been constructed and _before_
   !       initialization of the name list output.
   !
-  SUBROUTINE pp_scheduler_init(p_patch, p_nh_state, p_nh_opt_diag,                   &
-    &                          nh_pzlev_config, p_int_state, first_output_name_list, &
-    &                          var_lists, nvar_lists, opt_prm_diag)
-
-    TYPE(t_patch),              TARGET,  INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),           TARGET,  INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_nh_opt_diag),        TARGET,  INTENT(INOUT) :: p_nh_opt_diag(:)
-    TYPE(t_nh_pzlev_config),    TARGET,  INTENT(IN)    :: nh_pzlev_config(0:max_dom)
-    TYPE(t_int_state),          TARGET,  INTENT(IN)    :: p_int_state(:)
-    TYPE (t_output_name_list),  POINTER                :: first_output_name_list
-    TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
-    INTEGER,                             INTENT(IN)    :: nvar_lists
-    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(INOUT), OPTIONAL :: opt_prm_diag(:)
+  SUBROUTINE pp_scheduler_init(l_init_prm_diag)
+    LOGICAL, INTENT(IN) :: l_init_prm_diag
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
@@ -255,7 +247,7 @@ CONTAINS
     LOGICAL                               :: &
       &  l_jg_active, found
     TYPE (t_output_name_list), POINTER    :: p_onl
-    TYPE(t_job_queue)                     :: task
+    TYPE(t_job_queue),         POINTER    :: task
     TYPE(t_var_list),          POINTER    :: p_opt_diag_list
     REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
     TYPE(t_list_element),      POINTER    :: element, new_element, new_element_2
@@ -273,9 +265,7 @@ CONTAINS
     !-------------------------------------------------------------
     !--- setup of vertical interpolation onto p/z-levels
 
-    CALL pp_scheduler_init_pz(p_patch, p_nh_state, p_nh_opt_diag,       &
-      &                       nh_pzlev_config, first_output_name_list,  &
-      &                       var_lists, nvar_lists, opt_prm_diag)
+    CALL pp_scheduler_init_pz(l_init_prm_diag)
 
  
     !-------------------------------------------------------------
@@ -456,15 +446,14 @@ CONTAINS
             !-- create and add post-processing task
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
 
+          task => pp_task_insert(DEFAULT_PRIORITY2)
           task%data_input%p_nh_state      => NULL()
           task%data_input%prm_diag        => NULL()
           task%data_input%nh_pzlev_config => NULL()
-
           task%data_input%jg            =  jg           
           task%data_input%p_patch       => p_patch(jg)
           task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
           task%data_input%p_int_state   => p_int_state(jg)
-          task%job_priority             =  DEFAULT_PRIORITY2
           task%job_type                 =  TASK_INTP_HOR_LONLAT
           task%activity                 =  new_simulation_status(l_output_step=.TRUE.)
           task%data_input%var           => element%field       ! set input variable
@@ -473,7 +462,6 @@ CONTAINS
             new_element_2%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
             task%data_output%var_2      => new_element_2%field ! set Y-component
           END IF
-          CALL pp_task_insert(task)
             
           found = .TRUE.
           
@@ -500,18 +488,8 @@ CONTAINS
   !
   ! See SUBROUTINE pp_scheduler_init for further details.
   !
-  SUBROUTINE pp_scheduler_init_pz(p_patch, p_nh_state, p_nh_opt_diag,          &
-    &                             nh_pzlev_config, first_output_name_list,     &
-    &                             var_lists, nvar_lists, opt_prm_diag)
-
-    TYPE(t_patch),              TARGET,  INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),           TARGET,  INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_nh_opt_diag),        TARGET,  INTENT(INOUT) :: p_nh_opt_diag(:)
-    TYPE(t_nh_pzlev_config),    TARGET,  INTENT(IN)    :: nh_pzlev_config(0:max_dom)
-    TYPE (t_output_name_list),  POINTER                :: first_output_name_list
-    TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
-    INTEGER,                             INTENT(IN)    :: nvar_lists
-    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(INOUT), OPTIONAL :: opt_prm_diag(:)
+  SUBROUTINE pp_scheduler_init_pz(l_init_prm_diag)
+    LOGICAL, INTENT(IN) :: l_init_prm_diag
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
@@ -522,7 +500,7 @@ CONTAINS
     LOGICAL                            :: &
       &  l_jg_active, l_intp_p, l_intp_z, found
     TYPE (t_output_name_list), POINTER :: p_onl
-    TYPE(t_job_queue)                  :: task
+    TYPE(t_job_queue),         POINTER :: task
     INTEGER                            :: shape3d(3)
     TYPE(t_cf_var)                     :: cf_desc
     TYPE(t_grib2_var)                  :: grib2_desc
@@ -555,18 +533,6 @@ CONTAINS
 
     DOM_LOOP : DO jg=1,ndom
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
-
-      !-- create data structure for post-processing task
-      task%data_input%p_int_state    => NULL()
-      task%data_input%prm_diag       => NULL()
-
-      task%data_input%jg               =  jg           
-      task%data_input%p_patch          => p_patch(jg)
-      task%data_input%p_nh_state       => p_nh_state(jg)
-      task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
-      IF (PRESENT(opt_prm_diag)) &
-        task%data_input%prm_diag         => opt_prm_diag(jg)
-      task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
 
       !-- check if any output name list requests p- or z-level
       !-- interpolation for this domain, collect the list of variables
@@ -664,14 +630,14 @@ CONTAINS
 
       !-- First, add some diagnostic variables which are essential for
       !-- p/z-level interpolation, e.g. temp_z, pres_z:
-      p_diag_pz         => task%data_input%p_nh_opt_diag%diag_pz
-      p_opt_diag_list_z => task%data_input%p_nh_opt_diag%opt_diag_list_z
-      p_opt_diag_list_p => task%data_input%p_nh_opt_diag%opt_diag_list_p
+      p_diag_pz         => p_nh_opt_diag(jg)%diag_pz
+      p_opt_diag_list_z => p_nh_opt_diag(jg)%opt_diag_list_z
+      p_opt_diag_list_p => p_nh_opt_diag(jg)%opt_diag_list_p
       ientr     = 16   ! "entropy" of horizontal slice
 
       ! predefined array shapes
       nblks_c   = p_patch(jg)%nblks_c
-      shape3d = (/ nproma, task%data_input%nh_pzlev_config%nzlev, nblks_c /)
+      shape3d = (/ nproma, nh_pzlev_config(jg)%nzlev, nblks_c /)
       nvars_predef = 0
         
       ! temp         (nproma,nzlev,nblks_c)        
@@ -711,7 +677,7 @@ CONTAINS
         & cf_desc, grib2_desc, ldims=shape3d)
 
       IF (l_intp_p) THEN
-        shape3d = (/ nproma, task%data_input%nh_pzlev_config%nplev, nblks_c /)
+        shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
         ! GEOPOT
         cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
         grib2_desc = t_grib2_var(0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
@@ -727,7 +693,19 @@ CONTAINS
       END IF
 
       !-- register interpolation setup as a post-processing task
-      task%job_priority = HIGH_PRIORITY
+
+      task => pp_task_insert(HIGH_PRIORITY)
+      task%data_input%p_int_state      => NULL()
+      task%data_input%jg               =  jg           
+      task%data_input%p_patch          => p_patch(jg)
+      task%data_input%p_nh_state       => p_nh_state(jg)
+      task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
+      IF (l_init_prm_diag) THEN
+        task%data_input%prm_diag       => prm_diag(jg)
+      ELSE
+        task%data_input%prm_diag       => NULL() 
+      END IF
+      task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
       IF (l_intp_p) THEN
         task%job_name = "Init: pz-level interpolation, DOM "//TRIM(int2string(jg))
@@ -736,14 +714,20 @@ CONTAINS
         task%job_name = "Init:  z-level interpolation, DOM "//TRIM(int2string(jg))
         task%job_type = TASK_INIT_VER_Z
       END IF
-      CALL pp_task_insert(task)
 
       !-- register clean-up routine as a post-processing task
+
+      task => pp_task_insert(LOW_PRIORITY)
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
+      task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
       task%job_name     = "Clean-up: pz-level interpolation, level "//TRIM(int2string(jg))
-      task%job_priority = LOW_PRIORITY
       task%job_type     = TASK_FINALIZE_PZ
-      CALL pp_task_insert(task)
+      task%data_input%p_int_state      => NULL()
+      task%data_input%jg               =  jg           
+      task%data_input%p_patch          => p_patch(jg)
+      task%data_input%p_nh_state       => p_nh_state(jg)
+      task%data_input%prm_diag         => NULL() 
+      task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
 
       ! remove already defined variables from list of requested output
       ! fields:
@@ -832,15 +816,15 @@ CONTAINS
                 &           loutput=.TRUE., new_element=new_element)
 
               !-- add post-processing task
+
+              task => pp_task_insert(DEFAULT_PRIORITY1)
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
                 &  //", DOM "//TRIM(int2string(jg))
-              task%job_priority    =  DEFAULT_PRIORITY1
               task%job_type        =  TASK_INTP_VER_PZLEV
               task%activity        =  new_simulation_status(l_output_step=.TRUE.)
               task%data_input%var  => element%field       ! set input variable
               task%data_output%var => new_element%field   ! set output variable
-              CALL pp_task_insert(task)
             
               found = .TRUE.
 
@@ -1323,25 +1307,24 @@ CONTAINS
 
   !---------------------------------------------------------------
   !> Insert task into job queue.
-  SUBROUTINE pp_task_insert(task)
-    TYPE(t_job_queue), INTENT(IN) :: task
+  FUNCTION pp_task_insert(job_priority) RESULT(element)
+    INTEGER, INTENT(IN) :: job_priority
+    TYPE(t_job_queue), POINTER :: element
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_pp_scheduler:pp_task_insert")
-    TYPE(t_job_queue), POINTER :: tmp, nb_left, element
+    TYPE(t_job_queue), POINTER :: tmp, nb_left
     INTEGER                    :: ierrstat
 
-    IF (dbg_level > 5) THEN
-      WRITE(message_text,*) "Inserting pp task '", TRIM(task%job_name), "'"
-      CALL message(routine, TRIM(message_text))
-    END IF
-
+    IF (dbg_level > 5) &
+         & CALL message(routine, "Inserting pp task")
+    
     ! find the correct position in list:
     tmp     => job_queue
     nb_left => NULL()
     DO
       IF (.NOT. ASSOCIATED(tmp))                EXIT
-      IF (tmp%job_priority > task%job_priority) EXIT
+      IF (tmp%job_priority > job_priority) EXIT
       nb_left => tmp
       tmp     => tmp%next
     END DO
@@ -1356,10 +1339,9 @@ CONTAINS
       element => job_queue
     END IF
     ! fill new list element with data
-    element      = task
-    element%next => tmp
-
-  END SUBROUTINE pp_task_insert
+    element%job_priority =  job_priority
+    element%next         => tmp
+  END FUNCTION pp_task_insert
 
 
   !------------------------------------------------------------------------------------------------
