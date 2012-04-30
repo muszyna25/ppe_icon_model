@@ -366,8 +366,6 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rhebc
   REAL(KIND=jprb) :: ruvper
 
-
-
   LOGICAL :: lmfpen
   LOGICAL :: lmfscv
   LOGICAL :: lmfmid
@@ -438,39 +436,43 @@ MODULE mo_cuparameters
   !yoecld
   PUBLIC :: rlmin
   !yomcst
-  PUBLIC :: retv      ,rlvtt ,rlstt  ,rtt    ,&
-    & rg       ,rcpd  ,rd    ,rv     ,&
-    & rkappa   ,ratm  ,rpi   ,rlmlt, rcvd
+  PUBLIC :: retv     ,rlvtt    ,rlstt    ,rtt       ,&
+          & rg       ,rcpd     ,rd       ,rv        ,&
+          & rkappa   ,ratm     ,rpi      ,rlmlt     ,&
+          & rcvd     ,rsigma
   !yoecumf
-  PUBLIC ::  entrorg, entrmid, rprcon, rmfcmax, rmfcmin,&
-    & lmfmid   ,detrpen                       ,&
-    & entrpen  ,entrscv   ,lmfdd    ,lmfdudv  ,&
-    & rdepths   ,lmfscv   ,lmfpen             ,&
-    & lmfit     ,rmflic                       ,&
-    & rmflia   ,rmfsoluv                      ,&
-    & ruvper   ,rmfsoltq  ,rmfsolct ,&
-    & lmfsmooth,lmfwstar  ,LMFUVDIS , lmftrac ,&
-    & entrdd   ,& ! njkt1                         ,&
-    ! & njkt2    ,njkt3     ,njkt4    ,njkt5    ,&
-    & rcucov   ,rcpecons  ,rtaumel  ,rhebc    ,&
-    & rmfdeps
+  PUBLIC :: entrorg  ,entrmid  ,rprcon   ,rmfcmax   ,rmfcmin,&
+          & lmfmid   ,detrpen  ,&
+          & entrpen  ,entrscv  ,lmfdd    ,lmfdudv  ,&
+          & rdepths  ,lmfscv   ,lmfpen             ,&
+          & lmfit    ,rmflic                       ,&
+          & rmflia   ,rmfsoluv                     ,&
+          & ruvper   ,rmfsoltq ,rmfsolct ,&
+          & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
+          & entrdd   ,& ! njkt1                    ,&
+        ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
+          & rcucov   ,rcpecons ,rtaumel  ,rhebc    ,&
+          & rmfdeps
   !yoephli
-  PUBLIC ::  lphylin, rlptrc   ,rlpal1   ,rlpal2
+  PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2
   !yoephy
-  PUBLIC ::  lepcld
+  PUBLIC :: lepcld
   !yoevdf
-  PUBLIC ::  rkap, rvdifts, repdu2
+  PUBLIC :: rkap     ,rvdifts  ,repdu2   ,repust   ,rz0ice  ,&
+          & rnum     ,rnuh     ,rnuq     ,rparzi
   !yoethf
-  PUBLIC ::  r2es,    r3les,  r3ies,  r4les, r4ies,  &
-    & r5les,   r5ies,  rvtmp2 ,rhoh2o,r5alvcp,&
-    & r5alscp, ralvdcp,ralsdcp,ralfdcp,       &
-    & rtwat,   rtber,  rtbercu,rtice, rticecu,&
-    & rtwat_rtice_r, rtwat_rticecu_r
+  PUBLIC :: r2es     ,r3les    ,r3ies    ,r4les    ,r4ies   ,&
+          & r5les    ,r5ies    ,rvtmp2   ,rhoh2o   ,r5alvcp ,&
+          & r5alscp  ,ralvdcp  ,ralsdcp  ,ralfdcp  ,&
+          & rtwat    ,rtber    ,rtbercu  ,rtice    ,rticecu ,&
+          & rtwat_rtice_r      ,rtwat_rticecu_r
   !yoevdfs
-  PUBLIC ::  jpritbl, ritbl, aritbl, rcdhalf, rcdhpi2, rcheta, rchetb, rchbb, &
-    & rchbcd, rchbd, rchb23a, rchbbcd, rchba, rimax, dritbl, dri26
-
-  PUBLIC :: phihu, phimu, phims, phihs
+  PUBLIC :: jpritbl  ,ritbl    ,aritbl   ,rcdhalf  ,&
+          & rcdhpi2  ,rcheta   ,rchetb   ,rchbb    ,&
+          & rchbcd   ,rchbd    ,rchb23a  ,rchbbcd  ,&
+          & rchba    ,rchbhdl  ,rimax    ,dritbl   ,dri26
+      
+  PUBLIC :: phihu    ,phimu    ,phims    ,phihs
 
   PUBLIC :: sucst
   PUBLIC :: sucumf
@@ -481,6 +483,7 @@ MODULE mo_cuparameters
   PUBLIC :: suvdfs
   PUBLIC :: dr_hook
   PUBLIC :: lhook
+  PUBLIC :: vdiv, vexp, vrec, vlog
   
 CONTAINS
   
@@ -729,7 +732,7 @@ CONTAINS
   END FUNCTION phihs
 
 
-
+!------------------------------------------------------------------------------
  
  
   SUBROUTINE sucst(kulout,kdat,ksss,kprintlev)
@@ -997,7 +1000,9 @@ CONTAINS
     !RETURN
   END SUBROUTINE sucst
   
-  !     ------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+
   
   SUBROUTINE sucumf(ksmax,klev,pmean,phy_params)
     
@@ -1266,6 +1271,9 @@ CONTAINS
   END SUBROUTINE sucumf
 
 
+!------------------------------------------------------------------------------
+
+
   SUBROUTINE su_yoethf
     !
     !USE PARKIND1  ,ONLY : JPIM     ,JPRB
@@ -1312,7 +1320,9 @@ CONTAINS
 
   END SUBROUTINE su_yoethf
 
-  !     ------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+
 
   SUBROUTINE sucldp
     !
@@ -1415,7 +1425,9 @@ CONTAINS
     !RETURN
   END SUBROUTINE sucldp
 
-  !     ------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+
 
   SUBROUTINE suphli
     !>
@@ -1535,9 +1547,10 @@ CONTAINS
     !RETURN
   END SUBROUTINE suphli
 
-  !     -----------------------------------------------------------------
 
-  !
+!------------------------------------------------------------------------------
+
+
   SUBROUTINE suvdf
     !>
     !! Description:
@@ -1626,6 +1639,10 @@ CONTAINS
 
     !RETURN
   END SUBROUTINE suvdf
+
+
+!------------------------------------------------------------------------------
+
 
   SUBROUTINE suvdfs
     !>
@@ -1804,7 +1821,11 @@ CONTAINS
 
     !RETURN
   END SUBROUTINE suvdfs
-  
+
+
+!------------------------------------------------------------------------------
+
+
   SUBROUTINE DR_HOOK(CH,K1,P1)
     !USE PARKIND1  ,ONLY : JPIM     ,JPRB
     IMPLICIT NONE
@@ -1812,6 +1833,55 @@ CONTAINS
     INTEGER(KIND=JPIM)::K1
     REAL(KIND=JPRB)::P1
   END SUBROUTINE DR_HOOK 
+
+  
+!------------------------------------------------------------------------------
+! Dummy routines vdiv, vexp, vrec (only use when V_MASS>0)
+
+
+  SUBROUTINE vdiv(p1,p2,p3,k1)
+    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
+    IMPLICIT NONE
+    REAL(KIND=jprb)::p1(k1),p2(k1),p3(k1)
+    INTEGER(KIND=jpim)::k1
+  END SUBROUTINE vdiv
+
+  
+!------------------------------------------------------------------------------
+
+  
+  SUBROUTINE vexp(p1,p2,k1)
+    
+    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
+    IMPLICIT NONE
+    INTEGER(KIND=jpim)::k1
+    REAL(KIND=jprb)::p1(k1),p2(k1)
+  END SUBROUTINE vexp
+
+  
+!------------------------------------------------------------------------------
+
+  
+  SUBROUTINE vrec(p1,p2,k1)
+    
+    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
+    IMPLICIT NONE
+    INTEGER(KIND=jpim)::k1
+    REAL(KIND=jprb)::p1(k1),p2(k1)
+  END SUBROUTINE vrec
+
+
+!------------------------------------------------------------------------------
+
+  
+  SUBROUTINE vlog(p1,p2,k1)
+    
+    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
+    IMPLICIT NONE
+    INTEGER(KIND=jpim)::k1
+    REAL(KIND=jprb)::p1(k1),p2(k1)
+  END SUBROUTINE vlog
+
 
 END MODULE mo_cuparameters
 

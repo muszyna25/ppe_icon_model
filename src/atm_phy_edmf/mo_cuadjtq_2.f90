@@ -131,7 +131,8 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
                 & R4IES    ,R5LES    ,R5IES    ,R5ALVCP  ,R5ALSCP  ,& ! -
                 & RALVDCP  ,RALSDCP  ,RTWAT    ,RTICE    ,RTICECU  ,& ! -
                 & RTWAT_RTICE_R      ,RTWAT_RTICECU_R    ,&           ! -
-                & LPHYLIN  ,RLPTRC   ,RLPAL1   ,RLPAL2                !yoephli
+                & LPHYLIN  ,RLPTRC   ,RLPAL1   ,RLPAL2   ,&           !yoephli
+                & vdiv     ,vexp     ,vrec
 USE mo_edmf_param   ,ONLY : &
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFCU ,FOEEWMCU ,FOEDEMCU ,FOELDCPMCU         ,& !fcttre.h
@@ -804,34 +805,5 @@ ENDIF
 IF (LHOOK) CALL DR_HOOK('CUADJTQ',1,ZHOOK_HANDLE)
 END SUBROUTINE CUADJTQ2
 
-! Dummy routines vdiv, vexp, vrec (only use when V_MASS>0)
-
-!=======================================================================
-
-SUBROUTINE vdiv(p1,p2,p3,k1)
-  USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
-  IMPLICIT NONE
-  REAL(KIND=jprb)::p1(:),p2(:),p3(:)
-  INTEGER(KIND=jpim)::k1
-END SUBROUTINE vdiv
-
-!=======================================================================
-
-SUBROUTINE vexp(p1,p2,k1)
-  USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
-  IMPLICIT NONE
-  INTEGER(KIND=jpim)::k1
-  REAL(KIND=jprb)::p1(:),p2(:)
-END SUBROUTINE vexp
-
-!=======================================================================
-
-SUBROUTINE vrec(p1,p2,k1)
-  USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
-  IMPLICIT NONE
-  INTEGER(KIND=jpim)::k1
-  REAL(KIND=jprb)::p1(:),p2(:)
-END SUBROUTINE vrec
-  
 
 END MODULE mo_cuadjtq_2

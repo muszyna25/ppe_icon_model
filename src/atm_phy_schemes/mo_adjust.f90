@@ -81,7 +81,8 @@ MODULE mo_adjust
      &                         r5alscp  ,ralvdcp  ,ralsdcp            ,&
      &                         lphylin  ,rlptrc   ,rlpal1   ,rlpal2   ,&
      &                         retv     ,rtt                          ,&
-     &                         lhook    ,dr_hook
+     &                         lhook    ,dr_hook                      ,&
+     &                         vdiv     ,vexp     ,vrec
 
    IMPLICIT NONE
 
@@ -1190,35 +1191,6 @@ MODULE mo_adjust
     
     IF (lhook) CALL dr_hook('CUADJTQS',1,zhook_handle)
   END SUBROUTINE cuadjtqs
-  
-  !=======================================================================
-  
-  SUBROUTINE vdiv(p1,p2,p3,k1)
-    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
-    IMPLICIT NONE
-    REAL(KIND=jprb)::p1(:),p2(:),p3(:)
-    INTEGER(KIND=jpim)::k1
-  END SUBROUTINE vdiv
-  
-  !=======================================================================
-  
-  SUBROUTINE vexp(p1,p2,k1)
-    
-    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
-    IMPLICIT NONE
-    INTEGER(KIND=jpim)::k1
-    REAL(KIND=jprb)::p1(:),p2(:)
-  END SUBROUTINE vexp
-  
-  !=======================================================================
-  
-  SUBROUTINE vrec(p1,p2,k1)
-    
-    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
-    IMPLICIT NONE
-    INTEGER(KIND=jpim)::k1
-    REAL(KIND=jprb)::p1(:),p2(:)
-  END SUBROUTINE vrec
   
   
 END MODULE mo_adjust

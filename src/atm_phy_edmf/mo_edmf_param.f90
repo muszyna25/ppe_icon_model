@@ -67,6 +67,7 @@ MODULE mo_edmf_param
   LOGICAL :: LEOCWA
   LOGICAL :: LEOCCO
   LOGICAL :: LEFLAKE
+  REAL (KIND = JPRB):: RH_ICE_MIN_FLK   ! Minimum ice thickness [m]
 
 
 !------------------------------------------------------------------------------
@@ -98,12 +99,18 @@ MODULE mo_edmf_param
 ! LSFCFLX : .T. = forcing with surface fluxes (latent and sensible).
 ! REXTSHF : externally supplied sensible heat flux [W/m^2]
 ! REXTLHF : externally supplied latent   heat flux [W/m^2]
+! LROUGH  : .T. = surface roughness length is externally specified 
+! REXTZ0M : externally supplied roughness length for momentum [m]
+! REXTZ0H : externally supplied roughness length for heat [m]
 
 ! * ECMWF Single Column Model:
 LOGICAL :: LSCMEC
 LOGICAL :: LSFCFLX
 REAL(KIND=JPRB) :: REXTSHF
 REAL(KIND=JPRB) :: REXTLHF
+LOGICAL :: LROUGH
+REAL(KIND=JPRB) :: REXTZ0M
+REAL(KIND=JPRB) :: REXTZ0H
 
 
 !------------------------------------------------------------------------------
@@ -128,12 +135,20 @@ INTEGER(KIND=JPIM) :: NULERR=0
 REAL(KIND=JPRB) :: REPUST=0.0001_JPRB ! MINIMUM FRICTION VELOCITY (SECURITY PARAMETER)
 
 
+!------------------------------------------------------------------------------
+! yos_veg.F90 (part)
+!------------------------------------------------------------------------------
+REAL(KIND=JPRB),ALLOCATABLE :: RVZ0M(:)      ! ROUGHNESS LENGTH FOR MOMENTUM
+REAL(KIND=JPRB),ALLOCATABLE :: RVZ0H(:)      ! ROUGHNESS LENGTH FOR HEAT 
+REAL(KIND=JPRB),ALLOCATABLE :: RVTRSR(:)     ! TRANSMISSION OF NET SOLAR RAD. 
+
 
 !------------------------------------------------------------------------------
 
   PUBLIC :: FOEALFA  ,FOEEWM   ,FOEDEM   ,FOELDCPM, &
-          & FOEALFCU ,FOEEWMCU ,FOEDEMCU ,FOELDCPMCU
-  PUBLIC :: suct0, su0phy, susekf
+          & FOEALFCU ,FOEEWMCU ,FOEDEMCU ,FOELDCPMCU, &
+          & PSIHU    ,PSIMU    ,PSIHS    ,PSIMS
+  PUBLIC :: suct0, su0phy, susekf, susveg, abort_surf
 
 CONTAINS
 
@@ -228,6 +243,83 @@ END FUNCTION FOELDCPMCU
 !------------------------------------------------------------------------------
 
 
+!     ------------------------------------------------------------------
+! fcsvdfs.h
+!
+!     *FCVDFS** CONTAINS STATEMENT FUNCTIONS DESCRIBING STAB. FUNCT.
+!
+!     A.C.M. BELJAARS    E.C.M.W.F.      26/03/90.
+!
+!     ------------------------------------------------------------------
+!
+!          *THE STABILITY FUNCTIONS ARE THE SO-CALLED *PHI* AND
+!     *PSI*-FUNCTIONS. THE *PSI*-FUNCTIONS GIVE THE STABILITY
+!     CORRECTIONS IN THE LOGARITHMIC PROFILES FOR
+!     WIND, DRY STATIC ENERGY AND SPECIFIC HUMIDITY. THE FUNCTIONS
+!     DEPEND ON THE RATIO OF HEIGHT AND *OBUKHOV LENGTH (*ETA*).
+!          FOR THE UNSTABLE BOUNDARY LAYER, THE *DYER AND *HICKS
+!     FORMULATIONS ARE USED (CF. *DYER, 1974; *HOGSTROM, 1988). IN
+!     STABLE SITUATIONS, THE EMPIRICAL FORMS, PROPOSED BY *HOLTSLAG
+!     AND *DEBRUIN ARE USED WITH A MODIFICATION TO SATISFY A CRITICAL
+!     FLUX-*RICHARDSON NUMBER FOR LARGE *ETA*.
+!          THE *PHI* AND *PSI* FUNCTIONS ARE INTERRELATED. THE *PSI*
+!     FUNCTIONS CAN BE DERIVED FROM THE *PHI* FUNCTIONS BY INTEGRATION
+!     OF (1.-PHI)/ETA OR *PHI* FROM *PSI* BY COMPUTING
+!     (1.-ETA*DPSI/DETA) (SEE ALSO *HAUGEN, 1973; WORKSHOP ON
+!     MICROMETEOROLOGY, P. 77).
+!
+!
+!     ------------------------------------------------------------------
+!
+!        *PHI AND *PSI FUNCTIONS FOR UNSTABLE SITUATIONS ACCORDING
+!        TO *DYER AND *HICKS
+!        3/2/03 Modification, J.Hague  X**1.5 -> X*SQRT(X)
+!
+!     ------------------------------------------------------------------
+
+ELEMENTAL FUNCTION psihu(peta)
+  USE mo_cuparameters ,ONLY   :  rcdhalf
+  REAL(KIND=JPRB)             :: PSIHU
+  REAL(KIND=JPRB), INTENT(in) :: PETA
+  PSIHU= 2.0_JPRB*LOG((1.0_JPRB+     SQRT(1.0_JPRB-RCDHALF*PETA))*0.5_JPRB )
+END FUNCTION psihu
+
+ELEMENTAL FUNCTION psimu(peta)
+  USE mo_cuparameters ,ONLY   :  rcdhalf, rcdhpi2
+  REAL(KIND=JPRB)             :: PSIMU
+  REAL(KIND=JPRB), INTENT(in) :: PETA
+  PSIMU= LOG((1.0_JPRB+SQRT( SQRT(1.0_JPRB-RCDHALF*PETA)))**2 &
+        &*(1.0_JPRB+         SQRT(1.0_JPRB-RCDHALF*PETA) ) *0.125_JPRB )&
+        &-2.0_JPRB*ATAN(SQRT(SQRT(1.0_JPRB-RCDHALF*PETA)))&
+        &+ RCDHPI2
+END FUNCTION psimu
+
+!        *PHI AND *PSI FUNCTIONS FOR UNSTABLE SITUATIONS ACCORDING
+!        TO HOGSTROM FOR MOMENTUM AND DERIVED FROM THE ELLISON AND
+!        TURNER RELATION FOR THE RATIO OF PHIM AMD PHIH.
+
+!     PSI FUNCTIONS NOT COMPATIBLE WITH PHI FUNCTIONS IN THE STABLE CASE
+
+ELEMENTAL FUNCTION psihs(peta)
+  USE mo_cuparameters ,ONLY   :  rchbb, rchbcd, rchbd, rchb23a, rchbbcd
+  REAL(KIND=JPRB)             :: PSIHS
+  REAL(KIND=JPRB), INTENT(in) :: PETA
+  PSIHS= -RCHBB*(PETA-RCHBCD)*EXP  (-RCHBD*PETA)&
+        &-(1.0_JPRB+RCHB23A*PETA)*SQRT(1.0_JPRB+RCHB23A*PETA)-RCHBBCD+1.0_JPRB
+END FUNCTION psihs
+
+ELEMENTAL FUNCTION psims(peta)
+  USE mo_cuparameters ,ONLY   :  rchbb, rchbcd, rchbd, rchba, rchbbcd
+  REAL(KIND=JPRB)             :: PSIMS
+  REAL(KIND=JPRB), INTENT(in) :: PETA
+  PSIMS= -RCHBB*(PETA-RCHBCD)*EXP  (-RCHBD*PETA)&
+        &-RCHBA*PETA - RCHBBCD
+END FUNCTION psims
+
+
+!------------------------------------------------------------------------------
+
+
 SUBROUTINE suct0
 !**** *SUCT0*   - Routine to initialize level 0 control common
 
@@ -239,6 +331,7 @@ SUBROUTINE suct0
 LSCMEC=.FALSE.
 
 END SUBROUTINE suct0
+
 
 !------------------------------------------------------------------------------
 
@@ -255,8 +348,10 @@ LVDFTRAC=.TRUE.
 LEOCWA=.FALSE.
 LEOCCO=.FALSE.
 LEFLAKE=.FALSE.
+RH_ICE_MIN_FLK  = 1.0E-9_JPRB          ! Minimum ice thickness [m]
 
 END SUBROUTINE su0phy
+
 
 !------------------------------------------------------------------------------
 
@@ -273,6 +368,89 @@ LUSEKF_REF=.FALSE.
 LUSE_JATM = .False.  ! Switch to offline jacobians
 
 END SUBROUTINE susekf
+
+
+!------------------------------------------------------------------------------
+
+
+SUBROUTINE SUSVEG
+!**   *SUSVEG* IS THE SET-UP ROUTINE FOR COMMON BLOCK *YOS_VEG*
+
+!     PURPOSE
+!     -------
+!          THIS ROUTINE INITIALIZES THE CONSTANTS IN COMMON BLOCK
+!     *YOS_VEG*
+
+INTEGER(KIND=JPIM) ::  NVTYPES, IVTYPES
+
+! Number of vegetation types
+NVTYPES=20
+IVTYPES = MAX(NVTYPES,20)
+
+! Roughness length for momentum (Mahfouf et al. 1995)
+
+IF(.NOT.ALLOCATED(RVZ0M)) ALLOCATE (RVZ0M(0:IVTYPES))
+RVZ0M(1)=0.15_JPRB     ! Crops, Mixed Farming
+RVZ0M(2)=0.02_JPRB     ! Short Grass
+RVZ0M(3)=2.00_JPRB     ! Evergreen Needleleaf Trees
+RVZ0M(4)=2.00_JPRB     ! Deciduous Needleleaf Trees
+RVZ0M(5)=2.00_JPRB     ! Deciduous Broadleaf Trees
+RVZ0M(6)=2.00_JPRB     ! Evergreen Broadleaf Trees
+RVZ0M(7)=0.10_JPRB     ! Tall Grass
+RVZ0M(8)=0.013_JPRB    ! Desert                    # Masson et al.
+RVZ0M(9)=0.05_JPRB     ! Tundra
+RVZ0M(10)=0.15_JPRB    ! Irrigated Crops           # Crops type 1
+RVZ0M(11)=0.05_JPRB    ! Semidesert 
+RVZ0M(12)=0.0013_JPRB  ! Ice Caps and Glaciers     # Mason et al. 
+RVZ0M(13)=0.05_JPRB    ! Bogs and Marshes
+RVZ0M(14)=0.0001_JPRB  ! Inland Water              # Not used but needs value here
+RVZ0M(15)=0.0001_JPRB  ! Ocean                     # Not used but needs value here
+RVZ0M(16)=0.10_JPRB    ! Evergreen Shrubs
+RVZ0M(17)=0.10_JPRB    ! Deciduous Shrubs
+RVZ0M(18)=2.00_JPRB    ! Mixed Forest/woodland
+RVZ0M(19)=0.50_JPRB    ! Interrupted Forest        # New value invented here
+RVZ0M(20)=0.02_JPRB    ! Water and Land Mixtures   # Not used but needs value here
+RVZ0M(0)=RVZ0M(8)      !                           # Bare soil value
+
+! Roughness length for heat
+
+IF(.NOT.ALLOCATED(RVZ0H)) ALLOCATE (RVZ0H(0:IVTYPES))
+RVZ0H(1)=RVZ0M( 1)/10._JPRB     ! Crops, Mixed Farming
+RVZ0H(2)=RVZ0M( 2)/10._JPRB     ! Short Grass
+RVZ0H(3)=RVZ0M( 3)              ! Evergreen Needleleaf Trees
+RVZ0H(4)=RVZ0M( 4)              ! Deciduous Needleleaf Trees
+RVZ0H(5)=RVZ0M( 5)              ! Deciduous Broadleaf Trees
+RVZ0H(6)=RVZ0M( 6)              ! Evergreen Broadleaf Trees
+RVZ0H(7)=RVZ0M( 7)/10._JPRB     ! Tall Grass
+RVZ0H(8)=RVZ0M( 8)/10._JPRB     ! Desert 
+RVZ0H(9)=RVZ0M( 9)/10._JPRB     ! Tundra
+RVZ0H(10)=RVZ0M(10)/10._JPRB    ! Irrigated Crops 
+RVZ0H(11)=RVZ0M(11)/10._JPRB    ! Semidesert 
+RVZ0H(12)=RVZ0M(12)/10._JPRB    ! Ice Caps and Glaciers 
+RVZ0H(13)=RVZ0M(13)/10._JPRB    ! Bogs and Marshes
+RVZ0H(14)=RVZ0M(14)/10._JPRB    ! Inland Water  
+RVZ0H(15)=RVZ0M(15)/10._JPRB    ! Ocean 
+RVZ0H(16)=RVZ0M(16)/10._JPRB    ! Evergreen Shrubs
+RVZ0H(17)=RVZ0M(17)/10._JPRB    ! Deciduous Shrubs
+RVZ0H(18)=RVZ0M(18)             ! Mixed Forest/woodland
+RVZ0H(19)=RVZ0M(19)/10._JPRB    ! Interrupted Forest 
+RVZ0H(20)=RVZ0M(20)/10._JPRB    ! Water and Land Mixtures 
+RVZ0H(0)=RVZ0H(8)        
+
+END SUBROUTINE SUSVEG
+
+
+!------------------------------------------------------------------------------
+
+
+SUBROUTINE ABORT_SURF(text)
+  USE mo_io_units, ONLY: nerr
+  USE mo_mpi, ONLY: p_abort
+  CHARACTER (len=*), INTENT(in) :: text
+  WRITE (nerr,'(a)')  TRIM(text)
+  CALL p_abort
+END SUBROUTINE ABORT_SURF
+
 
 
 END MODULE mo_edmf_param
