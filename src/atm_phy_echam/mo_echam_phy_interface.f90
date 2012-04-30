@@ -164,7 +164,7 @@ CONTAINS
     INTEGER:: temp_comm, tracers_comm  ! communicators
     INTEGER:: return_status
     CHARACTER(*), PARAMETER :: method_name = "echam_phy_interface"
-    
+
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
@@ -616,10 +616,6 @@ CONTAINS
       DEALLOCATE(zdudt, zdvdt)
  
   END IF !any_uv_tend
-
-  CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%temp )
-  CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=prm_tend(jg)%q, &
-       &                        lpart4d=.TRUE.) 
 
    IF (use_icon_comm) THEN
      CALL icon_comm_sync_all()
