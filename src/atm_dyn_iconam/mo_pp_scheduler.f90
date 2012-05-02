@@ -133,7 +133,6 @@ MODULE mo_pp_scheduler
   ! data types
   PUBLIC :: t_simulation_status
 
-
   !--- JOB QUEUE DEFINITION ----------------------------------------------------------
 
 
@@ -741,7 +740,7 @@ CONTAINS
           prefix  =  "z-level"
           varlist => hl_varlist
           nvars   =  nvars_hl
-          nlev    =  task%data_input%nh_pzlev_config%nzlev
+          nlev    =  nh_pzlev_config(jg)%nzlev
           vgrid   =  ZAXIS_ALTITUDE
           p_opt_diag_list => p_opt_diag_list_z
         END IF
@@ -749,7 +748,7 @@ CONTAINS
           prefix  =  "p-level"
           varlist => pl_varlist
           nvars   =  nvars_pl
-          nlev    =  task%data_input%nh_pzlev_config%nplev
+          nlev    =  nh_pzlev_config(jg)%nplev
           vgrid   =  ZAXIS_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
         END IF
@@ -822,9 +821,20 @@ CONTAINS
                 &  //", DOM "//TRIM(int2string(jg))
               task%job_type        =  TASK_INTP_VER_PZLEV
               task%activity        =  new_simulation_status(l_output_step=.TRUE.)
+              task%data_input%jg               =  jg 
+              task%data_input%p_patch          => p_patch(jg)          
+              task%data_input%p_int_state      => NULL()
+              task%data_input%p_nh_state       => p_nh_state(jg)
+              task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
+              task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
+              IF (l_init_prm_diag) THEN
+                task%data_input%prm_diag       => prm_diag(jg)
+              ELSE
+                task%data_input%prm_diag       => NULL() 
+              END IF
               task%data_input%var  => element%field       ! set input variable
               task%data_output%var => new_element%field   ! set output variable
-            
+
               found = .TRUE.
 
             ENDDO ! loop over vlist "i"
