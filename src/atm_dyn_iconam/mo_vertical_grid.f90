@@ -588,7 +588,7 @@ MODULE mo_vertical_grid
 
             ! Empirically determined values to ensure stability over steep slopes
             z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp)
-            z_offctr =   MIN(0.5_wp,z_offctr)
+            z_offctr =   MIN(MAX(vwind_offctr,0.5_wp),z_offctr)
 
             p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 0.5_wp - z_offctr
             p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = 0.5_wp + z_offctr
