@@ -433,8 +433,9 @@ MODULE mo_nh_stepping
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
 
-    IF (msg_level >= 5) THEN ! print maximum velocities in global domain
+    IF (msg_level >= 5 .AND. MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
 
+      ! print maximum velocities in global domain
       p_vn => p_nh_state(1)%prog(nnow(1))%vn
       p_w  => p_nh_state(1)%prog(nnow(1))%w
 
