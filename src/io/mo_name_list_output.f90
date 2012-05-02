@@ -3822,11 +3822,14 @@ CONTAINS
     ! Convert mb_get/mb_wr to MB
     mb_get = mb_get*8*1.d-6
     mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
+    ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
+#ifndef __SX__
     IF (msg_level >= 12) THEN
       PRINT '(10(a,f10.3))',' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get,&
         ' MB/s], time write: ',t_write,' s [',mb_wr/t_write, &
         ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
     ENDIF
+#endif
 
   END SUBROUTINE io_proc_write_name_list
 
