@@ -35,6 +35,11 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
@@ -242,13 +247,9 @@ CONTAINS
 
 
 !$OMP PARALLEL
-#ifdef __xlC__
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic, &
-!$OMP            t_g_s,qv_s_s,jk), SCHEDULE(guided)
-#else
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic, &
-!$OMP            t_g_s,qv_s_s,jk), SCHEDULE(guided)
-#endif
+!$OMP            t_g_s,qv_s_s,jk) ICON_OMP_GUIDED_SCHEDULE
+
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
