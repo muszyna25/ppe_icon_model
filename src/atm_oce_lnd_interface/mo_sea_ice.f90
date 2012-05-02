@@ -1950,9 +1950,6 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     !  Compute longwave radiation according to 
-    !         Koch 1988: A coupled Sea Ice - Atmospheric Boundary Layer Model,
-    !                    Beitr.Phys.Atmosph., 61(4), 344-354.
-    !  or (ifdef QLOBERL)
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
     !         long-wave radiation of the Earth with consideration of the effect
     !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
