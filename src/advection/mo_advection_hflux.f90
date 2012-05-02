@@ -2681,6 +2681,7 @@ CONTAINS
       SELECT  CASE( lsq_high_ord )
       CASE( 2 )  ! quadratic reconstruction
 
+!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
