@@ -448,12 +448,15 @@ echo "Script run successfully: $finish_status"
 echo "============================"
 #-----------------------------------------------------------------------------
 
+
 #-----------------------------------------------------------------------------
 namelist_list=""
-cd $RUNSCRIPTDIR
 #-----------------------------------------------------------------------------
+# check if we have to restart, ie resubmit
+#   Note: this is a different mechanism from checking the restart
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
+  cd $RUNSCRIPTDIR
   this_script=$job_name
   mv $this_script $this_script.tmp
   echo  "restart=.true." > $this_script
@@ -461,6 +464,55 @@ if [ $finish_status = "RESTART" ] ; then
   chmod +x $this_script
   $submit $this_script    
 fi
+
+
+#-----------------------------------------------------------------------------
+# check if we test the restart mechanism
+get_last_1_restart()
+{
+  model_restart_param=$1
+  restart_list=`ls restart.*${model_restart_param}.nc`
+  
+  last_restart=""
+  last_1_restart=""  
+  for restart_file in $restart_list
+  do
+    last_1_restart=$last_restart
+    last_restart=$restart_file
+
+    echo $restart_file $last_restart $last_1_restart
+  done  
+}
+
+
+restart_atmo_from=""
+restart_ocean_from=""
+if [ x$test_restart = "xtrue" ] ; then
+  # follows a restart run in the same script
+  # set up the restart parameters
+  restart_from_folder=${EXPNAME}
+  # get the previous from last rstart file for atmo
+  get_last_1_restart "atm"
+  if [ x$last_1_restart != x ] ; then
+    restart_atmo_from=$last_1_restart
+  fi
+  get_last_1_restart "oce"
+  if [ x$last_1_restart != x ] ; then
+    restart_ocean_from=$last_1_restart
+  fi
+  
+  EXPNAME=${EXPNAME}_restart
+  test_restart="false"
+fi
+
+#-----------------------------------------------------------------------------
+if [ x$restart_atmo_from = x && x$restart_ocean_from = x ] ; then
+  exit
+fi
+
+cd $RUNSCRIPTDIR
+#-----------------------------------------------------------------------------
+
 
 # exit 0
 #-----------------------------------------------------------------------------

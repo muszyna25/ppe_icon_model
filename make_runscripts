@@ -179,39 +179,6 @@ do
 done
 #==============================================================================
 
-# for filename in $exp_list
-# do
-#   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-#     # Note: hydrostatic ocean model (hom) not yet parallelized
-#     name=${filename#*.}
-#     if [[ ${name} == test* ]]; then
-#       queue="$use_queue"
-#     else
-#       queue="default"
-#     fi
-# 
-#     if [[ ${name} == test_hom_* ]]; then
-#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-#       memory_model="large" cpu_time="01:00:00" queue="express"
-#     elif [[ ${name} == *hom_* ]]; then
-#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-#       mpi_procs=1 memory_model="large" cpu_time="08:00:00"
-#     elif [[ ${name} == *_nwp_* ]] ; then
-#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-#       cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
-#     elif [[ ${name} == *_nah_jww* ]] ; then
-#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-#       cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
-#     elif [[ ${name} == *_nh35_tri_jws* ]] ; then
-#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-#       cpu_time="03:00:00" memory_model="small" queue="$queue"
-#     else
-#       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-#       cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
-#     fi
-#   fi
-# done
-#==============================================================================
 
 #==============================================================================
 # use express queue for some of the builtbot seq,openmp experiments on blizzard
@@ -257,7 +224,7 @@ done
 
 
 #==============================================================================
-# following is the section for cretaing the restart tests
+# following is the section for creating the restart tests
 #==============================================================================
 
 #==============================================================================
@@ -273,29 +240,18 @@ done
 name=test_hat_jww-moist_cld-cnv-vdf
 
 if [ $make_restart_exp = "true" ] ; then
-  restart_script=${name}_restart.tmp
-  tmp_file=$input_folder/$restart_script
-cat > $tmp_file << EOF
-restart_from_folder="$name"
-restart_atmo_from="restart.iconR2B04-grid_20080902T000000Z_atm.nc"
-EXPNAME=${name}_restart
-EOF
-
+  
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" test_restart="true" \
     queue="$queue" cpu_time="02:00:00"
 
-  rm $tmp_file
 fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  restart_1="../experiments/${name}/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
-  restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
   out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-    restart_1="$restart_1" restart_2="$restart_2"  diff_file="$out_file"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" EXPNAME="$name" diff_file="$out_file"
 fi
 
 
@@ -306,29 +262,18 @@ fi
 name=test_hat_jww
 
 if [ $make_restart_exp = "true" ] ; then
-  restart_script=${name}_restart.tmp
-  tmp_file=$input_folder/$restart_script
-cat > $tmp_file << EOF
-restart_from_folder="$name"
-restart_atmo_from="restart.iconR2B04-grid_20080906T000000Z_atm.nc"
-EXPNAME=${name}_restart
-EOF
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" test_restart="true" \
     queue="$use_queue" cpu_time="04:00:00"
 
-  rm $tmp_file
 fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  restart_1="../experiments/${name}/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
-  restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
   out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-    restart_1="$restart_1" restart_2="$restart_2"  diff_file="$out_file"
+    EXPNAME="$name" with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" diff_file="$out_file"
 fi
 
 
@@ -341,29 +286,18 @@ queue="express"
 name=test_hom_lsm
 
 if [ $make_restart_exp = "true" ] ; then
-  restart_script=${name}_restart.tmp
-  tmp_file=$input_folder/$restart_script
-cat > $tmp_file << EOF
-restart_from_folder="$name"
-restart_ocean_from="restart.iconR2B04-ocean_etopo40_planet_20010101T120000Z_oce.nc"
-EXPNAME=${name}_restart
-EOF
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"  test_restart="true" \
     mpi_procs=1 queue="$queue" cpu_time="01:00:00"
-
-  rm $tmp_file
+  
 fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20010102T000000Z_oce.nc"
-  restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20010102T000000Z_oce.nc"
   out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-    restart_1="$restart_1" restart_2="$restart_2"  diff_file="$out_file"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" diff_file="$out_file"
 fi
 
 #==============================================================================
@@ -376,29 +310,18 @@ queue="$use_queue"
 name=test_nh35_tri_jws
 
 if [ $make_restart_exp = "true" ] ; then
-  restart_script=${name}_restart.tmp
-  tmp_file=$input_folder/$restart_script
-cat > $tmp_file << EOF
-restart_from_folder="$name"
-restart_atmo_from="restart.iconR2B04-grid_20080907T000000Z_atm.nc"
-EXPNAME=${name}_restart
-EOF
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" test_restart="true" \
     queue="$queue" cpu_time="03:00:00" memory_model="small"
         
-  rm $tmp_file
 fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  restart_1="../experiments/${name}/restart.iconR2B04-grid_20080913T000000Z_atm.nc"
-  restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080913T000000Z_atm.nc"
   out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-    restart_1="$restart_1" restart_2="$restart_2"  diff_file="$out_file"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" diff_file="$out_file"
 fi
 #==============================================================================
 
