@@ -1508,11 +1508,8 @@ CONTAINS
 
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
-              ! #slo# 2011-11-17 - for MPIOM comparison - set T to 5C/35psu  horiz. and vert. homogen
-              !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
               IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
-                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               END IF
             END IF
 
@@ -1520,6 +1517,33 @@ CONTAINS
         END DO
       END DO
       ! p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
+
+    CASE (46)
+    ! T and S are horizontally and vertically homegeneous
+    ! Values are hardcoded and used for comparison with MPIOM
+      CALL message(TRIM(routine), 'Initialization of testcases (46)')
+      CALL message(TRIM(routine), &
+        &  ' - here: horizontally and vertically homogen')
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk=1,n_zlev
+
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              ! #slo# 2011-11-17 - for MPIOM comparison - set T to 5C/35psu
+              ! #slo# 2012-05-02 - for MPIOM comparison - set T to 1C/34.8psu
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 1.0_wp
+              IF (no_tracer == 2) THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
+              END IF
+            END IF
+
+          END DO
+        END DO
+      END DO
 
     CASE (50)
     ! Testcase for coupled Aquaplanet:
