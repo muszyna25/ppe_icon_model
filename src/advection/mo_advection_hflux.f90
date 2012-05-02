@@ -2533,7 +2533,6 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-!DR    CALL sync_patch_array_4de3(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
     CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
 

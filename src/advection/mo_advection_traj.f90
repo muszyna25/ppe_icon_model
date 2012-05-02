@@ -67,8 +67,9 @@ MODULE mo_advection_traj
   USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, new_timer
   USE mo_math_utilities,      ONLY: ccw, lintersect, line_intersect, t_line, &
-    &                               t_geographical_coordinates
-  USE mo_exception,           ONLY: finish, message, message_text
+       &                               t_geographical_coordinates
+  USE mo_run_config,          ONLY: msg_level
+!DR  USE mo_exception,           ONLY: finish, message, message_text
 
 
   IMPLICIT NONE
@@ -107,46 +108,46 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
   !!
   SUBROUTINE btraj( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
-    &               p_distv_bary, opt_rlstart, opt_rlend, opt_slev,       &
-    &               opt_elev )
+       &               p_distv_bary, opt_rlstart, opt_rlend, opt_slev,       &
+       &               opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
-      &  ptr_p
+         &  ptr_p
 
     TYPE(t_int_state), TARGET, INTENT(in) ::  &  !< pointer to data structure for interpolation
-      &  ptr_int
+         &  ptr_int
 
     REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
-      &  p_vn(:,:,:)
+         &  p_vn(:,:,:)
 
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
-      &  p_vt(:,:,:)               !< edge midpoints
+         &  p_vt(:,:,:)               !< edge midpoints
 
     REAL(wp), INTENT(IN)    ::  &  !< $0.5 \Delta t$
-      &  p_dthalf
+         &  p_dthalf
 
     REAL(wp), INTENT(OUT)   ::  &  !< distance vectors cell center --> barycenter of
-      &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
-                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+         &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
+    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(OUT)    ::  &  !< line and block indices of cell centers in which the
-      &  p_cell_indices(:,:,:,:)   !< calculated barycenters are located.
-                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+         &  p_cell_indices(:,:,:,:)   !< calculated barycenters are located.
+    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-      &  opt_rlstart
+         &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-      &  opt_rlend                     !< (to avoid calculation of halo points)
+         &  opt_rlend                     !< (to avoid calculation of halo points)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
+         &  opt_slev
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
+         &  opt_elev
 
     REAL(wp) :: z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
-                                        !< 'tangential' coordinates.
+    !< 'tangential' coordinates.
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
     INTEGER :: nlev              !< number of full levels
@@ -155,7 +156,7 @@ CONTAINS
     INTEGER :: slev, elev        !< vertical start and end level
     LOGICAL :: lvn_pos
 
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -190,7 +191,7 @@ CONTAINS
 
     i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
-    
+
     !-------------------------------------------------------------------------
     IF (timers_level > 5) THEN
       timer_back_traj_o1 = new_timer("back_traj_o1", timer_back_traj_o1)
@@ -201,8 +202,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-     CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
-                        i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+           i_startidx, i_endidx, i_rlstart, i_rlend)
 
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
@@ -224,22 +225,22 @@ CONTAINS
 
           ! line and block indices of neighbor cell with barycenter
           p_cell_indices(je,jk,jb,1) = &
-            & MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+               & MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
 
           p_cell_indices(je,jk,jb,2) = &
-            & MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
+               & MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
           ! Calculate the distance cell center --> barycenter for the cell,
           ! in which the barycenter is located. The distance vector points
           ! from the cell center to the barycenter.
           z_ntdistv_bary(1) =  - ( p_vn(je,jk,jb) * p_dthalf     &
-            & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1),        &
-            &         ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos))
+               & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1),        &
+               &         ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos))
 
           z_ntdistv_bary(2) =  - ( p_vt(je,jk,jb) * p_dthalf     &
-            & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2),        &
-            &         ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos))
+               & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2),        &
+               &         ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos))
 
           ! In a last step, transform this distance vector into a rotated
           ! geographical coordinate system with its origin at the circumcenter
@@ -248,24 +249,24 @@ CONTAINS
 
           ! component in longitudinal direction
           p_distv_bary(je,jk,jb,1) =                                                        &
-            &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
-            &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
-            & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
-            &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
+               &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
+               &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
+               & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
+               &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           ! component in latitudinal direction
           p_distv_bary(je,jk,jb,2) =                                                        &
-            &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
-            &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
-            & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
-            &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
+               &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
+               &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
+               & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
+               &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-    
+
     IF (timers_level > 5) CALL timer_stop(timer_back_traj_o1)
 
   END SUBROUTINE btraj
@@ -306,60 +307,60 @@ CONTAINS
   !!   edge system-orientation.
   !!
   SUBROUTINE btraj_dreg( ptr_p, ptr_int, p_vn, p_vt, p_dt, p_cell_indices,  &
-    &                    p_coords_dreg_v, opt_rlstart, opt_rlend, opt_slev, &
-    &                    opt_elev )
+       &                    p_coords_dreg_v, opt_rlstart, opt_rlend, opt_slev, &
+       &                    opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::     &  !< patch on which computation is performed
-      &  ptr_p
+         &  ptr_p
 
     TYPE(t_int_state), TARGET, INTENT(IN) :: &  !< pointer to data structure for interpolation
-      &  ptr_int
+         &  ptr_int
 
     REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
-      &  p_vn(:,:,:)
+         &  p_vn(:,:,:)
 
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
-      &  p_vt(:,:,:)               !< edge midpoints
+         &  p_vt(:,:,:)               !< edge midpoints
 
     REAL(wp), INTENT(IN)    ::  &  !< time step $\Delta t$
-      &  p_dt
+         &  p_dt
 
     REAL(wp), INTENT(OUT) ::    &  !< coordinates of departure region vertices. The origin
-      &  p_coords_dreg_v(:,:,:,:,:)!< of the coordinate system is at the circumcenter of
-                                   !< the upwind cell. Unit vectors point to local East
-                                   !< and North. (geographical coordinates)
-                                   !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
+         &  p_coords_dreg_v(:,:,:,:,:)!< of the coordinate system is at the circumcenter of
+    !< the upwind cell. Unit vectors point to local East
+    !< and North. (geographical coordinates)
+    !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(OUT)  ::    &  !< line and block indices of upwind cell
-      &  p_cell_indices(:,:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+         &  p_cell_indices(:,:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-      &  opt_rlstart
+         &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-      &  opt_rlend                     !< (to avoid calculation of halo points)
+         &  opt_rlend                     !< (to avoid calculation of halo points)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
+         &  opt_slev
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
+         &  opt_elev
 
     REAL(wp), POINTER  ::  &       !< pointer to coordinates of edge vertices
-      &  ptr_ve(:,:,:,:)           !< on tangent plane
+         &  ptr_ve(:,:,:,:)           !< on tangent plane
 
     REAL(wp) ::            &       !< coordinates of departure points 
-      &  depart_pts(2,2)           !< in edge-based coordinate system
+         &  depart_pts(2,2)           !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
-      &  pos_dreg_vert_c(4,2)      !< as seen from translated coordinate system.
-                                   !< origin at circumcenter of upwind cell
+         &  pos_dreg_vert_c(4,2)      !< as seen from translated coordinate system.
+    !< origin at circumcenter of upwind cell
 
     REAL(wp) ::            &       !< position on tangential plane depending
-      &  pos_on_tplane_e(2)        !< on the sign of vn
+         &  pos_on_tplane_e(2)        !< on the sign of vn
 
     REAL(wp) ::            &       !< primal and dual normals of cell lying
-      &  pn_cell(2), dn_cell(2)    !< in the direction of vn
+         &  pn_cell(2), dn_cell(2)    !< in the direction of vn
 
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -367,7 +368,7 @@ CONTAINS
     INTEGER :: slev, elev          !< vertical start and end level
     LOGICAL :: lvn_pos             !< vn > 0: TRUE/FALSE
     LOGICAL :: lvn_sys_pos         !< vn*system_orient > 0
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
 
     ! Check for optional arguments
@@ -411,8 +412,8 @@ CONTAINS
 !$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,lvn_sys_pos) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-     CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
-                        i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
+           i_startidx, i_endidx, i_rlstart, i_rlend)
 
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
@@ -453,9 +454,9 @@ CONTAINS
 
           ! get line and block indices of upwind cell
           p_cell_indices(je,jk,jb,1) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
-            &                                ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+               &                                ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
           p_cell_indices(je,jk,jb,2) = MERGE(ptr_p%edges%cell_blk(je,jb,1),       &
-            &                                ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
+               &                                ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
           ! departure points of the departure cell. Point 1 belongs to edge-vertex 1, 
@@ -477,10 +478,10 @@ CONTAINS
 
           ! determine correct position on tangential plane
           pos_on_tplane_e(1) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1), &
-            &                        ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
+               &                        ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
 
           pos_on_tplane_e(2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2), &
-            &                        ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
+               &                        ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
 
           ! Calculate position of departure region vertices in a translated
           ! coordinate system. The origin is located at the circumcenter
@@ -492,16 +493,16 @@ CONTAINS
           pos_dreg_vert_c(1,1:2) = ptr_ve(je,jb,1,1:2) - pos_on_tplane_e(1:2)
 
           pos_dreg_vert_c(2,1)   = MERGE(depart_pts(1,1),ptr_ve(je,jb,2,1),lvn_sys_pos) &
-            &                    - pos_on_tplane_e(1)
+               &                    - pos_on_tplane_e(1)
           pos_dreg_vert_c(2,2)   = MERGE(depart_pts(1,2),ptr_ve(je,jb,2,2),lvn_sys_pos) &
-            &                    - pos_on_tplane_e(2)
+               &                    - pos_on_tplane_e(2)
 
           pos_dreg_vert_c(3,1:2) = depart_pts(2,1:2) - pos_on_tplane_e(1:2)
 
           pos_dreg_vert_c(4,1)   = MERGE(ptr_ve(je,jb,2,1),depart_pts(1,1),lvn_sys_pos) &
-            &                    - pos_on_tplane_e(1)
+               &                    - pos_on_tplane_e(1)
           pos_dreg_vert_c(4,2)   = MERGE(ptr_ve(je,jb,2,2),depart_pts(1,2),lvn_sys_pos) &
-            &                    - pos_on_tplane_e(2)
+               &                    - pos_on_tplane_e(2)
 
 
 
@@ -512,43 +513,43 @@ CONTAINS
           !
           ! Determine primal and dual normals of the cell lying in the direction of vn
           pn_cell(1) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,       &
-            &                ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
+               &                ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
 
           pn_cell(2) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,       &
-            &                ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
+               &                ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
 
           dn_cell(1) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,       &
-            &                ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
+               &                ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           dn_cell(2) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,       &
-            &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
+               &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
           ! components in longitudinal direction
           p_coords_dreg_v(je,1,1,jk,jb) =                                         &
-            & pos_dreg_vert_c(1,1) * pn_cell(1) + pos_dreg_vert_c(1,2) * dn_cell(1)
+               & pos_dreg_vert_c(1,1) * pn_cell(1) + pos_dreg_vert_c(1,2) * dn_cell(1)
 
           p_coords_dreg_v(je,2,1,jk,jb) =                                         &
-            & pos_dreg_vert_c(2,1) * pn_cell(1) + pos_dreg_vert_c(2,2) * dn_cell(1)
+               & pos_dreg_vert_c(2,1) * pn_cell(1) + pos_dreg_vert_c(2,2) * dn_cell(1)
 
           p_coords_dreg_v(je,3,1,jk,jb) =                                        &
-            & pos_dreg_vert_c(3,1) * pn_cell(1) + pos_dreg_vert_c(3,2) * dn_cell(1)
+               & pos_dreg_vert_c(3,1) * pn_cell(1) + pos_dreg_vert_c(3,2) * dn_cell(1)
 
           p_coords_dreg_v(je,4,1,jk,jb) =                                         &
-            & pos_dreg_vert_c(4,1) * pn_cell(1) + pos_dreg_vert_c(4,2) * dn_cell(1)
+               & pos_dreg_vert_c(4,1) * pn_cell(1) + pos_dreg_vert_c(4,2) * dn_cell(1)
 
 
           ! components in latitudinal direction
           p_coords_dreg_v(je,1,2,jk,jb) =                                         &
-            & pos_dreg_vert_c(1,1) * pn_cell(2) + pos_dreg_vert_c(1,2) * dn_cell(2)
+               & pos_dreg_vert_c(1,1) * pn_cell(2) + pos_dreg_vert_c(1,2) * dn_cell(2)
 
           p_coords_dreg_v(je,2,2,jk,jb) =                                         &
-            & pos_dreg_vert_c(2,1) * pn_cell(2) + pos_dreg_vert_c(2,2) * dn_cell(2)
+               & pos_dreg_vert_c(2,1) * pn_cell(2) + pos_dreg_vert_c(2,2) * dn_cell(2)
 
           p_coords_dreg_v(je,3,2,jk,jb) =                                         &
-            & pos_dreg_vert_c(3,1) * pn_cell(2) + pos_dreg_vert_c(3,2) * dn_cell(2)
+               & pos_dreg_vert_c(3,1) * pn_cell(2) + pos_dreg_vert_c(3,2) * dn_cell(2)
 
           p_coords_dreg_v(je,4,2,jk,jb) =                                         &
-            & pos_dreg_vert_c(4,1) * pn_cell(2) + pos_dreg_vert_c(4,2) * dn_cell(2)
+               & pos_dreg_vert_c(4,1) * pn_cell(2) + pos_dreg_vert_c(4,2) * dn_cell(2)
 
 
         ENDDO ! loop over edges
@@ -586,66 +587,66 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-05-12)
   !!
   SUBROUTINE btraj_dreg_nosort( ptr_p, ptr_int, p_vn, p_vt, p_dt,                &
-    &                     upwind_cell_idx, upwind_cell_blk, arrival_pts,         &
-    &                     depart_pts, opt_rlstart, opt_rlend, opt_slev, opt_elev )
+       &                     upwind_cell_idx, upwind_cell_blk, arrival_pts,         &
+       &                     depart_pts, opt_rlstart, opt_rlend, opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::     &  !< patch on which computation is performed
-      &  ptr_p
+         &  ptr_p
 
     TYPE(t_int_state), TARGET, INTENT(IN) :: &  !< pointer to data structure for interpolation
-      &  ptr_int
+         &  ptr_int
 
     REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
-      &  p_vn(:,:,:)
+         &  p_vn(:,:,:)
 
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
-      &  p_vt(:,:,:)               !< edge midpoints
+         &  p_vt(:,:,:)               !< edge midpoints
 
     REAL(wp), INTENT(IN)    ::  &  !< time step $\Delta t$
-      &  p_dt
+         &  p_dt
 
     REAL(wp), INTENT(OUT) ::    &  !< coordinates of arrival points. The origin
-      &  arrival_pts(:,:,:,:,:)    !< of the coordinate system is at the circumcenter of
-                                   !< the upwind cell. Unit vectors point to local East
-                                   !< and North. (geographical coordinates)
-                                   !< dim: (nproma,2,2,nlev,ptr_p%nblks_e)
+         &  arrival_pts(:,:,:,:,:)    !< of the coordinate system is at the circumcenter of
+    !< the upwind cell. Unit vectors point to local East
+    !< and North. (geographical coordinates)
+    !< dim: (nproma,2,2,nlev,ptr_p%nblks_e)
 
     REAL(wp), INTENT(OUT) ::    &  !< coordinates of departure points. The origin
-      &  depart_pts(:,:,:,:,:)     !< of the coordinate system is at the circumcenter of
-                                   !< the upwind cell. Unit vectors point to local East
-                                   !< and North. (geographical coordinates)
-                                   !< dim: (nproma,2,2,nlev,ptr_p%nblks_e)
+         &  depart_pts(:,:,:,:,:)     !< of the coordinate system is at the circumcenter of
+    !< the upwind cell. Unit vectors point to local East
+    !< and North. (geographical coordinates)
+    !< dim: (nproma,2,2,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(OUT)  ::    &  !< line and block index of upwind cell
-      &  upwind_cell_idx(:,:,:),&  !< dim: (nproma,nlev,ptr_p%nblks_e)
-      &  upwind_cell_blk(:,:,:)
+         &  upwind_cell_idx(:,:,:),&  !< dim: (nproma,nlev,ptr_p%nblks_e)
+         &  upwind_cell_blk(:,:,:)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-      &  opt_rlstart
+         &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-      &  opt_rlend                     !< (to avoid calculation of halo points)
+         &  opt_rlend                     !< (to avoid calculation of halo points)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
+         &  opt_slev
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
+         &  opt_elev
 
     REAL(wp), POINTER  ::  &       !< pointer to coordinates of edge vertices
-      &  ptr_ve(:,:,:,:)           !< on tangent plane
+         &  ptr_ve(:,:,:,:)           !< on tangent plane
 
     REAL(wp) ::            &       !< coordinates of departure points 
-      &  dep_pts(2,2)              !< in edge-based coordinate system
+         &  dep_pts(2,2)              !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of arrival points 
-      &  arr_pts(2,2)              !< in edge-based coordinate system
+         &  arr_pts(2,2)              !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< position on tangential plane depending
-      &  pos_on_tplane_e(2)        !< on the sign of vn
+         &  pos_on_tplane_e(2)        !< on the sign of vn
 
     REAL(wp) ::            &       !< primal and dual normals of cell lying
-      &  pn_cell(2), dn_cell(2)    !< in the direction of vn
+         &  pn_cell(2), dn_cell(2)    !< in the direction of vn
 
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -653,7 +654,7 @@ CONTAINS
     INTEGER :: slev, elev          !< vertical start and end level
     LOGICAL :: lvn_pos
 
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
 
     ! Check for optional arguments
@@ -697,8 +698,8 @@ CONTAINS
 !$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos)
     DO jb = i_startblk, i_endblk
 
-     CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
-                        i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
+           i_startidx, i_endidx, i_rlstart, i_rlend)
 
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
@@ -738,18 +739,18 @@ CONTAINS
 
           ! get line and block indices of upwind cell
           upwind_cell_idx(je,jk,jb) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
-            &                               ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+               &                               ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
           upwind_cell_blk(je,jk,jb) = MERGE(ptr_p%edges%cell_blk(je,jb,1),       &
-            &                               ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
+               &                               ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
           ! determine correct position on tangential plane (coordinates of 
           ! upwind cell center
           pos_on_tplane_e(1) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1), &
-            &                        ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
+               &                        ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
 
           pos_on_tplane_e(2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2), &
-            &                        ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
+               &                        ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
 
 
           ! departure points of the departure cell. Point 1 belongs to edge-vertex 1, 
@@ -794,44 +795,44 @@ CONTAINS
           !
           ! Determine primal and dual normals of the cell lying in the direction of vn
           pn_cell(1) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,       &
-            &                ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
+               &                ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
 
           pn_cell(2) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,       &
-            &                ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
+               &                ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
 
           dn_cell(1) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,         &
-            &                ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
+               &                ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           dn_cell(2) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,         &
-            &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
+               &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
 
           ! components in longitudinal direction
           arrival_pts(je,1,1,jk,jb) = arr_pts(1,1) * pn_cell(1) &
-            &                       + arr_pts(1,2) * dn_cell(1)
+               &                       + arr_pts(1,2) * dn_cell(1)
 
           arrival_pts(je,2,1,jk,jb) = arr_pts(2,1) * pn_cell(1) &
-            &                       + arr_pts(2,2) * dn_cell(1)
+               &                       + arr_pts(2,2) * dn_cell(1)
 
           depart_pts(je,1,1,jk,jb)  = dep_pts(1,1) * pn_cell(1) &
-            &                       + dep_pts(1,2) * dn_cell(1)
+               &                       + dep_pts(1,2) * dn_cell(1)
 
           depart_pts(je,2,1,jk,jb)  = dep_pts(2,1) * pn_cell(1) &
-            &                       + dep_pts(2,2) * dn_cell(1)
+               &                       + dep_pts(2,2) * dn_cell(1)
 
 
           ! components in latitudinal direction
           arrival_pts(je,1,2,jk,jb) = arr_pts(1,1) * pn_cell(2) &
-            &                       + arr_pts(1,2) * dn_cell(2)
+               &                       + arr_pts(1,2) * dn_cell(2)
 
           arrival_pts(je,2,2,jk,jb) = arr_pts(2,1) * pn_cell(2) &
-            &                       + arr_pts(2,2) * dn_cell(2)
+               &                       + arr_pts(2,2) * dn_cell(2)
 
           depart_pts(je,1,2,jk,jb)  = dep_pts(1,1) * pn_cell(2) &
-            &                       + dep_pts(1,2) * dn_cell(2)
+               &                       + dep_pts(1,2) * dn_cell(2)
 
           depart_pts(je,2,2,jk,jb)  = dep_pts(2,1) * pn_cell(2) &
-            &                       + dep_pts(2,2) * dn_cell(2)
+               &                       + dep_pts(2,2) * dn_cell(2)
 
 
         ENDDO ! loop over edges
@@ -865,60 +866,60 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-03-24)
   !!
   SUBROUTINE btraj_o2( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices,  &
-    &                  p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
-    &                  opt_elev )
+       &                  p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
+       &                  opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::      &  !< patch on which computation is performed
-      &  ptr_p
+         &  ptr_p
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
-      &  ptr_int
+         &  ptr_int
 
     REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
-      &  p_vn(:,:,:)
+         &  p_vn(:,:,:)
 
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
-      &  p_vt(:,:,:)               !< edge midpoints
+         &  p_vt(:,:,:)               !< edge midpoints
 
     REAL(wp), INTENT(IN)  ::    &  !< $0.5 \Delta t$
-      &  p_dthalf
+         &  p_dthalf
 
     REAL(wp), INTENT(OUT) ::    &  !< distance vectors cell center --> barycenter of
-      &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
-                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+         &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
+    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(OUT)  ::    &  !< line and block indices of cell centers in which the
-      &  p_cell_indices(:,:,:,:)   !< computed barycenters are located.
-                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+         &  p_cell_indices(:,:,:,:)   !< computed barycenters are located.
+    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-      &  opt_rlstart
+         &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-      &  opt_rlend                     !< (to avoid calculation of halo points)
+         &  opt_rlend                     !< (to avoid calculation of halo points)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
+         &  opt_slev
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
+         &  opt_elev
 
     REAL(wp) :: pos_barycenter(2),  &   !< position of barycenter and distance vector
-      &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
-                                        !< 'tangential' coordinates.
+         &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
+    !< 'tangential' coordinates.
 
     REAL(wp), POINTER  ::  &     !< pointer to positions of quadrilateral edge midpoints
-      &  ptr_em(:,:,:,:)         !< on tangent plane
+         &  ptr_em(:,:,:,:)         !< on tangent plane
 
     REAL(wp)           ::  &     ! normal and tangential components of the velocity vectors
-      &  z_vn_plane(nproma,ptr_p%nlev,ptr_p%nblks_e,4), &!< projected into local edge-based
-      &  z_vt_plane(nproma,ptr_p%nlev,ptr_p%nblks_e,4)   !< coordinate system
+         &  z_vn_plane(nproma,ptr_p%nlev,ptr_p%nblks_e,4), &!< projected into local edge-based
+         &  z_vt_plane(nproma,ptr_p%nlev,ptr_p%nblks_e,4)   !< coordinate system
 
 
     REAL(wp)  :: w1, w2, w3      !< weights for bilinear interpolation
 
     REAL(wp)  ::           &     !< resulting normal and tangential velocity component
-      &  vn_new, vt_new          !< after bilinear interpolation
+         &  vn_new, vt_new          !< after bilinear interpolation
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
     INTEGER :: nlev              !< number of full levels
@@ -926,13 +927,13 @@ CONTAINS
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev        !< vertical start and end level
     INTEGER :: zcell             !< determines whether the barycenter is located
-                                 !< in cell 1 or 2
+    !< in cell 1 or 2
     INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
-      & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
+         & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
 
-!DR    REAL(wp) :: z_vabs_orig, z_vabs_new
+    !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
 
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
 
     ! Check for optional arguments
@@ -992,194 +993,194 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
+           i_startidx, i_endidx, i_rlstart, i_rlend)
 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
 #endif
 
-            z_vn_plane(je,jk,jb,1) =                                                         &
-              &   p_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,1) &
-              & + p_vt(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,2)
+              z_vn_plane(je,jk,jb,1) =                                                         &
+                   &   p_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,1) &
+                   & + p_vt(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,2)
 
-            z_vn_plane(je,jk,jb,2) =                                                         &
-              &   p_vn(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,1) &
-              & + p_vt(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,2)
+              z_vn_plane(je,jk,jb,2) =                                                         &
+                   &   p_vn(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,1) &
+                   & + p_vt(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,2)
 
-            z_vn_plane(je,jk,jb,3) =                                                         &
-              &   p_vn(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,1) &
-              & + p_vt(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,2)
+              z_vn_plane(je,jk,jb,3) =                                                         &
+                   &   p_vn(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,1) &
+                   & + p_vt(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,2)
 
-            z_vn_plane(je,jk,jb,4) =                                                         &
-              &   p_vn(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,1) &
-              & + p_vt(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,2)
-
-
-            z_vt_plane(je,jk,jb,1) =                                                         &
-              &   p_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,3) &
-              & + p_vt(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,4)
-
-            z_vt_plane(je,jk,jb,2) =                                                         &
-              &   p_vn(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,3) &
-              & + p_vt(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,4)
-
-            z_vt_plane(je,jk,jb,3) =                                                         &
-              &   p_vn(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,3) &
-              & + p_vt(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,4)
-
-            z_vt_plane(je,jk,jb,4) =                                                         &
-              &   p_vn(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,3) &
-              & + p_vt(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,4)
+              z_vn_plane(je,jk,jb,4) =                                                         &
+                   &   p_vn(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,1) &
+                   & + p_vt(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,2)
 
 
-!            ! Re-normalize the projected velocity vector
-!            z_vabs_orig = SQRT( p_vn(ilq,jk,ibq)*p_vn(ilq,jk,ibq)                &
-!              &         + p_vt(ilq,jk,ibq)*p_vt(ilq,jk,ibq) )
-!            z_vabs_new  = SQRT( z_vn_plane(je,jk,jb,ne)*z_vn_plane(je,jk,jb,ne)  &
-!              &         + z_vt_plane(je,jk,jb,ne)*z_vt_plane(je,jk,jb,ne) )
+              z_vt_plane(je,jk,jb,1) =                                                         &
+                   &   p_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,3) &
+                   & + p_vt(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,4)
 
-!            z_vn_plane(je,jk,jb,ne) = z_vn_plane(je,jk,jb,ne) * (z_vabs_orig/z_vabs_new)
-!            z_vt_plane(je,jk,jb,ne) = z_vt_plane(je,jk,jb,ne) * (z_vabs_orig/z_vabs_new)
+              z_vt_plane(je,jk,jb,2) =                                                         &
+                   &   p_vn(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,3) &
+                   & + p_vt(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,4)
+
+              z_vt_plane(je,jk,jb,3) =                                                         &
+                   &   p_vn(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,3) &
+                   & + p_vt(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,4)
+
+              z_vt_plane(je,jk,jb,4) =                                                         &
+                   &   p_vn(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,3) &
+                   & + p_vt(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,4)
 
 
-        ENDDO ! loop over edges
-      ENDDO   ! loop over vertical levels
-    END DO    ! loop over blocks
+              !            ! Re-normalize the projected velocity vector
+              !            z_vabs_orig = SQRT( p_vn(ilq,jk,ibq)*p_vn(ilq,jk,ibq)                &
+              !              &         + p_vt(ilq,jk,ibq)*p_vt(ilq,jk,ibq) )
+              !            z_vabs_new  = SQRT( z_vn_plane(je,jk,jb,ne)*z_vn_plane(je,jk,jb,ne)  &
+              !              &         + z_vt_plane(je,jk,jb,ne)*z_vt_plane(je,jk,jb,ne) )
+
+              !            z_vn_plane(je,jk,jb,ne) = z_vn_plane(je,jk,jb,ne) * (z_vabs_orig/z_vabs_new)
+              !            z_vt_plane(je,jk,jb,ne) = z_vt_plane(je,jk,jb,ne) * (z_vabs_orig/z_vabs_new)
+
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        END DO    ! loop over blocks
 !$OMP END DO
 
 
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,zcell,w1,w2,w3, &
 !$OMP            vn_new,vt_new,z_ntdistv_bary) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
+        DO jb = i_startblk, i_endblk
 
-      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
+          CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+               i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
-
-
-          !
-          ! Calculate backward trajectories
-          !
-
-          ! First guess
-          ! position of barycenter in normal direction
-          pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
-
-          ! position of barycenter in tangential direction
-          pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
 
 
+              !
+              ! Calculate backward trajectories
+              !
 
-          IF (p_vn(je,jk,jb) >= 0._wp) THEN
+              ! First guess
+              ! position of barycenter in normal direction
+              pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
 
-            !! we are in cell 1 !!
-
-            ! line and block indices of neighboring cell with barycenter
-            p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,1)
-            p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,1)
-
-            zcell = 1
-
-            ! calculate weights for bilinear interpolation of velocities onto the
-            ! barycenter
-            w3 = ( pos_barycenter(2)                                          &
-              &   - pos_barycenter(1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) ) &
-              &   / ( ptr_em(je,jb,2,2)                                       &
-              &   - ptr_em(je,jb,2,1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) )
-
-            w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,2,1))       &
-              &  / ptr_em(je,jb,1,1)
-
-            w1 = 1._wp - w2 - w3
-
-
-            ! calculate improved normal and tangential velocity components using
-            ! the bilinear interpolation weights.
-            vn_new = w1 * p_vn(je,jk,jb) + w2 * z_vn_plane(je,jk,jb,1) &
-              &    + w3 * z_vn_plane(je,jk,jb,2)
-            vt_new = w1 * p_vt(je,jk,jb) + w2 * z_vt_plane(je,jk,jb,1) &
-              &    + w3 * z_vt_plane(je,jk,jb,2)
-
-          ELSE
-
-            !! we are in cell 2 !!
-
-            ! line and block indices of neighboring cell with barycenter
-            p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,2)
-            p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,2)
-
-            zcell = 2
-
-
-            ! calculate weights for bilinear interpolation of velocities onto the
-            ! barycenter
-            w3 = ( pos_barycenter(2)                                          &
-              &   - pos_barycenter(1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) ) &
-              &   / ( ptr_em(je,jb,4,2)                                       &
-              &   - ptr_em(je,jb,4,1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) )
-
-            w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,4,1))       &
-              &  / ptr_em(je,jb,3,1)
-
-            w1 = 1._wp - w2 - w3
-
-
-            ! calculate improved normal and tangential velocity components using
-            ! the bilinear interpolation weights.
-            vn_new = w1 * p_vn(je,jk,jb) + w2 * z_vn_plane(je,jk,jb,3) &
-              &    + w3 * z_vn_plane(je,jk,jb,4)
-            vt_new = w1 * p_vt(je,jk,jb) + w2 * z_vt_plane(je,jk,jb,3) &
-              &    + w3 * z_vt_plane(je,jk,jb,4)
-
-          ENDIF
-
-
-          ! Improved guess
-          ! position of barycenter in normal direction
-          pos_barycenter(1) = - vn_new * p_dthalf
-
-          ! position of barycenter in tangential direction
-          pos_barycenter(2) = - vt_new * p_dthalf
-
-
-          ! Calculate the distance cell center --> barycenter for the cell,
-          ! in which the barycenter is located. The distance vector points
-          ! from the cell center to the barycenter.
-          z_ntdistv_bary(1:2) = pos_barycenter(1:2)                      &
-            &                 - ptr_int%pos_on_tplane_e(je,jb,zcell,1:2)
-
-
-          ! In a last step, transform this distance vector into a rotated
-          ! geographical coordinate system with its origin at the circumcenter
-          ! of the upstream cell. Coordinate axes point to local East and local
-          ! North.
-
-          ! component in longitudinal direction
-          p_distv_bary(je,jk,jb,1) =                                                 &
-            &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
-            &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
-
-          ! component in latitudinal direction
-          p_distv_bary(je,jk,jb,2) =                                                 &
-            &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
-            &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
+              ! position of barycenter in tangential direction
+              pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
 
 
 
-        ENDDO ! loop over edges
-      ENDDO   ! loop over vertical levels
-    END DO    ! loop over blocks
+              IF (p_vn(je,jk,jb) >= 0._wp) THEN
+
+                !! we are in cell 1 !!
+
+                ! line and block indices of neighboring cell with barycenter
+                p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,1)
+                p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,1)
+
+                zcell = 1
+
+                ! calculate weights for bilinear interpolation of velocities onto the
+                ! barycenter
+                w3 = ( pos_barycenter(2)                                          &
+                     &   - pos_barycenter(1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) ) &
+                     &   / ( ptr_em(je,jb,2,2)                                       &
+                     &   - ptr_em(je,jb,2,1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) )
+
+                w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,2,1))       &
+                     &  / ptr_em(je,jb,1,1)
+
+                w1 = 1._wp - w2 - w3
+
+
+                ! calculate improved normal and tangential velocity components using
+                ! the bilinear interpolation weights.
+                vn_new = w1 * p_vn(je,jk,jb) + w2 * z_vn_plane(je,jk,jb,1) &
+                     &    + w3 * z_vn_plane(je,jk,jb,2)
+                vt_new = w1 * p_vt(je,jk,jb) + w2 * z_vt_plane(je,jk,jb,1) &
+                     &    + w3 * z_vt_plane(je,jk,jb,2)
+
+              ELSE
+
+                !! we are in cell 2 !!
+
+                ! line and block indices of neighboring cell with barycenter
+                p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,2)
+                p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,2)
+
+                zcell = 2
+
+
+                ! calculate weights for bilinear interpolation of velocities onto the
+                ! barycenter
+                w3 = ( pos_barycenter(2)                                          &
+                     &   - pos_barycenter(1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) ) &
+                     &   / ( ptr_em(je,jb,4,2)                                       &
+                     &   - ptr_em(je,jb,4,1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) )
+
+                w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,4,1))       &
+                     &  / ptr_em(je,jb,3,1)
+
+                w1 = 1._wp - w2 - w3
+
+
+                ! calculate improved normal and tangential velocity components using
+                ! the bilinear interpolation weights.
+                vn_new = w1 * p_vn(je,jk,jb) + w2 * z_vn_plane(je,jk,jb,3) &
+                     &    + w3 * z_vn_plane(je,jk,jb,4)
+                vt_new = w1 * p_vt(je,jk,jb) + w2 * z_vt_plane(je,jk,jb,3) &
+                     &    + w3 * z_vt_plane(je,jk,jb,4)
+
+              ENDIF
+
+
+              ! Improved guess
+              ! position of barycenter in normal direction
+              pos_barycenter(1) = - vn_new * p_dthalf
+
+              ! position of barycenter in tangential direction
+              pos_barycenter(2) = - vt_new * p_dthalf
+
+
+              ! Calculate the distance cell center --> barycenter for the cell,
+              ! in which the barycenter is located. The distance vector points
+              ! from the cell center to the barycenter.
+              z_ntdistv_bary(1:2) = pos_barycenter(1:2)                      &
+                   &                 - ptr_int%pos_on_tplane_e(je,jb,zcell,1:2)
+
+
+              ! In a last step, transform this distance vector into a rotated
+              ! geographical coordinate system with its origin at the circumcenter
+              ! of the upstream cell. Coordinate axes point to local East and local
+              ! North.
+
+              ! component in longitudinal direction
+              p_distv_bary(je,jk,jb,1) =                                                 &
+                   &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
+                   &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
+
+              ! component in latitudinal direction
+              p_distv_bary(je,jk,jb,2) =                                                 &
+                   &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
+                   &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
+
+
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        END DO    ! loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  END SUBROUTINE btraj_o2
+      END SUBROUTINE btraj_o2
 
 
 
@@ -1249,21 +1250,16 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
-    INTEGER :: je, jk, jb              !< loop index of edge, vert level, block
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: i_rlstart, i_rlend, i_nchdom
-    INTEGER :: slev, elev              !< vertical start and end level
-
     TYPE(t_line) ::                  & !< departure-line segment
-      &  fl_line(nproma)
+      &  fl_line(nproma,p_patch%nlev)
 
     TYPE(t_line) ::                  & !< departure area edges
-      &  fl_e1,                      & !< edge 1
-      &  fl_e2                         !< edge 2
+      &  fl_e1(nproma,p_patch%nlev), & !< edge 1
+      &  fl_e2(nproma,p_patch%nlev)    !< edge 2
 
     TYPE(t_line) ::                  & !< triangle edge
-      &  tri_line1(nproma),          &
-      &  tri_line2(nproma)
+      &  tri_line1(nproma,p_patch%nlev), &
+      &  tri_line2(nproma,p_patch%nlev)
 
     TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of vertex3
       &  ptr_v3(:,:,:)
@@ -1271,19 +1267,42 @@ CONTAINS
       &  ptr_bfcc(:,:,:,:)                         !< of butterfly cell centers
 
 
-    REAL(wp) :: ps1(nproma,2),          & !< coordinates of intersection 
-      &         ps2(nproma,2)             !< points S1, S2
+    REAL(wp) :: ps1(2),              & !< coordinates of intersection 
+      &         ps2(2)                 !< points S1, S2
 
-    REAL(wp) :: pi1(nproma,2),          & !< coordinates of intersection 
-      &         pi2(nproma,2)             !< points I1, I2
+    REAL(wp) :: pi1(2),              & !< coordinates of intersection 
+      &         pi2(2)                 !< points I1, I2
 
-    REAL(wp) :: bf_cc(2,2)                !< coordinates of butterfly cell centers
+    REAL(wp) :: bf_cc(2,2)             !< coordinates of butterfly cell centers
+
+    INTEGER :: je, jk, jb, jl          !< loop index of edge, vert level, block, lists
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev              !< vertical start and end level
 
     LOGICAL :: lintersect_line1, lintersect_line2
     LOGICAL :: lintersect_e2_line1, lintersect_e1_line2
     LOGICAL :: lvn_pos, lvn_sys_pos
-    INTEGER :: cfl_stable(nproma)
+    INTEGER :: icnt_c1, icnt_c2p, icnt_c3p, icnt_c2m, icnt_c3m 
+    INTEGER :: icnt_rem, icnt_err
 
+    INTEGER ::           &         !< je index list
+      &  idxlist_c1 (nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_c2p(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_c3p(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_c2m(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_c3m(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_rem(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_err(nproma*p_patch%nlev,p_patch%nblks_e)
+
+    INTEGER ::           &         !< jk index list
+      &  levlist_c1 (nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_c2p(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_c3p(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_c2m(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_c3m(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_rem(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_err(nproma*p_patch%nlev,p_patch%nblks_e)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
@@ -1333,16 +1352,25 @@ CONTAINS
     ptr_bfcc => p_int%pos_on_tplane_c_edge(:,:,:,4:5)
 
 
-
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,lvn_pos,fl_line,tri_line1,  &
-!$OMP            tri_line2,cfl_stable,lvn_sys_pos,lintersect_line1,       &
-!$OMP            lintersect_line2,fl_e1,fl_e2,lintersect_e2_line1,        &
-!$OMP            lintersect_e1_line2,ps1,ps2,pi1,pi2,bf_cc)
+!$OMP DO PRIVATE(jb,jk,je,jl,i_startidx,i_endidx,lvn_pos,fl_line,tri_line1, &
+!$OMP            tri_line2,fl_e1,fl_e2,lintersect_line1,lintersect_line2,   &
+!$OMP            lintersect_e2_line1,lintersect_e1_line2,icnt_c1,icnt_c2p,  &
+!$OMP            icnt_c2m,icnt_rem,icnt_c3p,icnt_c3m,icnt_err,lvn_sys_pos,  &
+!$OMP            ps1,ps2,pi1,pi2,bf_cc)
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      ! Reset counter
+      icnt_c1  = 0
+      icnt_c2p = 0
+      icnt_c2m = 0
+      icnt_c3p = 0
+      icnt_c3m = 0
+      icnt_rem = 0
+      icnt_err = 0
 
       DO jk = slev, elev
 
@@ -1356,492 +1384,537 @@ CONTAINS
           !
           ! get flux area departure-line segment
           !
-          fl_line(je)%p1%lon = depart_pts(je,1,1,jk,jb)
-          fl_line(je)%p1%lat = depart_pts(je,1,2,jk,jb)
-          fl_line(je)%p2%lon = depart_pts(je,2,1,jk,jb)
-          fl_line(je)%p2%lat = depart_pts(je,2,2,jk,jb)
+          fl_line(je,jk)%p1%lon = depart_pts(je,1,1,jk,jb)
+          fl_line(je,jk)%p1%lat = depart_pts(je,1,2,jk,jb)
+          fl_line(je,jk)%p2%lon = depart_pts(je,2,1,jk,jb)
+          fl_line(je,jk)%p2%lat = depart_pts(je,2,2,jk,jb)
 
           ! get triangle edge 1 (A1V3)
           !
-          tri_line1(je)%p1%lon = arrival_pts(je,1,1,jk,jb)
-          tri_line1(je)%p1%lat = arrival_pts(je,1,2,jk,jb)
-          tri_line1(je)%p2%lon = MERGE(ptr_v3(je,jb,1)%lon,ptr_v3(je,jb,2)%lon,lvn_pos)
-          tri_line1(je)%p2%lat = MERGE(ptr_v3(je,jb,1)%lat,ptr_v3(je,jb,2)%lat,lvn_pos)
+          tri_line1(je,jk)%p1%lon = arrival_pts(je,1,1,jk,jb)
+          tri_line1(je,jk)%p1%lat = arrival_pts(je,1,2,jk,jb)
+          tri_line1(je,jk)%p2%lon = MERGE(ptr_v3(je,jb,1)%lon,ptr_v3(je,jb,2)%lon,lvn_pos)
+          tri_line1(je,jk)%p2%lat = MERGE(ptr_v3(je,jb,1)%lat,ptr_v3(je,jb,2)%lat,lvn_pos)
 
           ! get triangle edge 2 (A2V3)
           !
-          tri_line2(je)%p1%lon = arrival_pts(je,2,1,jk,jb)
-          tri_line2(je)%p1%lat = arrival_pts(je,2,2,jk,jb)
-          tri_line2(je)%p2%lon = MERGE(ptr_v3(je,jb,1)%lon,ptr_v3(je,jb,2)%lon,lvn_pos)
-          tri_line2(je)%p2%lat = MERGE(ptr_v3(je,jb,1)%lat,ptr_v3(je,jb,2)%lat,lvn_pos)
+          tri_line2(je,jk)%p1%lon = arrival_pts(je,2,1,jk,jb)
+          tri_line2(je,jk)%p1%lat = arrival_pts(je,2,2,jk,jb)
+          tri_line2(je,jk)%p2%lon = MERGE(ptr_v3(je,jb,1)%lon,ptr_v3(je,jb,2)%lon,lvn_pos)
+          tri_line2(je,jk)%p2%lat = MERGE(ptr_v3(je,jb,1)%lat,ptr_v3(je,jb,2)%lat,lvn_pos)
 
  
-          ! fl_line%p1 -> fl_line%p2 -> vert3 and
-          ! fl_line%p1 -> fl_line%p2 -> arr1 must have different orientations
-          ! ccw() * ccw() = -1
-          cfl_stable(je) = (ccw(fl_line(je)%p1,fl_line(je)%p2,tri_line1(je)%p2)  &
-            &            *  ccw(fl_line(je)%p1,fl_line(je)%p2,tri_line1(je)%p1))
 
-        ENDDO ! loop over edges
-
-        !
-        ! I) check whether departure-line segment is still located within the upwind row
-        !
-        IF ( ANY(cfl_stable(i_startidx:i_endidx) == 1) ) THEN
-          WRITE(message_text,'(a,2i4)') 'horizontal CFL number exceeded at jk,jb = ',&
-            &  jk,jb
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
+          !
+          ! Compute index lists
+          !
 
 
-
-
-        DO je = i_startidx, i_endidx
-
-          lvn_pos = p_vn(je,jk,jb) >= 0._wp
-
-          lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
-
-
-          ! II) Check whether departure line intersects with edge A1V3 and/or A2V3
-
+          ! Check whether departure line intersects with edge A1V3 and/or A2V3
 
           ! does departure-line segment intersect with A1V3?
           !
 !CDIR NEXPAND(lintersect)
-          lintersect_line1 = lintersect(fl_line(je), tri_line1(je))
+          lintersect_line1 = lintersect(fl_line(je,jk), tri_line1(je,jk))
 
           ! does departure-line segment intersect with A2V3?
           !
 !CDIR NEXPAND(lintersect)
-          lintersect_line2 = lintersect(fl_line(je), tri_line2(je))
+          lintersect_line2 = lintersect(fl_line(je,jk), tri_line2(je,jk))
 
 
+          IF ( lintersect_line1 .AND. lintersect_line2 ) THEN
 
-          IF ( (p_patch%edges%system_orientation(je,jb) * p_vt(je,jk,jb)) >= 0._wp ) THEN
+            !CASE I
+            icnt_c1 = icnt_c1 + 1
+            idxlist_c1(icnt_c1,jb) = je
+            levlist_c1(icnt_c1,jb) = jk
 
+          ELSE IF ( lintersect_line1 .AND. (.NOT. lintersect_line2) ) THEN
 
-            ! get flux area edge 2
-            !
-            fl_e2%p1%lon = arrival_pts(je,2,1,jk,jb)
-            fl_e2%p1%lat = arrival_pts(je,2,2,jk,jb)
-            fl_e2%p2%lon = depart_pts (je,2,1,jk,jb)
-            fl_e2%p2%lat = depart_pts (je,2,2,jk,jb)
+            !CASE IIa
+            icnt_c2p = icnt_c2p + 1
+            idxlist_c2p(icnt_c2p,jb) = je
+            levlist_c2p(icnt_c2p,jb) = jk
 
+          ELSE IF ( lintersect_line2 .AND. (.NOT. lintersect_line1) ) THEN
 
-            ! get intersection point of flux area edge 2 with triangle edge 1
-            !
-!CDIR NEXPAND(lintersect)
-            lintersect_e2_line1 = lintersect(fl_e2, tri_line1(je))
+            !CASE IIb
+            icnt_c2m = icnt_c2m + 1
+            idxlist_c2m(icnt_c2m,jb) = je
+            levlist_c2m(icnt_c2m,jb) = jk
 
+          ELSE
 
-            IF ( lintersect_line1 .AND. lintersect_line2 ) THEN
-!!$WRITE(0,*) "CASE I: je,jk,jb", je,jk,jb
-              ! CASE I
-              ! Compute intersection point of fl_line with tri_line1
-              ! Compute intersection point of fl_line with tri_line2
-              !
-              ps1(je,1:2) = line_intersect(fl_line(je), tri_line1(je))
-              ps2(je,1:2) = line_intersect(fl_line(je), tri_line2(je))
-
-              ! store corners of flux area patches (counterclockwise)
-              ! patch 0
-              ! vn > 0: A1 A2 S2 S1
-              ! vn < 0: A1 S1 S2 A2
-              !
-              dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
-                &                           ps1(je,1),lvn_sys_pos)
-              dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
-                &                           ps1(je,2),lvn_sys_pos)
-              dreg_patch0(je,3,1:2,jk,jb) = ps2(je,1:2)
-              dreg_patch0(je,4,1,jk,jb)   = MERGE(ps1(je,1),arrival_pts(je,2,1,jk,jb), &
-                &                           lvn_sys_pos)
-              dreg_patch0(je,4,2,jk,jb)   = MERGE(ps1(je,2),arrival_pts(je,2,2,jk,jb), &
-                &                           lvn_sys_pos)
-
-              ! patch 1
-              ! vn > 0: A1 S1 D1 A1 (degenerated)
-              ! vn < 0: A1 D1 S1 A1 (degenerated)
-              !
-              dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(je,1),                    &
-                &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(je,2),                    &
-                &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,3,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
-                &                           ps1(je,1),lvn_sys_pos)
-              dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
-                &                           ps1(je,2), lvn_sys_pos)
-              dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
-
-
-              ! patch 2
-              ! vn > 0: A2 D2 S2 A2 (degenerated)
-              ! vn < 0: A2 S2 D2 A2 (degenerated)
-              !
-              dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
-              dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
-                &                           ps2(je,1), lvn_sys_pos)
-              dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
-                &                           ps2(je,2), lvn_sys_pos)
-              dreg_patch2(je,3,1,jk,jb)   = MERGE(ps2(je,1),                    &
-                &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(je,2),                    &
-                &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
-
-
-
-            ELSE IF ( lintersect_line1 .AND. (.NOT. lintersect_line2) ) THEN
-!!$WRITE(0,*) "CASE IIa: je,jk,jb", je,jk,jb
-              ! CASE 2a
-              ! Compute intersection point of fl_line with tri_line1
-              !
-              ps1(je,1:2) = line_intersect(fl_line(je), tri_line1(je))
-
-              ! store corners of flux area patches (counterclockwise)
-              ! patch 0
-              ! vn > 0: A1 A2 D2 S1
-              ! vn < 0: A1 S1 D2 A2
-              !
-              dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
-                &                           ps1(je,1),lvn_sys_pos)
-              dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
-                &                           ps1(je,2),lvn_sys_pos)
-              dreg_patch0(je,3,1:2,jk,jb) = depart_pts(je,2,1:2,jk,jb)
-              dreg_patch0(je,4,1,jk,jb)   = MERGE(ps1(je,1),arrival_pts(je,2,1,jk,jb), &
-                &                           lvn_sys_pos)
-              dreg_patch0(je,4,2,jk,jb)   = MERGE(ps1(je,2),arrival_pts(je,2,2,jk,jb), &
-                &                           lvn_sys_pos)
-
-              ! patch 1
-              ! vn > 0: A1 S1 D1 A1 (degenerated)
-              ! vn < 0: A1 D1 S1 A1 (degenerated)
-              !
-              dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(je,1),                    &
-                &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(je,2),                    &
-                &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,3,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
-                &                           ps1(je,1),lvn_sys_pos)
-              dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
-                &                           ps1(je,2), lvn_sys_pos)
-              dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
-
-
-              ! patch 2 (non-existing)
-              !
-              dreg_patch2(je,1,1:2,jk,jb) = 0._wp
-              dreg_patch2(je,2,1:2,jk,jb) = 0._wp
-              dreg_patch2(je,3,1:2,jk,jb) = 0._wp
-              dreg_patch2(je,4,1:2,jk,jb) = 0._wp
-
-
-            ELSE IF ( lintersect_e2_line1 ) THEN
-!!$WRITE(0,*) "CASE IIIa: je,jk,jb", je,jk,jb
-              ! CASE 3a
-              ! Compute intersection point of fl_e2 with tri_line1
-              !
-              pi1(je,1:2) = line_intersect(fl_e2, tri_line1(je))
-
-              ! store corners of flux area patches (counterclockwise)
-              ! patch 0
-              ! vn > 0: A1 A2 I1 A1 (degenerated)
-              ! vn < 0: A1 I1 A2 A1 (degenerated)
-              !
-              dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
-                &                           pi1(je,1),lvn_sys_pos)
-              dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
-                &                           pi1(je,2),lvn_sys_pos)
-              dreg_patch0(je,3,1,jk,jb)   = MERGE(pi1(je,1),                    &
-                &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
-              dreg_patch0(je,3,2,jk,jb)   = MERGE(pi1(je,2),                    &
-                &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
-              dreg_patch0(je,4,1:2,jk,jb) = dreg_patch0(je,1,1:2,jk,jb)
-
-
-              ! patch 1
-              ! vn > 0: A1 I1 D2 D1
-              ! vn < 0: A1 D1 D2 I1
-              !
-              dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch1(je,2,1,jk,jb)   = MERGE(pi1(je,1),                    &
-                &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,2,2,jk,jb)   = MERGE(pi1(je,2),                    &
-                &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,3,1:2,jk,jb) = depart_pts(je,2,1:2,jk,jb)
-              dreg_patch1(je,4,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
-                &                           pi1(je,1),lvn_sys_pos)
-              dreg_patch1(je,4,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
-                &                           pi1(je,2), lvn_sys_pos)
-
-
-              ! patch 2 (non-existing)
-              !
-              dreg_patch2(je,1,1:2,jk,jb) = 0._wp
-              dreg_patch2(je,2,1:2,jk,jb) = 0._wp
-              dreg_patch2(je,3,1:2,jk,jb) = 0._wp
-              dreg_patch2(je,4,1:2,jk,jb) = 0._wp
-
-             ENDIF
-
-
-
-          ELSE IF ( (p_patch%edges%system_orientation(je,jb) * p_vt(je,jk,jb)) < 0._wp ) THEN
-
-
-            ! get flux area edge 1
-            !
-            fl_e1%p1%lon = arrival_pts(je,1,1,jk,jb)
-            fl_e1%p1%lat = arrival_pts(je,1,2,jk,jb)
-            fl_e1%p2%lon = depart_pts (je,1,1,jk,jb)
-            fl_e1%p2%lat = depart_pts (je,1,2,jk,jb)
-
-            ! get intersection point of flux area edge 1 with triangle edge 2
-            !
-!CDIR NEXPAND(lintersect)
-            lintersect_e1_line2 = lintersect(fl_e1, tri_line2(je))
-
-
-            IF ( lintersect_line1 .AND. lintersect_line2 ) THEN
-!!$WRITE(0,*) "CASE Iagain: je,jk,jb", je,jk,jb
-              ! CASE I
-              ! Compute intersection point of fl_line with tri_line1
-              ! Compute intersection point of fl_line with tri_line2
-              !
-              ps1(je,1:2) = line_intersect(fl_line(je), tri_line1(je))
-              ps2(je,1:2) = line_intersect(fl_line(je), tri_line2(je))
-
-              ! store corners of flux area patches (counterclockwise)
-              ! patch 0
-              ! vn > 0: A1 A2 S2 S1
-              ! vn < 0: A1 S1 S2 A2
-              !
-              dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
-                &                           ps1(je,1),lvn_sys_pos)
-              dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
-                &                           ps1(je,2),lvn_sys_pos)
-              dreg_patch0(je,3,1:2,jk,jb) = ps2(je,1:2)
-              dreg_patch0(je,4,1,jk,jb)   = MERGE(ps1(je,1),arrival_pts(je,2,1,jk,jb), &
-                &                           lvn_sys_pos)
-              dreg_patch0(je,4,2,jk,jb)   = MERGE(ps1(je,2),arrival_pts(je,2,2,jk,jb), &
-                &                           lvn_sys_pos)
-
-              ! patch 1
-              ! vn > 0: A1 S1 D1 A1 (degenerated)
-              ! vn < 0: A1 D1 S1 A1 (degenerated)
-              !
-              dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(je,1),                    &
-                &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(je,2),                    &
-                &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
-              dreg_patch1(je,3,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
-                &                           ps1(je,1),lvn_sys_pos)
-              dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
-                &                           ps1(je,2), lvn_sys_pos)
-              dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
-
-              ! patch 2
-              ! vn > 0: A2 D2 S2 A2 (degenerated)
-              ! vn < 0: A2 S2 D2 A2 (degenerated)
-              !
-              dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
-              dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
-                &                           ps2(je,1), lvn_sys_pos)
-              dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
-                &                           ps2(je,2), lvn_sys_pos)
-              dreg_patch2(je,3,1,jk,jb)   = MERGE(ps2(je,1),                    &
-                &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(je,2),                    &
-                &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
-
-
-
-
-            ELSE IF ( lintersect_line2 .AND. (.NOT. lintersect_line1) ) THEN
-!!$WRITE(0,*) "CASE IIb: je,jk,jb", je,jk,jb
-              ! CASE 2b
-              ! Compute intersection point of fl_line with tri_line2
-              !
-
-              ps2(je,1:2) = line_intersect(fl_line(je), tri_line2(je))
-
-              ! store corners of flux area patches (counterclockwise)
-              ! patch 0
-              ! vn > 0: A1 A2 S2 D1
-              ! vn < 0: A1 D1 S2 A2
-              !
-              dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
-                &                           depart_pts(je,1,1,jk,jb),lvn_sys_pos)
-              dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
-                &                           depart_pts(je,1,2,jk,jb),lvn_sys_pos)
-              dreg_patch0(je,3,1:2,jk,jb) = ps2(je,1:2)
-              dreg_patch0(je,4,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
-                &                           arrival_pts(je,2,1,jk,jb), lvn_sys_pos)
-              dreg_patch0(je,4,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
-                &                           arrival_pts(je,2,2,jk,jb), lvn_sys_pos)
-
-
-              ! patch 1 (non-existing)
-              !
-              dreg_patch1(je,1,1:2,jk,jb) = 0._wp
-              dreg_patch1(je,2,1:2,jk,jb) = 0._wp
-              dreg_patch1(je,3,1:2,jk,jb) = 0._wp
-              dreg_patch1(je,4,1:2,jk,jb) = 0._wp
-
-
-              ! patch 2
-              ! vn > 0: A2 D2 S2 A2 (degenerated)
-              ! vn < 0: A2 S2 D2 A2 (degenerated)
-              !
-              dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
-              dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
-                &                           ps2(je,1), lvn_sys_pos)
-              dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
-                &                           ps2(je,2), lvn_sys_pos)
-              dreg_patch2(je,3,1,jk,jb)   = MERGE(ps2(je,1),                    &
-                &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(je,2),                    &
-                &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
-
-
-
-            ELSE IF ( lintersect_e1_line2 ) THEN
-!!$WRITE(0,*) "CASE IIIb: je,jk,jb", je,jk,jb
-              ! CASE 3b
-              ! Compute intersection point of fl_e1 with tri_line2
-              pi2(je,1:2) = line_intersect(fl_e1, tri_line2(je))
-
-              ! store corners of flux area patches (counterclockwise)
-              ! patch 0
-              ! vn > 0: A1 A2 I2 A1 (degenerated)
-              ! vn < 0: A1 I2 A2 A1 (degenerated)
-              !
-              dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
-              dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
-                &                           pi2(je,1),lvn_sys_pos)
-              dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
-                &                           pi2(je,2),lvn_sys_pos)
-              dreg_patch0(je,3,1,jk,jb)   = MERGE(pi2(je,1),                    &
-                &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
-              dreg_patch0(je,3,2,jk,jb)   = MERGE(pi2(je,2),                    &
-                &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
-              dreg_patch0(je,4,1:2,jk,jb) = dreg_patch0(je,1,1:2,jk,jb)
-
-
-              ! patch 1 (non-existing)
-              !
-              dreg_patch1(je,1,1:2,jk,jb) = 0._wp
-              dreg_patch1(je,2,1:2,jk,jb) = 0._wp
-              dreg_patch1(je,3,1:2,jk,jb) = 0._wp
-              dreg_patch1(je,4,1:2,jk,jb) = 0._wp
-
-
-
-              ! patch 2
-              ! vn > 0: A2 D2 D1 I2
-              ! vn < 0: A2 I2 D1 D2
-              !
-              dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
-              dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
-                &                           pi2(je,1), lvn_sys_pos)
-              dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
-                &                           pi2(je,2), lvn_sys_pos)
-              dreg_patch2(je,3,1:2,jk,jb) = depart_pts(je,1,1:2,jk,jb)
-              dreg_patch2(je,4,1,jk,jb)   = MERGE(pi2(je,1),                    &
-                &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
-              dreg_patch2(je,4,2,jk,jb)   = MERGE(pi2(je,2),                    &
-                &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
-
-            ENDIF  ! lintersect
-          ENDIF  ! p_vt
-
-
-
-!!$WRITE(0,*)
-!!$WRITE(0,*) "x: dreg_patch0(je,1:4,1,jk,jb): ", dreg_patch0(je,1:4,1,jk,jb)
-!!$WRITE(0,*) "y: dreg_patch0(je,1:4,2,jk,jb): ", dreg_patch0(je,1:4,2,jk,jb)
-!!$WRITE(0,*)
-!!$WRITE(0,*) "x: dreg_patch1(je,1:4,1,jk,jb): ", dreg_patch1(je,1:4,1,jk,jb)
-!!$WRITE(0,*) "y: dreg_patch1(je,1:4,2,jk,jb): ", dreg_patch1(je,1:4,2,jk,jb)
-!!$WRITE(0,*) "cell center of underlying cell (patch1) (x,y): ", bf_cc(1,1:2)
-!!$WRITE(0,*)
-!!$WRITE(0,*) "x: dreg_patch2(je,1:4,1,jk,jb): ", dreg_patch2(je,1:4,1,jk,jb)
-!!$WRITE(0,*) "y: dreg_patch2(je,1:4,2,jk,jb): ", dreg_patch2(je,1:4,2,jk,jb)
-!!$WRITE(0,*) "cell center of underlying cell (patch2) (x,y): ", bf_cc(2,1:2)
-!!$WRITE(0,*)
-!!$WRITE(0,*) "up_vert1 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,1)%lon,          &
-!!$  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,1)%lon,lvn_pos), &
-!!$  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,1)%lat,          &
-!!$  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,1)%lat,lvn_pos)
-!!$WRITE(0,*) "up_vert2 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,2)%lon,          &
-!!$  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,2)%lon,lvn_pos), &
-!!$  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,2)%lat,          &
-!!$  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,2)%lat,lvn_pos)
-!!$WRITE(0,*) "up_vert3 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,3)%lon,          &
-!!$  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,3)%lon,lvn_pos), &
-!!$  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,3)%lat,          &
-!!$  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,3)%lat,lvn_pos)
-!!$WRITE(0,*)
-!!$WRITE(0,*) "system orientation, v_t: ", p_patch%edges%system_orientation(je,jb), p_vt(je,jk,jb)
-!!$WRITE(0,*)
-
-
-          ! get coordinates of butterfly cell centers (from upwind cell)
-          bf_cc(1,1) = MERGE(ptr_bfcc(je,jb,1,1)%lon,         &
-            &                ptr_bfcc(je,jb,2,1)%lon, lvn_pos ) 
-          bf_cc(1,2) = MERGE(ptr_bfcc(je,jb,1,1)%lat,         &
-            &                ptr_bfcc(je,jb,2,1)%lat, lvn_pos )
-          bf_cc(2,1) = MERGE(ptr_bfcc(je,jb,1,2)%lon,         &
-            &                ptr_bfcc(je,jb,2,2)%lon, lvn_pos ) 
-          bf_cc(2,2) = MERGE(ptr_bfcc(je,jb,1,2)%lat,         &
-            &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos ) 
-
-          ! patch 1 in translated system
-          !
-          dreg_patch1(je,1,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb) - bf_cc(1,1:2)
-          dreg_patch1(je,2,1:2,jk,jb) = dreg_patch1(je,2,1:2,jk,jb) - bf_cc(1,1:2)
-          dreg_patch1(je,3,1:2,jk,jb) = dreg_patch1(je,3,1:2,jk,jb) - bf_cc(1,1:2)
-          dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,4,1:2,jk,jb) - bf_cc(1,1:2)
-
-
-          ! patch 2 in translated system
-          !
-          dreg_patch2(je,1,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb) - bf_cc(2,1:2)
-          dreg_patch2(je,2,1:2,jk,jb) = dreg_patch2(je,2,1:2,jk,jb) - bf_cc(2,1:2)
-          dreg_patch2(je,3,1:2,jk,jb) = dreg_patch2(je,3,1:2,jk,jb) - bf_cc(2,1:2)
-          dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,4,1:2,jk,jb) - bf_cc(2,1:2)
-
-
-
-          ! store global index of the underlying grid cell
-          !
-          patch1_cell_idx(je,jk,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,1), &
-            &                               p_patch%edges%butterfly_idx(je,jb,2,1), &
-            &                               lvn_pos) 
-          patch2_cell_idx(je,jk,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,2), &
-            &                               p_patch%edges%butterfly_idx(je,jb,2,2), &
-            &                               lvn_pos)
-
-          patch1_cell_blk(je,jk,jb) = MERGE(p_patch%edges%butterfly_blk(je,jb,1,1), &
-            &                               p_patch%edges%butterfly_blk(je,jb,2,1), &
-            &                               lvn_pos)
-          patch2_cell_blk(je,jk,jb) = MERGE(p_patch%edges%butterfly_blk(je,jb,1,2), &
-            &                               p_patch%edges%butterfly_blk(je,jb,2,2), &
-            &                               lvn_pos)
-
+            ! remaining cases needing further processing
+            icnt_rem = icnt_rem + 1
+            idxlist_rem(icnt_rem,jb) = je
+            levlist_rem(icnt_rem,jb) = jk
+          ENDIF
 
         ENDDO ! loop over edges
 
+      ENDDO  ! loop over vertical levels
+
+
+
+
+      ! Second step of index list computation
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_rem
+        je = idxlist_rem(jl,jb)
+        jk = levlist_rem(jl,jb)
+
+        ! get flux area edge 1
+        !
+        fl_e1(je,jk)%p1%lon = arrival_pts(je,1,1,jk,jb)
+        fl_e1(je,jk)%p1%lat = arrival_pts(je,1,2,jk,jb)
+        fl_e1(je,jk)%p2%lon = depart_pts (je,1,1,jk,jb)
+        fl_e1(je,jk)%p2%lat = depart_pts (je,1,2,jk,jb)
+
+        ! get flux area edge 2
+        !
+        fl_e2(je,jk)%p1%lon = arrival_pts(je,2,1,jk,jb)
+        fl_e2(je,jk)%p1%lat = arrival_pts(je,2,2,jk,jb)
+        fl_e2(je,jk)%p2%lon = depart_pts (je,2,1,jk,jb)
+        fl_e2(je,jk)%p2%lat = depart_pts (je,2,2,jk,jb)
+
+
+        ! Check whether flux area edge 2 intersects with triangle edge 1
+        !
+!CDIR NEXPAND(lintersect)
+        lintersect_e2_line1 = lintersect(fl_e2(je,jk), tri_line1(je,jk))
+
+
+        ! Check whether flux area edge 1 intersects with triangle edge 2
+        !
+!CDIR NEXPAND(lintersect)
+        lintersect_e1_line2 = lintersect(fl_e1(je,jk), tri_line2(je,jk))
+
+
+        IF ( lintersect_e2_line1 ) THEN
+
+          !CASE IIIa
+          icnt_c3p = icnt_c3p + 1
+          idxlist_c3p(icnt_c3p,jb) = je
+          levlist_c3p(icnt_c3p,jb) = jk
+
+        ELSE IF ( lintersect_e1_line2 ) THEN
+
+          !CASE IIIb
+          icnt_c3m = icnt_c3m + 1
+          idxlist_c3m(icnt_c3m,jb) = je
+          levlist_c3m(icnt_c3m,jb) = jk
+
+        ELSE     ! error index list
+
+          ! ERROR
+          icnt_err = icnt_err + 1
+          idxlist_err(icnt_err,jb) = je
+          levlist_err(icnt_err,jb) = jk
+
+        ENDIF
+
+      ENDDO  !jl
+
+
+
+      IF (msg_level >= 10 .AND. icnt_err>0) THEN 
+        ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
+        DO jl = 1, icnt_err
+
+          je = idxlist_err(jl,jb)
+          jk = levlist_err(jl,jb)
+
+          ! Note: direct write to standard error output is used here by intention
+          ! because warnings are otherwise suppressed for all PEs but PE0
+          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
+                                     p_vn(je,jk,jb),p_vt(je,jk,jb)
+        ENDDO
+      ENDIF
+
+
+      ! Get corners of flux area patches
+      !
+
+      !
+      ! CASE 1
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_c1
+        je = idxlist_c1(jl,jb)
+        jk = levlist_c1(jl,jb)
+
+
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+
+        ! Compute intersection point of fl_line with tri_line1
+        ! Compute intersection point of fl_line with tri_line2
+        !
+        ps1(1:2) = line_intersect(fl_line(je,jk), tri_line1(je,jk))
+        ps2(1:2) = line_intersect(fl_line(je,jk), tri_line2(je,jk))
+
+        ! store corners of flux area patches (counterclockwise)
+        ! patch 0
+        ! vn > 0: A1 A2 S2 S1
+        ! vn < 0: A1 S1 S2 A2
+        !
+        dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
+          &                           ps1(1),lvn_sys_pos)
+        dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
+          &                           ps1(2),lvn_sys_pos)
+        dreg_patch0(je,3,1:2,jk,jb) = ps2(1:2)
+        dreg_patch0(je,4,1,jk,jb)   = MERGE(ps1(1),arrival_pts(je,2,1,jk,jb), &
+          &                           lvn_sys_pos)
+        dreg_patch0(je,4,2,jk,jb)   = MERGE(ps1(2),arrival_pts(je,2,2,jk,jb), &
+          &                           lvn_sys_pos)
+
+        ! patch 1
+        ! vn > 0: A1 S1 D1 A1 (degenerated)
+        ! vn < 0: A1 D1 S1 A1 (degenerated)
+        !
+        dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(1),                    &
+          &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
+        dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(2),                    &
+          &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
+        dreg_patch1(je,3,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
+          &                           ps1(1),lvn_sys_pos)
+        dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
+          &                           ps1(2), lvn_sys_pos)
+        dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
+
+
+        ! patch 2
+        ! vn > 0: A2 D2 S2 A2 (degenerated)
+        ! vn < 0: A2 S2 D2 A2 (degenerated)
+        !
+        dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
+        dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
+          &                           ps2(1), lvn_sys_pos)
+        dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
+          &                           ps2(2), lvn_sys_pos)
+        dreg_patch2(je,3,1,jk,jb)   = MERGE(ps2(1),                    &
+          &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
+        dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(2),                    &
+          &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
+        dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
+      ENDDO  ! jl
+
+
+
+      !
+      ! CASE 2a
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_c2p
+        je = idxlist_c2p(jl,jb)
+        jk = levlist_c2p(jl,jb)
+
+
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+
+        ! Compute intersection point of fl_line with tri_line1
+        !
+        ps1(1:2) = line_intersect(fl_line(je,jk), tri_line1(je,jk))
+
+        ! store corners of flux area patches (counterclockwise)
+        ! patch 0
+        ! vn > 0: A1 A2 D2 S1
+        ! vn < 0: A1 S1 D2 A2
+        !
+        dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
+          &                           ps1(1),lvn_sys_pos)
+        dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
+          &                           ps1(2),lvn_sys_pos)
+        dreg_patch0(je,3,1:2,jk,jb) = depart_pts(je,2,1:2,jk,jb)
+        dreg_patch0(je,4,1,jk,jb)   = MERGE(ps1(1),arrival_pts(je,2,1,jk,jb), &
+          &                           lvn_sys_pos)
+        dreg_patch0(je,4,2,jk,jb)   = MERGE(ps1(2),arrival_pts(je,2,2,jk,jb), &
+          &                           lvn_sys_pos)
+
+          ! patch 1
+          ! vn > 0: A1 S1 D1 A1 (degenerated)
+          ! vn < 0: A1 D1 S1 A1 (degenerated)
+          !
+        dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(1),                    &
+          &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
+        dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(2),                    &
+          &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
+        dreg_patch1(je,3,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
+          &                           ps1(1),lvn_sys_pos)
+        dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
+          &                           ps1(2), lvn_sys_pos)
+        dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
+
+
+        ! patch 2 (non-existing)
+        !
+        dreg_patch2(je,1,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,2,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,3,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,4,1:2,jk,jb) = 0._wp
+
+      ENDDO  ! jl
+
+
+
+      !
+      ! CASE 2b
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_c2m
+        je = idxlist_c2m(jl,jb)
+        jk = levlist_c2m(jl,jb)
+
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+
+        ! Compute intersection point of fl_line with tri_line2
+        !
+        ps2(1:2) = line_intersect(fl_line(je,jk), tri_line2(je,jk))
+
+        ! store corners of flux area patches (counterclockwise)
+        ! patch 0
+        ! vn > 0: A1 A2 S2 D1
+        ! vn < 0: A1 D1 S2 A2
+        !
+        dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
+          &                           depart_pts(je,1,1,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
+          &                           depart_pts(je,1,2,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,3,1:2,jk,jb) = ps2(1:2)
+        dreg_patch0(je,4,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
+          &                           arrival_pts(je,2,1,jk,jb), lvn_sys_pos)
+        dreg_patch0(je,4,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
+          &                           arrival_pts(je,2,2,jk,jb), lvn_sys_pos)
+
+
+        ! patch 1 (non-existing)
+        !
+        dreg_patch1(je,1,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,2,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,3,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,4,1:2,jk,jb) = 0._wp
+
+
+        ! patch 2
+        ! vn > 0: A2 D2 S2 A2 (degenerated)
+        ! vn < 0: A2 S2 D2 A2 (degenerated)
+        !
+        dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
+        dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
+          &                           ps2(1), lvn_sys_pos)
+        dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
+          &                           ps2(2), lvn_sys_pos)
+        dreg_patch2(je,3,1,jk,jb)   = MERGE(ps2(1),                    &
+          &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
+        dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(2),                    &
+          &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
+        dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
+      ENDDO  ! jl
+
+
+
+      !
+      ! CASE 3a
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_c3p
+        je = idxlist_c3p(jl,jb)
+        jk = levlist_c3p(jl,jb)
+
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+
+        ! Compute intersection point of fl_e2 with tri_line1
+        !
+        pi1(1:2) = line_intersect(fl_e2(je,jk), tri_line1(je,jk))
+
+        ! store corners of flux area patches (counterclockwise)
+        ! patch 0
+        ! vn > 0: A1 A2 I1 A1 (degenerated)
+        ! vn < 0: A1 I1 A2 A1 (degenerated)
+        !
+        dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
+          &                           pi1(1),lvn_sys_pos)
+        dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
+          &                           pi1(2),lvn_sys_pos)
+        dreg_patch0(je,3,1,jk,jb)   = MERGE(pi1(1),                    &
+          &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,3,2,jk,jb)   = MERGE(pi1(2),                    &
+          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
+        dreg_patch0(je,4,1:2,jk,jb) = dreg_patch0(je,1,1:2,jk,jb)
+
+
+        ! patch 1
+        ! vn > 0: A1 I1 D2 D1
+        ! vn < 0: A1 D1 D2 I1
+        !
+        dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch1(je,2,1,jk,jb)   = MERGE(pi1(1),                    &
+          &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
+        dreg_patch1(je,2,2,jk,jb)   = MERGE(pi1(2),                    &
+          &                           depart_pts(je,1,2,jk,jb), lvn_sys_pos)
+        dreg_patch1(je,3,1:2,jk,jb) = depart_pts(je,2,1:2,jk,jb)
+        dreg_patch1(je,4,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb),  &
+          &                           pi1(1),lvn_sys_pos)
+        dreg_patch1(je,4,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
+          &                           pi1(2), lvn_sys_pos)
+
+
+        ! patch 2 (non-existing)
+        !
+        dreg_patch2(je,1,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,2,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,3,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,4,1:2,jk,jb) = 0._wp
+
+      ENDDO  ! jl
+
+
+      ! 
+      ! CASE 3b
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_c3m
+        je = idxlist_c3m(jl,jb)
+        jk = levlist_c3m(jl,jb)
+
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+
+        ! Compute intersection point of fl_e1 with tri_line2
+        pi2(1:2) = line_intersect(fl_e1(je,jk), tri_line2(je,jk))
+
+        ! store corners of flux area patches (counterclockwise)
+        ! patch 0
+        ! vn > 0: A1 A2 I2 A1 (degenerated)
+        ! vn < 0: A1 I2 A2 A1 (degenerated)
+        !
+        dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
+          &                           pi2(1),lvn_sys_pos)
+        dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
+          &                           pi2(2),lvn_sys_pos)
+        dreg_patch0(je,3,1,jk,jb)   = MERGE(pi2(1),                    &
+          &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,3,2,jk,jb)   = MERGE(pi2(2),                    &
+          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
+        dreg_patch0(je,4,1:2,jk,jb) = dreg_patch0(je,1,1:2,jk,jb)
+
+
+        ! patch 1 (non-existing)
+        !
+        dreg_patch1(je,1,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,2,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,3,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,4,1:2,jk,jb) = 0._wp
+
+
+
+        ! patch 2
+        ! vn > 0: A2 D2 D1 I2
+        ! vn < 0: A2 I2 D1 D2
+        !
+        dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
+        dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
+          &                           pi2(1), lvn_sys_pos)
+        dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
+          &                           pi2(2), lvn_sys_pos)
+        dreg_patch2(je,3,1:2,jk,jb) = depart_pts(je,1,1:2,jk,jb)
+        dreg_patch2(je,4,1,jk,jb)   = MERGE(pi2(1),                    &
+          &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
+        dreg_patch2(je,4,2,jk,jb)   = MERGE(pi2(2),                    &
+          &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
+      ENDDO  ! jl
+
+
+     ! end of index list stuff
+
+
+      DO jk = slev, elev
+
+         DO je = i_startidx, i_endidx
+
+           lvn_pos = p_vn(je,jk,jb) >= 0._wp
+
+           ! get coordinates of butterfly cell centers (from upwind cell)
+           bf_cc(1,1) = MERGE(ptr_bfcc(je,jb,1,1)%lon,         &
+             &                ptr_bfcc(je,jb,2,1)%lon, lvn_pos ) 
+           bf_cc(1,2) = MERGE(ptr_bfcc(je,jb,1,1)%lat,         &
+             &                ptr_bfcc(je,jb,2,1)%lat, lvn_pos )
+           bf_cc(2,1) = MERGE(ptr_bfcc(je,jb,1,2)%lon,         &
+             &                ptr_bfcc(je,jb,2,2)%lon, lvn_pos ) 
+           bf_cc(2,2) = MERGE(ptr_bfcc(je,jb,1,2)%lat,         &
+             &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos ) 
+
+!DRWRITE(0,*)
+!DRWRITE(0,*) "x: dreg_patch0(je,1:4,1,jk,jb): ", dreg_patch0(je,1:4,1,jk,jb)
+!DRWRITE(0,*) "y: dreg_patch0(je,1:4,2,jk,jb): ", dreg_patch0(je,1:4,2,jk,jb)
+!DRWRITE(0,*)
+!DRWRITE(0,*) "x: dreg_patch1(je,1:4,1,jk,jb): ", dreg_patch1(je,1:4,1,jk,jb)
+!DRWRITE(0,*) "y: dreg_patch1(je,1:4,2,jk,jb): ", dreg_patch1(je,1:4,2,jk,jb)
+!DRWRITE(0,*) "cell center of underlying cell (patch1) (x,y): ", bf_cc(1,1:2)
+!DRWRITE(0,*)
+!DRWRITE(0,*) "x: dreg_patch2(je,1:4,1,jk,jb): ", dreg_patch2(je,1:4,1,jk,jb)
+!DRWRITE(0,*) "y: dreg_patch2(je,1:4,2,jk,jb): ", dreg_patch2(je,1:4,2,jk,jb)
+!DRWRITE(0,*) "cell center of underlying cell (patch2) (x,y): ", bf_cc(2,1:2)
+!DRWRITE(0,*)
+!DRWRITE(0,*) "up_vert1 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,1)%lon,          &
+!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,1)%lon,lvn_pos), &
+!DR  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,1)%lat,          &
+!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,1)%lat,lvn_pos)
+!DRWRITE(0,*) "up_vert2 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,2)%lon,          &
+!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,2)%lon,lvn_pos), &
+!DR  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,2)%lat,          &
+!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,2)%lat,lvn_pos)
+!DRWRITE(0,*) "up_vert3 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,3)%lon,          &
+!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,3)%lon,lvn_pos), &
+!DR  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,3)%lat,          &
+!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,3)%lat,lvn_pos)
+!DRWRITE(0,*)
+!DRWRITE(0,*) "system orientation, v_t: ", p_patch%edges%system_orientation(je,jb), p_vt(je,jk,jb)
+!DRWRITE(0,*)
+
+           ! patch 1 in translated system
+           !
+           dreg_patch1(je,1,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb) - bf_cc(1,1:2)
+           dreg_patch1(je,2,1:2,jk,jb) = dreg_patch1(je,2,1:2,jk,jb) - bf_cc(1,1:2)
+           dreg_patch1(je,3,1:2,jk,jb) = dreg_patch1(je,3,1:2,jk,jb) - bf_cc(1,1:2)
+           dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,4,1:2,jk,jb) - bf_cc(1,1:2)
+
+
+           ! patch 2 in translated system
+           !
+           dreg_patch2(je,1,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb) - bf_cc(2,1:2)
+           dreg_patch2(je,2,1:2,jk,jb) = dreg_patch2(je,2,1:2,jk,jb) - bf_cc(2,1:2)
+           dreg_patch2(je,3,1:2,jk,jb) = dreg_patch2(je,3,1:2,jk,jb) - bf_cc(2,1:2)
+           dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,4,1:2,jk,jb) - bf_cc(2,1:2)
+
+
+
+           ! store global index of the underlying grid cell
+           !
+           patch1_cell_idx(je,jk,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,1), &
+             &                               p_patch%edges%butterfly_idx(je,jb,2,1), &
+             &                               lvn_pos) 
+           patch2_cell_idx(je,jk,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,2), &
+             &                               p_patch%edges%butterfly_idx(je,jb,2,2), &
+             &                               lvn_pos)
+
+           patch1_cell_blk(je,jk,jb) = MERGE(p_patch%edges%butterfly_blk(je,jb,1,1), &
+             &                               p_patch%edges%butterfly_blk(je,jb,2,1), &
+             &                               lvn_pos)
+           patch2_cell_blk(je,jk,jb) = MERGE(p_patch%edges%butterfly_blk(je,jb,1,2), &
+             &                               p_patch%edges%butterfly_blk(je,jb,2,2), &
+             &                               lvn_pos)
+
+
+         ENDDO ! loop over edges
 
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
