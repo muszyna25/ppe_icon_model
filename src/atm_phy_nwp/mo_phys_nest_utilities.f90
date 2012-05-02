@@ -516,8 +516,9 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
     i_startblk = p_par_patch%cells%start_blk(1,1)
     i_endblk   = p_par_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+    ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_par_patch, jb, i_startblk, i_endblk, &
@@ -536,8 +537,8 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
       ENDDO
 
     ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
     DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, z_albvisdif,&
       & z_albnirdif, z_tsfc, z_pres_ifc, z_pres, z_temp, z_acdnc, z_tot_cld, z_q_o3,   &
@@ -1335,8 +1336,9 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
     i_startblk = p_par_patch%cells%start_blk(1,1)
     i_endblk   = p_par_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+    ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_par_patch, jb, i_startblk, i_endblk, &
@@ -1350,8 +1352,8 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
       ENDDO
 
     ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
     DEALLOCATE(z_cosmu0, z_albvisdir, z_alb_ther, z_temp_ifc, z_dpres_mc,z_tot_cld, &
       &  z_sqv, z_duco2, z_duo3, z_aeq1, z_aeq2, z_aeq3, z_aeq4, z_aeq5,            &
@@ -1776,8 +1778,9 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
   i_startblk = ptr_pp%cells%start_blk(1,1)
   i_endblk   = ptr_pp%nblks_c
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
@@ -1797,8 +1800,8 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
 
     ENDDO
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
     CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
@@ -1811,8 +1814,9 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
   i_startblk = ptr_pc%cells%start_blk(1,1)
   i_endblk   = ptr_pc%cells%end_blk(grf_bdywidth_c,1)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -1832,8 +1836,8 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
 
     ENDDO
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
 END SUBROUTINE interpol_phys_grf
 
@@ -1878,8 +1882,9 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   i_startblk = ptr_pp%cells%start_blk(1,1)
   i_endblk   = ptr_pp%nblks_c
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
@@ -1890,8 +1895,8 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
       z_aux3d_p(jc,2,jb) = prm_diagp%albvisdif(jc,jb)
     ENDDO
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
     CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
@@ -1907,8 +1912,9 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   ! Note: prognostic land fields are set on both time levels to safely avoid
   ! errors when radiation calls for parent and child grids are not properly 
   ! synchronized
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -1922,8 +1928,8 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
 
     ENDDO
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
 END SUBROUTINE interpol_rrg_grf
 

@@ -922,10 +922,9 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-      ! *** this parallel section will be removed later once real data are
-      !     are available as input for radiation ***
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      ! parallel section commented because it does almost no work (more overhead than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -950,8 +949,8 @@ CONTAINS
 
       ENDDO ! blocks
 
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
       CALL upscale_rad_input(pt_patch, pt_par_patch, pt_par_grf_state,  &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
