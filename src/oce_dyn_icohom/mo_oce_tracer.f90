@@ -77,7 +77,7 @@ USE mo_intp_data_strc,            ONLY: p_int_state
 USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_horizontal
 USE mo_oce_tracer_transport_vert, ONLY: advect_diffuse_vertical
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
-USE mo_util_subset,               ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_sync,                      ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array
 IMPLICIT NONE
 

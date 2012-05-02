@@ -60,7 +60,7 @@ USE mo_oce_physics,         ONLY: t_ho_params
 USE mo_scalar_product,      ONLY: map_cell2edges, primal_map_c2e
 USE mo_oce_math_operators,  ONLY: nabla2_vec_ocean, div_oce
 USE mo_intp_data_strc,      ONLY: p_int_state
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
 
 IMPLICIT NONE

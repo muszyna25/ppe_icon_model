@@ -61,7 +61,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_oce_state,           ONLY: v_base
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_coeffs,         ONLY: par_init_scalar_product_oce
-  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   IMPLICIT NONE
 

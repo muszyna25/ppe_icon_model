@@ -59,7 +59,7 @@ USE mo_oce_state,           ONLY: v_base
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
 USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_T, b_S, &
   &                               SItodBar, sfc_press_bar
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 

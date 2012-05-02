@@ -66,7 +66,7 @@ USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
 !USE mo_param_ice !,           ONLY: kice
 USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 IMPLICIT NONE
 
 PRIVATE

@@ -44,7 +44,7 @@ MODULE mo_oce_diagnostics
 !   
 ! 
 USE mo_kind,                      ONLY: wp, i8
-USE mo_util_subset,               ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_math_constants,            ONLY: rad2deg
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &

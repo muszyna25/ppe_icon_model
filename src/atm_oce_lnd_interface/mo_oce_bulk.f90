@@ -89,7 +89,7 @@ USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 

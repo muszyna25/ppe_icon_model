@@ -95,7 +95,7 @@ USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,        
   !&                                     veloc_diffusion_vert_impl,                        &
   &                                     veloc_diffusion_vert_impl_hom
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 

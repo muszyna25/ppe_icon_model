@@ -105,7 +105,7 @@ MODULE mo_model_domain
   USE mo_communication,  ONLY: t_comm_pattern
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
-  USE mo_util_subset,    ONLY: t_subset_range
+  USE mo_grid_subset,    ONLY: t_subset_range
   
   IMPLICIT NONE
   

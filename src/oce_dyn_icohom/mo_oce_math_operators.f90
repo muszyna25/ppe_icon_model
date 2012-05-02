@@ -64,7 +64,7 @@ MODULE mo_oce_math_operators
   !USE mo_base_geometry,      ONLY: triangle_area
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
   IMPLICIT NONE
 

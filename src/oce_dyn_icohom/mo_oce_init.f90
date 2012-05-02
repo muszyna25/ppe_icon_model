@@ -90,7 +90,7 @@ USE mo_oce_linear_solver,  ONLY: gmres_e2e
 USE mo_master_control,     ONLY: is_restart_run
 USE mo_ape_params,         ONLY: ape_sst
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 IMPLICIT NONE
 INCLUDE 'netcdf.inc'
 PRIVATE

@@ -63,7 +63,7 @@ MODULE mo_oce_veloc_advection
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
   USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   IMPLICIT NONE
 

@@ -62,7 +62,7 @@ USE mo_oce_physics
 USE mo_advection_utils,           ONLY: laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
-USE mo_util_subset,               ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_sync,                      ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
 IMPLICIT NONE
 

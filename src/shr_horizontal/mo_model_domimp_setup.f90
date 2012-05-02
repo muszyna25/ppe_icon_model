@@ -115,7 +115,7 @@ MODULE mo_model_domimp_setup
   USE mo_loopindices,        ONLY: get_indices_e
   USE mo_grid_config,        ONLY: corio_lat
   USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
-  USE mo_util_subset,        ONLY: fill_subset
+  USE mo_grid_subset,        ONLY: fill_subset
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling
   

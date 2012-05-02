@@ -71,7 +71,7 @@ USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
 USE mo_sync,                ONLY: omp_global_sum_array
 USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 

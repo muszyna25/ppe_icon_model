@@ -78,7 +78,7 @@ USE mo_var_list,            ONLY: add_var,                  &
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, &
   &                               sync_patch_array, sync_idx, global_max
 

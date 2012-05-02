@@ -61,7 +61,7 @@ MODULE mo_oce_boundcond
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec,cvec2gvec
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
-  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
   
   IMPLICIT NONE

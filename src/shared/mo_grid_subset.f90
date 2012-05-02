@@ -32,7 +32,7 @@
 !! software.
 !!
 !!
-MODULE mo_util_subset
+MODULE mo_grid_subset
 
   USE mo_exception,    ONLY: warning
 
@@ -94,7 +94,7 @@ CONTAINS
     INTEGER :: levels_size(2) 
     INTEGER :: block, index_in_block, start_index, end_index
     
-    CHARACTER(*), PARAMETER :: method_name = "mo_util_subset:fill_subset"
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:fill_subset"
 
     levels_size = SHAPE(level)
 
@@ -174,5 +174,5 @@ CONTAINS
   END SUBROUTINE get_index_range
   !----------------------------------------------------
 
-END MODULE mo_util_subset
+END MODULE mo_grid_subset
 

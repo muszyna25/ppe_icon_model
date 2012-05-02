@@ -197,7 +197,7 @@ USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coe
 USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
   &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 
-USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
