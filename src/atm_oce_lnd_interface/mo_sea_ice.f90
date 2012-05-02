@@ -1962,14 +1962,11 @@ CONTAINS
     !         0.058*sqrt(esta)
     !-----------------------------------------------------------------------
 
-!    humi    = 0.601_wp+ 5.95_wp*1.0e-7_wp*esta*EXP(1500.0_wp/tafoK)
     humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
-!    fakts   =  1.0_wp + 0.3_wp*p_as%fclou**2
-    fakts   =  1.0_wp - &
-      & (0.5_wp + 0.4_wp/90._wp*rad2deg*ppatch%cells%center(:,:)%lat) * p_as%fclou**2
+    fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+      &         *MIN(ABS(rad2deg*ppatch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
     Qatm%LWin = fakts * humi * zemiss_def*StBo * tafoK**4
 
-!    Qatm%LWoutw = zemiss_def*StBo * (Tsurf+tmelt)**4
     Qatm%LWoutw = 4._wp*zemiss_def*StBo*tafoK**3 * (Tsurf - p_as%tafo)
     Qatm%LWnetw = Qatm%LWin - Qatm%LWoutw
 
@@ -2004,10 +2001,8 @@ CONTAINS
         dragl    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
         drags    = 0.95_wp * dragl
 
-!        Qatm%LWout (:,i,:) = zemiss_def*StBo * (Tsurf+tmelt)**4
         Qatm%LWout (:,i,:) = 4._wp*zemiss_def*StBo*tafoK**3 * (Tsurf - p_as%tafo)
         Qatm%LWnet (:,i,:) = Qatm%LWin - Qatm%LWout(:,i,:)
-!        Qatm%dLWdT (:,i,:) = - 4.0_wp * zemiss_def*StBo * (Tsurf + tmelt)**3
         Qatm%dLWdT (:,i,:) = 4._wp*zemiss_def*StBo*tafoK**3
         Qatm%sens  (:,i,:) = drags * rhoair*cpd*p_as%fu10 * (p_as%tafo -Tsurf)
         Qatm%lat   (:,i,:) = dragl * rhoair* alf *p_as%fu10 * (sphumida-sphumidi)
