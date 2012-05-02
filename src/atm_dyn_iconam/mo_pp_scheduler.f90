@@ -444,9 +444,8 @@ CONTAINS
           new_element%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
             
             !-- create and add post-processing task
-          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
-
           task => pp_task_insert(DEFAULT_PRIORITY2)
+          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
           task%data_input%p_nh_state      => NULL()
           task%data_input%prm_diag        => NULL()
           task%data_input%nh_pzlev_config => NULL()
