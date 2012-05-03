@@ -36,6 +36,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 echo "-----------------------------------------------------------"
+# set -x
 
 base_folder=$(pwd)
 input_folder=run
@@ -51,11 +52,13 @@ use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
 
-
 #==============================================================================
 # define the runscripts to be created
 make_restart_exp="false"
 make_restart_post="false"
+grid_list=""
+exp_list=""
+post_list=""
 
 cd $input_folder
 case $param in
@@ -83,8 +86,12 @@ case $param in
   *)  # create only one experiment
     make_bb_grid="false"
     grid_list=""
-    exp_list="exp.$param"
-    post_list="post.$param"
+    if [ -r "exp.$param" ] ; then
+      exp_list="exp.$param"
+    fi
+    if [ -r "post.$param" ] ; then
+      post_list="post.$param"
+    fi
 esac
 cd $base_folder
 
