@@ -253,6 +253,7 @@ CONTAINS
     ! stencil size, depending on the chosen polynomial order (lsq_high_ord).
     ! Default value for lsq_high_ord is 3. The user might have made a different
     ! choice. The possibilities are:
+    !  lsq_high_ord=1 : linear polynomial           : 2 unknowns with a 3-point stencil
     !  lsq_high_ord=2 : quadratic polynomial        : 5 unknowns with a 9-point stencil
     !  lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
     !  lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
@@ -273,8 +274,16 @@ CONTAINS
       ! Settings for high order lsq reconstruction
 
       lsq_high_set%l_consv = llsq_high_consv
-      
-      IF (lsq_high_ord == 2) THEN
+
+      IF (lsq_high_ord == 1) THEN
+        lsq_high_set%dim_c   = 3
+        lsq_high_set%dim_unk = 2
+        IF ( lsq_high_set%l_consv ) THEN
+          lsq_high_set%wgt_exp = 0
+        ELSE
+          lsq_high_set%wgt_exp = 2
+        ENDIF      
+      ELSE IF (lsq_high_ord == 2) THEN
         lsq_high_set%dim_c   = 9
         lsq_high_set%dim_unk = 5
         lsq_high_set%wgt_exp = 3
@@ -287,7 +296,7 @@ CONTAINS
         lsq_high_set%dim_unk = 9
         lsq_high_set%wgt_exp = 0
       ELSE
-        CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 2,30 or 3')
+        CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 1,2,30 or 3')
       ENDIF
 
       ! triangular grid: just avoid that thickness is averaged at edges as it is

@@ -178,6 +178,19 @@ MODULE mo_advection_config
   TYPE(t_cleanup) :: lcleanup
 
 
+  ! for first order Gauss-Legendre quadrature
+  !
+  REAL(wp) :: shape_func_l(4)  !< shape functions for mapping the FFSL departure
+                               !< region onto the standard rectangle
+                                                                                 
+  REAL(wp) :: zeta_l, eta_l    !< Gauss quadrature point in \zeta-\eta space                        
+                                                                                 
+  REAL(wp) :: wgt_zeta_l       !< Gauss quadrature weights for zeta and eta    
+  REAL(wp) :: wgt_eta_l        !< points
+
+
+  ! for second order Gauss-Legendre quadrature
+  !
   REAL(wp) :: shape_func(4,4)  !< shape functions for mapping the FFSL departure
                                !< region onto the standard rectangle (miura3 only)
                                                                                  
@@ -505,11 +518,38 @@ CONTAINS
 
     !
     ! Compute shape functions for mapping the departure region onto the
-    ! standard rectangle. It is assumed that a second order Gauss-Legendre
-    ! quadrature is applied
+    ! standard rectangle. Integration points, shape functions and quadrature 
+    ! weights are provided for a first and second order Gauss-Legendre
+    ! quadrature.
     !
 
     IF (jg == 1) THEN
+
+      !
+      ! First order
+      !
+
+      ! Coordinates of integration points (in \zeta,\eta-System)
+      !
+      zeta_l = 0._wp
+      eta_l  = 0._wp
+
+      ! shape function for mapping
+      shape_func_l(1) = 0.25_wp * (1._wp-zeta_l)*(1._wp-eta_l)
+      shape_func_l(2) = 0.25_wp * (1._wp+zeta_l)*(1._wp-eta_l)
+      shape_func_l(3) = 0.25_wp * (1._wp+zeta_l)*(1._wp+eta_l)
+      shape_func_l(4) = 0.25_wp * (1._wp-zeta_l)*(1._wp+eta_l)
+
+
+      ! Gauss quadrature weights
+      !
+      wgt_zeta_l = 2._wp
+      wgt_eta_l  = 2._wp
+
+
+      !
+      ! Second order
+      !
 
       ! Coordinates of integration points (in \zeta,\eta-System)
       !

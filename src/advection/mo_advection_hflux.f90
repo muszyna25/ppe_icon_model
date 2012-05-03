@@ -99,7 +99,8 @@ MODULE mo_advection_hflux
     &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
     &                               recon_lsq_cell_cpoor_svd,                   &
     &                               recon_lsq_cell_c_svd, div
-  USE mo_interpol_config,     ONLY: llsq_lin_consv, lsq_high_ord, lsq_high_set
+  USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
+    &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge                         
   USE mo_intp,                ONLY: cells2edges_scalar
@@ -114,7 +115,8 @@ MODULE mo_advection_hflux
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux
-  USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_q,                    &
+  USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
+    &                               prep_gauss_quadrature_q,                    &
     &                               prep_gauss_quadrature_cpoor,                &
     &                               prep_gauss_quadrature_c
   USE mo_advection_traj,      ONLY: btraj, btraj_o2, btraj_dreg,                &
@@ -297,12 +299,13 @@ CONTAINS
           &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
 
       CASE( FFSL )
-        ! CALL Flux form semi lagrangian scheme (extension of MIURA3-scheme) 
+        ! CALL Flux form semi Lagrangian scheme (extension of MIURA3-scheme) 
         ! with second or third order accurate reconstruction
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, p_dtime, p_int, lcompute%ffsl_h(jt),    &! in
           &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
           &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,    &! inout,in
+          &                 opt_lconsv= llsq_high_consv,                  &! in
           &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend   )! in
 
 
@@ -2252,8 +2255,8 @@ CONTAINS
   !!
   SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,     &
     &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
-    &                      p_out_e, opt_rlstart, opt_rlend, opt_lout_edge,      &
-    &                      opt_real_vt, opt_slev, opt_elev )
+    &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend,         &
+    &                      opt_lout_edge, opt_real_vt, opt_slev, opt_elev )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -2288,6 +2291,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the tracer mass flux
       &  p_out_e(:,:,:)             !< or the reconstructed edge value
                                     !< dim: (nproma,nlev,nblks_e)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
+     &  opt_lconsv                     !< is used (linear reconstruction only)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'edge value'
@@ -2337,9 +2343,9 @@ CONTAINS
                                       !< dim: (nproma,nlev,ptr_p%nblks_e,2,2)
 
     REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
-      & dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
-      & dreg_patch1(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &
-      & dreg_patch2(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
+      &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
+      &  dreg_patch1(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &
+      &  dreg_patch2(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
 
 
     REAL(wp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
@@ -2353,15 +2359,16 @@ CONTAINS
       &  z_dreg_area2(:,:,:)
 
     INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line and block indices of underlying cell
-      & patch0_cell_idx(:,:,:), patch0_cell_blk(:,:,:), & !< dim: (nproma,nlev,p_patch%nblks_e)
-      & patch1_cell_idx(:,:,:), patch1_cell_blk(:,:,:), &
-      & patch2_cell_idx(:,:,:), patch2_cell_blk(:,:,:)
+      &  patch0_cell_idx(:,:,:), patch0_cell_blk(:,:,:), & !< dim: (nproma,nlev,p_patch%nblks_e)
+      &  patch1_cell_idx(:,:,:), patch1_cell_blk(:,:,:), &
+      &  patch2_cell_idx(:,:,:), patch2_cell_blk(:,:,:)
 
     INTEGER, POINTER ::                    & !< Pointer to line and block indices of the cells
       &  ptr_ilc0(:,:,:), ptr_ibc0(:,:,:), & !< to which the departure region patches belong.
       &  ptr_ilc1(:,:,:), ptr_ibc1(:,:,:), &
       &  ptr_ilc2(:,:,:), ptr_ibc2(:,:,:)
 
+    LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: ist                !< status variable
@@ -2390,6 +2397,12 @@ CONTAINS
     ELSE
       elev = nlev
     END IF
+
+    IF ( PRESENT(opt_lconsv) ) THEN
+     l_consv = opt_lconsv
+    ELSE
+     l_consv = .FALSE. ! non-conservative reconstruction
+    ENDIF
 
     IF ( PRESENT(opt_lout_edge) ) THEN
       l_out_edgeval = opt_lout_edge
@@ -2427,7 +2440,7 @@ CONTAINS
     dim_unk = lsq_high_set%dim_unk+1
 
     !
-    ! advection is done with an upwind scheme and a piecewise quadratic
+    ! advection is done with an upwind scheme and a piecewise linear, quadratic
     ! or cubic approximation of the tracer subgrid distribution.
     ! This approx. is integrated over a rhomboidal approximation of the
     ! departure region which is advected across the edge under consideration.
@@ -2467,7 +2480,19 @@ CONTAINS
     !    least squares method
     !    Note: for rlstart=2 we run into a sync-error with nests
     !
-    IF (lsq_high_ord == 2) THEN
+    IF (lsq_high_ord == 1) THEN
+      ! linear reconstruction
+      ! (computation of 3 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+          &                    opt_rlstart=2, opt_lconsv=l_consv )
+      ELSE
+        CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+          &                    opt_rlstart=2, opt_lconsv=l_consv )
+      ENDIF
+    ELSE IF (lsq_high_ord == 2) THEN
       ! quadratic reconstruction
       ! (computation of 6 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
@@ -2556,7 +2581,25 @@ CONTAINS
       ! provides quadrature points and the corresponding determinant of the
       ! Jacobian for each departure region.
       ! This is done for each of the three patch fragments.
-      IF (lsq_high_ord == 2) THEN
+      IF (lsq_high_ord == 1) THEN
+        ! Gauss-Legendre quadrature with 1 quadrature point for integrating
+        ! a linear 2D polynomial
+        CALL prep_gauss_quadrature_l( p_patch, dreg_patch0,               &! in
+          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_l( p_patch, dreg_patch1,               &! in
+          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+        CALL prep_gauss_quadrature_l( p_patch, dreg_patch2,               &! in
+          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
+
+      ELSE IF (lsq_high_ord == 2) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a quadratic 2D polynomial
         CALL prep_gauss_quadrature_q( p_patch, dreg_patch0,               &! in
@@ -2629,12 +2672,8 @@ CONTAINS
     !    in each rhomboidal area.
     !    Then calculate the flux v_n*\Delta p*\Phi_{avg}
     !    The fact that the rhomboidal area inevitably overlaps with neighboring
-    !    triangles is at least partly taken into account. Depending on the   
-    !    The fact that the rhomboidal area inevitably overlaps with neighboring
-    !    triangles is neglected (local quadratic/cubic approximation instead
-    !    of piecewise quadratic/cubic approximation). Only the reconstruction for
-    !    the local cell is taken into account.
-
+    !    triangles is at least partly taken into account.
+    !
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
@@ -2654,6 +2693,26 @@ CONTAINS
       ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
 
       SELECT  CASE( lsq_high_ord )
+      CASE( 1 )  ! linear reconstruction
+
+!CDIR UNROLL=5
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+
+!CDIR EXPAND=3
+          p_out_e(je,jk,jb) =                                                            &
+            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:3,ptr_ibc0(je,jk,jb)), &
+            &     z_quad_vector_sum0(je,1:3,jk,jb) )                                     &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:3,ptr_ibc1(je,jk,jb)), &
+            &     z_quad_vector_sum1(je,1:3,jk,jb) )                                     &
+            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:3,ptr_ibc2(je,jk,jb)), &
+            &     z_quad_vector_sum2(je,1:3,jk,jb) ) )                                   &
+            &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
+            &   * p_mass_flx_e(je,jk,jb)
+
+        ENDDO
+      ENDDO
+
       CASE( 2 )  ! quadratic reconstruction
 
 !CDIR UNROLL=5
