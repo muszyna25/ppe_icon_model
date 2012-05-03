@@ -465,7 +465,7 @@ CONTAINS
         &  pabs          = pabs_t(:,jb,isubs) ,&  ! ,nsfc_subs, photosynthetic active radiation (W/m2)
            ! 
         &  runoff_s      = runoff_s_t(:,jb,isubs)   , & ! surface water runoff; sum over forecast      (kg/m2)
-        &  runoff_g      = runoff_s_t(:,jb,isubs)   , & ! soil water runoff; sum over forecast         (kg/m2)
+        &  runoff_g      = runoff_g_t(:,jb,isubs)   , & ! soil water runoff; sum over forecast         (kg/m2)
         &  pt_tiles      = p_tiles(:)                   & ! tiles structure
         &                                           )
 
@@ -558,7 +558,7 @@ CONTAINS
              jc = ext_data%atm%idx_lst_lp(ic,jb)
              t_g_s(jc) = t_g_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* &
                lnd_prog_new%t_gt(jc,jb,isubs)
-             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* &
+             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* & 
                lnd_diag%qv_st(jc,jb,isubs)
            ENDDO
          ENDDO
