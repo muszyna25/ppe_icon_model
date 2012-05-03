@@ -554,7 +554,7 @@ LOGICAL, INTENT(in), OPTIONAL :: opt_dynmode ! true: use different storage order
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
 REAL(wp), INTENT(inout) ::  &
-  &  p_grad(:,:,:,:)
+  &  p_grad(:,:,:,:)      ! dim:(nproma,2,nlev,nblks_c)
 
 ! optional: calculated face values of cell centered quantity
 REAL(wp), INTENT(inout), OPTIONAL ::  &
@@ -636,8 +636,8 @@ SELECT CASE (ptr_patch%cell_type)
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
   IF (.NOT. l_dycoremode .AND. ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_grad(:,:,1:i_startblk,1) = 0._wp
-    p_grad(:,:,1:i_startblk,2) = 0._wp
+    p_grad(:,:,1,1:i_startblk) = 0._wp
+    p_grad(:,:,2,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -660,13 +660,13 @@ SELECT CASE (ptr_patch%cell_type)
           ! multiply cell-based input values with precomputed grid geometry factor
 
           ! zonal(u)-component of Green-Gauss gradient
-          p_grad(jc,jk,jb,1) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
+          p_grad(jc,jk,1,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
             ptr_int%geofac_grg(jc,2,jb,1)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
             ptr_int%geofac_grg(jc,3,jb,1)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
             ptr_int%geofac_grg(jc,4,jb,1)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           ! meridional(v)-component of Green-Gauss gradient
-          p_grad(jc,jk,jb,2) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
+          p_grad(jc,jk,2,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
             ptr_int%geofac_grg(jc,2,jb,2)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
             ptr_int%geofac_grg(jc,3,jb,2)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
             ptr_int%geofac_grg(jc,4,jb,2)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))

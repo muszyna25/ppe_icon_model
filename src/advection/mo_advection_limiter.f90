@@ -1348,20 +1348,20 @@ CONTAINS
 
           ! value for linear extrapolation of cell centered value to Gauss-point 1
           z_lext_val_1 = ( ptr_cc(jc,jk,jb)                                      &
-            &          + p_grad(jc,jk,jb,1) * p_distv_gausspoint(jc,jk,jb,1,1)   &
-            &          + p_grad(jc,jk,jb,2) * p_distv_gausspoint(jc,jk,jb,1,2) ) &
+            &          + p_grad(jc,jk,1,jb) * p_distv_gausspoint(jc,jk,jb,1,1)   &
+            &          + p_grad(jc,jk,2,jb) * p_distv_gausspoint(jc,jk,jb,1,2) ) &
             &          - p_cc(jc,jk,jb)
 
           ! value for linear extrapolation of cell centered value to Gauss-point 2
           z_lext_val_2 = ( ptr_cc(jc,jk,jb)                                      &
-            &          + p_grad(jc,jk,jb,1) * p_distv_gausspoint(jc,jk,jb,2,1)   &
-            &          + p_grad(jc,jk,jb,2) * p_distv_gausspoint(jc,jk,jb,2,2) ) &
+            &          + p_grad(jc,jk,1,jb) * p_distv_gausspoint(jc,jk,jb,2,1)   &
+            &          + p_grad(jc,jk,2,jb) * p_distv_gausspoint(jc,jk,jb,2,2) ) &
             &          - p_cc(jc,jk,jb)
 
           ! value for linear extrapolation of cell centered value to Gauss-point 3
           z_lext_val_3 = ( ptr_cc(jc,jk,jb)                                      &
-            &          + p_grad(jc,jk,jb,1) * p_distv_gausspoint(jc,jk,jb,3,1)   &
-            &          + p_grad(jc,jk,jb,2) * p_distv_gausspoint(jc,jk,jb,3,2) ) &
+            &          + p_grad(jc,jk,1,jb) * p_distv_gausspoint(jc,jk,jb,3,1)   &
+            &          + p_grad(jc,jk,2,jb) * p_distv_gausspoint(jc,jk,jb,3,2) ) &
             &          - p_cc(jc,jk,jb)
 
 
@@ -1410,7 +1410,7 @@ CONTAINS
           !
           ! limited value of gradient at cell center
           !
-          p_grad(jc,jk,jb,1:2) = z_limit * p_grad(jc,jk,jb,1:2)
+          p_grad(jc,jk,1:2,jb) = z_limit * p_grad(jc,jk,1:2,jb)
 
           END DO ! end loop over cells
 
@@ -1568,20 +1568,20 @@ CONTAINS
 
           ! value for linear extrapolation of cell centered value to Gauss-point 1
           z_lext_val_1 = ( ptr_cc(jc,jk,jb)                                      &
-            &          + p_grad(jc,jk,jb,1) * p_distv_gausspoint(jc,jk,jb,1,1)   &
-            &          + p_grad(jc,jk,jb,2) * p_distv_gausspoint(jc,jk,jb,1,2) ) &
+            &          + p_grad(jc,jk,1,jb) * p_distv_gausspoint(jc,jk,jb,1,1)   &
+            &          + p_grad(jc,jk,2,jb) * p_distv_gausspoint(jc,jk,jb,1,2) ) &
             &          - p_cc(jc,jk,jb)
 
           ! value for linear extrapolation of cell centered value to Gauss-point 2
           z_lext_val_2 = ( ptr_cc(jc,jk,jb)                                      &
-            &          + p_grad(jc,jk,jb,1) * p_distv_gausspoint(jc,jk,jb,2,1)   &
-            &          + p_grad(jc,jk,jb,2) * p_distv_gausspoint(jc,jk,jb,2,2) ) &
+            &          + p_grad(jc,jk,1,jb) * p_distv_gausspoint(jc,jk,jb,2,1)   &
+            &          + p_grad(jc,jk,2,jb) * p_distv_gausspoint(jc,jk,jb,2,2) ) &
             &          - p_cc(jc,jk,jb)
 
           ! value for linear extrapolation of cell centered value to Gauss-point 3
           z_lext_val_3 = ( ptr_cc(jc,jk,jb)                                      &
-            &          + p_grad(jc,jk,jb,1) * p_distv_gausspoint(jc,jk,jb,3,1)   &
-            &          + p_grad(jc,jk,jb,2) * p_distv_gausspoint(jc,jk,jb,3,2) ) &
+            &          + p_grad(jc,jk,1,jb) * p_distv_gausspoint(jc,jk,jb,3,1)   &
+            &          + p_grad(jc,jk,2,jb) * p_distv_gausspoint(jc,jk,jb,3,2) ) &
             &          - p_cc(jc,jk,jb)
 
 
@@ -1615,7 +1615,7 @@ CONTAINS
           !
           ! limited value of gradient at cell center
           !
-          p_grad(jc,jk,jb,1:2) = z_limit * p_grad(jc,jk,jb,1:2)
+          p_grad(jc,jk,1:2,jb) = z_limit * p_grad(jc,jk,1:2,jb)
 
           END DO ! end loop over cells
 

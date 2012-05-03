@@ -320,15 +320,15 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! Gradient in zonal and meridional direction
         !
         ! meridional
-        p_coeff(jc,jk,jb,3) = ptr_int_lsq%lsq_rmat_rdiag_c(jc,2,jb) * z_qt_times_d(2)
+        p_coeff(jc,jk,3,jb) = ptr_int_lsq%lsq_rmat_rdiag_c(jc,2,jb) * z_qt_times_d(2)
 
         ! zonal
-        p_coeff(jc,jk,jb,2) = ptr_int_lsq%lsq_rmat_rdiag_c(jc,1,jb)                  &
+        p_coeff(jc,jk,2,jb) = ptr_int_lsq%lsq_rmat_rdiag_c(jc,1,jb)                  &
           & * (z_qt_times_d(1) - ptr_int_lsq%lsq_rmat_utri_c(jc,1,jb)                &
-          & * p_coeff(jc,jk,jb,3))
+          & * p_coeff(jc,jk,3,jb))
 
         ! constant
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)
+        p_coeff(jc,jk,1,jb) = p_cc(jc,jk,jb)
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
@@ -337,9 +337,9 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           ! constant
-          p_coeff(jc,jk,jb,1) = p_coeff(jc,jk,jb,1)                                    &
-            &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
-            &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
+          p_coeff(jc,jk,1,jb) = p_coeff(jc,jk,1,jb)                                    &
+            &                 - p_coeff(jc,jk,2,jb) * ptr_int_lsq%lsq_moments(jc,jb,1) &
+            &                 - p_coeff(jc,jk,3,jb) * ptr_int_lsq%lsq_moments(jc,jb,2)
 
 
         END DO ! end loop over cells
@@ -498,17 +498,17 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jc = i_startidx, i_endidx
 
         ! meridional
-        p_coeff(jc,jk,jb,3) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(jc,jk,1)  &
+        p_coeff(jc,jk,3,jb) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(jc,jk,1)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(jc,jk,2)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(jc,jk,3)
 
         ! zonal
-        p_coeff(jc,jk,jb,2) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(jc,jk,1)  &
+        p_coeff(jc,jk,2,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(jc,jk,1)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(jc,jk,2)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(jc,jk,3)
 
         ! constant
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)
+        p_coeff(jc,jk,1,jb) = p_cc(jc,jk,jb)
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
@@ -520,9 +520,9 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
           ! In the case of a conservative reconstruction, 
           ! the coefficient c0 is derived from the linear constraint
           !
-          p_coeff(jc,jk,jb,1) = p_coeff(jc,jk,jb,1)                                    &
-            &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
-            &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
+          p_coeff(jc,jk,1,jb) = p_coeff(jc,jk,1,jb)                                    &
+            &                 - p_coeff(jc,jk,2,jb) * ptr_int_lsq%lsq_moments(jc,jb,1) &
+            &                 - p_coeff(jc,jk,3,jb) * ptr_int_lsq%lsq_moments(jc,jb,2)
 
         END DO ! end loop over cells
       END DO ! end loop over vertical levels

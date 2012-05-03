@@ -101,7 +101,7 @@ MODULE mo_advection_hflux
     &                               recon_lsq_cell_c_svd, div
   USE mo_interpol_config,     ONLY: llsq_lin_consv, lsq_high_ord, lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge, rbf_interpol_c2grad                         
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge                         
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
@@ -615,11 +615,11 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
     REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
-      &  z_grad(nproma,p_patch%nlev,p_patch%nblks_c,2) 
+      &  z_grad(nproma,p_patch%nlev,2,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
 
     REAL(wp), TARGET ::    &                        !< coefficient of the lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,p_patch%nblks_c,3) 
+      &  z_lsq_coeff(nproma,p_patch%nlev,3,p_patch%nblks_c) 
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
@@ -712,11 +712,11 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-    IF (p_igrad_c_miura == 3) THEN
-      i_rlend_c = min_rlcell_int
-    ELSE
+!!$    IF (p_igrad_c_miura == 3) THEN
+!!$      i_rlend_c = min_rlcell_int
+!!$    ELSE
       i_rlend_c = min_rlcell_int - 1
-    ENDIF
+!!$    ENDIF
 
     IF (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m) THEN
       i_rlend_tr = MIN(i_rlend, min_rledge_int - 2)
@@ -784,26 +784,16 @@ CONTAINS
       ENDIF
 
       IF (l_consv) THEN
-        ptr_cc   => z_lsq_coeff(:,:,:,1)   ! first coefficient of lsq rec.
+        ptr_cc   => z_lsq_coeff(:,:,1,:)   ! first coefficient of lsq rec.
       ELSE
         ptr_cc   => p_cc(:,:,:)
       ENDIF
-      ptr_grad => z_lsq_coeff(:,:,:,2:3) ! gradients of lsq rec.
+      ptr_grad => z_lsq_coeff(:,:,2:3,:) ! gradients of lsq rec.
 
     ELSE IF (p_igrad_c_miura == 2) THEN
       ! Green-Gauss method
       CALL grad_green_gauss_cell( p_cc, p_patch, p_int, z_grad, opt_slev=slev, &
         &                         opt_elev=elev, opt_rlend=i_rlend_c )
-
-      ptr_cc   => p_cc(:,:,:)
-      ptr_grad => z_grad(:,:,:,:)
-
-    ELSE IF (p_igrad_c_miura == 3) THEN
-      ! RBF-based method (for rlstart=2 we run into a sync-error with nests)
-      CALL rbf_interpol_c2grad( p_cc, p_patch, p_int,                             &
-        &                       z_grad(:,:,:,1), z_grad(:,:,:,2),                 &
-        &                       opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,&
-        &                       opt_rlstart=4 )
 
       ptr_cc   => p_cc(:,:,:)
       ptr_grad => z_grad(:,:,:,:)
@@ -936,12 +926,12 @@ CONTAINS
 
     ENDIF
 
-    ! Synchronize gradient if 10-point RBF-based reconstruction is used.
-    ! Only level 1 halo points are synchronized. Thus, independent of 
-    ! the reconstruction method, the correct polynomial coefficients 
-    ! are available up to halo points of level 1 (after this sync).
-    IF (p_igrad_c_miura == 3) &
-      & CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
+!!$    ! Synchronize gradient if 10-point RBF-based reconstruction is used.
+!!$    ! Only level 1 halo points are synchronized. Thus, independent of 
+!!$    ! the reconstruction method, the correct polynomial coefficients 
+!!$    ! are available up to halo points of level 1 (after this sync).
+!!$    IF (p_igrad_c_miura == 3) &
+!!$      & CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
 
 
     !
@@ -1002,9 +992,9 @@ CONTAINS
               ! Calculate 'edge value' of advected quantity (cc_bary)
               p_out_e(je,jk,jb) = p_cc(ilc0,jk,ibc0)                                       &
                 &  + ( (z_distv_bary(je,jk,jb,1) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,1)) &
-                &  * ptr_grad(ilc0,jk,ibc0,1)                                              &
+                &  * ptr_grad(ilc0,jk,1,ibc0)                                              &
                 &  +   (z_distv_bary(je,jk,jb,2) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,2)) &
-                &  * ptr_grad(ilc0,jk,ibc0,2) )
+                &  * ptr_grad(ilc0,jk,2,ibc0) )
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
@@ -1023,9 +1013,9 @@ CONTAINS
               ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
               p_out_e(je,jk,jb) = ( p_cc(ilc0,jk,ibc0)                                     &
                 &  + ( (z_distv_bary(je,jk,jb,1) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,1)) &
-                &  * ptr_grad(ilc0,jk,ibc0,1)                                              &
+                &  * ptr_grad(ilc0,jk,1,ibc0)                                              &
                 &  +   (z_distv_bary(je,jk,jb,2) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,2)) &
-                &  * ptr_grad(ilc0,jk,ibc0,2) )) * p_mass_flx_e(je,jk,jb)
+                &  * ptr_grad(ilc0,jk,2,ibc0) )) * p_mass_flx_e(je,jk,jb)
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
@@ -1059,8 +1049,8 @@ CONTAINS
 
               ! Calculate 'edge value' of advected quantity (cc_bary)
               p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
-                &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)   &
-                &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2)
+                &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)   &
+                &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0)
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
@@ -1078,8 +1068,8 @@ CONTAINS
 
               ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
               p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                        &
-                  &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)    &
-                  &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2) )  &
+                  &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)    &
+                  &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0) )  &
                   &    * p_mass_flx_e(je,jk,jb)
 
             ENDDO ! loop over edges
@@ -1103,9 +1093,7 @@ CONTAINS
         &                opt_elev=elev                                   ) !in
 
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
-      ! MPI-sync necessary (to be precise: only necessary for
-      ! igrad_c_miura /= 3. For simplicity, we perform the sync for
-      ! igrad_c_miura = 3 as well.
+      ! MPI-sync necessary
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
         &                   opt_rlend=i_rlend, opt_slev=slev,       & !in
         &                   opt_elev=elev                           ) !in
@@ -1222,11 +1210,11 @@ CONTAINS
       &  opt_elev
 
     REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
-      &  z_grad(nproma,p_patch%nlev,p_patch%nblks_c,2) 
+      &  z_grad(nproma,p_patch%nlev,2,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
 
     REAL(wp), TARGET ::    &                        !< coefficient of the lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,p_patch%nblks_c,3) 
+      &  z_lsq_coeff(nproma,p_patch%nlev,3,p_patch%nblks_c) 
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
@@ -1331,11 +1319,11 @@ CONTAINS
 
     i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
 
-    IF (p_igrad_c_miura == 3) THEN
-      i_rlend_c = min_rlcell_int
-    ELSE
+!!$    IF (p_igrad_c_miura == 3) THEN
+!!$      i_rlend_c = min_rlcell_int
+!!$    ELSE
       i_rlend_c = min_rlcell_int - 1
-    ENDIF
+!!$    ENDIF
 
     IF (p_iord_backtraj == 1)  THEN
       i_rlend_vt = i_rlend_tr 
@@ -1453,11 +1441,11 @@ CONTAINS
         ENDIF
 
         IF (l_consv) THEN
-          ptr_cc   => z_lsq_coeff(:,:,:,1)   ! first coefficient of lsq rec.
+          ptr_cc   => z_lsq_coeff(:,:,1,:)   ! first coefficient of lsq rec.
         ELSE
           ptr_cc   => z_tracer(:,:,:,nnow)
         ENDIF
-        ptr_grad => z_lsq_coeff(:,:,:,2:3) ! gradients of lsq rec.
+        ptr_grad => z_lsq_coeff(:,:,2:3,:) ! gradients of lsq rec.
 
       ELSE IF (p_igrad_c_miura == 2) THEN
         ! Green-Gauss method
@@ -1468,28 +1456,18 @@ CONTAINS
         ptr_cc   => z_tracer(:,:,:,nnow)
         ptr_grad => z_grad(:,:,:,:)
 
-      ELSE IF (p_igrad_c_miura == 3) THEN
-        ! RBF-based method (for rlstart=2 we run into a sync-error with nests)
-        CALL rbf_interpol_c2grad( z_tracer(:,:,:,nnow), p_patch, p_int,             &
-          &                       z_grad(:,:,:,1), z_grad(:,:,:,2),                 &
-          &                       opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,&
-          &                       opt_rlstart=4 )
-
-        ptr_cc   => z_tracer(:,:,:,nnow)
-        ptr_grad => z_grad(:,:,:,:)
-
       ENDIF
 
 
 
 
-      ! Synchronize gradient if 10-point RBF-based reconstruction is used.
-      ! Only level 1 halo points are synchronized. Thus, independent of 
-      ! the reconstruction method, the correct polynomial coefficients 
-      ! are available up to halo points of level 1 (after this sync).
-      !
-      IF ( p_igrad_c_miura == 3 ) &
-        &  CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
+!!$      ! Synchronize gradient if 10-point RBF-based reconstruction is used.
+!!$      ! Only level 1 halo points are synchronized. Thus, independent of 
+!!$      ! the reconstruction method, the correct polynomial coefficients 
+!!$      ! are available up to halo points of level 1 (after this sync).
+!!$      !
+!!$      IF ( p_igrad_c_miura == 3 ) &
+!!$        &  CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
 
 
 
@@ -1535,8 +1513,8 @@ CONTAINS
 
             ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
             z_tracer_mflx(je,jk,jb,nsub) = ( ptr_cc(ilc0,jk,ibc0)            &
-              &      + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)   &
-              &      + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2) ) &
+              &      + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)   &
+              &      + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0) ) &
               &      * p_mass_flx_e(je,jk,jb)
 
           ENDDO ! loop over edges
@@ -1551,9 +1529,7 @@ CONTAINS
       !    The flux limiter is based on work by Zalesak (1979)
       !
       IF ( p_itype_hlimit == ifluxl_sm .OR. p_itype_hlimit == ifluxl_m ) THEN
-        ! MPI-sync necessary (to be precise: only necessary for
-        ! igrad_c_miura /= 3. For simplicity, we perform the sync for
-        ! igrad_c_miura = 3 as well.
+        ! MPI-sync necessary
         !
         CALL hflx_limiter_sm( p_patch, p_int, z_dtsub          , & !in
           &                   z_tracer(:,:,:,nnow)             , & !in
