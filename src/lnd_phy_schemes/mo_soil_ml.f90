@@ -2101,6 +2101,8 @@ IMPLICIT NONE
                   zalpha = 0.5_ireals * (1 - COS ( 0.5_ireals * pi * &
                            (zw_fr(i,1) - zadp(i)) / ( zfcap(i) - zadp(i)) ) )
                ENDIF
+               z2iw   = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
+               z4iw   = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
                zqs    = zsf_qsat( zsf_psat_iw(zts(i), z2iw,z4iw), ps(i) )
                zevapor= MIN(0.0_ireals,zrhoch(i)*(qv(i)-zalpha*zqs))
                
