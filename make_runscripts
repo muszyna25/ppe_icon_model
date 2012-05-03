@@ -249,9 +249,8 @@ fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" EXPNAME="$name" diff_file="$out_file"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" EXPNAME="$name"
 fi
 
 
@@ -271,9 +270,8 @@ fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    EXPNAME="$name" with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" diff_file="$out_file"
+    EXPNAME="$name" with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
 fi
 
 
@@ -295,9 +293,8 @@ fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" diff_file="$out_file"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" 
 fi
 
 #==============================================================================
@@ -319,9 +316,8 @@ fi
 
 # postprocessing for comparing the restarts
 if [ $make_restart_post = "true" ] ; then
-  out_file=${name}_compare_restarts.diff
   $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" diff_file="$out_file"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name"
 fi
 #==============================================================================
 

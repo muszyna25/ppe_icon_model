@@ -49,6 +49,7 @@ check_restarts()
 
 restart_folder_1=$ICON_BASE_PATH/experiments/$EXPNAME
 restart_folder_2=$ICON_BASE_PATH/experiments/${EXPNAME}_restart
+diff_file=${EXPNAME}_compare_restarts.diff
 
 #-----------------------------------------------------------------------------
 # get the last restart files
