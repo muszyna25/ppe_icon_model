@@ -272,6 +272,7 @@ CONTAINS
     CHARACTER(LEN=8) :: namespace
     CHARACTER(LEN=filename_max) :: map_file
     INTEGER  :: mode
+    INTEGER  :: taxis_tunit
     INTEGER  :: dom(max_phys_dom)
     INTEGER  :: output_time_unit
     REAL(wp) :: output_bounds(3,max_bounds)
@@ -300,6 +301,7 @@ CONTAINS
       namespace,          &
       map_file,           &
       mode,               &
+      taxis_tunit,        &
       dom,                &
       output_time_unit,   &
       output_bounds,      &
@@ -346,6 +348,7 @@ CONTAINS
       namespace          = 'ECMWF'
       map_file           = ' '
       mode               = 2
+      taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
       output_time_unit   = 1
       output_bounds(:,:) = 0._wp
@@ -436,6 +439,7 @@ CONTAINS
       p_onl%namespace        = namespace
       p_onl%map_file         = map_file
       p_onl%mode             = mode
+      p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
       p_onl%output_time_unit = output_time_unit
 
@@ -1975,7 +1979,7 @@ CONTAINS
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
      !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_SECOND)
      !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_MINUTE)
-     CALL taxisDefTunit (of%cdiTaxisID, TUNIT_HOUR)
+     CALL taxisDefTunit (of%cdiTaxisID, of%name_list%taxis_tunit)
      ini_datetime = time_config%ini_datetime
      CALL taxisDefCalendar (of%cdiTaxisID, time_config%calendar)
      idate = cdiEncodeDate(ini_datetime%year, ini_datetime%month, ini_datetime%day)
