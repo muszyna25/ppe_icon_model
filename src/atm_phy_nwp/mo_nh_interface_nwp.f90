@@ -866,7 +866,7 @@ CONTAINS
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
 
-        IF (atm_phy_nwp_config(jg)%inwp_surface > 1) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
           prm_diag%swflxsfc_t (:,jb,:)=0._wp
           prm_diag%lwflxsfc_t (:,jb,:)=0._wp
