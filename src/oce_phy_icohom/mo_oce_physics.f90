@@ -677,9 +677,11 @@ CONTAINS
                                                                !the lower one!
               ENDIF
               !density of upper and lower cell w.r.t.to pressure at intermediate level
+              !z_rho_up(jc,jk,jb)   = p_os%p_diag%rho(jc,jk-1,jb)
               z_rho_up(jc,jk,jb)   = calc_density &
                & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
 
+              !z_rho_down(jc,jk,jb)   = p_os%p_diag%rho(jc,jk,jb)
               z_rho_down(jc,jk,jb) = calc_density &
                 & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press) !TODO: local/current
                                                                            !density

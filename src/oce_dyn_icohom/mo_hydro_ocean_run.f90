@@ -97,7 +97,7 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
-  &                                  calc_density_JMDWFG06_EOS_func
+  &                                  calc_density_JMDWFG06_EOS_func, calc_density
 USE mo_output,                 ONLY: init_output_files, write_output, &
   &                                  create_restart_file
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
@@ -251,6 +251,11 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_upd_flx)
 
       IF (ltimer) CALL timer_start(timer_upd_phys)
+      ! Calc density globally
+      !CALL calc_density(ppatch(jg),&
+      !  &               pstate_oce(jg)%p_prog(nold(1))%tracer,&
+      !  &               pstate_oce(jg)%p_diag%rho)
+
       SELECT CASE (EOS_TYPE)
       CASE(1)
         CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
