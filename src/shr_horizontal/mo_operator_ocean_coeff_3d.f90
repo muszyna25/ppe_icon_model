@@ -158,14 +158,22 @@ CONTAINS
   ! !!
   SUBROUTINE allocate_exp_coeff( ptr_patch, ptr_coeff)
     ! !
-    TYPE(t_patch),      INTENT(in)        :: ptr_patch
+    TYPE(t_patch),TARGET,INTENT(in)       :: ptr_patch
     TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
 
     INTEGER :: nblks_c, nblks_e, nblks_v, nz_lev
     INTEGER :: ist,ie
     INTEGER :: rl_start,rl_end
-    INTEGER :: i_startblk, i_endblk,i_startidx, i_endidx
+    INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: jc,je,jk,jb
+
+    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: all_verts
+
+    INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
+    INTEGER :: i_startidx_e, i_endidx_e
+
     !-----------------------------------------------------------------------
 
     !
@@ -353,17 +361,14 @@ CONTAINS
       ptr_coeff%edge2vert_coeff_cc_dyn%x(ie) = 0._wp
     END DO
 
-    rl_start   = 1
-    rl_end     = min_rledge
-    i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
+    all_cells => ptr_patch%cells%all
+    all_edges => ptr_patch%edges%all
+    all_verts => ptr_patch%verts%all
 
     DO jk = 1, nz_lev
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,&
-          & i_startidx, i_endidx, rl_start, rl_end)
-        DO je =  i_startidx, i_endidx
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je =  i_startidx_e, i_endidx_e
           ptr_coeff%edge_position_cc(je,jk,jb)%x(:)       = 0._wp
           ptr_coeff%moved_edge_position_cc(je,jk,jb)%x(:) = 0._wp
           ptr_coeff%upwind_cell_position_cc(je,jk,jb)%x(:)= 0._wp
@@ -371,16 +376,10 @@ CONTAINS
       END DO
     END DO
 
-    rl_end     = min_rlcell
-    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%cells%end_blk(rl_end,1)
-
     DO jk = 1, nz_lev
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,&
-          & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc =  i_startidx, i_endidx
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
           !ptr_coeff%upwind_cell_position_cc(jc,jk,jb)%x(:)= 0._wp
 
           ptr_coeff%cell_position_cc(jc,jk,jb)&

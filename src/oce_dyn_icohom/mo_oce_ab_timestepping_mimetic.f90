@@ -1073,7 +1073,7 @@ ENDIF
 ! #slo# due to nag -nan compiler-option:
 !  - set divergence to zero otherwise last block contains undef values
 !div_z_c(:,1,:) = 0.0_wp
-
+!write(0,*)'minval(z_e):',minval(z_e),' maxval:',maxval(z_e)
 ! CALL div_oce( z_e, p_patch, div_z_c, opt_slev=1,opt_elev=1 ) ! to be included surface forcing* +dtime*(P_E)
 CALL div_oce_3d( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
                & level=1, subset_range=cells_in_domain )
@@ -1128,8 +1128,8 @@ ENDIF
  z_e1(:,:) = p_os%p_diag%thick_e(:,:)
  CALL print_mxmn('thick_e:',1,z_e1(:,:),&
    &             jkdim, p_patch%nblks_e,'abt',ipl_src)
- CALL print_mxmn('RHS z_vn_ab',1,z_vn_ab(:,:,:),&
-   &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+!CALL print_mxmn('RHS z_vn_ab',1,z_vn_ab(:,:,:),&
+!  &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
  CALL print_mxmn('RHS z_e',1,z_e(:,:),&
    &             jkdim, p_patch%nblks_e,'abt',ipl_src)
  CALL print_mxmn('div_z_c',1,div_z_c(:,:),&
