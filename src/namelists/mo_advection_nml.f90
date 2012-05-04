@@ -48,10 +48,9 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, MIURA3, FFSL, MCYCL, MIURA_MCYCL,    &
-    &                               MIURA3_MCYCL, ippm_vcfl, ippm_v, inol,      &
-    &                               islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, &
-    &                               inol_v, islopel_vsm, ifluxl_vpd
+    &                               MIURA, MIURA3_MCYCL, ippm_vcfl, ippm_v,     &
+    &                               inol, ifluxl_m, ifluxl_sm, inol_v,          &
+    &                               islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -111,9 +110,8 @@ MODULE mo_advection_nml
   INTEGER, TARGET :: &             !< parameter used to select the limiter
     &  itype_hlimit(max_ntracer)   !< for horizontal transport
                                    !< 0: no limiter
-                                   !< 1: semi-monotonous slope limiter
-                                   !< 2: monotonous slope limiter
                                    !< 3: monotonous flux limiter
+                                   !< 4: positive definite flux limiter
 
   INTEGER :: iord_backtraj         !< parameter to select the spacial order
                                    !< of accuracy for the backward trajectory
@@ -162,8 +160,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
-    INTEGER :: jt          !< tracer loop index
-    INTEGER :: z_nogo(2)   !< for consistency check
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_nml: read_transport_nml'
@@ -230,30 +226,7 @@ CONTAINS
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
     ENDIF
-    z_nogo(1) = islopel_sm
-    z_nogo(2) = islopel_m
-    DO jt=1,max_ntracer
-      IF ( ihadv_tracer(jt)==MIURA3 .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
-        CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for MIURA3. No slope limiter available ')
-      ENDIF
-      IF ( ihadv_tracer(jt)==MCYCL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
-        CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for MCYCL. No slope limiter available ')
-      ENDIF
-      IF ( ihadv_tracer(jt)==MIURA_MCYCL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
-        CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for MIURA_MCYCL. No slope limiter available ')
-      ENDIF
-      IF ( ihadv_tracer(jt)==MIURA3_MCYCL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
-        CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for MIURA3_MCYCL. No slope limiter available ')
-      ENDIF
-      IF ( ihadv_tracer(jt)==FFSL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
-        CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for FFSL. No slope limiter available ')
-      ENDIF
-    END DO
+
     IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for upstr_beta_adv. Must be in [0,1] ')

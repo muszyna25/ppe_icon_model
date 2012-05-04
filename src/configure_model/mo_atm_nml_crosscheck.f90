@@ -54,8 +54,7 @@ MODULE mo_nml_crosscheck
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
-    &                              ifluxl_sm, islopel_m, islopel_sm, ifluxl_m,&
-    &                              ihs_ocean  
+    &                              ifluxl_sm, ifluxl_m, ihs_ocean  
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -71,8 +70,6 @@ MODULE mo_nml_crosscheck
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              activate_sync_timers, timers_level,iqash1, & !K.L. ICON-ART
     &                              output_mode
-                                  
-!  USE mo_io_config
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -695,9 +692,7 @@ CONTAINS
       ! Limiter - consistency check
 
       IF (global_cell_type == 6) THEN
-        IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_sm ) .OR.   &
-          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_m  ) .OR.   &
-          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
+        IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m )) THEN
           CALL finish( TRIM(routine),                                     &
            'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
         ENDIF

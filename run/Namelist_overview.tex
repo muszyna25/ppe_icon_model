@@ -2875,10 +2875,8 @@ itype\_hlimit&
 I(ntracer)&
 3& & Type of limiter for horizontal transport:& \tabularnewline
 & & 4& & 0: no limiter& \tabularnewline
-& & & & 1: semi-monotonous slope limiter& ihadv\_tracer='miura'\tabularnewline
-& & & & 2: monotonous slope limiter& ihadv\_tracer='miura'\tabularnewline
-& & & & 3: monotonous flux limiter& ihadv\_tracer='miura[3]'\tabularnewline
-& & & & 4: positive definite flux limiter& ihadv\_tracer='miura[3]', 'iup3[4]'\tabularnewline
+& & & & 3: monotonous flux limiter& ihadv\_tracer$\,\ne\,$'iup3[4]'\tabularnewline
+& & & & 4: positive definite flux limiter& \tabularnewline
 
 \hline 
 itype\_vlimit&

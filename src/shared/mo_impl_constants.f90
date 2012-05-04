@@ -336,8 +336,6 @@ MODULE mo_impl_constants
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
-  INTEGER, PARAMETER :: islopel_sm = 1
-  INTEGER, PARAMETER :: islopel_m  = 2
   INTEGER, PARAMETER :: ifluxl_m   = 3
   INTEGER, PARAMETER :: ifluxl_sm  = 4
 

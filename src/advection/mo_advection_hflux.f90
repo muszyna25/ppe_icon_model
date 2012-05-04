@@ -43,8 +43,10 @@
 !! - included MIURA scheme with third order accurate reconstruction
 !! Modification by Daniel Reinert, DWD (2010-11-09)
 !! - removed MUSCL-type computation of horizontal fluxes
-!! Modification by Daniel reinert, DWD (2011-09-20)
+!! Modification by Daniel Reinert, DWD (2011-09-20)
 !! - new Miura-type advection scheme with internal time-step subcycling
+!! Modification by Daniel Reinert, DWD (2012-05-04)
+!! - removed optional slope limiter
 !!
 !!
 !! @par Copyright
@@ -86,9 +88,8 @@ MODULE mo_advection_hflux
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
     &                               UP, MIURA, MIURA3, FFSL, MCYCL,             &
-    &                               MIURA_MCYCL, MIURA3_MCYCL, UP3, islopel_sm, &
-    &                               islopel_m, ifluxl_m, ifluxl_sm,             &
-    &                               INH_ATMOSPHERE, IHS_ATM_TEMP,               &
+    &                               MIURA_MCYCL, MIURA3_MCYCL, UP3, ifluxl_m,   &
+    &                               ifluxl_sm, INH_ATMOSPHERE, IHS_ATM_TEMP,    &
     &                               ISHALLOW_WATER, IHS_ATM_THETA
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
@@ -121,9 +122,7 @@ MODULE mo_advection_hflux
     &                               prep_gauss_quadrature_c
   USE mo_advection_traj,      ONLY: btraj, btraj_o2, btraj_dreg,                &
     &                               btraj_dreg_nosort, divide_flux_area 
-  USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm,           &
-    &                               h_miura_slimiter_mo, h_miura_slimiter_sm,   &
-    &                               shift_gauss_points
+  USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_df_test,             ONLY: df_distv_barycenter !, df_cell_indices
   USE mo_ha_testcases,        ONLY: ctest_name
 
@@ -250,10 +249,6 @@ CONTAINS
     IF (ANY(p_ihadv_tracer(:)/= UP) .AND. ANY(p_ihadv_tracer(:)/= UP3)) THEN 
 
       i_rlend_vt = MIN(i_rlend, min_rledge_int - 1)
-
-      IF (ANY(p_itype_hlimit(:)== islopel_sm) .OR. ANY(p_itype_hlimit(:)== islopel_m)) THEN
-        i_rlend_vt = MIN(i_rlend, min_rledge_int - 2)
-      ENDIF
 
       IF ( p_iord_backtraj /= 1 ) THEN
         i_rlend_vt = min_rledge_int - 3
@@ -639,10 +634,6 @@ CONTAINS
                                                !< meridional gradients.
 
     REAL(wp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
-      &  z_distv_gausspoint(:,:,:,:,:)  !< shifted Gauss-points
-                                        !< dim: (nproma,nlev,p_patch%nblks_c,3,2)
-
-    REAL(wp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
       &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
                                         !< (geographical coordinates)
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
@@ -715,17 +706,11 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-!!$    IF (p_igrad_c_miura == 3) THEN
-!!$      i_rlend_c = min_rlcell_int
-!!$    ELSE
-      i_rlend_c = min_rlcell_int - 1
-!!$    ENDIF
 
-    IF (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m) THEN
-      i_rlend_tr = MIN(i_rlend, min_rledge_int - 2)
-    ELSE
-      i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
-    ENDIF
+    i_rlend_c = min_rlcell_int - 1
+
+    i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
+
 
     IF (p_iord_backtraj == 1)  THEN
       i_rlend_vt = i_rlend_tr 
@@ -750,8 +735,7 @@ CONTAINS
     ! (reconstructed) full 2D velocity field at edge midpoints (at
     ! time t+\Delta t/2) and \Delta t.
     !
-    ! 3 options:  without limiter
-    !             with    slope limiter (modified Barth-Jesperson limiter)
+    ! 2 options:  without limiter
     !             with    flux limiter following Zalesak (1979)
     !
 
@@ -760,14 +744,11 @@ CONTAINS
       ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),             &
         &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),           &
         &       STAT=ist )
-      IF (p_itype_hlimit == islopel_m .OR. p_itype_hlimit == islopel_sm) &
-        ALLOCATE( z_distv_gausspoint(nproma,nlev,p_patch%nblks_c,3,2),   &
-          &       STAT=ist )
 
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                     &
-          &  'allocation for z_distv_bary, z_cell_indices, ' //          &
-          &  'z_distv_gausspoint failed' )
+        CALL finish ( TRIM(routine),                                    &
+          &  'allocation for z_distv_bary, z_cell_indices ' //          &
+          &  'failed' )
       ENDIF
     END IF
 
@@ -888,57 +869,9 @@ CONTAINS
     END IF ! ld_compute
 
 
-    ! 3. If desired, slopes of reconstruction are limited using either a monotonous
-    !    or a semi-monotonous version of the Barth-Jespersen slope limiter.
-    !
-    IF (p_itype_hlimit == islopel_sm) THEN
-
-      IF (ld_compute) THEN
-        ! calculate shifted gauss points and distance vector between shifted
-        ! gauss point and cell-circumcenter
-        CALL shift_gauss_points( p_patch, p_int,                                  & !in
-          &                      z_dthalf, ptr_real_vt,                           & !in
-          &                      z_distv_gausspoint,                              & !out
-          &                      opt_rlend_c=i_rlend_c, opt_rlstart_c=4,          & !in
-          &                      opt_rlend_e=i_rlend_vt, opt_rlstart_e=i_rlstart, & !in
-          &                      opt_slev=slev, opt_elev=elev                     ) !in
-      ENDIF
-
-      ! semi-monotonic (sm) slope limiter
-      CALL h_miura_slimiter_sm( p_patch, p_cc, ptr_cc, z_distv_gausspoint, & !in
-        &                    ptr_grad, opt_rlend=i_rlend_c, opt_rlstart=4, & !inout,in
-        &                    opt_slev=slev, opt_elev=elev                  ) !in
-
-    ELSE IF (p_itype_hlimit == islopel_m) THEN
-
-      IF (ld_compute) THEN
-        ! calculate shifted gauss points and distance vector between shifted
-        ! gauss point and cell-circumcenter
-        CALL shift_gauss_points( p_patch, p_int,                                  & !in
-          &                      z_dthalf, ptr_real_vt,                           & !in
-          &                      z_distv_gausspoint,                              & !out
-          &                      opt_rlend_c=i_rlend_c, opt_rlstart_c=4,          & !in
-          &                      opt_rlend_e=i_rlend_vt, opt_rlstart_e=i_rlstart, & !in
-          &                      opt_slev=slev, opt_elev=elev                     ) !in
-      ENDIF
-
-      ! monotonous (mo) slope limiter
-      CALL h_miura_slimiter_mo( p_patch, p_cc, ptr_cc, z_distv_gausspoint, & !in
-        &                    ptr_grad, opt_rlend=i_rlend_c, opt_rlstart=4, & !inout,in
-        &                    opt_slev=slev, opt_elev=elev                  ) !in
-
-    ENDIF
-
-!!$    ! Synchronize gradient if 10-point RBF-based reconstruction is used.
-!!$    ! Only level 1 halo points are synchronized. Thus, independent of 
-!!$    ! the reconstruction method, the correct polynomial coefficients 
-!!$    ! are available up to halo points of level 1 (after this sync).
-!!$    IF (p_igrad_c_miura == 3) &
-!!$      & CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
-
 
     !
-    ! 4. Calculate reconstructed tracer value at each barycenter
+    ! 3. Calculate reconstructed tracer value at each barycenter
     !    \Phi_{bary}=\Phi_{circum} + DOT_PRODUCT(\Nabla\Psi,r).
     !    Then calculate the flux v_n*\Delta p*\Phi_{bary}
     !    The fact that the rhomboidal area inevitably overlaps with neighboring
@@ -971,124 +904,60 @@ CONTAINS
 !$OMP END WORKSHARE
     ENDIF
 
-    IF (l_consv .AND. p_igrad_c_miura == 1 .AND.                           &
-     & (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m)) THEN
-
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
 
-        IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
-
-!CDIR UNROLL=5
-          DO jk = slev, elev
-
-            DO je = i_startidx, i_endidx
-
-              ! Calculate reconstructed tracer value at barycenter of rhomboidal
-              ! area which is swept across the corresponding edge.
-              ilc0 = z_cell_indices(je,jk,jb,1)
-              ibc0 = z_cell_indices(je,jk,jb,2)
-
-              ! Calculate 'edge value' of advected quantity (cc_bary)
-              p_out_e(je,jk,jb) = p_cc(ilc0,jk,ibc0)                                       &
-                &  + ( (z_distv_bary(je,jk,jb,1) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,1)) &
-                &  * ptr_grad(ilc0,jk,1,ibc0)                                              &
-                &  +   (z_distv_bary(je,jk,jb,2) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,2)) &
-                &  * ptr_grad(ilc0,jk,2,ibc0) )
-
-            ENDDO ! loop over edges
-          ENDDO   ! loop over vertical levels
-
-        ELSE
+      IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
 !CDIR UNROLL=5
-          DO jk = slev, elev
-            DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
 
-              ! Calculate reconstructed tracer value at barycenter of rhomboidal
-              ! area which is swept across the corresponding edge.
-              ilc0 = z_cell_indices(je,jk,jb,1)
-              ibc0 = z_cell_indices(je,jk,jb,2)
+            ! Calculate reconstructed tracer value at barycenter of rhomboidal
+            ! area which is swept across the corresponding edge.
+            ilc0 = z_cell_indices(je,jk,jb,1)
+            ibc0 = z_cell_indices(je,jk,jb,2)  
 
-              ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-              p_out_e(je,jk,jb) = ( p_cc(ilc0,jk,ibc0)                                     &
-                &  + ( (z_distv_bary(je,jk,jb,1) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,1)) &
-                &  * ptr_grad(ilc0,jk,1,ibc0)                                              &
-                &  +   (z_distv_bary(je,jk,jb,2) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,2)) &
-                &  * ptr_grad(ilc0,jk,2,ibc0) )) * p_mass_flx_e(je,jk,jb)
+            ! Calculate 'edge value' of advected quantity (cc_bary)
+            p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
+              &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)   &
+              &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0)
 
-            ENDDO ! loop over edges
-          ENDDO   ! loop over vertical levels
+          ENDDO ! loop over edges
+        ENDDO   ! loop over vertical levels
 
-        ENDIF
-
-      END DO    ! loop over blocks
-!$OMP END DO
- 
-    ELSE
-
-      ! If no slope limiter is applied, a more efficient formulation without the
-      ! moments can be used.
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
-
-        IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
+      ELSE
 
 !CDIR UNROLL=5
-          DO jk = slev, elev
-            DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
 
-              ! Calculate reconstructed tracer value at barycenter of rhomboidal
-              ! area which is swept across the corresponding edge.
-              ilc0 = z_cell_indices(je,jk,jb,1)
-              ibc0 = z_cell_indices(je,jk,jb,2)  
+            ! Calculate reconstructed tracer value at barycenter of rhomboidal
+            ! area which is swept across the corresponding edge.  
+            ilc0 = z_cell_indices(je,jk,jb,1)
+            ibc0 = z_cell_indices(je,jk,jb,2)
 
-              ! Calculate 'edge value' of advected quantity (cc_bary)
-              p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
-                &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)   &
-                &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0)
+            ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
+            p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                        &
+              &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)    &
+              &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0) )  &
+              &    * p_mass_flx_e(je,jk,jb)
 
-            ENDDO ! loop over edges
-          ENDDO   ! loop over vertical levels
+          ENDDO ! loop over edges
+        ENDDO   ! loop over vertical levels
 
-        ELSE
+      ENDIF
 
-!CDIR UNROLL=5
-          DO jk = slev, elev
-            DO je = i_startidx, i_endidx
-
-              ! Calculate reconstructed tracer value at barycenter of rhomboidal
-              ! area which is swept across the corresponding edge.  
-              ilc0 = z_cell_indices(je,jk,jb,1)
-              ibc0 = z_cell_indices(je,jk,jb,2)
-
-              ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-              p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                        &
-                  &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)    &
-                  &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0) )  &
-                  &    * p_mass_flx_e(je,jk,jb)
-
-            ENDDO ! loop over edges
-          ENDDO   ! loop over vertical levels
-
-        ENDIF
-
-      ENDDO    ! loop over blocks
+    ENDDO    ! loop over blocks
 !$OMP END DO NOWAIT
-
-    ENDIF
 !$OMP END PARALLEL
 
 
     !
-    ! 5. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
@@ -1106,12 +975,11 @@ CONTAINS
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for velocity, Gauss-points and barycenters
       DEALLOCATE( z_distv_bary, z_cell_indices, STAT=ist )
-      IF (p_itype_hlimit == islopel_m .OR. p_itype_hlimit == islopel_sm) &
-        & DEALLOCATE( z_distv_gausspoint, STAT=ist )
+
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                &
-          &  'deallocation for z_distv_bary, z_cell_indices, '  //  &
-          &  'z_distv_gausspoint failed' )
+        CALL finish ( TRIM(routine),                               &
+          &  'deallocation for z_distv_bary, z_cell_indices '  //  &
+          &  'failed' )
       ENDIF
     END IF
 
@@ -1948,65 +1816,6 @@ CONTAINS
         &              opt_slev=slev, opt_elev=elev                )! in
 
 
-!      ! In order to check, whether the vertices are stored in clockwise or
-!      ! counterclockwise direction, calculate the cross product between the
-!      ! vectors from point 2 to point 3 and point 2 to point 1
-!      DO jb = i_startblk, i_endblk
-
-!        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-!                           i_startidx, i_endidx, i_rlstart)
-!        DO jk = 1, nlev
-
-!          DO je = i_startidx, i_endidx
-!            v23_x = z_coords_dreg_v(je,3,1,jk,jb) - z_coords_dreg_v(je,2,1,jk,jb)
-!            v23_y = z_coords_dreg_v(je,3,2,jk,jb) - z_coords_dreg_v(je,2,2,jk,jb)
-
-!            v21_x = z_coords_dreg_v(je,1,1,jk,jb) - z_coords_dreg_v(je,2,1,jk,jb)
-!            v21_y = z_coords_dreg_v(je,1,2,jk,jb) - z_coords_dreg_v(je,2,2,jk,jb)
-!            ccw_check = (v23_x * v21_y) - (v23_y * v21_x)
-
-!            IF (ccw_check < 0._wp) THEN
-!              print*, 'wrong numbering, ccw_check, je,jk,jb ',ccw_check, je,jk,jb
-
-!              z_dummy(1:2) = z_coords_dreg_v(je,2,1:2,jk,jb)
-!              z_coords_dreg_v(je,2,1:2,jk,jb) = z_coords_dreg_v(je,4,1:2,jk,jb)
-!              z_coords_dreg_v(je,4,1:2,jk,jb) = z_dummy(1:2)
-!            ENDIF
-!          ENDDO
-!        ENDDO
-!      ENDDO
-
-
-!      !
-!      ! This section has been included for testing purposes
-!      !
-!      SELECT CASE (itime_scheme)
-!       !------------------
-!       ! Pure advection
-!       !------------------
-!       CASE (TRACER_ONLY)
-
-!         SELECT CASE ( TRIM(ctest_name) )
-!           CASE ('DF1', 'DF2', 'DF3', 'DF4') ! deformational flow
-
-!!DR           z_cell_indices(:,:,:,:) = df_cell_indices(:,:,:,:)
-!!DR           z_distv_bary(:,:,:,:)   = df_distv_barycenter(:,:,:,:)
-
-!            ! compute difference between distance vector based on 3rd order
-!            ! Taylor series approximation and operational distance vector of either
-!            ! first or second order accurracy.
-!            df_distv_barycenter(:,:,:,:) = df_distv_barycenter(:,:,:,:)      &
-!              &                          - z_distv_bary(:,:,:,:)
-
-!            ! now compute length of distance vectors and store them in the first
-!            ! position of the df_distv_barycenter field.
-!            df_distv_barycenter(:,:,:,1) = SQRT(df_distv_barycenter(:,:,:,1) &
-!              &                          * df_distv_barycenter(:,:,:,1)      &
-!              &                          + df_distv_barycenter(:,:,:,2)      &
-!              &                          * df_distv_barycenter(:,:,:,2))
-
-!         END SELECT
-!      END SELECT
 
 
       ! maps quadrilateral onto the standard rectangle of edge length 2.
