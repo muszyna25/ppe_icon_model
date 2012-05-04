@@ -1075,7 +1075,7 @@ ENDIF
 !div_z_c(:,1,:) = 0.0_wp
 
 ! CALL div_oce( z_e, p_patch, div_z_c, opt_slev=1,opt_elev=1 ) ! to be included surface forcing* +dtime*(P_E)
-CALL div_oce_3D( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
+CALL div_oce_3d( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
                & level=1, subset_range=cells_in_domain )
 
 !  CALL global_mpi_barrier()
