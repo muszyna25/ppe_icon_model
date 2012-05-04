@@ -179,7 +179,7 @@ MODULE mo_lnd_nwp_nml
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
-    lana_rho_snow  =.FALSE.  ! if .TRUE., take rho_snow-values from analysis file 
+    lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
     itype_subs     = 2       ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
 
 

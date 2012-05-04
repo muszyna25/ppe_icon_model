@@ -95,7 +95,7 @@ CONTAINS
     ! Standard atmosphere vertical temperature gradient
     REAL(wp) :: dtdz_clim = -6.5e-3_wp
 
-    REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil)
+    REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil),wfac_snow,snowdep
 
 !-------------------------------------------------------------------------
 
@@ -123,7 +123,7 @@ CONTAINS
     ENDDO
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2)
+!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow)
 
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
@@ -154,7 +154,6 @@ CONTAINS
         ! temperatures at the lowest model level
         prepicon%sfc%tskin(jc,jb)      = prepicon%sfc_in%tskin(jc,jb) +         &
           (prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb))
-        prepicon%sfc%tsoil(jc,jb,0)    = prepicon%sfc%tskin(jc,jb) ! tsoil(0) duplicates ground temp
 
         ! Height adjustment for snow variables is not yet implemented
         prepicon%sfc%tsnow(jc,jb)    = prepicon%sfc_in%tsnow(jc,jb) 
@@ -181,7 +180,18 @@ CONTAINS
 
       ! Fill extra levels of incoming data to simplify vertical interpolation
       DO jc = 1, nlen
-        prepicon%sfc_in%tsoil(jc,jb,0) = prepicon%sfc%tskin(jc,jb) ! already height-adjusted
+        ! factor depending on snow depth to weight initialization of soil top temperature
+        ! between skin temperature and soil level 1 temperature
+        ! For a snow depth of more than 25 cm, it is assumed that the soil top temperature
+        ! is the same as the soil level 1 temperature
+        snowdep = 1000._wp*prepicon%sfc_in%snowweq(jc,jb) / & ! snow depth in m
+                  MAX(25._wp,prepicon%sfc_in%snowdens(jc,jb))
+        wfac_snow = SQRT(MIN(1._wp,4._wp*snowdep))
+        prepicon%sfc_in%tsoil(jc,jb,0) = (1._wp-wfac_snow)*prepicon%sfc%tskin(jc,jb) + &
+                                          wfac_snow*prepicon%sfc_in%tsoil(jc,jb,1) ! already height-adjusted
+
+        prepicon%sfc%tsoil(jc,jb,0)    = prepicon%sfc_in%tsoil(jc,jb,0) ! copy soil-top temperature
+
         prepicon%sfc_in%wsoil(jc,jb,0) = prepicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
 
         ! outgoing tsoil(nlev_soil+1) has been initialized with the external parameter field t_cl before
@@ -199,14 +209,6 @@ CONTAINS
                                   (1._wp-wfac_vintp(jk))*prepicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
         ENDDO
       ENDDO
-
-!      CALL message('mo_nwp_sfc_interp:', 'after tsoil interpolation')
-!      WRITE(message_text,'(a,2E17.9)') ' max/min Tsoil  = ',&
-!           & MAXVAL(prepicon%sfc%tsoil(:,jb,:)), MINVAL(prepicon%sfc%tsoil(:,jb,:))
-!      CALL message('', TRIM(message_text))
-!      WRITE(message_text,'(a,2E17.9)') ' max/min Qsoil  = ',&
-!           & MAXVAL(prepicon%sfc%wsoil(:,jb,:)), MINVAL(prepicon%sfc%wsoil(:,jb,:))
-!      CALL message('', TRIM(message_text))
 
 
       ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
@@ -256,11 +258,6 @@ CONTAINS
         prepicon%sfc%wsoil(jc,jb,nlev_soil+1) = prepicon%sfc%wsoil(jc,jb,nlev_soil)*          &
                                                 dzsoil_icon(nlev_soil+1)/dzsoil_icon(nlev_soil)
       ENDDO
-
-!      CALL message('mo_nwp_sfc_interp:', 'after wsoil conversion')
-!      WRITE(message_text,'(a,2E17.9)') ' max/min Tsoil  = ',&
-!           & MAXVAL(prepicon%sfc%tsoil(1:nlen,jb,1:nlev_soil)), MINVAL(prepicon%sfc%tsoil(1:nlen,jb,1:nlev_soil))
-!      CALL message('', TRIM(message_text))
 
     ENDDO
 !$OMP END DO 
