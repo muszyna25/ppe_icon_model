@@ -375,7 +375,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !         
          &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
 !amk
-         &  w_snow=lnd_prog_now%w_snow(:,jb,1), &
+         &  w_snow=lnd_prog_now%w_snow_t(:,jb,1), &
 !xxx
 !           
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
@@ -694,7 +694,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PEMIS   = ext_data%atm%emis_rad(:,jb)                ,&! (IN)   
         & PHRLW   = prm_nwp_tend%ddt_temp_radlw(:,:,jb)        ,&! (IN)   
         & PHRSW   = prm_nwp_tend%ddt_temp_radsw(:,:,jb)        ,&! (IN)   
-        & PTSNOW  = lnd_prog_now%t_snow(:,jb,1)                ,&! (IN)  T,snow - unused (attention: tile 1????)
+        & PTSNOW  = lnd_prog_now%t_snow_t(:,jb,1)              ,&! (IN)  T,snow - unused (attention: tile 1????)
         & PTICE   = ztice                                      ,&! (IN)  T,ice  - unused   
         & PHLICE  = zdummy_vdf_1c                              ,&! (IN)  lake ice thickness   - unused
         & PTLICE  = zdummy_vdf_1d                              ,&! (IN)  lake ice temperature - unused 

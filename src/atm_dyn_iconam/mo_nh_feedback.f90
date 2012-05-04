@@ -659,13 +659,13 @@ IF (.NOT. l_parallel) THEN
       relfac*diff_tg(i_startidx:i_endidx,jb)
 
     DO jt = 1, ntiles
-      p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   = p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   + &
+      p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
-      p_lndp%t_s(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s(i_startidx:i_endidx,jb,jt)    + &
+      p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)    + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
-      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) + &
+      p_lndp%t_so_t(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,1,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
-      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) + &
+      p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
 
@@ -906,13 +906,13 @@ ENDIF
       relfac*diff_tg(i_startidx:i_endidx,jb)
 
     DO jt = 1, ntiles
-      p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   = p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   + &
+      p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
-      p_lndp%t_s(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s(i_startidx:i_endidx,jb,jt)    + &
+      p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)    + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
-      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) + &
+      p_lndp%t_so_t(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,1,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
-      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) + &
+      p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
 
@@ -1746,10 +1746,10 @@ ENDIF
 
     DO jt = 1, ntiles
       DO jc = i_startidx,i_endidx
-        p_lndp%t_gt(jc,jb,jt)   = p_lndp%t_gt(jc,jb,jt)   + relfac*diff_tg(jc,jb)
-        p_lndp%t_s(jc,jb,jt)    = p_lndp%t_s(jc,jb,jt)    + relfac*diff_tg(jc,jb)
-        p_lndp%t_so(jc,1,jb,jt) = p_lndp%t_so(jc,1,jb,jt) + relfac*diff_tg(jc,jb)
-        p_lndp%t_so(jc,2,jb,jt) = p_lndp%t_so(jc,2,jb,jt) + relfac*diff_tg(jc,jb)
+        p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
+        p_lndp%t_s_t(jc,jb,jt)    = p_lndp%t_s_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
+        p_lndp%t_so_t(jc,1,jb,jt) = p_lndp%t_so_t(jc,1,jb,jt) + relfac*diff_tg(jc,jb)
+        p_lndp%t_so_t(jc,2,jb,jt) = p_lndp%t_so_t(jc,2,jb,jt) + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
 

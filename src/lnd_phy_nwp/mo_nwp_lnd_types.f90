@@ -74,21 +74,21 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_prog
 
     REAL(wp), POINTER :: &
-    &  t_snow       (:,:,:)   , & ! temperature of the snow-surface               (  K  )
-    &  t_snow_mult  (:,:,:,:) , & ! temperature of the snow-surface               (  K  )
-    &  t_s          (:,:,:)   , & ! temperature of the ground surface             (  K  )
-    &  t_g          (:,:)     , & ! weighted surface temperature                  (  K  )
-    &  t_gt         (:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
-    &  w_snow       (:,:,:)   , & ! water content of snow                         (m H2O)
-    &  rho_snow     (:,:,:)   , & ! snow density                                  (kg/m**3)
-    &  rho_snow_mult(:,:,:,:) , & ! snow density                                  (kg/m**3)
-    &  w_i          (:,:,:)   , & ! water content of interception water           (m H2O)
-    &  t_so         (:,:,:,:) , & ! soil temperature (main level)                 (  K  )
-    &  w_so         (:,:,:,:) , & ! total water content (ice + liquid water)      (m H20)
-    &  w_so_ice     (:,:,:,:) , & ! ice content                                   (m H20)
-    &  wliq_snow    (:,:,:,:) , & ! liquid water content in the snow              (m H2O)
-    &  wtot_snow    (:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
-    &  dzh_snow     (:,:,:,:)     ! layer thickness between half levels in snow   (  m  )
+    &  t_snow_t       (:,:,:)   , & ! temperature of the snow-surface               (  K  )
+    &  t_snow_mult_t  (:,:,:,:) , & ! temperature of snow                           (  K  )
+    &  t_s_t          (:,:,:)   , & ! temperature of the ground surface             (  K  )
+    &  t_g            (:,:)     , & ! weighted surface temperature                  (  K  )
+    &  t_g_t          (:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
+    &  w_snow_t       (:,:,:)   , & ! water content of snow                         (m H2O)
+    &  rho_snow_t     (:,:,:)   , & ! snow density                                  (kg/m**3)
+    &  rho_snow_mult_t(:,:,:,:) , & ! snow density                                  (kg/m**3)
+    &  w_i_t          (:,:,:)   , & ! water content of interception water           (m H2O)
+    &  t_so_t         (:,:,:,:) , & ! soil temperature (main level)                 (  K  )
+    &  w_so_t         (:,:,:,:) , & ! total water content (ice + liquid water)      (m H20)
+    &  w_so_ice_t     (:,:,:,:) , & ! ice content                                   (m H20)
+    &  wliq_snow_t    (:,:,:,:) , & ! liquid water content in the snow              (m H2O)
+    &  wtot_snow_t    (:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
+    &  dzh_snow_t     (:,:,:,:)     ! layer thickness between half levels in snow   (  m  )
 
     TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_mult_ptr(:)
@@ -114,17 +114,34 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_diag
 
     REAL(wp), POINTER ::   &
-    &  qv_s     (:,:)     , & ! specific humidity at the surface             (kg/kg)
-    &  qv_st    (:,:,:)   , & ! specific humidity at the surface             (kg/kg)
-    &  h_snow   (:,:,:)   , & ! snow height                                  (  m  ) 
-    &  freshsnow(:,:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
-    &  runoff_s (:,:,:)   , & ! surface water runoff; sum over forecast      (kg/m2)
-    &  runoff_g (:,:,:)   , & ! soil water runoff; sum over forecast         (kg/m2)
-    &  fr_seaice(:,:)     , & !< fraction of sea ice                         ( )   
-                              !< as partition of total area of the
-                              !< grid element, but set to 0 or 1
-                              !< index1=1,nproma, index2=1,nblks_c
-    &  subsfrac (:,:,:)
+    &  qv_s         (:,:)   , & ! specific humidity at the surface              (kg/kg)
+    &  t_snow       (:,:)   , & ! temperature of the snow-surface               (  K  )
+    &  t_snow_mult  (:,:,:) , & ! temperature of snow                           (  K  )
+    &  t_s          (:,:)   , & ! temperature of the ground surface             (  K  )
+    &  w_snow       (:,:)   , & ! water content of snow                         (m H2O)
+    &  rho_snow     (:,:)   , & ! snow density                                  (kg/m**3)
+    &  rho_snow_mult(:,:,:) , & ! snow density                                  (kg/m**3)
+    &  w_i          (:,:)   , & ! water content of interception water           (m H2O)
+    &  t_so         (:,:,:) , & ! soil temperature (main level)                 (  K  )
+    &  w_so         (:,:,:) , & ! total water content (ice + liquid water)      (m H20)
+    &  w_so_ice     (:,:,:) , & ! ice content                                   (m H20)
+    &  wliq_snow    (:,:,:) , & ! liquid water content in the snow              (m H2O)
+    &  wtot_snow    (:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
+    &  dzh_snow     (:,:,:) , & ! layer thickness between half levels in snow   (  m  )
+    &  h_snow       (:,:)   , & ! snow height                                   (  m  ) 
+    &  freshsnow    (:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
+    &  runoff_s     (:,:)   , & ! surface water runoff; sum over forecast       (kg/m2)
+    &  runoff_g     (:,:)   , & ! soil water runoff; sum over forecast          (kg/m2)
+    &  fr_seaice    (:,:)   , & !< fraction of sea ice                          ( )   
+                                !< as partition of total area of the
+                                !< grid element, but set to 0 or 1
+                                !< index1=1,nproma, index2=1,nblks_c
+    &  qv_s_t       (:,:,:) , & ! specific humidity at the surface              (kg/kg)
+    &  h_snow_t     (:,:,:) , & ! snow height                                   (  m  ) 
+    &  freshsnow_t  (:,:,:) , & ! indicator for age of snow in top of snow layer(  -  )
+    &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
+    &  runoff_g_t   (:,:,:) , & ! soil water runoff; sum over forecast          (kg/m2)
+    &  subsfrac_t   (:,:,:)
 
     TYPE(t_ptr_lnd), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: h_snow_ptr(:)

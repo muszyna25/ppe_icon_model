@@ -165,7 +165,7 @@ CONTAINS
 
             ! surface albedo including moisture correction
             prm_diag%albvisdif_t(jc,jb,isubs) = csalb(ist)&
-              &                         - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,isubs)
+              &                         - rad_csalbw(ist)*lnd_prog%w_so_t(jc,1,jb,isubs)
 
 
             ! Account for Snow cover and vegetation
@@ -176,7 +176,7 @@ CONTAINS
             ! consider effects of aging on solar snow albedo
             !
             zsalb_snow = csalb_snow_min + &
-              & lnd_diag%freshsnow(jc,jb,isubs)*(csalb_snow_max-csalb_snow_min)
+              & lnd_diag%freshsnow_t(jc,jb,isubs)*(csalb_snow_max-csalb_snow_min)
             zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
               + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
               + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
@@ -185,8 +185,8 @@ CONTAINS
             ! snow albedo
             !
             zvege = ext_data%atm%plcov_t(ic,jb,isubs)
-            IF (lnd_prog%w_snow(jc,jb,isubs) > 0.0_wp) THEN
-              zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,isubs) / cf_snow)
+            IF (lnd_prog%w_snow_t(jc,jb,isubs) > 0.0_wp) THEN
+              zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,isubs) / cf_snow)
             ENDIF
 
             prm_diag%albvisdif_t(jc,jb,isubs) = zsnow * zsnow_alb         &

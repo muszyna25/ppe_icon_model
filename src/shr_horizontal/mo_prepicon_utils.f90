@@ -812,36 +812,36 @@ MODULE mo_prepicon_utils
         IF ( l_sfc_in .AND. atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, nsfc_subs
             DO jc = 1, nlen
-               p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)           = &
+               p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
 
                ! Initialize freshsnow
                ! for seapoints, freshsnow is set to 0
                IF(alb_snow_var == 'ALB_SNOW') THEN
-              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp,   &
+              p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp,   &
             &                           (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min) &
             &                          /(csalb_snow_max-csalb_snow_min)))                 &
             &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
-              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp,   &
+              p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp,   &
             &                     1._wp - ((prepicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml) &
             &                    /(crhosmax_ml-crhosmin_ml))))                            &
             &                    * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp)
                END IF
 
-              p_lnd_state(jg)%prog_lnd(ntlr)%w_snow(jc,jb,jt)           = &
+              p_lnd_state(jg)%prog_lnd(ntlr)%w_snow_t(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%snowweq (jc,jb)
-              p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow(jc,jb,jt)         = &
+              p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt)         = &
                 &                                                prepicon(jg)%sfc%snowdens(jc,jb) 
-              p_lnd_state(jg)%prog_lnd(ntlr)%w_i(jc,jb,jt)              = &
+              p_lnd_state(jg)%prog_lnd(ntlr)%w_i_t(jc,jb,jt)              = &
                 &                                                prepicon(jg)%sfc%skinres (jc,jb)
-              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_snow(jc,jb,jt)   = &
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_snow_t(jc,jb,jt)   = &
                 &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
-              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_snow(jc,jb,jt)   = &
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_snow_t(jc,jb,jt)   = &
                 &                                                prepicon(jg)%sfc%snowweq (jc,jb)
-              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%rho_snow(jc,jb,jt) = &
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%rho_snow_t(jc,jb,jt) = &
                 &                                                prepicon(jg)%sfc%snowdens(jc,jb)
-              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_i(jc,jb,jt)      = &
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_i_t(jc,jb,jt)      = &
                 &                                                prepicon(jg)%sfc%skinres (jc,jb)
             ENDDO
           ENDDO
@@ -852,9 +852,9 @@ MODULE mo_prepicon_utils
             DO js = 0, nlev_soil+1
               jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
-                p_lnd_state(jg)%prog_lnd(ntlr)%t_so(jc,jp,jb,jt)        = &
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jp,jb,jt)        = &
                   &                                              prepicon(jg)%sfc%tsoil(jc,jb,js)
-                p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so(jc,jp,jb,jt)= &
+                p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,jp,jb,jt)= &
                   &                                              prepicon(jg)%sfc%tsoil(jc,jb,js)
               ENDDO
             ENDDO
@@ -862,9 +862,9 @@ MODULE mo_prepicon_utils
             ! For soil water, no comparable layer shift exists
             DO js = 1, nlev_soil+1
               DO jc = 1, nlen
-                p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt) = &
+                p_lnd_state(jg)%prog_lnd(ntlr)%w_so_t(jc,js,jb,jt) = &
                   &                                              prepicon(jg)%sfc%wsoil(jc,jb,js)
-                p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_so(jc,js,jb,jt)= &
+                p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_so_t(jc,js,jb,jt)= &
                   &                                              prepicon(jg)%sfc%wsoil(jc,jb,js)
               ENDDO
             ENDDO

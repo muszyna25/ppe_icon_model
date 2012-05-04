@@ -669,7 +669,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !amk
-         &  w_snow=p_prog_lnd_now%w_snow(:,jb,1), &
+         &  w_snow=p_prog_lnd_now%w_snow_t(:,jb,1), &
 !xxx
 !
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &

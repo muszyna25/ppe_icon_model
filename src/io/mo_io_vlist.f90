@@ -1986,15 +1986,15 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF
-  ! IF (temperature_relaxation >= 1 ) THEN
-  !   CALL addVar(TimeVar('forc_tdata',&
-  !   &                   'temperature relaxation data',&
-  !   &                   'K',15,128,&
-  !   &                   vlistID(k_jg),&
-  !   &                   gridCellID(k_jg),&
-  !   &                   zaxisID_surface(k_jg)),&
-  !   &           k_jg)
-  ! END IF 
+    IF (temperature_relaxation >= 1 ) THEN
+      CALL addVar(TimeVar('forc_tdata',&
+      &                   'temperature relaxation data',&
+      &                   'K',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
     IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc_t',&
       &                   'temperature relaxation flux',&
@@ -2013,15 +2013,15 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-  ! IF (irelax_2d_S >= 1 ) THEN
-  !   CALL addVar(TimeVar('forc_sdata',&
-  !   &                   'salinity relaxation data',&
-  !   &                   'psu',15,128,&
-  !   &                   vlistID(k_jg),&
-  !   &                   gridCellID(k_jg),&
-  !   &                   zaxisID_surface(k_jg)),&
-  !   &           k_jg)
-  ! END IF 
+    IF (irelax_2d_S >= 1 ) THEN
+      CALL addVar(TimeVar('forc_sdata',&
+      &                   'salinity relaxation data',&
+      &                   'psu',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
     IF (irelax_2d_S /= 0 ) THEN
       CALL addVar(TimeVar('forc_s',&
       &                   'salinity relaxation flux at centers',&
@@ -2127,29 +2127,29 @@ CONTAINS
       &                   gridEdgeID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
-   !  CALL addVar(TimeVar('Horz_Mixing_V',&
-   !  &                   'horizontal mixing coeff veloc',&
-   !  &                   'm^2/s', 6, 128,&
-   !  &                   vlistid(k_jg),&
-   !  &                   gridEdgeID(k_jg),&
-   !  &                   zaxisIDdepth_m(k_jg)),&
-   !  &           k_jg)
-   !  IF (no_tracer > 0) THEN
-   !    CALL addVar(TimeVar('Vert_Mixing_T',&
-   !    &                   'vertical mixing coeff temp',&
-   !    &                   'm^2/s', 6, 128,&
-   !    &                   vlistid(k_jg),&
-   !    &                   gridCellID(k_jg),&
-   !    &                   zaxisID_halfdepth(k_jg)),&
-   !    &           k_jg)
-   !  END IF
-   !  CALL addVar(TimeVar('press_grad',&
-   !  &                   'pressure-gradient at edges',&
-   !  &                   'm/s',5,128,&
-   !  &                   vlistID(k_jg), &
-   !  &                   gridEdgeID(k_jg), &
-   !  &                   zaxisIDdepth_m(k_jg)),&
-   !  &                   k_jg)
+      CALL addVar(TimeVar('Horz_Mixing_V',&
+      &                   'horizontal mixing coeff veloc',&
+      &                   'm^2/s', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridEdgeID(k_jg),&
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
+      IF (no_tracer > 0) THEN
+        CALL addVar(TimeVar('Vert_Mixing_T',&
+        &                   'vertical mixing coeff temp',&
+        &                   'm^2/s', 6, 128,&
+        &                   vlistid(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_halfdepth(k_jg)),&
+        &           k_jg)
+      END IF
+      CALL addVar(TimeVar('press_grad',&
+      &                   'pressure-gradient at edges',&
+      &                   'm/s',5,128,&
+      &                   vlistID(k_jg), &
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &                   k_jg)
       CALL addVar(TimeVar('rho',&
       &                   'density cells',&
       &                   'kg/m**3', 6, 128,&
@@ -2925,97 +2925,97 @@ CONTAINS
         WRITE(cjt, '(i2)') jt
         WRITE(name,'(A,A)') "T_GT_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_prog_lnd%t_gt(:,:,jt)
+          ptr2 => p_prog_lnd%t_g_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "T_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_prog_lnd%t_snow(:,:,jt)
+          ptr2 => p_prog_lnd%t_snow_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "T_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%t_snow_mult(:,:,:,jt)
+          ptr3 => p_prog_lnd%t_snow_mult_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "T_S_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_prog_lnd%t_s(:,:,jt)
+          ptr2 => p_prog_lnd%t_s_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "W_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_prog_lnd%w_snow(:,:,jt)
+          ptr2 => p_prog_lnd%w_snow_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "RHO_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_prog_lnd%rho_snow(:,:,jt)
+          ptr2 => p_prog_lnd%rho_snow_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "RHO_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%rho_snow_mult(:,:,:,jt)
+          ptr3 => p_prog_lnd%rho_snow_mult_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "W_I_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_prog_lnd%w_i(:,:,jt)
+          ptr2 => p_prog_lnd%w_i_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "T_SO_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%t_so(:,:,:,jt)
+          ptr3 => p_prog_lnd%t_so_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "W_SO_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%w_so(:,:,:,jt)
+          ptr3 => p_prog_lnd%w_so_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "W_SO_ICE_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%w_so_ice(:,:,:,jt)
+          ptr3 => p_prog_lnd%w_so_ice_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "WLIQ_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%wliq_snow(:,:,:,jt)
+          ptr3 => p_prog_lnd%wliq_snow_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "WTOT_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%wtot_snow(:,:,:,jt)
+          ptr3 => p_prog_lnd%wtot_snow_t(:,:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "H_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_diag_lnd%h_snow(:,:,jt)
+          ptr2 => p_diag_lnd%h_snow_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "FRESHSNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr2 => p_diag_lnd%freshsnow(:,:,jt)
+          ptr2 => p_diag_lnd%freshsnow_t(:,:,jt)
           RETURN
         ENDIF
 
         WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
-          ptr3 => p_prog_lnd%dzh_snow(:,:,:,jt)
+          ptr3 => p_prog_lnd%dzh_snow_t(:,:,:,jt)
           RETURN
         ENDIF
 
