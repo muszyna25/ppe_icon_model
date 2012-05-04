@@ -442,7 +442,7 @@ CONTAINS
     ! edge based variable of which divergence
     ! is computed
     !
-    REAL(wp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(in)          :: vec_e(:,:) ! dim: (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
     REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
     INTEGER,  INTENT(in)          :: level
