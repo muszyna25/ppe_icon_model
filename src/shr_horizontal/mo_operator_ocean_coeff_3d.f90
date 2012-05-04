@@ -165,7 +165,7 @@ CONTAINS
     INTEGER :: ist,ie
     INTEGER :: rl_start,rl_end
     INTEGER :: i_startblk, i_endblk,i_startidx, i_endidx
-    INTEGER :: je,jk,jb
+    INTEGER :: jc,je,jk,jb
     !-----------------------------------------------------------------------
 
     !
@@ -380,10 +380,10 @@ CONTAINS
 
         CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,&
           & i_startidx, i_endidx, rl_start, rl_end)
-        DO je =  i_startidx, i_endidx
-          !ptr_coeff%upwind_cell_position_cc(je,jk,jb)%x(:)= 0._wp
+        DO jc =  i_startidx, i_endidx
+          !ptr_coeff%upwind_cell_position_cc(jc,jk,jb)%x(:)= 0._wp
 
-          ptr_coeff%cell_position_cc(je,jk,jb)&
+          ptr_coeff%cell_position_cc(jc,jk,jb)&
             & = gc2cc(ptr_patch%cells%center(je,jb))
 
         END DO
