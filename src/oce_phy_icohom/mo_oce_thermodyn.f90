@@ -390,9 +390,9 @@ END INTERFACE
   SUBROUTINE calc_density(ppatch,tracer, rho)
   !
   !!
-  TYPE(t_patch), INTENT(IN) :: ppatch
-  REAL(wp),    INTENT(IN)   :: tracer(:,:,:,:)     !< input of S and T
-  REAL(wp), INTENT(INOUT)   :: rho   (:,:,:)       !< density
+  TYPE(t_patch), INTENT(IN), TARGET :: ppatch
+  REAL(wp),    INTENT(IN)  , TARGET :: tracer(:,:,:,:)     !< input of S and T
+  REAL(wp), INTENT(INOUT)  , TARGET :: rho   (:,:,:)       !< density
 
   ! local variables:
   ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -404,10 +404,10 @@ END INTERFACE
    !internally.
    SELECT CASE (EOS_TYPE)
      CASE(1)
-      CALL calc_density_lin_EOS(ppatch, tracer, rho)
+       CALL calc_density_lin_EOS(ppatch, tracer, rho)
      CASE(2)
        CALL calc_density_MPIOM(ppatch, tracer, rho)
-      CASE(3)
+     CASE(3)
        CALL calc_density_JMDWFG06_EOS(ppatch, tracer, rho)
        !CALL calc_density_JM_EOS(ppatch, tracer, rho)
      CASE DEFAULT
