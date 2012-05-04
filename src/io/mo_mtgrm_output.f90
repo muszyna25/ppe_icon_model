@@ -183,8 +183,8 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_flush_file
 
   INTEGER, PARAMETER :: MAX_TIME_STAMPS      = 1000  !< max. number of time stamps
-  INTEGER, PARAMETER :: MAX_NVARS            =   30  !< max. number of sampled 3d vars
-  INTEGER, PARAMETER :: MAX_NSFCVARS         =   50  !< max. number of sampled surface vars
+  INTEGER, PARAMETER :: MAX_NVARS            =  100  !< max. number of sampled 3d vars
+  INTEGER, PARAMETER :: MAX_NSFCVARS         =  100  !< max. number of sampled surface vars
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
   INTEGER, PARAMETER :: MAX_DATE_LEN         =   16  !< length of iso8601 date strings
   ! arbitrarily chosen value for buffer size (somewhat large for safety reasons)
@@ -2156,7 +2156,7 @@ CONTAINS
       END IF
     END DO VAR_LOOP
     IF (get_var == -1) &
-      CALL finish (routine, 'Invalid name!')      
+      CALL finish (routine, 'Invalid name: '//TRIM(zname))      
   END FUNCTION get_var
 
 
