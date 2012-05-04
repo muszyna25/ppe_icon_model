@@ -380,10 +380,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          !ptr_coeff%upwind_cell_position_cc(jc,jk,jb)%x(:)= 0._wp
-
           ptr_coeff%cell_position_cc(jc,jk,jb)&
-            & = gc2cc(ptr_patch%cells%center(je,jb))
+            & = gc2cc(ptr_patch%cells%center(jc,jb))
 
         END DO
       END DO
