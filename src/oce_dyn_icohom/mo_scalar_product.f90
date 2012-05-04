@@ -1226,7 +1226,7 @@ CONTAINS
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
-    REAL(wp), INTENT(inout)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(out)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     !TYPE(t_operator_coeff)                    :: p_op_coeff
     INTEGER, INTENT(in) :: level          ! vertical level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
