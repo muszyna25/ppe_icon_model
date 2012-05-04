@@ -322,19 +322,16 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
               & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
               &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
 
-            IF( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp)THEN
+            IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
               il_c = p_patch%edges%cell_idx(je,jb,1)
               ib_c = p_patch%edges%cell_blk(je,jb,1)
-            ELSEIF( p_os%p_diag%vn_time_weighted(je,jk,jb) <= 0.0_wp)THEN
+            ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
               il_c = p_patch%edges%cell_idx(je,jb,2)
               ib_c = p_patch%edges%cell_blk(je,jb,2)
             ENDIF
 
             p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
             p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
-
-           !write(0,*)'il_c:',il_c
-           !write(0,*)'ib_c:',ib_c
 
             p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
               & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
