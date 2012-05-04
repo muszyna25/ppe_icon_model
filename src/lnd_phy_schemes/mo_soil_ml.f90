@@ -475,37 +475,36 @@ END SUBROUTINE message
 
 !option! -pvctl _on_adb
 
-SUBROUTINE terra_multlay (                &   
-                  ie,           & ! array dimensions
-                  istartpar,    & ! start index for computations in the parallel program
-                  iendpar,      & ! end index for computations in the parallel program
-! 4. variables for the time discretization and related variables
-!                  ke,           &
-                  nsubs0,       & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
-                  nsubs1,       & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
-                  ke_soil, ke_snow      , &
-                  czmls                 , & ! processing soil level structure 
-                  dt                    , &
+
+  SUBROUTINE terra_multlay (                &   
+                  ie               , & ! array dimensions
+                  istartpar        , & ! start index for computations in the parallel program
+                  iendpar          , & ! end index for computations in the parallel program
+                  nsubs0           , & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
+                  nsubs1           , & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
+                  ke_soil, ke_snow , &
+                  czmls            , & ! processing soil level structure 
+                  dt               , &
 !
-                  soiltyp_subs      , & ! type of the soil (keys 0-9)                     --
-                  plcov        , & ! fraction of plant cover                         --
-                  rootdp       , & ! depth of the roots                            ( m  )
-                  sai          , & ! surface area index                              --
-                  tai          , & ! transpiration area index                        --
-                  eai          , & ! earth area (evaporative surface area) index     --
-!                  llandmask    , & ! landpoint mask                                  --
-                  rsmin2d      ,  & ! minimum stomata resistance                    ( s/m )
-!
-                  u            , & ! zonal wind speed                              ( m/s )
-                  v            , & ! meridional wind speed                         ( m/s )
-                  t            , & ! temperature                                   (  k  )
-                  qv           , & ! specific water vapor content                  (kg/kg)
-                  p0           , & !!!! base state pressure                           (Pa) 
-!                 pp           , & ! deviation from the reference pressure         ( pa  )
-                  ps           , & ! surface pressure                              ( pa  )
-!
-                  t_snow_now   , & ! temperature of the snow-surface               (  K  )
-                  t_snow_new   , & ! temperature of the snow-surface               (  K  )
+                  soiltyp_subs     , & ! type of the soil (keys 0-9)                     --
+                  plcov            , & ! fraction of plant cover                         --
+                  rootdp           , & ! depth of the roots                            ( m  )
+                  sai              , & ! surface area index                              --
+                  tai              , & ! transpiration area index                        --
+                  eai              , & ! earth area (evaporative surface area) index     --
+!                 llandmask        , & ! landpoint mask                                  --
+                  rsmin2d          , & ! minimum stomata resistance                    ( s/m )
+!                                  
+                  u                , & ! zonal wind speed                              ( m/s )
+                  v                , & ! meridional wind speed                         ( m/s )
+                  t                , & ! temperature                                   (  k  )
+                  qv               , & ! specific water vapor content                  (kg/kg)
+                  p0               , & !!!! base state pressure                           (Pa) 
+!                 pp               , & ! deviation from the reference pressure         ( pa  )
+                  ps               , & ! surface pressure                              ( pa  )
+!                                  
+                  t_snow_now       , & ! temperature of the snow-surface               (  K  )
+                  t_snow_new       , & ! temperature of the snow-surface               (  K  )
 !
                   t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
                   t_snow_mult_new  , & ! temperature of the snow-surface               (  K  )
@@ -513,8 +512,8 @@ SUBROUTINE terra_multlay (                &
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
 !
-                  t_g          , & ! weighted surface temperature                  (  K  )
-                  qv_s         , & ! specific humidity at the surface              (kg/kg)
+                  t_g              , & ! weighted surface temperature                  (  K  )
+                  qv_s             , & ! specific humidity at the surface              (kg/kg)
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   w_snow_new       , & ! water content of snow                         (m H2O)
 !
@@ -524,7 +523,7 @@ SUBROUTINE terra_multlay (                &
                   rho_snow_mult_now, & ! snow density                                  (kg/m**3)
                   rho_snow_mult_new, & ! snow density                                  (kg/m**3)
 !
-                  h_snow       , & ! snow height                                   (  m  
+                  h_snow           , & ! snow height                                   (  m  )
 !
                   w_i_now          , & ! water content of interception water           (m H2O)
                   w_i_new          , & ! water content of interception water           (m H2O)
@@ -538,10 +537,10 @@ SUBROUTINE terra_multlay (                &
                   w_so_ice_now     , & ! ice content                                   (m H20)
                   w_so_ice_new     , & ! ice content                                   (m H20)
 !
-                  t_2m         , & ! temperature in 2m                             (  K  )
-                  u_10m        , & ! zonal wind in 10m                             ( m/s )
-                  v_10m        , & ! meridional wind in 10m                        ( m/s )
-                  freshsnow    , & ! indicator for age of snow in top of snow layer(  -  )
+                  t_2m             , & ! temperature in 2m                             (  K  )
+                  u_10m            , & ! zonal wind in 10m                             ( m/s )
+                  v_10m            , & ! meridional wind in 10m                        ( m/s )
+                  freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
 !
                   wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
                   wliq_snow_new    , & ! liquid water content in the snow              (m H2O)
@@ -552,27 +551,27 @@ SUBROUTINE terra_multlay (                &
                   dzh_snow_now     , & ! layer thickness between half levels in snow   (  m  )
                   dzh_snow_new     , & ! layer thickness between half levels in snow   (  m  )
 !
-                  subsfrac     , &
-!
-                  prr_con      , & ! precipitation rate of rain, convective        (kg/m2*s)
-                  prs_con      , & ! precipitation rate of snow, convective        (kg/m2*s)
-                  prr_gsp      , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-                  prs_gsp      , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
-                  prg_gsp      , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
-!
-                  tch          , & ! turbulent transfer coefficient for heat       ( -- )
-                  tcm          , & ! turbulent transfer coefficient for momentum   ( -- )
-                  tfv          , & ! laminar reduction factor for evaporation      ( -- )
-! 
-                  sobs         , & ! solar radiation at the ground                 ( W/m2)
-                  thbs         , & ! thermal radiation at the ground               ( W/m2)
-                  pabs         , & !!!! photosynthetic active radiation               ( W/m2)
-! 
-                  runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
-                  runoff_g     , & ! soil water runoff; sum over forecast         (kg/m2)
-!                  ntstep         & ! actual time step
-                  pt_tiles       & ! tiles structure
-                                         )
+                  subsfrac         , &
+!                                  
+                  prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
+                  prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
+                  prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+                  prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+                  prg_gsp          , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
+!                                  
+                  tch              , & ! turbulent transfer coefficient for heat       ( -- )
+                  tcm              , & ! turbulent transfer coefficient for momentum   ( -- )
+                  tfv              , & ! laminar reduction factor for evaporation      ( -- )
+!                                  
+                  sobs             , & ! solar radiation at the ground                 ( W/m2)
+                  thbs             , & ! thermal radiation at the ground               ( W/m2)
+                  pabs             , & !!!! photosynthetic active radiation               ( W/m2)
+!                                  
+                  runoff_s         , & ! surface water runoff; sum over forecast      (kg/m2)
+                  runoff_g         , & ! soil water runoff; sum over forecast         (kg/m2)
+!                 ntstep             & ! actual time step
+                  pt_tiles           & ! tiles structure
+                                     )
 
 
 !-------------------------------------------------------------------------------
@@ -584,40 +583,39 @@ IMPLICIT NONE
 
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
-                  ie,           & ! array dimensions
-                  istartpar,    & ! start index for computations in the parallel program
-                  iendpar,      & ! end index for computations in the parallel program
-!                  ke,           &
-                  nsubs0,nsubs1 , &
+                  ie,                & ! array dimensions
+                  istartpar,         & ! start index for computations in the parallel program
+                  iendpar,           & ! end index for computations in the parallel program
+                  nsubs0,nsubs1    , &
                   ke_soil, ke_snow      
   REAL    (KIND = ireals), DIMENSION(ke_soil+1), INTENT(IN) :: &
-                  czmls           ! processing soil level structure 
+                  czmls                ! processing soil level structure 
   REAL    (KIND = ireals), INTENT(IN)  ::  &
                   dt                    
 
   INTEGER (KIND=iintegers),DIMENSION(ie), INTENT(IN) :: & 
-                  soiltyp_subs      ! type of the soil (keys 0-9)                     --
+                  soiltyp_subs         ! type of the soil (keys 0-9)                     --
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
-                  plcov        , & ! fraction of plant cover                         --
-                  rootdp       , & ! depth of the roots                            ( m  )
-                  sai          , & ! surface area index                              --
-                  tai          , & ! transpiration area index                        --
-                  eai              ! earth area (evaporative surface area) index     --
+                  plcov            , & ! fraction of plant cover                         --
+                  rootdp           , & ! depth of the roots                            ( m  )
+                  sai              , & ! surface area index                              --
+                  tai              , & ! transpiration area index                        --
+                  eai                  ! earth area (evaporative surface area) index     --
 !  LOGICAL                , DIMENSION(ie), INTENT(IN) :: & 
-!                  llandmask        ! landpoint mask                                  --
+!                  llandmask           ! landpoint mask                                  --
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
-                 rsmin2d          ! minimum stomata resistance                    ( s/m )
+                 rsmin2d               ! minimum stomata resistance                    ( s/m )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
-                  u            , & ! zonal wind speed                              ( m/s )
-                  v            , & ! meridional wind speed                         ( m/s )
-                  t            , & ! temperature                                   (  k  )
-                  qv               ! specific water vapor content                  (kg/kg)
+                  u                , & ! zonal wind speed                              ( m/s )
+                  v                , & ! meridional wind speed                         ( m/s )
+                  t                , & ! temperature                                   (  k  )
+                  qv                   ! specific water vapor content                  (kg/kg)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
-                  p0               !!!! base state pressure                           (Pa) 
+                  p0                   !!!! base state pressure                        ( Pa ) 
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) ::    &
-                  ps               ! surface pressure                               ( pa  )
+                  ps                   ! surface pressure                              ( pa  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  t_snow_now              ! temperature of the snow-surface (K)
+                  t_snow_now           ! temperature of the snow-surface (K)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   t_snow_new
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_snow), INTENT(INOUT) :: &
@@ -629,8 +627,8 @@ IMPLICIT NONE
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie)  :: &
-                  t_g          , & ! weighted surface temperature                  (  K  )
-                  qv_s             ! specific humidity at the surface              (kg/kg)
+                  t_g              , & ! weighted surface temperature                  (  K  )
+                  qv_s                 ! specific humidity at the surface              (kg/kg)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   rho_snow_now         ! snow density                                  (kg/m**3)
@@ -642,11 +640,11 @@ IMPLICIT NONE
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(OUT) :: &
                   rho_snow_mult_new    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  h_snow        ! snow height  
+                  h_snow               ! snow height  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  w_i_now              ! water content of interception water  (m H2O)
+                  w_i_now              ! water content of interception water           (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
-                  w_i_new              ! water content of interception water  (m H2O)
+                  w_i_new              ! water content of interception water           (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_soil+1), INTENT(INOUT) :: &
                   t_so_now             ! soil temperature (main level)                 (  K  )
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_soil+1), INTENT(OUT) :: &
@@ -658,10 +656,10 @@ IMPLICIT NONE
                   w_so_new         , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_new         ! ice content                                   (m H20)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  t_2m         , & ! temperature in 2m                             (  K  )
-                  u_10m        , & ! zonal wind in 10m                             ( m/s )
-                  v_10m        , & ! meridional wind in 10m                        ( m/s )
-                  freshsnow        ! indicator for age of snow in top of snow layer(  -  )
+                  t_2m             , & ! temperature in 2m                             (  K  )
+                  u_10m            , & ! zonal wind in 10m                             ( m/s )
+                  v_10m            , & ! meridional wind in 10m                        ( m/s )
+                  freshsnow            ! indicator for age of snow in top of snow layer(  -  )
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
                   wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
                   wtot_snow_now        ! total (liquid + solid) water content of snow  (m H2O)
@@ -675,27 +673,27 @@ IMPLICIT NONE
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   subsfrac
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) ::    &
-                  prr_con      , & ! precipitation rate of rain, convective        (kg/m2*s)
-                  prs_con      , & ! precipitation rate of snow, convective        (kg/m2*s)
-                  prr_gsp      , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-                  prs_gsp          ! precipitation rate of snow, grid-scale        (kg/m2*s)
+                  prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
+                  prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
+                  prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+                  prs_gsp              ! precipitation rate of snow, grid-scale        (kg/m2*s)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) ::    &
-                  prg_gsp          ! precipitation rate of graupel, grid-scale     (kg/m2*s)
+                  prg_gsp              ! precipitation rate of graupel, grid-scale     (kg/m2*s)
 
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  tch          , & ! turbulent transfer coefficient for heat       ( -- )
-                  tcm          , & ! turbulent transfer coefficient for momentum   ( -- )
-                  tfv              ! laminar reduction factor for evaporation      ( -- )
+                  tch              , & ! turbulent transfer coefficient for heat       ( -- )
+                  tcm              , & ! turbulent transfer coefficient for momentum   ( -- )
+                  tfv                  ! laminar reduction factor for evaporation      ( -- )
 !
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
-                  sobs         , & ! solar radiation at the ground                 ( W/m2)
-                  thbs         , & ! thermal radiation at the ground               ( W/m2)
-                  pabs             !!!! photosynthetic active radiation               ( W/m2)
+                  sobs             , & ! solar radiation at the ground                 ( W/m2)
+                  thbs             , & ! thermal radiation at the ground               ( W/m2)
+                  pabs                 !!!! photosynthetic active radiation            ( W/m2)
 !
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
-                  runoff_g         ! soil water runoff; sum over forecast         (kg/m2)
-  TYPE(t_tiles), TARGET,                    INTENT(IN) :: &
+                  runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
+                  runoff_g             ! soil water runoff; sum over forecast          (kg/m2)
+  TYPE(t_tiles), TARGET,                  INTENT(IN) :: &
                   pt_tiles(nsubs1)
 
 !!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &

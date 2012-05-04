@@ -1163,6 +1163,7 @@ src/io/mo_output.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_types.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
+src/lnd_phy_nwp/mo_nwp_sfc_interface_edmf.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interp.f90 -text
 src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text

@@ -620,6 +620,77 @@ ENDDO
 !ENDDO
 !xxx
 
+!-------------------------------------------------------------------------
+
+
+!*         3.2  CALL TERRA
+
+! CALL nwp_surface_terra_edmf (&   
+!   p_patch          =   , & !>in   !!! DELETE
+!   ext_data         =   , & !>in   !!! DELETE
+!   jb               =   , & !      !!! DELETE
+!   nproma           = KLON   , & ! array dimensions
+!   i_startidx       = KIDIA  , & ! start index for computations in the parallel program
+!   i_endidx         = KFDIA  , & ! end index for computations in the parallel program
+!   nsubs0           =   , & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
+!   nsubs1           =   , & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
+!   dt               = PTSTEP , &
+!  
+!   u_ex             = PUMLEV  , & ! zonal wind speed                        ( m/s )
+!   v_ex             = PVMLEV  , & ! meridional wind speed                   ( m/s )
+!   t_ex             = PTMLEV  , & ! temperature                             (  k  )
+!   qv_ex            = PQMLEV  , & ! specific water vapor content            (kg/kg)
+!   p0_ex            =   , & ! pressure lowest level                         ( Pa  ) 
+!   ps_ex            = PAPHMS  , & ! surface pressure                        ( Pa  )
+!  
+!   t_snow_ex        =   , & ! temperature of the snow-surface               (  K  )
+!   t_snow_mult_ex   =   , & ! temperature of the snow-surface               (  K  )
+!   t_s_ex           =   , & ! temperature of the ground surface             (  K  )
+!   t_g_ex           =   , & ! surface temperature                           (  K  )
+!   qv_s_ex          =   , & ! specific humidity at the surface              (kg/kg)
+!   w_snow_ex        =   , & ! water content of snow                         (m H2O)
+!   rho_snow_ex      =   , & ! snow density                                  (kg/m**3)
+!   rho_snow_mult_ex =   , & ! snow density                                  (kg/m**3)
+!   h_snow_ex        =   , & ! snow height                                   (  m  )
+!   w_i_ex           =   , & ! water content of interception water           (m H2O)
+!   t_so_ex          =   , & ! soil temperature (main level)                 (  K  )
+!   w_so_ex          =   , & ! total water conent (ice + liquid water)       (m H20)
+!   w_so_ice_ex      =   , & ! ice content                                   (m H20)
+!   t_2m_ex          =   , & ! temperature in 2m                             (  K  )
+!   u_10m_ex         =   , & ! zonal wind in 10m                             ( m/s )
+!   v_10m_ex         =   , & ! meridional wind in 10m                        ( m/s )
+!  
+!   freshsnow_ex     =   , & ! indicator for age of snow in top of snow layer(  -  )
+!   wliq_snow_ex     =   , & ! liquid water content in the snow              (m H2O)
+!   wtot_snow_ex     =   , & ! total (liquid + solid) water content of snow  (m H2O)
+!   dzh_snow_ex      =   , & ! layer thickness between half levels in snow   (  m  )
+!   subsfrac_ex      = PFRTI  , & ! tile fraction                            (  1  )
+!   
+!   prr_con_ex       =   , & ! precipitation rate of rain, convective        (kg/m2*s)
+!   prs_con_ex       =   , & ! precipitation rate of snow, convective        (kg/m2*s)
+!   prr_gsp_ex       =   , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+!   prs_gsp_ex       =   , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+!  
+!   tch_ex           =   , & ! turbulent transfer coefficient for heat       ( -- )
+!   tcm_ex           =   , & ! turbulent transfer coefficient for momentum   ( -- )
+!   tfv_ex           =   , & ! laminar reduction factor for evaporation      ( -- )
+!  
+!   sobs_ex          =   , & ! solar radiation at the ground                 ( W/m2)
+!   thbs_ex          =   , & ! thermal radiation at the ground               ( W/m2)
+!   pabs_ex          =   , & !!!! photosynthetic active radiation            ( W/m2)
+!  
+!   runoff_s_ex      =   , & ! surface water runoff; sum over forecast       (kg/m2)
+!   runoff_g_ex      =   , & ! soil water runoff; sum over forecast          (kg/m2)
+!  
+!   t_g              =   , & ! surface temperature (grid mean)               ( K )
+!   qv_s             =     & ! surface specific humidity (grid mean)         (kg/kg)
+!                    )
+
+
+
+!-------------------------------------------------------------------------
+
+
 !*         3.3  COMPUTE SURFACE FLUXES FOR TILES
 
 ZCONS1 =RG*PTSTEP*PRVDIFTS
@@ -638,8 +709,10 @@ ENDDO
 !*         3.3a   PREPARE ARRAY'S FOR CALL TO SURFACE ENERGY
 !                 BALANCE ROUTINE
 
-IF (KSTEP == 0) THEN 
-
+!xmk: as a first try turn of the first step SEB 
+!IF (KSTEP == 0) THEN 
+IF (1 == 0) THEN 
+!xxx
   IF (LEOCWA .OR. LEOCCO) THEN
     ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)
   ELSE
