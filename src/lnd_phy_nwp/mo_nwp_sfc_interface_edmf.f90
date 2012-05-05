@@ -446,7 +446,7 @@ CONTAINS
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
         &  czmls=zml_soil                                    , & ! processing soil level structure 
         &  dt=dt                                             , &
-
+!
         &  soiltyp_subs = ext_data%atm%soiltyp_t(:,jb,isubs) , & ! type of the soil (keys 0-9)  --
         &  plcov        = ext_data%atm%plcov_t(:,jb,isubs)   , & ! fraction of plant cover      --
         &  rootdp       = ext_data%atm%rootdp_t(:,jb,isubs)  , & ! depth of the roots         ( m  )
@@ -457,22 +457,22 @@ CONTAINS
 !
         &  u  =  u_t(:)                                      , & ! zonal wind speed
         &  v  =  v_t(:)                                      , & ! meridional wind speed 
-        &  t  =  t_t(:)                                      , & ! temperature                            (  k  )
-        &  qv =  qv_t(:)                                     , & ! specific water vapor content           (kg/kg)
+        &  t  =  t_t(:)                                      , & ! temperature                       (  K  )
+        &  qv =  qv_t(:)                                     , & ! specific water vapor content      (kg/kg)
         &  p0 =  p0_t(:)                                     , & ! base state pressure               ( Pa  ) 
-        &  ps =  ps_t(:)                                     , & ! surface pressure                       ( pa  )
+        &  ps =  ps_t(:)                                     , & ! surface pressure                  ( pa  )
 !                                                            
         &  t_snow_now    = t_snow_now_t(:,isubs)             , & ! temperature of the snow-surface   (  K  )
         &  t_snow_new    = t_snow_new_t(:,isubs)             , & ! temperature of the snow-surface   (  K  )
 !                                                            
-        &  t_snow_mult_now = t_snow_mult_now_t(:,:,isubs)    , & ! temperature of the snow-surface (  K  )
-        &  t_snow_mult_new = t_snow_mult_new_t(:,:,isubs)    , & ! temperature of the snow-surface (  K  )
+        &  t_snow_mult_now = t_snow_mult_now_t(:,:,isubs)    , & ! temperature of the snow-surface   (  K  )
+        &  t_snow_mult_new = t_snow_mult_new_t(:,:,isubs)    , & ! temperature of the snow-surface   (  K  )
 !                                                            
-        &  t_s_now       = t_s_now_t(:,isubs)                , & ! temperature of the ground surface            (  K  )
-        &  t_s_new       = t_s_new_t(:,isubs)                , & ! temperature of the ground surface            (  K  )
+        &  t_s_now       = t_s_now_t(:,isubs)                , & ! temperature of the ground surface (  K  )
+        &  t_s_new       = t_s_new_t(:,isubs)                , & ! temperature of the ground surface (  K  )
 !                                                            
-        &  t_g           =  t_g_t (:,isubs)                  , & ! weighted surface temperature                 (  K  )
-        &  qv_s          =  qv_s_t(:,isubs)                  , & ! specific humidity at the surface             (kg/kg)
+        &  t_g           =  t_g_t (:,isubs)                  , & ! weighted surface temperature      (  K  )
+        &  qv_s          =  qv_s_t(:,isubs)                  , & ! specific humidity at the surface  (kg/kg)
 !                                                            
         &  w_snow_now    = w_snow_now_t(:,isubs)             , & ! water content of snow      (m H2O) 
         &  w_snow_new    = w_snow_new_t(:,isubs)             , & ! water content of snow      (m H2O) 
