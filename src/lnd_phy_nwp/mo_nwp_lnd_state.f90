@@ -920,7 +920,8 @@ MODULE mo_nwp_lnd_state
            & ldims=shape2d, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )    
 
     ! & p_diag_lnd%freshsnow(nproma,nblks_c)
-    cf_desc    = t_cf_var('freshsnow', '- ', 'weighted indicator for age of snow in top of snow layer')
+    cf_desc    = t_cf_var('freshsnow', '- ', &
+           & 'weighted indicator for age of snow in top of snow layer')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'freshsnow', p_diag_lnd%freshsnow,     &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
