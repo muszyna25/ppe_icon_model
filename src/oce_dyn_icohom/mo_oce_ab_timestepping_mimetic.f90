@@ -179,7 +179,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   z_h_c = 0.0_wp
   z_h_e = 0.0_wp
 
-  CALL update_column_thickness( p_patch, p_os, p_os%p_diag, p_op_coeff, timestep )
+  !CALL update_column_thickness( p_patch, p_os, p_os%p_diag, p_op_coeff, timestep )
 
 
   CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
@@ -189,7 +189,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   IF (is_initial_timestep(timestep) ) THEN
 
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
-    CALL update_column_thickness( p_patch, p_os, p_os%p_diag, p_op_coeff, timestep )
+    !CALL update_column_thickness( p_patch, p_os, p_os%p_diag, p_op_coeff, timestep )
     ! LL: synced above
 !     CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
     !LL: synced in height_related_quantities
@@ -205,7 +205,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     !Call set_lateral_boundary_values(p_patch, p_os%p_prog(nold(1))%vn)
 
 
-     CALL calc_scalar_product_veloc_3D( p_patch,&
+    IF (l_STAGGERED_TIMESTEP ) &
+     & CALL calc_scalar_product_veloc_3D( p_patch,&
                                       & p_os%p_prog(nold(1))%vn,&
                                       & p_os%p_prog(nold(1))%vn,&
                                       & p_os%p_diag%h_e,        &
@@ -1410,8 +1411,8 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       DO jk=1,n_zlev
-        z_u_cc2(jc,jk,jb)%x = ab_gam*z_u_cc(jc,jk,jb)%x&
-        & + (1.0_wp -ab_gam)*p_os%p_diag%p_vn(jc,jk,jb)%x
+        z_u_cc2(jc,jk,jb)%x = ab_gam*z_u_cc(jc,jk,jb)%x &
+          & + (1.0_wp -ab_gam)*p_os%p_diag%p_vn(jc,jk,jb)%x
       END DO
     ENDDO
   END DO
