@@ -90,7 +90,8 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
       & RCPD                                                !yomcst  (& yos_cst)
 USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
-      & LEFLAKE  ,RH_ICE_MIN_FLK                            !yoephy  (& yos_flake)
+      & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
+      & FOEEW                                               !fcttrm.h (& fcsttre.h)
 
 USE mo_vupdz0       ,ONLY : vupdz0
 USE mo_vexcs        ,ONLY : vexcs
@@ -176,7 +177,7 @@ USE mo_vexcs        ,ONLY : vexcs
 !      PQMLEV   :    SPECIFIC HUMIDITY                                kg/kg
 !      PAPHMS   :    Surface pressure                                 Pa
 !      PGEOMLEV :    Geopotential, lowest atmospehric level           m2/s2
-!      PCPTGZLEV:    Geopotential, lowest atmospehric level           J/kg
+!      PCPTGZLEV:    DRY STATIC ENERGY, LOWEST MODEL LEVEL            J/kg
 !      PSST     :    (OPEN) SEA SURFACE TEMPERATURE                   K
 !      PUSTRTI  :    X-STRESS                                         N/m2
 !      PVSTRTI  :    Y-STRESS                                         N/m2
@@ -538,7 +539,15 @@ DO JTILE=1,KTILES
 !   & PQSTI(:,JTILE)  ,PDQSTI(:,JTILE)  ,&
 !   & ZWETB ,PCPTSTI(:,JTILE) ,ZWETL, ZWETH, ZWETHS )
 !xxx
-  
+
+!amk: simple copy of VSURF code to calculate surface qsat for ocean ?????????
+  DO JL=KIDIA,KFDIA
+    PCPTSTI(JL,:) =FOEEW(PTSKM1M(JL)) / PAPHMS(JL)
+    PCPTSTI(JL,:) =PCPTSTI(JL,:) * 0.98_JPRB / (1.0_JPRB-RETV*PCPTSTI(JL,:))
+    ZQSATI(JL,:)=PCPTSTI(JL,:)
+  ENDDO
+!xxx
+
 ENDDO
 
 ! DDH diagnostics
@@ -769,8 +778,10 @@ ENDIF
 
 !          ADD SNOW EVAPORATION FROM BELOW TREES i.e. TILE 7
 
-ZKQFLTI(KIDIA:KFDIA,7)=ZKQFLTI(KIDIA:KFDIA,7)+&
- & ZCSNW(KIDIA:KFDIA)*ZKQFLTI(KIDIA:KFDIA,5)  
+!dmk: do we need this ???
+!ZKQFLTI(KIDIA:KFDIA,7)=ZKQFLTI(KIDIA:KFDIA,7)+&
+! & ZCSNW(KIDIA:KFDIA)*ZKQFLTI(KIDIA:KFDIA,5)  
+!xxx
 
 !*         3.4  COMPUTE SURFACE FLUXES, WEIGHTED AVERAGE OVER TILES
 
@@ -805,13 +816,15 @@ DO JL=KIDIA,KFDIA
   ENDIF
 ENDDO
 
-DO JTILE=1,KTILES
-  DO JL=KIDIA,KFDIA
-    ZZQSATI(JL,JTILE)=PQMLEV(JL)*(1.0_JPRB-PCAIRTI(JL,JTILE))&
-     & +PCSATTI(JL,JTILE)*PQSTI(JL,JTILE)  
-    ZZQSATI(JL,JTILE)=MAX(1.0E-12_JPRB,ZZQSATI(JL,JTILE))
-  ENDDO
-ENDDO
+!dmk  for output: not yet working
+! DO JTILE=1,KTILES
+!   DO JL=KIDIA,KFDIA
+!     ZZQSATI(JL,JTILE)=PQMLEV(JL)*(1.0_JPRB-PCAIRTI(JL,JTILE))&
+!      & +PCSATTI(JL,JTILE)*PQSTI(JL,JTILE)  
+!     ZZQSATI(JL,JTILE)=MAX(1.0E-12_JPRB,ZZQSATI(JL,JTILE))
+!   ENDDO
+! ENDDO
+!xxx
 
 !          ROUGHNESS LENGTH FOR HEAT and MOISTURE ARE TAKEN
 !          FROM THE DOMINANT LOW-VEG. TYPE
@@ -820,7 +833,7 @@ DO JL=KIDIA,KFDIA
   PZ0HW(JL)=ZZ0HTI(JL,JTILE)
   PZ0QW(JL)=ZZ0QTI(JL,JTILE)
   PCPTSPP(JL)=PCPTSTI(JL,JTILE)
-  PQSAPP(JL)=ZZQSATI(JL,JTILE)
+!dmk  PQSAPP(JL)=ZZQSATI(JL,JTILE)     !output: not yet working ???
   PBUOMPP(JL)=ZBUOMTI(JL,JTILE)
   PZDLPP(JL)=ZZDLTI(JL,JTILE)
 ENDDO

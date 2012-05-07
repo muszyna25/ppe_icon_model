@@ -150,6 +150,7 @@ REAL(KIND=JPRB),ALLOCATABLE :: RVTRSR(:)     ! TRANSMISSION OF NET SOLAR RAD.
 
   PUBLIC :: FOEALFA  ,FOEEWM   ,FOEDEM   ,FOELDCPM  , &
           & FOEALFCU ,FOEEWMCU ,FOEDEMCU ,FOELDCPMCU, &
+          & FOEEW    ,FOEDESU  ,                      &
           & PSIHU    ,PSIMU    ,PSIHS    ,PSIMS     , &
           & RVZ0M    ,RVZ0H    ,RVLAMSK  ,RVLAMSKS  , &
           & RVTRSR
@@ -244,6 +245,67 @@ ELEMENTAL FUNCTION FOELDCPMCU(ptare)
   FOELDCPMCU = FOEALFCU(PTARE)*RALVDCP+&
             &(1.0_JPRB-FOEALFCU(PTARE))*RALSDCP
 END FUNCTION FOELDCPMCU
+
+
+!------------------------------------------------------------------------------
+
+
+!     ------------------------------------------------------------------
+! fcsttre.h
+!     This COMDECK includes the Thermodynamical functions for the cy39
+!       ECMWF Physics package.
+!       Consistent with YOMCST Basic physics constants, assuming the
+!       partial pressure of water vapour is given by a first order
+!       Taylor expansion of Qs(T) w.r.t. to Temperature, using constants
+!       in YOETHF
+!       Two sets of functions are available. In the first set only the
+!       cases water or ice are distinguished by temperature.  This set 
+!       consists of the functions FOEDELTA,FOEEW,FOEDE and FOELH.
+!       The second set considers, besides the two cases water and ice 
+!       also a mix of both for the temperature range RTICE < T < RTWAT.
+!       This set contains FOEALFA,FOEEWM,FOEDEM,FOELDCPM and FOELHM.
+
+!       Depending on the consideration of mixed phases either the first 
+!       set (e.g. surface, post-processing) or the second set 
+!       (e.g. clouds, condensation, convection) should be used.
+!     ------------------------------------------------------------------
+!     *****************************************************************
+!                NO CONSIDERATION OF MIXED PHASES
+!     *****************************************************************
+
+!                  FOEDELTA = 1    water
+!                  FOEDELTA = 0    ice
+
+!     THERMODYNAMICAL FUNCTIONS .
+
+!     Pressure of water vapour at saturation
+!        INPUT : PTARE = TEMPERATURE
+
+ELEMENTAL FUNCTION foedelta(ptare)
+  USE mo_cuparameters ,ONLY   :  rtt
+  REAL(KIND=JPRB)             :: FOEDELTA
+  REAL(KIND=jprb), INTENT(in) :: ptare
+  FOEDELTA = MAX (0.0_JPRB,SIGN(1.0_JPRB,PTARE-RTT))
+END FUNCTION foedelta
+
+ELEMENTAL FUNCTION foeew(ptare)
+  USE mo_cuparameters ,ONLY   :  r2es, r3les, rtt, r4les, r3ies, r4ies
+  REAL(KIND=jprb)             :: foeew
+  REAL(KIND=jprb), INTENT(in) :: ptare
+  FOEEW = R2ES*EXP (&
+    & (R3LES*FOEDELTA(PTARE)+R3IES*(1.0_JPRB-FOEDELTA(PTARE)))*(PTARE-RTT)&
+    & / (PTARE-(R4LES*FOEDELTA(PTARE)+R4IES*(1.0_JPRB-FOEDELTA(PTARE)))))
+END FUNCTION foeew
+
+ELEMENTAL FUNCTION foedesu(ptare)
+  USE mo_cuparameters ,ONLY   :  r3les, rtt, r4les, r4ies, r5les, r5ies
+  REAL(KIND=jprb)             :: FOEDESU
+  REAL(KIND=jprb), INTENT(in) :: ptare
+  FOEDESU = &
+    &(FOEDELTA(PTARE)*R5LES+(1.0_JPRB-FOEDELTA(PTARE))*R5IES)&
+    &/ (PTARE-(R4LES*FOEDELTA(PTARE)+R4IES*(1.0_JPRB-FOEDELTA(PTARE))))**2
+END FUNCTION foedesu
+
 
 !------------------------------------------------------------------------------
 
