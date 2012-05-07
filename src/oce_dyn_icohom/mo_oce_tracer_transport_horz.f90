@@ -125,42 +125,40 @@ SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
                                    & trac_new, timestep, delta_t,&
                                    & h_e, cell_thick_intermed_c, &
                                    & FLUX_CALCULATION_HORZ)
-!
-!
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-REAL(wp)                          :: trac_old(:,:,:)
-TYPE(t_hydro_ocean_state), TARGET :: p_os    
-TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
-REAL(wp), INTENT(in) :: K_h(:,:,:)         !horizontal mixing coeff
-REAL(wp), INTENT(out):: trac_new(:,:,:)
-INTEGER , INTENT(in) :: timestep           ! Actual timestep (to distinghuish initial step from others)
-REAL(wp), INTENT(in) :: delta_t
-REAL(wp), INTENT(in) :: h_e(nproma,p_patch%nblks_e)
-REAL(wp), INTENT(in) :: cell_thick_intermed_c(nproma,n_zlev,p_patch%nblks_c)!intermediate cell thickness
-INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
-!
-!Local variables
-REAL(wp) :: delta_z!, delta_z2
-!INTEGER  :: ctr, ctr_total
-INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
-INTEGER  :: jc, jk, jb, je
-INTEGER  :: ilc1, ibc1,ilc2, ibc2
-!INTEGER  :: z_dolic
-REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective tracer flux
-REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
-REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
-REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
-REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
-REAL(wp) :: dummy_h_c2(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-!TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
-! CHARACTER(len=max_char_length), PARAMETER :: &
-!        & routine = ('mo_tracer_advection:advect_individual_tracer')
-!-------------------------------------------------------------------------------
-!z_tol= 1.0E-13
-!trac_old=10.0_wp
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  REAL(wp)                          :: trac_old(:,:,:)
+  TYPE(t_hydro_ocean_state), TARGET :: p_os    
+  TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
+  REAL(wp), INTENT(in) :: K_h(:,:,:)         !horizontal mixing coeff
+  REAL(wp), INTENT(out):: trac_new(:,:,:)
+  INTEGER , INTENT(in) :: timestep           ! Actual timestep (to distinghuish initial step from others)
+  REAL(wp), INTENT(in) :: delta_t
+  REAL(wp), INTENT(in) :: h_e(nproma,p_patch%nblks_e)
+  REAL(wp), INTENT(in) :: cell_thick_intermed_c(nproma,n_zlev,p_patch%nblks_c)!intermediate cell thickness
+  INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
+  !
+  !Local variables
+  REAL(wp) :: delta_z!, delta_z2
+  !INTEGER  :: ctr, ctr_total
+  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
+  INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+  INTEGER  :: jc, jk, jb, je
+  INTEGER  :: ilc1, ibc1,ilc2, ibc2
+  !INTEGER  :: z_dolic
+  REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective tracer flux
+  REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
+  REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
+  REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
+  REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
+  REAL(wp) :: dummy_h_c2(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+  !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
+  ! CHARACTER(len=max_char_length), PARAMETER :: &
+  !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+  !-------------------------------------------------------------------------------
+  !z_tol= 1.0E-13
+  !trac_old=10.0_wp
   edges_in_domain => p_patch%edges%in_domain
   cells_in_domain => p_patch%cells%in_domain
 
