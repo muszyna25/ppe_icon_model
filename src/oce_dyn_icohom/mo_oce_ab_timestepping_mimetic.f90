@@ -1402,10 +1402,9 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   ENDIF
 
 
-  CALL map_edges2cell_3D( p_patch,&
+  CALL map_edges2cell_3d( p_patch,&
     & p_os%p_prog(nnew(1))%vn, &
     & p_op_coeff, z_u_cc)
-
 
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -1416,6 +1415,10 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
       END DO
     ENDDO
   END DO
+
+  DO jk=1,3
+    CALL sync_patch_array(SYNC_C, p_patch, z_u_cc2(:,:,:)%x(jk))
+  ENDDO
 
   CALL map_cell2edges( p_patch,                       &
                      & z_u_cc2,                      &
