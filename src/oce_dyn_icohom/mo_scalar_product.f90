@@ -70,66 +70,66 @@ MODULE mo_scalar_product
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, &
     & sync_idx, global_max
-  
+
   IMPLICIT NONE
-  
+
   PRIVATE
-  
+
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+
   PUBLIC :: calc_scalar_product_veloc_3d
   PUBLIC :: nonlinear_coriolis_3d
   PUBLIC :: map_edges2vert_3d
   PUBLIC :: map_edges2cell_3d
   PRIVATE :: map_edges2cell_with_height_3d
   PRIVATE :: map_edges2cell_no_height_3d
-  
+
   PUBLIC :: calc_scalar_product_veloc
   PUBLIC :: map_cell2edges
   PUBLIC :: map_cell2edges_2d
   PUBLIC :: map_edges2cell
   PUBLIC :: map_edges2vert
-  
+
   PUBLIC :: primal_map_c2e
   PUBLIC :: dual_flip_flop
-  
+
   PUBLIC :: nonlinear_coriolis
   PUBLIC :: map_edges2edges
-  
-  
+
+
   INTERFACE map_cell2edges
     MODULE PROCEDURE map_cell2edges_1level
     MODULE PROCEDURE map_cell2edges_mlevels
   END INTERFACE
-    
-  
+
+
   INTERFACE map_edges2cell
-    
+
     MODULE PROCEDURE map_edges2cell_with_height
     MODULE PROCEDURE map_edges2cell_without_height
     MODULE PROCEDURE map_edges2cell_with_h_1vl      ! 1 vertical level
     MODULE PROCEDURE map_edges2cell_without_h_1vl   ! 1 vertical level
-    
+
   END INTERFACE
-  
-  
+
+
   INTERFACE map_edges2cell_3d
-    
+
     MODULE PROCEDURE map_edges2cell_with_height_3d
     MODULE PROCEDURE map_edges2cell_no_height_3d
     MODULE PROCEDURE map_edges2cell_no_h_3d_1vl
-    
+
   END INTERFACE
-  
+
   INTERFACE map_edges2edges
-    
+
     MODULE PROCEDURE map_edges2edges_with_height
     MODULE PROCEDURE map_edges2edges_without_height
     MODULE PROCEDURE map_edges2edges_with_h_1vl      ! 1 vertical level
     MODULE PROCEDURE map_edges2edges_without_h_1vl   ! 1 vertical level
-    
+
   END INTERFACE
-  
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -140,7 +140,7 @@ CONTAINS
   !!  mpi parallelized
   SUBROUTINE calc_scalar_product_veloc( p_patch, vn_e_old, vn_e_new,&
     & h_e, p_diag)
-    
+
     TYPE(t_patch),TARGET, INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(in)      :: vn_e_old(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
@@ -157,21 +157,21 @@ CONTAINS
     !-----------------------------------------------------------------------
     all_cells => p_patch%cells%all
     !CALL message (TRIM(routine), 'start')
-    
+
     slev = 1
     elev = n_zlev
-    
-       
-    
+
+
+
     CALL map_edges2vert(p_patch, vn_e_old, h_e, p_diag%p_vn_dual)
-    
+
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
     !CALL map_edges2cell( p_patch, vn_e_old, z_pv_cc)
     !CALL map_edges2cell_with_height_3D( p_patch, vn_e_old, z_pv_cc,h_e,p_op_coeff)
     ! CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn, h_e )
-    
+
     CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn, subset_range=all_cells)
-    
+
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
@@ -180,7 +180,7 @@ CONTAINS
       !calculate kinetic energy
       DO jk = slev, elev
         DO jc =  i_startidx_c, i_endidx_c
-          
+
           IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
             p_diag%kin(jc,jk,jb) = 0.0_wp
           ELSE
@@ -192,7 +192,7 @@ CONTAINS
         END DO
       END DO
     END DO
-    
+
     !DO jk = slev, elev
     !  write(*,*)'max/min kin energy:',maxval(p_diag%kin(:,jk,:)), minval(p_diag%kin(:,jk,:))!,&
     !!&maxval(z_kin(:,1,:)), minval(z_kin(:,1,:))
@@ -212,13 +212,13 @@ CONTAINS
         END DO
       END DO
     END DO
-    
+
     CALL map_cell2edges( p_patch, p_diag%p_vn, p_diag%ptp_vn)
     CALL sync_patch_array(SYNC_E, p_patch, p_diag%ptp_vn)    
-    
+
   END SUBROUTINE calc_scalar_product_veloc
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!
@@ -227,7 +227,7 @@ CONTAINS
   !!  mpi parallelized by LL
   SUBROUTINE calc_scalar_product_veloc_3d( p_patch, vn_e_old, vn_e_new,&
     & h_e, p_diag, p_op_coeff)
-    
+
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(in)      :: vn_e_old(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
@@ -240,26 +240,26 @@ CONTAINS
     INTEGER :: jc, jb, jk
 
     TYPE(t_subset_range), POINTER :: all_cells
-    
+
     !TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     all_cells => p_patch%cells%all
-    
+
     slev = 1
     elev = n_zlev
-        
+
     CALL map_edges2vert_3d(p_patch, vn_e_old, h_e, p_op_coeff%edge2vert_coeff_cc, &
       & p_diag%p_vn_dual)
     !CALL map_edges2vert(p_patch, vn_e_old, h_e, p_diag%p_vn_dual)
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
-    
+
     !CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn)
     CALL map_edges2cell_3d( p_patch, vn_e_old,p_op_coeff, p_diag%p_vn)
     !CALL map_edges2cell_3D( p_patch, vn_e_old, p_diag%p_vn,p_op_coeff)
-        
+
     !--------------------------------------------------------------    
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -269,7 +269,7 @@ CONTAINS
       !calculate kinetic energy
       DO jk = slev, elev
         DO jc =  i_startidx_c, i_endidx_c
-          
+
           IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
             p_diag%kin(jc,jk,jb) = 0.0_wp
           ELSE
@@ -284,7 +284,7 @@ CONTAINS
     END DO
     ! LL: no sync is required
     !--------------------------------------------------------------    
-    
+
     !--------------------------------------------------------------    
     ! DO jk = slev, elev
     !   write(*,*)'max/min kin energy:',maxval(p_diag%kin(:,jk,:)), minval(p_diag%kin(:,jk,:))!,&
@@ -307,19 +307,19 @@ CONTAINS
     END DO
     ! LL: no sync is required
     !--------------------------------------------------------------    
-    
+
     CALL map_cell2edges( p_patch, p_diag%p_vn, p_diag%ptp_vn)
 
     CALL sync_patch_array(SYNC_E, p_patch, p_diag%ptp_vn)    
-    
+
   END SUBROUTINE calc_scalar_product_veloc_3d
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!  no-mpi parallelized
   SUBROUTINE nonlinear_coriolis(p_patch, vn, p_vn, p_vn_dual, h_e, vt, vort_v, vort_flux)
-    
+
     TYPE(t_patch), INTENT(in)      :: p_patch
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn(nproma,n_zlev,p_patch%nblks_c)
@@ -328,21 +328,21 @@ CONTAINS
     REAL(wp), INTENT(in)           :: vt(:,:,:)
     REAL(wp), INTENT(inout)        :: vort_v(:,:,:)
     REAL(wp), INTENT(inout)        :: vort_flux(:,:,:)
-    
+
     !Local variables
     !
     REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary
     !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp) :: zarea_fraction
     !REAL(wp) :: z_area_scaled
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb, jev,je
     INTEGER :: ile, ibe!, il, ib
     INTEGER :: rl_start_e, rl_end_e
     INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
     INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    
+
     !INTEGER :: i_bdr_ctr
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
@@ -359,7 +359,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: u_v1_cc, u_v2_cc
     REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
     INTEGER,PARAMETER :: ino_dual_edges = 6
-    
+
     INTEGER,PARAMETER :: rl_start_v = 2
     INTEGER,PARAMETER :: rl_end_v   = min_rlvert
     !-----------------------------------------------------------------------
@@ -367,13 +367,13 @@ CONTAINS
     elev         = n_zlev
     rl_start_e   = 1
     rl_end_e     = min_rledge
-    
+
     i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
+
     i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
     i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
-    
+
     ! #slo# due to nag -nan compiler-option
     i_v_ctr(:,:,:)          = 0
     i_v_bnd_edge_ctr(:,:,:) = 0
@@ -419,35 +419,35 @@ CONTAINS
               z_vort_tmp = z_vort_tmp + vn(ile,jk,ibe)                   &
                 & * p_patch%edges%dual_edge_length(ile,ibe)  &
                 & * p_patch%verts%edge_orientation(jv,jb,jev)
-              
+
               !z_weight might be an alternative to dual_area and can include
               !varying height in top layer. Differences have to be explored.
               !z_weight(jv,jk,jb) = z_weight(jv,jk,jb) &
               !&+ p_int_state(1)%variable_dual_vol_norm(jv,jb,jev)!*z_thick
-              
-              
+
+
               !increase wet edge ctr
               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
-              
+
               ! edge with indices ile, ibe is boundary edge
             ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-              
+
               !calculate tangential velocity
               il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
               ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
               il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
               ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
-              
+
               z_vt(ile,jk,ibe)= &
                 & - DOT_PRODUCT(p_vn_dual(il_v1,jk,ib_v1)%x,&
                 & p_int_state(1)%edge2vert_coeff_cc_t(ile,ibe,2)%x)&
                 & + DOT_PRODUCT(p_vn_dual(il_v2,jk,ib_v2)%x,&
                 & p_int_state(1)%edge2vert_coeff_cc_t(ile,ibe,1)%x)
-              
-              
+
+
               !increase boundary edge counter
               i_v_bnd_edge_ctr(jv,jk,jb)=i_v_bnd_edge_ctr(jv,jk,jb)+1
-              
+
               !Store actual boundary edge indices
               IF(i_v_bnd_edge_ctr(jv,jk,jb)==1)THEN
                 ibnd_edge_idx(1) = ile
@@ -477,21 +477,21 @@ CONTAINS
                 CALL finish ('TRIM(sbr nonlinear Coriolis)','Grid-boundary error !!')
               ENDIF
             END IF
-            
+
           END DO
-          
+
           !write(*,*)'no: sea edges+bnd edges',i_v_ctr(jv,jk,jb),i_v_bnd_edge_ctr(jv,jk,jb)
           !
           !divide by hex/pentagon area, if all dual cells are in the ocean interior
           !divide by apropriate fraction if boundaries are involved
-          
+
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
-            
+
             vort_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
-            
-            
+
+
           ELSEIF(i_v_ctr(jv,jk,jb)/=0)THEN!boundary edges are involved
-            
+
             ! !         !Modified area calculation
             ! !         DO jev = 1, p_patch%verts%num_edges(jv,jb)
             ! !           ! get line and block indices of edge jev around vertex jv
@@ -518,10 +518,10 @@ CONTAINS
             ! !         END DO
             ! !         z_area_scaled   = zarea_fraction*re*re
             ! !        !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
-            
+
             !Finalize vorticity calculation by closing the dual loop along boundary edges
             IF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN
-              
+
               z_vort_tmp_boundary =&
               !& p_patch%edges%system_orientation(ibnd_edge_idx(1),ibnd_edge_blk(1))*&
                 & z_orientation(1)*&
@@ -532,14 +532,14 @@ CONTAINS
                 & z_orientation(2)*&
                 & z_vt(ibnd_edge_idx(2),jk,ibnd_edge_blk(2)) &
                 & *p_patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-              
+
               vort_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary)&
                 & /p_patch%verts%dual_area(jv,jb)!
-              
+
               !write(1234,*)'vorticity:',jv,jk,jb,vort_v(jv,jk,jb),z_area_scaled,p_patch%verts%dual_area(jv,jb),&
               !&(z_vort_tmp +0.5_wp*z_vort_tmp_boundary)/z_area_scaled
             ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
-              
+
               !In case of 4 boundary edges within a dual loop, we have 2 land triangles
               !around the vertex. these two land triangles have one vertex in common and are
               !seperated by two wet triangles.
@@ -559,7 +559,7 @@ CONTAINS
                 & z_orientation(4)*&
                 & z_vt(ibnd_edge_idx(4),jk,ibnd_edge_blk(4)) &
                 & *p_patch%edges%primal_edge_length(ibnd_edge_idx(4),ibnd_edge_blk(4))
-              
+
               vort_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary)&
                 & /p_patch%verts%dual_area(jv,jb)!
             ENDIF
@@ -568,36 +568,36 @@ CONTAINS
         !!$OMP END PARALLEL DO
       END DO
     END DO
-    
+
     level_loop: DO jk = slev, elev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2)
       edge_blk_loop: DO jb = i_startblk_e, i_endblk_e
-        
+
         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
           & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-        
+
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
+
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
             !Get indices of two adjacent vertices
             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-            
+
             !Multiply velocity reconstruction at vertex by vorticity
             u_v1_cc%x=p_vn_dual(il_v1,jk,ib_v1)%x&
               & *(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
             u_v2_cc%x=p_vn_dual(il_v2,jk,ib_v2)%x&
               & *(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-            
+
             !calculate finall vortex flux by mapping the vorticity-velocity-product
             !from vertices back to edges
             vort_flux(je,jk,jb) = &
               & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
               & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-            
+
             !          IF(   i_v_ctr(il_v1,jk,ib_v1)==p_patch%verts%num_edges(il_v1,ib_v1)&
             !          &.AND.i_v_ctr(il_v2,jk,ib_v2)==p_patch%verts%num_edges(il_v2,ib_v2))THEN
             !            vort_flux(je,jk,jb) = &
@@ -628,7 +628,7 @@ CONTAINS
             !             &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
             !             &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
             !         ENDIF
-            
+
           ELSE
             vort_flux(je,jk,jb)= 0.0_wp
           ENDIF
@@ -637,17 +637,17 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
     END DO level_loop
-    
+
   END SUBROUTINE nonlinear_coriolis
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!
   !! mpi parallelized by LL, openmp corrected
   SUBROUTINE nonlinear_coriolis_3d(p_patch, vn, p_vn, p_vn_dual, h_e, vort_v, &
     & p_op_coeff, vort_flux)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)         :: p_patch
     REAL(wp), INTENT(inout)                   :: vn(:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn(nproma,n_zlev,p_patch%nblks_c)
@@ -656,19 +656,19 @@ CONTAINS
     REAL(wp), INTENT(inout)                   :: vort_v(:,:,:)
     TYPE(t_operator_coeff),INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(inout)                   :: vort_flux(:,:,:)
-    
+
     !Local variables
     !
     REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary
     !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp) :: zarea_fraction
     REAL(wp) :: z_area_scaled
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb, jev,je
     INTEGER :: ile, ibe!, il, ib
     INTEGER :: i_startidx_e, i_endidx_e
-    
+
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     INTEGER :: il_v1, il_v2, ib_v1, ib_v2
@@ -677,42 +677,42 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_edges            
     !-----------------------------------------------------------------------
     all_edges => p_patch%edges%all
-    
+
     slev         = 1
     elev         = n_zlev
-    
+
     CALL rot_vertex_ocean_3d( p_patch, vn, p_vn_dual, p_op_coeff, vort_v)
     CALL sync_patch_array(SYNC_V, p_patch, vort_v)
-    
-    
+
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2, u_v1_cc, u_v2_cc)
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      
+
       level_loop: DO jk = slev, elev
-        
+
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
+
           IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
             !Get indices of two adjacent vertices
             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-            
+
             !Multiply velocity reconstruction at vertex by vorticity
             u_v1_cc%x = p_vn_dual(il_v1,jk,ib_v1)%x &
               & *(vort_v(il_v1,jk,ib_v1) + p_patch%verts%f_v(il_v1,ib_v1))
             u_v2_cc%x = p_vn_dual(il_v2,jk,ib_v2)%x &
               & *(vort_v(il_v2,jk,ib_v2) + p_patch%verts%f_v(il_v2,ib_v2))
-            
+
             !calculate finall vortex flux by mapping the vorticity-velocity-product
             !from vertices back to edges
             vort_flux(je,jk,jb) = &
               & - DOT_PRODUCT(u_v2_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
               & + DOT_PRODUCT(u_v1_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-            
+
             !          IF(   i_v_ctr(il_v1,jk,ib_v1)==p_patch%verts%num_edges(il_v1,ib_v1)&
             !          &.AND.i_v_ctr(il_v2,jk,ib_v2)==p_patch%verts%num_edges(il_v2,ib_v2))THEN
             !            vort_flux(je,jk,jb) = &
@@ -743,26 +743,26 @@ CONTAINS
             !             &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
             !             &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
             !         ENDIF
-            
+
           ELSE
             vort_flux(je,jk,jb)= 0.0_wp
           ENDIF ! (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)
-          
+
         END DO edge_idx_loop
       END DO level_loop
     END DO ! jb = all_edges%start_block, all_edges%end_block
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ! LL: no sync required
-    
+
   END SUBROUTINE nonlinear_coriolis_3d
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!  no-mpi parallelized
   SUBROUTINE map_edges2vert(p_patch, vn, h_e, p_vn_dual, subset_range)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)      :: p_patch
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     REAL(wp), INTENT(in)           :: h_e(:,:)
@@ -894,42 +894,42 @@ CONTAINS
 
   END SUBROUTINE map_edges2vert
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! mpi parallelized by LL
   SUBROUTINE map_edges2vert_3d(p_patch, vn, h_e, edge2vert_coeff_cc, p_vn_dual)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)       :: p_patch
     REAL(wp), INTENT(in)                    :: vn(:,:,:)
     TYPE(t_cartesian_coordinates),INTENT(in):: edge2vert_coeff_cc(:,:,:,:)
     REAL(wp), INTENT(in)                    :: h_e(:,:)
     TYPE(t_cartesian_coordinates)           :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
-    
+
     !Local variables
     !
     !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp) :: zarea_fraction
     REAL(wp) :: z_area_scaled
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb,jev
     INTEGER :: ile, ibe
     INTEGER :: i_startidx_v, i_endidx_v
     !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    
+
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     !INTEGER :: il_v1, il_v2,ib_v1, ib_v2
     INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
 !     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
     INTEGER,PARAMETER :: ino_dual_edges = 6
-    
+
     TYPE(t_subset_range), POINTER :: verts_in_domain
     !-----------------------------------------------------------------------
 
     verts_in_domain => p_patch%verts%in_domain
-    
+
     i_v_ctr(:,:,:) = 0
     slev         = 1
     elev         = n_zlev
@@ -938,14 +938,14 @@ CONTAINS
       p_vn_dual(:,:,:)%x(2) = 0.0_wp
       p_vn_dual(:,:,:)%x(3) = 0.0_wp
     ENDIF
-    
+
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
-    
+
       DO jk = slev, elev
 
         DO jv = i_startidx_v, i_endidx_v
-          
+
           !zarea_fraction      = 0.0_wp
           !i_bdr_ctr           = 0
           !z_weight(jv,jk,jb) = 0.0_wp
@@ -954,28 +954,28 @@ CONTAINS
           ! LL this is not used
 !           vertex_cc = gc2cc(p_patch%verts%vertex(jv,jb))
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
-            
+
             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x      &
               & +edge2vert_coeff_cc(jv,jk,jb,jev)%x &
               & *vn(ile,jk,ibe)/(p_patch%verts%dual_area(jv,jb)/(re*re))
           END DO
-          
+
         END DO ! jv = i_startidx_v, i_endidx_v
       END DO ! jk = slev, elev
     END DO ! jb = verts_in_domain%start_block, verts_in_domain%end_block
-    
+
     ! sync the result
     CALL sync_patch_array(SYNC_V, p_patch, p_vn_dual(:,:,:)%x(1))
     CALL sync_patch_array(SYNC_V, p_patch, p_vn_dual(:,:,:)%x(2))
     CALL sync_patch_array(SYNC_V, p_patch, p_vn_dual(:,:,:)%x(3))
-    
+
   END SUBROUTINE map_edges2vert_3d
   !-------------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------------
   !>
   !! @par Revision History
@@ -984,7 +984,7 @@ CONTAINS
   !!  mpi note: in and out is not synced. Should be done in the calling method if required
   SUBROUTINE map_edges2edges_with_height( p_patch, vn_in, vn_out,&
     & h_e, opt_slev,opt_elev )
-    
+
     TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(inout)   :: vn_in(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(inout)   :: vn_out(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
@@ -992,7 +992,7 @@ CONTAINS
     !TYPE(t_operator_coeff)    :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL ::  opt_slev  ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL ::  opt_elev  ! optional vertical end level
-    
+
     !Local variables
     !   INTEGER, PARAMETER :: no_cell_edges = 3
     !   INTEGER :: slev, elev
@@ -1007,13 +1007,13 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    
+
     CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc, h_e)
     CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out )
-    
+
   END SUBROUTINE map_edges2edges_with_height
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------------
   !>
   !! @par Revision History
@@ -1022,14 +1022,14 @@ CONTAINS
   !!  mpi note: in and out is not synced. Should be done in the calling method if required
   SUBROUTINE map_edges2edges_with_h_1vl( p_patch, vn_in, vn_out,&
     & h_e, level  )
-    
+
     TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(inout)   :: vn_in(:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(inout)   :: vn_out(:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: h_e(:,:)           ! SW-case: h_e is thicknerss at edges ! 3D case: h_e is surface elevation at edges
     !TYPE(t_operator_coeff)    :: p_op_coeff
     INTEGER, INTENT(in)       ::  level  ! vertical  level
-    
+
     !Local variables
     !   INTEGER, PARAMETER :: no_cell_edges = 3
     !   INTEGER :: slev, elev
@@ -1044,13 +1044,13 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    
+
     CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc, h_e, level)
     CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out, level )
-    
+
   END SUBROUTINE map_edges2edges_with_h_1vl
   !-------------------------------------------------------------------------
-  
+
 
   !-------------------------------------------------------------------------
   !>
@@ -1060,14 +1060,14 @@ CONTAINS
   !!
   !!  mpi note: in and out is not synced. Should be done in the calling method if required
   SUBROUTINE map_edges2edges_without_height( p_patch, vn_in, vn_out, opt_slev, opt_elev)
-    
+
     TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(inout)   :: vn_in(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(inout)   :: vn_out(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     !TYPE(t_operator_coeff)    :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL ::  opt_slev  ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL ::  opt_elev  ! optional vertical end level
-    
+
     !Local variables
     !   INTEGER, PARAMETER :: no_cell_edges = 3
     !   INTEGER :: slev, elev
@@ -1083,13 +1083,13 @@ CONTAINS
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-        
+
     CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc )
     CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out)
-    
+
   END SUBROUTINE map_edges2edges_without_height
   !-------------------------------------------------------------------------
-  
+
 
   !-------------------------------------------------------------------------
   !>
@@ -1099,13 +1099,13 @@ CONTAINS
   !!
   !!  mpi note: in and out is not synced. Should be done in the calling method if required
   SUBROUTINE map_edges2edges_without_h_1vl( p_patch, vn_in, vn_out, level)
-    
+
     TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(inout)   :: vn_in(:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(inout)   :: vn_out(:,:)    ! input vector (nproma,n_zlev,nblks_e)
     !TYPE(t_operator_coeff)    :: p_op_coeff
     INTEGER, INTENT(in)  ::  level  !  vertical  level
-    
+
     !Local variables
     !   INTEGER, PARAMETER :: no_cell_edges = 3
     !   INTEGER :: slev, elev
@@ -1121,13 +1121,13 @@ CONTAINS
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-        
+
     CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc, level )
     CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out, level)
-    
+
   END SUBROUTINE map_edges2edges_without_h_1vl
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Discrete mapping of cell-based vectors to edges on the primal grid.
@@ -1138,7 +1138,7 @@ CONTAINS
   !!  mpi parallelized by LL, result not synced
   SUBROUTINE map_cell2edges_mlevels( p_patch, p_vn_c, ptp_vn, &
                                    & opt_slev, opt_elev, subset_range )
-    
+
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
@@ -1146,25 +1146,25 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: opt_slev        ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev        ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
-    
-    
+
+
     !Local variables
     INTEGER :: slev, elev
     INTEGER :: i_startidx_e, i_endidx_e
     !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: je, jb, jk!, i, ie,je
     INTEGER :: il_c1,ib_c1, il_c2,ib_c2!, ile_c1 , ibe_c1, ile_c2 , ibe_c2
-    
+
     TYPE(t_subset_range), POINTER :: edges_in_domain        
 
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-    
+
     edges_in_domain   => p_patch%edges%in_domain
     IF (p_test_run) ptp_vn(:,:,:) = 0.0_wp
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1176,16 +1176,16 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     ! calculation of transposed P^TPv from Pv (incart coord)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-          
+
       level_loop_e: DO jk = slev, elev
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
+
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-            
+
             !Get indices of two adjacent triangles
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -1199,7 +1199,7 @@ CONTAINS
           ELSE
             ptp_vn(je,jk,jb) = 0.0_wp
           ENDIF
-          
+
         END DO edge_idx_loop
       END DO level_loop_e
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -1209,11 +1209,11 @@ CONTAINS
       IF (.NOT. subset_range%is_in_domain) &
        & CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
     ENDIF
-       
+
     !stop
   END SUBROUTINE map_cell2edges_mlevels
   !-----------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Discrete mapping of cell-based vectors to edges on the primal grid.
@@ -1223,31 +1223,31 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
   SUBROUTINE map_cell2edges_1level( p_patch, p_vn_c, ptp_vn, level, subset_range )
-    
+
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(out)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     !TYPE(t_operator_coeff)                    :: p_op_coeff
     INTEGER, INTENT(in) :: level          ! vertical level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
-    
+
     !Local variables
     INTEGER :: i_startidx_e, i_endidx_e
     !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: je, jb !, i, ie,je
     INTEGER :: il_c1,ib_c1, il_c2,ib_c2!, ile_c1 , ibe_c1, ile_c2 , ibe_c2
-    
+
     TYPE(t_subset_range), POINTER :: edges_in_domain        
 
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-    
+
     edges_in_domain   => p_patch%edges%in_domain
     IF (p_test_run) ptp_vn(:,:) = 0.0_wp
-    
-    
+
+
     ! calculation of transposed P^TPv from Pv (incart coord)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)          
@@ -1277,11 +1277,11 @@ CONTAINS
       IF (.NOT. subset_range%is_in_domain) &
        & CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
     ENDIF
-       
+
     !stop
   END SUBROUTINE map_cell2edges_1level
   !-----------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------------
   !>
   !! Discrete mapping of cell-based vectors to edges on the primal grid.
@@ -1291,53 +1291,53 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL, result not synced
   SUBROUTINE map_cell2edges_2d( p_patch, p_vn_c, ptp_vn)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)         :: p_patch        ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
-        
+
     !Local variables
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: je, jb
 
     TYPE(t_subset_range), POINTER :: edges_in_domain        
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     edges_in_domain   => p_patch%edges%in_domain
-        
+
     ! calculation of transposed P^TPv from Pv (incart coord)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      
+
       edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-        
+
         IF(v_base%lsm_oce_e(je,1,jb) < sea_boundary)THEN
-          
+
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
           il_c2 = p_patch%edges%cell_idx(je,jb,2)
           ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-          
+
           ptp_vn(je,jb) = &
             &  DOT_PRODUCT(p_vn_c(il_c1,ib_c1)%x, p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)&
             & +DOT_PRODUCT(p_vn_c(il_c2,ib_c2)%x, p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x)
         ELSE
           ptp_vn(je,jb) = 0.0_wp
         ENDIF
-        
+
       END DO edge_idx_loop
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
-    
+
 !     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
-    
+
   END SUBROUTINE map_cell2edges_2d
   !-----------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------------
   !>
   !! @par Revision History
@@ -1345,7 +1345,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_height( p_patch, vn_e, p_vn_c, h_e, opt_slev, opt_elev, &
     & subset_range)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
@@ -1355,7 +1355,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
-    
+
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER :: slev, elev
@@ -1377,7 +1377,7 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-    
+
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -1388,9 +1388,9 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-        
+
     IF ( iswm_oce == 1 ) THEN
-      
+
       !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1403,7 +1403,7 @@ CONTAINS
             z_weight           = 0.0_wp
             p_vn_c(jc,jk,jb)%x = 0.0_wp
             DO ie=1, no_cell_edges
-              
+
               il_e = p_patch%cells%edge_idx(jc,jb,ie)
               ib_e = p_patch%cells%edge_blk(jc,jb,ie)
               !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
@@ -1422,9 +1422,9 @@ CONTAINS
           END DO cell_idx_loop_swm
         END DO level_loop_swm
       END DO  ! jb = all_cells%start_block, all_cells%end_block
-      
+
     ELSEIF( iswm_oce /= 1 ) THEN
-      
+
       !Step 1: Calculation of Pv in cartesian coordinates
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1433,7 +1433,7 @@ CONTAINS
           z_weight             = 0.0_wp
           p_vn_c(jc,slev,jb)%x = 0.0_wp
           DO ie=1, no_cell_edges
-            
+
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
             !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
@@ -1443,42 +1443,42 @@ CONTAINS
             p_vn_c(jc,slev,jb)%x = p_vn_c(jc,slev,jb)%x&
               & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
               & * vn_e(il_e,slev,ib_e) * z_thick_e
-            
+
           END DO
-          
+
           IF(z_weight/=0.0_wp)THEN
             p_vn_c(jc,slev,jb)%x = p_vn_c(jc,slev,jb)%x / z_weight
           ELSE
             p_vn_c(jc,slev,jb)%x=0.0_wp
           ENDIF
         END DO cell_idx_loop_top
-        
+
         !Now we calculate at the levels below the surface
         level_loop: DO jk = slev+1, elev
           cell_idx_loop: DO jc =  i_startidx_c, i_endidx_c
             p_vn_c(jc,jk,jb)%x = 0.0_wp
             z_weight = 0.0_wp
             DO ie = 1, no_cell_edges
-              
+
               il_e = p_patch%cells%edge_idx(jc,jb,ie)
               ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-              
+
               p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x             &
                 & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x &
                 & * vn_e(il_e,jk,ib_e)
             END DO
-            
+
             p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x/p_int_state(1)%fixed_vol_norm(jc,jb)!z_weight!
-            
+
           END DO cell_idx_loop
         END DO level_loop
       END DO ! jb = all_cells%start_block, all_cells%end_block
     ENDIF
     ! LL no sync required
-    
+
   END SUBROUTINE map_edges2cell_with_height
   !-----------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------------
   !>
   !! @par Revision History
@@ -1486,7 +1486,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_h_1vl( p_patch, vn_e, p_vn_c, h_e, level, &
     & subset_range)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
@@ -1495,7 +1495,7 @@ CONTAINS
     !TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in)                        :: level       !  vertical level
     TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
-    
+
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER :: slev, elev
@@ -1517,10 +1517,10 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-    
-        
+
+
     IF ( iswm_oce == 1 ) THEN
-      
+
       !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1554,9 +1554,9 @@ CONTAINS
 
         END DO cell_idx_loop_swm
       END DO  ! jb = all_cells%start_block, all_cells%end_block
-      
+
     ELSEIF( iswm_oce /= 1 ) THEN
-      
+
       !Step 1: Calculation of Pv in cartesian coordinates
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1565,7 +1565,7 @@ CONTAINS
           z_weight             = 0.0_wp
           p_vn_c(jc,jb)%x = 0.0_wp
           DO ie=1, no_cell_edges
-            
+
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
             !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
@@ -1575,21 +1575,21 @@ CONTAINS
             p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x&
               & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
               & * vn_e(il_e,ib_e) * z_thick_e
-            
+
           END DO
-          
+
           IF(z_weight/=0.0_wp)THEN
             p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x / z_weight
           ELSE
             p_vn_c(jc,jb)%x=0.0_wp
           ENDIF
 
-          
+
         END DO cell_idx_loop_top       
       END DO ! jb = all_cells%start_block, all_cells%end_block
     ENDIF
     ! LL no sync required
-    
+
   END SUBROUTINE map_edges2cell_with_h_1vl
   !-----------------------------------------------------------------------------
 
@@ -1601,7 +1601,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_height_3d( p_patch, vn_e, p_op_coeff, p_vn_c, h_e,&
     & opt_slev, opt_elev, subset_range)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
@@ -1611,7 +1611,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
-    
+
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER :: slev, elev
@@ -1624,7 +1624,7 @@ CONTAINS
     REAL(wp) :: z_thick_e
 
     TYPE(t_subset_range), POINTER :: all_cells
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
@@ -1633,7 +1633,7 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-    
+
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -1644,9 +1644,9 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     IF ( iswm_oce == 1 ) THEN
-      
+
       !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1659,13 +1659,13 @@ CONTAINS
             z_weight           = 0.0_wp
             p_vn_c(jc,jk,jb)%x = 0.0_wp
             DO ie=1, no_cell_edges
-              
+
               il_e = p_patch%cells%edge_idx(jc,jb,ie)
               ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-              
+
               z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)
               z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
-              
+
               p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x&
                 & + p_op_coeff%edge2cell_coeff_cc_dyn(jc,jk,jb,ie)%x&
                 & * vn_e(il_e,jk,ib_e)* z_thick_e
@@ -1678,45 +1678,45 @@ CONTAINS
           END DO cell_idx_loop_swm
         END DO level_loop_swm
       END DO ! jb = all_cells%start_block, all_cells%end_block
-      
+
     ELSEIF( iswm_oce /= 1 ) THEN
-      
+
       !Step 1: Calculation of Pv in cartesian coordinates
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        
+
         !We are dealing with the surface layer first
         cell_idx_loop_top: DO jc =  i_startidx_c, i_endidx_c
           z_weight             = 0.0_wp
           p_vn_c(jc,slev,jb)%x = 0.0_wp
           DO ie=1, no_cell_edges
-            
+
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-            
+
             z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)
             z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
-            
+
             p_vn_c(jc,slev,jb)%x = p_vn_c(jc,slev,jb)%x&
               & + p_op_coeff%edge2cell_coeff_cc_dyn(jc,1,jb,ie)%x&
               & * vn_e(il_e,slev,ib_e) * z_thick_e
-            
+
           END DO
-          
+
           IF(z_weight/=0.0_wp)THEN
             p_vn_c(jc,slev,jb)%x = p_vn_c(jc,slev,jb)%x / z_weight
           ELSE
             p_vn_c(jc,slev,jb)%x=0.0_wp
           ENDIF
         END DO cell_idx_loop_top
-        
+
         !Now we calculate at the levels below the surface
         level_loop: DO jk = slev+1, elev
           cell_idx_loop: DO jc =  i_startidx_c, i_endidx_c
             p_vn_c(jc,jk,jb)%x = 0.0_wp
             z_weight = 0.0_wp
             DO ie=1, no_cell_edges
-              
+
               il_e = p_patch%cells%edge_idx(jc,jb,ie)
               ib_e = p_patch%cells%edge_blk(jc,jb,ie)
               p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x&
@@ -1733,10 +1733,10 @@ CONTAINS
     ENDIF
 
     ! LL no sync required    
-    
+
   END SUBROUTINE map_edges2cell_with_height_3d
   !----------------------------------------------------------------
-    
+
   !----------------------------------------------------------------
   !  map_edges2cell_without_height
   !>
@@ -1746,7 +1746,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_without_height( p_patch, vn_e, p_vn_c,opt_slev, opt_elev, &
     & subset_range )
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp)                                   :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
@@ -1766,7 +1766,7 @@ CONTAINS
     REAL(wp) :: z_weight
 
     TYPE(t_subset_range), POINTER :: all_cells
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
@@ -1775,7 +1775,7 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-    
+
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -1786,7 +1786,7 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     !Calculation of Pv in cartesian coordinates
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1801,7 +1801,7 @@ CONTAINS
           DO ie=1, no_cell_edges
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-            
+
             p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x&
               & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
               & * vn_e(il_e,jk,ib_e)
@@ -1815,10 +1815,10 @@ CONTAINS
       END DO level_loop
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! LL no sync required
-    
+
   END SUBROUTINE map_edges2cell_without_height
   !-----------------------------------------------------------------------
-  
+
   !----------------------------------------------------------------
   !  map_edges2cell_without_height
   !>
@@ -1828,7 +1828,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_without_h_1vl( p_patch, vn_e, p_vn_c, level, &
     & subset_range )
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp)                                   :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
@@ -1847,7 +1847,7 @@ CONTAINS
     REAL(wp) :: z_weight
 
     TYPE(t_subset_range), POINTER :: all_cells
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
@@ -1856,7 +1856,7 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-        
+
     !Calculation of Pv in cartesian coordinates
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1870,7 +1870,7 @@ CONTAINS
           DO ie=1, no_cell_edges
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-            
+
             p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x&
               & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
               & * vn_e(il_e,ib_e)
@@ -1880,14 +1880,14 @@ CONTAINS
           !ELSE
           !  p_vn_c(jc,jk,jb)%x=0.0_wp
           !ENDIF
-          
+
         END DO cell_idx_loop
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! LL no sync required
-    
+
   END SUBROUTINE map_edges2cell_without_h_1vl
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   ! map_edges2cell_without_height
   !>
@@ -1897,7 +1897,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e,p_op_coeff, p_vn_c,opt_slev, opt_elev, &
     &  subset_range)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
@@ -1913,7 +1913,7 @@ CONTAINS
     INTEGER :: jc, jb, jk, ie
 
      TYPE(t_subset_range), POINTER :: all_cells
-   
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
@@ -1922,7 +1922,7 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-    
+
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -1933,7 +1933,7 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     !Calculation of Pv in cartesian coordinates
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1944,11 +1944,11 @@ CONTAINS
         cell_idx_loop: DO jc =  i_startidx_c, i_endidx_c
           !calculate velocity reconstruction at cell center
           p_vn_c(jc,jk,jb)%x = 0.0_wp
-          
+
           DO ie=1, no_cell_edges
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-            
+
             p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x&
               & + p_op_coeff%edge2cell_coeff_cc(jc,jk,jb,ie)%x&
               & * vn_e(il_e,jk,ib_e)
@@ -1958,13 +1958,13 @@ CONTAINS
           ENDIF
         END DO cell_idx_loop
       END DO level_loop
-      
+
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! LL no sync required
-    
+
   END SUBROUTINE map_edges2cell_no_height_3d
   !-----------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   ! map_edges2cell_without_height
   !>
@@ -1974,7 +1974,7 @@ CONTAINS
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_no_h_3d_1vl( p_patch, vn_e,p_op_coeff, p_vn_c, level, &
     &  subset_range)
-    
+
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
@@ -1988,7 +1988,7 @@ CONTAINS
     INTEGER :: jc, jb, ie
 
      TYPE(t_subset_range), POINTER :: all_cells
-   
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
@@ -1997,8 +1997,8 @@ CONTAINS
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
-    
-    
+
+
     !Calculation of Pv in cartesian coordinates
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -2017,19 +2017,19 @@ CONTAINS
             & + p_op_coeff%edge2cell_coeff_cc(jc,level,jb,ie)%x&
             & * vn_e(il_e,ib_e)
         END DO
-        
+
         IF(p_op_coeff%fixed_vol_norm(jc,level,jb)/=0.0_wp)THEN
           p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x/p_op_coeff%fixed_vol_norm(jc,level,jb)
         ENDIF
-        
+
       END DO cell_idx_loop
-      
+
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! LL no sync required
-    
+
   END SUBROUTINE map_edges2cell_no_h_3d_1vl
   !-----------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------------
   !>
   !! Discrete mapping of cell-based into edge-based vectors on the primal grid.
@@ -2046,7 +2046,7 @@ CONTAINS
   !!  mpi parallelized LL
   !!
   SUBROUTINE primal_map_c2e( p_patch, u_c, v_c, vn_e, h_c, opt_slev, opt_elev )
-    
+
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch ! patch on which computation is performed
     REAL(wp),    INTENT(in)   :: u_c(:,:,:)     ! zonal input component (nproma,n_zlev,nblks_c)
     REAL(wp),    INTENT(in)   :: v_c(:,:,:)     ! meridional input component (nproma,n_zlev,nblks_c)
@@ -2054,7 +2054,7 @@ CONTAINS
     REAL(wp),INTENT(in), OPTIONAL :: h_c(:,:)    ! SWE-case: thickness at cell centers
     INTEGER, INTENT(in), OPTIONAL ::  opt_slev  ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL ::  opt_elev  ! optional vertical end level
-    
+
     !Local variables
     TYPE(t_cartesian_coordinates)   :: zu_cc(nproma,p_patch%nblks_c)
     TYPE(t_cartesian_coordinates)   :: zu_cc2(nproma,p_patch%nblks_c)
@@ -2062,20 +2062,20 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: jb, jc, je, jk, ie
-    
+
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain 
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_c2e')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     all_cells       => p_patch%cells%all
     edges_in_domain => p_patch%edges%in_domain
-    
+
     DO ie = 1,3
       zu_cc(:,:)%x(ie) = 0.0_wp
     END DO
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -2087,23 +2087,23 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     ! #slo# due to nag -nan compiler-option - remove for production
     vn_e(:,slev:elev,:) = 0.0_wp
-    
+
     level_loop: DO jk = slev, elev
-      
+
       ! cells      
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        
+
         cell_idx_loop: DO jc =  i_startidx, i_endidx
-          
+
           CALL gvec2cvec( u_c(jc,jk,jb), v_c(jc,jk,jb),   &
             & p_patch%cells%center(jc,jb)%lon, &
             & p_patch%cells%center(jc,jb)%lat, &
             & zu_cc(jc,jb)%x(1),zu_cc(jc,jb)%x(2), zu_cc(jc,jb)%x(3))
-          
+
           ! IF(jk==1)THEN
           ! IF(jc==1.and.jb<=10)THEN
           !  write(*,*)'P-cart-old:',jc,jb, zu_cc(jc,jb)%x
@@ -2111,19 +2111,19 @@ CONTAINS
           ! ENDIF
         END DO cell_idx_loop
       END DO  ! jb = all_cells%start_block, all_cells%end_block
-      
+
       ! edges
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-        
+
         edge_idx_loop: DO je =  i_startidx, i_endidx
-          
+
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
           il_c2 = p_patch%edges%cell_idx(je,jb,2)
           ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-          
+
           IF (jk == 1) THEN
             IF ( PRESENT(h_c) ) THEN
               !IF(jb==17)then
@@ -2133,7 +2133,7 @@ CONTAINS
               !Multiply cartesian vector with height vaiable
               zu_cc2(il_c1,ib_c1)%x = zu_cc(il_c1,ib_c1)%x * h_c(il_c1,ib_c1)
               zu_cc2(il_c2,ib_c2)%x = zu_cc(il_c2,ib_c2)%x * h_c(il_c2,ib_c2)
-              
+
               IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
                 vn_e(je,jk,jb) = &
                   &   DOT_PRODUCT(zu_cc2(il_c1,ib_c1)%x, &
@@ -2143,7 +2143,7 @@ CONTAINS
               ELSE
                 vn_e(je,jk,jb) = 0.0_wp
               ENDIF
-              
+
               ! !IF(je=12.and.jb==17)then
               ! IF(jb==17)then
               ! write(*,*)'c2e:vec*h',jb,je,zu_cc2(il_c1,ib_c1)%x, zu_cc2(il_c2,ib_c2)%x
@@ -2152,7 +2152,7 @@ CONTAINS
               ! &DOT_PRODUCT(zu_cc2(il_c2,ib_c2)%x, p_int_state(1)%edge2cell_coeff_t(je,jb,2)%x)
               ! ENDIF
             ELSEIF (.NOT.PRESENT(h_c)) THEN
-              
+
               IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
                 vn_e(je,jk,jb) = &
                   & DOT_PRODUCT(zu_cc(il_c1,ib_c1)%x,&
@@ -2180,18 +2180,18 @@ CONTAINS
               vn_e(je,jk,jb) = 0.0_wp
             ENDIF
           ENDIF!jk-condition
-          
+
         END DO edge_idx_loop
       END DO !jb = edges_in_domain%start_block, edges_in_domain%end_block
-      
+
     END DO level_loop
 
    ! sync the result
     CALL sync_patch_array(SYNC_E, p_patch, vn_e(:,:,:))
-  
+
   END SUBROUTINE primal_map_c2e
   !-----------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------------
   ! !   !>
   ! !   !! Discrete mapping of cell-based vectors to edges on the primal grid.
@@ -2577,7 +2577,7 @@ CONTAINS
   !!
   FUNCTION dual_flip_flop2(p_patch, vn_old_e, vn_new_e, vort_v,&
     & h_e,p_vn, opt_slev, opt_elev) result(vn_out_e)
-    
+
     TYPE(t_patch), INTENT(in)    :: p_patch
     REAL(wp), INTENT(inout)      :: vn_old_e(:,:,:)
     REAL(wp), INTENT(inout)      :: vn_new_e(:,:,:)
@@ -2587,7 +2587,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL ::  opt_slev  ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL ::  opt_elev  ! optional vertical end level
     REAL(wp)                  :: vn_out_e(SIZE(vn_old_e,1), SIZE(vn_old_e,2), SIZE(vn_old_e,3))
-    
+
     !Local variables
     !INTEGER, PARAMETER :: no_vert_edges = 6
     INTEGER :: slev, elev
@@ -2599,20 +2599,20 @@ CONTAINS
     INTEGER :: je, jb, ie, jk!, iie_v1, iie_v2!, jv
     !INTEGER :: ic1, ib1, ic2, ib2
     !INTEGER :: il_star1,ib_star1,il_star2,ib_star2, ie_star1, ie_star2
-    
+
     REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2, z_sum1, z_sum2
     !REAL(wp) :: vn_tmp!z_vn
     REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
     TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
     TYPE(t_cartesian_coordinates) :: u_v2_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
     INTEGER :: i_v1_ctr, i_v2_ctr
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:dual_flip_flop')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     vn_out_e(:,:,:) = 0.0_wp
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -2624,41 +2624,41 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     rl_start_e = 1
     rl_end_e     = min_rledge
     i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
+
     z_vn_e = vn_old_e!ab_gam*vn_new_e + (1.0_wp-ab_gam)*vn_old_e
-    
+
     level_loop: DO jk = slev, elev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2)
       edge_blk_loop: DO jb = i_startblk_e, i_endblk_e
-        
+
         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
           & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-        
+
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
+
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-            
+
             !Get indices of two adjacent vertices
             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-            
+
             u_v1_cc%x  = 0.0_wp
             z_weight   = 0.0_wp
             i_v1_ctr = 0
-            
+
             DO ie=1, p_patch%verts%num_edges(il_v1,ib_v1) !no_vert_edges
-              
+
               il_e = p_patch%verts%edge_idx(il_v1,ib_v1,ie)
               ib_e = p_patch%verts%edge_blk(il_v1,ib_v1,ie)
-              
+
               z_thick = v_base%del_zlev_m(jk)
               IF ( iswm_oce == 1 ) THEN
                 z_thick    = v_base%del_zlev_m(jk) +h_e(il_e,ib_e)
@@ -2667,7 +2667,7 @@ CONTAINS
                   z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e)
                 ENDIF
               ENDIF
-              
+
               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
                 i_v1_ctr=i_v1_ctr+1
                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
@@ -2675,25 +2675,25 @@ CONTAINS
                 !              z_weight = z_weight + 0.5_wp*p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
               ENDIF
               z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
-              
+
               u_v1_cc%x = u_v1_cc%x +                      &
                 & p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
                 & z_vn_e(il_e,jk,ib_e)!*z_thick
             END DO
-            
+
             !IF(z_weight/=0.0_wp)THEN
             u_v1_cc%x = u_v1_cc%x/(z_weight)!p_patch%verts%dual_area(il_v1,ib_v1)!z_weight
             !ENDIF
-            
+
             u_v2_cc%x   = 0.0_wp
             z_weight    = 0.0_wp
             i_v2_ctr    = 0
-            
+
             DO ie=1, p_patch%verts%num_edges(il_v2,ib_v2) !no_vert_edges
-              
+
               il_e = p_patch%verts%edge_idx(il_v2,ib_v2,ie)
               ib_e = p_patch%verts%edge_blk(il_v2,ib_v2,ie)
-              
+
               z_thick = v_base%del_zlev_m(jk)
               IF ( iswm_oce == 1 ) THEN
                 z_thick    = v_base%del_zlev_m(jk) + h_e(il_e,ib_e)
@@ -2702,7 +2702,7 @@ CONTAINS
                   z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e)
                 ENDIF
               ENDIF
-              
+
               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
                 i_v2_ctr=i_v2_ctr+1
                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
@@ -2710,75 +2710,75 @@ CONTAINS
                 !              z_weight = z_weight + 0.5_wp*p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
               ENDIF
               z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
-              
+
               u_v2_cc%x = u_v2_cc%x +                      &
                 & p_int_state(1)%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
                 & z_vn_e(il_e,jk,ib_e)!*z_thick
-              
+
             END DO
             !IF(z_weight/=0.0_wp)THEN
             u_v2_cc%x = u_v2_cc%x/(z_weight)!p_patch%verts%dual_area(il_v2,ib_v2)!            /z_weight
             !ENDIF
-            
-            
+
+
             IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
               & .AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
-              
+
               u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
               u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-              
+
               vn_out_e(je,jk,jb) = &
                 & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                 & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-              
-              
+
+
             ELSEIF( i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
               & .AND.i_v2_ctr<p_patch%verts%num_edges(il_v2,ib_v2))THEN
-              
+
               IF(i_v2_ctr>=p_patch%verts%num_edges(il_v2,ib_v2)-3)THEN
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-                
+
                 vn_out_e(je,jk,jb) = &
                   & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                   & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
               ELSE
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
-                
+
                 vn_out_e(je,jk,jb) = &
                   & 2.0_wp*DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
               ENDIF
-              
+
             ELSEIF( i_v1_ctr<p_patch%verts%num_edges(il_v1,ib_v1)&
               & .AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
-              
-              
-              
+
+
+
               IF(i_v1_ctr>=p_patch%verts%num_edges(il_v1,ib_v1)-3)THEN
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-                
+
                 vn_out_e(je,jk,jb) = &
                   & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                   & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
               ELSE
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-                
+
                 vn_out_e(je,jk,jb) = - 2.0_wp * &
                   & DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)
               ENDIF
-              
+
             ELSE
-              
+
               u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
               u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-              
+
               vn_out_e(je,jk,jb) = &
                 & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                 & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-              
-              
-              
+
+
+
               !              ic1 = p_patch%edges%cell_idx(je,jb,1)
               !              ib1 = p_patch%edges%cell_blk(je,jb,1)
               !              ic2 = p_patch%edges%cell_idx(je,jb,2)
@@ -2792,7 +2792,7 @@ CONTAINS
               !               vn_out_e(je,jk,jb) =&
               !               & vn_tmp*p_patch%edges%f_e(je,jb)&
               !               &*0.5_wp*(vort_v(il_v1,jk,ib_v1)+vort_v(il_v2,jk,ib_v2))
-              
+
             ENDIF
             ! !--------------------------------------------------
             !               IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
@@ -2817,7 +2817,7 @@ CONTAINS
             !                 u_v1_cc%x=u_v1_cc%x*(p_patch%verts%f_v(il_v1,ib_v1))
             !                 u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
             !               ENDIF
-            
+
             !                  u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
             !                  u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
             !
@@ -2850,8 +2850,8 @@ CONTAINS
             ! ! !            vn_out_e(je,jk,jb)= &!"z_thick*&
             ! ! !            &vn_out_e(je,jk,jb)*p_patch%edges%f_e(je,jb)
             !-------------------------------------------------------------
-            
-            
+
+
             !              IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
             !              &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
             !
@@ -3027,16 +3027,16 @@ CONTAINS
           ENDIF
         END DO edge_idx_loop
       END DO edge_blk_loop
-      
+
 !$OMP END DO
 !$OMP END PARALLEL
     END DO level_loop
   END FUNCTION dual_flip_flop2
   !  !-------------------------------------------------------------------------
-  
-  
-  
-  
+
+
+
+
   !-------------------------------------------------------------------------
   !>
   !! Function implements discrete scalar product on the primal grid. This
@@ -3050,7 +3050,7 @@ CONTAINS
   !!
   FUNCTION dual_flip_flop(p_patch, vn_old_e, vn_new_e, vort_v,&
     & h_e,p_vn, opt_slev, opt_elev) result(vn_out_e)
-    
+
     TYPE(t_patch), INTENT(in)    :: p_patch
     REAL(wp), INTENT(inout)      :: vn_old_e(:,:,:)
     REAL(wp), INTENT(inout)      :: vn_new_e(:,:,:)
@@ -3060,7 +3060,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL ::  opt_slev  ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL ::  opt_elev  ! optional vertical end level
     REAL(wp)                  :: vn_out_e(SIZE(vn_old_e,1), SIZE(vn_old_e,2), SIZE(vn_old_e,3))
-    
+
     !Local variables
     !INTEGER, PARAMETER :: no_vert_edges = 6
     INTEGER :: slev, elev
@@ -3072,20 +3072,20 @@ CONTAINS
     INTEGER :: je, jb, ie, jk!, iie_v1, iie_v2!, jv
     !INTEGER :: ic1, ib1, ic2,ib2
     !INTEGER :: il_star1,ib_star1,il_star2,ib_star2, ie_star1, ie_star2
-    
+
     REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2, z_sum1, z_sum2
     !REAL(wp) :: vn_tmp!z_vn
     REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
     TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
     TYPE(t_cartesian_coordinates) :: u_v2_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
     INTEGER :: i_v1_ctr, i_v2_ctr
-    
+
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:dual_flip_flop')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     vn_out_e(:,:,:) = 0.0_wp
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -3097,41 +3097,41 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     rl_start_e = 1
     rl_end_e     = min_rledge
     i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
+
     z_vn_e = vn_old_e!ab_gam*vn_new_e + (1.0_wp-ab_gam)*vn_old_e
-    
+
     level_loop: DO jk = slev, elev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2)
       edge_blk_loop: DO jb = i_startblk_e, i_endblk_e
-        
+
         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
           & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-        
+
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
+
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-            
+
             !Get indices of two adjacent vertices
             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-            
+
             u_v1_cc%x  = 0.0_wp
             z_weight   = 0.0_wp
             i_v1_ctr = 0
-            
+
             DO ie=1, p_patch%verts%num_edges(il_v1,ib_v1) !no_vert_edges
-              
+
               il_e = p_patch%verts%edge_idx(il_v1,ib_v1,ie)
               ib_e = p_patch%verts%edge_blk(il_v1,ib_v1,ie)
-              
+
               z_thick = v_base%del_zlev_m(jk)
               IF ( iswm_oce == 1 ) THEN
                 z_thick    = 1.0_wp!v_base%del_zlev_m(jk) +h_e(il_e,ib_e)
@@ -3140,7 +3140,7 @@ CONTAINS
                 z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e)
                 !ENDIF
               ENDIF
-              
+
               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
                 i_v1_ctr=i_v1_ctr+1
                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
@@ -3148,30 +3148,30 @@ CONTAINS
                 !              z_weight = z_weight + 0.5_wp*p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
               ENDIF
               z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
-              
+
               u_v1_cc%x = u_v1_cc%x +                      &
                 & p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
                 & z_vn_e(il_e,jk,ib_e)!*z_thick
-              
+
               ! write(1234,*)'dual-coeff',il_v1,ib_v1,ie,&
               ! &p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x,&
               ! &z_weight
               !ENDIF
             END DO
-            
+
             !           IF(z_weight/=0.0_wp)THEN
             u_v1_cc%x = u_v1_cc%x/(z_weight)!p_patch%verts%dual_area(il_v1,ib_v1)!z_weight
             !           ENDIF
-            
+
             u_v2_cc%x   = 0.0_wp
             z_weight    = 0.0_wp
             i_v2_ctr    = 0
-            
+
             DO ie=1, p_patch%verts%num_edges(il_v2,ib_v2) !no_vert_edges
-              
+
               il_e = p_patch%verts%edge_idx(il_v2,ib_v2,ie)
               ib_e = p_patch%verts%edge_blk(il_v2,ib_v2,ie)
-              
+
               z_thick = v_base%del_zlev_m(jk)
               IF ( iswm_oce == 1 ) THEN
                 z_thick    = 1.0_wp!v_base%del_zlev_m(jk) + h_e(il_e,ib_e)
@@ -3180,7 +3180,7 @@ CONTAINS
                 z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e)
                 !ENDIF
               ENDIF
-              
+
               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
                 i_v2_ctr=i_v2_ctr+1
                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
@@ -3188,79 +3188,79 @@ CONTAINS
                 !              z_weight = z_weight + 0.5_wp*p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
               ENDIF
               z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
-              
-              
+
+
               u_v2_cc%x = u_v2_cc%x +                      &
                 & p_int_state(1)%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
                 & z_vn_e(il_e,jk,ib_e)!*z_thick
-              
+
               !ENDIF
             END DO
             !           IF(z_weight/=0.0_wp)THEN
             u_v2_cc%x = u_v2_cc%x/(z_weight)!p_patch%verts%dual_area(il_v2,ib_v2)!            /z_weight
             !           ENDIF
-            
-            
-            
-            
+
+
+
+
             IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
               & .AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
-              
+
               u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
               u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-              
+
               vn_out_e(je,jk,jb) = &
                 & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                 & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-              
-              
+
+
             ELSEIF( i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
               & .AND.i_v2_ctr<p_patch%verts%num_edges(il_v2,ib_v2))THEN
-              
+
               IF(i_v2_ctr>=p_patch%verts%num_edges(il_v2,ib_v2)-3)THEN
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-                
+
                 vn_out_e(je,jk,jb) = &
                   & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                   & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
               ELSE
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
-                
+
                 vn_out_e(je,jk,jb) = &
                   & 2.0_wp*DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
               ENDIF
-              
+
             ELSEIF( i_v1_ctr<p_patch%verts%num_edges(il_v1,ib_v1)&
               & .AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
-              
-              
-              
+
+
+
               IF(i_v1_ctr>=p_patch%verts%num_edges(il_v1,ib_v1)-3)THEN
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-                
+
                 vn_out_e(je,jk,jb) = &
                   & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                   & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
               ELSE
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-                
+
                 vn_out_e(je,jk,jb) = - 2.0_wp * &
                   & DOT_PRODUCT(u_v2_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)
               ENDIF
-              
+
             ELSE
-              
+
               u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
               u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-              
+
               vn_out_e(je,jk,jb) = &
                 & - DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
                 & + DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-              
-              
-              
+
+
+
               !              ic1 = p_patch%edges%cell_idx(je,jb,1)
               !              ib1 = p_patch%edges%cell_blk(je,jb,1)
               !              ic2 = p_patch%edges%cell_idx(je,jb,2)
@@ -3274,7 +3274,7 @@ CONTAINS
               !               vn_out_e(je,jk,jb) =&
               !               & vn_tmp*p_patch%edges%f_e(je,jb)&
               !               &*0.5_wp*(vort_v(il_v1,jk,ib_v1)+vort_v(il_v2,jk,ib_v2))
-              
+
             ENDIF
             ! !--------------------------------------------------
             !               IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
@@ -3299,7 +3299,7 @@ CONTAINS
             !                 u_v1_cc%x=u_v1_cc%x*(p_patch%verts%f_v(il_v1,ib_v1))
             !                 u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
             !               ENDIF
-            
+
             !                  u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
             !                  u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
             !
@@ -3332,8 +3332,8 @@ CONTAINS
             ! ! !            vn_out_e(je,jk,jb)= &!"z_thick*&
             ! ! !            &vn_out_e(je,jk,jb)*p_patch%edges%f_e(je,jb)
             !-------------------------------------------------------------
-            
-            
+
+
             !              IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
             !              &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
             !
@@ -3509,14 +3509,14 @@ CONTAINS
           ENDIF
         END DO edge_idx_loop
       END DO edge_blk_loop
-      
+
 !$OMP END DO
 !$OMP END PARALLEL
-      
+
     END DO level_loop
   END FUNCTION dual_flip_flop
-  
-  
+
+
   !-------------------------------------------------------------------------
   !
   !>
@@ -3789,44 +3789,44 @@ CONTAINS
   ! !
   ! ! END SUBROUTINE nonlinear_Coriolis
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION triangle_area (x0, x1, x2) result(area)
-    
+
     TYPE(t_cartesian_coordinates), INTENT(in) :: x0, x1, x2
-    
+
     REAL(wp) :: area
     REAL(wp) :: z_s12, z_s23, z_s31, z_ca1, z_ca2, z_ca3, z_a1, z_a2, z_a3
-    
+
     TYPE(t_cartesian_coordinates) :: u12, u23, u31
-    
+
     ! This variant to calculate the area of a spherical triangle
     ! is more precise.
-    
+
     !  Compute cross products Uij = Vi x Vj.
     u12 = vector_product (x0, x1)
     u23 = vector_product (x1, x2)
     u31 = vector_product (x2, x0)
-    
+
     !  Normalize Uij to unit vectors.
     z_s12 = DOT_PRODUCT ( u12%x(1:3), u12%x(1:3) )
     z_s23 = DOT_PRODUCT ( u23%x(1:3), u23%x(1:3) )
     z_s31 = DOT_PRODUCT ( u31%x(1:3), u31%x(1:3) )
-    
+
     !  Test for a degenerate triangle associated with collinear vertices.
     IF ( z_s12 == 0.0_wp .OR. z_s23 == 0.0_wp  .OR. z_s31 == 0.0_wp ) THEN
       area = 0.0_wp
       RETURN
     END IF
-    
+
     z_s12 = SQRT(z_s12)
     z_s23 = SQRT(z_s23)
     z_s31 = SQRT(z_s31)
-    
+
     u12%x(1:3) = u12%x(1:3)/z_s12
     u23%x(1:3) = u23%x(1:3)/z_s23
     u31%x(1:3) = u31%x(1:3)/z_s31
-    
+
     !  Compute interior angles Ai as the dihedral angles between planes:
     !  CA1 = cos(A1) = -<U12,U31>
     !  CA2 = cos(A2) = -<U23,U12>
@@ -3834,27 +3834,26 @@ CONTAINS
     z_ca1 = -u12%x(1)*u31%x(1)-u12%x(2)*u31%x(2)-u12%x(3)*u31%x(3)
     z_ca2 = -u23%x(1)*u12%x(1)-u23%x(2)*u12%x(2)-u23%x(3)*u12%x(3)
     z_ca3 = -u31%x(1)*u23%x(1)-u31%x(2)*u23%x(2)-u31%x(3)*u23%x(3)
-    
+
     IF (z_ca1 < -1.0_wp) z_ca1 = -1.0_wp
     IF (z_ca1 >  1.0_wp) z_ca1 =  1.0_wp
     IF (z_ca2 < -1.0_wp) z_ca2 = -1.0_wp
     IF (z_ca2 >  1.0_wp) z_ca2 =  1.0_wp
     IF (z_ca3 < -1.0_wp) z_ca3 = -1.0_wp
     IF (z_ca3 >  1.0_wp) z_ca3 =  1.0_wp
-    
+
     z_a1 = ACOS(z_ca1)
     z_a2 = ACOS(z_ca2)
     z_a3 = ACOS(z_ca3)
-    
+
     !  Compute areas = z_a1 + z_a2 + z_a3 - pi.
     area = z_a1+z_a2+z_a3-pi
-    
+
     IF ( area < 0.0_wp ) area = 0.0_wp
-    
+
   END FUNCTION triangle_area
   !-------------------------------------------------------------------------
-  
-  
-  
-END MODULE mo_scalar_product
 
+
+
+END MODULE mo_scalar_product
