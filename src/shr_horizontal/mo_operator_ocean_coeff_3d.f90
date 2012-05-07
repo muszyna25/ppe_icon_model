@@ -369,9 +369,9 @@ CONTAINS
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je =  i_startidx_e, i_endidx_e
-          ptr_coeff%edge_position_cc(je,jk,jb)%x(:)       = 0._wp
-          ptr_coeff%moved_edge_position_cc(je,jk,jb)%x(:) = 0._wp
-          ptr_coeff%upwind_cell_position_cc(je,jk,jb)%x(:)= 0._wp
+          ptr_coeff%edge_position_cc(je,jk,jb)             = gc2cc(ptr_patch%edges%center(je,jb))
+          ptr_coeff%moved_edge_position_cc(je,jk,jb)%x(:)  = 0._wp
+          ptr_coeff%upwind_cell_position_cc(je,jk,jb)%x(:) = 0._wp
         END DO
       END DO
     END DO
@@ -1087,52 +1087,12 @@ CONTAINS
     !
     TYPE(t_patch),      INTENT(inout)     :: ptr_patch
     TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
-
-    INTEGER :: rl_start_e,rl_end_e,rl_start_c,rl_end_c
-    INTEGER :: i_startblk_e, i_endblk_e,i_startidx_e,i_endidx_e
-    INTEGER :: i_startblk_c, i_endblk_c,i_startidx_c,i_endidx_c
-    INTEGER :: jk,je,jb,jc
     !-----------------------------------------------------------------------
-    rl_start_e   = 1
-    rl_end_e     = min_rledge ! Loop over the whole local domain
-    i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
-
-    rl_start_c   = 1
-    rl_end_c     = min_rlcell
-    i_startblk_c = ptr_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = ptr_patch%cells%end_blk(rl_end_c,1)
-
 
     CALL init_scalar_product_oce_3d( ptr_patch, ptr_coeff)
     CALL init_geo_factors_oce_3d( ptr_patch, ptr_coeff )
 
-    DO jk=1,n_zlev
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e,      &
-          & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e
-          !IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
-          ptr_coeff%edge_position_cc(je,jk,jb) = gc2cc(ptr_patch%edges%center(je,jb))
-          !ENDIF
-        ENDDO
-      END DO
-    END DO
-
     CALL apply_boundary2coeffs(ptr_patch, ptr_coeff)
-
-    !    DO jk=1,n_zlev
-    !      DO jb = i_startblk_c, i_endblk_c
-    !        CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
-    !          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-    !        DO jc = i_startidx_c, i_endidx_c
-    !
-    !          IF(v_base%lsm_oce_c(jc,jk,jb) /= sea) THEN
-    !            ptr_coeff%cell_position_cc(jc,jk,jb) = gc2cc(ptr_patch%cells%center(jc,jb))
-    !          ENDIF
-    !        ENDDO
-    !      END DO
-    !    END DO
 
   END SUBROUTINE init_operator_coeff
   !-------------------------------------------------------------------------
