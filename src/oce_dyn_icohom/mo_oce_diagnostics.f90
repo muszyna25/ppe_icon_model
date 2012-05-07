@@ -680,8 +680,6 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     END DO
   !END IF
 
-!-----------------------------------------------------------------------
-
 END SUBROUTINE calc_moc
 !-------------------------------------------------------------------------  
 
@@ -714,7 +712,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   INTEGER, PARAMETER ::  nlon = 360                    ! zonal dimension of regular grid
   INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
   INTEGER :: idate, llat, llon
-  INTEGER(i8) :: i1,i2,i3,i4
+  INTEGER(i8) :: iextra(4)
 
 
   REAL(wp) :: z_lat, z_lon, z_lat_deg, z_lon_deg, z_lat_dist, delta_z
@@ -761,17 +759,17 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
       DO jc = i_startidx, i_endidx
    
         ! llat/llon: corresponding latitude/longitude coordinates of 1 deg extension
-        ! llat: 1 = south pole; 180 = north pole
-        ! llon: 1 = 1 deg east; 360 = 360 deg east=0 deg west
+        ! llat: 1 = south of 89.0S; 89 = 1S-Eq.; 90 = Eq-1N;  180 = north of 89N
+        ! llon: 1 = 0.5E-1.5E; 360 = 360 deg east = 0.5W-0.5E
         z_lat = p_patch%cells%center(jc,jb)%lat
         z_lon = p_patch%cells%center(jc,jb)%lon
         z_lat_deg = z_lat*rad2deg
         z_lon_deg = z_lon*rad2deg
 
-        IF (z_lon_deg < 0.0_wp ) z_lon_deg = z_lon_deg + 180.0_wp
+        IF (z_lon_deg <= 0.0_wp ) z_lon_deg = z_lon_deg + 180.0_wp
 
-        llat = NINT(90.0_wp + z_lat_deg)
-        llon = NINT(z_lon_deg)
+        llat = NINT(91.0_wp + z_lat_deg)
+        llon = NINT(z_lon_deg + 0.5_wp)
 
         z_uint_reg(llat,llon) = z_uint(jc,jb)
 
@@ -799,15 +797,13 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   idate = datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
   write(0,*) 'write global PSI at iyear, idate:',datetime%year, idate
 
-  i1 = idate
-  i2 = 780
-  i3 = nlon
-  i4 = nlat
+  iextra(1) = idate
+  iextra(2) = 780
+  iextra(3) = 0
+  iextra(4) = nlon*nlat
 
-  write(80) i1,i2,i3,i4
+  write(80) (iextra(jb),jb=1,4)
   write(80) ((psi(llat,llon),llat=1,nlat),llon=1,nlon)
-
-!-----------------------------------------------------------------------
 
 END SUBROUTINE calc_psi
 !-------------------------------------------------------------------------  
