@@ -230,17 +230,17 @@ SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
     END DO
   END DO
 
-
   IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA .OR. FLUX_CALCULATION_HORZ==MIMETIC)THEN
-     IF (ltimer) CALL timer_start(timer_hflx_lim)
+    IF (ltimer) CALL timer_start(timer_hflx_lim)
 
-     CALL hflx_limiter_oce_mo( p_patch,                  &
-                              & trac_old,                &
-                              & p_os%p_diag%mass_flx_e,  &
-                              & z_adv_flux_h,            &
-                              & p_os%p_diag%depth_c,     &
-                              & cell_thick_intermed_c,   &
-                              & p_op_coeff)
+    CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
+    CALL hflx_limiter_oce_mo( p_patch,                 &
+                            & trac_old,                &
+                            & p_os%p_diag%mass_flx_e,  &
+                            & z_adv_flux_h,            &
+                            & p_os%p_diag%depth_c,     &
+                            & cell_thick_intermed_c,   &
+                            & p_op_coeff)
 
      IF (ltimer) CALL timer_stop(timer_hflx_lim)
   ENDIF
