@@ -459,7 +459,7 @@ MODULE mo_cuparameters
   PUBLIC :: lepcld
   !yoevdf
   PUBLIC :: rkap     ,rvdifts  ,repdu2   ,repust   ,rz0ice  ,&
-          & rnum     ,rnuh     ,rnuq     ,rparzi
+          & rnum     ,rnuh     ,rnuq     ,rparzi   ,lelwdd
   !yoethf
   PUBLIC :: r2es     ,r3les    ,r3ies    ,r4les    ,r4ies   ,&
           & r5les    ,r5ies    ,rvtmp2   ,rhoh2o   ,r5alvcp ,&

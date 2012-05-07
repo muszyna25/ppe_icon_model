@@ -214,7 +214,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
-    &         zsigflt(nproma)
+    &         zsigflt(nproma)               , zfrti(nproma,nsfc_subs)
   LOGICAL  :: l_land(nproma), ldummy_vdf_a(nproma)
 
   ! number of vertical levels
@@ -281,7 +281,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP zae,       zvar, &
 !$OMP ztice,     ztske1, &
 !$OMP ztskm1m,   ztskrad, &
-!$OMP zsigflt, &
+!$OMP zsigflt,   zfrti, &
 !$OMP l_land,    ldummy_vdf_a &
 !$OMP ) ICON_OMP_GUIDED_SCHEDULE
 
@@ -623,7 +623,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
           ustr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress U  !!!
           vstr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress V  !!!
+          zfrti   (jc,jt) = 0.0_wp                     ! all zero but tile1=1.0 ... all ocean ???
+          zdummy_vdf_5a(jc,jt) = 0.3_wp                ! surface albedo ????????
         ENDDO
+      ENDDO
+
+      DO jc = i_startidx, i_endidx
+        zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
       ENDDO
 
       DO jc = i_startidx, i_endidx
@@ -632,6 +638,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ELSE
           l_land(jc) = .false.
         ENDIF
+      ENDDO
+
+      DO jc = i_startidx, i_endidx
+        idummy_vdf_0a(jc) = 16    !KTVL  ???
+        idummy_vdf_0b(jc) = 3     !KTVH  ???
+        zdummy_vdf_1a(jc) = 0.5   !PCVL  ???
+        zdummy_vdf_1b(jc) = 0.5   !PCVL  ???
       ENDDO
 
 
@@ -701,7 +714,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
         & PSST    = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  SST
         & KSOTY   = idummy_vdf_0c                              ,&! (IN)  unused: soil type
-        & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
+!xmk ?  & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
+        & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
         & PALBTI  = zdummy_vdf_5a                              ,&! (IN)  unused: tile albedo
         & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  unused: maximum skin reservoir capacity
         & PCHAR   = zchar                                      ,&! (IN)  Charnock parameter (for z0 over ocean)
@@ -797,9 +811,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ENDDO
 
 ! Some diagnostic values have to be set !!!!
-      prm_diag%rh_2m(:,jb)  = 0.0_wp
-      prm_diag%shfl_s(:,jb) = shfl_s_t(:,1)           ! should be tile mean !!!
-      prm_diag%lhfl_s(:,jb) = evap_s_t(:,1) * alv     ! should be tile mean !!!
+      DO jc = i_startidx, i_endidx
+        prm_diag%rh_2m(jc,jb)  = 0.0_wp
+        prm_diag%shfl_s(jc,jb) = shfl_s_t(jc,1)           ! should be tile mean !!!
+        prm_diag%lhfl_s(jc,jb) = evap_s_t(jc,1) * alv     ! should be tile mean !!!
+      ENDDO
 
     ENDIF !inwp_turb
 

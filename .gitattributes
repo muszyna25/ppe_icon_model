@@ -971,6 +971,7 @@ src/atm_phy_edmf/mo_cuadjtq_2.f90 -text
 src/atm_phy_edmf/mo_edmf_param.f90 -text
 src/atm_phy_edmf/mo_surfexcdriver.f90 -text
 src/atm_phy_edmf/mo_surfexcdriver_ctl.f90 -text
+src/atm_phy_edmf/mo_surfseb_ctl.f90 -text
 src/atm_phy_edmf/mo_vdfbuoysort.f90 -text
 src/atm_phy_edmf/mo_vdfcloud.f90 -text
 src/atm_phy_edmf/mo_vdfdifc.f90 -text

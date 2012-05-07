@@ -83,7 +83,7 @@ MODULE mo_nwp_phy_init
     &                               suvdf , suvdfs
   USE mo_convect_tables,      ONLY: init_convect_tables
   ! EDMF DUAL turbulence
-  USE mo_edmf_param,          ONLY: suct0, su0phy, susekf
+  USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_data_turbdiff,       ONLY: get_turbdiff_param
@@ -759,6 +759,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL suct0
     CALL su0phy
     CALL susekf
+    CALL susveg
   ENDIF
 
 

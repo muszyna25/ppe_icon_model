@@ -140,14 +140,19 @@ REAL(KIND=JPRB) :: REPUST=0.0001_JPRB ! MINIMUM FRICTION VELOCITY (SECURITY PARA
 !------------------------------------------------------------------------------
 REAL(KIND=JPRB),ALLOCATABLE :: RVZ0M(:)      ! ROUGHNESS LENGTH FOR MOMENTUM
 REAL(KIND=JPRB),ALLOCATABLE :: RVZ0H(:)      ! ROUGHNESS LENGTH FOR HEAT 
+REAL(KIND=JPRB),ALLOCATABLE :: RVLAMSK(:)    ! Unstable SKIN LAYER CONDUCT. FOR EACH TILE
+REAL(KIND=JPRB),ALLOCATABLE :: RVLAMSKS(:)   ! Stable SKIN LAYER CONDUCT. FOR EACH TILE
 REAL(KIND=JPRB),ALLOCATABLE :: RVTRSR(:)     ! TRANSMISSION OF NET SOLAR RAD. 
+                                             ! THROUGH VEG.
 
 
 !------------------------------------------------------------------------------
 
-  PUBLIC :: FOEALFA  ,FOEEWM   ,FOEDEM   ,FOELDCPM, &
+  PUBLIC :: FOEALFA  ,FOEEWM   ,FOEDEM   ,FOELDCPM  , &
           & FOEALFCU ,FOEEWMCU ,FOEDEMCU ,FOELDCPMCU, &
-          & PSIHU    ,PSIMU    ,PSIHS    ,PSIMS
+          & PSIHU    ,PSIMU    ,PSIHS    ,PSIMS     , &
+          & RVZ0M    ,RVZ0H    ,RVLAMSK  ,RVLAMSKS  , &
+          & RVTRSR
   PUBLIC :: suct0, su0phy, susekf, susveg, abort_surf
 
 CONTAINS
@@ -381,11 +386,62 @@ SUBROUTINE SUSVEG
 !          THIS ROUTINE INITIALIZES THE CONSTANTS IN COMMON BLOCK
 !     *YOS_VEG*
 
-INTEGER(KIND=JPIM) ::  NVTYPES, IVTYPES
+USE mo_lnd_nwp_config,       ONLY: NTILES=>nsfc_subs
+
+INTEGER(KIND=JPIM) :: NVTYPES, IVTYPES
+REAL(KIND=JPRB)    :: ZLARGE , ZSNOW
+REAL(KIND=JPRB)    :: RLHAERO, RLHAEROS
 
 ! Number of vegetation types
 NVTYPES=20
 IVTYPES = MAX(NVTYPES,20)
+
+
+! Skin layer conductivity
+
+ZSNOW=7._JPRB
+ZLARGE=1.E10_JPRB
+RLHAERO=15._JPRB
+RLHAEROS=10._JPRB
+
+! Unstable skin layer conductivity
+
+IF(.NOT.ALLOCATED(RVLAMSK)) ALLOCATE(RVLAMSK(NTILES))
+IF (NTILES >= 1) RVLAMSK(1)=ZLARGE           !  Water
+IF (NTILES >= 2) RVLAMSK(2)=58._JPRB         !  Sea ice
+IF (NTILES >= 3) RVLAMSK(3)=10._JPRB         !  Wet skin
+IF (NTILES >= 4) RVLAMSK(4)=10._JPRB         !  Low veg. (Aerodyn.+Rad.+Soil)
+IF (NTILES >= 5) RVLAMSK(5)=ZSNOW            !  Snow
+IF (NTILES >= 5) RVLAMSK(6)=RLHAERO+5._JPRB  !  High veg. (Aerodyn.+Rad.)
+IF (NTILES >= 7) RVLAMSK(7)=RLHAERO+5._JPRB  !  Snow under veg (Aerodyn.+Rad.)
+IF (NTILES >= 8) RVLAMSK(8)=15._JPRB         !  Bare soil
+IF (NTILES >= 9) RVLAMSK(9)=ZLARGE           !  LAKES = WATER  
+
+! Stable skin layer conductivity
+
+IF(.NOT.ALLOCATED(RVLAMSKS)) ALLOCATE(RVLAMSKS(NTILES))
+IF (NTILES >= 1) RVLAMSKS(1)=ZLARGE            !  Water
+IF (NTILES >= 2) RVLAMSKS(2)=58._JPRB          !  Sea ice
+IF (NTILES >= 3) RVLAMSKS(3)=10._JPRB          !  Wet skin
+IF (NTILES >= 4) RVLAMSKS(4)=10._JPRB          !  Low veg. (Aerodyn.+Rad.+Soil)
+IF (NTILES >= 5) RVLAMSKS(5)=ZSNOW             !  Snow
+IF (NTILES >= 5) RVLAMSKS(6)=RLHAEROS+5._JPRB  !  High veg. (Aerodyn.+Rad.)
+IF (NTILES >= 7) RVLAMSKS(7)=RLHAEROS+5._JPRB  !  Snow under veg (Aerodyn.+Rad.+Snow
+IF (NTILES >= 8) RVLAMSKS(8)=15._JPRB          !  Bare soil
+IF (NTILES >= 9) RVLAMSKS(9)=ZLARGE            !  LAKES = WATER  
+
+! Transmission of net solar rad. through vegetation
+
+IF(.NOT.ALLOCATED(RVTRSR)) ALLOCATE(RVTRSR(NTILES))
+IF (NTILES >= 1) RVTRSR(1)=0.00_JPRB     ! Ocean (SSR transmission does not apply)
+IF (NTILES >= 2) RVTRSR(2)=0.00_JPRB     ! Ice   (SSR transmission does not apply)
+IF (NTILES >= 3) RVTRSR(3)=0.05_JPRB     ! Wet skin (this is a compromise)
+IF (NTILES >= 4) RVTRSR(4)=0.05_JPRB     ! Low vegetation
+IF (NTILES >= 5) RVTRSR(5)=0.00_JPRB     ! Snow on vegetation (SSR transmission does not apply)
+IF (NTILES >= 5) RVTRSR(6)=0.03_JPRB     ! High veg.
+IF (NTILES >= 7) RVTRSR(7)=0.03_JPRB     ! Snow under veg.
+IF (NTILES >= 8) RVTRSR(8)=0.00_JPRB     ! Bare soil (SSR transmission does not apply)
+IF (NTILES >= 9) RVTRSR(9)=0.00_JPRB     ! LAKES (SSR transmission does not apply) 
 
 ! Roughness length for momentum (Mahfouf et al. 1995)
 
