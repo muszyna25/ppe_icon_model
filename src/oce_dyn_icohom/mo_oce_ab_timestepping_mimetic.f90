@@ -1322,183 +1322,139 @@ END FUNCTION lhs_surface_height_ab_mim
   !!  mpi parallelized LL
 SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
 !
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-TYPE(t_hydro_ocean_state), TARGET :: p_os
-TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
-TYPE(t_external_data), TARGET     :: p_ext_data 
-TYPE (t_ho_params)                :: p_phys_param
-!
-!  local variables
-INTEGER :: i_startidx_e, i_endidx_e
-INTEGER :: i_startidx_c, i_endidx_c
-INTEGER :: je, jk, jb, jc
-REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
-REAL(wp) :: gdt
-TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
-!REAL(wp) :: z_tmp_h_e(nproma,1,p_patch%nblks_e)
-CHARACTER(len=*), PARAMETER ::     &
-  &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
-!-----------------------------------------------------------------------  
-!CALL message (TRIM(routine), 'start')        
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  TYPE(t_hydro_ocean_state), TARGET :: p_os
+  TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
+  TYPE(t_external_data), TARGET     :: p_ext_data
+  TYPE (t_ho_params)                :: p_phys_param
+  !
+  !  local variables
+  INTEGER :: i_startidx_e, i_endidx_e
+  INTEGER :: i_startidx_c, i_endidx_c
+  INTEGER :: je, jk, jb, jc
+  REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
+  REAL(wp) :: gdt
+  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+  TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
+  !REAL(wp) :: z_tmp_h_e(nproma,1,p_patch%nblks_e)
+  CHARACTER(len=*), PARAMETER ::     &
+    &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
+
+  !----------------------------------------------------------------------
+  !CALL message (TRIM(routine), 'start')
+  !-----------------------------------------------------------------------
   edges_in_domain => p_patch%edges%in_domain
   cells_in_domain => p_patch%cells%in_domain
-IF (p_test_run) z_grad_h(:,:) = 0.0_wp
-!z_e     (:,:,:) = 0.0_wp
 
-gdt=grav*dtime
+  IF (p_test_run) z_grad_h(:,:) = 0.0_wp
 
-! Step 1) Compute normal derivative of new surface height
-! CALL grad_fd_norm_oce_2D(p_os%p_prog(nnew(1))%h, &
-!  &                      p_patch,                &
-!  &                      z_grad_h(:,1,:))
-CALL grad_fd_norm_oce_2d_3D( p_os%p_prog(nnew(1))%h,&
-       &                  p_patch,                  &
-       &                  p_op_coeff%grad_coeff,    &
-       &                  z_grad_h(:,:))
-! Step 2) Calculate the new velocity from the predicted one and the new surface height
-IF(iswm_oce== 1)THEN
+  gdt=grav*dtime
 
-  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-    DO jk = 1, n_zlev
-      DO je = i_startidx_e, i_endidx_e
-        p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
-                    &                        - gdt*ab_beta*z_grad_h(je,jb))&
-                    &                        *v_base%wet_e(je,jk,jb)
-!           p_os%p_diag%vn_time_weighted(je,jk,jb)=&
-!             & (ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb)&
-!             &+(1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn(je,jk,jb))&
-!             &*v_base%wet_e(je,jk,jb)
-      END DO 
-    END DO
-  END DO
+  ! Step 1) Compute normal derivative of new surface height
+  CALL grad_fd_norm_oce_2d_3D( p_os%p_prog(nnew(1))%h,&
+    &                  p_patch,                  &
+    &                  p_op_coeff%grad_coeff,    &
+    &                  z_grad_h(:,:))
 
-ELSEIF(iswm_oce/= 1)THEN
-
-  IF(.NOT.l_RIGID_LID)THEN
+  ! Step 2) Calculate the new velocity from the predicted one and the new surface height
+  IF (iswm_oce == 1) THEN ! shallow water case
 
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
-!CDIR UNROLL=6
+  !CDIR UNROLL=6
 #endif
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
-
-          p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb)&
-                  &                         - gdt*ab_beta*z_grad_h(je,jb))  &
-                  &                         *v_base%wet_e(je,jk,jb)
-!           p_os%p_diag%vn_time_weighted(je,jk,jb)=&
-!             & (ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb)&
-!             &+(1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn(je,jk,jb))*v_base%wet_e(je,jk,jb)
-        END DO 
+          p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
+                      &                        - gdt*ab_beta*z_grad_h(je,jb))&
+                      &                        *v_base%wet_e(je,jk,jb)
+        END DO
       END DO
     END DO
 
-  ELSEIF(l_RIGID_LID)THEN
-  
-    CALL finish(method_name,"l_RIGID_LID case has a bug")
-    p_os%p_prog(nnew(1))%vn = p_os%p_diag%vn_pred*v_base%wet_e(je,jk,jb)
-!     p_os%p_diag%vn_time_weighted(je,jk,jb)=&
-!     & (ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb)&
-!     &+(1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn(je,jk,jb))*v_base%wet_e(je,jk,jb)
+  ELSE !real 3d case
+
+    IF (.NOT.l_RIGID_LID) THEN
+
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+#ifdef __SX__
+  !CDIR UNROLL=6
+#endif
+        DO jk = 1, n_zlev
+          DO je = i_startidx_e, i_endidx_e
+
+            p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb)&
+                    &                         - gdt*ab_beta*z_grad_h(je,jb))  &
+                    &                         *v_base%wet_e(je,jk,jb)
+          END DO
+        END DO
+      END DO
+
+    ELSE
+
+      CALL finish(method_name,"l_RIGID_LID case has a bug")
+      p_os%p_prog(nnew(1))%vn = p_os%p_diag%vn_pred*v_base%wet_e(je,jk,jb)
+    ENDIF
   ENDIF
-ENDIF
 
 
-CALL map_edges2cell_3D( p_patch,                 &
-                      & p_os%p_prog(nnew(1))%vn, &
-                      & p_op_coeff, z_u_cc)
+  CALL map_edges2cell_3D( p_patch,&
+    & p_os%p_prog(nnew(1))%vn, &
+    & p_op_coeff, z_u_cc)
 
 
-DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-  CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-  DO jc = i_startidx_c, i_endidx_c
-    DO jk=1,n_zlev
-      z_u_cc2(jc,jk,jb)%x = ab_gam*z_u_cc(jc,jk,jb)%x&
-      & + (1.0_wp -ab_gam)*p_os%p_diag%p_vn(jc,jk,jb)%x
-    END DO
-  ENDDO
-END DO
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+    DO jc = i_startidx_c, i_endidx_c
+      DO jk=1,n_zlev
+        z_u_cc2(jc,jk,jb)%x = ab_gam*z_u_cc(jc,jk,jb)%x&
+        & + (1.0_wp -ab_gam)*p_os%p_diag%p_vn(jc,jk,jb)%x
+      END DO
+    ENDDO
+  END DO
 
-CALL map_cell2edges( p_patch,                       &
-                    & z_u_cc2,                      &
-                    & p_os%p_diag%vn_time_weighted)
+  CALL map_cell2edges( p_patch,                       &
+                     & z_u_cc2,                      &
+                     & p_os%p_diag%vn_time_weighted)
 
-    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nnew(1))%vn)
-    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_time_weighted)
+  CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nnew(1))%vn)
+  CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_time_weighted)
 
 
-IF(.NOT.l_RIGID_LID)THEN
-  !write(*,*)
+  ! debug output
+  IF(.NOT.l_RIGID_LID)THEN
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('new height gradient',1,z_grad_h(:,:),1, p_patch%nblks_e,'abt',ipl_src)
+    CALL print_mxmn('h-contrib to veloc.',1,-ab_beta*gdt*z_grad_h(:,:),1, &
+      &             p_patch%nblks_e,'abt',ipl_src)
+  ENDIF
+
   ipl_src=3  ! output print level (1-5, fix)
-  CALL print_mxmn('new height gradient',1,z_grad_h(:,:),1, p_patch%nblks_e,'abt',ipl_src)
-  CALL print_mxmn('h-contrib to veloc.',1,-ab_beta*gdt*z_grad_h(:,:),1, &
-    &             p_patch%nblks_e,'abt',ipl_src)
-! write(*,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
-!                                & maxval(z_grad_h) 
-! write(*,*)'MIN/MAX h-contrib to veloc:',minval(- ab_beta*gdt*z_grad_h),&
-!                               maxval(- ab_beta*gdt*z_grad_h) 
+  DO jk = 1, n_zlev
+    CALL print_mxmn('vn old',jk,p_os%p_prog(nold(1))%vn(:,:,:), &
+      &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  END DO
+  ipl_src=2  ! output print level (1-5, fix)
+  DO jk = 1, n_zlev
+     CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
+       &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  END DO
+  ipl_src=3  ! output print level (1-5, fix)
+  DO jk = 1, n_zlev
+    CALL print_mxmn('vn change',jk,p_os%p_prog(nnew(1))%vn(:,:,:)-p_os%p_prog(nold(1))%vn(:,:,:), &
+      &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  END DO
 
-ENDIF
-
-ipl_src=3  ! output print level (1-5, fix)
-DO jk = 1, n_zlev
-  CALL print_mxmn('vn old',jk,p_os%p_prog(nold(1))%vn(:,:,:), &
-    &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-!  write(*,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
-!                                 maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
-END DO
-ipl_src=2  ! output print level (1-5, fix)
-DO jk = 1, n_zlev
-   CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
-     &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-! write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
-!                                maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
-END DO
-ipl_src=3  ! output print level (1-5, fix)
-DO jk = 1, n_zlev
-  CALL print_mxmn('vn change',jk,p_os%p_prog(nnew(1))%vn(:,:,:)-p_os%p_prog(nold(1))%vn(:,:,:), &
-    &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-! write(*,*)'MIN/MAX vn change:',jk,&
-! &minval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:) ),&
-! &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:))
-END DO
- ! IF(.NOT.l_RIGID_LID)THEN
-! write(*,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
-!                                & maxval(z_grad_h) 
-!write(*,*)'MIN/MAX h-contrib to veloc:',minval(- ab_beta*gdt*z_grad_h),&
-!                                 maxval(- ab_beta*gdt*z_grad_h) 
- ! ENDIF
- ! DO jk = 1, n_zlev
-  !  write(987,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
- !                                  maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
- ! END DO
-! DO jk = 1, n_zlev
-!   write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
-!                                  maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) )
-! END DO
- ! 
- ! DO jk = 1, n_zlev
- !   write(987,*)'MIN/MAX vn change:',jk,&
- !   &minval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:) ),&
- !   &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:))
- ! END DO
-
-
-
-  !Update of scalar product quantities  
-  IF(l_STAGGERED_TIMESTEP)THEN  
+  ! Update of scalar product quantities
+  IF(l_STAGGERED_TIMESTEP)THEN
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
     Call set_lateral_boundary_values( p_patch, &
                                     & p_os%p_prog(nnew(1))%vn)
 
-      CALL calc_scalar_product_veloc_3D( p_patch,             &
+    CALL calc_scalar_product_veloc_3D( p_patch,             &
                                      & p_os%p_prog(nnew(1))%vn,&
                                      & p_os%p_prog(nnew(1))%vn,&
                                      & p_os%p_diag%h_e,        &
