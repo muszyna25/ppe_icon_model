@@ -41,16 +41,18 @@ levelist=${4:-1/to/91}    # levels
 
 # --- data output ---
 
-datadir=/e/uwork/${USER}/icon/ifs.data
+# define data directory (if not set otherwise)
+datadir=${IFSDATADIR:-/e/uwork/${USER}/icon/ifs.data}
 mkdir -p $datadir
 tempdir=${TMPDIR}
 
 # --- date processing ---
 
-cymdg=$(datconv -Cy ${pdatin})
+datconv=${DATCONVCMD:-datconv}
+cymdg=$(${datconv} -Cy ${pdatin})
 typeset -L8 cymd=${cymdg}
 typeset -R2 hh=${cymdg}
-cymdg_fc=$(datconv -Cy ${pdatin} -d ${step})
+cymdg_fc=$(${DATCONVCMD} -Cy ${pdatin} -d ${step})
 
 if [ ${step} -eq 0 ]; then
   type=an
