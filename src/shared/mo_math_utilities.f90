@@ -1098,7 +1098,7 @@ END SUBROUTINE solve_chol_v
   !! Compute the zonal and meridional components of a vector with respect
   !! to a rotated coordinate system. This function uses the same
   !! conventions and formalism as "disp_new". The algortithm is as
-  !! follwos:
+  !! follows:
   !! 1) convert the vector into Cartesian coordinates
   !! 2) apply the rotation to the vector in cartesian components
   !! 3) transform the rotated vector in geographical coordinates, using
@@ -1495,6 +1495,17 @@ END SUBROUTINE rotate_latlon_vec
 !! (lat,lon) onto a tangent plane with the origin at (lat_c,lon_c).
 !! The results are the local cartesian coordinates (x,y).
 !!
+!!
+!! Features:
+!! - azimuthal
+!! - neither conformal nor equal-area
+!! - no distortion at the center only
+!! - directions from the center are true
+!! - radial scale factor increases as distances increase from the center
+!! - scale factor in a direction perpendicular to a line radiating from 
+!!   the center increases as distances increase from the center
+!! - all great circles are shown as straight lines
+!!
 !! @par Revision History
 !! developed by Daniel Reinert, DWD, 2009-10-30
 !!
@@ -1534,6 +1545,17 @@ END SUBROUTINE gnomonic_proj
 !! (lat,lon) onto a tangent plane with the origin at (lat_c,lon_c).
 !! The results are the local cartesian coordinates (x,y).
 !!
+!!
+!! Features:
+!! - azimuthal
+!! - neither conformal nor equal-area
+!! - no distortion at the center only
+!! - directions from the center are true
+!! - radial scale is true
+!! - scale factor in a direction perpendicular to a line radiating from 
+!!   the center linearly increases as distances increase from the center
+!!
+!!
 !! @par Revision History
 !! developed by Daniel Reinert, DWD, 2011-04-27
 !!
@@ -1572,6 +1594,14 @@ END SUBROUTINE az_eqdist_proj
 !! Projects a point
 !! (lat,lon) onto a tangent plane with the origin at (lat_c,lon_c).
 !! The results are the local cartesian coordinates (x,y).
+!!
+!! Features:
+!! - azimuthal
+!! - neither conformal nor equal-area
+!! - no distortion at the center only
+!! - directions from the center are true
+!! - radial scale factor decreases as distances increase from the center
+!! - scale in a direction perpendicular to a line radiating from the center is true
 !!
 !! @par Revision History
 !! developed by Daniel Reinert, DWD, 2009-10-30
