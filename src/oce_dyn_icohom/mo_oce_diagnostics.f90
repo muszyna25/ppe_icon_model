@@ -381,6 +381,7 @@ TYPE(t_oce_monitor), POINTER :: ptr_monitor
 CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
 !-----------------------------------------------------------------------
+  CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
 
   ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
@@ -570,7 +571,7 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
 
   TYPE(t_subset_range), POINTER :: dom_cells
   
-  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
+  !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
 
   !-----------------------------------------------------------------------
 
@@ -664,16 +665,16 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
     write(82,*) 'global MOC at iyear, idate:',datetime%year, idate
     DO jk=1,n_zlev
-      i1=idate
-      i2=777
-      i3=v_base%zlev_i(jk)
-      i4=180
+      i1=int(idate,8)
+      i2=int(777,8)
+      i3=int(v_base%zlev_i(jk),8)
+      i4=int(180,8)
       write(77) i1,i2,i3,i4
       write(77) (global_moc(lbr,jk),lbr=1,180)
-      i2=778
+      i2=int(778,8)
       write(78) i1,i2,i3,i4
       write(78) (atlant_moc(lbr,jk),lbr=1,180)
-      i2=779
+      i2=int(779,8)
       write(79) i1,i2,i3,i4
       write(79) (pacind_moc(lbr,jk),lbr=1,180)
 
@@ -727,7 +728,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
   TYPE(t_subset_range), POINTER :: all_cells, dom_cells
   
-  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
+  !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
   !-----------------------------------------------------------------------
 
@@ -756,11 +757,8 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
     END DO
   END DO
 
-  ! meridional distance of 1 deg
-  ! ATTENTION - there must be no holes in this grid - higher and variable resolution necessary
-  z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
-
   ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
+
   DO jb = dom_cells%start_block, dom_cells%end_block
     CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx
@@ -777,64 +775,68 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
       jlat = NINT(91.0_wp + z_lat_deg)
       jlon = NINT(z_lon_deg + 180.5_wp)
 
-  !   z_uint_reg(jlon,jlat) = z_uint(jc,jb)
-  !99 format(' lat=',f8.2,' lon=',f8.2,' %lon=',f8.2,' jlt=',i4,' jln=',i4,' lsm=',i3, &
-  !     &    ' uint=',1p10e12.3)
-  !   write(82,99) z_lat_deg,z_lon_deg,p_patch%cells%center(jc,jb)%lon*rad2deg, &
-  !     &          jlat,jlon,v_base%lsm_oce_c(jc,1,jb),z_uint_reg(jlon,jlat)
-
       ! distribute stream function over rsmth=(2*jsmth+1)**2 lat/lon regular grid points
       !  - no weighting with latitudes done
+      !  - no correction with regular lsm done
       DO jltx = jlat-jsmth, jlat+jsmth
 
         jlt = jltx
-        jlt = MAX(jlt,  1)
-        jlt = MIN(jlt,180)
+        IF (jlt <    1) jlt =      1-jlt  ! apply equatorwards
+        IF (jlt > nlat) jlt = 2*nlat-jlt  ! apply equatorwards
         DO jlnx = jlon-jsmth, jlon+jsmth
 
           jln = jlnx
-          jln = MAX(jln,  1)
-          jln = MIN(jln,360)
+          IF (jln <    1) jln = jln+nlon  ! circular boundary
+          IF (jln > nlon) jln = jln-nlon  ! circular boundary
+
           z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + z_uint(jc,jb) / rsmth
+
+ ! 99 format('J lat=',f8.2,' lon=',f8.2,' jlat=',i4,' jlon=',i4,' lsm=',i3, &
+ !      &    ' jlt=',i4,  ' jln=',i4,' uint=',1p10e12.3)
+ ! 98 format(' lat=',f8.2,' lon=',f8.2,' jlat=',i4,' jlon=',i4,' lsm=',i3, &
+ !      &    ' uint=',1p10e12.3)
+ !    if ((jlat==101 .and. jlon==270) &
+ !      & write(82,99) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_oce_c(jc,1,jb), &
+ !      &              jlt,jln,z_uint_reg(jln,jlt)
 
         END DO
       END DO
+ !    write(82,98) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_oce_c(jc,1,jb),z_uint_reg(jlon,jlat)
 
     END DO
   END DO
 
-  ! (3) calculate stream function: scale with length of 1 deg*rho [m/s*m*m*kg/m3=kg/s]
+  ! (3) calculate meridional integral on regular grid starting from south pole:
+
+  DO jlt = nlat-1, 1, -1
+    z_uint_reg(:,jlt) = z_uint_reg(:,jlt) + z_uint_reg(:,jlt+1)
+  END DO
+
+  ! (4) calculate stream function: scale with length of 1 deg*rho [m/s*m*m*kg/m3=kg/s]
+
+  ! meridional distance of 1 deg
+  ! ATTENTION - fixed 1 deg resolution should be related to icon-resolution
+  z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
 
   psi(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref
 
-! DO jk = 1, n_zlev
-!   DO jb = all_cells%start_block, all_cells%end_block
-!     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-!     DO jc = i_startidx, i_endidx
-
-!       psi(jlat,jlon) = z_uint_reg(jlat,jlon) * z_lat_dist * rho_ref
-
-!     END DO
-!   END DO
-! END DO
-
 
   ! write out in extra format - integer*8
-  idate = datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+  idate = int(datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute,8)
   write(0,*) 'write global PSI at iyear, idate:',datetime%year, idate
 
-  iextra(1) = idate
-  iextra(2) = 780
-  iextra(3) = 0
-  iextra(4) = nlon*nlat
+  iextra(1) = int(idate,8)
+  iextra(2) = int(780,8)
+  iextra(3) = int(0,8)
+  iextra(4) = int(nlon*nlat,8)
 
   write(80) (iextra(jb),jb=1,4)
   write(80) ((psi(jln,jlt),jln=1,nlon),jlt=1,nlat)
 
-! do jlat=1,nlat
-!     write(82,*) 'jlat=',jlat
-!     write(82,'(1p10e12.3)') (psi(jlon,jlat),jlon=1,nlon)
-! enddo
+  do jlat=1,nlat
+      write(82,*) 'jlat=',jlat
+      write(82,'(1p10e12.3)') (psi(jlon,jlat),jlon=1,nlon)
+  enddo
 
 END SUBROUTINE calc_psi
 !-------------------------------------------------------------------------  
