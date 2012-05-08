@@ -83,8 +83,9 @@ USE mo_impl_constants,      ONLY: max_char_length, min_rlcell, sea_boundary,MIN_
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-                                  calc_atm_fluxes_from_bulk, set_ice_albedo, set_ice_temp, &
-                                  ice_slow, ice_fast, prepareAfterRestart
+                                  calc_atm_fluxes_from_bulk, set_ice_albedo, &
+                                  set_ice_temp_winton, ice_slow, ice_fast, &
+                                  prepareAfterRestart
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
@@ -692,7 +693,7 @@ CONTAINS
           ELSE
             Tfw = Tf
           ENDIF
-          CALL set_ice_temp(p_patch,p_ice,Tfw,Qatm)
+          CALL set_ice_temp_winton(p_patch,p_ice,Tfw,Qatm)
           Qatm%counter = 1
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
@@ -1002,11 +1003,13 @@ CONTAINS
           !surface heat forcing as sum of sensible, latent, longwave and shortwave heat fluxes
           IF (p_ice% isice(jc,jb,i))THEN
 
-            p_sfc_flx%forc_tracer(jc,jb,1)             &
-            & =  Qatm%sens(jc,jb,i) + Qatm%lat(jc,jb,i)& ! Sensible + latent heat flux at ice surface
-            & +  Qatm%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
-            & +  Qatm%bot(jc,jb,i)                       ! Ocean heat flux at ice bottom 
-                                                         ! liquid/solid  precipitation rate are zero
+            p_sfc_flx%forc_tracer(jc,jb,1)               &
+              & =  Qatm%sens(jc,jb,i) + Qatm%lat(jc,jb,i)& ! Sensible + latent heat
+              !                                              flux at ice surface
+              & +  Qatm%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
+              & +  Qatm%bot(jc,jb,i)                       ! Ocean heat flux at ice bottom 
+                                                           ! liquid/solid  precipitation rate
+            !                                                are zero
 
             !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
             z_evap(jc,jb) = Qatm%lat(jc,jb,i)/(als*z_rho_w)
@@ -1029,7 +1032,8 @@ CONTAINS
 
         !calculate evaporation from latent heat flux and latent heat of vaporisation
         !This is (63) in Marsland et al.
-        z_Q_freshwater(jc,jb) = (Qatm%rpreci(jc,jb) + Qatm%rprecw(jc,jb)) -  z_evap(jc,jb) !+River runof +glacial meltwater
+        z_Q_freshwater(jc,jb) = (Qatm%rpreci(jc,jb) + Qatm%rprecw(jc,jb)) -  z_evap(jc,jb) &
+          &                                                       !+River runoff +glacial meltwater
 
         !Now the freshwater flux calculation is finished; this is (65) in Marslkand et al.
         !Relaxation of top layer salinity to observed salinity
