@@ -76,6 +76,7 @@ MODULE mo_nwp_phy_nml
   INTEGER  :: inwp_satad         !! saturation adjustment
   INTEGER  :: inwp_turb          !! turbulence
   INTEGER  :: inwp_surface       !! surface including soil, ocean, ice,lake
+  INTEGER  :: itype_z0           !! type of roughness length data
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
@@ -89,7 +90,7 @@ MODULE mo_nwp_phy_nml
     &                    dt_conv, dt_ccov, dt_rad, dt_sso, dt_gwd, &
     &                    qi0, qc0,                                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
-    &                    latm_above_top
+    &                    latm_above_top, itype_z0
 
 
 
@@ -158,7 +159,7 @@ CONTAINS
     inwp_cldcover   = 3           !> 3 = clouds from COSMO SGS cloud scheme
     inwp_turb       = 1           !> 1 = turbdiff (COSMO diffusion oand transfer)
     inwp_surface    = 1           !> 1 = TERRA
-
+    itype_z0        = 1           !  1 = include orographic contribution to roughness length
 
     DO jg=1, max_dom
       dt_conv (jg) = 600._wp      !seconds
@@ -227,7 +228,8 @@ CONTAINS
       atm_phy_nwp_config(jg)%inwp_satad      = inwp_satad
       atm_phy_nwp_config(jg)%inwp_turb       = inwp_turb
       atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface
-      
+      atm_phy_nwp_config(jg)%itype_z0        = itype_z0
+
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 
       atm_phy_nwp_config(jg)%dt_ccov         = dt_ccov (jg)
       atm_phy_nwp_config(jg)%dt_rad          = dt_rad  (jg)

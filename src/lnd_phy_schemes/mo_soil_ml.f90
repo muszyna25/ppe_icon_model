@@ -482,6 +482,7 @@ END SUBROUTINE message
                   iendpar          , & ! end index for computations in the parallel program
                   nsubs0           , & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
                   nsubs1           , & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
+                  ldiag_tg         , & ! if true: diagnose t_g and snow-cover fraction with tgcom
                   ke_soil, ke_snow , &
                   czmls            , & ! processing soil level structure 
                   dt               , &
@@ -541,6 +542,7 @@ END SUBROUTINE message
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
                   v_10m            , & ! meridional wind in 10m                        ( m/s )
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
+                  snowfrac         , & ! snow-cover fraction                           (  -  )
 !
                   wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
                   wliq_snow_new    , & ! liquid water content in the snow              (m H2O)
@@ -590,6 +592,7 @@ IMPLICIT NONE
                   ke_soil, ke_snow      
   REAL    (KIND = ireals), DIMENSION(ke_soil+1), INTENT(IN) :: &
                   czmls                ! processing soil level structure 
+  LOGICAL, INTENT(IN) :: ldiag_tg      ! if .TRUE., use tgcom to diagnose t_g and snow-cover fraction
   REAL    (KIND = ireals), INTENT(IN)  ::  &
                   dt                    
 
@@ -659,7 +662,8 @@ IMPLICIT NONE
                   t_2m             , & ! temperature in 2m                             (  K  )
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
                   v_10m            , & ! meridional wind in 10m                        ( m/s )
-                  freshsnow            ! indicator for age of snow in top of snow layer(  -  )
+                  freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
+                  snowfrac             ! snow-cover fraction
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
                   wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
                   wtot_snow_now        ! total (liquid + solid) water content of snow  (m H2O)
@@ -1512,8 +1516,7 @@ IMPLICIT NONE
 !    IF (llandmask(i)) THEN   ! for land-points only
 !      zf_snow  (i, 1) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_now(i, 1)/cf_snow) )* &
 !                        zsf_heav(w_snow_now(i, 1) - zepsi)                               !true snow fraction
-      zf_snow  (i) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_now(i)/cf_snow) )* &
-                        zsf_heav(w_snow_now(i) - zepsi)                               !0 or 1
+      zf_snow(i) = MAX(0.01_ireals, snowfrac(i))*zsf_heav(w_snow_now(i) - zepsi)
 !      IF(pt_tiles(ns)%snow_tile .OR. pt_tiles(ns)%snowfree_tile) THEN
 !        w_snow_now(i) = w_snow_now(i)*zf_snow(i, 1)
 !      END IF
@@ -4279,11 +4282,11 @@ IMPLICIT NONE
   ! computation of the temperature at the boundary soil/snow-atmosphere
     IF(lmulti_snow) THEN
       CALL tgcom ( t_g(:), t_snow_mult_new(:,1), t_s_new(:), &
-                   w_snow_new(:),  ie, cf_snow,    &
+                   w_snow_new(:), snowfrac(:), ie, cf_snow,  &
                    istarts, iends )
     ELSE
       CALL tgcom ( t_g(:), t_snow_new(:), t_s_new(:),       &
-                   w_snow_new(:),  ie, cf_snow,   &
+                   w_snow_new(:), snowfrac(:), ie, cf_snow, &
                    istarts, iends )
     ENDIF
 !  END DO
@@ -4911,7 +4914,7 @@ END SUBROUTINE terra_multlay_init
 !==============================================================================
 
 
-SUBROUTINE tgcom (tg, ts, tb, ws,  ie, cf_snow, istart, iend)
+SUBROUTINE tgcom (tg, ts, tb, ws, snowfrac, ie, cf_snow, istart, iend)
 
 !-------------------------------------------------------------------------------
 !
@@ -4946,7 +4949,8 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
   ws (ie)    ! water content of snow
 
 REAL (KIND=ireals), INTENT (INOUT)          ::    &
-  ts (ie)    ! temperature of the snow surface
+  ts (ie),   & ! temperature of the snow surface
+  snowfrac(ie) ! snow-cover fraction
 
 !LOGICAL,  INTENT (IN)                    ::    &
 !  llp (ie)   ! pattern of land- and sea-points
@@ -4954,17 +4958,16 @@ REAL (KIND=ireals), INTENT (INOUT)          ::    &
 REAL (KIND=ireals), INTENT (IN)          ::    &
   cf_snow       ! factor for the computation
 
+INTEGER :: i
+
 !-------------------------------------------------------------------------------
 
 ! Begin subroutine tgcom
 
-  WHERE ( ws(istart:iend) > 0.0_ireals) 
-      tg(istart:iend) = ts(istart:iend) +             &
-           (1.0_ireals - MIN(1.0_ireals,ws(istart:iend)/cf_snow)) &
-             * (tb(istart:iend) - ts(istart:iend))
-  ELSEWHERE
-      tg(istart:iend) =   tb(istart:iend)
-  END WHERE
+  DO i = istart, iend
+    snowfrac(i) = MIN(1.0_ireals,ws(i)/cf_snow)
+    tg(i) = ts(i) + (1.0_ireals - snowfrac(i))*(tb(i) - ts(i))
+  ENDDO
 
 END SUBROUTINE tgcom
 

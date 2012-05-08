@@ -59,6 +59,7 @@ MODULE mo_lnd_nwp_nml
     &                               config_lmelt       => lmelt         , &
     &                               config_lmelt_var   => lmelt_var     , &
     &                               config_lmulti_snow => lmulti_snow   , &
+    &                            config_idiag_snowfrac => idiag_snowfrac, &
     &                               config_itype_gscp  => itype_gscp    , &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
@@ -92,7 +93,7 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  itype_subs        !< type of subscale surface treatment =1 MOSAIC, =2 TILE       
-
+  INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
 
 
@@ -112,7 +113,7 @@ MODULE mo_lnd_nwp_nml
   NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_snow   , &
     &               frac_thresh, lseaice, llake, lmelt        , &
     &               lmelt_var, lmulti_snow, itype_gscp        , & 
-    &               itype_trvg                                , & 
+    &               itype_trvg, idiag_snowfrac                , & 
     &               itype_evsl                                , & 
     &               itype_tran                                , & 
     &               itype_root                                , & 
@@ -169,6 +170,7 @@ MODULE mo_lnd_nwp_nml
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
     lmulti_snow    = .FALSE. ! run the multi-layer snow model
+    idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
     itype_gscp     = 3       ! type of grid-scale precipitation physics
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
@@ -242,6 +244,7 @@ MODULE mo_lnd_nwp_nml
       config_lmelt       = lmelt
       config_lmelt_var   = lmelt_var
       config_lmulti_snow = lmulti_snow
+      config_idiag_snowfrac = idiag_snowfrac
       config_itype_gscp  = itype_gscp
       config_itype_trvg  = itype_trvg
       config_itype_evsl  = itype_evsl

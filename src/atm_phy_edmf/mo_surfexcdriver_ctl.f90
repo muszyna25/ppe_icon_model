@@ -670,6 +670,7 @@ ENDDO
 !   v_10m_ex         =   , & ! meridional wind in 10m                        ( m/s )
 !  
 !   freshsnow_ex     =   , & ! indicator for age of snow in top of snow layer(  -  )
+!   snowfrac_ex      =   , & ! snow-cover fraction                           (  -  )
 !   wliq_snow_ex     =   , & ! liquid water content in the snow              (m H2O)
 !   wtot_snow_ex     =   , & ! total (liquid + solid) water content of snow  (m H2O)
 !   dzh_snow_ex      =   , & ! layer thickness between half levels in snow   (  m  )

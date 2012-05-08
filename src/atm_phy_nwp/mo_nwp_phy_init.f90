@@ -54,7 +54,8 @@ MODULE mo_nwp_phy_init
   USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell, zml_soil,io3_ape
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil,io3_ape
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
@@ -98,7 +99,8 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_interface,   ONLY: nwp_surface_init
-  USE mo_phyparam_soil,       ONLY: csalbw
+  USE mo_lnd_nwp_config,      ONLY: nsfc_subs
+  USE mo_phyparam_soil,       ONLY: csalbw, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
 
@@ -149,6 +151,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres
+  REAL(wp)            :: gz0(nproma)
 
   CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
   INTEGER             :: icur_date    ! current date converted to integer
@@ -161,13 +164,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   LOGICAL  :: lland, lglac
   
-  INTEGER :: jb,jc,jg,ist
+  INTEGER :: jb,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1            !< number of full and half levels
   INTEGER :: nshift                  !< shift with respect to global grid
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !! slices
   INTEGER :: i_nchdom                !! domain index
+  INTEGER :: lc_class
 !  INTEGER :: inwp_turb_init          !< 1: initialize nwp_turb
 !                                     !< 0: do not initialize
 
@@ -596,6 +600,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ENDIF
 
 
+  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
+    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
+      &                   p_prog_lnd_new, p_diag_lnd)
+  END IF
+
+
   !------------------------------------------
   !< setup for turbulence
   !------------------------------------------
@@ -620,18 +630,52 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
     ENDIF
 
-    rl_start = 1 ! Initialization should be done for all points
-    rl_end   = min_rlcell
+    CALL get_turbdiff_param(jg)
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+    rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
+    rl_end   = min_rlcell_int
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    CALL get_turbdiff_param(jg)
+!$OMP DO PRIVATE(jb,jc,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
 
-!$OMP PARALLEL
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+&                       i_startidx, i_endidx, rl_start, rl_end)
+
+      IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
+        ! specify land-cover-related roughness length over land points
+        ! note:  water points are set in turbdiff
+        gz0(:) = 0._wp
+        DO jt = 1, nsfc_subs
+          DO jc = i_startidx, i_endidx
+            IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
+              lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+              gz0(jc) = gz0(jc) + ext_data%atm%lc_frac_t(jc,jb,jt) * grav * ( &
+               (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*z0_lu(lc_class) +      &
+                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*z0_lu(21) ) ! 21 = snow/ice
+            ENDIF
+          ENDDO
+        ENDDO
+        DO jc = i_startidx, i_endidx
+          IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
+            prm_diag%gz0(jc,jb) = gz0(jc)
+          ENDIF
+        ENDDO
+      ENDIF
+    ENDDO
+!$OMP END DO
+
+    rl_start = 1 ! Initialization is done also for nest boundary points
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -668,9 +712,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
-!amk
-         &  w_snow=p_prog_lnd_now%w_snow_t(:,jb,1), &
-!xxx
 !
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
          &  qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc), &
@@ -761,13 +802,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL susekf
     CALL susveg
   ENDIF
-
-
-  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
-    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
-      &                   p_prog_lnd_new)
-  END IF
-
 
 
   IF ( atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme

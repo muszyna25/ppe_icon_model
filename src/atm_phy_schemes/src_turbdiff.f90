@@ -653,7 +653,7 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
 !    
           h_ice, ps, t_g, qv_s, &
 !amk
-          w_snow, &
+!          w_snow, &
 !xxx
           u, v, w, t, qv, qc, prs, rho, epr, &
 !    
@@ -817,9 +817,9 @@ REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
     h_ice,        & ! ice thickness                                 (  m  )
     ps,           & ! surface pressure                              ( pa  )
     t_g,          & ! weighted surface temperature                  (  k  )
-    qv_s,         & ! specific water vapor content on the surface   (kg/kg)
+    qv_s            ! specific water vapor content on the surface   (kg/kg)
 !amk
-    w_snow          ! snow water equivalent depth                   (  m  )
+!    w_snow          ! snow water equivalent depth                   (  m  )
 !xxx
 
  REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(INOUT) :: &

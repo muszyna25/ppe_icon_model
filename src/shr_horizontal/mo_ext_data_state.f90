@@ -2452,6 +2452,7 @@ CONTAINS
              tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
              tile_mask(:)=.true.
              tile_mask(20)=.false. ! exclude water points
+             ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
              ext_data(jg)%atm%lp_count(jb) = i_count
 
@@ -2468,8 +2469,11 @@ CONTAINS
                ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
                ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ext_data(jg)%atm%soiltyp_t(i_count,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
-! GZ: this is inconsistent with the use of lc_frac_t in the tile case (it is normalized to a sum of 1 there)
-               ext_data(jg)%atm%lc_frac_t(i_count,jb,1)  = ext_data(jg)%atm%fr_land(jc,jb)
+               ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+               ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
+               !  Workaround for GLC2000 hole below 60 deg S
+               IF (ext_data(jg)%atm%lc_class_t(jc,jb,1) <= 0) &
+                 ext_data(jg)%atm%lc_class_t(jc,jb,1) = 21
 
                ext_data(jg)%atm%idx_lst_t(i_count,jb,1)  = jc
                ext_data(jg)%atm%gp_count_t(jb,1)         = i_count
@@ -2477,7 +2481,6 @@ CONTAINS
              ELSE    
 
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
-               ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
                DO i_lu = 1, nsfc_subs
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)

@@ -57,7 +57,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: frac_thresh
   PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
-  PUBLIC :: itype_root, itype_heatcond, itype_hydbound  
+  PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
   PUBLIC :: t_tiles, p_tiles
 
@@ -88,7 +88,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  itype_subs         !< type of subscale surface treatment =1 MOSAIC, =2 TILE 
-
+  INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
   LOGICAL ::  lseaice     !> forecast with sea ice model
   LOGICAL ::  llake       !! forecast with lake model FLake

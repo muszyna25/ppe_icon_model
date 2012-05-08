@@ -57,6 +57,7 @@ MODULE mo_nwp_turb_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_phyparam_soil,        ONLY: z0_lu
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -120,7 +121,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   ! Local scalars:
 
-  INTEGER :: jc,jk,jb,jt,jg      !block indeces
+  INTEGER :: jc,jk,jb,jt,jg      !loop indices
 
   ! local variables for turbdiff
 
@@ -130,6 +131,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   REAL(wp) ::                  &     !< aux turbulence velocity scale [m/s]
     &  z_tvs    (nproma,p_patch%nlevp1,p_patch%nblks_c,1) !DR, &
 !DR    &  z_ddt_tke(nproma,p_patch%nlevp1,p_patch%nblks_c) ! tvs tendency [m/s2]
+  REAL(wp) :: gz0(nproma)
 
   ! local variables for vdiff
 
@@ -176,6 +178,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &  zdummy_oh(nproma,p_patch%nblks_c) 
   INTEGER  :: idummy_oh(nproma ,p_patch%nblks_c)    !< dummy variable for output
   INTEGER  :: nlev, nlevp1                          !< number of full and half levels
+  INTEGER  :: lc_class                              !< land-cover class
 
   ! local variables for edmf
 
@@ -248,7 +251,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg, &
 !$OMP eroutine, &
-!$OMP icnt, &
+!$OMP icnt, lc_class, gz0, &
 !$OMP idummy_vdf_0a, idummy_vdf_0b, idummy_vdf_0c, & 
 !$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
 !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
@@ -304,7 +307,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
-        lnd_diag%qv_s (:,:) = 0._wp
+        lnd_diag%qv_s (:,jb) = 0._wp
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN   
          DO jc = i_startidx, i_endidx
@@ -320,12 +323,31 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          !> adjust  humidity at water surface because of changed surface pressure
          !
          DO jc = i_startidx, i_endidx
-          lnd_diag%qv_s (jc,jb) = &
+           lnd_diag%qv_s (jc,jb) = &
              &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
              &                                   p_diag%pres_sfc(jc,jb) )
          ENDDO
         END IF
       ENDIF
+    ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
+      ! specify land-cover-related roughness length over land points
+      ! note:  water points are set in turbdiff
+      gz0(:) = 0._wp
+      DO jt = 1, nsfc_subs
+        DO jc = i_startidx, i_endidx
+          IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
+            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+            gz0(jc) = gz0(jc) + ext_data%atm%lc_frac_t(jc,jb,jt) * grav * ( &
+             (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*z0_lu(lc_class) +        &
+              lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*z0_lu(21) ) ! 21 = snow/ice
+          ENDIF
+        ENDDO
+      ENDDO
+      DO jc = i_startidx, i_endidx
+        IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
+          prm_diag%gz0(jc,jb) = gz0(jc)
+        ENDIF
+      ENDDO
     ENDIF
 
     IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
@@ -374,9 +396,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
 !         
          &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
-!amk
-         &  w_snow=lnd_prog_now%w_snow_t(:,jb,1), &
-!xxx
 !           
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
          &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &

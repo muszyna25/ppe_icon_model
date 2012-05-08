@@ -3239,6 +3239,13 @@ inwp\_radiation $>$ 0
 \tabularnewline
 
 \hline 
+itype\_z0&
+I & 1 &  & Type of roughness length data used for turbulence scheme: 1 = including contribution from
+sub-scale orography, 2 = land-cover-related roughness only &
+inwp\_turb $>$ 0
+\tabularnewline
+
+\hline 
  dt\_conv &
 R&
 600.&
@@ -3546,6 +3553,12 @@ L&
 &
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
+
+\hline 
+idiag\_snowfrac &
+I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2 = more advanced experimental method &
+\tabularnewline
+
 \hline
 lseaice &
 L&

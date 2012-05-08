@@ -927,6 +927,13 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
 
+    ! & p_diag_lnd%snowfrac(nproma,nblks_c)
+    cf_desc    = t_cf_var('snowfrac', '- ', 'snow-cover fraction')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,     &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+
     ! & p_diag_lnd%runoff_s(nproma,nblks_c)
     cf_desc    = t_cf_var('runoff_s', 'kg/m2', 'weighted surface water runoff; sum over forecast')
     grib2_desc = t_grib2_var(2, 0, 5, ientr, GRID_REFERENCE, GRID_CELL)
@@ -984,6 +991,25 @@ MODULE mo_nwp_lnd_state
                  & ldims=shape2d )
       END DO
 
+    ! & p_diag_lnd%snowfrac_t(nproma,nblks_c,nsfc_subs)
+    cf_desc    = t_cf_var('snowfrac_t', '- ', 'snow-cover fraction')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'snowfrac_t', p_diag_lnd%snowfrac_t, &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,        &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
+    ! fill the separate variables belonging to the container snowfrac
+    ALLOCATE(p_diag_lnd%snowfrac_ptr(nsfc_subs))
+      DO jsfc = 1,nsfc_subs
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( diag_list, vname_prefix//'snowfrac_t',                     &
+                 & vname_prefix//'snowfrac_t_'//ADJUSTL(TRIM(csfc)),             &
+                 & p_diag_lnd%snowfrac_ptr(jsfc)%p_2d,                           &
+                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+                 & t_cf_var('snowfrac_t_'//csfc, '', ''),                        &
+                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                 & ldims=shape2d )
+      END DO
 
 
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,nsfc_subs)

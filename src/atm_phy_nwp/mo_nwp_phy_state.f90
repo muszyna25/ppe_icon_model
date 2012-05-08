@@ -1153,7 +1153,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
         ! &      diag%gz0(nproma,nblks_c)
-        cf_desc    = t_cf_var('gz0', ' ','roughness length time gravity')
+        cf_desc    = t_cf_var('gz0', ' ','roughness length times gravity')
         grib2_desc = t_grib2_var(2, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'gz0', diag%gz0,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &

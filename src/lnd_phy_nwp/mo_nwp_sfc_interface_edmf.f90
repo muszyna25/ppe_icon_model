@@ -113,6 +113,7 @@ CONTAINS
                   v_10m_ex         , & ! meridional wind in 10m                        ( m/s )
 
                   freshsnow_ex     , & ! indicator for age of snow in top of snow layer(  -  )
+                  snowfrac_ex      , & ! snow-cover fraction                           (  -  )
                   wliq_snow_ex     , & ! liquid water content in the snow              (m H2O)
                   wtot_snow_ex     , & ! total (liquid + solid) water content of snow  (m H2O)
                   dzh_snow_ex      , & ! layer thickness between half levels in snow   (  m  )
@@ -178,7 +179,8 @@ CONTAINS
                   u_10m_ex         , & ! zonal wind in 10m                             ( m/s )
                   v_10m_ex             ! meridional wind in 10m                        ( m/s )
   REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(INOUT) :: &
-                  freshsnow_ex         ! indicator for age of snow in top of snow layer(  -  )
+                  freshsnow_ex     , & ! indicator for age of snow in top of snow layer(  -  )
+                  snowfrac_ex          ! snow-cover fraction                           (  -  )
   REAL(wp), DIMENSION(nproma,nlev_snow,nsfc_subs), INTENT(INOUT) :: &
                   wliq_snow_ex     , & ! liquid water content in the snow              (m H2O)
                   wtot_snow_ex     , & ! total (liquid + solid) water content of snow  (m H2O)
@@ -256,6 +258,7 @@ CONTAINS
     REAL(wp) :: u_10m_t    (nproma, nsfc_subs)
     REAL(wp) :: v_10m_t    (nproma, nsfc_subs)
     REAL(wp) :: freshsnow_t(nproma, nsfc_subs)
+    REAL(wp) :: snowfrac_t (nproma, nsfc_subs)
 
     REAL(wp) :: tch_t      (nproma, nsfc_subs)
     REAL(wp) :: tcm_t      (nproma, nsfc_subs)
@@ -372,6 +375,7 @@ CONTAINS
           rho_snow_now_t(ic,isubs) = rho_snow_ex (jc,isubs)
           w_i_now_t     (ic,isubs) = w_i_ex      (jc,isubs)
           freshsnow_t   (ic,isubs) = freshsnow_ex(jc,isubs)
+          snowfrac_t    (ic,isubs) = snowfrac_ex (jc,isubs)
           subsfrac_t    (ic,isubs) = subsfrac_ex (jc,isubs) 
           runoff_s_t    (ic,isubs) = runoff_s_ex (jc,isubs) 
           runoff_g_t    (ic,isubs) = runoff_g_ex (jc,isubs)
@@ -441,7 +445,7 @@ CONTAINS
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
         &  nsubs0=1,          nsubs1=nsfc_subs               , & ! nsfc_subs
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
-        &  czmls=zml_soil                                    , & ! processing soil level structure 
+        &  czmls=zml_soil,    ldiag_tg=.TRUE.                , & ! processing soil level structure 
         &  dt=dt                                             , &
 !
         &  soiltyp_subs = ext_data%atm%soiltyp_t(:,jb,isubs) , & ! type of the soil (keys 0-9)         --
@@ -498,6 +502,7 @@ CONTAINS
         &  u_10m         = u_10m_t(:,isubs)                  , & ! ,nsfc_subs, zonal wind in 10m                  ( m/s )
         &  v_10m         = v_10m_t(:,isubs)                  , & ! ,nsfc_subs,  meridional wind in 10m            ( m/s )
         &  freshsnow     = freshsnow_t(:,isubs)              , & ! indicator for age of snow in top of snow layer (  -  )
+        &  snowfrac      = snowfrac_t(:,isubs)               , & ! snow-cover fraction            (  -  )
 !                                                            
         &  wliq_snow_now = wliq_snow_now_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
         &  wliq_snow_new = wliq_snow_new_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
@@ -543,7 +548,8 @@ CONTAINS
           rho_snow_ex (jc,isubs)  = rho_snow_new_t(ic,isubs)        
           h_snow_ex   (jc,isubs)  = h_snow_t      (ic,isubs)              
           w_i_ex      (jc,isubs)  = w_i_new_t     (ic,isubs)             
-          freshsnow_ex(jc,isubs)  = freshsnow_t   (ic,isubs)   
+          freshsnow_ex(jc,isubs)  = freshsnow_t   (ic,isubs) 
+          snowfrac_ex (jc,isubs)  = snowfrac_t    (ic,isubs) 
           subsfrac_ex (jc,isubs)  = subsfrac_t    (ic,isubs)
           runoff_s_ex (jc,isubs)  = runoff_s_t    (ic,isubs)  
           runoff_g_ex (jc,isubs)  = runoff_g_t    (ic,isubs)  

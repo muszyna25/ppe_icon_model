@@ -57,13 +57,13 @@ MODULE mo_nwp_sfc_interface
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
-    &                               lseaice, llake, lmulti_snow
+    &                               lseaice, llake, lmulti_snow, idiag_snowfrac
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay, terra_multlay_init
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
-  USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd, grav  ! r_d / cp_d
   
   IMPLICIT NONE 
 
@@ -133,6 +133,9 @@ CONTAINS
     REAL(wp) ::          qv_t(nproma,  p_patch%nblks_c)
     REAL(wp) ::          p0_t(nproma,  p_patch%nblks_c)
 
+    REAL(wp) ::          sso_sigma_t(nproma,  p_patch%nblks_c)
+    INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, nsfc_subs)
+
     REAL(wp) ::          t_snow_now_t (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          t_snow_new_t (nproma, p_patch%nblks_c, nsfc_subs)
 
@@ -159,6 +162,7 @@ CONTAINS
     REAL(wp) ::          u_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          v_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
 
     REAL(wp) ::          tch_t      (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          tcm_t      (nproma, p_patch%nblks_c, nsfc_subs)
@@ -298,7 +302,10 @@ CONTAINS
           v_t(ic,jb)      =  p_diag%v         (jc,nlev,jb)     
           t_t(ic,jb)      =  p_diag%temp      (jc,nlev,jb)     
           qv_t(ic,jb)     =  p_prog_rcf%tracer(jc,nlev,jb,iqv) 
-          p0_t(ic,jb)     =  p_diag%pres      (jc,nlev,jb)     
+          p0_t(ic,jb)     =  p_diag%pres      (jc,nlev,jb) 
+    
+          sso_sigma_t(ic,jb)       = ext_data%atm%sso_stdh(jc,jb)
+          lc_class_t(ic,jb,isubs)  = ext_data%atm%lc_class_t(jc,jb,isubs)
 
           t_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%t_snow_t(jc,jb,isubs) 
           t_s_now_t(ic,jb,isubs)             =  lnd_prog_now%t_s_t(jc,jb,isubs)   
@@ -309,6 +316,7 @@ CONTAINS
           rho_snow_now_t(ic,jb,isubs)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
           w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
           freshsnow_t(ic,jb,isubs)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
+          snowfrac_t(ic,jb,isubs)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
           subsfrac_t(ic,jb,isubs)            =  lnd_diag%subsfrac_t(jc,jb,isubs) 
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic,jb,isubs)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
@@ -372,12 +380,12 @@ CONTAINS
 !---------- END Copy index list fields
 
 
-        CALL terra_multlay(                                      &
+        CALL terra_multlay(                                     &
         &  ie=nproma,                                           & ! array dimensions
         &  istartpar=1, iendpar=i_count                       , & ! optional start/end indicies
         &  nsubs0=1, nsubs1=nsfc_subs                         , & ! nsfc_subs
         &  ke_soil=nlev_soil, ke_snow=nlev_snow               , &
-        &  czmls=zml_soil                                     , & ! processing soil level structure 
+        &  czmls=zml_soil, ldiag_tg=.FALSE.                   , & ! processing soil level structure 
         &  dt=tcall_sfc_jg                                    , &
         &  soiltyp_subs  = ext_data%atm%soiltyp_t(:,jb,isubs) , & ! type of the soil (keys 0-9)  --
         &  plcov         = ext_data%atm%plcov_t(:,jb,isubs)   , & ! fraction of plant cover      --
@@ -435,6 +443,7 @@ CONTAINS
         &  u_10m         =  u_10m_t(:,jb,isubs)               , & ! ,nsfc_subs, zonal wind in 10m       ( m/s )
         &  v_10m         =  v_10m_t(:,jb,isubs)               , & ! ,nsfc_subs,  meridional wind in 10m ( m/s )
         &  freshsnow     =  freshsnow_t(:,jb,isubs)           , & ! indicator for age of snow in top of snow layer       (  -  )
+        &  snowfrac      =  snowfrac_t(:,jb,isubs)            , & ! snow-cover fraction            (  -  )
 !
         &  wliq_snow_now = wliq_snow_now_t(:,:,jb,isubs)      , & ! liquid water content in the snow       (m H2O)
         &  wliq_snow_new = wliq_snow_new_t(:,:,jb,isubs)      , & ! liquid water content in the snow       (m H2O)
@@ -466,6 +475,33 @@ CONTAINS
         &  pt_tiles      = p_tiles(:)                           & ! tiles structure
         &                                                     )
 
+        IF (lmulti_snow) THEN
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  t_snow    = t_snow_mult_new_t (:,1,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_new_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_new_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb),       & ! sso stdev
+            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+        ELSE
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  t_snow    = t_snow_new_t      (:,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_new_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_new_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb),       & ! sso stdev
+            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+        ENDIF
 
 
 !---------- Copy index list fields back to state fields
@@ -482,6 +518,7 @@ CONTAINS
           lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic,jb,isubs)              
           lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic,jb,isubs)   
+          lnd_diag%snowfrac_t    (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs)   
           lnd_diag%subsfrac_t    (jc,jb,isubs) = subsfrac_t    (ic,jb,isubs)
           lnd_diag%runoff_s_t    (jc,jb,isubs) = runoff_s_t    (ic,jb,isubs)  
           lnd_diag%runoff_g_t    (jc,jb,isubs) = runoff_g_t    (ic,jb,isubs)  
@@ -652,7 +689,7 @@ CONTAINS
   !! - initialize climatological layer t_so(nlev_soil+2)
   !!
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
-    &                          p_prog_lnd_new )
+    &                          p_prog_lnd_new, p_lnd_diag )
  
                              
 
@@ -660,6 +697,7 @@ CONTAINS
     TYPE(t_external_data), INTENT(IN)    :: ext_data
 !    TYPE(t_tiles)        , INTENT(INOUT) :: p_tiles(:)
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
+    TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
 !!$    REAL(wp)             , INTENT(IN)   :: subsfrac(nproma,1,nsfc_subs)
     
     ! Local array bounds:
@@ -677,6 +715,7 @@ CONTAINS
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: t_snow_mult_now_t(nproma, 1:nlev_snow+1, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: t_s_now_t(nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: t_g_t    (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: t_s_new_t(nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: rho_snow_now_t(nproma, p_patch%nblks_c, nsfc_subs)
@@ -690,6 +729,11 @@ CONTAINS
     REAL(wp) :: wliq_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: wtot_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: dzh_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, nsfc_subs)
+
+    REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          sso_sigma_t(nproma,  p_patch%nblks_c)
+    INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, nsfc_subs)
 
 !    INTEGER  :: i_tile(nproma,nsfc_subs),lu_subs
     INTEGER  :: i_count, ic
@@ -749,6 +793,10 @@ CONTAINS
           t_s_new_t(ic,jb,isubs)             =  p_prog_lnd_new%t_s_t(jc,jb,isubs)   
           w_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%w_snow_t(jc,jb,isubs)  
           rho_snow_now_t(ic,jb,isubs)        =  p_prog_lnd_now%rho_snow_t(jc,jb,isubs)
+
+          sso_sigma_t(ic,jb)                 = ext_data%atm%sso_stdh(jc,jb)
+          lc_class_t(ic,jb,isubs)            = ext_data%atm%lc_class_t(jc,jb,isubs)
+          freshsnow_t(ic,jb,isubs)           = p_lnd_diag%freshsnow_t(jc,jb,isubs)
         ENDDO
 
 
@@ -822,6 +870,35 @@ CONTAINS
         &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       & ! layer thickness between half levels in snow   (  m  )
                                                       )
 
+
+        IF (lmulti_snow) THEN
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  t_snow    = t_snow_mult_now_t (:,1,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb),       & ! sso stdev
+            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+        ELSE
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb),       & ! sso stdev
+            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+        ENDIF
+
 !  Recover fields from index list
 !
 !CDIR NODEP,VOVERTAKE,VOB
@@ -832,6 +909,9 @@ CONTAINS
           p_prog_lnd_new%t_s_t(jc,jb,isubs)      = t_s_new_t(ic,jb,isubs) 
           p_prog_lnd_now%w_snow_t(jc,jb,isubs)   = w_snow_now_t(ic,jb,isubs) 
           p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
+          p_lnd_diag %snowfrac_t(jc,jb,isubs)    = snowfrac_t(ic,jb,isubs)
+          p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
         ENDDO
 
          IMSNOWO: IF(lmulti_snow) THEN
@@ -1284,6 +1364,47 @@ CONTAINS
   END DO
 
   END SUBROUTINE subsmean_power4
+
+
+  SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, t_snow, t_soiltop, w_snow, rho_snow, &
+    freshsnow, sso_sigma, tai, snowfrac, t_g)
+
+    INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
+
+    INTEGER, INTENT (IN) :: lc_class(:)  ! list of land-cover classes
+    REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
+      freshsnow, sso_sigma, tai
+
+    REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
+
+    INTEGER  :: ic
+    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, z0_fac, z0_limit, lc_limit
+
+    IF (idiag_snowfrac == 1) THEN
+      DO ic = istart, iend
+        snowfrac(ic) = MIN(1.0_wp, w_snow(ic)/cf_snow)
+        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
+    ELSE
+      DO ic = istart, iend
+        IF (w_snow(ic) <= 1.e-6_wp) THEN
+          snowfrac(ic) = 0._wp
+        ELSE
+          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
+          sso_fac = SQRT(0.04_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
+          snowdepth_fac = h_snow*(20._wp*freshsnow(ic)+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          z0_fac   = MAX(1._wp,SQRT(20._wp*z0_lu(MAX(1,lc_class(ic)))))
+          z0_limit = MIN(1._wp,SQRT(SQRT(1.5_wp/z0_fac)))
+          lc_limit = MIN(1._wp,1._wp/SQRT(MAX(0.1_wp,tai(ic))))
+          snowfrac(ic) = MIN(lc_limit,z0_limit,snowdepth_fac/z0_fac)
+        ENDIF
+        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
+
+    ENDIF
+
+  END SUBROUTINE diag_snowfrac_tg
+
 
 END MODULE mo_nwp_sfc_interface
 

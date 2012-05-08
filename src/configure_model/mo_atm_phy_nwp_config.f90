@@ -76,7 +76,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_cldcover    !! cloud cover
     INTEGER ::  inwp_turb        !! turbulence
     INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
-
+    INTEGER  :: itype_z0         !! type of roughness length data
     REAL(wp) :: dt_conv    !> field element for convection
     REAL(wp) :: dt_ccov    !! field element for subscale cloud cover
     REAL(wp) :: dt_rad     !! "-"                     radiation
