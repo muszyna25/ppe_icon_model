@@ -249,6 +249,10 @@ MODULE mo_name_list_output
   LOGICAL :: l_grid_info_from_file
 
   !------------------------------------------------------------------------------------------------
+  ! Number of used namelists
+  INTEGER :: nnamelists
+
+  !------------------------------------------------------------------------------------------------
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
 
@@ -339,6 +343,7 @@ CONTAINS
 
     p_onl => NULL()
     name_list_output_active = .FALSE.
+    nnamelist = 0
 
     DO
 
@@ -386,8 +391,15 @@ CONTAINS
 
       READ (nnml, output_nml, iostat=istat)
       IF(istat < 0) EXIT ! No more namelists
-      IF(istat > 0) CALL finish(routine, 'Read error in namelist "output_nml"')
-
+      IF(istat > 0) THEN
+        WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
+        CALL finish(routine, message_text)
+      ENDIF
+      
+      nnamelists = nnamelists+1
+      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
+      CALL message('LK',message_text)
+      
       ! Check input
 
       ! We need dtime for this check
