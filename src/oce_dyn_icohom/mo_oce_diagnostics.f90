@@ -561,14 +561,14 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
   ! local variables
   ! INTEGER :: i
   INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
-  INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
+  INTEGER :: jb, jc, jk, i_startidx, i_endidx !, il_e, ib_e
   INTEGER :: lbrei, lbr, idate
   INTEGER(i8) :: i1,i2,i3,i4
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
   REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
 
-  TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_subset_range), POINTER :: dom_cells
   
   CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
 
@@ -580,13 +580,13 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     
   ! with all cells no sync is necessary
   !owned_cells => p_patch%cells%owned
-  all_cells   => p_patch%cells%all
+  dom_cells   => p_patch%cells%in_domain
 
   !write(81,*) 'MOC: datetime:',datetime
 
   DO jk = 1, n_zlev   !  not yet on intermediate levels
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+    DO jb = dom_cells%start_block, dom_cells%end_block
+      CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
    
@@ -600,8 +600,8 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
           lbrei=MIN(lbrei,180)
 
           ! get neighbor edge for scaling
-          il_e = p_patch%cells%edge_idx(jc,jb,1)
-          ib_e = p_patch%cells%edge_blk(jc,jb,1)
+      !   il_e = p_patch%cells%edge_idx(jc,jb,1)
+      !   ib_e = p_patch%cells%edge_blk(jc,jb,1)
    
           ! z_lat_dim: scale to 1 deg resolution
           ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
@@ -610,6 +610,7 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
           z_lat_dim = 1.0_wp
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
+          !  - no weighting with latitudes done
           !  - lbrei: index of 180 X 1 deg meridional resolution
           !  - not yet parallelized
           DO lbr = -jbrei, jbrei
@@ -711,17 +712,20 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
   INTEGER, PARAMETER ::  nlat = 180                    ! meridional dimension of regular grid
   INTEGER, PARAMETER ::  nlon = 360                    ! zonal dimension of regular grid
-  INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
-  INTEGER :: idate, jlat, jlon
-  INTEGER(i8) :: iextra(4)
+
+  ! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
+  INTEGER, PARAMETER ::  jsmth = 3                  
+  INTEGER            :: jb, jc, jk, i_startidx, i_endidx
+  INTEGER            :: jlat, jlon, jlt, jln, jltx, jlnx, jsmth2
+  INTEGER(i8)        :: idate, iextra(4)
 
 
-  REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z
+  REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z, rsmth
   REAL(wp) :: z_uint(nproma,p_patch%nblks_c)            ! vertical integral of horizontal velocity
   REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
   REAL(wp) :: psi(nlon,nlat)                            ! horizontal stream function
 
-  TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_subset_range), POINTER :: all_cells, dom_cells
   
   CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
@@ -730,11 +734,14 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   psi(:,:)        = 0.0_wp
   z_uint(:,:)     = 0.0_wp
   z_uint_reg(:,:) = 0.0_wp
+
+  jsmth2          = 2*jsmth + 1
+  rsmth           = REAL(jsmth2*jsmth2, wp)
    
 
   ! with all cells no sync is necessary
-  !owned_cells => p_patch%cells%owned
-  all_cells   => p_patch%cells%all
+  all_cells => p_patch%cells%all
+  dom_cells => p_patch%cells%in_domain
 
   ! (1) vertical integration of zonal velocity times vertical layer thickness [m/s*m]
   DO jb = all_cells%start_block, all_cells%end_block
@@ -754,8 +761,8 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
 
   ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+  DO jb = dom_cells%start_block, dom_cells%end_block
+    CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx
       z_lat_deg = p_patch%cells%center(jc,jb)%lat * rad2deg
       z_lon_deg = p_patch%cells%center(jc,jb)%lon * rad2deg
@@ -770,11 +777,28 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
       jlat = NINT(91.0_wp + z_lat_deg)
       jlon = NINT(z_lon_deg + 180.5_wp)
 
-      z_uint_reg(jlon,jlat) = z_uint(jc,jb)
+  !   z_uint_reg(jlon,jlat) = z_uint(jc,jb)
   !99 format(' lat=',f8.2,' lon=',f8.2,' %lon=',f8.2,' jlt=',i4,' jln=',i4,' lsm=',i3, &
   !     &    ' uint=',1p10e12.3)
   !   write(82,99) z_lat_deg,z_lon_deg,p_patch%cells%center(jc,jb)%lon*rad2deg, &
   !     &          jlat,jlon,v_base%lsm_oce_c(jc,1,jb),z_uint_reg(jlon,jlat)
+
+      ! distribute stream function over rsmth=(2*jsmth+1)**2 lat/lon regular grid points
+      !  - no weighting with latitudes done
+      DO jltx = jlat-jsmth, jlat+jsmth
+
+        jlt = jltx
+        jlt = MAX(jlt,  1)
+        jlt = MIN(jlt,180)
+        DO jlnx = jlon-jsmth, jlon+jsmth
+
+          jln = jlnx
+          jln = MAX(jln,  1)
+          jln = MIN(jln,360)
+          z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + z_uint(jc,jb) / rsmth
+
+        END DO
+      END DO
 
     END DO
   END DO
@@ -805,7 +829,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   iextra(4) = nlon*nlat
 
   write(80) (iextra(jb),jb=1,4)
-  write(80) ((psi(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
+  write(80) ((psi(jln,jlt),jln=1,nlon),jlt=1,nlat)
 
 ! do jlat=1,nlat
 !     write(82,*) 'jlat=',jlat
