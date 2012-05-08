@@ -83,7 +83,6 @@ MODULE mo_name_list_output
     &                                 with_keywords, MAX_STRING_LEN
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
-  USE mo_nonhydrostatic_config, ONLY: iadv_rcf
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
   USE mo_math_constants,        ONLY: pi
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
@@ -249,9 +248,8 @@ MODULE mo_name_list_output
   LOGICAL :: l_grid_info_from_file
 
   !------------------------------------------------------------------------------------------------
-  ! Number of used namelists
-  INTEGER :: nnamelists
-
+  ! local copy of iadv_rcf, reducing dependencies and core specialities 
+  INTEGER :: i_sample
   !------------------------------------------------------------------------------------------------
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
@@ -270,6 +268,8 @@ CONTAINS
     INTEGER :: istat, i
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=*), PARAMETER :: routine = 'read_name_list_output_namelists'
+    INTEGER :: nnamelists
+    LOGICAL :: lrewind
 
     ! Local variables corresponding to members of output_name_list
     INTEGER  :: filetype
@@ -330,22 +330,25 @@ CONTAINS
     ! Open input file and position to first namelist 'output_nml'
 
     CALL open_nml(TRIM(filename))
-    CALL position_nml ('output_nml', status=istat)
-    IF(istat /= POSITIONED) THEN
-      ! There exist no output_name_lists
-      first_output_name_list => NULL()
-      CALL close_nml
-      RETURN
-    ENDIF
 
     ! As in COSMO, there may exist several output_nml namelists in the input file
     ! Loop until EOF is reached
 
     p_onl => NULL()
     name_list_output_active = .FALSE.
-    nnamelist = 0
+    nnamelists = 0
+    lrewind = .TRUE.
 
     DO
+
+      CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
+      IF(istat /= POSITIONED) THEN
+        ! There exist no output_name_lists
+        first_output_name_list => NULL()
+        CALL close_nml
+        RETURN
+      ENDIF
+      lrewind = .FALSE.
 
       ! Set all variables in output_nml to their default values
 
@@ -398,7 +401,7 @@ CONTAINS
       
       nnamelists = nnamelists+1
       WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
-      CALL message('LK',message_text)
+      CALL message('',message_text)
       
       ! Check input
 
@@ -547,14 +550,17 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
 
-  SUBROUTINE init_name_list_output
+  SUBROUTINE init_name_list_output(lprintlist, isample)
 
 #ifndef NOMPI
     USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
 
+    LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
+    INTEGER, OPTIONAL, INTENT(in) :: isample
+
     ! For a list of all variables, enable the following:
-    LOGICAL, PARAMETER :: l_print_list = .FALSE.
+    LOGICAL :: l_print_list
 
     INTEGER :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
     CHARACTER(LEN=2) :: lev_type
@@ -567,7 +573,11 @@ CONTAINS
       &  TRIM('mo_name_list_output/init_name_list_output')
     REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
 
-    CALL message(routine,'Start')
+    l_print_list = .FALSE.
+    IF (PRESENT(lprintlist)) l_print_list = lprintlist
+
+    i_sample = 1
+    IF (PRESENT(isample)) i_sample = isample
 
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
@@ -588,14 +598,18 @@ CONTAINS
       ! print list of all variables
       IF (l_print_list) THEN
         IF (my_process_is_stdio()) THEN
-          PRINT '(3a, i2)','Var_list name: ',TRIM(var_lists(i)%p%name), &
-            ' Patch: ',var_lists(i)%p%patch_id
+          WRITE(message_text,'(3a, i2)') &
+               'Var_list name: ',TRIM(var_lists(i)%p%name), &
+               ' Patch: ',var_lists(i)%p%patch_id
+          CALL message('',message_text)
           element => var_lists(i)%p%first_list_element
           DO
             IF(.NOT. ASSOCIATED(element)) EXIT
-            PRINT *,'    ',element%field%info%name,                             &
-              &            element%field%info%loutput, '  ',                    &
-              &            trim(element%field%info%cf%long_name)
+            WRITE (message_text,'(a,a,l1,a,a)') &
+                 &     '    ',element%field%info%name,              &
+                 &            element%field%info%loutput, '  ',     &
+                 &            trim(element%field%info%cf%long_name)
+            CALL message('',message_text)
             element => element%next_list_element
           ENDDO
         ENDIF
@@ -789,7 +803,6 @@ CONTAINS
           p_onl%dom(i) = i
         ENDDO
       ENDIF
-
 
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
@@ -1170,13 +1183,13 @@ CONTAINS
 #endif
 
     ENDDO ! jp
+
     ! A similar process as above - for the lon-lat grids
     ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO jl = 1,n_lonlat_grids
       DO jg = 1,n_dom
         IF (.NOT. lonlat_grid_list(jl)%l_dom(jg)) CYCLE
-
         IF(.NOT.my_process_is_io()) THEN
           ! Set reorder_info on work and test PE
           CALL set_reorder_info_lonlat(lonlat_grid_list(jl)%grid,      &
@@ -2502,7 +2515,9 @@ CONTAINS
         ELSE IF (info%used_dimensions(2) == n_zlev+1) THEN
           info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_half)
         ELSE
-          PRINT *,'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          WRITE (message_text,'(a,a,a,i0)') &
+               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          CALL message('',message_text)
           CALL finish(routine,'Dimension mismatch for ZAXIS_DEPTH_BELOW_SEA')
         ENDIF
 
@@ -2512,7 +2527,9 @@ CONTAINS
         ELSE IF (info%used_dimensions(2) == znlev_soil+2) THEN
           info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_below_land_p1)
         ELSE
-          PRINT *,'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          WRITE (message_text,'(a,a,a,i0)') &
+               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          CALL message('',message_text)
           CALL finish(routine,'Dimension mismatch for ZAXIS_DEPTH_BELOW_LAND')
         ENDIF
 
@@ -2524,7 +2541,9 @@ CONTAINS
           ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
             info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
           ELSE
-            PRINT *,'SNOW variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+            WRITE (message_text,'(a,a,a,i0)') &
+                 &  'SNOW variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+            CALL message('',message_text)
             CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
           ENDIF
         ELSE
@@ -2535,7 +2554,9 @@ CONTAINS
           ELSE IF (info%used_dimensions(2) == nlev) THEN
             info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid)
           ELSE
-            PRINT *,'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+            WRITE (message_text,'(a,a,a,i0)') &
+                 &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+            CALL message('',message_text)
             CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
           ENDIF
         ENDIF
@@ -2547,7 +2568,9 @@ CONTAINS
         info%cdiZaxisID =  of%cdiZaxisID(ZA_height)
 
       CASE DEFAULT
-        PRINT *,'Variable: ',TRIM(info%name),' ZAXIS: ',info%vgrid
+        WRITE (message_text,'(a,a,a,i0)') &
+             &  'Variable: ',TRIM(info%name),' ZAXIS: ',info%vgrid
+        CALL message('',message_text)
         CALL finish(routine, 'ZAXIS definition missing for '//TRIM(info%name))
 
       END SELECT
@@ -2777,7 +2800,7 @@ CONTAINS
       p_onl => output_file(i)%name_list
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, iadv_rcf, last_step)) THEN
+      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
 
         IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
@@ -2803,7 +2826,7 @@ CONTAINS
     DO i = 1, SIZE(output_file)
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, iadv_rcf, last_step)) THEN
+      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
 
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
@@ -2848,7 +2871,7 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      IF (is_output_nml_active(p_onl, sim_time, dtime, iadv_rcf, last_step)) THEN
+      IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step)) THEN
         p_onl%n_output_steps = p_onl%n_output_steps + 1
       ENDIF
 
@@ -2857,7 +2880,7 @@ CONTAINS
       ! where an output increment less than the time step
       ! or two output_bounds triples which are too close are specified.
 
-      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, iadv_rcf))
+      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample))
         n = p_onl%cur_bounds_triple
         IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN
           ! Next output time will be within current bounds triple
@@ -3141,7 +3164,7 @@ CONTAINS
   !> Returns if it is time for the next output step
   !! Please note:
   !! This function returns .TRUE. whenever the next output time of any name list
-  !! is less or equal (sim_time+iadv_rcf*dtime/2._wp).
+  !! is less or equal (sim_time+i_sample*dtime/2._wp).
   !! It DOES NOT check if the step indicated at sim_time is an advection step.
   !! THIS CHECK MUST BE DONE BY THE CALLER !!!!
 
@@ -3160,7 +3183,7 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
       IF (retval) EXIT
-      retval = is_output_nml_active(p_onl, sim_time, dtime, iadv_rcf)
+      retval = is_output_nml_active(p_onl, sim_time, dtime, i_sample)
       p_onl => p_onl%next
     ENDDO
 
@@ -3841,9 +3864,11 @@ CONTAINS
     ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
 #ifndef __SX__
     IF (msg_level >= 12) THEN
-      PRINT '(10(a,f10.3))',' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get,&
-        ' MB/s], time write: ',t_write,' s [',mb_wr/t_write, &
-        ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
+      WRITE (message_text,'(10(a,f10.3))') &
+           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get, &
+           & ' MB/s], time write: ',t_write,' s [',mb_wr/t_write,        &
+           & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
+      CALL message('',message_text)
     ENDIF
 #endif
 

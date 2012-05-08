@@ -66,6 +66,7 @@ USE mo_grid_config,          ONLY: n_dom
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
+USE mo_nonhydrostatic_config,ONLY: iadv_rcf
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
@@ -344,7 +345,7 @@ CONTAINS
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
-      CALL init_name_list_output
+      CALL init_name_list_output(isample=iadv_rcf)
     END IF
 
     !------------------------------------------------------------------

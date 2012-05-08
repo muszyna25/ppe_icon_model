@@ -32,6 +32,7 @@
 !!
 MODULE mo_atmo_hydrostatic
 
+  USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
   USE mo_timer,             ONLY: print_timer
@@ -61,6 +62,11 @@ MODULE mo_atmo_hydrostatic
   USE mo_output,               ONLY: init_output_files, close_output_files,&
                                      write_output
   USE mo_parallel_config,      ONLY: use_icon_comm
+  USE mo_name_list_output_config, ONLY: first_output_name_list, use_async_name_list_io
+  USE mo_name_list_output,        ONLY: init_name_list_output,  &
+       &                                write_name_list_output, &
+       &                                close_name_list_output
+
 
   IMPLICIT NONE
   PRIVATE
@@ -122,13 +128,23 @@ CONTAINS
     ! Write out initial conditions.
     !------------------------------------------------------------------
 
+    IF (use_async_name_list_io) THEN
+      CALL init_name_list_output
+    ENDIF
+
     IF (.NOT.is_restart_run()) THEN
     ! Initialize the first output file which will contain also the
     ! initial conditions.
 
       jfile = 1
       CALL init_output_files(jfile, lclose=.FALSE.)
-      IF (lwrite_initial) CALL write_output( time_config%cur_datetime )
+      IF (lwrite_initial) THEN
+        IF (use_async_name_list_io) THEN
+          CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
+        ELSE
+          CALL write_output( time_config%cur_datetime )
+        ENDIF
+      ENDIF
       l_have_output = .TRUE.
 
     ELSE
@@ -199,8 +215,11 @@ CONTAINS
 
     IF (msg_level > 5) CALL message(TRIM(routine),'echam_phy clean up is done')
     
-    IF (l_have_output) CALL close_output_files
-    
+    IF (use_async_name_list_io) THEN    
+      CALL close_name_list_output
+    ELSE
+      IF (l_have_output) CALL close_output_files
+    ENDIF
     IF (msg_level > 5) CALL message(TRIM(routine),'close_output_files is done')
 
   END SUBROUTINE atmo_hydrostatic

@@ -48,7 +48,6 @@ USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
   &                               num_io_procs, nproma, use_icon_comm
-
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
   &                               destroy_lonlat_grid_list

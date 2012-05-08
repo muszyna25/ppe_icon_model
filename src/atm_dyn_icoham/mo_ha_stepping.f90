@@ -81,6 +81,9 @@ MODULE mo_ha_stepping
   
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync_all
   USE mo_parallel_config,   ONLY: use_icon_comm
+  USE mo_name_list_output_config, ONLY: is_any_output_file_active, use_async_name_list_io
+  USE mo_name_list_output,        ONLY: write_name_list_output, istime4name_list_output, &
+       &                                output_file
 
   IMPLICIT NONE
 
@@ -328,11 +331,13 @@ CONTAINS
     ! resolution). Set model time.
     !--------------------------------------------------------------------------
     CALL add_time(dtime,0,0,0,datetime)
+    ! Not nice, but the name list output requires this
+    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)    
     
     !--------------------------------------------------------------------------
     ! Write output (prognostic and diagnostic variables) 
     !--------------------------------------------------------------------------
-    IF (is_output_time(jstep)) THEN
+    IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1))) THEN 
 
       !====================
       ! Prepare for output
@@ -368,7 +373,11 @@ CONTAINS
         ENDDO
       ENDIF
 
-      CALL write_output( datetime )
+      IF (use_async_name_list_io) THEN
+        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+      ELSE
+        CALL write_output( datetime )
+      ENDIF
       CALL message(TRIM(routine),'Output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
