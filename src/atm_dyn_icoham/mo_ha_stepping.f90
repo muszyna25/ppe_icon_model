@@ -58,7 +58,7 @@ MODULE mo_ha_stepping
                                   & is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
-                                  & ltestcase
+                                  & ltestcase, output_mode
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
@@ -373,7 +373,7 @@ CONTAINS
         ENDDO
       ENDIF
 
-      IF (use_async_name_list_io) THEN
+      IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
       ELSE
         CALL write_output( datetime )

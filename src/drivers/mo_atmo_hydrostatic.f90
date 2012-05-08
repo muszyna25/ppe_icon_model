@@ -40,7 +40,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev, &
-    & msg_level
+    & msg_level, output_mode
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios,lwrite_initial
 
@@ -61,11 +61,11 @@ MODULE mo_atmo_hydrostatic
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_output,               ONLY: init_output_files, close_output_files,&
                                      write_output
-  USE mo_parallel_config,      ONLY: use_icon_comm
   USE mo_name_list_output_config, ONLY: first_output_name_list, use_async_name_list_io
   USE mo_name_list_output,        ONLY: init_name_list_output,  &
        &                                write_name_list_output, &
        &                                close_name_list_output
+  USE mo_parallel_config,      ONLY: use_icon_comm
 
 
   IMPLICIT NONE
@@ -128,7 +128,8 @@ CONTAINS
     ! Write out initial conditions.
     !------------------------------------------------------------------
 
-    IF (use_async_name_list_io) THEN
+    IF (output_mode%l_nml) THEN
+      CALL message('LK','... init_name_list_putput ...') 
       CALL init_name_list_output
     ENDIF
 
@@ -139,13 +140,15 @@ CONTAINS
       jfile = 1
       CALL init_output_files(jfile, lclose=.FALSE.)
       IF (lwrite_initial) THEN
-        IF (use_async_name_list_io) THEN
+        IF (output_mode%l_nml) THEN
+          CALL message('LK','... write_name_list_putput ...') 
           CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
         ELSE
           CALL write_output( time_config%cur_datetime )
+          l_have_output = .TRUE.
         ENDIF
       ENDIF
-      l_have_output = .TRUE.
+
 
     ELSE
     ! No need to write out the initial condition, thus no output
@@ -154,12 +157,12 @@ CONTAINS
 
       CALL get_restart_attribute('next_output_file',jfile)
 
-      IF (n_io.le.(nsteps-1)) THEN
+!LK      IF (n_io.le.(nsteps-1)) THEN
          CALL init_output_files(jfile, lclose=.FALSE.)
          l_have_output = .TRUE.
-      ELSE
-         l_have_output = .FALSE.
-      END IF
+!LK      ELSE
+!LK         l_have_output = .FALSE.
+!LK      END IF
 
     END IF ! (not) is_restart_run()
 
@@ -215,10 +218,13 @@ CONTAINS
 
     IF (msg_level > 5) CALL message(TRIM(routine),'echam_phy clean up is done')
     
-    IF (use_async_name_list_io) THEN    
+    IF (output_mode%l_nml) THEN    
+      CALL message('LK','... close_name_list_putput ...') 
       CALL close_name_list_output
     ELSE
-      IF (l_have_output) CALL close_output_files
+      IF (l_have_output) THEN
+        CALL close_output_files
+      ENDIF
     ENDIF
     IF (msg_level > 5) CALL message(TRIM(routine),'close_output_files is done')
 
