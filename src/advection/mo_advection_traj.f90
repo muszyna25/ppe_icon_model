@@ -69,7 +69,6 @@ MODULE mo_advection_traj
   USE mo_math_utilities,      ONLY: ccw, lintersect, line_intersect, t_line, &
     &                               t_geographical_coordinates 
   USE mo_run_config,          ONLY: msg_level
-!DR  USE mo_exception,           ONLY: finish, message, message_text
 
 
   IMPLICIT NONE
@@ -1284,7 +1283,7 @@ CONTAINS
     LOGICAL :: lintersect_e2_line1, lintersect_e1_line2
     LOGICAL :: lvn_pos, lvn_sys_pos
     INTEGER :: icnt_c1, icnt_c2p, icnt_c3p, icnt_c2m, icnt_c3m 
-    INTEGER :: icnt_rem, icnt_err
+    INTEGER :: icnt_rem, icnt_err, icnt_vn0
 
     INTEGER ::           &         !< je index list
       &  idxlist_c1 (nproma*p_patch%nlev,p_patch%nblks_e), &
@@ -1293,7 +1292,9 @@ CONTAINS
       &  idxlist_c2m(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  idxlist_c3m(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  idxlist_rem(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  idxlist_vn0(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  idxlist_err(nproma*p_patch%nlev,p_patch%nblks_e)
+
 
     INTEGER ::           &         !< jk index list
       &  levlist_c1 (nproma*p_patch%nlev,p_patch%nblks_e), &
@@ -1302,6 +1303,7 @@ CONTAINS
       &  levlist_c2m(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  levlist_c3m(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  levlist_rem(nproma*p_patch%nlev,p_patch%nblks_e), &
+      &  levlist_vn0(nproma*p_patch%nlev,p_patch%nblks_e), &
       &  levlist_err(nproma*p_patch%nlev,p_patch%nblks_e)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1356,8 +1358,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,je,jl,i_startidx,i_endidx,lvn_pos,fl_line,tri_line1, &
 !$OMP            tri_line2,fl_e1,fl_e2,lintersect_line1,lintersect_line2,   &
 !$OMP            lintersect_e2_line1,lintersect_e1_line2,icnt_c1,icnt_c2p,  &
-!$OMP            icnt_c2m,icnt_rem,icnt_c3p,icnt_c3m,icnt_err,lvn_sys_pos,  &
-!$OMP            ps1,ps2,pi1,pi2,bf_cc)
+!$OMP            icnt_c2m,icnt_rem,icnt_c3p,icnt_c3m,icnt_vn0,icnt_err,     &
+!$OMP            lvn_sys_pos,ps1,ps2,pi1,pi2,bf_cc)
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1371,6 +1373,7 @@ CONTAINS
       icnt_c3m = 0
       icnt_rem = 0
       icnt_err = 0
+      icnt_vn0 = 0
 
       DO jk = slev, elev
 
@@ -1378,9 +1381,6 @@ CONTAINS
 
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
 
-          !
-          ! I) check whether departure-line segment is located 
-          !    within the upwind row
           !
           ! get flux area departure-line segment
           !
@@ -1507,31 +1507,43 @@ CONTAINS
           idxlist_c3m(icnt_c3m,jb) = je
           levlist_c3m(icnt_c3m,jb) = jk
 
+        ELSE IF ( ABS(p_vn(je,jk,jb)) < 1E-11_wp ) THEN
+
+          ! CASE IV
+          ! special case of very small normal velocity
+          icnt_vn0 = icnt_vn0 + 1
+          idxlist_vn0(icnt_vn0,jb) = je
+          levlist_vn0(icnt_vn0,jb) = jk
         ELSE     ! error index list
 
           ! ERROR
           icnt_err = icnt_err + 1
           idxlist_err(icnt_err,jb) = je
           levlist_err(icnt_err,jb) = jk
-
         ENDIF
 
       ENDDO  !jl
 
 
 
-      IF (msg_level >= 10 .AND. icnt_err>0) THEN 
-        ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
-        DO jl = 1, icnt_err
+      IF (msg_level >= 10 .AND. ( icnt_err>0 .OR. icnt_vn0>0) ) THEN 
 
-          je = idxlist_err(jl,jb)
-          jk = levlist_err(jl,jb)
+        IF ( icnt_err>0 ) THEN 
+          ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
+          DO jl = 1, icnt_err
 
-          ! Note: direct write to standard error output is used here by intention
-          ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                     p_vn(je,jk,jb),p_vt(je,jk,jb)
-        ENDDO
+            je = idxlist_err(jl,jb)
+            jk = levlist_err(jl,jb)
+
+            ! Note: direct write to standard error output is used here by intention
+            ! because warnings are otherwise suppressed for all PEs but PE0
+            WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
+                                       p_vn(je,jk,jb),p_vt(je,jk,jb)
+          ENDDO
+        ENDIF
+
+        WRITE(0,'(a,i5)') 'divide_flux_area: number of points with ABS(vn) < 1E-11 m/s: ', &
+          &                icnt_vn0
       ENDIF
 
 
@@ -1832,6 +1844,52 @@ CONTAINS
           &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
       ENDDO  ! jl
 
+
+
+      ! 
+      ! CASE 4  (very small normal velocity)
+      !
+!CDIR NODEP,VOVERTAKE,VOB
+      DO jl = 1, icnt_vn0
+        je = idxlist_vn0(jl,jb)
+        jk = levlist_vn0(jl,jb)
+
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+
+        ! patch 0 (non-existing)
+        !
+        ! store corners of flux area patches (counterclockwise)
+        ! patch 0
+        ! vn > 0: A1 D1 D2 A2
+        ! vn < 0: A1 A2 D2 D1
+        !
+        dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,2,1,jk,jb)   = MERGE(depart_pts(je,1,1,jk,jb), &
+          &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,2,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb), &
+          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,3,1:2,jk,jb) = depart_pts(je,2,1:2,jk,jb)
+        dreg_patch0(je,4,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
+          &                           depart_pts(je,1,1,jk,jb),lvn_sys_pos)
+        dreg_patch0(je,4,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
+          &                           depart_pts(je,1,2,jk,jb),lvn_sys_pos)
+
+
+        ! patch 1 (non-existing)
+        !
+        dreg_patch1(je,1,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,2,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,3,1:2,jk,jb) = 0._wp
+        dreg_patch1(je,4,1:2,jk,jb) = 0._wp
+
+        ! patch 2 (non-existing)
+        !
+        dreg_patch2(je,1,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,2,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,3,1:2,jk,jb) = 0._wp
+        dreg_patch2(je,4,1:2,jk,jb) = 0._wp
+
+      ENDDO  ! jl
 
      ! end of index list stuff
 
