@@ -675,8 +675,9 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
       i2=779
       write(79) i1,i2,i3,i4
       write(79) (pacind_moc(lbr,jk),lbr=1,180)
-      write(82,*) 'jk=',jk
-      write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
+
+  !   write(82,*) 'jk=',jk
+  !   write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
     END DO
   !END IF
 
@@ -711,14 +712,14 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   INTEGER, PARAMETER ::  nlat = 180                    ! meridional dimension of regular grid
   INTEGER, PARAMETER ::  nlon = 360                    ! zonal dimension of regular grid
   INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
-  INTEGER :: idate, llat, llon
+  INTEGER :: idate, jlat, jlon
   INTEGER(i8) :: iextra(4)
 
 
-  REAL(wp) :: z_lat, z_lon, z_lat_deg, z_lon_deg, z_lat_dist, delta_z
+  REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z
   REAL(wp) :: z_uint(nproma,p_patch%nblks_c)            ! vertical integral of horizontal velocity
-  REAL(wp) :: z_uint_reg(nlat,nlon)                     ! vertical integral on regular grid
-  REAL(wp) :: psi(nlat,nlon)                            ! horizontal stream function
+  REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
+  REAL(wp) :: psi(nlon,nlat)                            ! horizontal stream function
 
   TYPE(t_subset_range), POINTER :: all_cells
   
@@ -753,31 +754,32 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
 
   ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
-  DO jk = 1, n_zlev
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      DO jc = i_startidx, i_endidx
-   
-        ! llat/llon: corresponding latitude/longitude coordinates of 1 deg extension
-        ! llat: 1 = south of 89.0S; 89 = 1S-Eq.; 90 = Eq-1N;  180 = north of 89N
-        ! llon: 1 = 0.5E-1.5E; 360 = 360 deg east = 0.5W-0.5E
-        z_lat = p_patch%cells%center(jc,jb)%lat
-        z_lon = p_patch%cells%center(jc,jb)%lon
-        z_lat_deg = z_lat*rad2deg
-        z_lon_deg = z_lon*rad2deg
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+    DO jc = i_startidx, i_endidx
+      z_lat_deg = p_patch%cells%center(jc,jb)%lat * rad2deg
+      z_lon_deg = p_patch%cells%center(jc,jb)%lon * rad2deg
 
-        IF (z_lon_deg <= 0.0_wp ) z_lon_deg = z_lon_deg + 180.0_wp
+   !  ! 0 <= lon <= 360 deg
+   !  z_lon_deg = z_lon_deg + 180.0_wp
+  
+      ! jlat/jlon: corresponding latitude/longitude coordinates of 1 deg extension
+      ! jlat: 1 = south of 89.0S; 89 = 1S-Eq.; 90 = Eq-1N;  180 = north of 89N
+      ! jlon: 1 = 180W-179W; 180 = 1-0 deg west; 360 = 179E-180E
 
-        llat = NINT(91.0_wp + z_lat_deg)
-        llon = NINT(z_lon_deg + 0.5_wp)
+      jlat = NINT(91.0_wp + z_lat_deg)
+      jlon = NINT(z_lon_deg + 180.5_wp)
 
-        z_uint_reg(llat,llon) = z_uint(jc,jb)
+      z_uint_reg(jlon,jlat) = z_uint(jc,jb)
+  !99 format(' lat=',f8.2,' lon=',f8.2,' %lon=',f8.2,' jlt=',i4,' jln=',i4,' lsm=',i3, &
+  !     &    ' uint=',1p10e12.3)
+  !   write(82,99) z_lat_deg,z_lon_deg,p_patch%cells%center(jc,jb)%lon*rad2deg, &
+  !     &          jlat,jlon,v_base%lsm_oce_c(jc,1,jb),z_uint_reg(jlon,jlat)
 
-      END DO
     END DO
   END DO
 
-  ! (3) calculate stream function 
+  ! (3) calculate stream function: scale with length of 1 deg*rho [m/s*m*m*kg/m3=kg/s]
 
   psi(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref
 
@@ -786,7 +788,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
 !     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 !     DO jc = i_startidx, i_endidx
 
-!       psi(llat,llon) = z_uint_reg(llat,llon) * z_lat_dist * rho_ref
+!       psi(jlat,jlon) = z_uint_reg(jlat,jlon) * z_lat_dist * rho_ref
 
 !     END DO
 !   END DO
@@ -803,7 +805,12 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   iextra(4) = nlon*nlat
 
   write(80) (iextra(jb),jb=1,4)
-  write(80) ((psi(llat,llon),llat=1,nlat),llon=1,nlon)
+  write(80) ((psi(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
+
+! do jlat=1,nlat
+!     write(82,*) 'jlat=',jlat
+!     write(82,'(1p10e12.3)') (psi(jlon,jlat),jlon=1,nlon)
+! enddo
 
 END SUBROUTINE calc_psi
 !-------------------------------------------------------------------------  
