@@ -202,9 +202,8 @@ CONTAINS
         ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
 
           ! In turb3, the flux is negative upwards.
-          ! (attention: number here and in mo_vdfmain.f90)
-          z_qhfl(i_startidx:i_endidx,nlevp1) = - 60._wp / alv   !> moisture flux kg/m2/s
-          z_shfl(i_startidx:i_endidx,nlevp1) = - 15._wp         !! sens. heat fl W/m**2
+          z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv ! moisture flux kg/m2/s
+          z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)       ! sens. heat fl W/m**2
 
         ENDIF
 

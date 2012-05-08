@@ -685,7 +685,7 @@ ENDIF
 
 !amk  turn on specified surface fluxes everywhere globally
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
-LLSFCFLX = .TRUE.
+LLSFCFLX   = .TRUE.
 ZEXTSHF(:) = -15.0_JPRB
 ZEXTLHF(:) = -60.0_JPRB
 !xxx
@@ -763,7 +763,7 @@ ENDDO
 !*         3.  Compute all surface related quantities
 !          ------------------------------------------
 
-  CALL SURFEXCDRIVER(CDCONF=CDCONF, &
+CALL SURFEXCDRIVER(CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
    & KLEVSN=KLEVSN, KLEVI=KLEVI, KDHVTLS=KDHVTLS, KDHFTLS=KDHFTLS, &
    & KDHVTSS=KDHVTSS, KDHFTSS=KDHFTSS, KDHVTTS=KDHVTTS, KDHFTTS=KDHFTTS, &
@@ -799,23 +799,31 @@ ENDDO
 
 
 !amk dummy (unused!!)
-  DO JL=KIDIA,KFDIA
-    PEVAPSNW(JL) = 0.0_JPRB
-  ENDDO
+DO JL=KIDIA,KFDIA
+  PEVAPSNW(JL) = 0.0_JPRB
+ENDDO
+!xxx
+
+!amk  overwrite SCM surface fluxes from above calculation
+!     (attention: number here and in mo_nwp_conv_interactive.f90)
+DO JL=KIDIA,KFDIA
+  ZEXTSHF(JL) = ZKHFL(JL)
+  ZEXTLHF(JL) = ZKQFL(JL)
+ENDDO
 !xxx
 
 !amk ATTENTION: needs to specify surface layer diffusion coefficients
-  JK = KLEV
-  DO JL=KIDIA,KFDIA
-    ZCFNC1 = RVDIFTS * ZTMST * RG * PAPHM1(JL,JK) / RD &
-           & /( PTM1(JL,JK) * (1.0_JPRB+RETV*PQM1(JL,JK)) )
-    ZCFNC1 = 0.0_JPRB
-    ZCFM(JL,KLEV) = 1.0_JPRB * ZCFNC1  ! normalization??
-    ZCFH(JL,KLEV) = 1.0_JPRB * ZCFNC1  !   -
-    ZCFQTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
-    ZCFHTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
-    ZBLEND(JL)    = 75.0_JPRB   !blending height for U10 diagnostic
-  ENDDO
+!   JK = KLEV
+!   DO JL=KIDIA,KFDIA
+!     ZCFNC1 = RVDIFTS * ZTMST * RG * PAPHM1(JL,JK) / RD &
+!            & /( PTM1(JL,JK) * (1.0_JPRB+RETV*PQM1(JL,JK)) )
+!     ZCFNC1 = 0.0_JPRB
+!     ZCFM(JL,KLEV) = 1.0_JPRB * ZCFNC1  ! normalization??
+!     ZCFH(JL,KLEV) = 1.0_JPRB * ZCFNC1  !   -
+!     ZCFQTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
+!     ZCFHTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
+!     ZBLEND(JL)    = 75.0_JPRB   !blending height for U10 diagnostic
+!   ENDDO
 !xxx
 
 
