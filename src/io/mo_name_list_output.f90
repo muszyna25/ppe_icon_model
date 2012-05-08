@@ -341,12 +341,8 @@ CONTAINS
     lrewind = .TRUE.
 
     DO
-
-      CALL message('LK','Entered the namelist reading loop ...')
-      
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
-        CALL message('LK','Not positioned ...')
         CALL close_nml
         RETURN
       ENDIF
@@ -397,19 +393,14 @@ CONTAINS
       READ (nnml, output_nml, iostat=istat)
       WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", status = ', istat
       CALL message('',message_text)
-!LK      IF(istat < 0) EXIT ! No more namelists
       IF(istat > 0) THEN
         WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
         CALL finish(routine, message_text)
       ENDIF
       
       nnamelists = nnamelists+1
-      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
-      CALL message('',message_text)
-      IF(my_process_is_stdio()) THEN
-        WRITE (*,output_nml)
-        CALL message('','')
-      ENDIF
+!LK      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
+!LK      CALL message('',message_text)
 
       ! Check input
 
@@ -439,7 +430,6 @@ CONTAINS
       ! Allocate next output_name_list
 
       IF(.NOT.ASSOCIATED(first_output_name_list)) THEN
-        CALL message('LK','first_output_name_list allocated ...')
         ! Allocate first name_list
         ALLOCATE(first_output_name_list)
         p_onl => first_output_name_list
@@ -582,9 +572,6 @@ CONTAINS
       &  TRIM('mo_name_list_output/init_name_list_output')
     REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
 
-    CALL message('LK','init_name_list_output entered ...') 
-
-!LK    l_print_list = .TRUE.
     l_print_list = .FALSE.
     IF (PRESENT(lprintlist)) l_print_list = lprintlist
 
@@ -609,7 +596,7 @@ CONTAINS
 
       ! print list of all variables
       IF (l_print_list) THEN
-!LK        IF (my_process_is_stdio()) THEN
+        IF (my_process_is_stdio()) THEN
           WRITE(message_text,'(3a, i2)') &
                'Var_list name: ',TRIM(var_lists(i)%p%name), &
                ' Patch: ',var_lists(i)%p%patch_id
@@ -624,7 +611,7 @@ CONTAINS
             CALL message('',message_text)
             element => element%next_list_element
           ENDDO
- !LK       ENDIF
+        ENDIF
       ENDIF ! IF (l_print_list)
 
     ENDDO
@@ -803,12 +790,9 @@ CONTAINS
 
     DO
 
-!LK      IF(.NOT.ASSOCIATED(p_onl)) EXIT
       IF(.NOT.ASSOCIATED(p_onl)) THEN
-        CALL message('LK','Anchor for traversing the output name list is NULL() ...')
         EXIT
       ENDIF
-      CALL message('LK','Traverse the output name list ...')
 
       ! If dom(:) was not specified in namelist input, it is set completely to -1.
       ! In this case all domains are wanted in the output, so set it here
@@ -833,7 +817,6 @@ CONTAINS
           IF(i_typ == 1 .AND. p_onl%ml_varlist(1) == ' ') CYCLE
           IF(i_typ == 2 .AND. p_onl%pl_varlist(1) == ' ') CYCLE
           IF(i_typ == 3 .AND. p_onl%hl_varlist(1) == ' ') CYCLE
-          CALL message('LK','variables selected: '//TRIM(p_onl%ml_varlist(1))) 
           nfiles = nfiles+1
         ENDDO
       ENDDO
@@ -2788,8 +2771,6 @@ CONTAINS
     CHARACTER(LEN=filename_max+100) :: text
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
 
-    CALL message('LK','Start writing name list output ...')
-
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
     ! that the I/O PEs are ready with the last output step before
     ! writing data into the I/O memory window.
@@ -2815,25 +2796,18 @@ CONTAINS
     ! Go over all output files
     DO i = 1, SIZE(output_file)
 
-      CALL message('LK','File for writing name list output ... ')
-
       p_onl => output_file(i)%name_list
 
       ! Check if output is due for this file
       IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
 
-        CALL message('LK','Checked for writing name list output ...')
-
         IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(p_onl%n_output_steps == 0) THEN
-              CALL message('LK','... for setup of vlist output ...')
               CALL setup_output_vlist(output_file(i))
             ELSE
-              CALL message('LK','... close output file ...')
               CALL close_output_file(output_file(i))
             ENDIF
-              CALL message('LK','... open output file ...')
             CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1)
           ENDIF
         ENDIF

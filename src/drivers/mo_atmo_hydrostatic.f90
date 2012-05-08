@@ -129,7 +129,6 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      CALL message('LK','... init_name_list_putput ...') 
       CALL init_name_list_output
     ENDIF
 
@@ -141,9 +140,10 @@ CONTAINS
       CALL init_output_files(jfile, lclose=.FALSE.)
       IF (lwrite_initial) THEN
         IF (output_mode%l_nml) THEN
-          CALL message('LK','... write_name_list_putput ...') 
           CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
-        ELSE
+        ENDIF
+
+        IF (output_mode%l_vlist) THEN        
           CALL write_output( time_config%cur_datetime )
           l_have_output = .TRUE.
         ENDIF
@@ -157,6 +157,7 @@ CONTAINS
 
       CALL get_restart_attribute('next_output_file',jfile)
 
+!LK - following DR in mo_atmo_nonhydrostatic.f90: may need to be fine-tuned later on
 !LK      IF (n_io.le.(nsteps-1)) THEN
          CALL init_output_files(jfile, lclose=.FALSE.)
          l_have_output = .TRUE.
@@ -219,9 +220,10 @@ CONTAINS
     IF (msg_level > 5) CALL message(TRIM(routine),'echam_phy clean up is done')
     
     IF (output_mode%l_nml) THEN    
-      CALL message('LK','... close_name_list_putput ...') 
       CALL close_name_list_output
-    ELSE
+    ENDIF
+
+    IF (output_mode%l_vlist) THEN        
       IF (l_have_output) THEN
         CALL close_output_files
       ENDIF

@@ -375,12 +375,13 @@ CONTAINS
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
-      ELSE
+      ENDIF
+      IF (output_mode%l_vlist) THEN
         CALL write_output( datetime )
+        l_have_output = .TRUE.
       ENDIF
       CALL message(TRIM(routine),'Output at:')
       CALL print_datetime(datetime)
-      l_have_output = .TRUE.
       
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
