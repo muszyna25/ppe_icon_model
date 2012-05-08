@@ -3888,8 +3888,9 @@ IMPLICIT NONE
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN          ! land-points only
           IF (zwsnew(i) > zepsi) THEN        ! points with snow cover only
-!em            zdwsnm(i) = zqbase(i)*rho_w       ! ksn == ke_snow
-            zdwsnm(i) = zqbase(i)*rho_w*zf_snow(i)       ! ksn == ke_snow
+            zdwsnm(i) = zqbase(i)*rho_w       ! ksn == ke_snow
+! ** Change of melting rate reverted by GZ because it caused numerical instability **!
+!            zdwsnm(i) = zqbase(i)*rho_w*zf_snow(i)       ! ksn == ke_snow
           END IF       ! points with snow cover only
 !        END IF         ! land-points only
       END DO
@@ -4280,14 +4281,16 @@ IMPLICIT NONE
   !em>
   
   ! computation of the temperature at the boundary soil/snow-atmosphere
-    IF(lmulti_snow) THEN
-      CALL tgcom ( t_g(:), t_snow_mult_new(:,1), t_s_new(:), &
-                   w_snow_new(:), snowfrac(:), ie, cf_snow,  &
-                   istarts, iends )
-    ELSE
-      CALL tgcom ( t_g(:), t_snow_new(:), t_s_new(:),       &
-                   w_snow_new(:), snowfrac(:), ie, cf_snow, &
-                   istarts, iends )
+    IF (ldiag_tg) THEN
+      IF(lmulti_snow) THEN
+        CALL tgcom ( t_g(:), t_snow_mult_new(:,1), t_s_new(:), &
+                     w_snow_new(:), snowfrac(:), ie, cf_snow,  &
+                     istarts, iends )
+      ELSE
+        CALL tgcom ( t_g(:), t_snow_new(:), t_s_new(:),       &
+                     w_snow_new(:), snowfrac(:), ie, cf_snow, &
+                     istarts, iends )
+      ENDIF
     ENDIF
 !  END DO
 
@@ -4860,6 +4863,7 @@ IMPLICIT NONE
                   rho_snow_mult_now(i,ksn) = wtot_snow_now(i,ksn)                 &
                                                & /MAX(dzh_snow_now(i,ksn),0.0_ireals) &
                                                & *rho_w  ! initial density
+                  t_snow_mult_now  (i,ksn) = t_snow_now(i)
                 END IF
 !             END IF
             END DO

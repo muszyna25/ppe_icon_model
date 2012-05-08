@@ -479,7 +479,7 @@ CONTAINS
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-            &  t_snow    = t_snow_mult_new_t (:,1,jb,isubs), & ! snow temp
+            &  t_snow    = t_snow_mult_new_t (:,2,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp
             &  w_snow    = w_snow_new_t      (:,jb,isubs), & ! snow WE
             &  rho_snow  = rho_snow_new_t    (:,jb,isubs), & ! snow depth
@@ -875,7 +875,7 @@ CONTAINS
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-            &  t_snow    = t_snow_mult_now_t (:,1,jb,isubs), & ! snow temp
+            &  t_snow    = t_snow_mult_now_t (:,2,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
             &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
             &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
