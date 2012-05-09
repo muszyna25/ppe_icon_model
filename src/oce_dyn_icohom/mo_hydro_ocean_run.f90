@@ -330,7 +330,8 @@ CONTAINS
       !CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
       !  &                        pstate_oce(jg)%p_diag%wet_c, datetime)
       !CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
-      !  &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), datetime)
+      !  &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), &
+      !  &                        pstate_oce(jg)%p_diag%psi, datetime)
 
     END IF
 

@@ -52,8 +52,8 @@ USE mo_impl_constants,            ONLY: sea_boundary,sea, &
   &                                     max_char_length, MIN_DOLIC
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
-USE mo_dynamics_config,          ONLY: nold,nnew
-USE mo_parallel_config,  ONLY: nproma
+USE mo_dynamics_config,           ONLY: nold,nnew
+USE mo_parallel_config,           ONLY: nproma
 USE mo_run_config,                ONLY: dtime, nsteps
 USE mo_physical_constants,        ONLY: grav, rho_ref
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
@@ -61,7 +61,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
 USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
+USE mo_loopindices,               ONLY: get_indices_c!, get_indices_e
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
   &                                     height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
@@ -699,13 +699,13 @@ END SUBROUTINE calc_moc
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
-SUBROUTINE calc_psi (p_patch, u, h, datetime)
+SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
   REAL(wp), INTENT(IN)               :: u(:,:,:)       ! zonal velocity at cell centers
   REAL(wp), INTENT(IN)               :: h(:,:)         ! elevation on cell centers
                                                        ! dims: (nproma,nlev,nblks_c)
-! REAL(wp), INTENT(OUT)              :: psi(:,:)       ! horizontal stream function
+  REAL(wp), INTENT(OUT)              :: psi(:,:)       ! horizontal stream function on icon grid
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
@@ -724,7 +724,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z, rsmth
   REAL(wp) :: z_uint(nproma,p_patch%nblks_c)            ! vertical integral of horizontal velocity
   REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
-  REAL(wp) :: psi(nlon,nlat)                            ! horizontal stream function
+  REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
 
   TYPE(t_subset_range), POINTER :: all_cells, dom_cells
   
@@ -732,7 +732,7 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
   !-----------------------------------------------------------------------
 
-  psi(:,:)        = 0.0_wp
+  psi_reg(:,:)    = 0.0_wp
   z_uint(:,:)     = 0.0_wp
   z_uint_reg(:,:) = 0.0_wp
 
@@ -818,7 +818,11 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   ! ATTENTION - fixed 1 deg resolution should be related to icon-resolution
   z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
 
-  psi(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref
+  psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref
+
+  ! stream function on icon grid without calculation of meridional integral
+  !  - tbd after interpolation to regular grid externally
+  psi    (:,:) = z_uint    (:,:)              * rho_ref
 
 
   ! write out in extra format - integer*8
@@ -831,11 +835,11 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
   iextra(4) = int(nlon*nlat,i8)
 
   write(80) (iextra(jb),jb=1,4)
-  write(80) ((psi(jln,jlt),jln=1,nlon),jlt=1,nlat)
+  write(80) ((psi_reg(jln,jlt),jln=1,nlon),jlt=1,nlat)
 
   do jlat=1,nlat
       write(82,*) 'jlat=',jlat
-      write(82,'(1p10e12.3)') (psi(jlon,jlat),jlon=1,nlon)
+      write(82,'(1p10e12.3)') (psi_reg(jlon,jlat),jlon=1,nlon)
   enddo
 
 END SUBROUTINE calc_psi
