@@ -182,7 +182,7 @@ CONTAINS
     iadv_rcf = 4  ! reduced calling frequency (transport time step = 4* dynamics time step)
 
     ! reduced calling frequency also for horizontal diffusion
-    lhdiff_rcf = .FALSE.  ! not used by default for the time being
+    lhdiff_rcf = .TRUE.  ! new default since 2012-05-09 after successful testing
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
     divdamp_fac = 0.004_wp
@@ -207,7 +207,7 @@ CONTAINS
     rayleigh_coeff(1) = 0.05_wp
     ! Off-centering of vertical wind speed in vertically implicit solver
     ! When combining coarse spatial resolutions (R2B5 or coarser) with high model tops (> 50 km),
-    ! this value may have to be increased up to 0.5
+    ! this value can be increased up to 1.0 in order to stabilize the numerical treatment of sound waves
     vwind_offctr      = 0.15_wp
     ! Use Miura scheme for advection of rho and theta
     iadv_rhotheta     = 2
