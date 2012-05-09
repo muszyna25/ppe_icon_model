@@ -2437,11 +2437,11 @@ CONTAINS
 
     WHERE ( iarea(:,:) <= 5 )
       ibase(:,:) = 1
-    ELSE WHERE ( iarea(:,:) == 6 )
+    ELSEWHERE ( iarea(:,:) == 6 )
       ibase(:,:) = 4
-    ELSE WHERE ( iarea(:,:) == 7 )
+    ELSEWHERE ( iarea(:,:) == 7 )
       ibase(:,:) = 2
-    ELSE WHERE ( iarea(:,:) >= 8 )
+    ELSEWHERE ( iarea(:,:) >= 8 )
       ibase(:,:) = 3
     END WHERE
 
