@@ -665,10 +665,10 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
     write(82,*) 'global MOC at iyear, idate:',datetime%year, idate
     DO jk=1,n_zlev
-      i1=int(idate,8)
-      i2=int(777,8)
-      i3=int(v_base%zlev_i(jk),8)
-      i4=int(180,8)
+      i1=int(idate,i8)
+      i2=int(777,i8)
+      i3=int(v_base%zlev_i(jk),i8)
+      i4=int(180,i8)
       write(77) i1,i2,i3,i4
       write(77) (global_moc(lbr,jk),lbr=1,180)
       i2=int(778,8)
