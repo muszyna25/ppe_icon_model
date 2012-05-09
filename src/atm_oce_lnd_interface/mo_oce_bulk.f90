@@ -1032,16 +1032,16 @@ CONTAINS
 
         !calculate evaporation from latent heat flux and latent heat of vaporisation
         !This is (63) in Marsland et al.
-        z_Q_freshwater(jc,jb) = (Qatm%rpreci(jc,jb) + Qatm%rprecw(jc,jb)) -  z_evap(jc,jb) &
-          &                                                       !+River runoff +glacial meltwater
+        !+River runoff +glacial meltwater
+        z_Q_freshwater(jc,jb) = (Qatm%rpreci(jc,jb) + Qatm%rprecw(jc,jb)) -  z_evap(jc,jb)  
 
-        !Now the freshwater flux calculation is finished; this is (65) in Marslkand et al.
+        !Now the freshwater flux calculation is finished; this is (65) in Marsland et al.
         !Relaxation of top layer salinity to observed salinity
         !
-        p_sfc_flx%forc_tracer(jc,jb,2) = &
-        &(v_base%del_zlev_m(1)+z_Q_freshwater(jc,jb))&
-        &/v_base%del_zlev_m(1)                       &
-        & + z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2) - p_sfc_flx%forc_tracer_relax(jc,jb,2))
+        p_sfc_flx%forc_tracer(jc,jb,2) =                 &
+          & (v_base%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
+          & /v_base%del_zlev_m(1)                        &
+          & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
 
         !calculate wind stress    
@@ -1056,12 +1056,13 @@ CONTAINS
         z_C_d0 = 1.0E-3_wp*(0.692_wp+0.071_wp*z_v-0.00070_wp*z_norm)
         z_C_d1 = 1.0E-3_wp*(0.083_wp-0.0054_wp*z_v-0.000093_wp*z_norm)
         z_C_d  = z_C_d0 + z_C_d1*(p_as%tafo(jc,jb)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1))
-        !write(*,*)'final wind stress coeff',z_C_d
-        p_sfc_flx%forc_wind_u(jc,jb) = z_rho_w*z_C_d*z_norm&
-                                     &*(p_as%u(jc,jb)- p_os%p_diag%u(jc,1,jb))
 
-        p_sfc_flx%forc_wind_v(jc,jb) = z_rho_w*z_C_d*z_norm&
-                                     &*(p_as%v(jc,jb) - p_os%p_diag%v(jc,1,jb))
+        !write(*,*)'final wind stress coeff',z_C_d
+        p_sfc_flx%forc_wind_u(jc,jb) = z_rho_w*z_C_d*z_norm &
+          &                            *(p_as%u(jc,jb)- p_os%p_diag%u(jc,1,jb))
+
+        p_sfc_flx%forc_wind_v(jc,jb) = z_rho_w*z_C_d*z_norm &
+          &                            *(p_as%v(jc,jb) - p_os%p_diag%v(jc,1,jb))
    
       END DO
     END DO
