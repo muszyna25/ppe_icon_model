@@ -671,10 +671,10 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
       i4=int(180,i8)
       write(77) i1,i2,i3,i4
       write(77) (global_moc(lbr,jk),lbr=1,180)
-      i2=int(778,8)
+      i2=int(778,i8)
       write(78) i1,i2,i3,i4
       write(78) (atlant_moc(lbr,jk),lbr=1,180)
-      i2=int(779,8)
+      i2=int(779,i8)
       write(79) i1,i2,i3,i4
       write(79) (pacind_moc(lbr,jk),lbr=1,180)
 
@@ -822,13 +822,13 @@ SUBROUTINE calc_psi (p_patch, u, h, datetime)
 
 
   ! write out in extra format - integer*8
-  idate = int(datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute,8)
+  idate = int(datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute,i8)
   write(0,*) 'write global PSI at iyear, idate:',datetime%year, idate
 
-  iextra(1) = int(idate,8)
-  iextra(2) = int(780,8)
-  iextra(3) = int(0,8)
-  iextra(4) = int(nlon*nlat,8)
+  iextra(1) = int(idate,i8)
+  iextra(2) = int(780,i8)
+  iextra(3) = int(0,i8)
+  iextra(4) = int(nlon*nlat,i8)
 
   write(80) (iextra(jb),jb=1,4)
   write(80) ((psi(jln,jlt),jln=1,nlon),jlt=1,nlat)
