@@ -526,9 +526,13 @@ MODULE mo_nh_stepping
     ! dynamics stepping
     !
     CALL integrate_nh(p_nh_state, p_patch, p_int_state, datetime, p_grf_state, &
-      &               1, jstep, dtime, dtime_adv, sim_time, 1,                 &
-      &               l_compute_diagnostic_quants                              )
+      &               1, jstep, dtime, dtime_adv, sim_time, 1                  )
 
+
+    ! Compute diagnostics for output if necessary
+    IF (l_compute_diagnostic_quants) THEN
+      CALL diag_for_output (p_nh_state, p_patch, p_int_state, p_grf_state)
+    ENDIF
 
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
@@ -652,13 +656,11 @@ MODULE mo_nh_stepping
   !!  - optional reduced calling frequency for transport and physics
   !!
 #ifdef __NO_NESTING__
-   SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,  &
-  &        p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time,   &
-  &        num_steps, l_compute_diagnostic_quants)
+  SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,      &
+    &  p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, num_steps)
 #else
-  RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,  &
-  &        p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, &
-  &        num_steps, l_compute_diagnostic_quants)
+  RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime, &
+    &  p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, num_steps     )
 #endif
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -678,7 +680,6 @@ MODULE mo_nh_stepping
                                             !< local grid level
     REAL(wp), INTENT(INOUT) :: sim_time(n_dom) !< elapsed simulation time on each
                                                !< grid level
-    LOGICAL, INTENT(IN) :: l_compute_diagnostic_quants    !< computation of diagnostic quantities
 
     ! Local variables
 
@@ -1337,7 +1338,7 @@ MODULE mo_nh_stepping
             ! Recursive call to process_grid_level for child grid level
             CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,        & 
               p_grf_state, jgc, nstep_global, dt_sub, dtadv_sub, sim_time,        &
-              nsteps_nest, l_compute_diagnostic_quants )
+              nsteps_nest )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1369,89 +1370,6 @@ MODULE mo_nh_stepping
       ENDIF
 #endif
 
-      IF (l_compute_diagnostic_quants) THEN ! compute diagnostic quantities
-        p_vn  => p_nh_state(jg)%prog(n_new)%vn
-        SELECT CASE (p_patch(jg)%cell_type)
-        CASE (3)
-        
-          IF (ltimer) CALL timer_start(timer_nh_diagnostics)
-        
-          CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
-                                     p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-#if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
-          CALL div_avg(p_vn, p_patch(jg), p_int_state(jg), p_int_state(jg)%c_bln_avg, &
-                 p_nh_state(jg)%diag%div)
-#else
-          CALL message("mo_nh_stepping", "Skipping call of DIV_AVG on CRAY XT4")
-#endif
-          ! Fill boundaries of nested domains
-          IF (p_patch(jg)%n_childdom > 0) THEN
-            CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
-              p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
-          ENDIF
-          DO jn = 1, p_patch(jg)%n_childdom
-            jgc = p_patch(jg)%child_id(jn)
-
-            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-                 p_grf_state(jg)%p_dom(jn), jn, 2, p_nh_state(jg)%diag%u,             &
-                 p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v)
-
-            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-                 p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%diag%div,           &
-                 p_nh_state(jgc)%diag%div)
-
-            IF ( iforcing == inwp ) THEN
-              CALL interpol_phys_grf(p_patch(jg), p_patch(jgc),                  &
-                                     p_int_state(jg), p_grf_state(jg)%p_dom(jn), &
-                                     jg, jgc, jn )
-
-              IF (ltimer)            CALL timer_start(timer_nesting)
-              IF (timers_level >= 2) CALL timer_start(timer_feedback)
-              IF (lfeedback(jgc)) CALL feedback_phys_diag(p_patch, p_grf_state, jgc, jg)
-              IF (timers_level >= 2) CALL timer_stop(timer_feedback)
-              IF (ltimer)            CALL timer_stop(timer_nesting)
-
-              ! Fill lateral boundaries of TKE field; note: time-level-switching has
-              ! already been done at child level, but not yet at parent level
-              CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnew_rcf(jg))%tke)
-
-              CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
-                 p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnew_rcf(jg))%tke,&
-                 p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
-
-            ENDIF
-
-          ENDDO
-          
-          IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
-
-        CASE (6)
-          CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_east ,&
-                                  p_nh_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_north,&
-                                  p_nh_state(jg)%diag%v)
-          CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
-
-          ALLOCATE(z_tmp_e(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_e))
-          CALL verts2edges_scalar(p_nh_state(jg)%diag%omega_z,p_patch(jg), &
-          &                       p_int_state(jg)%tria_aw_rhom,z_tmp_e)
-          CALL sync_patch_array(SYNC_E,p_patch(jg),z_tmp_e)
-          CALL edges2verts_scalar(z_tmp_e,p_patch(jg),p_int_state(jg)%e_1o3_v,&
-                                  p_nh_state(jg)%diag%omega_z)
-          DEALLOCATE(z_tmp_e)
-
-        END SELECT
-      ENDIF
-      IF ((l_compute_diagnostic_quants .AND. (p_patch(jg)%cell_type==3)).OR.&
-        & (p_patch(jg)%cell_type==6)) THEN
-        CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnew(jg)), &
-          &                      p_nh_state(jg)%prog(nnew_rcf(jg)),                     &
-          &                      p_nh_state(jg)%diag,p_patch(jg),                       &
-          &                      opt_calc_temp=.TRUE.,                                  &
-          &                      opt_calc_pres=.TRUE.                                 )
-      ENDIF
-
-
       ! Finally, switch between time levels now and new for next time step
       n_temp   = nnow(jg)
       nnow(jg) = nnew(jg)
@@ -1474,6 +1392,120 @@ MODULE mo_nh_stepping
   END SUBROUTINE integrate_nh
   !-----------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------
+  !>
+  !! Diagnostic computations for output
+  !!
+  !! This routine encapsulates calls to diagnostic computations required at output
+  !! times only
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2012-05-09)
+  !!
+  SUBROUTINE diag_for_output ( p_nh_state, p_patch, p_int_state, p_grf_state )
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_stepping:diag_for_output'
+
+    TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
+    TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
+    TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom)          !< nonhydrostatic state
+    TYPE(t_gridref_state), INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)!< gridref state
+
+    ! Local variables
+    INTEGER :: jg, jgc, jn ! loop indices
+
+    ! Time levels
+    INTEGER :: n_now, n_now_rcf
+
+    REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
+    REAL(wp), DIMENSION(:,:,:), ALLOCATABLE  :: z_tmp_e
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    DO jg = 1, n_dom
+
+      IF(p_patch(jg)%n_patch_cells == 0) CYCLE
+
+      ! Set local variable for time level nnow
+      n_now  = nnow(jg)
+
+      ! Set local variable for rcf-time level nnow
+      n_now_rcf = nnow_rcf(jg)
+
+
+      p_vn  => p_nh_state(jg)%prog(n_now)%vn
+      SELECT CASE (p_patch(jg)%cell_type)
+      CASE (3)
+        
+        CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
+                                   p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+
+        CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
+
+        ! Fill boundaries of nested domains
+        IF (p_patch(jg)%n_childdom > 0) THEN
+          CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
+            p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
+        ENDIF
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+
+          CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
+               p_grf_state(jg)%p_dom(jn), jn, 2, p_nh_state(jg)%diag%u,             &
+               p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v)
+
+          CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
+               p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%diag%div,           &
+               p_nh_state(jgc)%diag%div)
+
+          IF ( iforcing == inwp ) THEN
+            CALL interpol_phys_grf(p_patch(jg), p_patch(jgc),                  &
+                                   p_int_state(jg), p_grf_state(jg)%p_dom(jn), &
+                                   jg, jgc, jn )
+
+            IF (lfeedback(jgc)) CALL feedback_phys_diag(p_patch, p_grf_state, jgc, jg)
+
+            ! Fill lateral boundaries of TKE field; note: time-level-switching has
+            ! already been done at child level, but not yet at parent level
+            CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnow_rcf(jg))%tke)
+
+            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
+               p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
+               p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
+
+          ENDIF
+
+        ENDDO
+
+      CASE (6)
+        CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_east ,&
+                                p_nh_state(jg)%diag%u)
+        CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_north,&
+                                p_nh_state(jg)%diag%v)
+        CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
+
+        ALLOCATE(z_tmp_e(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_e))
+        CALL verts2edges_scalar(p_nh_state(jg)%diag%omega_z,p_patch(jg), &
+        &                       p_int_state(jg)%tria_aw_rhom,z_tmp_e)
+        CALL sync_patch_array(SYNC_E,p_patch(jg),z_tmp_e)
+        CALL edges2verts_scalar(z_tmp_e,p_patch(jg),p_int_state(jg)%e_1o3_v,&
+                                  p_nh_state(jg)%diag%omega_z)
+        DEALLOCATE(z_tmp_e)
+
+      END SELECT
+
+        CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
+          &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
+          &                      p_nh_state(jg)%diag,p_patch(jg),                       &
+          &                      opt_calc_temp=.TRUE.,                                  &
+          &                      opt_calc_pres=.TRUE.                                 )
+
+    ENDDO ! jg-loop
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+
+  END SUBROUTINE diag_for_output
 
   !-------------------------------------------------------------------------
   !>
