@@ -45,7 +45,8 @@ MODULE mo_oce_tracer_transport_vert
 USE mo_kind,                      ONLY: wp
 !USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary, MIN_DOLIC, min_rlcell !, min_rledge
-USE mo_ocean_nml,                 ONLY: n_zlev, expl_vertical_tracer_diff, ab_const !, ab_gam
+USE mo_ocean_nml,                 ONLY: n_zlev, expl_vertical_tracer_diff, ab_const, irelax_2d_S,&
+  &                                     temperature_relaxation!, ab_gam
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
@@ -82,7 +83,7 @@ PRIVATE :: central_vflux_oce
 PRIVATE :: mimetic_vflux_oce
 PRIVATE :: upwind_vflux_ppm
 PRIVATE :: v_ppm_slimiter_mo
-
+PRIVATE :: apply_tracer_flux_top_layer_oce
 
 
 INTEGER, PARAMETER :: UPWIND = 1
@@ -104,7 +105,7 @@ CONTAINS
                            & A_v,                            &
                            & trac_out, timestep, delta_t,    &
                            & cell_thick_intermed_c,          &
-                           & FLUX_CALCULATION_VERT)
+                           & FLUX_CALCULATION_VERT, tracer_id)
 
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     REAL(wp), INTENT(IN)              :: trac_in(nproma,n_zlev, p_patch%nblks_c)
@@ -117,6 +118,7 @@ CONTAINS
     REAL(wp)                          :: delta_t
     REAL(wp)                          :: cell_thick_intermed_c(nproma,n_zlev, p_patch%nblks_c)
     INTEGER                           :: FLUX_CALCULATION_VERT
+    INTEGER, INTENT(IN)               :: tracer_id
 
     !Local variables
     REAL(wp) :: delta_z, delta_z2
@@ -128,8 +130,6 @@ CONTAINS
     REAL(wp) :: z_div_diff_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
     REAL(wp) :: z_h(nproma,n_zlev, p_patch%nblks_c)
     REAL(wp) :: z_temp(nproma,n_zlev, p_patch%nblks_c)
-    !REAL(wp) :: z_h_tmp_c(nproma,n_zlev,p_patch%nblks_c)
-    !REAL(wp) :: dummy_h_c_new(nproma,n_zlev, p_patch%nblks_c)
     LOGICAL  :: ldbg = .FALSE.
 
     REAL(wp) :: z_diff_flux_v(nproma, n_zlev+1,p_patch%nblks_c)   ! vertical diffusive tracer flux
@@ -158,18 +158,18 @@ CONTAINS
                            & trac_in,                    &
                            & p_os%p_diag%w_time_weighted,& 
                            & bc_top_tracer,              &
-                           & z_adv_flux_v )
+                           & z_adv_flux_v,tracer_id )
     CASE(CENTRAL)
       CALL central_vflux_oce( p_patch,                   &
                            & trac_in,                    &
                            & p_os%p_diag%w_time_weighted,&
-                           & z_adv_flux_v )
+                           & z_adv_flux_v, tracer_id)
     CASE(MIMETIC,MIMETIC_MIURA)
       CALL upwind_vflux_ppm( p_patch, trac_in,           &
                            & p_os%p_diag%w_time_weighted,&
                            & dtime, 1 ,                  & !p_itype_vlimit,  &
                            & cell_thick_intermed_c,      &!p_cellhgt_mc_now, &
-                           & z_adv_flux_v)
+                           & z_adv_flux_v, tracer_id)
     END SELECT
 
     IF (ltimer) CALL timer_stop(timer_adv_vert)
@@ -375,30 +375,22 @@ CONTAINS
     CALL sync_patch_array(SYNC_C, p_patch, trac_out)
 
   END SUBROUTINE advect_diffuse_vertical
-
-
   !-------------------------------------------------------------------------
   !! First order upwind scheme for vertical tracer advection
   !!
-  !! Calculation of vertical tracer fluxes using the first
-  !! order Godunov method.
   !!
   !! @par Revision History
-  !! Initial revision by Jochen Foerstner, DWD (2008-05-15)
-  !! Modification by Daniel Reinert, DWD (2010-04-23)
-  !! - generalized to height based vertical coordinate systems
-  !! Modification by Stephan Lorenz, MPI (2010-09-07)
-  !! - adapted to hydrostatic ocean core
+  !! Seperated from vertical flux calculation
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE upwind_vflux_oce( ppatch, pvar_c, pw_c,top_bc_t, pupflux_i )
+  SUBROUTINE apply_tracer_flux_top_layer_oce( ppatch, pvar_c, pw_c,pupflux_i, tracer_id )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch           !< patch on which computation is performed
     REAL(wp), INTENT(IN   )           :: pvar_c(:,:,:)    !< advected cell centered variable
     REAL(wp), INTENT(IN   )           :: pw_c(:,:,:)      !< vertical velocity on cells 
-    REAL(wp), INTENT(IN   )           :: top_bc_t(:,:)    !< top boundary condition traver!vertical velocity on cells
     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
                                                           !< dim: (nproma,n_zlev+1,nblks_c)
+    INTEGER, INTENT(IN)               :: tracer_id
     ! local variables
     ! height based but reversed (downward increasing depth) coordinate system,
     ! grid coefficient is negative (same as pressure based atmospheric coordinate system
@@ -413,18 +405,62 @@ CONTAINS
     cells_in_domain => ppatch%cells%in_domain
 
     !fluxes at first layer
-    pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:) !0.0!
-    !pupflux_i(:,1,:) = pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp !0.0_wp
-    !pupflux_i(:,1,:) = pvar_c(:,1,:)*top_bc_t  ! max(abs(pw_c(:,1,:)),abs(pw_c(:,2,:)))
-    !
+    !temperature has tracer_id=1 
+    IF(tracer_id==1)THEN
+      IF(temperature_relaxation/=0)THEN
+        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
+      ELSEIF(temperature_relaxation==0)THEN
+        pupflux_i(:,1,:) = 0.0
+      ENDIF
+    !salinity has tracer_id=2 
+    ELSEIF(tracer_id==2)THEN
+      IF(irelax_2d_S/=0)THEN
+        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
+      ELSEIF(irelax_2d_S==0)THEN
+        pupflux_i(:,1,:) = 0.0
+      ENDIF
+    ENDIF
+
+  END SUBROUTINE apply_tracer_flux_top_layer_oce
+  !-------------------------------------------------------------------------
+  !! First order upwind scheme for vertical tracer advection
+  !!
+  !! Calculation of vertical tracer fluxes using the first
+  !! order Godunov method.
+  !!
+  !! @par Revision History
+  !! Initial revision by Jochen Foerstner, DWD (2008-05-15)
+  !! Modification by Daniel Reinert, DWD (2010-04-23)
+  !! - generalized to height based vertical coordinate systems
+  !! Modification by Stephan Lorenz, MPI (2010-09-07)
+  !! - adapted to hydrostatic ocean core
+  !!
+  !! mpi parallelized, no sync
+  SUBROUTINE upwind_vflux_oce( ppatch, pvar_c, pw_c,top_bc_t, pupflux_i, tracer_id )
+
+    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch           !< patch on which computation is performed
+    REAL(wp), INTENT(IN   )           :: pvar_c(:,:,:)    !< advected cell centered variable
+    REAL(wp), INTENT(IN   )           :: pw_c(:,:,:)      !< vertical velocity on cells 
+    REAL(wp), INTENT(IN   )           :: top_bc_t(:,:)    !< top boundary condition traver!vertical velocity on cells
+    REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
+                                                          !< dim: (nproma,n_zlev+1,nblks_c)
+    INTEGER, INTENT(IN)               :: tracer_id
+    ! local variables
+    ! height based but reversed (downward increasing depth) coordinate system,
+    ! grid coefficient is negative (same as pressure based atmospheric coordinate system
+    REAL(wp), PARAMETER :: zcoeff_grid = -1.0_wp
+    INTEGER             :: z_dolic
+    INTEGER             :: i_startidx_c, i_endidx_c
+    INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
+    INTEGER             :: jkm1                     !< jk - 1
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    !-------------------------------------------------------------------------
+    cells_in_domain => ppatch%cells%in_domain
+
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-!          IF(abs(pw_c(jc,1,jb))>=abs(pw_c(jc,2,jb)))THEN
-!            pupflux_i(jc,1,jb) = pvar_c(jc,1,jb)*pw_c(jc,1,jb)
-!          ELSE
-!            pupflux_i(jc,1,jb) = pvar_c(jc,1,jb)*pw_c(jc,2,jb)
-!          ENDIF
         z_dolic = v_base%dolic_c(jc,jb)
         IF(z_dolic>=MIN_DOLIC)THEN
           DO jk = 2, z_dolic
@@ -439,7 +475,9 @@ CONTAINS
         ENDIF
       END DO
     END DO 
-    !pupflux_i(:,1,:) = 0.5_wp*(pupflux_i(:,2,:)+pvar_c(:,1,:)*pw_c(:,1,:))
+
+    CALL apply_tracer_flux_top_layer_oce( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
+
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
   !>
@@ -449,13 +487,14 @@ CONTAINS
   !!
   !! @par Revision History
   !!!! mpi parallelized, no sync
-  SUBROUTINE mimetic_vflux_oce( ppatch, pvar_c, pw_c, pupflux_i )
+  SUBROUTINE mimetic_vflux_oce( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch           !< patch on which computation is performed
     REAL(wp), INTENT(IN)              :: pvar_c(:,:,:)    !< advected cell centered variable
     REAL(wp), INTENT(IN)              :: pw_c(:,:,:)      !< vertical velocity on cells
     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
                                                           !< dim: (nproma,n_zlev+1,nblks_c)
+    INTEGER, INTENT(IN)               :: tracer_id
     ! local variables
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
@@ -469,8 +508,6 @@ CONTAINS
 
     w_ave(:)  = 0.0_wp
     w_avep1(:)= 0.0_wp
-    !fluxes at first layer
-    pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
 
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -546,6 +583,7 @@ CONTAINS
 !            END DO ! end cell loop
 !        END DO ! end level loop
 !      END DO ! end block loop
+    CALL apply_tracer_flux_top_layer_oce( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
   END SUBROUTINE mimetic_vflux_oce
   !-------------------------------------------------------------------------
   !>
@@ -556,13 +594,14 @@ CONTAINS
   !! Petter Korn, MPI-M
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE central_vflux_oce_orig( ppatch, pvar_c, pw_c, pupflux_i )
+  SUBROUTINE central_vflux_oce_orig( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch          !< patch on which computation is performed
     REAL(wp), INTENT(IN)              :: pvar_c(:,:,:)   !< advected cell centered variable
     REAL(wp), INTENT(IN)              :: pw_c(:,:,:)     !< vertical velocity on cells
     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:)!< variable in which the upwind flux is stored
                                                          !< dim: (nproma,n_zlev+1,nblks_c)
+    INTEGER, INTENT(IN)                  :: tracer_id
     ! local variables
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
@@ -573,9 +612,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     cells_in_domain => ppatch%cells%in_domain
 
-    !fluxes at first layer
-    !pupflux_i(:,1,:) =  pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp!
-    pupflux_i(:,1,:) =pvar_c(:,1,:)* pw_c(:,1,:)
 
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -595,6 +631,7 @@ CONTAINS
         ENDIF
       END DO
     END DO
+    CALL apply_tracer_flux_top_layer_oce( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
   END SUBROUTINE central_vflux_oce_orig
   !-------------------------------------------------------------------------
   !>
@@ -605,13 +642,14 @@ CONTAINS
   !! Petter Korn, MPI-M
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE central_vflux_oce( ppatch, pvar_c, pw_c, pupflux_i )
+  SUBROUTINE central_vflux_oce( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
     REAL(wp), INTENT(IN   )  :: pvar_c(:,:,:)      !< advected cell centered variable
     REAL(wp), INTENT(INOUT)  :: pw_c(:,:,:)        !< vertical velocity on cells
     REAL(wp), INTENT(INOUT)  :: pupflux_i(:,:,:)   !< variable in which the upwind flux is stored
                                                    !< dim: (nproma,n_zlev+1,nblks_c)
+    INTEGER, INTENT(IN)                  :: tracer_id
     ! local variables
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
@@ -621,10 +659,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
     cells_in_domain => ppatch%cells%in_domain
-
-    !fluxes at first layer
-    !pupflux_i(:,1,:) =  pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp!
-    pupflux_i(:,1,:) =pvar_c(:,1,:)* pw_c(:,1,:)
 
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -645,11 +679,12 @@ CONTAINS
           END DO 
           ! no fluxes at bottom boundary
           pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
-
-
         ENDIF
       END DO
     END DO
+
+    CALL apply_tracer_flux_top_layer_oce( ppatch, pvar_c, pw_c, pupflux_i, tracer_id )
+
   END SUBROUTINE central_vflux_oce
   !------------------------------------------------------------------------
   !! The third order PPM scheme
@@ -677,21 +712,21 @@ CONTAINS
   SUBROUTINE upwind_vflux_ppm( p_patch, p_cc, &! p_mflx_contra_v,  &
     &                      p_w, p_dtime, p_itype_vlimit,             &
     &                      p_cellhgt_mc_now, &
-    &                      p_upflux)!,   &
-    !&                      opt_lout_edge, opt_topflx_tra )
+    &                      p_upflux, tracer_id)
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 !!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  p_patch  !< patch on which computation is performed
-    REAL(wp), INTENT(IN) :: p_cc(:,:,:)    !< advected cell centered variable
+    REAL(wp), INTENT(IN)    :: p_cc(:,:,:)    !< advected cell centered variable
     !INTEGER, INTENT(IN)  :: p_iubc_adv   !< selects upper boundary condition
     !REAL(wp), INTENT(IN) :: p_mflx_contra_v(:,:,:) !< contravariant vertical mass flux dim: (nproma,nlevp1,nblks_c)
-    REAL(wp), INTENT(IN) :: p_w(:,:,:)    !< contravariant vertical velocity
-    REAL(wp), INTENT(IN) :: p_dtime  !< time step
-    REAL(wp), INTENT(IN) :: p_cellhgt_mc_now(:,:,:)    !< layer thickness at cell center at time n
-    REAL(wp), INTENT(INOUT):: p_upflux(:,:,:)    !< output field, containing the tracer mass flux or the reconstructed edge value
-    INTEGER, INTENT(IN)  :: p_itype_vlimit  !< parameter to select the limiter for vertical transport
+    REAL(wp), INTENT(IN)    :: p_w(:,:,:)    !< contravariant vertical velocity
+    REAL(wp), INTENT(IN)    :: p_dtime  !< time step
+    REAL(wp), INTENT(IN)    :: p_cellhgt_mc_now(:,:,:)    !< layer thickness at cell center at time n
+    REAL(wp), INTENT(INOUT) :: p_upflux(:,:,:)    !< output field, containing the tracer mass flux or the reconstructed edge value
+    INTEGER, INTENT(IN)     :: p_itype_vlimit  !< parameter to select the limiter for vertical transport
+    INTEGER, INTENT(IN)     :: tracer_id
 !
 !local variables
     REAL(wp) :: z_face(nproma,p_patch%nlevp1,p_patch%nblks_c)   !< face values of transported field
@@ -999,8 +1034,10 @@ CONTAINS
       !
       ! set upper and lower boundary condition
       !
-      p_upflux(:,slev,:)   = p_w(:,1,:)*p_cc(:,1,:)!  p_upflux(:,2,:)!0.0_wp 
-      p_upflux(:,nlevp1,:) = 0.0_wp
+      !p_upflux(:,slev,:)   = p_w(:,1,:)*p_cc(:,1,:)
+      !p_upflux(:,nlevp1,:) = 0.0_wp
+     CALL apply_tracer_flux_top_layer_oce( p_patch, p_cc, p_w, p_upflux,&
+                                         & tracer_id )
 
     ENDDO ! end loop over blocks
 !$OMP END DO

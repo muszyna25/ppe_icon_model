@@ -79,13 +79,10 @@ PUBLIC :: velocity_diffusion_horz_mimetic
 PUBLIC :: velocity_diffusion_vert_mimetic
 PUBLIC :: velocity_diffusion_horz_rbf
 PUBLIC :: velocity_diffusion_vert_rbf
+PUBLIC :: veloc_diffusion_vert_impl_hom
 PUBLIC :: tracer_diffusion_horz
 PUBLIC :: tracer_diffusion_vert_expl
-!PUBLIC :: tracer_diffusion_vert_impl
 PUBLIC :: tracer_diffusion_vert_impl_hom
-!PUBLIC :: veloc_diffusion_vert_impl
-PUBLIC :: veloc_diffusion_vert_impl_hom
-!INTEGER, PARAMETER :: MIN_DOLIC = 2
 
 CONTAINS
 !-------------------------------------------------------------------------  
@@ -176,8 +173,8 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
         il_c2 = p_patch%edges%cell_idx(je,jb,2)
         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-        z_grad_u(je,jk,jb)%x = p_param%K_veloc_h(je,jk,jb)   &
-          &                  *(p_diag%p_vn(il_c2,jk,ib_c2)%x &
+        z_grad_u(je,jk,jb)%x = &!p_param%K_veloc_h(je,jk,jb)*   &
+          &                  (p_diag%p_vn(il_c2,jk,ib_c2)%x &
           &                  - p_diag%p_vn(il_c1,jk,ib_c1)%x)&
           &                  / p_patch%edges%dual_edge_length(je,jb)
       ELSE
@@ -223,7 +220,27 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
 
   !Step 3: Map divergence back to edges
   CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out,subset_range=all_cells)
-!  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
+
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+
+    DO jk = slev, elev
+      DO je = i_startidx_e, i_endidx_e
+
+      IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+
+        laplacian_vn_out(je,jk,jb)=p_param%K_veloc_h(je,jk,jb)             &
+                                  &*p_patch%edges%primal_edge_length(je,jb)&
+                                  &*laplacian_vn_out(je,jk,jb)
+      ENDIF 
+     ENDDO
+    END DO
+  END DO
+
+
+! write(*,*)'lapla',maxval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length),&
+! &minval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length)
+! !  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
 
 END SUBROUTINE velocity_diffusion_horz_mimetic

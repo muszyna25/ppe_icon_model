@@ -150,7 +150,7 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
                                  & p_param%K_tracer_h(:,:,:,i_no_t ),         &
                                  & p_param%A_tracer_v(:,:,:, i_no_t),         &
                                  & p_os%p_prog(nnew(1))%tracer(:,:,:,i_no_t), &
-                                 & timestep )
+                                 & timestep,i_no_t )
   END DO
 
   ! Final step: 3-dim temperature relaxation
@@ -433,20 +433,20 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                                      & p_os, p_op_coeff,z_cellthick_intmed,&
                                      & bc_top_tracer, bc_bot_tracer,       &
                                      & K_h, A_v,                           &
-                                     & trac_new, timestep)
+                                     & trac_new, timestep, tracer_id)
 
   TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
   REAL(wp), INTENT(in)                 :: trac_old(nproma,n_zlev, p_patch%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
   REAL(wp), INTENT(in)                 :: z_cellthick_intmed(nproma,n_zlev, p_patch%nblks_c)
-  REAL(wp) :: bc_top_tracer(nproma, p_patch%nblks_c)
-  REAL(wp) :: bc_bot_tracer(nproma, p_patch%nblks_c)
-  REAL(wp) :: K_h(:,:,:)                                  !horizontal mixing coeff
-  REAL(wp) :: A_v(:,:,:)                                   !vertical mixing coeff
-  REAL(wp) :: trac_new(:,:,:)                              !new tracer
-  INTEGER  :: timestep                                     ! Actual timestep (to distinghuish initial step from others)
-
+  REAL(wp), INTENT(in)                 :: bc_top_tracer(nproma, p_patch%nblks_c)
+  REAL(wp), INTENT(in)                 :: bc_bot_tracer(nproma, p_patch%nblks_c)
+  REAL(wp), INTENT(in)                 :: K_h(:,:,:)       !horizontal mixing coeff
+  REAL(wp), INTENT(in)                 :: A_v(:,:,:)       !vertical mixing coeff
+  REAL(wp), INTENT(OUT)                :: trac_new(:,:,:)  !new tracer
+  INTEGER , INTENT(in)                 :: timestep         ! Actual timestep (to distinghuish initial step from others)
+  INTEGER,  INTENT(IN)                 :: tracer_id
   !Local variables
   REAL(wp) :: delta_t
   REAL(wp) :: trac_tmp(nproma,n_zlev, p_patch%nblks_c)
@@ -484,7 +484,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                         & A_v,                            &
                         & trac_new, timestep, delta_t,    &
                         & z_cellthick_intmed,             &
-                        & FLUX_CALCULATION_VERT)
+                        & FLUX_CALCULATION_VERT, tracer_id)
 !    DO jk = 1, n_zlev
 !      write(*,*)'After vertical max/min old-new tracer:',jk,&
 !      & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
