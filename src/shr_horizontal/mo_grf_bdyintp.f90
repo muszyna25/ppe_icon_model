@@ -714,9 +714,10 @@ LOGICAL :: l_noshift                 ! local variable corresponding to lnoshift
 LOGICAL :: l4d                       ! 4D field is provided as input
 
 ! Auxiliary fields
-REAL(wp), DIMENSION(nproma,ptr_pc%nlevp1) :: grad_x, grad_y, maxval_neighb, minval_neighb
-REAL(wp) :: h_aux(nproma,ptr_pc%nlevp1,ptr_pp%cells%start_blk(grf_bdyintp_start_c,i_chidx):&
-                  MAX(ptr_pp%cells%start_blk(grf_bdyintp_start_c,i_chidx),                 &
+REAL(wp), DIMENSION(nproma,MAX(30,ptr_pc%nlevp1)) :: grad_x, grad_y, maxval_neighb, minval_neighb
+REAL(wp) :: h_aux(nproma,MAX(30,ptr_pc%nlevp1), &
+                      ptr_pp%cells%start_blk(grf_bdyintp_start_c,i_chidx):  &
+                  MAX(ptr_pp%cells%start_blk(grf_bdyintp_start_c,i_chidx),  &
                       ptr_pp%cells%end_blk(grf_bdyintp_end_c,i_chidx)),4,nfields)
 REAL(wp) :: limfac1, limfac2, limfac, min_expval, max_expval, epsi, ovsht_fac, r_ovsht_fac, &
             relaxed_minval, relaxed_maxval
