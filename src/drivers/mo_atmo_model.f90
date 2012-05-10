@@ -77,7 +77,7 @@ USE mo_run_config,        ONLY: configure_run, &
   & num_lev,num_levp1,    &
   & iqv, nshift,          &
   & lvert_nest, ntracer,  &
-  & msg_level, dtime
+  & msg_level, dtime, output_mode
 
 USE mo_impl_constants, ONLY:&
   & ihs_atm_temp,         & !    :
@@ -376,14 +376,26 @@ CONTAINS
       ! Currently, async name_list IO is used if at least one name_list was read
       IF(name_list_output_active) THEN
         use_async_name_list_io = .TRUE.
-        CALL message('','name lists I/O scheme is enabled.')
+        CALL message('','asynchronous namelist I/O scheme is enabled.')
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
           CALL name_list_io_main_proc
         END IF
+        IF (output_mode%l_vlist) THEN
+          output_mode%l_vlist = .FALSE.
+          CALL message('','vlist I/O scheme has been disabled because combining it&
+            & with namelist I/O is not possible for asynchronous output.')
+        ENDIF
       ELSE
         use_async_vlist_io = .TRUE.
-        CALL message('','vlist I/O scheme is enabled.')
+        CALL message('','asynchronous vlist I/O scheme is enabled.')
         IF (my_process_is_io()) CALL vlist_io_main_proc
+      ENDIF
+    ELSE
+      IF(name_list_output_active) THEN
+        CALL message('','synchronous namelist I/O scheme is enabled.')
+      ENDIF
+      IF (output_mode%l_vlist) THEN
+        CALL message('','synchronous vlist I/O scheme is enabled.')
       ENDIF
     ENDIF
 

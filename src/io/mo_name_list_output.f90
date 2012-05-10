@@ -66,7 +66,7 @@ MODULE mo_name_list_output
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
-    &                                 msg_level
+    &                                 msg_level, output_mode
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
@@ -340,6 +340,7 @@ CONTAINS
     nnamelists = 0
     lrewind = .TRUE.
 
+    IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
     DO
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
