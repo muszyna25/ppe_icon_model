@@ -279,7 +279,7 @@ MODULE mo_oce_state
                                   ! dimension: (nproma, n_zlev, nblks_c)
       &  v(:,:,:)              ,& ! reconstructed meridional velocity component. Unit [m/s]
                                   ! dimension: (nproma, n_zlev, nblks_c)
-      &  psi(:,:)              ,& ! barotropic stream function. Unit [kg/s]
+      &  u_vint(:,:)           ,& ! barotropic zonal velocity. Unit [m*m/s]
                                   ! dimension: (nproma, nblks_c)
       &  ptp_vn(:,:,:)         ,& ! normal velocity after mapping P^T P
                                   ! dimension: (nproma, n_zlev, nblks_e)
@@ -940,9 +940,9 @@ CONTAINS
 !   &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
 !   &            ldims=(/nproma,n_zlev,nblks_c/))
     ! integrated barotropic stream function
-    CALL add_var(ocean_var_list, 'psi', p_os_diag%psi, GRID_UNSTRUCTURED_CELL, &
+    CALL add_var(ocean_var_list, 'u_vint', p_os_diag%u_vint, GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_SURFACE, &
-    &            t_cf_var('psi','kg/s','barotropic stream function'),&
+    &            t_cf_var('u_vint','m*m/s','barotropic zonal velocity'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))
     CALL add_var(ocean_var_list, 'ptp_vn', p_os_diag%ptp_vn, &

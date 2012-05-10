@@ -699,13 +699,13 @@ END SUBROUTINE calc_moc
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
-SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
+SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-  REAL(wp), INTENT(IN)               :: u(:,:,:)       ! zonal velocity at cell centers
-  REAL(wp), INTENT(IN)               :: h(:,:)         ! elevation on cell centers
-                                                       ! dims: (nproma,nlev,nblks_c)
-  REAL(wp), INTENT(OUT)              :: psi(:,:)       ! horizontal stream function on icon grid
+  REAL(wp), INTENT(IN)               :: u(:,:,:)     ! zonal velocity at cell centers
+  REAL(wp), INTENT(IN)               :: h(:,:)       ! elevation on cell centers
+                                                     ! dims: (nproma,nlev,nblks_c)
+  REAL(wp), INTENT(OUT)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
@@ -722,7 +722,6 @@ SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
 
 
   REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z, rsmth
-  REAL(wp) :: z_uint(nproma,p_patch%nblks_c)            ! vertical integral of horizontal velocity
   REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
   REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
 
@@ -733,7 +732,6 @@ SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
   !-----------------------------------------------------------------------
 
   psi_reg(:,:)    = 0.0_wp
-  z_uint(:,:)     = 0.0_wp
   z_uint_reg(:,:) = 0.0_wp
 
   jsmth2          = 2*jsmth + 1
@@ -744,7 +742,9 @@ SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
   all_cells => p_patch%cells%all
   dom_cells => p_patch%cells%in_domain
 
-  ! (1) vertical integration of zonal velocity times vertical layer thickness [m/s*m]
+  ! (1) barotropic system:
+  !     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
+  u_vint(:,:)     = 0.0_wp
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
     DO jk = 1, n_zlev
@@ -752,7 +752,7 @@ SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
       DO jc = i_startidx, i_endidx
         delta_z = v_base%del_zlev_m(jk)
         IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + h(jc,jb)
-        z_uint(jc,jb) = z_uint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
+        u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
       END DO
     END DO
   END DO
@@ -789,7 +789,7 @@ SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
           IF (jln <    1) jln = jln+nlon  ! circular boundary
           IF (jln > nlon) jln = jln-nlon  ! circular boundary
 
-          z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + z_uint(jc,jb) / rsmth
+          z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + u_vint(jc,jb) / rsmth
 
  ! 99 format('J lat=',f8.2,' lon=',f8.2,' jlat=',i4,' jlon=',i4,' lsm=',i3, &
  !      &    ' jlt=',i4,  ' jln=',i4,' uint=',1p10e12.3)
@@ -822,7 +822,7 @@ SUBROUTINE calc_psi (p_patch, u, h, psi, datetime)
 
   ! stream function on icon grid without calculation of meridional integral
   !  - tbd after interpolation to regular grid externally
-  psi    (:,:) = z_uint    (:,:)              * rho_ref
+!  psi    (:,:) = u_vint    (:,:)              * rho_ref
 
 
   ! write out in extra format - integer*8
