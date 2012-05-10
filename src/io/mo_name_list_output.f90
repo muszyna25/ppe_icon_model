@@ -433,6 +433,7 @@ CONTAINS
         ! Allocate first name_list
         ALLOCATE(first_output_name_list)
         p_onl => first_output_name_list
+        name_list_output_active = .TRUE.
       ELSE
         ! This is not the first one, p_onl points to the last one which was created
         ALLOCATE(p_onl%next)
@@ -542,8 +543,6 @@ CONTAINS
     ENDDO
 
     CALL close_nml
-
-    IF(ASSOCIATED(first_output_name_list)) name_list_output_active = .TRUE.
 
   END SUBROUTINE read_name_list_output_namelists
 
