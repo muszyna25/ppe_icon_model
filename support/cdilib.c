@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <assert.h>
+#include <pmmintrin.h>
 
 #if  defined  (HAVE_LIBGRIB_API)
 #  include <grib_api.h>
