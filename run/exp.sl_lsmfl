@@ -250,6 +250,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
                                  ! 45=horizontally homogen temperature
+                                 ! 46=zonally and vertically homogen T/S
                                  ! 50=zonally homogen temperature for APE SST (Williamson)
   idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      !  0: no relaxation used
