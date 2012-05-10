@@ -711,6 +711,9 @@ SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
   ! local variables
   ! INTEGER :: i
 
+  ! switch for writing stream function (not yet in namelist); 1: icon-grid; 2: regular grid output
+  INTEGER, PARAMETER ::  idiag_psi = 1
+
   INTEGER, PARAMETER ::  nlat = 180                    ! meridional dimension of regular grid
   INTEGER, PARAMETER ::  nlon = 360                    ! zonal dimension of regular grid
 
@@ -757,8 +760,11 @@ SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
     END DO
   END DO
 
+  IF (idiag_psi == 1) RETURN
+
   ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
 
+  ! in domain: count all cells only once
   DO jb = dom_cells%start_block, dom_cells%end_block
     CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx

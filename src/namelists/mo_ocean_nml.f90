@@ -121,6 +121,12 @@ MODULE mo_ocean_nml
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
   INTEGER            :: idiag_oce      = 0
 
+  ! switch for ocean stream function (not yet activated):
+  !                   ! 0: no output
+                      ! 1: write barotropic velocity in output file
+                      ! 2: write barotropic stream function on regular grid
+  INTEGER            :: idiag_psi      = 0
+
   ! parameterized velocity boundary conditions
                       ! Velocity boundary condition: Currently only no-slip is supported !!
                       ! i_bc_veloc_lateral = 0: boundary condition for velocity is no-slip: normal

@@ -321,17 +321,15 @@ CONTAINS
     l_outputtime = (MOD(jstep,n_io) == 0)
     IF ( l_outputtime ) THEN
 
+      !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
+      CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
+        &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), &
+        &                        pstate_oce(jg)%p_diag%u_vint, datetime)
+
       CALL write_output( datetime )
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
-
-      !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
-      !CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
-      !  &                        pstate_oce(jg)%p_diag%wet_c, datetime)
-      !CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
-      !  &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), &
-      !  &                        pstate_oce(jg)%p_diag%psi, datetime)
 
     END IF
 

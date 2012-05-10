@@ -2125,6 +2125,13 @@ CONTAINS
     ! &                   gridEdgeID(k_jg), &
     ! &                   zaxisIDdepth_m(k_jg)),&
     ! &           k_jg)
+      CALL addVar(TimeVar('u_vint',&
+      &                   'barotropic zonal velocity at centers',&
+      &                   'm*m/s',4,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
       CALL addVar(TimeVar('W',&
       &                   'vertical velocity at cells',&
       &                   'm/s', 6, 128,&
@@ -3136,6 +3143,7 @@ CONTAINS
       CASE ('u');            ptr3d => p_diag%u
       CASE ('v');            ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
+      CASE ('u_vint');       ptr2d => p_diag%u_vint
       CASE('Vert_Veloc_Adv');ptr3d => p_diag%veloc_adv_vert
       CASE('press_grad');    ptr3d => p_diag%press_grad
       CASE ('rho');          ptr3d => p_diag%rho   
