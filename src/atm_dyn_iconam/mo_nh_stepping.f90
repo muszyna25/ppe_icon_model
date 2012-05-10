@@ -141,8 +141,9 @@ MODULE mo_nh_stepping
     &                               output_file
   USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
     &                               pp_scheduler_process
-  USE mo_art_emission_interface,  ONLY:art_emission_interface
-  USE mo_art_config,          ONLY:art_config
+  USE mo_art_emission_interface, ONLY: art_emission_interface
+  USE mo_art_config,          ONLY: art_config
+  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
 
   IMPLICIT NONE
 
@@ -1415,9 +1416,6 @@ MODULE mo_nh_stepping
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
 
-    ! Time levels
-    INTEGER :: n_now, n_now_rcf
-
     REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
     REAL(wp), DIMENSION(:,:,:), ALLOCATABLE  :: z_tmp_e
 
@@ -1427,14 +1425,7 @@ MODULE mo_nh_stepping
 
       IF(p_patch(jg)%n_patch_cells == 0) CYCLE
 
-      ! Set local variable for time level nnow
-      n_now  = nnow(jg)
-
-      ! Set local variable for rcf-time level nnow
-      n_now_rcf = nnow_rcf(jg)
-
-
-      p_vn  => p_nh_state(jg)%prog(n_now)%vn
+      p_vn  => p_nh_state(jg)%prog(nnow(jg))%vn
       SELECT CASE (p_patch(jg)%cell_type)
       CASE (3)
         
@@ -1443,40 +1434,10 @@ MODULE mo_nh_stepping
 
         CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
 
-        ! Fill boundaries of nested domains
-        IF (p_patch(jg)%n_childdom > 0) THEN
-          CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
-            p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
+        IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+          CALL aggregate_landvars( p_patch(jg), ext_data(jg),                 &
+               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
         ENDIF
-        DO jn = 1, p_patch(jg)%n_childdom
-          jgc = p_patch(jg)%child_id(jn)
-
-          CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-               p_grf_state(jg)%p_dom(jn), jn, 2, p_nh_state(jg)%diag%u,             &
-               p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v)
-
-          CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-               p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%diag%div,           &
-               p_nh_state(jgc)%diag%div)
-
-          IF ( iforcing == inwp ) THEN
-            CALL interpol_phys_grf(p_patch(jg), p_patch(jgc),                  &
-                                   p_int_state(jg), p_grf_state(jg)%p_dom(jn), &
-                                   jg, jgc, jn )
-
-            IF (lfeedback(jgc)) CALL feedback_phys_diag(p_patch, p_grf_state, jgc, jg)
-
-            ! Fill lateral boundaries of TKE field; note: time-level-switching has
-            ! already been done at child level, but not yet at parent level
-            CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnow_rcf(jg))%tke)
-
-            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
-               p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
-               p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
-
-          ENDIF
-
-        ENDDO
 
       CASE (6)
         CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_east ,&
@@ -1500,6 +1461,52 @@ MODULE mo_nh_stepping
           &                      p_nh_state(jg)%diag,p_patch(jg),                       &
           &                      opt_calc_temp=.TRUE.,                                  &
           &                      opt_calc_pres=.TRUE.                                 )
+
+    ENDDO ! jg-loop
+
+    ! Fill boundaries of nested domains
+    DO jg = n_dom, 1, -1
+
+      IF(p_patch(jg)%n_patch_cells == 0 .OR. p_patch(jg)%n_childdom == 0) CYCLE
+
+      CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
+        p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
+
+      IF ( iforcing == inwp ) THEN
+        CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnow_rcf(jg))%tke)
+      ENDIF
+
+      DO jn = 1, p_patch(jg)%n_childdom
+        jgc = p_patch(jg)%child_id(jn)
+
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
+             p_grf_state(jg)%p_dom(jn), jn, 2, p_nh_state(jg)%diag%u,             &
+             p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v)
+
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
+             p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%diag%div,           &
+             p_nh_state(jgc)%diag%div)
+
+        IF ( iforcing == inwp ) THEN
+
+          IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+            CALL interpol_phys_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),       &
+                                   p_grf_state(jg)%p_dom(jn), jg, jgc, jn,           &
+                                   p_lnd_state(jg)%diag_lnd,p_lnd_state(jgc)%diag_lnd)
+          ELSE
+            CALL interpol_phys_grf(p_patch(jg), p_patch(jgc),                  &
+                                   p_int_state(jg), p_grf_state(jg)%p_dom(jn), &
+                                   jg, jgc, jn )
+          ENDIF
+
+          IF (lfeedback(jgc)) CALL feedback_phys_diag(p_patch, p_grf_state, jgc, jg)
+
+          CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
+             p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
+             p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
+
+        ENDIF
+      ENDDO
 
     ENDDO ! jg-loop
 

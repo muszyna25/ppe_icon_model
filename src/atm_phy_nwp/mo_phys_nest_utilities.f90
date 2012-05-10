@@ -49,7 +49,7 @@ USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, p_grf_state_local_parent
 USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
-USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
+USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -63,7 +63,8 @@ USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_
 USE mo_vertical_coord_table,ONLY: vct_a
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
-USE mo_sync,                ONLY: SYNC_C, sync_patch_array
+USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
+USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow
 
 IMPLICIT NONE
 
@@ -1752,7 +1753,7 @@ END SUBROUTINE downscale_rad_output_rg
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
+SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int,ptr_grf,jg,jgc,jn,ptr_ldiagp,ptr_ldiagc)
 
   USE mo_nwp_phy_state,      ONLY: prm_diag
 
@@ -1761,83 +1762,198 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
   TYPE(t_patch),                INTENT(in) :: ptr_pc
   TYPE(t_gridref_single_state), INTENT(in) :: ptr_grf
   TYPE(t_int_state),            INTENT(in) :: ptr_int
+  TYPE(t_lnd_diag), OPTIONAL,   INTENT(inout):: ptr_ldiagp ! parent level land diag state
+  TYPE(t_lnd_diag), OPTIONAL,   INTENT(inout):: ptr_ldiagc ! child level land diag state
   INTEGER,                      INTENT(in) :: jg,jgc,jn
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields=9    ! Number of 2D fields for which boundary interpolation is needed
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc
+  INTEGER, PARAMETER  :: nfields_p=9    ! Number of 2D phyiscs fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_l2=12   ! Number of 2D land state fields
+
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk
+
+  LOGICAL :: lsfc_interp
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
-  REAL(wp) :: z_aux3d_p(nproma,nfields,ptr_pp%nblks_c), &
-              z_aux3d_c(nproma,nfields,ptr_pc%nblks_c)
+  REAL(wp) :: z_aux3dp_p(nproma,nfields_p,ptr_pp%nblks_c),        &  ! 2D physics diag fields
+              z_aux3dp_c(nproma,nfields_p,ptr_pc%nblks_c),        &
+              z_aux3dl2_p(nproma,nfields_l2,ptr_pp%nblks_c),      &  ! 2D land state fields
+              z_aux3dl2_c(nproma,nfields_l2,ptr_pc%nblks_c),      &
+              z_aux3dso_p(nproma,3*(nlev_soil+1),ptr_pp%nblks_c), &  ! 3D land state fields for soil
+              z_aux3dso_c(nproma,3*(nlev_soil+1),ptr_pc%nblks_c), &
+              z_aux3dsn_p(nproma,5*nlev_snow,ptr_pp%nblks_c),     &  ! 3D land state fields for multi-layer snow
+              z_aux3dsn_c(nproma,5*nlev_snow,ptr_pc%nblks_c)         ! (used if lmulti_snow = ture))
+
+  IF (PRESENT(ptr_ldiagp) .AND. PRESENT(ptr_ldiagc)) THEN
+    lsfc_interp = .TRUE.
+  ELSE
+    lsfc_interp = .FALSE.
+  ENDIF
 
   IF (p_test_run) THEN
-     z_aux3d_p(:,:,:) = 0._wp
+     z_aux3dp_p(:,:,:) = 0._wp
+     z_aux3dl2_p(:,:,:) = 0._wp
+     z_aux3dso_p(:,:,:) = 0._wp
+     z_aux3dsn_p(:,:,:) = 0._wp
   ENDIF
 
   i_startblk = ptr_pp%cells%start_blk(1,1)
   i_endblk   = ptr_pp%nblks_c
 
-  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
 
-
-
     DO jc = i_startidx, i_endidx
-      z_aux3d_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
-      z_aux3d_p(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
-      z_aux3d_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
-      z_aux3d_p(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
-      z_aux3d_p(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
-      z_aux3d_p(jc,6,jb) = prm_diag(jg)%tracer_rate(jc,jb,1)
-      z_aux3d_p(jc,7,jb) = prm_diag(jg)%tracer_rate(jc,jb,2)
-      z_aux3d_p(jc,8,jb) = prm_diag(jg)%tracer_rate(jc,jb,3)
-      z_aux3d_p(jc,9,jb) = prm_diag(jg)%tracer_rate(jc,jb,4)
-
+      z_aux3dp_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
+      z_aux3dp_p(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
+      z_aux3dp_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
+      z_aux3dp_p(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
+      z_aux3dp_p(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
+      z_aux3dp_p(jc,6,jb) = prm_diag(jg)%tracer_rate(jc,jb,1)
+      z_aux3dp_p(jc,7,jb) = prm_diag(jg)%tracer_rate(jc,jb,2)
+      z_aux3dp_p(jc,8,jb) = prm_diag(jg)%tracer_rate(jc,jb,3)
+      z_aux3dp_p(jc,9,jb) = prm_diag(jg)%tracer_rate(jc,jb,4)
     ENDDO
+
+    IF (lsfc_interp) THEN
+      DO jc = i_startidx, i_endidx
+        z_aux3dl2_p(jc,1,jb) = ptr_ldiagp%t_snow(jc,jb)
+        z_aux3dl2_p(jc,2,jb) = ptr_ldiagp%t_s(jc,jb)
+        z_aux3dl2_p(jc,3,jb) = ptr_ldiagp%w_snow(jc,jb)
+        z_aux3dl2_p(jc,4,jb) = ptr_ldiagp%rho_snow(jc,jb)
+        z_aux3dl2_p(jc,5,jb) = ptr_ldiagp%w_i(jc,jb)
+        z_aux3dl2_p(jc,6,jb) = ptr_ldiagp%h_snow(jc,jb)
+        z_aux3dl2_p(jc,7,jb) = ptr_ldiagp%freshsnow(jc,jb)
+        z_aux3dl2_p(jc,8,jb) = ptr_ldiagp%snowfrac(jc,jb)
+        z_aux3dl2_p(jc,9,jb) = ptr_ldiagp%runoff_s(jc,jb)
+        z_aux3dl2_p(jc,10,jb) = ptr_ldiagp%runoff_g(jc,jb)
+        z_aux3dl2_p(jc,11,jb) = ptr_ldiagp%t_so(jc,nlev_soil+2,jb)
+        IF (lmulti_snow) &
+          z_aux3dl2_p(jc,12,jb) = ptr_ldiagp%t_snow_mult(jc,nlev_snow+1,jb)
+      ENDDO
+
+      DO jk = 1, nlev_soil+1
+        DO jc = i_startidx, i_endidx
+          z_aux3dso_p(jc,3*(jk-1)+1,jb) = ptr_ldiagp%t_so(jc,jk,jb)
+          z_aux3dso_p(jc,3*(jk-1)+2,jb) = ptr_ldiagp%w_so(jc,jk,jb)
+          z_aux3dso_p(jc,3*(jk-1)+3,jb) = ptr_ldiagp%w_so_ice(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+      IF (lmulti_snow) THEN
+        DO jk = 1, nlev_snow
+          DO jc = i_startidx, i_endidx
+            z_aux3dsn_p(jc,5*(jk-1)+1,jb) = ptr_ldiagp%t_snow_mult(jc,jk,jb)
+            z_aux3dsn_p(jc,5*(jk-1)+2,jb) = ptr_ldiagp%rho_snow_mult(jc,jk,jb)
+            z_aux3dsn_p(jc,5*(jk-1)+3,jb) = ptr_ldiagp%wliq_snow(jc,jk,jb)
+            z_aux3dsn_p(jc,5*(jk-1)+4,jb) = ptr_ldiagp%wtot_snow(jc,jk,jb)
+            z_aux3dsn_p(jc,5*(jk-1)+5,jb) = ptr_ldiagp%dzh_snow(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
+    ENDIF
+
   ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
-    CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
+    IF (lsfc_interp .AND. lmulti_snow) THEN
 
-    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1,     &
-      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
-      &                     lnoshift=.TRUE.)
+      CALL sync_patch_array_mult(SYNC_C,ptr_pp,4,z_aux3dp_p,z_aux3dl2_p,z_aux3dso_p,z_aux3dsn_p)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 4, z_aux3dp_p, z_aux3dp_c, &
+        z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c, z_aux3dsn_p, z_aux3dsn_c,          &
+        llimit_nneg=(/.TRUE.,.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
 
+    ELSE IF (lsfc_interp) THEN
+
+      CALL sync_patch_array_mult(SYNC_C,ptr_pp,3,z_aux3dp_p,z_aux3dl2_p,z_aux3dso_p)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 3, z_aux3dp_p, z_aux3dp_c, &
+        z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c,                                    &
+        llimit_nneg=(/.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
+
+    ELSE
+
+      CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3dp_p)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1, &
+        z_aux3dp_p, z_aux3dp_c, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
+
+    ENDIF
 
   i_startblk = ptr_pc%cells%start_blk(1,1)
   i_endblk   = ptr_pc%cells%end_blk(grf_bdywidth_c,1)
 
-  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
                        i_startidx, i_endidx, 1, grf_bdywidth_c)
 
     DO jc = i_startidx, i_endidx
-
-      prm_diag(jgc)%tot_prec(jc,jb)       = z_aux3d_c(jc,1,jb)
-      prm_diag(jgc)%rain_gsp(jc,jb)       = z_aux3d_c(jc,2,jb)
-      prm_diag(jgc)%snow_gsp(jc,jb)       = z_aux3d_c(jc,3,jb)
-      prm_diag(jgc)%rain_con(jc,jb)       = z_aux3d_c(jc,4,jb)
-      prm_diag(jgc)%snow_con(jc,jb)       = z_aux3d_c(jc,5,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,1)  = z_aux3d_c(jc,6,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,2)  = z_aux3d_c(jc,7,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,3)  = z_aux3d_c(jc,8,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,4)  = z_aux3d_c(jc,9,jb)
-
+      prm_diag(jgc)%tot_prec(jc,jb)       = z_aux3dp_c(jc,1,jb)
+      prm_diag(jgc)%rain_gsp(jc,jb)       = z_aux3dp_c(jc,2,jb)
+      prm_diag(jgc)%snow_gsp(jc,jb)       = z_aux3dp_c(jc,3,jb)
+      prm_diag(jgc)%rain_con(jc,jb)       = z_aux3dp_c(jc,4,jb)
+      prm_diag(jgc)%snow_con(jc,jb)       = z_aux3dp_c(jc,5,jb)
+      prm_diag(jgc)%tracer_rate(jc,jb,1)  = z_aux3dp_c(jc,6,jb)
+      prm_diag(jgc)%tracer_rate(jc,jb,2)  = z_aux3dp_c(jc,7,jb)
+      prm_diag(jgc)%tracer_rate(jc,jb,3)  = z_aux3dp_c(jc,8,jb)
+      prm_diag(jgc)%tracer_rate(jc,jb,4)  = z_aux3dp_c(jc,9,jb)
     ENDDO
+
+
+
+    IF (lsfc_interp) THEN
+      DO jc = i_startidx, i_endidx
+        ptr_ldiagc%t_snow(jc,jb)           = z_aux3dl2_c(jc,1,jb)
+        ptr_ldiagc%t_s(jc,jb)              = z_aux3dl2_c(jc,2,jb) 
+        ptr_ldiagc%w_snow(jc,jb)           = z_aux3dl2_c(jc,3,jb)
+        ptr_ldiagc%rho_snow(jc,jb)         = z_aux3dl2_c(jc,4,jb) 
+        ptr_ldiagc%w_i(jc,jb)              = z_aux3dl2_c(jc,5,jb) 
+        ptr_ldiagc%h_snow(jc,jb)           = z_aux3dl2_c(jc,6,jb)
+        ptr_ldiagc%freshsnow(jc,jb)        = z_aux3dl2_c(jc,7,jb)
+        ptr_ldiagc%snowfrac(jc,jb)         = z_aux3dl2_c(jc,8,jb) 
+        ptr_ldiagc%runoff_s(jc,jb)         = z_aux3dl2_c(jc,9,jb)
+        ptr_ldiagc%runoff_g(jc,jb)         = z_aux3dl2_c(jc,10,jb) 
+        ptr_ldiagc%t_so(jc,nlev_soil+2,jb) = z_aux3dl2_c(jc,11,jb)
+        IF (lmulti_snow) &
+          ptr_ldiagc%t_snow_mult(jc,nlev_snow+1,jb) = z_aux3dl2_c(jc,12,jb) 
+      ENDDO
+
+      DO jk = 1, nlev_soil+1
+        DO jc = i_startidx, i_endidx
+          ptr_ldiagc%t_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+1,jb) 
+          ptr_ldiagc%w_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+2,jb) 
+          ptr_ldiagc%w_so_ice(jc,jk,jb) = z_aux3dso_c(jc,3*(jk-1)+3,jb) 
+        ENDDO
+      ENDDO
+
+      IF (lmulti_snow) THEN
+        DO jk = 1, nlev_snow
+          DO jc = i_startidx, i_endidx
+            ptr_ldiagc%t_snow_mult(jc,jk,jb)   = z_aux3dsn_c(jc,5*(jk-1)+1,jb)
+            ptr_ldiagc%rho_snow_mult(jc,jk,jb) = z_aux3dsn_c(jc,5*(jk-1)+2,jb)
+            ptr_ldiagc%wliq_snow(jc,jk,jb)     = z_aux3dsn_c(jc,5*(jk-1)+3,jb) 
+            ptr_ldiagc%wtot_snow(jc,jk,jb)     = z_aux3dsn_c(jc,5*(jk-1)+4,jb)
+            ptr_ldiagc%dzh_snow(jc,jk,jb)      = z_aux3dsn_c(jc,5*(jk-1)+5,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
+    ENDIF
+
+
+
   ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
 END SUBROUTINE interpol_phys_grf
 
