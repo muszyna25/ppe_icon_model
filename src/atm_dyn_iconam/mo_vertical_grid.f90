@@ -161,9 +161,9 @@ MODULE mo_vertical_grid
         nflatlev(jg)     = nflatlev(1) - p_patch(jg)%nshift_total
       ENDIF
       IF (p_patch(jg)%cell_type == 6) nflatlev(jg) = nflat
-      IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) < 1) THEN
+      IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) <= 1) THEN
         CALL finish (TRIM(routine), &
-                     'nflat must be more than the top of the innermost nested domain')
+                     'flat_height too close to the top of the innermost nested domain')
       ENDIF
 
       ! Compute smooth topography when SLEVE coordinate is used
@@ -971,7 +971,8 @@ MODULE mo_vertical_grid
       ENDIF
 
       IF (nflatlev(jg) <= 2 .AND. igradp_method >= 4) THEN
-        CALL finish (TRIM(routine),'flat_height must be below top for igradp_method>3')
+        CALL finish (TRIM(routine),'flat_height must be at least 2 levels below top&
+          & for igradp_method>3')
       ENDIF
 
       ALLOCATE(z_me(nproma,nlev,p_patch(jg)%nblks_e), flat_idx(nproma,p_patch(jg)%nblks_e))
