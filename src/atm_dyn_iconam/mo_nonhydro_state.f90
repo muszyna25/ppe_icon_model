@@ -427,6 +427,11 @@ MODULE mo_nonhydro_state
 
     TYPE(t_advection_config), POINTER :: advconf
     TYPE(t_art_config), POINTER :: artconf
+
+    INTEGER           :: jt
+    CHARACTER(LEN=1)  :: ctracer
+    CHARACTER(len=21) :: name
+
     !**
     !--------------------------------------------------------------
 
@@ -533,15 +538,13 @@ MODULE mo_nonhydro_state
           &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       ENDIF
 
-
-
       IF (  iforcing == inwp  ) THEN
-
-      ! Reference to individual tracer, for I/O and setting of additional metadata
-      ! Note that for qv, qc, qi, qr, qs the corresponding indices iqv, iqc, iqi, 
-      ! iqr, iqs are hardcoded. For additional tracers, indices need to be set via 
-      ! add_tracer_ref. 
-     
+        
+        ! Reference to individual tracer, for I/O and setting of additional metadata
+        ! Note that for qv, qc, qi, qr, qs the corresponding indices iqv, iqc, iqi, 
+        ! iqr, iqs are hardcoded. For additional tracers, indices need to be set via 
+        ! add_tracer_ref. 
+        
 
         ktracer=ntracer+ntracer_static
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
@@ -666,6 +669,31 @@ MODULE mo_nonhydro_state
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                       &
           &           cf_desc, grib2_desc, ldims=shape3d_chalf,                   &
           &           tlev_source=1 ) ! for output take field from nnow_rcf slice
+
+      ELSE
+
+        ! add refs to tracers with generic name Q1 ... Qn
+        ! (used for example with test cases)
+        ALLOCATE( p_prog%tracer_ptr(ntracer) )
+
+        DO jt = 1, ntracer
+          ctracer = advconf%ctracer_list(jt:jt)
+          WRITE(name,'(A1,A1)') "Q", ctracer
+          CALL add_ref( p_prog_list, 'tracer',                               &
+            & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
+            & t_cf_var(TRIM(name), '',''),                                   &
+            & t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL),        &
+            & ldims=shape3d_c,                                               &
+            & tlev_source=1,     &              ! output from nnow_rcf slice
+            & tracer_info=create_tracer_metadata(),                          &
+            & vert_interp=create_vert_interp_metadata(                       &
+            &             vert_intp_type=VINTP_TYPE_P_OR_Z,                  &
+            &             vert_intp_method=VINTP_METHOD_LIN,                 &
+            &             l_loglin=.FALSE.,                                  &
+            &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &             lower_limit=0._wp  )  )
+        END DO
       ENDIF
 
     ENDIF ! allocation only if not extra_timelev
