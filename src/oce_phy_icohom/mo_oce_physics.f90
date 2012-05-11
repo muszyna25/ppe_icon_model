@@ -67,7 +67,7 @@ USE mo_loopindices,         ONLY: get_indices_c,get_indices_e, get_indices_v
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold, nnew
 ! USE mo_oce_forcing,         ONLY: t_sfc_flx
-USE mo_sea_ice,             ONLY: t_sfc_flx
+USE mo_sea_ice_types,       ONLY: t_sfc_flx
 
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_var_list,            ONLY: add_var,                  &

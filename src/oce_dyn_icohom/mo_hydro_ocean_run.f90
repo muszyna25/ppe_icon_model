@@ -89,9 +89,11 @@ USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&
   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
-  &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-  &                                  t_sea_ice, construct_sea_ice, destruct_sea_ice, &
+  &                                  construct_sea_ice, destruct_sea_ice, &
   &                                  ice_init, ice_slow
+! #
+USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
+  &                                  t_sea_ice
 USE mo_oce_forcing,            ONLY: init_sfcflx
 USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &

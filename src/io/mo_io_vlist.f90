@@ -168,7 +168,8 @@ MODULE mo_io_vlist
        &                              t_hydro_ocean_aux,                             &
        &                              v_base, set_zlev, v_ocean_state
 !  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
-  USE mo_sea_ice,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
+  ! #
+  USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag

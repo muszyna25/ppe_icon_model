@@ -53,7 +53,7 @@ USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_oce_index,                      ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_sea_ice,                        ONLY: t_sfc_flx
+USE mo_sea_ice_types,                        ONLY: t_sfc_flx
 USE mo_intp_data_strc,                 ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data

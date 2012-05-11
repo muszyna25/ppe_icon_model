@@ -76,7 +76,7 @@ USE mo_oce_index,          ONLY: print_mxmn, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
-USE mo_sea_ice,            ONLY: t_sfc_flx
+USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
   &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D

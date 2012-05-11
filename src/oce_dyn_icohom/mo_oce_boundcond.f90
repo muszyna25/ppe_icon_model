@@ -55,7 +55,7 @@ MODULE mo_oce_boundcond
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
   USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2d,&
                                  & map_cell2edges
-  USE mo_sea_ice,            ONLY: t_sfc_flx
+  USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec,cvec2gvec

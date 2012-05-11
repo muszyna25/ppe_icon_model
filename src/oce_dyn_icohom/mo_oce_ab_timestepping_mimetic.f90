@@ -78,7 +78,7 @@ USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press,&
   &                                     calc_internal_press_new, calc_density_JMDWFG06_EOS_func,&
   &                                     calc_density_MPIOM_func, calc_density_lin_EOS_func
 USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_sea_ice,                   ONLY: t_sfc_flx
+USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges,map_edges2cell,&
   &                                     map_edges2cell_3D,&
   &                                     map_edges2edges,  &

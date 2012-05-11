@@ -66,7 +66,7 @@ USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
-USE mo_sea_ice,                   ONLY: t_sfc_flx
+USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
 USE mo_oce_math_operators,        ONLY: div_oce_3D
 !USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v

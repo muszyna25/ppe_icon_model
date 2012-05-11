@@ -65,7 +65,7 @@ USE mo_loopindices,               ONLY: get_indices_c!, get_indices_e
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
   &                                     height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_sea_ice,                   ONLY: t_sfc_flx
+USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_scalar_product,            ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
 USE mo_intp_data_strc,            ONLY: t_int_state
