@@ -495,7 +495,7 @@ MODULE mo_nonhydro_state
     ! theta_v      p_prog%theta_v(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('virtual_potential_temperature', 'K', &
       &                   'virtual potential temperature')
-    grib2_desc = t_grib2_var(0, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 15, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'theta_v'//suffix, p_prog%theta_v, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,          &
       &           ldims=shape3d_c )

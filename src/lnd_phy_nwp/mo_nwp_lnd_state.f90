@@ -559,7 +559,7 @@ MODULE mo_nwp_lnd_state
 
    ! & p_prog_lnd%w_so_t(nproma,nlev_soil+1,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('w_so_t', 'm H20', 'total water content (ice + liquid water)')
-    grib2_desc = t_grib2_var(2, 0, 3, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 3, 20, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_t'//suffix, p_prog_lnd%w_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),                         &
@@ -574,7 +574,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_so_ptr(jsfc)%p_3d,                                 &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
            & t_cf_var('w_so_t_'//csfc, '', ''),                              &
-           & t_grib2_var(2, 0, 3, ientr, GRID_REFERENCE, GRID_CELL),         &
+           & t_grib2_var(2, 3, 20, ientr, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
@@ -583,7 +583,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%w_so_ice_t(nproma,nlev_soil+1,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('w_so_ice_t', 'm H20', 'ice content')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 3, 22, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_ice_t'//suffix,                   &
          & p_prog_lnd%w_so_ice_t, GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,  &
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),      &
@@ -598,7 +598,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_so_ice_ptr(jsfc)%p_3d,                             &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
            & t_cf_var('w_so_ice_t_'//csfc, '', ''),                          &
-           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & t_grib2_var(2, 3, 22, ientr, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
