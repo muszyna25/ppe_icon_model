@@ -13,7 +13,7 @@ MODULE mo_grib2
   TYPE t_grib2_var
     INTEGER :: discipline
     INTEGER :: category
-    INTEGER :: parameter
+    INTEGER :: number
     INTEGER :: bits
     INTEGER :: gridtype
     INTEGER :: subgridtype

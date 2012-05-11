@@ -3143,7 +3143,7 @@ CONTAINS
              'Assigned GRIB discipline/category/parameter : ', &
              this_list_element%field%info%grib2%discipline,    &
              this_list_element%field%info%grib2%category,      &
-             this_list_element%field%info%grib2%parameter
+             this_list_element%field%info%grib2%number
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,a,a,a)') &

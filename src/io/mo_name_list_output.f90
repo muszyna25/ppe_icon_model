@@ -1932,11 +1932,13 @@ CONTAINS
         levels(k+1) = zml_soil(k)*1000._wp  ! in mm
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
+      CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
       DEALLOCATE(levels)
 
       of%cdiZaxisID(ZA_depth_below_land) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land), zml_soil*1000._wp) ! in mm
+      CALL zaxisDefUnits (of%cdiZaxisID(ZA_depth_below_land), "mm")
       !
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
@@ -2595,6 +2597,11 @@ CONTAINS
         CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
 
         CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+
+        ! Set GRIB2 Triplet
+        CALL vlistDefVarParam(vlistID, varID,                                              &
+          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+
         
         IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
         IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
