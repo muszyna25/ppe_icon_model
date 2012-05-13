@@ -761,9 +761,9 @@ CONTAINS
       &            dimlen, pos_dim2, pos_dim3)
 
     nblks = UBOUND(var,pos_nblks)
+
     ALLOCATE(buf(nproma*nblks))
     buf(:) = 0._wp
-
     DO j=1,UBOUND(var,pos_dim3)
     DO i=1,UBOUND(var,pos_dim2)
       start = (/ 1, i, j, my_record /)
@@ -3370,6 +3370,8 @@ CONTAINS
 
     lonlat_data => lonlat_grid_list(grid_id)
     intp => lonlat_data%intp(dom_id)
+
+    IF (intp%nthis_local_pts == 0) RETURN
 
     ! rbf_vec_dim_c,2,nproma,nblks_lonlat
     CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff', intp%rbf_vec_coeff )
