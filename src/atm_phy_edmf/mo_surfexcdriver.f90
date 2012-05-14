@@ -72,13 +72,9 @@ SUBROUTINE SURFEXCDRIVER    (CDCONF &
  & )                                      ! <<< associated compute_ddh also deleted
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
-
 !ifndef INTERFACE
-
 ! USE YOMHOOK   ,ONLY : LHOOK, DR_HOOK
-
 ! USE ABORT_SURF_MOD
-
 !endif INTERFACE
 
 !ICON definitions:

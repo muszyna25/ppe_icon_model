@@ -95,6 +95,7 @@ USE mo_edmf_param   ,ONLY : &
 
 USE mo_vupdz0       ,ONLY : vupdz0
 USE mo_vexcs        ,ONLY : vexcs
+USE mo_surfseb_ctl  ,ONLY : surfseb_ctl
 
 !dmk USE VSURF_MOD
 !    USE VEVAP_MOD
@@ -541,11 +542,11 @@ DO JTILE=1,KTILES
 !xxx
 
 !amk: simple copy of VSURF code to calculate surface qsat for ocean ?????????
-  DO JL=KIDIA,KFDIA
-    PCPTSTI(JL,:) =FOEEW(PTSKM1M(JL)) / PAPHMS(JL)
-    PCPTSTI(JL,:) =PCPTSTI(JL,:) * 0.98_JPRB / (1.0_JPRB-RETV*PCPTSTI(JL,:))
-    ZQSATI(JL,:)=PCPTSTI(JL,:)
-  ENDDO
+!  DO JL=KIDIA,KFDIA
+!    PCPTSTI(JL,:) =FOEEW(PTSKM1M(JL)) / PAPHMS(JL)
+!    PCPTSTI(JL,:) =PCPTSTI(JL,:) * 0.98_JPRB / (1.0_JPRB-RETV*PCPTSTI(JL,:))
+!    ZQSATI(JL,:)=PCPTSTI(JL,:)
+!  ENDDO
 !xxx
 
 ENDDO
@@ -721,7 +722,7 @@ ENDDO
 
 !xmk: as a first try turn of the first step SEB 
 !IF (KSTEP == 0) THEN 
-IF (1 == 0) THEN 
+IF (0 == 0) THEN 
 !xxx
   IF (LEOCWA .OR. LEOCCO) THEN
     ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)

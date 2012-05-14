@@ -66,6 +66,8 @@ MODULE mo_edmf_param
   LOGICAL :: LVDFTRAC
   LOGICAL :: LEOCWA
   LOGICAL :: LEOCCO
+  LOGICAL :: LEOCSA    ! TRUE if SALINTY EFFECT ON SATURATION AT OCEAN SURFACE active
+  LOGICAL :: LEVGEN    ! TRUE IF VAN GENUCHTEN HYDRO IS ACTIVATED
   LOGICAL :: LEFLAKE
   REAL (KIND = JPRB):: RH_ICE_MIN_FLK   ! Minimum ice thickness [m]
 
@@ -138,12 +140,30 @@ REAL(KIND=JPRB) :: REPUST=0.0001_JPRB ! MINIMUM FRICTION VELOCITY (SECURITY PARA
 !------------------------------------------------------------------------------
 ! yos_veg.F90 (part)
 !------------------------------------------------------------------------------
-REAL(KIND=JPRB),ALLOCATABLE :: RVZ0M(:)      ! ROUGHNESS LENGTH FOR MOMENTUM
-REAL(KIND=JPRB),ALLOCATABLE :: RVZ0H(:)      ! ROUGHNESS LENGTH FOR HEAT 
+REAL(KIND=JPRB),ALLOCATABLE :: RVLAI(:)      ! LEAF AREA INDEX
+REAL(KIND=JPRB),ALLOCATABLE :: RVROOTSA(:,:) ! PERCENTAGE OF ROOTS IN EACH SOIL LAYER
 REAL(KIND=JPRB),ALLOCATABLE :: RVLAMSK(:)    ! Unstable SKIN LAYER CONDUCT. FOR EACH TILE
 REAL(KIND=JPRB),ALLOCATABLE :: RVLAMSKS(:)   ! Stable SKIN LAYER CONDUCT. FOR EACH TILE
 REAL(KIND=JPRB),ALLOCATABLE :: RVTRSR(:)     ! TRANSMISSION OF NET SOLAR RAD. 
                                              ! THROUGH VEG.
+REAL(KIND=JPRB),ALLOCATABLE :: RVZ0M(:)      ! ROUGHNESS LENGTH FOR MOMENTUM
+REAL(KIND=JPRB),ALLOCATABLE :: RVZ0H(:)      ! ROUGHNESS LENGTH FOR HEAT 
+REAL(KIND=JPRB),ALLOCATABLE :: RVRSMIN(:)    ! MIN STOMATAL RESISTANCE FOR EACH VEG. TYPE (S/M)
+REAL(KIND=JPRB),ALLOCATABLE :: RVHSTR(:)     ! HUMIDITY STRESS FUNCTION PARAMETER (M/S kgkg-1)
+REAL(KIND=JPRB) :: RCEPSW                    ! MINIMUM RELATIVE HUMIDITY
+
+
+!------------------------------------------------------------------------------
+! yos_soil.F90 (part)
+!------------------------------------------------------------------------------
+REAL(KIND=JPRB),ALLOCATABLE :: RWCAPM(:)    !     RWCAP IN VAN GENUCHTEN
+REAL(KIND=JPRB),ALLOCATABLE :: RWPWPM(:)    !     RWPWP IN VAN GENUCHTEN
+REAL(KIND=JPRB),ALLOCATABLE :: RQWEVAPM(:)  !     RQWEVAP IN VAN GENUCHTEN
+REAL(KIND=JPRB),ALLOCATABLE :: RWRESTM(:)   !     RWRST IN VAN GENUCHTEN
+REAL(KIND=JPRB) :: RTF1            ! UPPER TEMPERATURE FOR SOIL WATER FREEZING
+REAL(KIND=JPRB) :: RTF2            ! LOWER TEMPERATURE FOR SOIL WATER FREEZING
+REAL(KIND=JPRB) :: RTF3            ! COEFFICIENT FOR SOIL WATER FREEZING FUNCTION
+REAL(KIND=JPRB) :: RTF4            ! COEFFICIENT FOR SOIL WATER FREEZING FUNCTION
 
 
 !------------------------------------------------------------------------------
@@ -153,7 +173,9 @@ REAL(KIND=JPRB),ALLOCATABLE :: RVTRSR(:)     ! TRANSMISSION OF NET SOLAR RAD.
           & FOEEW    ,FOEDESU  ,                      &
           & PSIHU    ,PSIMU    ,PSIHS    ,PSIMS     , &
           & RVZ0M    ,RVZ0H    ,RVLAMSK  ,RVLAMSKS  , &
-          & RVTRSR
+          & RVTRSR   ,                                &
+          & RWCAPM   ,RWPWPM   ,RQWEVAPM ,RWRESTM   , &
+          & RTF1     ,RTF2     ,RTF3     ,RTF4
   PUBLIC :: suct0, su0phy, susekf, susveg, abort_surf
 
 CONTAINS
@@ -412,8 +434,10 @@ SUBROUTINE su0phy
 !           basic switches for the physics of the model.
 
 LVDFTRAC=.TRUE.
-LEOCWA=.FALSE.
-LEOCCO=.FALSE.
+LEOCWA=.TRUE.
+LEOCCO=.TRUE.
+LEOCSA=.TRUE.
+LEVGEN=.TRUE.
 LEFLAKE=.FALSE.
 RH_ICE_MIN_FLK  = 1.0E-9_JPRB          ! Minimum ice thickness [m]
 
@@ -449,15 +473,52 @@ SUBROUTINE SUSVEG
 !     *YOS_VEG*
 
 USE mo_lnd_nwp_config,       ONLY: NTILES=>nsfc_subs
+USE mo_srfrootfr     ,       ONLY: srfrootfr
+USE mo_cuparameters  ,       ONLY: RETV
 
-INTEGER(KIND=JPIM) :: NVTYPES, IVTYPES
+INTEGER(KIND=JPIM) :: NVTYPES, IVTYPES, NCSS, JS
 REAL(KIND=JPRB)    :: ZLARGE , ZSNOW
 REAL(KIND=JPRB)    :: RLHAERO, RLHAEROS
+REAL(KIND=JPRB), ALLOCATABLE :: RDAW(:)
 
 ! Number of vegetation types
 NVTYPES=20
 IVTYPES = MAX(NVTYPES,20)
 
+NCSS = 4
+
+!     CONSTANTS DEFINING SOIL DISCRETIZATION
+
+IF(.NOT.ALLOCATED(RDAW)) ALLOCATE(RDAW(NCSS))
+IF (NCSS >= 1) RDAW(1)=0.07_JPRB
+IF (NCSS >= 2) RDAW(2)=0.21_JPRB
+IF (NCSS >= 3) RDAW(3)=0.72_JPRB
+IF (NCSS >= 4) RDAW(4)=1.89_JPRB
+
+! Leaf area index
+
+IF(.NOT.ALLOCATED(RVLAI)) ALLOCATE(RVLAI(0:IVTYPES))
+RVLAI(1)=3._JPRB     ! Crops, Mixed Farming
+RVLAI(2)=2._JPRB     ! Short Grass
+RVLAI(3)=5._JPRB     ! Evergreen Needleleaf Trees
+RVLAI(4)=5._JPRB     ! Deciduous Needleleaf Trees
+RVLAI(5)=5._JPRB     ! Deciduous Broadleaf Trees
+RVLAI(6)=6._JPRB     ! Evergreen Broadleaf Trees
+RVLAI(7)=2._JPRB     ! Tall Grass
+RVLAI(8)=0.5_JPRB      ! Desert
+RVLAI(9)=1.0_JPRB       ! Tundra
+RVLAI(10)=3._JPRB    ! Irrigated Crops
+RVLAI(11)=0.5_JPRB     ! Semidesert
+RVLAI(12)=0.0_JPRB     ! Ice Caps and Glaciers
+RVLAI(13)=4._JPRB    ! Bogs and Marshes
+RVLAI(14)=0.0_JPRB     ! Inland Water
+RVLAI(15)=0.0_JPRB     ! Ocean
+RVLAI(16)=3._JPRB    ! Evergreen Shrubs
+RVLAI(17)=1.5_JPRB   ! Deciduous Shrubs
+RVLAI(18)=5._JPRB    ! Mixed Forest/woodland
+RVLAI(19)=2.5_JPRB   ! Interrupted Forest
+RVLAI(20)=4._JPRB    ! Water and Land Mixtures
+RVLAI(0)=RVLAI(8)
 
 ! Skin layer conductivity
 
@@ -504,6 +565,72 @@ IF (NTILES >= 5) RVTRSR(6)=0.03_JPRB     ! High veg.
 IF (NTILES >= 7) RVTRSR(7)=0.03_JPRB     ! Snow under veg.
 IF (NTILES >= 8) RVTRSR(8)=0.00_JPRB     ! Bare soil (SSR transmission does not apply)
 IF (NTILES >= 9) RVTRSR(9)=0.00_JPRB     ! LAKES (SSR transmission does not apply) 
+
+! Root fraction
+
+IF(.NOT.ALLOCATED(RVROOTSA)) ALLOCATE(RVROOTSA(NCSS,0:NVTYPES))
+IF (NCSS >= 1) CALL SRFROOTFR(NCSS,NVTYPES,RDAW,RVROOTSA(:,1:NVTYPES))
+DO JS=1,NCSS
+  RVROOTSA(JS,0)=RVROOTSA(JS,8)
+ENDDO
+
+! Set other constants
+
+RCEPSW  =1.E-3_JPRB
+
+! Minimum stomatal resitance for each vegetation type (s/m)
+
+!                 The additinal correction coefficient (1.30 etc.) accounts
+!                 for the decreased radiation stress function at full 
+!                 light saturation.
+
+IF(.NOT.ALLOCATED(RVRSMIN)) ALLOCATE (RVRSMIN(0:IVTYPES))
+RVRSMIN(1)=180._JPRB    ! Crops, Mixed Farming
+RVRSMIN(2)=110._JPRB    ! Short Grass
+RVRSMIN(3)=500._JPRB    ! Evergreen Needleleaf Trees
+RVRSMIN(4)=500._JPRB    ! Deciduous Needleleaf Trees
+RVRSMIN(5)=175._JPRB    ! Deciduous Broadleaf Trees
+RVRSMIN(6)=240._JPRB    ! Evergreen Broadleaf Trees
+RVRSMIN(7)=100._JPRB    ! Tall Grass
+RVRSMIN(8)=250._JPRB    ! Desert
+RVRSMIN(9)=80._JPRB     ! Tundra
+RVRSMIN(10)=180._JPRB   ! Irrigated Crops
+RVRSMIN(11)=150._JPRB   ! Semidesert
+RVRSMIN(12)=0.0_JPRB      ! Ice Caps and Glaciers
+RVRSMIN(13)=240._JPRB   ! Bogs and Marshes
+RVRSMIN(14)=0.0_JPRB      ! Inland Water
+RVRSMIN(15)=0.0_JPRB      ! Ocean
+RVRSMIN(16)=225._JPRB   ! Evergreen Shrubs
+RVRSMIN(17)=225._JPRB   ! Deciduous Shrubs
+RVRSMIN(18)=250._JPRB   ! Mixed Forest/woodland
+RVRSMIN(19)=175._JPRB   ! Interrupted Forest
+RVRSMIN(20)=150._JPRB   ! Water and Land Mixtures
+RVRSMIN(0)=RVRSMIN(8)
+
+! Parameter in humidity stress function (m/s mbar, converted to M/S kgkg-1)
+IF(.NOT.ALLOCATED(RVHSTR)) ALLOCATE (RVHSTR(0:IVTYPES))
+RVHSTR(1)=0.0_JPRB     ! Crops, Mixed Farming
+RVHSTR(2)=0.0_JPRB     ! Short Grass
+RVHSTR(3)=0.03_JPRB  ! Evergreen Needleleaf Trees
+RVHSTR(4)=0.03_JPRB  ! Deciduous Needleleaf Trees
+RVHSTR(5)=0.03_JPRB  ! Deciduous Broadleaf Trees
+RVHSTR(6)=0.03_JPRB  ! Evergreen Broadleaf Trees
+RVHSTR(7)=0.0_JPRB     ! Tall Grass
+RVHSTR(8)=0.0_JPRB     ! Desert
+RVHSTR(9)=0.0_JPRB     ! Tundra
+RVHSTR(10)=0.0_JPRB    ! Irrigated Crops
+RVHSTR(11)=0.0_JPRB    ! Semidesert
+RVHSTR(12)=0.0_JPRB    ! Ice Caps and Glaciers
+RVHSTR(13)=0.0_JPRB    ! Bogs and Marshes
+RVHSTR(14)=0.0_JPRB    ! Inland Water
+RVHSTR(15)=0.0_JPRB    ! Ocean
+RVHSTR(16)=0.0_JPRB    ! Evergreen Shrubs
+RVHSTR(17)=0.0_JPRB    ! Deciduous Shrubs
+RVHSTR(18)=0.03_JPRB ! Mixed Forest/woodland
+RVHSTR(19)=0.03_JPRB ! Interrupted Forest
+RVHSTR(20)=0.0_JPRB    ! Water and Land Mixtures
+RVHSTR(0)=RVHSTR(8)
+RVHSTR(:)=1013.25_JPRB*(RETV+1)*RVHSTR(:)
 
 ! Roughness length for momentum (Mahfouf et al. 1995)
 
@@ -556,6 +683,91 @@ RVZ0H(20)=RVZ0M(20)/10._JPRB    ! Water and Land Mixtures
 RVZ0H(0)=RVZ0H(8)        
 
 END SUBROUTINE SUSVEG
+
+
+!------------------------------------------------------------------------------
+
+
+SUBROUTINE SUSSOIL
+!**   *SUSSSOIL* IS THE SET-UP ROUTINE FOR COMMON BLOCK *YOESOIL*
+
+!     PURPOSE
+!     -------
+!          THIS ROUTINE INITIALIZES THE CONSTANTS IN COMMON BLOCK
+!     *YOESOIL*
+
+USE mo_cuparameters ,ONLY : RTT, RPI
+
+IMPLICIT NONE
+
+INTEGER(KIND=JPIM) :: NSOTY, JS
+
+REAL(KIND=JPRB), ALLOCATABLE :: ZMVGALPHA(:),ZNFAC(:),ZMFAC(:),&
+ & ZWSATM(:),ZWCAPM(:),ZWRES(:),ZWPWPM(:)
+
+REAL(KIND=JPRB) :: ZPSIPWP, ZPSICAP, ZFAC
+
+
+
+  NSOTY=7
+  IF(.NOT.ALLOCATED(ZMVGALPHA)) ALLOCATE (ZMVGALPHA(0:NSOTY))
+  IF(.NOT.ALLOCATED(ZNFAC)) ALLOCATE (ZNFAC(0:NSOTY))
+  IF(.NOT.ALLOCATED(ZMFAC)) ALLOCATE (ZMFAC(0:NSOTY))
+  IF(.NOT.ALLOCATED(ZWSATM)) ALLOCATE (ZWSATM(0:NSOTY))
+  IF(.NOT.ALLOCATED(ZWRES)) ALLOCATE (ZWRES(0:NSOTY))
+  IF(.NOT.ALLOCATED(RWCAPM)) ALLOCATE (RWCAPM(0:NSOTY))
+  IF(.NOT.ALLOCATED(RWPWPM)) ALLOCATE (RWPWPM(0:NSOTY))
+  IF(.NOT.ALLOCATED(RQWEVAPM)) ALLOCATE (RQWEVAPM(0:NSOTY))
+  IF(.NOT.ALLOCATED(RWRESTM)) ALLOCATE (RWRESTM(0:NSOTY))
+  
+  ZMVGALPHA(1:NSOTY)=(/3.83_JPRB,3.14_JPRB,0.83_JPRB,3.67_JPRB,2.65_JPRB,1.300_JPRB,3.14_JPRB/)
+  ZNFAC(1:NSOTY)=(/1.3774_JPRB,1.1804_JPRB,1.2539_JPRB,1.1012_JPRB,1.1033_JPRB,1.2039_JPRB,1.1804_JPRB/)
+  ZWSATM(1:NSOTY)=(/0.403_JPRB,0.439_JPRB,0.430_JPRB,0.520_JPRB,0.614_JPRB,0.766_JPRB,0.439_JPRB/)
+  ZWRES(1:NSOTY)=(/0.025_JPRB,0.010_JPRB,0.010_JPRB,0.010_JPRB,0.010_JPRB,0.010_JPRB,0.010_JPRB/)
+
+  ZMVGALPHA(0)=0.0_JPRB
+  ZNFAC(0)=0.0_JPRB
+  ZWSATM(0)=0.0_JPRB
+  ZWRES(0)=0.0_JPRB
+  RWCAPM(0)=0.0_JPRB
+  RWPWPM(0)=0.0_JPRB
+  RQWEVAPM(0)=0.0_JPRB
+
+  ZFAC=1000._JPRB*100._JPRB/(1000._JPRB*9.8_JPRB)
+  ZPSIPWP=-15._JPRB*ZFAC   ! Classic permanent wilting point
+  IF (LEVGEN) THEN
+    ZPSICAP=-0.10_JPRB*ZFAC  ! Value valid for sandy soil in the literature---> larger AWC 
+                             ! favourably compared to FC obs for medium soils (Ukraine/Russia)
+                             ! produce invariant equilibrium after rescaling from TESSEL
+                             ! enlarge the range of action for SM analysis (active if PWP<W<CAP)
+  ELSE
+    ZPSICAP=-0.33_JPRB*ZFAC  ! Value mostly used in literature (Hillel, 1998)
+  ENDIF
+
+
+  DO JS=1,NSOTY
+    ZMFAC(JS)=1._JPRB-(1._JPRB/ZNFAC(JS))
+    ZWCAPM(JS)=ZWRES(JS)+(ZWSATM(JS)-ZWRES(JS)) &
+ &           *(1._JPRB/(1._JPRB+((ABS(ZMVGALPHA(JS)*ZPSICAP)) &
+ &           **ZNFAC(JS))))**ZMFAC(JS)
+    RWCAPM(JS)=ZWCAPM(JS)
+    ZWPWPM(JS)=ZWRES(JS)+(ZWSATM(JS)-ZWRES(JS)) &
+ &           *(1._JPRB/(1._JPRB+((ABS(ZMVGALPHA(JS)*ZPSIPWP)) &
+ &           **ZNFAC(JS))))**ZMFAC(JS)
+    RWPWPM(JS)=ZWPWPM(JS)
+    RQWEVAPM(JS)=1._JPRB/(RWCAPM(JS)-RWPWPM(JS))
+  ENDDO
+
+
+!     CONSTANTS FOR SOIL WATER FREEZING
+
+RTF1=RTT+1.0_JPRB
+RTF2=RTT-3._JPRB
+RTF3=0.5_JPRB*(RTF1+RTF2)
+RTF4=RPI/(RTF1-RTF2)
+
+
+END SUBROUTINE SUSSOIL
 
 
 !------------------------------------------------------------------------------
