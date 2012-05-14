@@ -144,6 +144,7 @@ CONTAINS
     z_div_adv_v    = 0.0_wp
     z_div_diff_v   = 0.0_wp
     z_diff_flux_v  = 0.0_wp
+    z_temp = 0.0_wp
 
 
 
