@@ -1,6 +1,3 @@
-#ifdef __xlC__
-!@PROCESS NOHOT
-#endif
 !>
 !! Initializes and controls the time stepping in the nonhydrostatic model.
 !!
@@ -53,7 +50,7 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydro_state,      ONLY: bufr
+  USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
@@ -74,7 +71,7 @@ MODULE mo_nh_stepping
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, p_tiles
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
@@ -83,11 +80,11 @@ MODULE mo_nh_stepping
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity, get_nh_df_mflx_rho
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
-  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
+  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
     &                               verts2cells_scalar
-  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
                                     complete_nesting_setup, prep_bdy_nudging,      &
@@ -239,14 +236,8 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-03-06)
   !!
-  SUBROUTINE prepare_nh_integration (p_patch, p_nh_state, p_int, p_grf)
+  SUBROUTINE prepare_nh_integration
 !
-  TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch(n_dom)
-  TYPE(t_int_state), INTENT(IN)        :: p_int(n_dom)
-  TYPE(t_gridref_state), INTENT(INOUT) :: p_grf(n_dom)
-
-  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
-
   INTEGER :: ntl
 
 !-----------------------------------------------------------------------
@@ -255,17 +246,17 @@ MODULE mo_nh_stepping
   ntl = 2
 
   IF (ltestcase) THEN
-    CALL init_nh_testtopo(p_patch, ext_data)   ! set analytic topography
+    CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
   ENDIF
 
-  CALL set_nh_metrics(p_patch, p_nh_state, p_int, ext_data)
+  CALL set_nh_metrics(p_patch(1:), p_nh_state, p_int_state(1:), ext_data)
 
   IF (n_dom > 1) THEN
-    CALL complete_nesting_setup(p_patch, p_nh_state, p_grf)
+    CALL complete_nesting_setup()
   ENDIF
 
   IF (ltestcase) THEN
-    CALL init_nh_testcase(p_patch, p_nh_state, p_int, ext_data, ntl)
+    CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), ext_data, ntl)
   ENDIF
 
   CALL setup_time_ctrl_physics( )
@@ -282,19 +273,13 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (p_patch, p_int_state,                   &
-    &                             p_grf_state, p_nh_state,                &
-    &                             datetime, n_file, jfile, n_checkpoint,  &
+  SUBROUTINE perform_nh_stepping (datetime, n_file, jfile, n_checkpoint,  &
     &                             n_diag, l_have_output )
 !
-  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
-  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
-  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
   INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
-  TYPE(t_nh_state),    TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)            :: datetime
 
   INTEGER                              :: jg
@@ -306,7 +291,7 @@ MODULE mo_nh_stepping
 
   IF (timers_level > 3) CALL timer_start(timer_model_init)
 
-  CALL allocate_nh_stepping (p_patch)
+  CALL allocate_nh_stepping ()
 
 
   IF (iforcing == inwp .AND. is_restart_run()) THEN
@@ -360,8 +345,7 @@ MODULE mo_nh_stepping
 !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
 !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 
-    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-      &                       datetime, n_file, jfile, n_checkpoint, n_diag, &
+    CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
       &                       l_have_output )
     CALL model_end_ompthread()
 
@@ -374,8 +358,7 @@ MODULE mo_nh_stepping
   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                              datetime, n_file, jfile, n_checkpoint, n_diag, &
+    CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
                               l_have_output )
   ENDIF
 
@@ -393,22 +376,16 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (p_patch, p_int_state,                    &
-                               &  p_grf_state, p_nh_state,                 &
-                               &  datetime, n_file, jfile, n_checkpoint,   &
+  SUBROUTINE perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint,   &
                                &  n_diag, l_have_output )
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
-  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
-  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
-  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
   INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
-  TYPE(t_nh_state),    TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
   INTEGER                              :: jstep, jb, nlen, jg, kstep
@@ -526,13 +503,12 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(p_nh_state, p_patch, p_int_state, datetime, p_grf_state, &
-      &               1, jstep, dtime, dtime_adv, sim_time, 1                  )
+    CALL integrate_nh(datetime, 1, jstep, dtime, dtime_adv, sim_time, 1)
 
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
-      CALL diag_for_output (p_nh_state, p_patch, p_int_state, p_grf_state)
+      CALL diag_for_output ( )
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -656,22 +632,13 @@ MODULE mo_nh_stepping
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !!  - optional reduced calling frequency for transport and physics
   !!
-#ifdef __NO_NESTING__
-  SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,      &
-    &  p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, num_steps)
-#else
-  RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime, &
-    &  p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, num_steps     )
-#endif
+  RECURSIVE SUBROUTINE integrate_nh (datetime, jg, nstep_global, &
+    & dt_loc, dtadv_loc, sim_time, num_steps                     )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:integrate_nh'
 
-    TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
-    TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
     TYPE(t_datetime), INTENT(in)         :: datetime
-    TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom) !< nonhydrostatic state
-    TYPE(t_gridref_state), INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)!< gridref state
 
     INTEGER , INTENT(IN)    :: jg           !< current grid level
     INTEGER , INTENT(IN)    :: nstep_global !< counter of global time step
@@ -852,7 +819,7 @@ MODULE mo_nh_stepping
 
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
 
-        CALL outer_boundary_nudging (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+        CALL outer_boundary_nudging (jg, &
           &                          nnow(jg),nnow_rcf(jg),nsav2(jg),lstep_adv(jg))
       ENDIF
       ! Note: boundary nudging in nested domains (if feedback is turned off) is
@@ -1005,13 +972,7 @@ MODULE mo_nh_stepping
             jgc = p_patch(jg)%child_id(jn)
 
             IF ( lredgrid_phys(jgc) ) THEN
-
-              CALL interpol_rrg_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),             &
-                                    p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
-                                    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),                 &
-                                    p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
-                                    p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
-                                    jn )
+              CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
             ENDIF
           ENDDO
           IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
@@ -1232,12 +1193,7 @@ MODULE mo_nh_stepping
             IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1 &
               .AND. lcall_phy(jg,itrad) ) THEN
 
-              CALL interpol_rrg_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),             &
-                                    p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
-                                    p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),                 &
-                                    p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
-                                    p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
-                                    jn )
+              CALL interpol_rrg_grf(jg, jgc, jn, nnew_rcf(jg))
             ENDIF
           ENDDO
           IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
@@ -1251,10 +1207,10 @@ MODULE mo_nh_stepping
           IF (timers_level >= 2) CALL timer_start(timer_nudging)
 
           IF (lfeedback(jg)) THEN
-            CALL density_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+            CALL density_boundary_nudging(jg, &
               &                        nnew(jg),REAL(iadv_rcf,wp))
           ELSE
-            CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+            CALL nest_boundary_nudging(jg, &
               &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
           ENDIF
 
@@ -1286,7 +1242,6 @@ MODULE mo_nh_stepping
         l_call_nests = .FALSE.
       ENDIF
 
-#ifndef __NO_NESTING__
       IF (l_call_nests .AND. p_patch(jg)%n_childdom > 0) THEN
 
         dt_sub     = dt_loc/2._wp    ! dyn. time step on next refinement level
@@ -1297,7 +1252,7 @@ MODULE mo_nh_stepping
         IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
-        CALL compute_tendencies (p_patch(jg),p_nh_state(jg),n_new,n_now_grf,n_new_rcf, &
+        CALL compute_tendencies (jg,n_new,n_now_grf,n_new_rcf,            &
           &                      n_now_rcf,rdt_loc,rdtadv_loc,lstep_adv(jg))
 
         ! Loop over nested domains
@@ -1306,8 +1261,8 @@ MODULE mo_nh_stepping
           jgc = p_patch(jg)%child_id(jn)
 
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
-          CALL boundary_interpolation(p_patch,p_nh_state,p_int_state,p_grf_state, &
-            &     jg,jgc,n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
+          CALL boundary_interpolation(jg, jgc,                         &
+            &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
 
         ENDDO
         IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
@@ -1321,10 +1276,9 @@ MODULE mo_nh_stepping
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
           IF (lfeedback(jgc)) THEN
-            CALL prep_rho_bdy_nudging( p_patch,p_nh_state,p_int_state,p_grf_state,jg,jgc)
+            CALL prep_rho_bdy_nudging(jg,jgc)
           ELSE
-            CALL prep_bdy_nudging( p_patch,p_nh_state,p_int_state,p_grf_state, &
-              &                   jg,jgc,lstep_adv(jg) )
+            CALL prep_bdy_nudging(jg,jgc,lstep_adv(jg))
           ENDIF
         ENDDO
         IF (timers_level >= 2) CALL timer_stop(timer_nudging)
@@ -1337,9 +1291,8 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,        & 
-              p_grf_state, jgc, nstep_global, dt_sub, dtadv_sub, sim_time,        &
-              nsteps_nest )
+            CALL integrate_nh( datetime, jgc, nstep_global, dt_sub, &
+              dtadv_sub, sim_time, nsteps_nest )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1369,7 +1322,6 @@ MODULE mo_nh_stepping
         IF (ltimer)            CALL timer_stop(timer_nesting)
 
       ENDIF
-#endif
 
       ! Finally, switch between time levels now and new for next time step
       n_temp   = nnow(jg)
@@ -1403,15 +1355,10 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2012-05-09)
   !!
-  SUBROUTINE diag_for_output ( p_nh_state, p_patch, p_int_state, p_grf_state )
+  SUBROUTINE diag_for_output
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:diag_for_output'
-
-    TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
-    TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
-    TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom)          !< nonhydrostatic state
-    TYPE(t_gridref_state), INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)!< gridref state
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
@@ -1490,16 +1437,12 @@ MODULE mo_nh_stepping
         IF ( iforcing == inwp ) THEN
 
           IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-            CALL interpol_phys_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-                                   p_grf_state(jg)%p_dom(jn), jg, jgc, jn,           &
-                                   p_lnd_state(jg)%diag_lnd,p_lnd_state(jgc)%diag_lnd)
+            CALL interpol_phys_grf(jg, jgc, jn, .TRUE.) 
           ELSE
-            CALL interpol_phys_grf(p_patch(jg), p_patch(jgc),                  &
-                                   p_int_state(jg), p_grf_state(jg)%p_dom(jn), &
-                                   jg, jgc, jn )
+            CALL interpol_phys_grf(jg, jgc, jn, .FALSE.)
           ENDIF
 
-          IF (lfeedback(jgc)) CALL feedback_phys_diag(p_patch, p_grf_state, jgc, jg)
+          IF (lfeedback(jgc)) CALL feedback_phys_diag(jgc, jg)
 
           CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
              p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
@@ -1667,7 +1610,7 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE deallocate_nh_stepping ()
+  SUBROUTINE deallocate_nh_stepping
 
   INTEGER                              ::  jg, ist
 
@@ -1731,10 +1674,8 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE allocate_nh_stepping (p_patch)
+  SUBROUTINE allocate_nh_stepping
 !
-  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
-
   INTEGER                              :: jg, jp !, nlen
   INTEGER                              :: ist
   CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
@@ -1872,7 +1813,4 @@ MODULE mo_nh_stepping
 
 
 END MODULE mo_nh_stepping
-
-
-
 

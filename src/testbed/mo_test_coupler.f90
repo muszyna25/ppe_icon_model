@@ -49,7 +49,6 @@ MODULE mo_test_coupler
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
   USE mo_icon_cpl_exchg,      ONLY : ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_finalize,   ONLY : icon_cpl_finalize
-  USE mo_model_domimp_patches,ONLY : get_patch_global_indexes
 !   USE mo_read_namelists,      ONLY: read_cpl_dummy_namelists
 
   USE mo_model_domain,        ONLY:  p_patch

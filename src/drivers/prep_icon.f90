@@ -70,8 +70,9 @@ USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 !
 USE mo_grid_config,           ONLY: n_dom, n_dom_start, global_cell_type
                                   
-USE mo_model_domimp_patches,  ONLY: import_basic_patches, complete_patches, destruct_patches
+USE mo_model_domimp_patches,  ONLY: import_basic_patches, complete_patches
 
+USE mo_alloc_patches,  ONLY: destruct_patches
 ! Horizontal interpolation
 !
 USE mo_intp_state,            ONLY: construct_2d_interpol_state, &

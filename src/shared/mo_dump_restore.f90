@@ -183,13 +183,13 @@ MODULE mo_dump_restore
     &                              num_work_procs, p_barrier, get_my_mpi_work_id, p_max, p_pe
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
-  USE mo_model_domimp_patches, ONLY: allocate_patch
+  USE mo_alloc_patches,      ONLY: allocate_patch
   USE mo_intp_state,         ONLY: allocate_int_state, allocate_int_state_lonlat_grid
   USE mo_lonlat_grid,        ONLY: compute_lonlat_blocking,      &
     &                              compute_lonlat_specs
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
 
-  USE mo_model_domimp_patches, ONLY: set_patches_grid_filename
+  USE mo_alloc_patches,      ONLY: set_patches_grid_filename
   USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &
     &                              associate_keyword, with_keywords, &
     &                              int2string

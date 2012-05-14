@@ -43,18 +43,20 @@ MODULE mo_nh_nest_utilities
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
-USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
+USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent, &
+                                  p_patch
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
-USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
+USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
 USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
 USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
-USE mo_parallel_config,  ONLY: nproma, p_test_run
+USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest
 USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
+USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
       &                           MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -89,11 +91,7 @@ CONTAINS
 !! @par Revision History
 !! Developed by Guenther Zaengl, DWD, 2010-05-05
 !!
-SUBROUTINE complete_nesting_setup (p_patch,p_nh,p_grf)
-
-TYPE(t_patch),         TARGET, INTENT(INOUT) ::  p_patch(n_dom)
-TYPE(t_nh_state),      TARGET, INTENT(INOUT) ::  p_nh(n_dom)
-TYPE(t_gridref_state), TARGET, INTENT(INOUT) ::  p_grf(n_dom)
+SUBROUTINE complete_nesting_setup
 
 
 TYPE(t_patch),      POINTER     :: p_pp => NULL()
@@ -119,8 +117,8 @@ ELSE
   l_parallel = .TRUE.
 ENDIF
 
-ALLOCATE(p_nh(1)%metrics%fbk_dom_volume(p_patch(1)%nlev))
-p_nh(1)%metrics%fbk_dom_volume(:) = 0._wp
+ALLOCATE(p_nh_state(1)%metrics%fbk_dom_volume(p_patch(1)%nlev))
+p_nh_state(1)%metrics%fbk_dom_volume(:) = 0._wp
 
 DO jg = 1, n_dom-1
 
@@ -138,7 +136,7 @@ DO jg = 1, n_dom-1
     p_pc   => p_patch(jgc)
 
     ! Note: the number of levels of fbk_dom_volume is that of the parent grid
-    ALLOCATE(p_nh(jgc)%metrics%fbk_dom_volume(nlev))
+    ALLOCATE(p_nh_state(jgc)%metrics%fbk_dom_volume(nlev))
 
     IF (l_parallel) THEN
 
@@ -148,7 +146,7 @@ DO jg = 1, n_dom-1
       ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%n_patch_cells))
       p_lp%cells%ddqz_z_full(:,:,:) = 0._wp ! Safety only
       CALL exchange_data(p_lp%comm_pat_glb_to_loc_c, p_lp%cells%ddqz_z_full, &
-                         p_nh(jg)%metrics%ddqz_z_full)
+                         p_nh_state(jg)%metrics%ddqz_z_full)
     ENDIF
 
     i_startblk = p_gcp%start_blk(grf_fbk_start_c,ji)
@@ -169,7 +167,7 @@ DO jg = 1, n_dom-1
             ! Sum must be taken over inner domain only
             IF(p_gcp%owner_mask(jc,jb)) THEN
               cell_volume(jc,jk,jb) =  &
-                p_gcp%area(jc,jb)*p_nh(jg)%metrics%ddqz_z_full(jc,jk,jb)
+                p_gcp%area(jc,jb)*p_nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb)
             ENDIF
           ENDDO
         ENDDO
@@ -179,14 +177,14 @@ DO jg = 1, n_dom-1
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
             cell_volume(jc,jk,jb) =  &
-              p_gcp%area(jc,jb)*p_nh(jg)%metrics%ddqz_z_full(jc,jk,jb)
+              p_gcp%area(jc,jb)*p_nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb)
           ENDDO
         ENDDO
 
       ENDIF
     ENDDO
 
-    p_nh(jgc)%metrics%fbk_dom_volume(:) = global_sum_array3(1,.FALSE.,cell_volume)
+    p_nh_state(jgc)%metrics%fbk_dom_volume(:) = global_sum_array3(1,.FALSE.,cell_volume)
 
     DEALLOCATE(cell_volume)
 
@@ -207,7 +205,7 @@ DO jg = 1, n_dom-1
       p_gcp => p_patch_local_parent(jgc)%cells
       p_pp  => p_patch_local_parent(jgc)
     ELSE
-      p_fbkwgt => p_grf(jg)%fbk_wgt_c
+      p_fbkwgt => p_grf_state(jg)%fbk_wgt_c
       p_gcp => p_patch(jg)%cells
       p_pp  => p_patch(jg)
     ENDIF
@@ -220,19 +218,19 @@ DO jg = 1, n_dom-1
 
     IF (l_parallel) THEN
 
-      ALLOCATE(p_nh(jgc)%metrics%rho_ref_corr(nproma, nlev_c, p_pp%nblks_c), &
+      ALLOCATE(p_nh_state(jgc)%metrics%rho_ref_corr(nproma, nlev_c, p_pp%nblks_c), &
                z_rho_ref(nproma, nlev, p_pp%nblks_c))
       z_rho_ref(:,:,:) = 0._wp
-      p_nh(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
+      p_nh_state(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
 
       CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=z_rho_ref, &
-                         SEND=p_nh(jg)%metrics%rho_ref_mc)
+                         SEND=p_nh_state(jg)%metrics%rho_ref_mc)
     ELSE
-      ALLOCATE(p_nh(jgc)%metrics%rho_ref_corr(nproma, nlev_c, i_startblk:i_endblk), &
+      ALLOCATE(p_nh_state(jgc)%metrics%rho_ref_corr(nproma, nlev_c, i_startblk:i_endblk), &
                z_rho_ref(nproma, nlev, i_startblk:i_endblk))
 
       z_rho_ref(:,:,:) = 0._wp
-      p_nh(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
+      p_nh_state(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
 
       DO jb = i_startblk, i_endblk
 
@@ -241,7 +239,7 @@ DO jg = 1, n_dom-1
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            z_rho_ref(jc,jk,jb) = p_nh(jg)%metrics%rho_ref_mc(jc,jk,jb)
+            z_rho_ref(jc,jk,jb) = p_nh_state(jg)%metrics%rho_ref_mc(jc,jk,jb)
           ENDDO
         ENDDO
       ENDDO
@@ -258,11 +256,11 @@ DO jg = 1, n_dom-1
         jks = jk + nshift
         DO jc = i_startidx, i_endidx
 
-          p_nh(jgc)%metrics%rho_ref_corr(jc,jk,jb) = - z_rho_ref(jc,jks,jb) +(   &
-          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
+          p_nh_state(jgc)%metrics%rho_ref_corr(jc,jk,jb) = - z_rho_ref(jc,jks,jb) + (           &
+          p_nh_state(jgc)%metrics%rho_ref_mc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1)+ &
+          p_nh_state(jgc)%metrics%rho_ref_mc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2)+ &
+          p_nh_state(jgc)%metrics%rho_ref_mc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3)+ &
+          p_nh_state(jgc)%metrics%rho_ref_mc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)  )
 
         ENDDO
       ENDDO
@@ -288,25 +286,24 @@ END SUBROUTINE complete_nesting_setup
 !! @par Revision History
 !! Developed by Guenther Zaengl, DWD, 2010-02-10
 !!
-SUBROUTINE compute_tendencies (p_patch,p_nh_state,n_new,n_now,n_new_rcf,&
+SUBROUTINE compute_tendencies (jg,n_new,n_now,n_new_rcf,&
   &                            n_now_rcf,rdt,rdt_rcf,lstep_adv)
 
 
-TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch
-TYPE(t_nh_state),    TARGET, INTENT(INOUT) ::  p_nh_state
-
-LOGICAL :: lstep_adv  ! determines wheter tracer-tendencies should be computed
-                      ! (.true.) or not (.false.)
-
+INTEGER,  INTENT(IN) :: jg  ! domain ID
 ! Time levels from which tendencies are computed
 INTEGER,  INTENT(IN) ::  n_new,n_now
 ! Time levels from which tracer-tendencies are computed
 INTEGER,  INTENT(IN) ::  n_new_rcf,n_now_rcf
+
 ! Inverse value of time step needed for computing the tendencies
 REAL(wp), INTENT(IN) ::  rdt
 ! Inverse value of time step for integration with reduced calling frequency,
 ! needed for computing the tracer-tendencies
 REAL(wp), INTENT(IN) ::  rdt_rcf
+
+LOGICAL :: lstep_adv  ! determines wheter tracer-tendencies should be computed
+                      ! (.true.) or not (.false.)
 
 ! local variables
 
@@ -318,28 +315,30 @@ INTEGER :: nlev, nlevp1           !< number of full and half levels
 ! needs interpolation of upper boundary conditions
 LOGICAL :: l_child_vertnest
 
-TYPE(t_nh_prog), POINTER :: p_prog_now     => NULL()
-TYPE(t_nh_prog), POINTER :: p_prog_new     => NULL()
-TYPE(t_nh_prog), POINTER :: p_prog_now_rcf => NULL()
-TYPE(t_nh_prog), POINTER :: p_prog_new_rcf => NULL()
+TYPE(t_nh_state), POINTER :: p_nh
+TYPE(t_nh_prog),  POINTER :: p_prog_now
+TYPE(t_nh_prog),  POINTER :: p_prog_new
+TYPE(t_nh_prog),  POINTER :: p_prog_now_rcf
+TYPE(t_nh_prog),  POINTER :: p_prog_new_rcf
 
 !-----------------------------------------------------------------------
 
-i_nchdom = MAX(1,p_patch%n_childdom)
+i_nchdom = MAX(1,p_patch(jg)%n_childdom)
 
-p_prog_now     => p_nh_state%prog(n_now)
-p_prog_new     => p_nh_state%prog(n_new)
-p_prog_now_rcf => p_nh_state%prog(n_now_rcf)
-p_prog_new_rcf => p_nh_state%prog(n_new_rcf)
+p_nh           => p_nh_state(jg)
+p_prog_now     => p_nh%prog(n_now)
+p_prog_new     => p_nh%prog(n_new)
+p_prog_now_rcf => p_nh%prog(n_now_rcf)
+p_prog_new_rcf => p_nh%prog(n_new_rcf)
 
 ! number of vertical levels
-nlev   = p_patch%nlev
-nlevp1 = p_patch%nlevp1
+nlev   = p_patch(jg)%nlev
+nlevp1 = p_patch(jg)%nlevp1
 
 ! determine if upper boundary interpolation is needed
-IF (lvert_nest .AND. (p_patch%nshift_child > 0)) THEN  
+IF (lvert_nest .AND. (p_patch(jg)%nshift_child > 0)) THEN  
   l_child_vertnest = .TRUE.
-  nshift = p_patch%nshift_child + 1
+  nshift = p_patch(jg)%nshift_child + 1
 ELSE
   l_child_vertnest = .FALSE.
   nshift = 0
@@ -348,49 +347,49 @@ ENDIF
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
 ! cell-based variables
-i_startblk = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)
+i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
+i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int-2,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+  CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int-2)
 
   DO jk = 1, nlev
     DO jc = i_startidx, i_endidx
-      p_nh_state%diag%grf_tend_rho(jc,jk,jb) = &
+      p_nh%diag%grf_tend_rho(jc,jk,jb) = &
       ( p_prog_new%rho(jc,jk,jb) - p_prog_now%rho(jc,jk,jb) )*rdt
 
-      p_nh_state%diag%grf_tend_thv(jc,jk,jb) = &
+      p_nh%diag%grf_tend_thv(jc,jk,jb) = &
       ( p_prog_new%theta_v(jc,jk,jb) - p_prog_now%theta_v(jc,jk,jb) )*rdt
 
       ! the div field carries perturbation density for use in SR boundary_interpolation
-      p_nh_state%diag%div(jc,jk,jb) = &
-        p_prog_now%rho(jc,jk,jb) - p_nh_state%metrics%rho_ref_mc(jc,jk,jb)
+      p_nh%diag%div(jc,jk,jb) = &
+        p_prog_now%rho(jc,jk,jb) - p_nh%metrics%rho_ref_mc(jc,jk,jb)
 
       ! the dpres_mc field carries perturbation potential temperature for use in SR boundary_interpolation
-      p_nh_state%diag%dpres_mc(jc,jk,jb) = &
-        p_prog_now%theta_v(jc,jk,jb) - p_nh_state%metrics%theta_ref_mc(jc,jk,jb)
+      p_nh%diag%dpres_mc(jc,jk,jb) = &
+        p_prog_now%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
-      p_nh_state%diag%grf_tend_w(jc,jk,jb) = &
+      p_nh%diag%grf_tend_w(jc,jk,jb) = &
       ( p_prog_new%w(jc,jk,jb) - p_prog_now%w(jc,jk,jb) )*rdt
     ENDDO
   ENDDO
 
   DO jc = i_startidx, i_endidx
-    p_nh_state%diag%grf_tend_w(jc,nlevp1,jb) = &
+    p_nh%diag%grf_tend_w(jc,nlevp1,jb) = &
     ( p_prog_new%w(jc,nlevp1,jb) - p_prog_now%w(jc,nlevp1,jb) )*rdt
   ENDDO
 
   IF (l_child_vertnest) THEN ! Compute differences between uppermost 2 levels for upper boundary condition
     DO jc = i_startidx, i_endidx
-      p_nh_state%diag%dw_int(jc,jb) = 0.5_wp*(p_nh_state%diag%dw_int(jc,jb) + &
+      p_nh%diag%dw_int(jc,jb) = 0.5_wp*(p_nh%diag%dw_int(jc,jb) + &
         p_prog_new%w(jc,nshift,jb) - p_prog_new%w(jc,nshift+1,jb))
-      p_nh_state%diag%drho_ic_int(jc,jb) = 0.5_wp*(p_nh_state%diag%drho_ic_int(jc,jb) + &
-        p_nh_state%diag%rho_ic(jc,nshift,jb) - p_nh_state%diag%rho_ic(jc,nshift+1,jb))
-      p_nh_state%diag%dtheta_v_ic_int(jc,jb) = 0.5_wp*(p_nh_state%diag%dtheta_v_ic_int(jc,jb) + &
-        p_nh_state%diag%theta_v_ic(jc,nshift,jb) - p_nh_state%diag%theta_v_ic(jc,nshift+1,jb))
+      p_nh%diag%drho_ic_int(jc,jb) = 0.5_wp*(p_nh%diag%drho_ic_int(jc,jb) + &
+        p_nh%diag%rho_ic(jc,nshift,jb) - p_nh%diag%rho_ic(jc,nshift+1,jb))
+      p_nh%diag%dtheta_v_ic_int(jc,jb) = 0.5_wp*(p_nh%diag%dtheta_v_ic_int(jc,jb) + &
+        p_nh%diag%theta_v_ic(jc,nshift,jb) - p_nh%diag%theta_v_ic(jc,nshift+1,jb))
     ENDDO
   ENDIF
 
@@ -403,13 +402,13 @@ IF (ltransport .AND. lstep_adv) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+    CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int-2)
 
     DO jt = 1,ntracer
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          p_nh_state%diag%grf_tend_tracer(jc,jk,jb,jt) =                    &
+          p_nh%diag%grf_tend_tracer(jc,jk,jb,jt) =                    &
             &            ( p_prog_new_rcf%tracer(jc,jk,jb,jt)               &
             &            -  p_prog_now_rcf%tracer(jc,jk,jb,jt) )*rdt_rcf
         ENDDO
@@ -422,26 +421,26 @@ ENDIF
 
 
 ! edge-based variables
-i_startblk = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
+i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e+1,1)
+i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-3,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
-  CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+  CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge_int-3)
 
   DO jk = 1, nlev
     DO je = i_startidx, i_endidx
-      p_nh_state%diag%grf_tend_vn(je,jk,jb) = &
+      p_nh%diag%grf_tend_vn(je,jk,jb) = &
       ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
     ENDDO
   ENDDO
 
   IF (l_child_vertnest) THEN ! Compute tendencies for upper boundary condition
     DO je = i_startidx, i_endidx
-      p_nh_state%diag%dvn_ie_int(je,jb) = 0.5_wp*(p_nh_state%diag%dvn_ie_int(je,jb) + &
-        p_nh_state%diag%vn_ie(je,nshift,jb) - p_nh_state%diag%vn_ie(je,nshift+1,jb))
+      p_nh%diag%dvn_ie_int(je,jb) = 0.5_wp*(p_nh%diag%dvn_ie_int(je,jb) + &
+        p_nh%diag%vn_ie(je,nshift,jb) - p_nh%diag%vn_ie(je,nshift+1,jb))
     ENDDO
   ENDIF
 
@@ -460,16 +459,11 @@ END SUBROUTINE compute_tendencies
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2008-07-10
 !!
-SUBROUTINE boundary_interpolation (p_patch,p_nh_state,p_int_state,p_grf_state,jg,jgc, &
-  &                                ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv            )
+SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv)
 
 CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
 
-TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
-TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
-TYPE(t_int_state),     TARGET, INTENT(IN)  ::  p_int_state(n_dom_start:n_dom)
-TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
 
 INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
 
@@ -888,15 +882,11 @@ END SUBROUTINE boundary_interpolation
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-06-18
-SUBROUTINE prep_bdy_nudging(p_patch, p_nh_state, p_int_state, p_grf_state, jgp, jg, lstep_adv)
+SUBROUTINE prep_bdy_nudging(jgp, jg, lstep_adv)
 
 CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_nest_utilities:prep_bdy_nudging'
 
-TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
-TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
-TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
-TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
 
 INTEGER, INTENT(IN) :: jg   ! child grid level
 INTEGER, INTENT(IN) :: jgp  ! parent grid level
@@ -1296,15 +1286,11 @@ END SUBROUTINE prep_bdy_nudging
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2011-12-08
-SUBROUTINE prep_rho_bdy_nudging(p_patch, p_nh_state, p_int_state, p_grf_state, jgp, jg)
+SUBROUTINE prep_rho_bdy_nudging(jgp, jg)
 
 CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_nest_utilities:prep_rho_bdy_nudging'
 
-TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
-TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
-TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
-TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
 
 INTEGER, INTENT(IN) :: jg   ! child grid level
 INTEGER, INTENT(IN) :: jgp  ! parent grid level
@@ -1513,21 +1499,21 @@ END SUBROUTINE prep_rho_bdy_nudging
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-06-18
-SUBROUTINE outer_boundary_nudging( p_patch, p_nh, p_int, nnow, nnow_rcf,  &
-  &                                nsave, lstep_adv)
+SUBROUTINE outer_boundary_nudging(jg, nnow, nnow_rcf, nsave, lstep_adv)
 
-
-TYPE(t_patch),     TARGET, INTENT(IN)    ::  p_patch
-TYPE(t_nh_state),  TARGET, INTENT(INOUT) ::  p_nh
-TYPE(t_int_state), TARGET, INTENT(IN)    ::  p_int
 
 ! Time level nnow holds the current prognostic state; in the limited-area case,
 ! level nsave holds the saved initial state or (tbd) the externally provided data.
 ! Level nnow_rcf holds the current prognostic tracer state.
-INTEGER, INTENT(IN)  :: nnow, nnow_rcf, nsave
+INTEGER, INTENT(IN)  :: jg, nnow, nnow_rcf, nsave
 
 LOGICAL, INTENT(IN) :: lstep_adv  ! Switch if nudging is done for tracers
                                   ! (only if tracer transport is called)
+
+! Pointers
+TYPE(t_patch),     POINTER ::  p_p
+TYPE(t_nh_state),  POINTER ::  p_nh
+TYPE(t_int_state), POINTER ::  p_int
 
 ! Indices
 INTEGER :: jb, jc, jk, je, i_nchdom, i_startblk, i_endblk, &
@@ -1537,7 +1523,12 @@ INTEGER :: nlev                   ! number of vertical full levels
 
 REAL(wp) :: rd_o_cvd, rd_o_p0ref
 
-i_nchdom = MAX(1,p_patch%n_childdom)
+! Set pointers
+p_p   => p_patch(jg)
+p_nh  => p_nh_state(jg)
+p_int => p_int_state(jg)
+
+i_nchdom = MAX(1,p_p%n_childdom)
 
 ! R/c_v (not present in physical constants)
 rd_o_cvd = 1._wp / cvd_o_rd
@@ -1546,18 +1537,18 @@ rd_o_cvd = 1._wp / cvd_o_rd
 rd_o_p0ref = rd / p0ref
 
 ! number of vertical levels
-nlev = p_patch%nlev
+nlev = p_p%nlev
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
 ! a) cell-based variables
-i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+i_startblk = p_p%cells%start_blk(grf_nudge_start_c,1)
+i_endblk   = p_p%cells%end_blk(min_rlcell,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+  CALL get_indices_c(p_p, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
                      grf_nudge_start_c, min_rlcell)
 
   DO jk = 1, nlev
@@ -1595,13 +1586,13 @@ ENDDO
 !$OMP END DO
 
 ! b) edge-based variables (velocity)
-i_startblk = p_patch%edges%start_blk(grf_nudge_start_e,1)
-i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
+i_startblk = p_p%edges%start_blk(grf_nudge_start_e,1)
+i_endblk   = p_p%edges%end_blk(min_rledge,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
-  CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+  CALL get_indices_e(p_p, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
                      grf_nudge_start_e, min_rledge)
 
   DO jk = 1, nlev
@@ -1618,14 +1609,14 @@ ENDDO
 !$OMP END DO
 
 ! c) rediagnosis of rhotheta and Exner function
-i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+i_startblk = p_p%cells%start_blk(grf_nudge_start_c,1)
+i_endblk   = p_p%cells%end_blk(min_rlcell,i_nchdom)
 
 !DR!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+  CALL get_indices_c(p_p, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
                      grf_nudge_start_c, min_rlcell)
 
     DO jk = 1, nlev
@@ -1657,17 +1648,16 @@ END SUBROUTINE outer_boundary_nudging
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-06-18
-SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
+SUBROUTINE nest_boundary_nudging(jg, nnew, nnew_rcf, rcffac)
 
 
-  TYPE(t_patch),     TARGET, INTENT(IN)    ::  p_patch
-  TYPE(t_nh_state),  TARGET, INTENT(INOUT) ::  p_nh
-  TYPE(t_int_state), TARGET, INTENT(IN)    ::  p_int
-
-
-  INTEGER, INTENT(IN)  :: nnew, nnew_rcf
+  INTEGER, INTENT(IN)  :: jg, nnew, nnew_rcf
 
   REAL(wp), INTENT(IN) :: rcffac ! Ratio between advective and dynamical time step
+
+  ! Pointers
+  TYPE(t_nh_state),  POINTER ::  p_nh
+  TYPE(t_int_state), POINTER ::  p_int
 
   ! Indices
   INTEGER :: jb, jc, jk, jt, ic
@@ -1676,6 +1666,10 @@ SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
 
   REAL(wp) :: rd_o_cvd, rd_o_p0ref
 
+  ! Set pointers
+  p_nh  => p_nh_state(jg)
+  p_int => p_int_state(jg)
+
   ! R/c_v (not present in physical constants)
   rd_o_cvd = 1._wp / cvd_o_rd
 
@@ -1683,7 +1677,7 @@ SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
   rd_o_p0ref = rd / p0ref
 
   ! number of vertical levels
-  nlev = p_patch%nlev
+  nlev = p_patch(jg)%nlev
 
 !$OMP PARALLEL
 
@@ -1759,17 +1753,16 @@ END SUBROUTINE nest_boundary_nudging
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2011-12-08
-SUBROUTINE density_boundary_nudging(p_patch, p_nh, p_int, nnew, rcffac)
+SUBROUTINE density_boundary_nudging(jg, nnew, rcffac)
 
 
-  TYPE(t_patch),     TARGET, INTENT(IN)    ::  p_patch
-  TYPE(t_nh_state),  TARGET, INTENT(INOUT) ::  p_nh
-  TYPE(t_int_state), TARGET, INTENT(IN)    ::  p_int
-
-
-  INTEGER, INTENT(IN)  :: nnew
+  INTEGER, INTENT(IN)  :: jg, nnew
 
   REAL(wp), INTENT(IN) :: rcffac ! Ratio between advective and dynamical time step
+
+  ! Pointers
+  TYPE(t_nh_state),  POINTER ::  p_nh
+  TYPE(t_int_state), POINTER ::  p_int
 
   ! Indices
   INTEGER :: jb, jc, jk, ic
@@ -1778,6 +1771,10 @@ SUBROUTINE density_boundary_nudging(p_patch, p_nh, p_int, nnew, rcffac)
 
   REAL(wp) :: rd_o_cvd, rd_o_p0ref
 
+  ! Set pointers
+  p_nh  => p_nh_state(jg)
+  p_int => p_int_state(jg)
+
   ! R/c_v (not present in physical constants)
   rd_o_cvd = 1._wp / cvd_o_rd
 
@@ -1785,7 +1782,7 @@ SUBROUTINE density_boundary_nudging(p_patch, p_nh, p_int, nnew, rcffac)
   rd_o_p0ref = rd / p0ref
 
   ! number of vertical levels
-  nlev = p_patch%nlev
+  nlev = p_patch(jg)%nlev
 
 !$OMP PARALLEL
 
@@ -1823,3 +1820,4 @@ END SUBROUTINE density_boundary_nudging
 
 
 END MODULE mo_nh_nest_utilities
+

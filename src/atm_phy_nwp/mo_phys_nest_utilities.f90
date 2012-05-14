@@ -44,12 +44,14 @@ MODULE mo_phys_nest_utilities
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
-USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent
+USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
-USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, p_grf_state_local_parent
+USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, &
+                                  p_grf_state, p_grf_state_local_parent
 USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
 USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+USE mo_nwp_lnd_state,       ONLY: p_lnd_state
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -84,24 +86,20 @@ CONTAINS
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-01
 !!
-SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
-  nlev_rg, fr_land, fr_glac, emis_rad,                                   &
-  cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,                    &
-  tsfc, pres_ifc, pres, temp, acdnc, tot_cld, q_o3,                      &
-  aeq1, aeq2, aeq3, aeq4, aeq5,                                          &
-  rg_fr_land, rg_fr_glac, rg_emis_rad,                                   &
-  rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif,     &
-  rg_tsfc, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc, rg_tot_cld, rg_q_o3, &
+SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
+  cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,                      &
+  tsfc, pres_ifc, pres, temp, acdnc, tot_cld, q_o3,                        &
+  aeq1, aeq2, aeq3, aeq4, aeq5,                                            &
+  rg_fr_land, rg_fr_glac, rg_emis_rad,                                     &
+  rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif,       &
+  rg_tsfc, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc, rg_tot_cld, rg_q_o3,   &
   rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5 )
 
-  ! Input types
-  TYPE(t_patch),         TARGET, INTENT(IN)  ::  p_patch
-  TYPE(t_patch),         TARGET, INTENT(IN)  ::  p_par_patch
-  TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_par_grf
-
+  ! Input grid parameters
+  INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
   INTEGER, INTENT(IN)  :: nlev_rg  ! number of model levels on reduced grid
 
-  ! Other input fields (on full grid)
+  ! Input fields (on full grid)
   REAL(wp), INTENT(IN) ::                                                                 &
     fr_land(:,:), fr_glac(:,:), emis_rad(:,:),                                            &
     cosmu0(:,:), albvisdir(:,:), albnirdir(:,:), albvisdif(:,:), albnirdif(:,:),          &
@@ -140,7 +138,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
   TYPE(t_patch),      POINTER     :: p_pp => NULL()
 
   ! Indices
-  INTEGER :: jb, jc, jk, jk1, jg, jgp, i_chidx, i_nchdom, &
+  INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
@@ -155,7 +153,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Upscaling of radiation input fields',&
-      p_patch%id,' =>',p_par_patch%id
+      jg,' =>',jgp
     CALL message('upscale_rad_input',message_text)
   ENDIF
 
@@ -165,11 +163,9 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
     l_parallel = .TRUE.
   ENDIF
 
-  jgp = p_par_patch%id
-
   ! Number of levels of the full grid
-  nlev   = p_patch%nlev
-  nlevp1 = p_patch%nlevp1
+  nlev   = p_patch(jg)%nlev
+  nlevp1 = p_patch(jg)%nlevp1
 
   ! nlev_rg carries the number of model levels of the reduced grid,
   ! which may be larger than nlev
@@ -177,18 +173,17 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
   nshift = nlev_rg - nlev ! resulting shift parameter
 
   IF (l_parallel) THEN
-    jg = p_patch%id
     p_grf => p_grf_state_local_parent(jg)
     p_gcp => p_patch_local_parent(jg)%cells
     p_pp  => p_patch_local_parent(jg)
   ELSE
-    p_grf => p_par_grf
-    p_gcp => p_par_patch%cells
-    p_pp  => p_par_patch
+    p_grf => p_grf_state(jgp)
+    p_gcp => p_patch(jgp)%cells
+    p_pp  => p_patch(jgp)
   ENDIF
 
-  i_chidx  = p_patch%parent_child_index
-  i_nchdom = MAX(1,p_par_patch%n_childdom)
+  i_chidx  = p_patch(jg)%parent_child_index
+  i_nchdom = MAX(1,p_patch(jgp)%n_childdom)
 
   ! Set pointers to index and coefficient fields for cell-based variables
   iidx => p_gcp%child_idx
@@ -197,7 +192,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
   p_fbkwgt => p_grf%fbk_wgt_c
 
   ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
-  nst = p_patch%nshift_total
+  nst = p_patch(jg)%nshift_total
   ! inverse height difference between layer 1 and 2
   rdelta_z = 1._wp/(0.5_wp*(vct_a(nst+1)-vct_a(nst+3))) ! note: vct refers to half levels
 
@@ -224,7 +219,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
              z_aeq1(nproma,nlev_rg,nblks_c_lp), z_aeq2(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq3(nproma,nlev_rg,nblks_c_lp), z_aeq4(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq5(nproma,nlev_rg,nblks_c_lp),                                         &
-             z_aux3d(nproma,9,nblks_c_lp), zrg_aux3d(nproma,9,p_par_patch%nblks_c) )
+             z_aux3d(nproma,9,nblks_c_lp), zrg_aux3d(nproma,9,p_patch(jgp)%nblks_c) )
 
   ENDIF
 
@@ -514,15 +509,15 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
                             RECV4D=rg_tot_cld, SEND4D=z_tot_cld           )
 
 
-    i_startblk = p_par_patch%cells%start_blk(1,1)
-    i_endblk   = p_par_patch%cells%end_blk(min_rlcell,i_nchdom)
+    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
+    i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell,i_nchdom)
 
     ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
 !!$OMP PARALLEL
 !!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_par_patch, jb, i_startblk, i_endblk, &
+      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, 1, min_rlcell, i_nchdom)
 
       DO jc = i_startidx, i_endidx
@@ -556,18 +551,14 @@ END SUBROUTINE upscale_rad_input
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
-  nlev_rg, rg_aclcov, rg_lwflxclr, rg_lwflxall, rg_trsolclr, rg_trsolall,   &
-  tsfc_rg, albvisdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, pres_ifc_rg,   &
-  tsfc, albvisdif, aclcov, lwflxclr, lwflxall, trsolclr, trsolall           )
+SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                         &
+  rg_aclcov, rg_lwflxclr, rg_lwflxall, rg_trsolclr, rg_trsolall,          &
+  tsfc_rg, albvisdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, pres_ifc_rg, &
+  tsfc, albvisdif, aclcov, lwflxclr, lwflxall, trsolclr, trsolall         )
 
 
-  ! Input types
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_par_patch
-  TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_par_int
-  TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_par_grf
-
+  ! Input grid parameters
+  INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
   INTEGER, INTENT(IN)  :: nlev_rg  ! number of model levels on reduced grid
 
   ! Input fields (on reduced grid) to be downscaled to full grid
@@ -601,14 +592,14 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
   REAL(wp), ALLOCATABLE :: zpg_aux3d(:,:,:), zrg_aux3d(:,:,:), z_aux3d(:,:,:)
 
   ! Auxiliary fields on full grid for back-interpolated values
-  REAL(wp), DIMENSION(nproma,p_patch%nblks_c) :: tsfc_backintp, alb_backintp
+  REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp
 
   ! More local variables
   REAL(wp) :: pscal, dpresg, pfaclw, intqctot
 
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2
 
-  REAL(wp), DIMENSION(nproma,p_patch%nlevp1) :: intclw, intcli, dtrans_o_dalb_clr, &
+  REAL(wp), DIMENSION(nproma,p_patch(jg)%nlevp1) :: intclw, intcli, dtrans_o_dalb_clr, &
     dtrans_o_dalb_all, dlwflxclr_o_dtg, dlwflxall_o_dtg, pfacswc, pfacswa
 
   ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
@@ -618,7 +609,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
   TYPE(t_patch),      POINTER     :: p_pp => NULL()
 
   ! Indices
-  INTEGER :: jg, jgp, i_chidx, i_nchdom, nblks_c_lp
+  INTEGER :: i_chidx, i_nchdom, nblks_c_lp
   INTEGER :: jb, jk, jk1, jc, i_startblk, i_endblk, i_startidx, i_endidx
   INTEGER :: jc1, jc2, jc3, jc4, jb1, jb2, jb3, jb4
 
@@ -634,7 +625,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Downscaling of radiation output fields',&
-      p_par_patch%id,' =>',p_patch%id
+      jgp,' =>',jg
     CALL message('downscale_rad_output',message_text)
   ENDIF
 
@@ -644,12 +635,10 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
     l_parallel = .TRUE.
   ENDIF
 
-  jgp = p_par_patch%id
-
   ! For the time being, the radiation grid is assumed to have the same levels
   ! as the full grid
-  nlev   = p_patch%nlev
-  nlevp1 = p_patch%nlevp1
+  nlev   = p_patch(jg)%nlev
+  nlevp1 = p_patch(jg)%nlevp1
 
   ! nlev_rg carries the number of model levels of the reduced grid,
   ! which may be larger than nlev
@@ -657,20 +646,19 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
   nshift = nlev_rg - nlev ! resulting shift parameter
 
   IF (l_parallel) THEN
-    jg = p_patch%id
     p_grf => p_grf_state_local_parent(jg)
     p_int => p_int_state_local_parent(jg)
     p_gcp => p_patch_local_parent(jg)%cells
     p_pp  => p_patch_local_parent(jg)
   ELSE
-    p_grf => p_par_grf
-    p_int => p_par_int
-    p_gcp => p_par_patch%cells
-    p_pp  => p_par_patch
+    p_grf => p_grf_state(jgp)
+    p_int => p_int_state(jgp)
+    p_gcp => p_patch(jgp)%cells
+    p_pp  => p_patch(jgp)
   ENDIF
 
-  i_nchdom = MAX(1,p_patch%n_childdom)
-  i_chidx  = p_patch%parent_child_index
+  i_nchdom = MAX(1,p_patch(jg)%n_childdom)
+  i_chidx  = p_patch(jg)%parent_child_index
 
   nblks_c_lp = p_pp%nblks_c
 
@@ -693,12 +681,12 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
     ALLOCATE( z_lwflxclr(nproma,nlevp1_rg,nblks_c_lp), z_lwflxall(nproma,nlevp1_rg,nblks_c_lp), &
               z_trsolclr(nproma,nlevp1_rg,nblks_c_lp), z_trsolall(nproma,nlevp1_rg,nblks_c_lp), &
               z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp), z_tot_cld(nproma,nlev_rg,nblks_c_lp,4),  &
-              zpg_aux3d(nproma,n2dvars,p_par_patch%nblks_c),                                    &
-              zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,5,p_patch%nblks_c)         )
+              zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                   &
+              zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,5,p_patch(jg)%nblks_c)     )
 
   ELSE
 
-    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,5,p_patch%nblks_c))
+    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,5,p_patch(jg)%nblks_c))
 
   ENDIF
 
@@ -947,23 +935,20 @@ END SUBROUTINE downscale_rad_output
 !! @par Revision History
 !! Thorsten Reinhardt, AGeoBw, 2010-12-06
 !!
-SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1_rg, &
-  &  cosmu0, albvisdir, alb_ther, temp_ifc, dpres_mc,                                &
-  &  tot_cld, sqv, duco2, duo3,                                                      &
-  &  aeq1, aeq2, aeq3, aeq4, aeq5, pres_sfc,pres_ifc,                                &
-  &  rg_cosmu0, rg_albvisdir, rg_alb_ther, rg_temp_ifc, rg_dpres_mc,                 &
-  &  rg_tot_cld, rg_sqv, rg_duco2, rg_duo3,                                          &
+SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
+  &  cosmu0, albvisdir, alb_ther, temp_ifc, dpres_mc,                &
+  &  tot_cld, sqv, duco2, duo3,                                      &
+  &  aeq1, aeq2, aeq3, aeq4, aeq5, pres_sfc,pres_ifc,                &
+  &  rg_cosmu0, rg_albvisdir, rg_alb_ther, rg_temp_ifc, rg_dpres_mc, &
+  &  rg_tot_cld, rg_sqv, rg_duco2, rg_duo3,                          &
   &  rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5, rg_pres_sfc )
 
 
-  ! Input types
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_par_patch
-  TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_par_grf
-
+  ! Input grid parameters
+  INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
   INTEGER, INTENT(IN)  :: nlev_rg, nlevp1_rg  ! number of model levels on reduced grid
   
-  ! Other input fields (on full grid)
+  ! Input fields (on full grid)
   REAL(wp), INTENT(IN) ::                                                             &
     & cosmu0(:,:), albvisdir(:,:), alb_ther(:,:), temp_ifc(:,:,:),                    &
     & dpres_mc(:,:,:), tot_cld(:,:,:,:), sqv(:,:,:), duco2(:,:,:), duo3(:,:,:),       &
@@ -1003,7 +988,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
   TYPE(t_patch),      POINTER     :: p_pp  => NULL()
 
   ! Indices
-  INTEGER :: jb, jc, jk, jk1, jg, jgp, i_chidx, i_nchdom, &
+  INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
@@ -1019,7 +1004,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Upscaling of radiation input fields',&
-      p_patch%id,' =>',p_par_patch%id
+      jg,' =>',jgp
     CALL message('upscale_rad_input',message_text)
   ENDIF
 
@@ -1029,31 +1014,28 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
     l_parallel = .TRUE.
   ENDIF
 
-  jgp = p_par_patch%id
-
   ! For the time being, the radiation grid is assumed to have the same levels
   ! as the full grid
   ! Number of levels of the full grid
-  nlev   = p_patch%nlev
-  nlevp1 = p_patch%nlevp1
+  nlev   = p_patch(jg)%nlev
+  nlevp1 = p_patch(jg)%nlevp1
 
   ! nlev_rg carries the number of model levels of the reduced grid,
   ! which may be larger than nlev
   nshift = nlev_rg - nlev ! resulting shift parameter
 
   IF (l_parallel) THEN
-    jg = p_patch%id
     p_grf => p_grf_state_local_parent(jg)
     p_gcp => p_patch_local_parent(jg)%cells
     p_pp  => p_patch_local_parent(jg)
   ELSE
-    p_grf => p_par_grf
-    p_gcp => p_par_patch%cells
-    p_pp  => p_par_patch
+    p_grf => p_grf_state(jgp)
+    p_gcp => p_patch(jgp)%cells
+    p_pp  => p_patch(jgp)
   ENDIF
 
-  i_chidx  = p_patch%parent_child_index
-  i_nchdom = MAX(1,p_par_patch%n_childdom)
+  i_chidx  = p_patch(jg)%parent_child_index
+  i_nchdom = MAX(1,p_patch(jgp)%n_childdom)
 
   ! Set pointers to index and coefficient fields for cell-based variables
   iidx => p_gcp%child_idx
@@ -1062,7 +1044,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
   p_fbkwgt => p_grf%fbk_wgt_c
 
   ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
-  nst = p_patch%nshift_total
+  nst = p_patch(jg)%nshift_total
   
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (l_parallel .AND. jgp == 0) THEN
@@ -1076,7 +1058,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
              z_aeq2(nproma,nlev_rg,nblks_c_lp), z_aeq3(nproma,nlev_rg,nblks_c_lp),         &
              z_aeq4(nproma,nlev_rg,nblks_c_lp), z_aeq5(nproma,nlev_rg,nblks_c_lp),         &
              z_pres_sfc(nproma,nblks_c_lp), z_aux3d(nproma,6,nblks_c_lp),                  &
-             zrg_aux3d(nproma,4,p_par_patch%nblks_c)                               )
+             zrg_aux3d(nproma,4,p_patch(jgp)%nblks_c)                                      )
 
   ENDIF
   
@@ -1334,15 +1316,15 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
                             RECV4D=rg_tot_cld, SEND4D=z_tot_cld           )
 
 
-    i_startblk = p_par_patch%cells%start_blk(1,1)
-    i_endblk   = p_par_patch%cells%end_blk(min_rlcell,i_nchdom)
+    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
+    i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell,i_nchdom)
 
     ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
 !!$OMP PARALLEL
 !!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_par_patch, jb, i_startblk, i_endblk, &
+      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, 1, min_rlcell, i_nchdom)
 
       DO jc = i_startidx, i_endidx
@@ -1364,19 +1346,15 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf, nlev_rg, nlevp1
 
 END SUBROUTINE upscale_rad_input_rg
 
-SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, nlev_rg,  &
-  &  rg_lwflxall, rg_trsolall, tsfc_rg,                                                   &
-  &  albeff_rg, albefffac_rg,flsp_rg, flsd_rg,                                            &
-  &  alb_ther_rg, cosmu0_rg, tot_cld_rg,                                                  &
+SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                   &
+  &  rg_lwflxall, rg_trsolall, tsfc_rg,                                 &
+  &  albeff_rg, albefffac_rg,flsp_rg, flsd_rg,                          &
+  &  alb_ther_rg, cosmu0_rg, tot_cld_rg,                                &
   &  dpres_mc_rg, pres_sfc_rg,tsfc, albvisdif, zsct, lwflxall, trsolall )
 
 
-  ! Input types
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_par_patch
-  TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_par_int
-  TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_par_grf
-
+  ! Input grid parameters
+  INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
   INTEGER, INTENT(IN)  :: nlev_rg  ! number of model levels on reduced grid
   
   ! Other input fields (on reduced grid)
@@ -1417,14 +1395,14 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
   REAL(wp), ALLOCATABLE, TARGET :: zrg_aux3d(:,:,:)
   
   ! Auxiliary fields on full grid for back-interpolated values
-  REAL(wp), DIMENSION(nproma,p_patch%nblks_c) :: tsfc_backintp, alb_backintp, albfac_backintp
+  REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp, albfac_backintp
 
   ! More local variables
   REAL(wp) :: pscal, dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
   
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac2, lwfac1, lwfac2
 
-  REAL(wp), DIMENSION(nproma,p_patch%nlevp1) :: intclw, intcli,     &
+  REAL(wp), DIMENSION(nproma,p_patch(jg)%nlevp1) :: intclw, intcli,     &
     dtrans_o_dalb_all, dlwflxall_o_dtg, pfacswc, pfacswa
 
   
@@ -1435,7 +1413,7 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
   TYPE(t_patch),      POINTER     :: p_pp => NULL()
 
   ! Indices
-  INTEGER :: jg, jgp, i_chidx, i_nchdom, nblks_c_lp
+  INTEGER :: i_chidx, i_nchdom, nblks_c_lp
   INTEGER :: jb, jk, jk1, jc, i_startblk, i_endblk, i_startidx, i_endidx
   INTEGER :: jc1, jc2, jc3, jc4, jb1, jb2, jb3, jb4
   
@@ -1452,7 +1430,7 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Downscaling of radiation output fields',&
-      p_par_patch%id,' =>',p_patch%id
+      jgp,' =>',jg
     CALL message('downscale_rad_output',message_text)
   ENDIF
 
@@ -1462,12 +1440,11 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
     l_parallel = .TRUE.
   ENDIF
 
-  jgp = p_par_patch%id
 
   ! For the time being, the radiation grid is assumed to have the same levels
   ! as the full grid
-  nlev   = p_patch%nlev
-  nlevp1 = p_patch%nlevp1
+  nlev   = p_patch(jg)%nlev
+  nlevp1 = p_patch(jg)%nlevp1
 
   ! nlev_rg carries the number of model levels of the reduced grid,
   ! which may be larger than nlev
@@ -1475,20 +1452,19 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
   nshift = nlev_rg - nlev ! resulting shift parameter
 
   IF (l_parallel) THEN
-    jg = p_patch%id
     p_grf => p_grf_state_local_parent(jg)
     p_int => p_int_state_local_parent(jg)
     p_gcp => p_patch_local_parent(jg)%cells
     p_pp  => p_patch_local_parent(jg)
   ELSE
-    p_grf => p_par_grf
-    p_int => p_par_int
-    p_gcp => p_par_patch%cells
-    p_pp  => p_par_patch
+    p_grf => p_grf_state(jgp)
+    p_int => p_int_state(jgp)
+    p_gcp => p_patch(jgp)%cells
+    p_pp  => p_patch(jgp)
   ENDIF
 
-  i_nchdom = MAX(1,p_patch%n_childdom)
-  i_chidx  = p_patch%parent_child_index
+  i_nchdom = MAX(1,p_patch(jg)%n_childdom)
+  i_chidx  = p_patch(jg)%parent_child_index
 
   nblks_c_lp = p_pp%nblks_c
 
@@ -1512,13 +1488,13 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
 
     ALLOCATE(z_lwflxall(nproma,nlevp1_rg,nblks_c_lp), z_trsolall(nproma,nlevp1_rg,nblks_c_lp) , &
       &      z_dpres_mc(nproma,nlev_rg,nblks_c_lp), z_tot_cld(nproma,nlev_rg,nblks_c_lp,4),     &
-      &      zpg_aux3d(nproma,n2dvars,p_par_patch%nblks_c),                                     &
-      &      zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,8,p_patch%nblks_c),         &
+      &      zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                    &
+      &      zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,8,p_patch(jg)%nblks_c),     &
       &      pres_ifc(nproma,nlevp1_rg,nblks_c_lp) )
 
   ELSE
 
-    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,8,p_patch%nblks_c), &
+    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,8,p_patch(jg)%nblks_c), &
       &      pres_ifc(nproma,nlevp1_rg,nblks_c_lp) )
     
   ENDIF
@@ -1753,18 +1729,21 @@ END SUBROUTINE downscale_rad_output_rg
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int,ptr_grf,jg,jgc,jn,ptr_ldiagp,ptr_ldiagc)
+SUBROUTINE interpol_phys_grf (jg,jgc,jn,lsfc_interp)
 
   USE mo_nwp_phy_state,      ONLY: prm_diag
 
   ! Input:
-  TYPE(t_patch),                INTENT(in) :: ptr_pp
-  TYPE(t_patch),                INTENT(in) :: ptr_pc
-  TYPE(t_gridref_single_state), INTENT(in) :: ptr_grf
-  TYPE(t_int_state),            INTENT(in) :: ptr_int
-  TYPE(t_lnd_diag), OPTIONAL,   INTENT(inout):: ptr_ldiagp ! parent level land diag state
-  TYPE(t_lnd_diag), OPTIONAL,   INTENT(inout):: ptr_ldiagc ! child level land diag state
-  INTEGER,                      INTENT(in) :: jg,jgc,jn
+  INTEGER, INTENT(in) :: jg,jgc,jn
+  LOGICAL, INTENT(in) :: lsfc_interp
+
+  ! Pointers
+  TYPE(t_patch),                POINTER :: ptr_pp
+  TYPE(t_patch),                POINTER :: ptr_pc
+  TYPE(t_gridref_single_state), POINTER :: ptr_grf
+  TYPE(t_int_state),            POINTER :: ptr_int
+  TYPE(t_lnd_diag),             POINTER :: ptr_ldiagp ! parent level land diag state
+  TYPE(t_lnd_diag),             POINTER :: ptr_ldiagc ! child level land diag state
 
   ! Local fields
   INTEGER, PARAMETER  :: nfields_p=9    ! Number of 2D phyiscs fields for which boundary interpolation is needed
@@ -1772,22 +1751,26 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int,ptr_grf,jg,jgc,jn,ptr_ldiagp
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk
 
-  LOGICAL :: lsfc_interp
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
-  REAL(wp) :: z_aux3dp_p(nproma,nfields_p,ptr_pp%nblks_c),        &  ! 2D physics diag fields
-              z_aux3dp_c(nproma,nfields_p,ptr_pc%nblks_c),        &
-              z_aux3dl2_p(nproma,nfields_l2,ptr_pp%nblks_c),      &  ! 2D land state fields
-              z_aux3dl2_c(nproma,nfields_l2,ptr_pc%nblks_c),      &
-              z_aux3dso_p(nproma,3*(nlev_soil+1),ptr_pp%nblks_c), &  ! 3D land state fields for soil
-              z_aux3dso_c(nproma,3*(nlev_soil+1),ptr_pc%nblks_c), &
-              z_aux3dsn_p(nproma,5*nlev_snow,ptr_pp%nblks_c),     &  ! 3D land state fields for multi-layer snow
-              z_aux3dsn_c(nproma,5*nlev_snow,ptr_pc%nblks_c)         ! (used if lmulti_snow = ture))
+  REAL(wp) :: z_aux3dp_p(nproma,nfields_p,p_patch(jg)%nblks_c),         &  ! 2D physics diag fields
+              z_aux3dp_c(nproma,nfields_p,p_patch(jgc)%nblks_c),        &
+              z_aux3dl2_p(nproma,nfields_l2,p_patch(jg)%nblks_c),       &  ! 2D land state fields
+              z_aux3dl2_c(nproma,nfields_l2,p_patch(jgc)%nblks_c),      &
+              z_aux3dso_p(nproma,3*(nlev_soil+1),p_patch(jg)%nblks_c),  &  ! 3D land state fields for soil
+              z_aux3dso_c(nproma,3*(nlev_soil+1),p_patch(jgc)%nblks_c), &
+              z_aux3dsn_p(nproma,5*nlev_snow,p_patch(jg)%nblks_c),      &  ! 3D land state fields for multi-layer snow
+              z_aux3dsn_c(nproma,5*nlev_snow,p_patch(jgc)%nblks_c)         ! (used if lmulti_snow = ture))
 
-  IF (PRESENT(ptr_ldiagp) .AND. PRESENT(ptr_ldiagc)) THEN
-    lsfc_interp = .TRUE.
-  ELSE
-    lsfc_interp = .FALSE.
+  ! set pointers
+  ptr_pp  => p_patch(jg)
+  ptr_pc  => p_patch(jgc)
+  ptr_grf => p_grf_state(jg)%p_dom(jn)
+  ptr_int => p_int_state(jg)
+
+  IF (lsfc_interp) THEN
+    ptr_ldiagp => p_lnd_state(jg)%diag_lnd
+    ptr_ldiagc => p_lnd_state(jgc)%diag_lnd
   ENDIF
 
   IF (p_test_run) THEN
@@ -1832,11 +1815,8 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int,ptr_grf,jg,jgc,jn,ptr_ldiagp
         z_aux3dl2_p(jc,9,jb) = ptr_ldiagp%runoff_s(jc,jb)
         z_aux3dl2_p(jc,10,jb) = ptr_ldiagp%runoff_g(jc,jb)
         z_aux3dl2_p(jc,11,jb) = ptr_ldiagp%t_so(jc,nlev_soil+2,jb)
-        IF (lmulti_snow) THEN
+        IF (lmulti_snow) &
           z_aux3dl2_p(jc,12,jb) = ptr_ldiagp%t_snow_mult(jc,nlev_snow+1,jb)
-        ELSE
-          z_aux3dl2_p(jc,12,jb) = 0._wp
-        ENDIF
       ENDDO
 
       DO jk = 1, nlev_soil+1
@@ -1970,29 +1950,43 @@ END SUBROUTINE interpol_phys_grf
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2011-09-19
 !!
-SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_diagc, &
-                             ptr_lprogp, ptr_lprogc_now, ptr_lprogc_new, jn)
+SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
 
-  ! Input:
-  TYPE(t_patch),                INTENT(in) :: ptr_pp
-  TYPE(t_patch),                INTENT(in) :: ptr_pc
-  TYPE(t_gridref_single_state), INTENT(in) :: ptr_grf
-  TYPE(t_int_state),            INTENT(in) :: ptr_int
-  TYPE(t_nwp_phy_diag),         INTENT(in) :: prm_diagp
-  TYPE(t_nwp_phy_diag),         INTENT(inout) :: prm_diagc
-  TYPE(t_lnd_prog),             INTENT(in) :: ptr_lprogp
-  TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc_now
-  TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc_new
+  ! Input grid parameters
+  INTEGER, INTENT(in) :: jg, jgc, jn, ntl_rcf
 
-  INTEGER,                      INTENT(in) :: jn
+  ! Pointers
+  TYPE(t_patch),                POINTER :: ptr_pp
+  TYPE(t_patch),                POINTER :: ptr_pc
+  TYPE(t_gridref_single_state), POINTER :: ptr_grf
+  TYPE(t_int_state),            POINTER :: ptr_int
+  TYPE(t_nwp_phy_diag),         POINTER :: prm_diagp
+  TYPE(t_nwp_phy_diag),         POINTER :: prm_diagc
+  TYPE(t_lnd_prog),             POINTER :: ptr_lprogp
+  TYPE(t_lnd_prog),             POINTER :: ptr_lprogc_t1
+  TYPE(t_lnd_prog),             POINTER :: ptr_lprogc_t2
+
 
   ! Local fields
   INTEGER, PARAMETER  :: nfields=2    ! Number of 2D fields for which boundary interpolation is needed
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
-  REAL(wp) :: z_aux3d_p(nproma,nfields,ptr_pp%nblks_c), &
-              z_aux3d_c(nproma,nfields,ptr_pc%nblks_c)
+  REAL(wp) :: z_aux3d_p(nproma,nfields,p_patch(jg)%nblks_c), &
+              z_aux3d_c(nproma,nfields,p_patch(jgc)%nblks_c)
+
+  ! set pointers
+  ptr_pp        => p_patch(jg)
+  ptr_pc        => p_patch(jgc)
+  ptr_grf       => p_grf_state(jg)%p_dom(jn)
+  ptr_int       => p_int_state(jg)
+  prm_diagp     => prm_diag(jg)
+  prm_diagc     => prm_diag(jgc)
+  ptr_lprogp    => p_lnd_state(jg)%prog_lnd(ntl_rcf)
+  ! We just need to set both time levels of the child land state, 
+  ! without having to care which one is now and new
+  ptr_lprogc_t1 => p_lnd_state(jgc)%prog_lnd(1)
+  ptr_lprogc_t2 => p_lnd_state(jgc)%prog_lnd(2)
 
   IF (p_test_run) THEN
      z_aux3d_p(:,:,:) = 0._wp
@@ -2041,9 +2035,9 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
 
     DO jc = i_startidx, i_endidx
 
-      ptr_lprogc_now%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
-      ptr_lprogc_new%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
-      prm_diagc%albvisdif(jc,jb)     = z_aux3d_c(jc,2,jb)
+      ptr_lprogc_t1%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
+      ptr_lprogc_t2%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
+      prm_diagc%albvisdif(jc,jb)    = z_aux3d_c(jc,2,jb)
 
     ENDDO
   ENDDO
@@ -2060,10 +2054,7 @@ END SUBROUTINE interpol_rrg_grf
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
-
-  TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
-  TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
+SUBROUTINE feedback_phys_diag(jg, jgp)
 
   INTEGER, INTENT(IN) :: jg   ! child grid level
   INTEGER, INTENT(IN) :: jgp  ! parent grid level
@@ -2227,3 +2218,4 @@ END SUBROUTINE feedback_phys_diag
 
 
 END MODULE mo_phys_nest_utilities
+

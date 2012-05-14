@@ -120,7 +120,7 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-    CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
+    CALL perform_nh_stepping(  &
       &                       time_config%cur_datetime,       &
       &                       n_file, jfile, n_chkpt, n_diag, l_have_output  )
  
@@ -235,8 +235,9 @@ CONTAINS
       !------------------------------------------------------------------
 
 
-    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+    ! CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
+    CALL prepare_nh_integration( )
 
     !
     ! Read restart files (if necessary)

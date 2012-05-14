@@ -58,8 +58,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
-  USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
-    &                                upscale_rad_input_rg, downscale_rad_output_rg
+  USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
@@ -952,7 +951,7 @@ CONTAINS
 !!$OMP END DO NOWAIT
 !!$OMP END PARALLEL
 
-      CALL upscale_rad_input(pt_patch, pt_par_patch, pt_par_grf_state,  &
+      CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad,                                        &
         & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
@@ -1187,8 +1186,8 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      CALL downscale_rad_output(pt_patch, pt_par_patch, pt_par_int_state,                  &
-        & pt_par_grf_state, nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, &
+      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                           &
+        &  nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr,                  &
         & zrg_trsolall, zrg_tsfc, zrg_albvisdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,    &
         & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albvisdif, aclcov, prm_diag%lwflxclr, &
         & prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )

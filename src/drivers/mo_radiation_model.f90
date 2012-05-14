@@ -72,7 +72,7 @@ USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-USE mo_model_domimp_patches, ONLY : get_patch_global_indexes
+USE mo_alloc_patches,       ONLY : destruct_patches
 
 ! Memory
 !
@@ -85,7 +85,7 @@ USE mo_model_domain,        ONLY: t_patch, p_patch
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches, destruct_patches
+USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches
 
 ! Horizontal interpolation
 !

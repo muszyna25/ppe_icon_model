@@ -95,7 +95,7 @@ USE mo_coupling_config,   ONLY : is_coupled_run, config_debug_coupler_level
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
-USE mo_model_domimp_patches, ONLY : get_patch_global_indexes
+USE mo_alloc_patches,       ONLY : destruct_patches
 USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
 ! Memory
@@ -125,7 +125,7 @@ USE mo_util_sysinfo,        ONLY: util_get_maxrss
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
                                   dynamics_parent_grid_id
-USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches, destruct_patches
+USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches
 ! Horizontal interpolation
 !
 USE mo_intp_state,          ONLY: construct_2d_interpol_state,  &

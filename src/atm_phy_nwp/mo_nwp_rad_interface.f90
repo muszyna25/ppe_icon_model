@@ -53,8 +53,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
-  USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
-    &                                upscale_rad_input_rg, downscale_rad_output_rg
+  USE mo_phys_nest_utilities,  ONLY: upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
@@ -614,7 +613,7 @@ MODULE mo_nwp_rad_interface
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL upscale_rad_input_rg( pt_patch, pt_par_patch, pt_par_grf_state, nlev_rg, nlevp1_rg, &
+    CALL upscale_rad_input_rg( pt_patch%id, pt_par_patch%id,  nlev_rg, nlevp1_rg,            &
       & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                     &
       & pt_diag%dpres_mc, prm_diag%tot_cld, zsqv ,zduco2, zduo3,                             &
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,pt_diag%pres_ifc,                     &
@@ -726,10 +725,8 @@ MODULE mo_nwp_rad_interface
 
 
     CALL downscale_rad_output_rg(          &
-      & p_patch      = pt_patch,           &
-      & p_par_patch  = pt_par_patch,       &
-      & p_par_int    = pt_par_int_state,   &
-      & p_par_grf    = pt_par_grf_state,   &
+      & jg           = pt_patch%id,        &
+      & jgp          = pt_par_patch%id,    &
       & nlev_rg      = nlev_rg,            &
       & rg_lwflxall  = zrg_lwflxall,       &
       & rg_trsolall  = zrg_trsolall,       &

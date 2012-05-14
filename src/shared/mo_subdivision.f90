@@ -86,7 +86,7 @@ MODULE mo_subdivision
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, n_phys_dom
-  USE mo_model_domimp_patches,ONLY: allocate_patch, deallocate_basic_patch, deallocate_patch
+  USE mo_alloc_patches,ONLY: allocate_patch, deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 
   IMPLICIT NONE
