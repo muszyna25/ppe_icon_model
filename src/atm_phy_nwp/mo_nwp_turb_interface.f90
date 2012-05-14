@@ -200,7 +200,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_3g(nproma,p_patch%nlev+1), zdummy_vdf_3h(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
-  REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil), zdummy_vdf_4b(nproma,nlev_soil)
+  REAL(wp) :: zdummy_vdf_4a(nproma,4)             , zdummy_vdf_4b(nproma,4)
   REAL(wp) :: zdummy_vdf_5a(nproma,nsfc_subs)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
@@ -647,6 +647,14 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
 
+      DO jk = 1,4
+        DO jc = i_startidx, i_endidx
+          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,2,jb,1) ! simple: take one level, one tile ???
+          zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,2,jb,1) ! ---
+        ENDDO
+      ENDDO
+
+
       DO jc = i_startidx, i_endidx
         zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
       ENDDO
@@ -664,6 +672,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         idummy_vdf_0b(jc) = 3     !KTVH  ???
         zdummy_vdf_1a(jc) = 0.5   !PCVL  ???
         zdummy_vdf_1b(jc) = 0.5   !PCVL  ???
+        idummy_vdf_0c(jc) = 1     !KSOTY ??? soil type (needs to be specified)
       ENDDO
 
 
@@ -718,9 +727,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PAPM1   = p_diag%pres             (:,:,jb)           ,&! (IN)   
         & PGEOM1  = p_metrics%geopot_agl    (:,:,jb)           ,&! (IN)   
         & PGEOH   = p_metrics%geopot_agl_ifc(:,:,jb)           ,&! (IN)   
-        & PTSKM1M = ztskm1m                                    ,&! (IN)  T,skin - unused    
-        & PTSAM1M = zdummy_vdf_4a                              ,&! (IN)  T,soil - unused 
-        & PWSAM1M = zdummy_vdf_4b                              ,&! (IN)  Q,soil - unused
+        & PTSKM1M = ztskm1m                                    ,&! (IN)  T,skin
+        & PTSAM1M = zdummy_vdf_4a                              ,&! (IN)  T,soil
+        & PWSAM1M = zdummy_vdf_4b                              ,&! (IN)  Q,soil
         & PSSRFL  = prm_diag%swflxsfc(:,jb)                    ,&! (IN)   
         & PSLRFL  = prm_diag%lwflxsfc(:,jb)                    ,&! (IN)   
         & PEMIS   = ext_data%atm%emis_rad(:,jb)                ,&! (IN)   
@@ -732,10 +741,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PTLICE  = zdummy_vdf_1d                              ,&! (IN)  lake ice temperature - unused 
         & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
         & PSST    = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  SST
-        & KSOTY   = idummy_vdf_0c                              ,&! (IN)  unused: soil type
+        & KSOTY   = idummy_vdf_0c                              ,&! (IN)  soil type
 !xmk ?  & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
         & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
-        & PALBTI  = zdummy_vdf_5a                              ,&! (IN)  unused: tile albedo
+        & PALBTI  = zdummy_vdf_5a                              ,&! (IN)  tile albedo
         & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  unused: maximum skin reservoir capacity
         & PCHAR   = zchar                                      ,&! (IN)  Charnock parameter (for z0 over ocean)
         & PUCURR  = zucurr                                     ,&! (IN)  Ocean current x 

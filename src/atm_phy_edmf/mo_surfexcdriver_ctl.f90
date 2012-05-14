@@ -81,6 +81,11 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
 ! USE YOS_SOIL  ,ONLY : RALFMAXSN
 ! USE YOS_FLAKE ,ONLY : LEFLAKE    , RH_ICE_MIN_FLK
 ! USE YOS_THF   ,ONLY : R2ES, R3LES, R3IES, R4LES, R4IES, R5LES, R5IES
+! USE VSURF_MOD
+! USE SURFSEB_CTL_MOD
+!dmk USE VEVAP_MOD
+!    USE SRFCOTWO_MOD
+!xxx USE VSFLX_MOD
 
 !ICON definitions:
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
@@ -95,13 +100,8 @@ USE mo_edmf_param   ,ONLY : &
 
 USE mo_vupdz0       ,ONLY : vupdz0
 USE mo_vexcs        ,ONLY : vexcs
+USE mo_vsurf        ,ONLY : vsurf
 USE mo_surfseb_ctl  ,ONLY : surfseb_ctl
-
-!dmk USE VSURF_MOD
-!    USE VEVAP_MOD
-!    USE SURFSEB_CTL_MOD
-!    USE SRFCOTWO_MOD
-!xxx USE VSFLX_MOD
 
 
 ! #ifdef DOC
@@ -531,23 +531,13 @@ DO JTILE=1,KTILES
     ZSRFD(JL)=PSSRFLTI(JL,JTILE)/(1.0_JPRB-PALBTI(JL,JTILE))  
   ENDDO
 
-!dmk  surface conditions - not needed ???
-!  CALL VSURF(KIDIA,KFDIA,KLON,KLEVS,JTILE,&
-!   & KTVL,KTVH,&
-!   & PTMLEV  ,PQMLEV  ,PAPHMS,&
-!   & PTSKTI(:,JTILE),PWSAM1M,PTSAM1M,KSOTY,&
-!   & ZSRFD,ZRAQTI(:,JTILE),ZQSATI(:,JTILE),&
-!   & PQSTI(:,JTILE)  ,PDQSTI(:,JTILE)  ,&
-!   & ZWETB ,PCPTSTI(:,JTILE) ,ZWETL, ZWETH, ZWETHS )
-!xxx
-
-!amk: simple copy of VSURF code to calculate surface qsat for ocean ?????????
-!  DO JL=KIDIA,KFDIA
-!    PCPTSTI(JL,:) =FOEEW(PTSKM1M(JL)) / PAPHMS(JL)
-!    PCPTSTI(JL,:) =PCPTSTI(JL,:) * 0.98_JPRB / (1.0_JPRB-RETV*PCPTSTI(JL,:))
-!    ZQSATI(JL,:)=PCPTSTI(JL,:)
-!  ENDDO
-!xxx
+  CALL VSURF(KIDIA,KFDIA,KLON,KLEVS,JTILE,&
+   & KTVL,KTVH,&
+   & PTMLEV  ,PQMLEV  ,PAPHMS,&
+   & PTSKTI(:,JTILE),PWSAM1M,PTSAM1M,KSOTY,&
+   & ZSRFD,ZRAQTI(:,JTILE),ZQSATI(:,JTILE),&
+   & PQSTI(:,JTILE)  ,PDQSTI(:,JTILE)  ,&
+   & ZWETB ,PCPTSTI(:,JTILE) ,ZWETL, ZWETH, ZWETHS )
 
 ENDDO
 
