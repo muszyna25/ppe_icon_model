@@ -3556,7 +3556,7 @@ fi
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
-      mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+      mod_file=$(find $real_path/lib/openmpi -name mpi.mod -print | awk 'NR==1')
       ;;
     esac
     if test -r $mod_file ; then
