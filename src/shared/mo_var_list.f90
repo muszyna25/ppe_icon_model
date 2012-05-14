@@ -3146,8 +3146,9 @@ CONTAINS
              this_list_element%field%info%grib2%number
         CALL message('', message_text)
         !
-        WRITE (message_text,'(a,a,a,a)') &
-             ' CF convention standard name/unit            : ',   &
+!DR Due to problems with insufficient record length on SX9 
+        WRITE (0, * ) &
+             'CF convention standard name/unit            : ',    &
              TRIM(this_list_element%field%info%cf%standard_name), &
              '     ',                                             &
              TRIM(this_list_element%field%info%cf%units)

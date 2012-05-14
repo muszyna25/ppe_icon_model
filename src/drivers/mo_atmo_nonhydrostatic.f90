@@ -34,7 +34,8 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp
+USE mo_mpi,                  ONLY: my_process_is_stdio
 USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
   &                                timer_stop, timer_model_init
 USE mo_master_control,       ONLY: is_restart_run
@@ -48,15 +49,14 @@ USE mo_io_restart_attributes,ONLY: get_restart_attribute
 USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
-USE mo_run_config,           ONLY: &
-  &                               dtime, dtime_adv,     & !    namelist parameter
-  &                               ltestcase,            &
-  &                               nsteps,               & !    :
-  &                               ltimer,               & !    :
-  &                               iforcing,             & !    namelist parameter
-  &                               output_mode
+USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist parameter
+  &                                ltestcase,            &
+  &                                nsteps,               & !    :
+  &                                ltimer,               & !    :
+  &                                iforcing,             & !    namelist parameter
+  &                                output_mode,          &
+  &                                msg_level               !    namelist parameter
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
-USE mo_impl_constants,       ONLY: inwp
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp, nsfc_subs, p_tiles, &
   &                                destruct_tiles_arrays
 ! Horizontal grid
@@ -72,7 +72,8 @@ USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state,                    &
-  &                                destruct_nwp_phy_state, prm_diag
+  &                                destruct_nwp_phy_state, prm_diag,           &
+  &                                prm_nwp_diag_list, prm_nwp_tend_list
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -92,6 +93,7 @@ USE mo_name_list_output,    ONLY: init_name_list_output,  &
   &                               close_name_list_output
 USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
   &                               pp_scheduler_init, pp_scheduler_process, pp_scheduler_finalize
+USE mo_var_list,            ONLY: print_var_list
 
 !-------------------------------------------------------------------------
 
@@ -405,8 +407,23 @@ CONTAINS
 
     END IF ! not is_restart_run()
 
+
+    ! for debug purpose: print var lists
+    IF ( msg_level >=20 .AND. my_process_is_stdio() ) THEN
+      CALL print_var_list (p_nh_state(1)%prog_list(1))
+      CALL print_var_list (p_nh_state(1)%diag_list)
+      CALL print_var_list (p_nh_state(1)%metrics_list)
+      CALL print_var_list (prm_nwp_diag_list(1))
+      CALL print_var_list (prm_nwp_tend_list(1))
+      CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
+      CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
+      CALL print_var_list (ext_data(1)%atm_list)
+      CALL print_var_list (ext_data(1)%atm_td_list)
+    ENDIF
+
+
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
-    
+
   END SUBROUTINE construct_atmo_nonhydrostatic
   
   !---------------------------------------------------------------------
