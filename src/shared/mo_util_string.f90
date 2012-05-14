@@ -582,5 +582,50 @@ CONTAINS
       IF (.NOT. ASSOCIATED(keyword_list)) RETURN
     END DO
   END FUNCTION with_keywords
+
+
+  !==============================================================================
+  !+ Subroutine for keyword substitution
+  !
+  ! If we have a list of strings, for example "u", "v", "tracers",
+  ! then we can use this function to replace a keyword that denotes a
+  ! whole group of variables (like "tracers"), for example by
+  ! group_list="Q1", "Q2", etc.
+  ! 
+  ! @param[in]  varlist    original array of strings (variable names)
+  ! @param[in]  vname_len  length of each string
+  ! @param[in]  n          length of list
+  ! @param[in]  group_name substitution keyword (i.e. variable group name)
+  ! @param[in]  group_list array of strings that will be inserted
+  ! 
+  ! @return     contents of @p varlist where @p group_name has been replaced.
+  !------------------------------------------------------------------------------
+  FUNCTION insert_group(varlist, vname_len, n, group_name, group_list) RESULT(result_list)
+    INTEGER,                        INTENT(IN) :: vname_len, n
+    CHARACTER(LEN=vname_len)                   :: result_list(n)
+    CHARACTER(LEN=*),               INTENT(IN) :: varlist(:), group_list(:)
+    CHARACTER(LEN=*),               INTENT(IN) :: group_name
+    ! local variables
+    INTEGER :: i,j,k
+
+    k=0
+    DO i=1,SIZE(varlist)
+      IF (TRIM(toupper(varlist(i))) == TRIM(toupper(group_name))) THEN
+        DO j=1,SIZE(group_list)
+          k = k+1
+          result_list(k) = TRIM(group_list(j))
+        END DO
+      ELSE
+        k = k+1
+        result_list(k) = TRIM(varlist(i))
+      END IF
+    END DO
+    CALL remove_duplicates(result_list, k )
+    DO i=k+1,n
+      result_list(i) = " "
+    END DO
+
+  END FUNCTION insert_group
+
   
 END MODULE mo_util_string
