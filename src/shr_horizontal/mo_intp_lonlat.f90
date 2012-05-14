@@ -1094,7 +1094,7 @@
 
       ! Local Parameters:
       CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat")
-      INTEGER  :: jb, jk, jc, i_startidx, i_endidx, slev, elev, ijc, ijb
+      INTEGER  :: jb, jk, jc, i_startidx, i_endidx, slev, elev
       REAL(wp) :: grad_x(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3)), &
         &         grad_y(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3))
 
@@ -1136,10 +1136,9 @@
           IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
           FORALL (jc=i_startidx:i_endidx)
 
-            ijc = ptr_int%tri_idx(1,jc,jb)
-            ijb = ptr_int%tri_idx(2,jc,jb)
-            p_lonlat_out(jc,jk,jb) = p_cell_in(ijc, jk, ijb)      &
-              &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)   &
+            p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
+              &                                ptr_int%tri_idx(2,jc,jb))     &
+              &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &
               &           +  ptr_int%rdist(2,jc,jb) * grad_y(jc,jk,jb)
 
           END FORALL
