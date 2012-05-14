@@ -890,7 +890,7 @@ CONTAINS
     &            t_cf_var('depth_c','','time dependent depth at cells'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/))
-    CALL add_var(ocean_var_list, 'mass flux', p_os_diag%mass_flx_e, &
+    CALL add_var(ocean_var_list, 'mass_flux', p_os_diag%mass_flx_e, &
     &            GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_DEPTH_BELOW_SEA, t_cf_var('mass flux','',' mass flux'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
