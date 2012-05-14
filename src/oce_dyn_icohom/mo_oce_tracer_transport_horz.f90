@@ -222,7 +222,7 @@ SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
       DO je = i_startidx_e, i_endidx_e
         IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
           IF(jk==1)THEN
-             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)!&
+             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)
           ENDIF
           z_adv_flux_h(je,jk,jb) = delta_z*z_adv_flux_h(je,jk,jb)
         ENDIF
