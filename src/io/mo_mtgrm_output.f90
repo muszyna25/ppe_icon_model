@@ -164,6 +164,7 @@ MODULE mo_meteogram_output
   USE mo_util_string,           ONLY: int2string
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   
   IMPLICIT NONE
   
@@ -400,6 +401,7 @@ CONTAINS
     p_lnd_diag => p_lnd_state%diag_lnd
 
     ! -- atmosphere
+
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "P", "Pa", "Pressure", jg, diag%pres(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "T", "K", "Temperature", jg, diag%temp(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "PEXNER", "-", "Exner pressure", &
@@ -434,30 +436,54 @@ CONTAINS
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", jg, &
       &               diag%pres_ifc(:,:,:))
 
-    ! -- soil
-    CALL add_atmo_var(VAR_GROUP_SOIL_MLp2, "t_so", "K", "soil temperature", jg, &
-      &               p_lnd_diag%t_so(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so", "m H2O",         &
-      &               "total water content (ice + liquid water)", &
-      &               jg, p_lnd_diag%w_so(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so_ice", "m H2O",     &
-      &               "ice content", jg, p_lnd_diag%w_so_ice(:,:,:))
+    ! -- soil related
 
-    ! -- surface
+    IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+      CALL add_atmo_var(VAR_GROUP_SOIL_MLp2, "t_so", "K", "soil temperature", jg, &
+        &               p_lnd_diag%t_so(:,:,:))
+      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so", "m H2O",         &
+        &               "total water content (ice + liquid water)", &
+        &               jg, p_lnd_diag%w_so(:,:,:))
+      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so_ice", "m H2O",     &
+        &               "ice content", jg, p_lnd_diag%w_so_ice(:,:,:))
+
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_Cov", "-", "ground fraction covered by plants", &
+        &              jg, ext_data%atm%plcov_mx(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_Ind", "-", "leaf area index (vegetation period)", &
+        &              jg, ext_data%atm%lai_mx(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", jg, &
+        &              ext_data%atm%rootdp(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", jg, prm_diag%gz0(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "qv_s", "kg/kg", "specific humidity at the surface", &
+        &              jg, p_lnd_diag%qv_s(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_i", "m H2O", "water content of interception water", &
+        &              jg, p_lnd_diag%w_i(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_snow", "m H2O", "water content of snow", &
+        &              jg, p_lnd_diag%w_snow(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RUNOFF_S", "kg/m2",   &
+        &              "surface water runoff; sum over forecast", &
+        &              jg, p_lnd_diag%runoff_s(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RUNOFF_G", "kg/m2",   &
+        &              "soil water runoff; sum over forecast",    &
+        &              jg, p_lnd_diag%runoff_g(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_snow", "K", "temperature of the snow-surface", &
+        &              jg, p_lnd_diag%t_snow(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_s", "K", "temperature of the ground surface", &
+        &              jg, p_lnd_diag%t_s(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_g", "K", "weighted surface temperature", &
+        &              jg, p_lnd_prog%t_g(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "FRESHSNW", "-",              &
+        &              "indicator for age of snow in top of snow layer", &
+        &              jg, p_lnd_diag%freshsnow(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RHO_SNOW", "kg/m**3", "snow density", &
+        &              jg, p_lnd_diag%rho_snow(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "H_SNOW", "m", "snow height", &
+        &              jg, p_lnd_diag%h_snow(:,:))
+    ENDIF
+
+    ! -- single level variables
+
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "P_SFC", "Pa", "surface pressure", jg, diag%pres_sfc(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_Cov", "-", "ground fraction covered by plants", &
-      &              jg, ext_data%atm%plcov_mx(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_Ind", "-", "leaf area index (vegetation period)", &
-      &              jg, ext_data%atm%lai_mx(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", jg, &
-      &              ext_data%atm%rootdp(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", jg, prm_diag%gz0(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "qv_s", "kg/kg", "specific humidity at the surface", &
-      &              jg, p_lnd_diag%qv_s(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_i", "m H2O", "water content of interception water", &
-      &              jg, p_lnd_diag%w_i(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_snow", "m H2O", "water content of snow", &
-      &              jg, p_lnd_diag%w_snow(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "TCM", "-", &
       &              "turbulent transfer coefficients for momentum", &
       &              jg, prm_diag%tcm(:,:))
@@ -467,29 +493,10 @@ CONTAINS
       &              jg, prm_diag%shfl_s(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "LHFL", "W/m2", "latent heat flux (surface)", &
       &              jg, prm_diag%lhfl_s(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "RUNOFF_S", "kg/m2",   &
-      &              "surface water runoff; sum over forecast", &
-      &              jg, p_lnd_diag%runoff_s(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "RUNOFF_G", "kg/m2",   &
-      &              "soil water runoff; sum over forecast",    &
-      &              jg, p_lnd_diag%runoff_g(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "VIO3", "Pa O3", "vertically integrated ozone amount", &
       &              jg, prm_diag%vio3(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "HMO3", "Pa", "height of O3 maximum", &
       &              jg, prm_diag%hmo3(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_snow", "K", "temperature of the snow-surface", &
-      &              jg, p_lnd_diag%t_snow(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_s", "K", "temperature of the ground surface", &
-      &              jg, p_lnd_diag%t_s(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_g", "K", "weighted surface temperature", &
-      &              jg, p_lnd_prog%t_g(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "FRESHSNW", "-",              &
-      &              "indicator for age of snow in top of snow layer", &
-      &              jg, p_lnd_diag%freshsnow(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "RHO_SNOW", "kg/m**3", "snow density", &
-      &              jg, p_lnd_diag%rho_snow(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "H_SNOW", "m", "snow height", &
-      &              jg, p_lnd_diag%h_snow(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "T2M", "K", "temperature in 2m", &
       &              jg, prm_diag%t_2m(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "TD2M", "K", "dew-point temperature in 2m", &
@@ -521,7 +528,7 @@ CONTAINS
 
     IF (lwrite_extra) THEN
       ! Variable: Extra 2D
-      CALL add_sfc_var(VAR_GROUP_SURFACE, "EXTRA2D","","-", jg, diag%extra_2d(:,:,1:inextra_2d))
+      CALL add_sfc_var (VAR_GROUP_SURFACE, "EXTRA2D","","-", jg, diag%extra_2d(:,:,1:inextra_2d))
       ! Variable: Extra 3D
       CALL add_atmo_var(VAR_GROUP_ATMO_ML, "EXTRA3D","","-", jg, diag%extra_3d(:,:,:,1:inextra_3d))
     END IF
