@@ -554,7 +554,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qv',                             &
                     &  'kg kg-1','specific_humidity'),                               &
-                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),      &
+                    & t_grib2_var(192, 201, 28, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -571,7 +571,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qc',                             &
                     &  'kg kg-1', 'specific_cloud_water_content'),                   &
-                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),      &
+                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -589,7 +589,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qi',                             &
                     &  'kg kg-1','specific_cloud_ice_content'),                      &
-                    & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),      &
+                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -607,7 +607,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qr',                             &
                     &  'kg kg-1','rain_mixing_ratio'),                               &
-                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),       &
+                    & t_grib2_var(0, 1, 85, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -625,7 +625,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qs',                             &
                     &  'kg kg-1','snow_mixing_ratio'),                               &
-                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),       &
+                    & t_grib2_var(0, 1, 86, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -644,7 +644,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qtvar',                          &
                     &  'kg2 kg-2','total water variance'),                           &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & t_grib2_var(192, 201, 39, ientr, GRID_REFERENCE, GRID_CELL),  &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(),                          &
