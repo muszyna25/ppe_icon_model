@@ -3724,7 +3724,7 @@ IMPLICIT NONE
           zcounter(i) = 0.0_ireals
 
           ze_rad(i) = 0.0_ireals
-          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = sobs(i)
+          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = zf_snow(i) * sobs(i)
 
           ztsnownew_mult(i,0) = ztsnown_mult(i,0)
 !        END IF         ! land-points only
