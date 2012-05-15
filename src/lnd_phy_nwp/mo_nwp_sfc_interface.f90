@@ -275,7 +275,8 @@ CONTAINS
         ENDIF
       ENDIF
  
-      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
+          & atm_phy_nwp_config(jg)%inwp_turb    /= 3 ) THEN
 
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 

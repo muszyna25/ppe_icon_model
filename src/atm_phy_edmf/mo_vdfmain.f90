@@ -798,18 +798,13 @@ CALL SURFEXCDRIVER(CDCONF=CDCONF, &
 !dmk   & PDHTLS=PDHTLS, PDHTSS=PDHTSS, PDHTTS=PDHTTS, PDHTIS=PDHTIS &
 
 
-!amk dummy (unused!!)
-DO JL=KIDIA,KFDIA
-  PEVAPSNW(JL) = 0.0_JPRB
-ENDDO
-!xxx
-
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
-DO JL=KIDIA,KFDIA
-  ZEXTSHF(JL) = ZKHFL(JL)
-  ZEXTLHF(JL) = ZKQFL(JL)
-ENDDO
+!DO JL=KIDIA,KFDIA
+!  ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+!  ZEXTSHF(JL) = ZKHFL(JL) * ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) * ZRHO
+!  ZEXTLHF(JL) = ZKQFL(JL) * RLVTT * ZRHO
+!ENDDO
 !xxx
 
 !amk ATTENTION: needs to specify surface layer diffusion coefficients

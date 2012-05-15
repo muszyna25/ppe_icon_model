@@ -653,8 +653,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       DO jk = 1,nlev_soil
         DO jc = i_startidx, i_endidx
-          zdummy_vdf_4a(jc,jk) = 273.0 !!! lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
-          zdummy_vdf_4b(jc,jk) = 0.0   !!! lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
+          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
+          zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
         ENDDO
       ENDDO
 
@@ -676,7 +676,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         zdummy_vdf_1c(jc) = 0.0   !lake ice thickness ??? (no lakes???)
         zdummy_vdf_1d(jc) = 273.0 !lake ice temperature ??? (no lakes???)
       ENDDO
-
 
 !     Tendencies are set to include dynamics and radiation
 !     ATTENTION: currently for simplicity all input tendencies = 0
