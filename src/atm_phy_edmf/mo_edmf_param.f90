@@ -151,6 +151,8 @@ REAL(KIND=JPRB),ALLOCATABLE :: RVZ0H(:)      ! ROUGHNESS LENGTH FOR HEAT
 REAL(KIND=JPRB),ALLOCATABLE :: RVRSMIN(:)    ! MIN STOMATAL RESISTANCE FOR EACH VEG. TYPE (S/M)
 REAL(KIND=JPRB),ALLOCATABLE :: RVHSTR(:)     ! HUMIDITY STRESS FUNCTION PARAMETER (M/S kgkg-1)
 REAL(KIND=JPRB) :: RCEPSW                    ! MINIMUM RELATIVE HUMIDITY
+REAL(KIND=JPRB) :: RLHAERO, RLHAEROS
+
 
 
 !------------------------------------------------------------------------------
@@ -175,7 +177,8 @@ REAL(KIND=JPRB) :: RTF4            ! COEFFICIENT FOR SOIL WATER FREEZING FUNCTIO
           & RVZ0M    ,RVZ0H    ,RVLAMSK  ,RVLAMSKS  , &
           & RVTRSR   ,                                &
           & RWCAPM   ,RWPWPM   ,RQWEVAPM ,RWRESTM   , &
-          & RTF1     ,RTF2     ,RTF3     ,RTF4
+          & RTF1     ,RTF2     ,RTF3     ,RTF4      , &
+          & RLHAERO  ,RLHAEROS
   PUBLIC :: suct0, su0phy, susekf, susveg, abort_surf
 
 CONTAINS
@@ -478,7 +481,6 @@ USE mo_cuparameters  ,       ONLY: RETV
 
 INTEGER(KIND=JPIM) :: NVTYPES, IVTYPES, NCSS, JS
 REAL(KIND=JPRB)    :: ZLARGE , ZSNOW
-REAL(KIND=JPRB)    :: RLHAERO, RLHAEROS
 REAL(KIND=JPRB), ALLOCATABLE :: RDAW(:)
 
 ! Number of vegetation types

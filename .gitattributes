@@ -996,6 +996,7 @@ src/atm_phy_edmf/mo_vdfsat.f90 -text
 src/atm_phy_edmf/mo_vdfstcucrit.f90 -text
 src/atm_phy_edmf/mo_vdfthermo.f90 -text
 src/atm_phy_edmf/mo_vdftofdc.f90 -text
+src/atm_phy_edmf/mo_vevap.f90 -text
 src/atm_phy_edmf/mo_vexcs.f90 -text
 src/atm_phy_edmf/mo_vsurf.f90 -text
 src/atm_phy_edmf/mo_vupdz0.f90 -text

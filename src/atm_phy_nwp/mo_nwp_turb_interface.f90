@@ -200,7 +200,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_3g(nproma,p_patch%nlev+1), zdummy_vdf_3h(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
-  REAL(wp) :: zdummy_vdf_4a(nproma,4)             , zdummy_vdf_4b(nproma,4)
+  REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil)     , zdummy_vdf_4b(nproma,nlev_soil)
   REAL(wp) :: zdummy_vdf_5a(nproma,nsfc_subs)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
@@ -647,10 +647,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
 
-      DO jk = 1,4
+      DO jk = 1,nlev_soil
         DO jc = i_startidx, i_endidx
-          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,2,jb,1) ! simple: take one level, one tile ???
-          zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,2,jb,1) ! ---
+          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
+          zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
         ENDDO
       ENDDO
 
@@ -673,6 +673,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         zdummy_vdf_1a(jc) = 0.5   !PCVL  ???
         zdummy_vdf_1b(jc) = 0.5   !PCVL  ???
         idummy_vdf_0c(jc) = 1     !KSOTY ??? soil type (needs to be specified)
+        zdummy_vdf_1f(jc) = 1.0   !maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
+        zdummy_vdf_1c(jc) = 0.0   !lake ice thickness ??? (no lakes???)
+        zdummy_vdf_1d(jc) = 273.0 !lake ice temperature ??? (no lakes???)
       ENDDO
 
 
@@ -745,7 +748,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !xmk ?  & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
         & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
         & PALBTI  = zdummy_vdf_5a                              ,&! (IN)  tile albedo
-        & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  unused: maximum skin reservoir capacity
+        & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  maximum skin reservoir capacity
         & PCHAR   = zchar                                      ,&! (IN)  Charnock parameter (for z0 over ocean)
         & PUCURR  = zucurr                                     ,&! (IN)  Ocean current x 
         & PVCURR  = zvcurr                                     ,&! (IN)  Ocean current y
