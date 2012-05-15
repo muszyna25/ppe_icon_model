@@ -3144,7 +3144,7 @@ IMPLICIT NONE
         END IF
         zshfl_snow = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
         zlhfl_snow = lh_s*zversn(i)   
-        zfor_snow_mult(i)  = zrnet_snow + zshfl_snow + zlhfl_snow + zsprs(i)
+        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow + zlhfl_snow + zsprs(i))*zf_snow(i)
 
 !      END IF          ! land-points only
     END DO
@@ -3724,7 +3724,7 @@ IMPLICIT NONE
           zcounter(i) = 0.0_ireals
 
           ze_rad(i) = 0.0_ireals
-          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = zf_snow(i) * sobs(i)
+          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = sobs(i)
 
           ztsnownew_mult(i,0) = ztsnown_mult(i,0)
 !        END IF         ! land-points only
@@ -3889,8 +3889,6 @@ IMPLICIT NONE
 !        IF (llandmask(i)) THEN          ! land-points only
           IF (zwsnew(i) > zepsi) THEN        ! points with snow cover only
             zdwsnm(i) = zqbase(i)*rho_w       ! ksn == ke_snow
-! ** Change of melting rate reverted by GZ because it caused numerical instability **!
-!            zdwsnm(i) = zqbase(i)*rho_w*zf_snow(i)       ! ksn == ke_snow
           END IF       ! points with snow cover only
 !        END IF         ! land-points only
       END DO
