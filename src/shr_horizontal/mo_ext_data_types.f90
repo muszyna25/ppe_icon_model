@@ -209,9 +209,14 @@ MODULE mo_ext_data_types
       &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
                                ! index1=1,nproma, index2=1,nblks_c
 
+    ! *** radiation parameters ***
+    REAL(wp), POINTER ::   &   !< ozone mixing ratio                        [ kg kg^-1 ]
+      &  o3(:,:,:)             ! index1=1,nproma, index2=nlev,index3=1,nblks_c
+
     REAL(wp), POINTER ::   &   !< longwave surface emissivity             [ ]
       &  emis_rad(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
+    ! *** flow control parameters for tile approach ***
     REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
       & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
 
@@ -234,10 +239,20 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &   !< Normalized land cover fraction for each tile index  [ ]
       & lc_frac_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
 
+    ! *** storage for lookup table data for each landuse class ***
+    ! (needed to simplify switching between GLC2000 and Globcover2009, which
+    !  have a different order of the landcover classes)
+    REAL(wp), POINTER ::  &    !< Land-cover related roughness length   [m]
+      & z0_lcc(:)              ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Maximum plant cover fraction for each land-cover class  [ ]
+      & plcovmax_lcc(:)        ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Maximum leaf area index for each land-cover class  [ ]
+      & laimax_lcc(:)          ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Minimum stomata resistance for each land-cover class  [ ]
+      & stomresmin_lcc(:)      ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Albedo in case of snow cover for each land-cover class  [ ]
+      & snowalb_lcc(:)         ! index1=1,23
 
-    ! *** radiation parameters ***
-    REAL(wp), POINTER ::   &   !< ozone mixing ratio                        [ kg kg^-1 ]
-      &  o3(:,:,:)             ! index1=1,nproma, index2=nlev,index3=1,nblks_c
 
   END TYPE t_external_atmos
 

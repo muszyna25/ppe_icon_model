@@ -116,6 +116,11 @@ MODULE mo_ext_data_state
 
   REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp
 
+  ! Number of landcover classes provided by external parameter data
+  ! Needs to be changed into a variable if landcover classifications 
+  ! with a different number of classes become available
+  INTEGER, PARAMETER :: num_lcc = 23
+
   INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
                                         !< dim: n_dom
   INTEGER, ALLOCATABLE :: nmonths_ext(:)!< number of months in external data file
@@ -868,6 +873,14 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+      ! Storage for table values - not sure if these dimensions are supported by add_var
+      ! The dimension (num_lcc) is currently hard-wired to 23
+       ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
+                p_ext_atm%plcovmax_lcc(num_lcc),   & ! Maximum plant cover fraction for each land-cover class
+                p_ext_atm%laimax_lcc(num_lcc),     & ! Maximum leaf area index for each land-cover class
+                p_ext_atm%stomresmin_lcc(num_lcc), & ! Minimum stomata resistance for each land-cover class
+                p_ext_atm%snowalb_lcc(num_lcc)     ) ! Albedo in case of snow cover for each land-cover class
+
       !--------------------------------
       ! soil parameters
       !--------------------------------
@@ -1598,6 +1611,7 @@ CONTAINS
 
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
+    CHARACTER(len=max_char_length) :: rawdata_attr
 
     INTEGER :: jg, jc, jb, i, mpi_comm
     INTEGER :: i_lev,jk
@@ -1608,9 +1622,18 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx   !< slices
     INTEGER :: i_nchdom               !< domain index
 
+    INTEGER :: i_lctype(n_dom) ! stores the landcover classification used for the external parameter data
+                               ! 1: GLC2000, 2: Globcover2009
+
     REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
 
     !----------------------------------------------------------------------
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
 
     IF(itopo == 1 ) THEN
       DO jg = 1,n_dom
@@ -1626,8 +1649,21 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename))
           CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
 
+          ! Check which data source has been used to generate the external perameters
+          CALL nf(nf_get_att_text(ncid, nf_global, 'rawdata', rawdata_attr))
+
+          IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
+            i_lctype(jg) = 1
+          ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
+            i_lctype(jg) = 2
+          ELSE
+            CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
+          ENDIF
+
         ENDIF
 
+        ! Broadcast i_lctype from IO-PE to others
+        CALL p_bcast(i_lctype(jg), p_io, mpi_comm)
 
         !-------------------------------------------------------
         !
