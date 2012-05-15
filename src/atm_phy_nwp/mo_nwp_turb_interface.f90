@@ -647,16 +647,15 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
 
-      DO jk = 1,nlev_soil
-        DO jc = i_startidx, i_endidx
-          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
-          zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
-        ENDDO
-      ENDDO
-
-
       DO jc = i_startidx, i_endidx
         zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
+      ENDDO
+
+      DO jk = 1,nlev_soil
+        DO jc = i_startidx, i_endidx
+          zdummy_vdf_4a(jc,jk) = 273.0 !!! lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
+          zdummy_vdf_4b(jc,jk) = 0.0   !!! lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
+        ENDDO
       ENDDO
 
       DO jc = i_startidx, i_endidx
