@@ -1237,6 +1237,22 @@ IF (my_process_is_mpi_parallel()) THEN
                              SEND2=h_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,:,3),&
                              SEND_LBOUND3=LBOUND(h_aux,3))
 
+    ELSE IF (nfields == 4) THEN
+      nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2)+SIZE(f3dout4,2)
+      CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot,      &
+                             nrecvtot,RECV1=f3dout1,SEND1=h_aux(:,:,:,:,1),RECV2=f3dout2,     &
+                             SEND2=h_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,:,3),     &
+                             RECV4=f3dout4,SEND4=h_aux(:,:,:,:,4),SEND_LBOUND3=LBOUND(h_aux,3))
+
+    ELSE IF (nfields == 5) THEN
+      nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2) + &
+                SIZE(f3dout4,2)+SIZE(f3dout5,2)
+      CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot, &
+                             nrecvtot,RECV1=f3dout1,SEND1=h_aux(:,:,:,:,1),RECV2=f3dout2,&
+                             SEND2=h_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,:,3),&
+                             RECV4=f3dout4,SEND4=h_aux(:,:,:,:,4),RECV5=f3dout5,         &
+                             SEND5=h_aux(:,:,:,:,5),SEND_LBOUND3=LBOUND(h_aux,3))
+
     ELSE IF (nfields == 6) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2) + &
                 SIZE(f3dout4,2)+SIZE(f3dout5,2)+SIZE(f3dout6,2)
