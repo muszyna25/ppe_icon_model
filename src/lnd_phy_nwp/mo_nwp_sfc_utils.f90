@@ -36,7 +36,6 @@
 MODULE mo_nwp_sfc_utils
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message !, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -48,19 +47,14 @@ MODULE mo_nwp_sfc_utils
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac
-  USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay_init
-  USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
+  USE mo_phyparam_soil,       ONLY: z0_lu, cf_snow     ! soil and vegetation parameters for TILES
+  USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd  ! r_d / cp_d
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
-!  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
-  USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd, grav  ! r_d / cp_d
   
   IMPLICIT NONE 
 
-  PUBLIC  ::  nwp_surface_init, diag_snowfrac_tg, aggregate_landvars
-
   PRIVATE
-
 
 #ifdef __SX__
 ! parameters for loop unrolling
@@ -69,6 +63,11 @@ INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+
+  PUBLIC :: nwp_surface_init
+  PUBLIC :: diag_snowfrac_tg
+  PUBLIC :: aggregate_landvars
 
 CONTAINS
 

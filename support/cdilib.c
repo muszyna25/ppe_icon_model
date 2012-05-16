@@ -36337,7 +36337,7 @@ void cdfDefUnstructured(int streamID, int gridID)
         }
       else
         {
-          sprintf(&axisname[4], "%1d", iz+1);
+          sprintf(&axisname[6], "%1d", iz+1);
           sprintf(&vertname[2], "%1d", iz+1);
         }
 
