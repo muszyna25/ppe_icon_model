@@ -1,12 +1,14 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.4.8
+! Fortran interface for CDI library version 1.5.5
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   March 2011
+! Uwe Schulzweida, MPI-MET, Hamburg,   May 2012
 !
 
+      INTEGER    CDI_MAX_NAME          
+      PARAMETER (CDI_MAX_NAME           = 256)
       INTEGER    CDI_UNDEFID           
       PARAMETER (CDI_UNDEFID            = -1)
       INTEGER    CDI_GLOBAL            
@@ -56,12 +58,14 @@
       PARAMETER (FILETYPE_NC2           =  4)
       INTEGER    FILETYPE_NC4          
       PARAMETER (FILETYPE_NC4           =  5)
+      INTEGER    FILETYPE_NC4C         
+      PARAMETER (FILETYPE_NC4C          =  6)
       INTEGER    FILETYPE_SRV          
-      PARAMETER (FILETYPE_SRV           =  6)
+      PARAMETER (FILETYPE_SRV           =  7)
       INTEGER    FILETYPE_EXT          
-      PARAMETER (FILETYPE_EXT           =  7)
+      PARAMETER (FILETYPE_EXT           =  8)
       INTEGER    FILETYPE_IEG          
-      PARAMETER (FILETYPE_IEG           =  8)
+      PARAMETER (FILETYPE_IEG           =  9)
 !
 !  Compress types
 !
@@ -210,6 +214,8 @@
       PARAMETER (GRID_SINUSOIDAL        = 14)
       INTEGER    GRID_REFERENCE        
       PARAMETER (GRID_REFERENCE         = 15)
+      INTEGER    GRID_PROJECTION       
+      PARAMETER (GRID_PROJECTION        = 16)
 !
 !  ZAXIS types
 !
@@ -239,6 +245,14 @@
       PARAMETER (ZAXIS_SIGMA            = 11)
       INTEGER    ZAXIS_MEANSEA         
       PARAMETER (ZAXIS_MEANSEA          = 12)
+      INTEGER    ZAXIS_TOA             
+      PARAMETER (ZAXIS_TOA              = 13)
+      INTEGER    ZAXIS_SEA_BOTTOM      
+      PARAMETER (ZAXIS_SEA_BOTTOM       = 14)
+      INTEGER    ZAXIS_ATMOSPHERE      
+      PARAMETER (ZAXIS_ATMOSPHERE       = 15)
+      INTEGER    ZAXIS_REFERENCE       
+      PARAMETER (ZAXIS_REFERENCE        = 16)
 !
 !  TAXIS types
 !
@@ -438,23 +452,23 @@
 !                                    (INTEGER         streamID)
       EXTERNAL        streamInqByteorder
 
-!                     streamDefZtype
+!                     streamDefCompType
 !                                    (INTEGER         streamID,
-!                                     INTEGER         ztype)
-      EXTERNAL        streamDefZtype
+!                                     INTEGER         comptype)
+      EXTERNAL        streamDefCompType
 
-!                     streamDefZlevel
+!                     streamDefCompLevel
 !                                    (INTEGER         streamID,
-!                                     INTEGER         zlevel)
-      EXTERNAL        streamDefZlevel
+!                                     INTEGER         complevel)
+      EXTERNAL        streamDefCompLevel
 
-      INTEGER         streamInqZtype
+      INTEGER         streamInqCompType
 !                                    (INTEGER         streamID)
-      EXTERNAL        streamInqZtype
+      EXTERNAL        streamInqCompType
 
-      INTEGER         streamInqZlevel
+      INTEGER         streamInqCompLevel
 !                                    (INTEGER         streamID)
-      EXTERNAL        streamInqZlevel
+      EXTERNAL        streamInqCompLevel
 
       INTEGER         streamDefTimestep
 !                                    (INTEGER         streamID,
@@ -495,6 +509,13 @@
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteVar
 
+!                     streamWriteVarF
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     REAL            data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamWriteVarF
+
 !                     streamReadVarSlice
 !                                    (INTEGER         streamID,
 !                                     INTEGER         varID,
@@ -510,6 +531,14 @@
 !                                     DOUBLEPRECISION data_vec,
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteVarSlice
+
+!                     streamWriteVarSliceF
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     INTEGER         levelID,
+!                                     REAL            data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamWriteVarSliceF
 
 !
 !  STREAM record I/O routines
@@ -538,10 +567,22 @@
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteRecord
 
+!                     streamWriteRecordF
+!                                    (INTEGER         streamID,
+!                                     REAL            data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamWriteRecordF
+
 !                     streamCopyRecord
 !                                    (INTEGER         streamIDdest,
 !                                     INTEGER         streamIDsrc)
       EXTERNAL        streamCopyRecord
+
+!                     streamInqGinfo
+!                                    (INTEGER         streamID,
+!                                     INTEGER         intnum,
+!                                     REAL            fltnum)
+      EXTERNAL        streamInqGinfo
 
 !
 !  VLIST routines
@@ -749,27 +790,27 @@
 !                                     INTEGER         timeID)
       EXTERNAL        vlistDefVarTime
 
-!                     vlistDefVarZtype
+!                     vlistDefVarCompType
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
-!                                     INTEGER         ztype)
-      EXTERNAL        vlistDefVarZtype
+!                                     INTEGER         comptype)
+      EXTERNAL        vlistDefVarCompType
 
-      INTEGER         vlistInqVarZtype
+      INTEGER         vlistInqVarCompType
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
-      EXTERNAL        vlistInqVarZtype
+      EXTERNAL        vlistInqVarCompType
 
-!                     vlistDefVarZlevel
+!                     vlistDefVarCompLevel
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
-!                                     INTEGER         zlevel)
-      EXTERNAL        vlistDefVarZlevel
+!                                     INTEGER         complevel)
+      EXTERNAL        vlistDefVarCompLevel
 
-      INTEGER         vlistInqVarZlevel
+      INTEGER         vlistInqVarCompLevel
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
-      EXTERNAL        vlistInqVarZlevel
+      EXTERNAL        vlistInqVarCompLevel
 
 !                     vlistDefVarParam
 !                                    (INTEGER         vlistID,
@@ -803,6 +844,17 @@
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarDatatype
+
+!                     vlistDefVarXYZ
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         xyz)
+      EXTERNAL        vlistDefVarXYZ
+
+      INTEGER         vlistInqVarXYZ
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID)
+      EXTERNAL        vlistInqVarXYZ
 
       INTEGER         vlistInqVarNumber
 !                                    (INTEGER         vlistID,
@@ -1166,6 +1218,15 @@
 !                                    (INTEGER         gridID)
       EXTERNAL        gridInqYsize
 
+!                     gridDefNP
+!                                    (INTEGER         gridID,
+!                                     INTEGER         np)
+      EXTERNAL        gridDefNP
+
+      INTEGER         gridInqNP
+!                                    (INTEGER         gridID)
+      EXTERNAL        gridInqNP
+
 !                     gridDefXvals
 !                                    (INTEGER         gridID,
 !                                     DOUBLEPRECISION xvals_vec)
@@ -1397,6 +1458,16 @@
 !                                     CHARACTER*(*)   reference)
       EXTERNAL        gridDefReference
 
+      CHARACTER*80    gridInqUUID
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   uuid)
+      EXTERNAL        gridInqUUID
+
+!                     gridDefUUID
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   uuid)
+      EXTERNAL        gridDefUUID
+
 !
 !  Lambert Conformal Conic grid (GRIB version)
 !
@@ -1594,6 +1665,25 @@
 !                                     INTEGER         levelID)
       EXTERNAL        zaxisInqLevel
 
+!                     zaxisDefReference
+!                                    (INTEGER         zaxisID,
+!                                     INTEGER         refID)
+      EXTERNAL        zaxisDefReference
+
+!                     zaxisDefUUID
+!                                    (INTEGER         zaxisID,
+!                                     CHARACTER*(*)   uuid)
+      EXTERNAL        zaxisDefUUID
+
+      CHARACTER*80    zaxisInqUUID
+!                                    (INTEGER         zaxisID,
+!                                     CHARACTER*(*)   uuid)
+      EXTERNAL        zaxisInqUUID
+
+      INTEGER         zaxisInqReference
+!                                    (INTEGER         zaxisID)
+      EXTERNAL        zaxisInqReference
+
 !                     zaxisDefName
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   name)
@@ -1619,6 +1709,11 @@
 !                                     CHARACTER*(*)   longname)
       EXTERNAL        zaxisInqLongname
 
+!                     zaxisInqStdname
+!                                    (INTEGER         zaxisID,
+!                                     CHARACTER*(*)   stdname)
+      EXTERNAL        zaxisInqStdname
+
 !                     zaxisInqUnits
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   units)
@@ -1632,6 +1727,10 @@
       INTEGER         zaxisInqPrec
 !                                    (INTEGER         zaxisID)
       EXTERNAL        zaxisInqPrec
+
+      INTEGER         zaxisInqPositive
+!                                    (INTEGER         zaxisID)
+      EXTERNAL        zaxisInqPositive
 
 !                     zaxisDefLtype
 !                                    (INTEGER         zaxisID,
@@ -1647,6 +1746,11 @@
 !                                     INTEGER         size,
 !                                     DOUBLEPRECISION vct_vec)
       EXTERNAL        zaxisDefVct
+
+!                     zaxisInqVct
+!                                    (INTEGER         zaxisID,
+!                                     DOUBLEPRECISION vct_vec)
+      EXTERNAL        zaxisInqVct
 
       INTEGER         zaxisInqVctSize
 !                                    (INTEGER         zaxisID)
