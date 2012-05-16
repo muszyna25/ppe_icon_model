@@ -681,7 +681,14 @@ run/run_ICONAM_R2B4_NWP -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
 schedulers/ecmwf/ICON_r2B06_30d/cluster/input/ifs2icon/config/ifs2icon_1279.conf -text
+schedulers/ecmwf/ICON_r2B06_30d/def/bin/date_fmt.awk -text
+schedulers/ecmwf/ICON_r2B06_30d/def/bin/logserver -text
 schedulers/ecmwf/ICON_r2B06_30d/def/case_setup -text
+schedulers/ecmwf/ICON_r2B06_30d/def/include/end_job.h -text
+schedulers/ecmwf/ICON_r2B06_30d/def/include/head.h -text
+schedulers/ecmwf/ICON_r2B06_30d/def/include/init_icon_job.h -text
+schedulers/ecmwf/ICON_r2B06_30d/def/include/init_job.h -text
+schedulers/ecmwf/ICON_r2B06_30d/def/include/tail.h -text
 schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/cancel_check_progress -text
 schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/dot_cdprc -text
 schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/icon.def -text

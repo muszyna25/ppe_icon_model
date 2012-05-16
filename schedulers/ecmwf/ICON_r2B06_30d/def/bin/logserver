@@ -1,0 +1,7 @@
+#!/bin/ksh
+#
+#  Start SMS log server.
+#
+TEMP=/c1a/tmp/ms/de/dfi0/sms
+
+/usr/local/bin/start_logserver -d ${TEMP}
