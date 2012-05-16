@@ -614,6 +614,7 @@ run/exp.OCE_BASE -text
 run/exp.OCE_aqpl -text
 run/exp.OCE_channel -text
 run/exp.OCE_omip -text
+run/exp.OCE_test_numeric -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
@@ -649,6 +650,7 @@ run/exp.test_nah_jww -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
 run/exp.test_nh3_tri_tracer_solid_body -text
+run/exp.test_oce_numeric -text
 run/exp.tracer_solid_body -text
 run/grid.check_grid -text
 run/grid.create_atmo_grids -text
