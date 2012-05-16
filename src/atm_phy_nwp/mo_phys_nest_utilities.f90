@@ -1815,8 +1815,11 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn,lsfc_interp)
         z_aux3dl2_p(jc,9,jb) = ptr_ldiagp%runoff_s(jc,jb)
         z_aux3dl2_p(jc,10,jb) = ptr_ldiagp%runoff_g(jc,jb)
         z_aux3dl2_p(jc,11,jb) = ptr_ldiagp%t_so(jc,nlev_soil+2,jb)
-        IF (lmulti_snow) &
+        IF (lmulti_snow) THEN
           z_aux3dl2_p(jc,12,jb) = ptr_ldiagp%t_snow_mult(jc,nlev_snow+1,jb)
+        ELSE
+          z_aux3dl2_p(jc,12,jb) = 0._wp
+        ENDIF
       ENDDO
 
       DO jk = 1, nlev_soil+1
