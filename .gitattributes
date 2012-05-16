@@ -676,7 +676,6 @@ run/run_ICONAM_R2B4_APE -text
 run/run_ICONAM_R2B4_NWP -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
-/run_restart -text
 scripts/.gmtcommands -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text
