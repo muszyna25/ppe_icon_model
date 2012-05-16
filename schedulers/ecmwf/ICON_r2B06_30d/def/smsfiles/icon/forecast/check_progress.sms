@@ -54,6 +54,11 @@ do
       sleep %WAITINTVL%
     fi
 
+    if [ -f "%SMSHOME%/model_complete.flag" ];
+    then
+      flag=1
+    fi
+
   done
 
   i=$(expr $i + 1)

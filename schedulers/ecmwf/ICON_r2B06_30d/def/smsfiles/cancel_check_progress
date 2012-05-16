@@ -10,6 +10,7 @@
 #  Corresponding author:
 #    Florian Prill, DWD, mailto:florian.prill@dwd.de
 
+touch $HOME/sms/model_complete.flag
 
 # wait some time...
 sleep 60

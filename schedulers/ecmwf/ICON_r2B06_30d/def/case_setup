@@ -53,9 +53,9 @@ start_date="${REQUEST_DATE_FMT}"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
-# model timing :: 78 HOURS (if not set otherwise)
+# model timing
 dtime=60
-nsteps=100
+nsteps=4320
 
 # model parameters
 atmo_namelist=NAMELIST_${EXP}

@@ -21,6 +21,8 @@
 # - increase no. of SMSTRIES for operational use
 # - set wall clock time limits and node numbers
 # - check model error code
+# - runs build and dumpstate computation with a
+#   larger frequency.
 
 
 # import environment variables:
@@ -59,7 +61,7 @@ set WAITINTVL    20
 set SMSTRIES      1
 
 # -------------------------------------------------
-set ICONNODES         1
+set ICONNODES         8
 set ICONTASKSPERNODE 32
 set ICONTHREADS       2
 # -------------------------------------------------
