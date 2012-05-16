@@ -147,7 +147,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,jk), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -268,6 +268,7 @@ CONTAINS
 
 
         IF (lmulti_snow) THEN
+!CDIR NOIEXPAND
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
@@ -281,6 +282,7 @@ CONTAINS
             &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
             &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
         ELSE
+!CDIR NOIEXPAND
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
