@@ -808,6 +808,7 @@ scripts/postprocessing/testcases/error_postpro_scripts/plot_err_evol.ncl -text
 scripts/postprocessing/testcases/hom_lsm_postpro_driver.bash -text
 scripts/postprocessing/testcases/icoham_ape_postpro.ksh -text
 scripts/postprocessing/testcases/iconam_ape_postpro.ksh -text
+scripts/postprocessing/testcases/oce_parallel_postpro_driver.bash -text
 scripts/postprocessing/tools/MRW_mountain/MRW_mountain_R2B04.nc -text
 scripts/postprocessing/tools/NH_scripts/gravity_wave.ncl -text
 scripts/postprocessing/tools/PLOT_examples/README -text
