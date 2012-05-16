@@ -396,6 +396,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
 !         
          &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
+!<em
+         &  t_g_t=lnd_prog_now%t_g_t(:,jb,:), qv_s_t=lnd_diag%qv_s_t(:,jb,:), &
+!em>
 !           
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
          &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
@@ -404,6 +407,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !         
          &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+!<em
+         &  gz0_t=prm_diag%gz0_t(:,jb,:), tcm_t=prm_diag%tcm_t(:,jb,:), tch_t=prm_diag%tch_t(:,jb,:), &
+         &  tfm_t=prm_diag%tfm_t(:,jb,:), tfh_t=prm_diag%tfh_t(:,jb,:), tfv_t=prm_diag%tfv_t(:,jb,:), &
+!em>
 !                
          &  tke=z_tvs (:,:,jb,:) ,&!  edr =prm_diag%edr(:,:,jb),                    &
          &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
@@ -418,6 +425,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
          &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
+!<em
+         &  t_2m_t=prm_diag%t_2m_t(:,jb,:), qv_2m_t=prm_diag%qv_2m_t(:,jb,:), td_2m_t=prm_diag%td_2m_t(:,jb,:), &
+         &  rh_2m_t=prm_diag%rh_2m_t(:,jb,:), u_10m_t=prm_diag%u_10m_t(:,jb,:), v_10m_t=prm_diag%v_10m_t(:,jb,:), &
+         &  shfl_s_t=prm_diag%shfl_s_t(:,jb,:), lhfl_s_t=prm_diag%lhfl_s_t(:,jb,:), &
+!em>
 !         
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
           

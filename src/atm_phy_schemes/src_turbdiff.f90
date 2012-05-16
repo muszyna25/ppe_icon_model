@@ -652,12 +652,18 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
           d_pat, c_big, c_sml, r_air, &
 !    
           h_ice, ps, t_g, qv_s, &
+!<em
+          t_g_t, qv_s_t,        &
+!em>
 !amk
 !          w_snow, &
 !xxx
           u, v, w, t, qv, qc, prs, rho, epr, &
 !    
           gz0, tcm, tch, tfm, tfh, tfv, &
+!<em
+          gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &
+!em>
           tke, tkvm, tkvh, rcld, &
           edr, tket_sso, tket_hshr, tket_conv, &
 !    
@@ -665,6 +671,9 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
           qvt_diff, ut_sso, vt_sso, &
 !    
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, shfl_s, lhfl_s, &
+!<em
+          t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, shfl_s_t, lhfl_s_t, &
+!em>
 !
           ierrstat, errormsg, eroutine)
  
@@ -817,7 +826,9 @@ REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
     h_ice,        & ! ice thickness                                 (  m  )
     ps,           & ! surface pressure                              ( pa  )
     t_g,          & ! weighted surface temperature                  (  k  )
-    qv_s            ! specific water vapor content on the surface   (kg/kg)
+    qv_s,         & ! specific water vapor content on the surface   (kg/kg)
+    t_g_t,        & ! weighted surface temperature                  (  k  )
+    qv_s_t          ! specific water vapor content on the surface   (kg/kg)
 !amk
 !    w_snow          ! snow water equivalent depth                   (  m  )
 !xxx
@@ -858,7 +869,15 @@ REAL (KIND=ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
 !
      tfm,          & ! factor of laminar transfer of momentum          --
      tfh,          & ! factor of laminar transfer of scalars           --
-     tfv             ! laminar reduction factor for evaporation        --
+     tfv,          & ! laminar reduction factor for evaporation        --
+     gz0_t,        & ! roughness length * g of the vertically not         
+                     ! resolved canopy                               (m2/s2)
+     tcm_t,        & ! turbulent transfer coefficients for momentum    --
+     tch_t,        & ! turbulent transfer coefficients for heat        --
+! 
+     tfm_t,        & ! factor of laminar transfer of momentum          --
+     tfh_t,        & ! factor of laminar transfer of scalars           -- 
+     tfv_t           ! laminar reduction factor for evaporation        --
  
 ! Atmospheric variables of the turbulence model:
 ! ------------------------------------------------
@@ -927,12 +946,21 @@ REAL (KIND=ireals), DIMENSION(ie,je), INTENT(OUT) :: &
      td_2m,        & ! dew-point in 2m                               (  K  )
      rh_2m,        & ! relative humidity in 2m                       (  %  )
      u_10m,        & ! zonal wind in 10m                             ( m/s )
-     v_10m           ! meridional wind in 10m                        ( m/s )
+     v_10m,        & ! meridional wind in 10m                        ( m/s )
+     t_2m_t,       & ! temperature in 2m                             (  K  )
+     qv_2m_t,      & ! specific water vapor content in 2m            (kg/kg)
+     td_2m_t,      & ! dew-point in 2m                               (  K  )
+     rh_2m_t,      & ! relative humidity in 2m                       (  %  )
+     u_10m_t,      & ! zonal wind in 10m                             ( m/s )
+     v_10m_t         ! meridional wind in 10m                        ( m/s )
+
 
  REAL (KIND=ireals), DIMENSION(ie,je), OPTIONAL, INTENT(INOUT) :: &
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive upward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive upward)
+     lhfl_s,       & ! latent   heat flux at the surface             (W/m2) (positive upward)
+     shfl_s_t,     & ! sensible heat flux at the surface             (W/m2) (positive upward)
+     lhfl_s_t        ! latent   heat flux at the surface             (W/m2) (positive upward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
