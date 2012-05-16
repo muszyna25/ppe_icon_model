@@ -1,0 +1,30 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  FCT_IFS.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - dummy task, triggered by IFS, initiates ICON
+    SMS suite.
+%end
+
+# include the standard header file
+%include <head.h>
+
+# -------------------------------------------------
+
+echo "FCT_IFS.SMS"
+
+# -------------------------------------------------
+
+# include the standard "tail" file
+%include <tail.h>
+

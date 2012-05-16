@@ -1,0 +1,46 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  PRE_CLEAN.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - create/check for dump state 
+%end
+
+# include the header file for remote jobs
+%include <init_job.h> 
+
+# -------------------------------------------------
+
+
+echo "PRE_CLEAN.SMS"
+
+# Change directory ----------------------------
+smsevent change_dir
+cd %SCTEMP%
+ls -lrt
+
+# Clear directories ---------------------------
+smsevent clear_directory
+
+# Clear directory with model run --------------
+rm -rf tmp_output
+mkdir tmp_output
+
+# Clear output directory ----------------------
+rm -rf %SCTEMP%/output/%SUITE_NAME%/*
+
+
+# -------------------------------------------------
+
+# include the "tail" file for remote jobs
+%include <end_job.h>
+

@@ -1,0 +1,56 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  INIT_BUILD.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - build ICON binary 
+%end
+
+# include the header file for remote jobs
+%include <init_job.h> 
+
+# -------------------------------------------------
+
+
+echo "INIT_BUILD.SMS"
+
+# Change directory ----------------------------
+smsevent change_dir
+cd %SCBASEDIR%/%SUITE_NAME%/cluster/
+ls -lrt
+
+# Extract tar file with current trunk version -
+smsevent uncompress
+rm -rf icon-dev
+tar xvf icon-dev.tar.gz
+cd icon-dev
+
+# load Fortran compiler environment
+module swap fortran fortran/xlf/13.1.0.9
+
+# Run configure script ------------------------
+smsevent configure
+./configure
+
+# Submit ''Make'' -----------------------------
+smsevent make
+export LDR_CNTRL=MAXDAT=0xD000000DSA
+gmake -j 4
+
+# Clean-up ------------------------------------
+rm icon-dev.tar.gz
+
+
+# -------------------------------------------------
+
+# include the "tail" file for remote jobs
+%include <end_job.h>

@@ -1,0 +1,36 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  POST_PROCESS.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - extract output
+  - generate plots 
+%end
+
+# include the header file for remote jobs
+%include <init_job.h> 
+
+# -------------------------------------------------
+
+echo "POST_PROCESS.SMS" 
+
+
+# change directory ----------------------------
+smsevent change_dir
+
+# NOT YET IMPLEMENTED
+
+# -------------------------------------------------
+
+# include the "tail" file for remote jobs
+%include <end_job.h>
+

@@ -1,0 +1,22 @@
+#!/bin/ksh
+
+#  -------------------------------------------------
+#  CANCEL_CHECK_PROGRESS
+#  -------------------------------------------------
+#
+#  This script is part of the ICON SMS suite
+#  Initial implementation: F. Prill, DWD (2012-05-16)
+#
+#  Corresponding author:
+#    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+
+# wait some time...
+sleep 60
+
+# then shutdown task "icon/forecast/check_progress"
+cdp << EOF
+myalias
+force complete icon/forecast/check_progress
+EOF
+

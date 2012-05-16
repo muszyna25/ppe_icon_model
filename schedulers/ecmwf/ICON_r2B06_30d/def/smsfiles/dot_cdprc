@@ -1,0 +1,7 @@
+alias myalias set SMS_PROG 903455 \; login ecgate UID 1
+
+define icon_restart {
+   cancel -y icon
+   play icon.def
+   begin icon
+}

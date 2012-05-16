@@ -1,0 +1,274 @@
+# --------------------------------------------------------------------
+# CASE_SETUP
+# --------------------------------------------------------------------
+#                                                                    
+# Purpose of this document:                                          
+#   This file contains the experiment parameters of the             
+#   ICON test case    
+#                                                                    
+# Corresponding author:                                              
+#   Florian Prill, DWD, mailto:florian.prill@dwd.de                  
+#                                                                    
+# Document version:                                                  
+#   $LastChangedDate: 2012-04-11 11:18:42 +0000 (Wed, 11 Apr 2012) $
+#   $Rev: 8630 $ -- $Author: florian.prill $
+#                                                                    
+# --------------------------------------------------------------------
+
+
+# absolute path to output directory
+EXPDIR=${outbasedir}/output/${EXP}
+# absolute path to input directory
+INDIR=${basedir}/input/grids
+# absolute path to external parameter directory
+EXTPARDIR=${basedir}/input/extpar
+# absolute path to IFS2ICON data directory
+IFS2ICONDIR=${basedir}/input/ifs2icon
+# absolute path to files needed for radiation
+RADDIR=${basedir}/input/radiation
+
+# absolute path to model binary, including the executable
+MODEL=${basedir}/icon-dev/build/${arch}/bin/control_model
+echo ${MODEL}
+
+# --------------------------------------------------------------------
+
+set -x
+
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+cd $EXPDIR
+
+ln -sf $INDIR/icon*DOM*.nc .
+ln -sf $EXTPARDIR/extpar*DOM*.nc .
+ln -sf $IFS2ICONDIR/ifs2icon*DOM*.nc .
+
+ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
+ln -sf ${RADDIR}/rrtmg_lw.nc .
+
+# global timing
+start_date="${REQUEST_DATE_FMT}"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+
+# model timing :: 78 HOURS (if not set otherwise)
+dtime=60
+nsteps=100
+
+# model parameters
+atmo_namelist=NAMELIST_${EXP}
+model_equations=3  #  3=non-hydrost. atm.,
+
+# grid parameters
+atmo_dyn_grids="iconR2B06_DOM01.nc"
+atmo_rad_grids="iconR2B05_DOM00.nc"
+
+
+# ---------------------------
+# create ICON master namelist
+# ---------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart                     = .FALSE.
+/
+&time_nml
+ ini_datetime_string          = "$start_date"
+ dt_restart                   = $dt_restart
+/
+&master_model_nml
+  model_type                  = 1
+  model_name                  = "ATMO"
+  model_namelist_filename     = "$atmo_namelist"
+  model_restart_info_filename = ""
+  model_min_rank              = 1
+  model_max_rank              = 65536
+  model_inc_rank              = 1
+/
+EOF
+
+
+# ------------------------------
+# write ICON namelist parameters
+# ------------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+# reconstruct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+# ---
+
+
+ml_varlist="'u', 'v', 'w', 'temp', 'pres'"
+
+
+# ---
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma                       = 10
+ p_test_run                   = .FALSE.
+ l_test_openmp                = .FALSE.
+ l_log_checks                 = .TRUE.
+ num_io_procs                 = 3
+ itype_comm                   = 1
+ iorder_sendrecv              = 1
+/
+&grid_nml
+ cell_type                    = 3
+ dynamics_grid_filename       = ${dynamics_grid_filename}
+ radiation_grid_filename      = ${radiation_grid_filename}
+ dynamics_parent_grid_id      = 0
+ lredgrid_phys                = .TRUE.
+ lfeedback                    = .TRUE.
+ ifeedback_type               = 2
+/
+&prepicon_nml
+  i_oper_mode                 = 3           ! operation mode
+  nlev_in                     = 91          ! number of levels of input data
+  zpbl1                       = 500. 
+  zpbl2                       = 1000. 
+  l_zp_out                    = .TRUE.
+  l_w_in                      = .TRUE.
+  l_sfc_in                    = .TRUE.
+/
+&nh_testcase_nml
+/
+&io_nml
+ out_expname                  = '${EXP}'    ! file name base
+ dt_data                      = 3600.       ! output interval
+ dt_file                      = 28800.
+ dt_diag                      = 1728000.
+ lwrite_tend_phy              = .TRUE.
+ lwrite_radiation             = .TRUE.
+ lwrite_precip                = .TRUE.
+ lwrite_cloud                 = .TRUE.
+ lwrite_tke                   = .TRUE.
+ lwrite_surface               = .TRUE.
+/
+! OUTPUT: Triangular grid, model levels, all domains
+&output_nml
+ dom                          =  -1                        ! write all domains
+ output_time_unit             =   1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.     ! start, end, increment
+ steps_per_file               =   1
+ include_last                 =  .TRUE.
+ output_filename              =  '${EXP}'                  ! file name base
+ ml_varlist                   =  ${ml_varlist}
+ output_grid                  =  .TRUE.
+/
+&run_nml
+ num_lev                      = 90
+ lvert_nest                   = .TRUE.
+ nsteps                       = ${nsteps}
+ dtime                        = ${dtime}    ! timestep in seconds
+ ldynamics                    = .TRUE.      ! dynamics
+ ltransport                   = .TRUE.
+ ntracer                      = 5
+ iforcing                     = 3           ! NWP forcing
+ ltestcase                    = .FALSE.     ! false: run with real data
+ msg_level                    = 5
+ ldump_states                 = ${ldump_states}
+ lrestore_states              = ${lrestore_states}
+ ltimer                       = .TRUE.
+ timers_level                 = 4
+ activate_sync_timers         = .FALSE.
+ output                       = "nml"
+/
+&nwp_phy_nml
+ inwp_gscp                    = 1
+ inwp_convection              = 1
+ inwp_radiation               = 1
+ inwp_cldcover                = 3
+ inwp_turb                    = 1
+ inwp_satad                   = 1
+ inwp_sso                     = 1
+ inwp_gwd                     = 1
+ inwp_surface                 = 1
+ latm_above_top               = .TRUE.
+ efdt_min_raylfric            = 7200.
+/
+&radiation_nml
+ irad_o3                      = 7
+ irad_aero                    = 6
+ izenith                      = 4           ! 4: NWP default, 3: no annual cycle
+/
+&nonhydrostatic_nml
+ iadv_rhotheta                = 2
+ ivctype                      = 2
+ itime_scheme                 = 4
+ exner_expol                  = 0.666
+ vwind_offctr                 = 0.16
+ damp_height                  = 50000.
+ rayleigh_coeff               = 0.1
+ iadv_rcf                     = 5
+ l_open_ubc                   = .TRUE.
+ l_nest_rcf                   = .TRUE.
+ l_masscorr_nest              = .TRUE.
+ igradp_method                = 3
+ l_zdiffu_t                   = .TRUE.
+ thslp_zdiffu                 = 0.02
+ thhgtd_zdiffu                = 125.
+ htop_moist_proc              = 22500.
+ hbot_qvsubstep               = 30000.
+ htop_qvadv                   = 90000.
+/
+&sleve_nml
+ min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
+ top_height                   = 75000.
+ stretch_fac                  = 0.9
+ decay_scale_1                = 4500.
+ decay_scale_2                = 2000.
+ decay_exp                    = 1.2
+ flat_height                  = 16000.
+/
+&dynamics_nml
+ iequations                   = 3
+ idiv_method                  = 1
+ divavg_cntrwgt               = 0.50
+ lcoriolis                    = .TRUE.
+/
+&transport_nml
+ ctracer_list                 = '12345'
+ ivadv_tracer                 = 3,3,3,3,3
+ itype_hlimit                 = 3,4,4,4,4,0
+ ihadv_tracer                 = 32,2,2,2,2,0
+/
+&diffusion_nml
+ hdiff_order                  = 5
+ hdiff_efdt_ratio             = 8.0
+ hdiff_smag_fac               = 0.175
+ lhdiff_vn                    = .TRUE.
+ lhdiff_temp                  = .TRUE.
+/
+&interpol_nml
+ nudge_zone_width             = 8
+/
+&gridref_nml
+ grf_intmethod_ct             = 2
+ grf_tracfbk                  = 2
+ denom_diffu_v                = 150.
+/
+&extpar_nml
+ itopo                        = 1
+ n_iter_smooth_topo           = 1
+ heightdiff_threshold         = 2400.
+/
+EOF
+
+ 
+#-----------------------------------------------------------------------------
+

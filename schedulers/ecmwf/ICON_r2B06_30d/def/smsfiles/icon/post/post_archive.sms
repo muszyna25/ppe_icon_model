@@ -1,0 +1,40 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  POST_ARCHIVE.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - copy output and/or
+  - store in database and/or
+  - trigger transfer to DWD
+%end
+
+# include the standard header file
+%include <head.h>
+
+# -------------------------------------------------
+
+echo "POST_ARCHIVE.SMS" 
+
+
+# change directory ----------------------------
+smsevent change_dir
+
+# change directory ----------------------------
+smsevent copy_files
+
+# NOT YET IMPLEMENTED
+
+# -------------------------------------------------
+
+# include the standard "tail" file
+%include <tail.h>
+

@@ -1,0 +1,52 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  INIT_SVN.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - update ICON sources
+%end
+
+# include the standard header file
+%include <head.h>
+
+# -------------------------------------------------
+
+echo "INIT_SVN.SMS"
+
+# Change directory ----------------------------
+smsevent change_dir
+cd %TMPDIR%
+ls -lrt
+rm -rf icon-dev
+
+# Check out working trunk version ----------------
+smsevent svn_export
+svn export https://svn.zmaw.de/svn/icon/trunk/icon-dev
+ls -lrt
+
+# Copy tar file containing trunk version ---------
+smsevent tarfile
+tar cvf icon-dev.tar.gz icon-dev
+rcp icon-dev.tar.gz %SCHOST%:%SCBASEDIR%/%SUITE_NAME%/cluster/
+
+# Clean up ---------------------------------------
+smsevent clear_directory
+rm -rf icon-dev.tar.gz 
+rm -rf icon-dev
+ls -lrt
+
+
+# -------------------------------------------------
+
+# include the standard "tail" file
+%include <tail.h>
+

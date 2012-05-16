@@ -1,0 +1,134 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  INIT_DATA.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - retrieve IFS data from MARS 
+%end
+
+# include the header file for remote jobs
+%include <init_job.h> 
+
+
+# -------------------------------------------------
+
+echo "INIT_DATA.SMS"
+
+REQUEST_DATE="%SMSDATE%00"
+
+IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
+GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
+CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
+RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
+IFS2ICON="%SCBASEDIR%/%SUITE_NAME%/def/icon_scripts/preprocessing/ifs2icon.rb"
+export CDOBIN
+
+# Change directory ----------------------------
+smsevent change_dir
+cd ${IFSDATADIR}
+IFS_FILENAME="${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb"
+
+   
+# Compute weights for ifs2icon ----------------
+if [ -f "cellweights/initialized.flag" ];
+then
+   echo "CDO cell weights already computed!"
+else
+   smsevent compute_weights
+   cd ${IFSDATADIR}/cellweights
+
+   # clean up:
+   find ${IFSDATADIR}/cellweights -name "*.nc" -exec rm {} \;
+
+   # Build a temporary shell script for CDO processing
+
+cat > ${IFSDATADIR}/cellweights/create_cellweights << EOF
+#!/bin/ksh
+set -x
+# cut path from file name
+CW_FILE_OUT=\`echo \$1 | awk -F/ '{print \$NF}'\`
+# process grid file:
+echo "Processing \$1..."
+${CDOBIN} gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
+echo "done."
+EOF
+
+   chmod +x ${IFSDATADIR}/cellweights/create_cellweights
+
+   find ${GRIDDIR} -name "*.nc" -exec ${IFSDATADIR}/cellweights/create_cellweights {} \;
+
+   rm ${IFSDATADIR}/cellweights/create_cellweights
+   touch "initialized.flag"
+   cd ${IFSDATADIR}
+fi
+
+
+# Prepare IFS data for ICON -------------------
+smsevent ifs2icon 
+
+export INPUTFILE=${IFS_FILENAME}
+
+   # Build a temporary shell script for IFS2ICON processing
+
+cat > ${IFSDATADIR}/run_ifs2icon << EOF
+#!/bin/ksh
+set -x
+# cut path from file name
+GRIDFILENAME=\`echo \$1 | awk -F/ '{print \$NF}'\`
+# set environment variables for Ruby script:
+export INPUTFILE=${IFS_FILENAME}
+export OUTPUTFILE=${IFSDATADIR}/ifs2icon_\${GRIDFILENAME}
+export GRIDFILE=${GRIDDIR}/\${GRIDFILENAME}
+export CELLWEIGHTFILE=${IFSDATADIR}/cellweights/\${GRIDFILENAME}
+# process grid file:
+echo "IFS2ICON: Processing \$1..."
+${RUBYBIN} ${IFS2ICON} -c ${IFSDATADIR}/config/ifs2icon_1279.conf
+echo "done."
+EOF
+
+   chmod +x ${IFSDATADIR}/run_ifs2icon
+   find ${GRIDDIR} -name "*.nc" -exec ${IFSDATADIR}/run_ifs2icon {} \;
+
+   rm ${IFSDATADIR}/run_ifs2icon
+
+
+# Rename the resulting files ------------------
+# (otherwise ICON does not recognize them)
+
+   # Build a temporary shell script
+
+cat > ${IFSDATADIR}/do_rename << EOF
+#!/bin/ksh
+set -x
+# cut path from file name
+GRIDFILENAME=\`echo \$1 | awk -F/ '{print \$NF}'\`
+# original name of IFS2ICON result
+IFS2ICONNAME="ifs2icon_\${GRIDFILENAME}"
+# generate new file name
+NEW_FILENAME=\`echo \${IFS2ICONNAME} | awk '{str=\$0;sub(/ifs2icon_icon/,"ifs2icon_",str);print str;}'\`
+# rename file
+mv \${IFS2ICONNAME} \${NEW_FILENAME}
+EOF
+
+   chmod +x ${IFSDATADIR}/do_rename
+   find ${GRIDDIR} -name "*.nc" -exec ${IFSDATADIR}/do_rename {} \;
+
+   rm ${IFSDATADIR}/do_rename
+
+
+
+# -------------------------------------------------
+
+
+# include the "tail" file for remote jobs
+%include <end_job.h>
+

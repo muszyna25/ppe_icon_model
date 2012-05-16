@@ -1,0 +1,308 @@
+# -------------------------------------------------
+# ICON.DEF
+# -------------------------------------------------
+#
+# SMS suite definition file.
+#
+# This script is part of the ICON SMS suite
+# Initial implementation: F. Prill, DWD (2012-05-07)
+#
+# Corresponding author:
+#   Florian Prill, DWD, mailto:florian.prill@dwd.de
+#
+# Some parts of this definition file are based
+# on the "bceps" SMS suite (H. Frank, DWD), cf.
+# "ecgate:/home/ms/de/zde/BCeps"
+#
+# TODOs
+# - (With full access to IFS MARS data:)
+#   Enable retrieval for SMSDATE in task
+#   "get_data.sms"
+# - increase no. of SMSTRIES for operational use
+# - set wall clock time limits and node numbers
+# - check model error code
+
+
+# import environment variables:
+setenv -i HOME
+setenv -i USER
+setenv -i HOST
+setenv -i TMPDIR
+set UID `id -u`
+
+# global definitions:
+set  SUITE_NAME   "ICON_r2B06_30d"
+set FIRST_DATE    20120213
+set LAST_DATE     20191231
+
+# HPC environment:
+set SCHOST      c1a
+set SCBASEDIR   /perm/ms/de/dfi0
+set SCTEMP      /$SCHOST/tmp/ms/de/$USER/sms
+set SCLOGPORT   `expr 35000 + $UID `
+set SCLOGDIR    $SCTEMP
+set SCPERM      /perm/ms/de/dfi0
+
+# place where generated job scripts are stored
+set SMSHOME     "$HOME/sms"
+# place where suite and tasks are defined
+set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles"
+# place where include files are stored
+set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
+# place for SMS output
+set SMSOUT      "$HOME/$SUITE_NAME/log"
+# no. of files to check for:
+set MAXFILES    120
+# wait interval between file checks:
+set WAITINTVL    20
+# set no. of restarts for aborted tasks in SMS:
+set SMSTRIES      1
+
+# -------------------------------------------------
+set ICONNODES         1
+set ICONTASKSPERNODE 32
+set ICONTHREADS       2
+# -------------------------------------------------
+
+
+define on_ecgate {
+  label host "$HOST"
+}
+
+define on_hpc_parallel {
+  label host "$SCHOST parallel"
+  edit SMSCMD  "/usr/local/share/sms_submit %USER% %SCHOST% %SMSJOB%"
+  edit SMSKILL "/usr/local/share/sms_kill %USER% %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status %USER% %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSOUT     ${SCLOGDIR}
+  edit SMSLOGHOST ${SCHOST}
+  edit SMSLOGPORT ${SCLOGPORT}
+}
+
+define on_hpc_serial {
+  edit SCJOBTYPE serial
+  edit SCJOBCLASS ns
+  edit SCTOTALTASKS 1
+  on_hpc_parallel
+  label host "$SCHOST serial"
+}
+
+
+# -------------------------------------------------
+
+suite icon
+    # repeat this suite over and over...
+    repeat date  CYMD ${FIRST_DATE} ${LAST_DATE}
+
+    # init local variables:
+    set ENABLE_INIT               1
+    set     ENABLE_GET_DATA       1
+    set     ENABLE_INIT_DATA      1
+    set     ENABLE_BUILD          0
+    set         ENABLE_INIT_SVN   1
+    set ENABLE_FORECAST           1
+    set     ENABLE_DUMPSTATE      1
+    set     ENABLE_MODEL          1
+    set ENABLE_POST               1
+
+    edit SUITE_NAME $SUITE_NAME
+    edit SMSTRIES   $SMSTRIES
+    edit SMSHOME    $SMSHOME
+    edit SMSFILES   $SMSFILES
+    edit SMSINCLUDE $SMSINCLUDE
+    edit SMSOUT     $SMSOUT
+
+    edit MAXFILES   $MAXFILES
+    edit WAITINTVL  $WAITINTVL
+    edit USER       $USER
+    edit SCPERM     $SCPERM
+    edit TMPDIR     $TMPDIR
+    edit SCHOST     $SCHOST
+    edit SCBASEDIR  $SCBASEDIR
+    edit SCTEMP     $SCTEMP
+
+    edit ICONNODES        $ICONNODES        
+    edit ICONTASKSPERNODE $ICONTASKSPERNODE 
+    edit ICONTHREADS      $ICONTHREADS      
+
+
+    # DUMMY TASK (IFS TRIGGER) ------------------------
+    family ifs_fct
+        task fct_ifs
+            on_ecgate
+            defstatus unknown
+    endfamily
+
+
+    # INITIALIZATION ----------------------------------
+    family init
+        complete ($ENABLE_INIT == 0)
+
+        task get_data
+            trigger (/icon/ifs_fct/fct_ifs == complete)
+            #
+            complete ($ENABLE_GET_DATA == 0)
+            #
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 00:30:00
+            if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
+                label status "skipped"
+            endif
+            #
+            event change_dir
+            event clear_directory
+            event mars4icon
+
+        task init_data
+            trigger (get_data==complete)
+            complete ($ENABLE_INIT_DATA == 0)
+            #
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 00:60:00
+            #
+            if (($ENABLE_INIT == 0) or ($ENABLE_INIT_DATA == 0)) then
+                label status "skipped"
+            endif
+            #
+            event change_dir
+            event compute_weights
+            event ifs2icon
+
+        family build
+            complete (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0))
+
+            task init_svn
+                complete ($ENABLE_INIT_SVN == 0)
+                #
+                on_ecgate
+                if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
+                    label status "skipped"
+                endif
+                #
+                event change_dir
+                event svn_export
+                event tarfile
+                event clear_directory
+
+            task init_build
+                trigger init_svn==complete
+                #
+                on_hpc_parallel
+                edit SCJOBTYPE parallel
+                edit SCJOBCLASS np
+                edit SCTOTALTASKS 4
+                edit SCWALLCLOCKLIMIT 02:00:00
+                #
+                if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0)) then
+                    label status "skipped"
+                endif
+                #
+                event change_dir
+                event uncompress
+                event configure
+                event make
+        endfamily
+
+    endfamily
+
+    # FORECAST ----------------------------------------
+    family forecast
+        complete ($ENABLE_FORECAST == 0)
+        #
+        trigger init==complete
+
+        family prepare
+            task pre_clean
+                trigger (/icon/ifs_fct/fct_ifs == complete)
+                #
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 00:20:00
+                #
+                if ($ENABLE_FORECAST == 0) then
+                    label status "skipped"
+                endif
+                #
+                event change_dir
+                event clear_directory
+
+            task dumpstate
+                complete ($ENABLE_DUMPSTATE == 0)
+                trigger (pre_clean == complete)
+                #
+                on_hpc_parallel
+                edit SCWALLCLOCKLIMIT 00:01:00
+                #
+                if (($ENABLE_FORECAST == 0) or ($ENABLE_DUMPSTATE == 0)) then
+                    label status "skipped"
+                endif
+                #
+                event prepare
+                event create_dumpstate
+
+        endfamily
+
+        task model
+            complete ($ENABLE_MODEL == 0)
+            #
+            trigger (prepare/dumpstate == complete)
+            #
+            on_hpc_parallel
+            edit SCWALLCLOCKLIMIT 00:60:00
+            if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
+                label status "skipped"
+            endif
+            #
+            event run_model
+            event model_complete
+            #
+            # auto-shutdown of "check_progress" subtask:
+            action abort    $SMSFILES/cancel_check_progress
+            action complete $SMSFILES/cancel_check_progress
+
+        task check_progress
+            complete (model == complete)
+            #
+            trigger (prepare/dumpstate == complete)
+            #
+            on_ecgate
+            if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
+                label status "skipped"
+            endif
+            #
+            meter progress 0 $MAXFILES $MAXFILES
+
+    endfamily
+
+    # POST-PROCESS---------------------------------
+    family post
+        repeat integer VALUE 1 $MAXFILES
+        #
+        trigger (($ENABLE_FORECAST==0) or (forecast/model:run_model  and ((forecast/check_progress:progress ge post:VALUE) or (forecast/model:model_complete))))
+
+        task post_process
+            complete ($ENABLE_POST == 0) 
+            #
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 00:20:00
+            #
+            if ($ENABLE_POST == 0) then
+                label status "skipped"
+            endif
+            #
+            event change_dir
+
+        task post_archive
+            trigger (post_process == complete)
+            complete ($ENABLE_POST == 0) 
+            #
+            on_ecgate
+            if ($ENABLE_POST == 0) then
+                label status "skipped"
+            endif
+            #
+            event change_dir
+            event copy_files
+
+    endfamily
+
+endsuite

@@ -1,0 +1,57 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  GET_DATA.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - retrieve IFS data from MARS 
+%end
+
+# include the header file for remote jobs
+%include <init_job.h> 
+
+# -------------------------------------------------
+
+echo "GET_DATA.SMS"
+
+LOGFILE="%SCBASEDIR%/%SUITE_NAME%/log/log.mars4icon.txt"
+SCRIPTDIR="%SCBASEDIR%/%SUITE_NAME%/def/icon_scripts"
+IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
+TMPDIR="${TEMP}"
+
+DATCONVCMD="$HOME/bin/datconv"
+PERL5LIB="/home/ms/de/dfi0/routfox/perl"
+
+export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
+
+# Change directory ----------------------------
+smsevent change_dir
+cd ${IFSDATADIR}
+
+# Clean up ------------------------------------
+smsevent clear_directory
+find . -name "${LOGFILE}" -exec rm {} \;
+
+
+# Retrieve data from MARS ---------------------
+smsevent mars4icon
+
+# DEVELOPMENT
+REQUEST_DATE="2012051400"
+# REQUEST_DATE="%SMSDATE%00"
+${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ "${REQUEST_DATE}" 0 255 1/to/91 2>&1 > ${LOGFILE}
+ls -lrt ${IFSDATADIR}
+
+# -------------------------------------------------
+
+# include the "tail" file for remote jobs
+%include <end_job.h>
+
