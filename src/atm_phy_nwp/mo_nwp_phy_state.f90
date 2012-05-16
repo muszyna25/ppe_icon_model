@@ -1340,7 +1340,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ENDDO
 
         ! &      diag%tcm_t(nproma,nblks_c,nsfc_subs)
-        cf_desc    = t_cf_var('TCM_T', ' ', 'tile-based turbulent transfer coefficients for momentum')
+        cf_desc    = t_cf_var('TCM_T', ' ', &
+          & 'tile-based turbulent transfer coefficients for momentum')
         grib2_desc = t_grib2_var(0, 0, 11, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'TCM_T', diag%tcm_t,                                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &

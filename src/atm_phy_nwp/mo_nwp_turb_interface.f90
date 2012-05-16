@@ -408,8 +408,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
 !<em
-         &  gz0_t=prm_diag%gz0_t(:,jb,:), tcm_t=prm_diag%tcm_t(:,jb,:), tch_t=prm_diag%tch_t(:,jb,:), &
-         &  tfm_t=prm_diag%tfm_t(:,jb,:), tfh_t=prm_diag%tfh_t(:,jb,:), tfv_t=prm_diag%tfv_t(:,jb,:), &
+         &  gz0_t=prm_diag%gz0_t(:,jb,:), tcm_t=prm_diag%tcm_t(:,jb,:), &
+         &  tch_t=prm_diag%tch_t(:,jb,:), &
+         &  tfm_t=prm_diag%tfm_t(:,jb,:), tfh_t=prm_diag%tfh_t(:,jb,:), &
+         &  tfv_t=prm_diag%tfv_t(:,jb,:), &
 !em>
 !                
          &  tke=z_tvs (:,:,jb,:) ,&!  edr =prm_diag%edr(:,:,jb),                    &
@@ -426,8 +428,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
 !<em
-         &  t_2m_t=prm_diag%t_2m_t(:,jb,:), qv_2m_t=prm_diag%qv_2m_t(:,jb,:), td_2m_t=prm_diag%td_2m_t(:,jb,:), &
-         &  rh_2m_t=prm_diag%rh_2m_t(:,jb,:), u_10m_t=prm_diag%u_10m_t(:,jb,:), v_10m_t=prm_diag%v_10m_t(:,jb,:), &
+         &  t_2m_t=prm_diag%t_2m_t(:,jb,:), qv_2m_t=prm_diag%qv_2m_t(:,jb,:), &
+         &  td_2m_t=prm_diag%td_2m_t(:,jb,:), &
+         &  rh_2m_t=prm_diag%rh_2m_t(:,jb,:), u_10m_t=prm_diag%u_10m_t(:,jb,:), &
+         &  v_10m_t=prm_diag%v_10m_t(:,jb,:), &
          &  shfl_s_t=prm_diag%shfl_s_t(:,jb,:), lhfl_s_t=prm_diag%lhfl_s_t(:,jb,:), &
 !em>
 !         
@@ -681,12 +685,12 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       DO jc = i_startidx, i_endidx
         idummy_vdf_0a(jc) = 16    !KTVL  ???
         idummy_vdf_0b(jc) = 3     !KTVH  ???
-        zdummy_vdf_1a(jc) = 0.5   !PCVL  ???
-        zdummy_vdf_1b(jc) = 0.5   !PCVL  ???
+        zdummy_vdf_1a(jc) = 0.5_wp!PCVL  ???
+        zdummy_vdf_1b(jc) = 0.5_wp!PCVL  ???
         idummy_vdf_0c(jc) = 1     !KSOTY ??? soil type (needs to be specified)
-        zdummy_vdf_1f(jc) = 1.0   !maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
-        zdummy_vdf_1c(jc) = 0.0   !lake ice thickness ??? (no lakes???)
-        zdummy_vdf_1d(jc) = 273.0 !lake ice temperature ??? (no lakes???)
+        zdummy_vdf_1f(jc) = 1.0_wp!maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
+        zdummy_vdf_1c(jc) = 0.0_wp!lake ice thickness ??? (no lakes???)
+        zdummy_vdf_1d(jc) = 273.0_wp !lake ice temperature ??? (no lakes???)
       ENDDO
 
 !     Tendencies are set to include dynamics and radiation
