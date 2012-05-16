@@ -1436,11 +1436,7 @@ MODULE mo_nh_stepping
 
         IF ( iforcing == inwp ) THEN
 
-          IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-            CALL interpol_phys_grf(jg, jgc, jn, .TRUE.) 
-          ELSE
-            CALL interpol_phys_grf(jg, jgc, jn, .FALSE.)
-          ENDIF
+            CALL interpol_phys_grf(jg, jgc, jn) 
 
           IF (lfeedback(jgc)) CALL feedback_phys_diag(jgc, jg)
 

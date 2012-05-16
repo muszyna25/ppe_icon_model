@@ -67,6 +67,7 @@ USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
 USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow
+USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 IMPLICIT NONE
 
@@ -1729,13 +1730,12 @@ END SUBROUTINE downscale_rad_output_rg
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE interpol_phys_grf (jg,jgc,jn,lsfc_interp)
+SUBROUTINE interpol_phys_grf (jg,jgc,jn)
 
   USE mo_nwp_phy_state,      ONLY: prm_diag
 
   ! Input:
   INTEGER, INTENT(in) :: jg,jgc,jn
-  LOGICAL, INTENT(in) :: lsfc_interp
 
   ! Pointers
   TYPE(t_patch),                POINTER :: ptr_pp
@@ -1751,6 +1751,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn,lsfc_interp)
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk
 
+  LOGICAL :: lsfc_interp
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
   REAL(wp) :: z_aux3dp_p(nproma,nfields_p,p_patch(jg)%nblks_c),         &  ! 2D physics diag fields
@@ -1767,6 +1768,12 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn,lsfc_interp)
   ptr_pc  => p_patch(jgc)
   ptr_grf => p_grf_state(jg)%p_dom(jn)
   ptr_int => p_int_state(jg)
+
+  IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
+    lsfc_interp = .TRUE.
+  ELSE
+    lsfc_interp = .FALSE.
+  ENDIF
 
   IF (lsfc_interp) THEN
     ptr_ldiagp => p_lnd_state(jg)%diag_lnd
