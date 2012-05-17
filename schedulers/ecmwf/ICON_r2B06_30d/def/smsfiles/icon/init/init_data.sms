@@ -62,9 +62,9 @@ set -x
 CW_FILE_OUT=\`echo \$1 | awk -F/ '{print \$NF}'\`
 # process grid file:
 echo "Processing \$1..."
-# Note: We are using the system "cdo" here which has GRIB_API
+# Note: We need a "cdo" here which has GRIB_API
 #       support compiled in.
-cdo gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
+${CDOBIN} gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
 echo "done."
 EOF
 
