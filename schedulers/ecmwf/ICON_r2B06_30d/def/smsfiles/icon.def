@@ -232,7 +232,7 @@ suite icon
                 trigger (pre_clean == complete)
                 #
                 on_hpc_parallel
-                edit SCWALLCLOCKLIMIT 00:01:00
+                edit SCWALLCLOCKLIMIT 00:20:00
                 #
                 if (($ENABLE_FORECAST == 0) or ($ENABLE_DUMPSTATE == 0)) then
                     label status "skipped"
@@ -249,7 +249,7 @@ suite icon
             trigger (prepare/dumpstate == complete)
             #
             on_hpc_parallel
-            edit SCWALLCLOCKLIMIT 00:60:00
+            edit SCWALLCLOCKLIMIT 03:00:00
             if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
                 label status "skipped"
             endif

@@ -21,3 +21,5 @@ myalias
 force complete icon/forecast/check_progress
 EOF
 
+# clean up
+rm $HOME/sms/model_complete.flag
