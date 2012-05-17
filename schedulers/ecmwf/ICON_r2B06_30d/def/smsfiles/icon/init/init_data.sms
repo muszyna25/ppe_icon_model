@@ -39,6 +39,8 @@ smsevent change_dir
 cd ${IFSDATADIR}
 IFS_FILENAME="${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb"
 
+module unload cdo
+module load cdo/1.5.0
    
 # Compute weights for ifs2icon ----------------
 if [ -f "cellweights/initialized.flag" ];
@@ -60,7 +62,9 @@ set -x
 CW_FILE_OUT=\`echo \$1 | awk -F/ '{print \$NF}'\`
 # process grid file:
 echo "Processing \$1..."
-${CDOBIN} gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
+# Note: We are using the system "cdo" here which has GRIB_API
+#       support compiled in.
+cdo gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
 echo "done."
 EOF
 
