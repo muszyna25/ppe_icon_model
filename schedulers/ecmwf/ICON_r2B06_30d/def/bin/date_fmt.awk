@@ -10,11 +10,11 @@
 # Corresponding author:
 #   Florian Prill, DWD, mailto:florian.prill@dwd.de
 BEGIN {
-  YY = substr(in_date,1,4);
-  MM = substr(in_date,5,2);
-  DD = substr(in_date,7,2);
-  HH = substr(in_date,9,2);
-  MM = 00
-  SS = 00
-  printf("%04d-%02d-%02dT%02d:%02d:%02dZ", YY, MM, DD, HH, MM, SS);
+  YY  = substr(in_date,1,4);
+  MM  = substr(in_date,5,2);
+  DD  = substr(in_date,7,2);
+  tHH = substr(in_date,9,2);
+  tMM = 00
+  tSS = 00
+  printf("%04d-%02d-%02dT%02d:%02d:%02dZ", YY, MM, DD, tHH, tMM, tSS);
 }
