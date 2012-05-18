@@ -1863,7 +1863,7 @@ CONTAINS
       IF(of%name_list%output_grid) THEN
         IF (l_grid_info_from_file) THEN
           CALL copy_grid_info(of)
-        ELSE
+        ELSE IF (.NOT. my_process_is_mpi_test()) THEN
           CALL set_grid_info(of)
         END IF
       END IF
