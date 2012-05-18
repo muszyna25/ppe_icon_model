@@ -108,7 +108,7 @@
 
   CONTAINS
 
-#include "intp_functions.f90.inc"
+#include "intp_functions.inc"
 
     !===============================================================
     ! SETUP OF LON-LAT GRID LIST

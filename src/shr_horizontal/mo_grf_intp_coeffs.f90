@@ -97,7 +97,7 @@ PUBLIC :: compute_pc2cc_distances, compute_pe2ce_distances, gridref_info,       
         & init_fbk_wgt, grf_index, rbf_compute_coeff_grf_e, idw_compute_coeff_grf_e
 CONTAINS
 
-#include "intp_functions.f90.inc"
+#include "intp_functions.inc"
 
 
 SUBROUTINE grf_intp_coeffs_setpatch(in_patch)

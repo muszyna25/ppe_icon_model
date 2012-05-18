@@ -197,7 +197,7 @@ PUBLIC :: rbf_vec_index_cell, rbf_c2grad_index, rbf_vec_compute_coeff_cell,     
 
 CONTAINS
 
-#include "intp_functions.f90.inc"
+#include "intp_functions.inc"
 
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
