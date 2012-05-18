@@ -4,8 +4,8 @@ MODULE mo_io_restart
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_var_metadata,          ONLY: t_var_metadata
-  USE mo_linked_list,           ONLY: t_list_element, find_list_element
-  USE mo_var_list,              ONLY: t_var_list, nvar_lists, var_lists
+  USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
+  USE mo_var_list,              ONLY: nvar_lists, var_lists
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: separator
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name 
@@ -609,6 +609,9 @@ CONTAINS
             !
           END SELECT
         ENDDO
+
+WRITE(0,*) "Test1"
+
         !
         ! 4. add vertical grid descriptions
         !
@@ -616,6 +619,7 @@ CONTAINS
           SELECT CASE (vgrid_def(ivg)%type)
           CASE (ZAXIS_SURFACE)
             var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, vgrid_def(ivg)%nlevels)
+write (0,*) " vgrid_def(ivg)%nlevels = ",  vgrid_def(ivg)%nlevels
             ALLOCATE(levels(1))
             levels(1) = 0.0_wp
             CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
@@ -712,12 +716,17 @@ CONTAINS
             ENDIF
           END SELECT
         ENDDO
+
+WRITE(0,*) "Test2"
+
         !
         ! 5. restart does contain absolute time 
         !
         var_lists(i)%p%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
         CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
       ENDIF
+
+WRITE(0,*) "Test3"
       !
       ! add variables
       !
@@ -730,6 +739,8 @@ CONTAINS
              var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%lrestart
         CALL message('',message_text)
       ENDIF
+WRITE(0,*) "Test4"
+
       !
       ! loop over all other output var_lists eventually corresponding to the same file
       !
@@ -778,10 +789,14 @@ CONTAINS
           ENDIF
         ENDIF
       ENDDO
+WRITE(0,*) "Test5"
       !
       IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
+WRITE(0,*) "var_lists(i)%p%cdiFileID_restart ", var_lists(i)%p%cdiFileID_restart
+WRITE(0,*) "var_lists(i)%p%cdiVlistID ", var_lists(i)%p%cdiVlistID
         CALL streamDefVlist(var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%cdiVlistID)
       ENDIF
+WRITE(0,*) "Test6"
       !
     END DO
     !

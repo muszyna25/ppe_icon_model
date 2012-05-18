@@ -63,9 +63,7 @@ MODULE mo_pp_scheduler
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
     & max_dom, max_var_ml, max_var_pl, max_var_hl
   USE mo_model_domain,            ONLY: t_patch, p_patch
-  USE mo_var_list,                ONLY: t_var_list, new_var_list,           &
-    &                                   default_var_list_settings, add_var, &
-    &                                   get_all_var_names,                  &
+  USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
     &                                   nvar_lists, var_lists
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
@@ -96,7 +94,7 @@ MODULE mo_pp_scheduler
     &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
     &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE
-  USE mo_linked_list,             ONLY: t_list_element
+  USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl, &
     &                                   rbf_vec_interpol_lonlat_nl

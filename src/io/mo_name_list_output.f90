@@ -39,8 +39,8 @@ MODULE mo_name_list_output
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_var_metadata,          ONLY: t_var_metadata
-  USE mo_linked_list            ! we need all
-  USE mo_var_list,              ONLY: t_var_list, nvar_lists, max_var_lists, var_lists, &
+  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists, &
                                       new_var_list, get_all_var_names
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
   ! MPI Communication routines
@@ -582,17 +582,9 @@ CONTAINS
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
 
-    ! Preliminary until this is done correctly during creating the var_lists:
-    ! Set loutput to .TRUE. unless we know exactly that we do NOT want to output this list
+
 
     DO i = 1, nvar_lists
-
-      var_lists(i)%p%loutput = .TRUE.
-
-      ! Disable output for var_lists which must not be output,
-      ! e.g. because of name clashes with other var_lists, e.g.:
-      !IF(var_lists(i)%p%name(1:15) == 'ext_data_atm_td' ) var_lists(i)%p%loutput = .FALSE.
-      !IF(var_lists(i)%p%name(1:16) == 'nh_state_metrics') var_lists(i)%p%loutput = .FALSE.
 
       ! print list of all variables
       IF (l_print_list) THEN
@@ -2591,24 +2583,29 @@ CONTAINS
         ENDDO
       ENDIF
 
-        varID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
-        info%cdiVarID   = varID
+      varID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
+      info%cdiVarID   = varID
 
-        CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
+      CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
 
-        CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+      CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
 
-        ! Set GRIB2 Triplet
-        CALL vlistDefVarParam(vlistID, varID,                                              &
-          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+!DR
+!DR Still missing: Set typeOfStatisticalProcessing
+!DR This feature is not yet supported by CDI
+!DR
+
+      ! Set GRIB2 Triplet
+      CALL vlistDefVarParam(vlistID, varID,                                              &
+        &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
 
         
-        IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
-        IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
+      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
+      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
 
-        ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-        IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
-      ENDDO
+      ! Currently only real valued variables are allowed, so we can always use info%missval%rval
+      IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+    ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
 

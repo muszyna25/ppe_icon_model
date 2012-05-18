@@ -40,7 +40,6 @@ MODULE mo_var_list
 
   PUBLIC :: default_var_list_settings ! set default settings for a whole list
 
-  PUBLIC :: t_var_list
   PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
   PUBLIC :: max_var_lists
@@ -178,6 +177,7 @@ CONTAINS
     this_list%p%post_suf = '_'//TRIM(name)
     this_list%p%rest_suf = this_list%p%post_suf
     this_list%p%init_suf = this_list%p%post_suf
+    this_list%p%loutput  = .TRUE.
     !
     ! set non-default list characteristics
     !
@@ -257,6 +257,10 @@ CONTAINS
       END IF
       IF (PRESENT(opt_vlevel_type)) THEN
         IF(var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE LOOP_VARLISTS
+      END IF
+      IF (PRESENT(opt_loutput)) THEN
+        ! Skip var_lists for which loutput .NEQV. opt_loutput
+        IF (opt_loutput .NEQV. var_lists(i)%p%loutput) CYCLE LOOP_VARLISTS
       END IF
       element => NULL()
       LOOPVAR : DO

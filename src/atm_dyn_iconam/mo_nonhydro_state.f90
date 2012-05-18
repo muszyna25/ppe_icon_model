@@ -766,8 +766,10 @@ MODULE mo_nonhydro_state
 
 !DR set loutput=.FALSE. for each individual field until a potential bug in the new 
 !DR output scheme is fixed.
+!DR        CALL add_var_list_reference(p_tracer_list, from_info%name, &
+!DR          &                         from_var_list%p%name, loutput=.FALSE.)
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
-          &                         from_var_list%p%name, loutput=.FALSE.)
+          &                         from_var_list%p%name           )
 
       ENDIF
 

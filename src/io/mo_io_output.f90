@@ -3,8 +3,8 @@ MODULE mo_io_output
   USE mo_kind,          ONLY: wp
   USE mo_exception,     ONLY: finish, message, message_text
   USE mo_var_metadata,  ONLY: t_var_metadata
-  USE mo_linked_list,   ONLY: t_list_element
-  USE mo_var_list,      ONLY: t_var_list, nvar_lists, var_lists
+  USE mo_linked_list,   ONLY: t_var_list, t_list_element
+  USE mo_var_list,      ONLY: nvar_lists, var_lists
   USE mo_cdi_constants
   USE mo_util_string,   ONLY: separator
   USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 

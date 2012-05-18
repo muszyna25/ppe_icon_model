@@ -833,7 +833,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_snow_mult', p_diag_lnd%t_snow_mult, &
      & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW, cf_desc, grib2_desc,           &
      & ldims=(/nproma,nlev_snow+1,kblks/),                                        &
-     & lrestart=.FALSE., loutput=.TRUE. ) 
+     & lrestart=.FALSE., loutput=.FALSE. ) 
 
     ! & p_diag_lnd%t_s(nproma,nblks_c)
     cf_desc    = t_cf_var('t_s', 'K', 'weighted temperature of ground surface')
@@ -855,7 +855,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'rho_snow_mult',                      &
          & p_diag_lnd%rho_snow_mult, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW, &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.FALSE.)
 
     ! & p_diag_lnd%w_i(nproma,nblks_c)
     cf_desc    = t_cf_var('w_i', 'm H2O', 'weighted water content of interception water')
@@ -894,7 +894,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'wliq_snow',                          &
          & p_diag_lnd%wliq_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,     & 
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.FALSE.)
 
     ! & p_diag_lnd%wtot_snow(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'weighted total water content in snow')
@@ -902,7 +902,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'wtot_snow',                          &
          & p_diag_lnd%wtot_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,     &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.FALSE.)
 
     ! & p_diag_lnd%dzh_snow(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('dzh_snow', 'm', 'weighted layer thickness between half levels in snow')
@@ -910,7 +910,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'dzh_snow',                           &
          & p_diag_lnd%dzh_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,      &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.FALSE.)
 
     ! & p_diag_lnd%h_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('h_snow', 'm', 'weighted snow height')
