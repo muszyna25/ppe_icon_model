@@ -44,9 +44,7 @@ find . -name "${LOGFILE}" -exec rm {} \;
 # Retrieve data from MARS ---------------------
 smsevent mars4icon
 
-# DEVELOPMENT
-REQUEST_DATE="2012051400"
-# REQUEST_DATE="%SMSDATE%00"
+REQUEST_DATE="%REQUEST_DATE%"
 ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ "${REQUEST_DATE}" 0 255 1/to/91 2>&1 > ${LOGFILE}
 ls -lrt ${IFSDATADIR}
 

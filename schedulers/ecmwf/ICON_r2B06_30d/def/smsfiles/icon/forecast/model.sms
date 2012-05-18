@@ -43,10 +43,8 @@ outbasedir=%SCTEMP%
 # architecture (corresponds to build/<build architecture>/bin/...)
 arch=powerpc-ibm-aix5.3.0.0
 
-# DEVELOPMENT
-REQUEST_DATE="2012051400"
-# REQUEST_DATE="%SMSDATE%00"
 
+REQUEST_DATE="%REQUEST_DATE%"
 REQUEST_DATE_FMT=`awk -v in_date="${REQUEST_DATE}" -f %SCBASEDIR%/%SUITE_NAME%/def/bin/date_fmt.awk`
 echo ${REQUEST_DATE_FMT}
 

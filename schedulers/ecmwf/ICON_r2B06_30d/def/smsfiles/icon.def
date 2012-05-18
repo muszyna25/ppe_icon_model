@@ -14,16 +14,6 @@
 # on the "bceps" SMS suite (H. Frank, DWD), cf.
 # "ecgate:/home/ms/de/zde/BCeps"
 #
-# TODOs
-# - (With full access to IFS MARS data:)
-#   Enable retrieval for SMSDATE in task
-#   "get_data.sms"
-# - increase no. of SMSTRIES for operational use
-# - set wall clock time limits and node numbers
-# - check model error code
-# - runs build and dumpstate computation with a
-#   larger frequency.
-
 
 # import environment variables:
 setenv -i HOME
@@ -36,6 +26,8 @@ set UID `id -u`
 set  SUITE_NAME   "ICON_r2B06_30d"
 set FIRST_DATE    20120213
 set LAST_DATE     20191231
+set REQUEST_DATE  "2012051400"
+#set REQUEST_DATE "%SMSDATE%00"
 
 # HPC environment:
 set SCHOST      c1a
@@ -99,15 +91,17 @@ suite icon
     # init local variables:
     set ENABLE_INIT               1
     set     ENABLE_GET_DATA       1
-    set     ENABLE_INIT_DATA      1
+    set     ENABLE_INIT_DATA      0
     set     ENABLE_BUILD          0
     set         ENABLE_INIT_SVN   1
-    set ENABLE_FORECAST           1
+    set ENABLE_FORECAST           0
     set     ENABLE_DUMPSTATE      1
     set     ENABLE_MODEL          1
-    set ENABLE_POST               1
+    set ENABLE_POST               0
 
-    edit SUITE_NAME $SUITE_NAME
+    edit SUITE_NAME   $SUITE_NAME
+    edit REQUEST_DATE $REQUEST_DATE
+
     edit SMSTRIES   $SMSTRIES
     edit SMSHOME    $SMSHOME
     edit SMSFILES   $SMSFILES
@@ -133,6 +127,7 @@ suite icon
         task fct_ifs
             on_ecgate
             defstatus unknown
+            label date "$REQUEST_DATE"
     endfamily
 
 
@@ -276,35 +271,28 @@ suite icon
     endfamily
 
     # POST-PROCESS---------------------------------
-    family post
-        repeat integer VALUE 1 $MAXFILES
-        #
-        trigger (($ENABLE_FORECAST==0) or (forecast/model:run_model  and ((forecast/check_progress:progress ge post:VALUE) or (forecast/model:model_complete))))
+    if ($ENABLE_POST == 1) then
+       family post
+           repeat integer VALUE 1 $MAXFILES
+           #
+           trigger (($ENABLE_FORECAST==0) or (forecast/model:run_model  and ((forecast/check_progress:progress ge post:VALUE) or (forecast/model:model_complete))))
 
-        task post_process
-            complete ($ENABLE_POST == 0) 
-            #
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 00:20:00
-            #
-            if ($ENABLE_POST == 0) then
-                label status "skipped"
-            endif
-            #
-            event change_dir
-
-        task post_archive
-            trigger (post_process == complete)
-            complete ($ENABLE_POST == 0) 
-            #
-            on_ecgate
-            if ($ENABLE_POST == 0) then
-                label status "skipped"
-            endif
-            #
-            event change_dir
-            event copy_files
-
-    endfamily
+           task post_process
+   
+               #
+               on_hpc_serial
+               edit SCWALLCLOCKLIMIT 00:20:00
+               #
+               event change_dir
+   
+           task post_archive
+               trigger (post_process == complete)
+               on_ecgate
+               #
+               event change_dir
+               event copy_files
+   
+       endfamily
+    endif
 
 endsuite

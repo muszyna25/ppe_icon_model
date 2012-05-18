@@ -23,16 +23,20 @@
 
 echo "INIT_DATA.SMS"
 
-# DEVELOPMENT
-REQUEST_DATE="2012051400"
-# REQUEST_DATE="%SMSDATE%00"
+REQUEST_DATE="%REQUEST_DATE%"
 
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
 GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
 CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
 RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
 IFS2ICON="%SCBASEDIR%/%SUITE_NAME%/def/icon_scripts/preprocessing/ifs2icon.rb"
+
 export CDOBIN
+# Important: ==================================
+# export the DWD GRIB short names:
+export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+# =============================================
+
 
 # Change directory ----------------------------
 smsevent change_dir
