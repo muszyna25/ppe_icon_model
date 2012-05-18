@@ -39,12 +39,12 @@ module swap fortran fortran/xlf/13.1.0.9
 
 # Run configure script ------------------------
 smsevent configure
-./configure
+./configure --with-flags=hiopt
 
 # Submit ''Make'' -----------------------------
 smsevent make
 export LDR_CNTRL=MAXDAT=0xD000000DSA
-gmake -j 4
+gmake
 
 # Clean-up ------------------------------------
 rm icon-dev.tar.gz
