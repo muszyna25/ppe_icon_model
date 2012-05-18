@@ -47,6 +47,7 @@ MODULE mo_icon_cpl_restart
        &                        cpl_field_none, datatype
 #endif
   USE mo_kind, ONLY           : wp
+  USE mo_util_file, ONLY      : util_symlink, util_rename, util_islink, util_unlink
   USE mo_io_units, ONLY       : find_next_free_unit
   USE mo_icon_cpl, ONLY       : t_comp, t_grid, t_cpl_field, &
        &                        comps, grids, cpl_fields,    &
@@ -65,6 +66,7 @@ MODULE mo_icon_cpl_restart
   INTEGER                :: year, month, day, hour, minute, second
 
   CHARACTER(len=132)     :: file_name
+  CHARACTER(len=132)     :: link_name
 
   PUBLIC :: cpl_init_restart, cpl_write_restart, cpl_read_restart 
 
@@ -234,9 +236,10 @@ CONTAINS
                                       time_config%cur_datetime%hour,     &
                                       time_config%cur_datetime%minute,   &
                                       second, "Z"
+          link_name = "restart_cpl_"//TRIM(comps(1)%comp_name)
        ELSE
-           second = NINT(time_config%end_datetime%second)
-           WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
+          second = NINT(time_config%end_datetime%second)
+          WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
                           "restart_cpl_", TRIM(comps(1)%comp_name), "_", &
                                       time_config%end_datetime%year,     &
                                       time_config%end_datetime%month,    &
@@ -244,6 +247,7 @@ CONTAINS
                                       time_config%end_datetime%hour,     &
                                       time_config%end_datetime%minute,   &
                                       second, "Z"
+          link_name = "restart_cpl_"//TRIM(comps(1)%comp_name)
        ENDIF
 
        OPEN   ( UNIT = rest_unit, FILE = file_name(1:len), FORM = "UNFORMATTED", &
@@ -273,6 +277,12 @@ CONTAINS
        WRITE  ( unit = rest_unit ) sorted_field
 
        CLOSE  ( unit = rest_unit )
+
+       IF (util_islink(TRIM(link_name))) THEN
+          ierror = util_unlink(TRIM(link_name))
+       ENDIF
+
+       ierror = util_symlink(TRIM(file_name),TRIM(link_name))
 
        DEALLOCATE (sorted_field)
 
@@ -323,27 +333,18 @@ CONTAINS
 
     IF ( fptr%coupling%time_operation == cpl_field_none ) RETURN
 
-    second = INT(time_config%cur_datetime%second)
-    len = 12 + LEN_TRIM(comps(1)%comp_name) + 1 + 16
-    WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
-         "restart_cpl_", TRIM(comps(1)%comp_name), "_", &
-         time_config%cur_datetime%year,     &
-         time_config%cur_datetime%month,    &
-         time_config%cur_datetime%day, "T", &
-         time_config%cur_datetime%hour,     &
-         time_config%cur_datetime%minute,   &
-         second, "Z"
+    file_name = "restart_cpl_"//TRIM(comps(1)%comp_name)
 
     INQUIRE ( FILE=TRIM(file_name), EXIST = existing )
 
     IF ( debug_coupler_level > 0 ) &
-       WRITE ( cplout , '(A20,A,L2)' ) 'Trying to open file ', file_name(1:len), existing
+       WRITE ( cplout , '(A20,A,L2)' ) 'Trying to open file ', TRIM(file_name), existing
 
     IF ( .NOT. existing ) RETURN
 
     IF ( ICON_local_rank == ICON_root ) THEN
        rest_unit = find_next_free_unit(10,100)
-       OPEN  ( UNIT = rest_unit, FILE = file_name(1:len), FORM = "UNFORMATTED", status = 'OLD' )
+       OPEN  ( UNIT = rest_unit, FILE = TRIM(file_name), FORM = "UNFORMATTED", status = 'OLD' )
     ENDIF
 
     ALLOCATE (global_field (fptr%global_size,field_shape(3)))
