@@ -55,7 +55,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
 dtime=60
-nsteps=4320
+nsteps=14400
 
 # model parameters
 atmo_namelist=NAMELIST_${EXP}
@@ -163,7 +163,7 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  dom                          =  -1                        ! write all domains
  output_time_unit             =   1                        ! 1: seconds
- output_bounds                =  0., 10000000., 21600.     ! start, end, increment
+ output_bounds                =  0., 10000000., 10800.     ! start, end, increment
  steps_per_file               =   1
  include_last                 =  .TRUE.
  output_filename              =  '${EXP}'                  ! file name base

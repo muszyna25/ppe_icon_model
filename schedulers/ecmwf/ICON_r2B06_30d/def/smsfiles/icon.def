@@ -23,7 +23,7 @@ setenv -i TMPDIR
 set UID `id -u`
 
 # global definitions:
-set  SUITE_NAME   "ICON_r2B06_30d"
+set  SUITE_NAME   "ICON_r2B06_10d"
 set FIRST_DATE    20120213
 set LAST_DATE     20191231
 set REQUEST_DATE  "2012051400"
@@ -46,14 +46,14 @@ set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
 # place for SMS output
 set SMSOUT      "$HOME/$SUITE_NAME/log"
 # no. of files to check for:
-set MAXFILES    120
+set MAXFILES     80
 # wait interval between file checks:
 set WAITINTVL    20
 # set no. of restarts for aborted tasks in SMS:
 set SMSTRIES      1
 
 # -------------------------------------------------
-set ICONNODES         8
+set ICONNODES        16
 set ICONTASKSPERNODE 32
 set ICONTHREADS       2
 # -------------------------------------------------
@@ -91,13 +91,13 @@ suite icon
     # init local variables:
     set ENABLE_INIT               1
     set     ENABLE_GET_DATA       1
-    set     ENABLE_INIT_DATA      0
-    set     ENABLE_BUILD          0
+    set     ENABLE_INIT_DATA      1
+    set     ENABLE_BUILD          1
     set         ENABLE_INIT_SVN   1
-    set ENABLE_FORECAST           0
+    set ENABLE_FORECAST           1
     set     ENABLE_DUMPSTATE      1
     set     ENABLE_MODEL          1
-    set ENABLE_POST               0
+    set ENABLE_POST               1
 
     edit SUITE_NAME   $SUITE_NAME
     edit REQUEST_DATE $REQUEST_DATE
