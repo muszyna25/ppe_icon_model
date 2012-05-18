@@ -707,6 +707,7 @@ schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/icon_restart -text
 schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/job.trigger -text
 schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/start_sms.sh -text
 schedulers/ecmwf/ICON_r2B06_30d/def/smsfiles/stop_sms.sh -text
+schedulers/ecmwf/ICON_r2B06_30d/doc/ecmwf_runs_documentation.pdf -text svneol=unset#unset
 scripts/.gmtcommands -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text
