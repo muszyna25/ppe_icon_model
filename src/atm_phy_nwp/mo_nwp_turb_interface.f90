@@ -62,7 +62,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
-  USE src_turbdiff,            ONLY: organize_turbdiff
+  USE src_turbdiff,            ONLY: turbtran, turbdiff
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_vdiff_config,         ONLY: vdiff_config
@@ -179,6 +179,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   INTEGER  :: idummy_oh(nproma ,p_patch%nblks_c)    !< dummy variable for output
   INTEGER  :: nlev, nlevp1                          !< number of full and half levels
   INTEGER  :: lc_class                              !< land-cover class
+  INTEGER  :: ks, ke, ke1    ! For turbtran call
 
   ! local variables for edmf
 
@@ -251,7 +252,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg, &
 !$OMP eroutine, &
-!$OMP icnt, lc_class, gz0, &
+!$OMP icnt, lc_class, gz0, ks, ke, ke1, &
 !$OMP idummy_vdf_0a, idummy_vdf_0b, idummy_vdf_0c, & 
 !$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
 !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
@@ -377,7 +378,46 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !< COSMO version by M. Raschendorfer  
 !-------------------------------------------------------------------------
 
-      CALL organize_turbdiff(action='tran_diff', iini=0, lstfnct=.TRUE., &
+      ! To avoid copying in/out more field elements than needed
+      ks = nlev-1
+      ke = nlev
+      ke1 = nlevp1
+
+      CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
+!
+         &  ie=nproma, je=1, ke=2, ke1=3,  vst=0, &
+!       
+         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
+         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
+!       
+         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
+         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+!       
+         &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,ks:ke1,jb),   &
+!
+         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+         &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
+!         
+         &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
+!           
+         &  u=p_diag%u(:,ks:ke,jb), v=p_diag%v(:,ks:ke,jb), w=p_prog%w(:,ks:ke1,jb), &
+         &  T=p_diag%temp(:,ks:ke,jb), prs=p_diag%pres(:,ks:ke,jb),  &
+         &  qv=p_prog_rcf%tracer(:,ks:ke,jb,iqv), qc=p_prog_rcf%tracer(:,ks:ke,jb,iqc), &     
+!         
+         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+!                
+         &  tke=z_tvs (:,ks:ke1,jb,:) ,&!  edr =prm_diag%edr(:,ks:ke1,jb),                    &
+         &  tkvm=prm_diag%tkvm(:,ks:ke,jb), tkvh=prm_diag%tkvh(:,ks:ke,jb), &
+         &  rcld=prm_diag%rcld(:,ks:ke1,jb),                                &
+!       
+         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
+         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
+!         
+         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+          
+
+      CALL turbdiff(iini=0, lstfnct=.TRUE., &
 !
          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
 !
@@ -415,8 +455,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
 !         
-         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
-         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
 !         
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
@@ -854,7 +892,4 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 END SUBROUTINE nwp_turbulence
 
-
 END MODULE mo_nwp_turb_interface
-
-

@@ -88,7 +88,7 @@ MODULE mo_nwp_phy_init
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_data_turbdiff,       ONLY: get_turbdiff_param
-  USE src_turbdiff,           ONLY: init_canopy, organize_turbdiff
+  USE src_turbdiff,           ONLY: init_canopy, turbtran, turbdiff
   ! for APE_nh experiments
 
   ! air-sea-land interface
@@ -693,7 +693,40 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  sai=prm_diag%sai(:,jb), lai=ext_data%atm%lai_mx(:,jb), &
          &  tai=prm_diag%tai(:,jb), eai=prm_diag%eai(:,jb) )
 
-      CALL organize_turbdiff(action='tran_diff', iini=1, lstfnct=.TRUE., &
+      CALL turbtran(iini=1, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
+!
+         &  ie=nproma, je=1, ke=nlev, ke1=nlevp1, vst=0, &
+!
+         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
+         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
+!
+         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
+         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+!
+         &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
+!
+         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+         &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
+!
+         &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
+!
+         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
+         &  qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc), &
+!
+         &  prs=p_diag%pres(:,:,jb),  &
+!
+         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+!
+         &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
+         &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh (:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
+!
+         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m (:,jb), &
+         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m (:,jb), &
+!
+         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+      CALL turbdiff(iini=1, lstfnct=.TRUE., &
 !
          &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
 !
@@ -728,8 +761,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
 !
-         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m (:,jb), &
-         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m (:,jb), &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
 !
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
@@ -742,6 +773,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL WORKSHARE
 
 !$OMP END PARALLEL
+
 
     CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
 

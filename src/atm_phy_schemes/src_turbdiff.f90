@@ -381,7 +381,7 @@ USE data_1d_global, ONLY : &
 IMPLICIT NONE
 
 PRIVATE
-PUBLIC  :: init_canopy, organize_turbdiff, turb_cloud
+PUBLIC  :: init_canopy, turbtran, turbdiff, turb_cloud
 
 REAL (KIND=ireals), PARAMETER :: &
     z0=0.0_ireals,&
@@ -400,14 +400,62 @@ REAL (KIND=ireals) :: &
     z1d2=z1/z2,&
     z1d3=z1/z3,&  
 !   z2d3=z2/z3,&
-    z3d2=z3/z2, &
-!
-    xx
+    z3d2=z3/z2
 
 INTEGER (KIND=iintegers) :: &
     istat=0, ilocstat=0
 
 LOGICAL :: lerror=.FALSE.
+
+INTEGER (KIND=iintegers), PARAMETER :: &
+!
+!    Indexgrenzen:
+!
+     nscal=3,     & !Skalare Groessen
+     ninv=2,      & !daraus abgeleitete gegenueber vertikalen
+                    !(feuchtadiabatischen) Verrueckungen
+                    !invarianten Groessen
+     nvel=2,      & !Geschwindigkeitskomponenten
+     ndiff=nscal+nvel, &
+     nred=ninv+nvel,   &
+     ntmax=3,     & !max. Anzahl der Zeitebenen fuer die TKE
+!
+!    Zeiger fuer die Variablen :
+!
+     u_m=1,       & !zonale Geschw.komp. im Massenzentrum
+     v_m=2,       & !meridionale  ,,      ,,     ,,
+     tet_l=3,     & !feucht-potentielle Temperatur
+     tem_l=tet_l, & !Fluessigwasser-Temperatur
+     h2o_g=4,     & !Gesamtwasseergehalt
+     liq=5,       & !Fluessigwasser  ,,
+     w_m=6,       & !vertikale Geschw.komp. im Massenzentrum
+!
+     u_s=u_m,     & !zonale Geschw.komp. im gestag. Gitter
+     v_s=v_m,     & !meridionale  ,,     ,,   ,,       ,,
+     tet=tet_l,   & !pot.Temperatur
+     tem=tet,     & !Temperatur
+     vap=h2o_g,   & !Wasserdampfmischungsverh.
+!
+     mom=1,       & !momentum
+     sca=2          !scalar
+
+!    Beachte:u_m,v_m, sowie u_s,v_s muessen in [1,nvel] liegen;
+!           aber: tet_l,h2o_g in [nvel+1,nred]
+!           und   tem (tet),vap,liq in [nvel+1,ndiff]
+
+
+INTEGER (KIND=iintegers) :: &
+     nvor,       & !laufende Zeittstufe des bisherigen TKE-Feldes
+     it_start      !Startindex der Iterationen
+
+LOGICAL :: lini  !initialization of required
+
+REAL (KIND=ireals), TARGET :: &
+     c_tke,tet_g,c_g,rim, &
+     d_0,d_1,d_2,d_3,d_4,d_5,d_6, &
+     a_3,a_5,a_6,b_1,b_2, &
+     l_scal
+
 
 !-------------------------------------------------------------------------------
 CONTAINS
@@ -632,421 +680,6 @@ REAL (KIND=ireals), DIMENSION(ie,je,kcm:ke1), OPTIONAL, INTENT(INOUT) :: &
 END SUBROUTINE init_canopy
 
 !********************************************************************************
-!********************************************************************************
-
-!+ Module procedure organize_turbdiff in "src_turbdiff" for organising the calls 
-!+ of surface-to-atmosphere trasnsfer and turbulent diffusion:
-
-SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim, &
-!
-          ie, je, ke, ke1, kcm, vst, &
-          istart, iend, istartu, iendu, istartpar, iendpar, istartv, iendv, &
-          jstart, jend, jstartu, jendu, jstartpar, jendpar, jstartv, jendv, &
-          ntstep, &
-!    
-          l_hori, eddlon, eddlat, edadlat, acrlat, &
-          hhl, dp0, &
-!    
-          fr_land, depth_lk, sai, &
-!
-          d_pat, c_big, c_sml, r_air, &
-!    
-          h_ice, ps, t_g, qv_s, &
-!amk
-!          w_snow, &
-!xxx
-          u, v, w, t, qv, qc, prs, rho, epr, &
-!    
-          gz0, tcm, tch, tfm, tfh, tfv, &
-          tke, tkvm, tkvh, rcld, &
-          edr, tket_sso, tket_hshr, tket_conv, &
-!    
-          u_tens, v_tens, t_tens, qv_tens, qc_tens, tketens, &
-          qvt_diff, ut_sso, vt_sso, &
-!    
-          t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, shfl_s, lhfl_s, &
-!
-          ierrstat, errormsg, eroutine)
- 
-!-------------------------------------------------------------------------------
-! Description:
-!
-! Organizes the CALL of 'turbtran' and 'turbdiff' dependent on the parameters 'action'
-! and 'iinit'.
-
-! Method:
-!
-! All tendency parameters execp 'tketens' are OPTIONAL. If they are missing calculated 
-! tendencies of SUB 'turbdiff' are automatically added to the related prognostic variables.
-! It is also possible to use only one time level for TKE using "ntim=1" and thus "nprv=1=ntur".
-
-! Current Code Owner: DWD, Matthias Raschendorfer
-!  phone:  +49  69  8062 2708
-!  fax:    +49  69  8236 1493
-!  email:  matthias.raschendorfer@dwd.de
-
-!-------------------------------------------------------------------------------
-! Declarations
-!-------------------------------------------------------------------------------
-
-IMPLICIT NONE
-
-!Formal Parameters:
-!-------------------------------------------------------------------------------
-
-! 0. Parameters controlling the call of 'organize_turbdiff':
-
-CHARACTER (LEN=*), INTENT(IN) :: &
-!
-   action          !either 'only_tran', 'only_diff' or 'tran_diff'
-
-LOGICAL, INTENT(IN) :: &
-!
-   lstfnct         !calculation of stability function required
-
-REAL (KIND=ireals), INTENT(IN) :: & 
-!
-   dt_var,       & !time step for ordinary prognostic variables
-   dt_tke          !time step for the 2-nd order porgnostic variable 'tke'
-
-INTEGER (KIND=iintegers), INTENT(IN) :: &
-!
-   iini,         & !type of initialization (0: no, 1: separate before the time loop
-                   !                             , 2: within the first time step)
-   nprv,         & !previous    time step index of tke
-   ntur,         & !current new time step index of tke
-   ntim            !number of tke time levels
-
-INTEGER (KIND=iintegers), INTENT(IN) :: &
-!
-! Horizontal and vertical sizes of the fields and related variables:
-! --------------------------------------------------------------------
-!
-    ie,           & ! number of grid points in zonal      direction 
-    je,           & ! number of grid points in meridional direction
-    ke,           & ! index of the lowest main model level
-    ke1             ! index of the lowest model half level (=ke+1)
-
-INTEGER (KIND=iintegers), INTENT(INOUT) :: &
-!
-    kcm             ! level index of the upper canopy bound
-
-INTEGER (KIND=iintegers), INTENT(IN) :: &
-!
-    vst             ! velocity component staggering
-
-INTEGER (KIND=iintegers), INTENT(IN) :: &
-!
-! Start- and end-indices for the computations in the horizontal layers:
-! -----------------------------------------------------------------------
-!   These variables give the start- and the end-indices of the 
-!   forecast for the prognostic variables in a horizontal layer.
-!   Note, that the indices for the wind-speeds u and v differ from 
-!   the other ones because of the use of the staggered Arakawa-B-grid.
-!    
-! Zonal direction:
-    istart,    iend,    & ! start and end index for the inner model domain
-    istartu,   iendu,   & ! start and end index for zonal      wind component
-    istartv,   iendv,   & ! start and end index for meridional wind component
-    istartpar, iendpar, & ! start and end index including model boundary lines
-!
-! Meridional direction:
-    jstart,    jend,    & ! start and end index for the inner model domain
-    jstartu,   jendu,   & ! start and end index for zonal      wind component
-    jstartv,   jendv,   & ! start and end index for meridional wind component
-    jstartpar, jendpar    ! start and end index including model boundary lines
-
-! Time step indices:
-! -----------------------------------------------------------------------
-
-INTEGER (KIND=iintegers), OPTIONAL, INTENT(IN) :: &
-!
-    ntstep          ! current time step
-
-REAL (KIND=ireals), INTENT(IN) :: &
-!
-! Constants related to the earth, the coordinate system
-! and the reference atmosphere:
-! --------------------------------------------------------------------------
-!
-    l_hori          ! horizontal grid spacing (m)
-
-REAL (KIND=ireals), OPTIONAL, INTENT(IN) :: &
-!
-    eddlon,       & ! 1 / dlon
-    eddlat,       & ! 1 / dlat
-    edadlat         ! 1 / (r_earth * dlat)
-
-REAL (KIND=ireals), DIMENSION(je,2), OPTIONAL, INTENT(IN) :: &
-!
-    acrlat          ! 1 / ( crlat * r_earth)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
-!
-    hhl             ! height of model half levels                   ( m )
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), INTENT(IN) :: &
-!
-    dp0             ! pressure thickness of layer                   (pa )
-
-REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
-!
-! External parameter fields:
-! ----------------------------
-    fr_land,      & ! land portion of a grid point area             ( 1 )
-    depth_lk,     & ! lake depth                                    ( m )
-    sai             ! surface area index                            ( 1 )
-
-REAL (KIND=ireals), DIMENSION(ie,je), TARGET, OPTIONAL, INTENT(IN) :: &
-!
-    d_pat           ! horizontal pattern length scale
-
-REAL (KIND=ireals), DIMENSION(ie,je,kcm:ke1), TARGET, OPTIONAL, INTENT(IN) :: &
-!
-    c_big,        & ! effective drag coefficient of canopy elements
-!                   ! larger than or equal to the turbulent length scale (1/m)
-    c_sml,        & ! effective drag coefficient of canopy elements
-!                   ! smaller than the turbulent length scale            (1/m)
-    r_air           ! log of air containing fraction of a gridbox inside
-!                   ! the canopy                                          (1)
-REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
-!
-! Fields for surface values and soil/canopy model variables:
-! ------------------------------------------------------------
-!
-    h_ice,        & ! ice thickness                                 (  m  )
-    ps,           & ! surface pressure                              ( pa  )
-    t_g,          & ! weighted surface temperature                  (  k  )
-    qv_s            ! specific water vapor content on the surface   (kg/kg)
-!amk
-!    w_snow          ! snow water equivalent depth                   (  m  )
-!xxx
-
- REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(INOUT) :: &
-!
-! Atmospheric model variables:
-! ---------------------------------
-!
-     u,           & ! zonal wind speed                              ( m/s )
-     v,           & ! meridional wind speed                         ( m/s )
-     t,           & ! temperature                                   (  k  )
-     qv,          & ! specific water vapor content                  (kg/kg)
-     qc             ! specific cloud water content                  (kg/kg)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(IN) :: &
-!
-     prs            ! atmospheric pressure                          ( pa  )
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, OPTIONAL, INTENT(IN) :: &
-!
-     rho,         & ! total density of air                          (kg/m3)
-     epr            ! exner pressure                                 (1)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
-!
-     w              ! vertical wind speed (defined on half levels)  ( m/s )
-
-REAL (KIND=ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
-!
-! Diagnostic surface variable of the turbulence model:
-! -----------------------------------------------------
-!
-     gz0,          & ! roughness length * g of the vertically not
-                     ! resolved canopy                               (m2/s2)
-     tcm,          & ! turbulent transfer coefficients for momentum    --
-     tch,          & ! turbulent transfer coefficients for heat        --
-!
-     tfm,          & ! factor of laminar transfer of momentum          --
-     tfh,          & ! factor of laminar transfer of scalars           --
-     tfv             ! laminar reduction factor for evaporation        --
- 
-! Atmospheric variables of the turbulence model:
-! ------------------------------------------------
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke1,ntim), INTENT(INOUT) :: &
-!
-     tke             ! SQRT(2*TKE); TKE='turbul. kin. energy'        ( m/s )
-                     ! (defined on half levels)
-
-REAL (KIND=ireals), DIMENSION(ie,je,2:ke1), INTENT(INOUT) :: &
-!
-     tkvm,         & ! turbulent diffusion coefficients for momentum (m/s2 )
-     tkvh            ! turbulent diffusion coefficients for heat     (m/s2 )
-                     ! and moisture
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(INOUT) :: &
-!
-     rcld            ! standard deviation of the saturation deficit        
-                     ! (as input and output)                             
-                     ! fractional cloud cover (in turbdiff)            --
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, TARGET, INTENT(INOUT) :: &
-!
-! Tendency fields for the prognostic variables:
-! -----------------------------------------------
-!
-     u_tens,       & ! u-tendency                                    ( m/s2)
-     v_tens,       & ! v-tendency                                    ( m/s2)
-     t_tens,       & ! t-tendency                                    ( K/s )
-     qv_tens,      & ! qd-tendency                                   ( 1/s )
-     qc_tens         ! qw-tendency                                   ( 1/s )
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(INOUT) :: &
-!
-     tketens         ! tendency of SQRT(2*TKE)                       ( m/s2)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(IN) :: &
-!
-     ut_sso,       & ! u-tendency due to the SSO-Scheme              ( 1/s )
-     vt_sso          ! v-tendency due to the SSO-Scheme              ( 1/s )
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke1), OPTIONAL, INTENT(OUT) :: &
-!
-     edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(IN) :: &
-!
-     tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
-!
-     tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
-     tket_hshr       ! TKE-tendency due to (sep.) horiz. shear       (m2/s3)
-
-REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
-!
-     qvt_diff        ! qd-tendency due to diffusion                  ( 1/s )
-
-REAL (KIND=ireals), DIMENSION(ie,je), INTENT(OUT) :: &
-!
-! Diagnostic near surface variables:
-! -----------------------------------------------
-!
-     t_2m,         & ! temperature in 2m                             (  K  )
-     qv_2m,        & ! specific water vapor content in 2m            (kg/kg)
-     td_2m,        & ! dew-point in 2m                               (  K  )
-     rh_2m,        & ! relative humidity in 2m                       (  %  )
-     u_10m,        & ! zonal wind in 10m                             ( m/s )
-     v_10m           ! meridional wind in 10m                        ( m/s )
-
- REAL (KIND=ireals), DIMENSION(ie,je), OPTIONAL, INTENT(INOUT) :: &
-!
-     shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive upward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive upward)
-
-INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
-
-CHARACTER (LEN=*), INTENT(INOUT) :: eroutine
-CHARACTER (LEN=*), INTENT(INOUT) :: errormsg
-
-!-------------------------------------------------------------------------------
-!Local Parameters:
-!-------------------------------------------------------------------------------
-
-INTEGER (KIND=iintegers), PARAMETER :: &
-!
-!    Indexgrenzen:
-!
-     nscal=3,     & !Skalare Groessen
-     ninv=2,      & !daraus abgeleitete gegenueber vertikalen
-                    !(feuchtadiabatischen) Verrueckungen
-                    !invarianten Groessen
-     nvel=2,      & !Geschwindigkeitskomponenten
-     ndiff=nscal+nvel, &
-     nred=ninv+nvel,   &
-     ntmax=3,     & !max. Anzahl der Zeitebenen fuer die TKE
-!
-!    Zeiger fuer die Variablen :
-!
-     u_m=1,       & !zonale Geschw.komp. im Massenzentrum
-     v_m=2,       & !meridionale  ,,      ,,     ,,
-     tet_l=3,     & !feucht-potentielle Temperatur
-     tem_l=tet_l, & !Fluessigwasser-Temperatur
-     h2o_g=4,     & !Gesamtwasseergehalt
-     liq=5,       & !Fluessigwasser  ,,
-     w_m=6,       & !vertikale Geschw.komp. im Massenzentrum
-!
-     u_s=u_m,     & !zonale Geschw.komp. im gestag. Gitter
-     v_s=v_m,     & !meridionale  ,,     ,,   ,,       ,,
-     tet=tet_l,   & !pot.Temperatur
-     tem=tet,     & !Temperatur
-     vap=h2o_g,   & !Wasserdampfmischungsverh.
-!
-     mom=1,       & !momentum
-     sca=2          !scalar
-
-!    Beachte:u_m,v_m, sowie u_s,v_s muessen in [1,nvel] liegen;
-!           aber: tet_l,h2o_g in [nvel+1,nred]
-!           und   tem (tet),vap,liq in [nvel+1,ndiff]
-
-REAL (KIND=ireals), DIMENSION(ie,je,0:7), TARGET :: &
-     dd        !local derived turbulence parameter
-
-INTEGER (KIND=iintegers) :: &
-     nvor,       & !laufende Zeittstufe des bisherigen TKE-Feldes
-     it_start      !Startindex der Iterationen
-
-LOGICAL :: lini  !initialization of required
-
-REAL (KIND=ireals), TARGET :: &
-     c_tke,tet_g,c_g,rim, &
-     d_0,d_1,d_2,d_3,d_4,d_5,d_6, &
-     a_3,a_5,a_6,b_1,b_2, &
-     l_scal
-
-!Declaration of statement functions:
-
-REAL (KIND=ireals) :: &
-     zexner, zpres               !Exner factor and its argument
-
-!Exner-factor:
- zexner(zpres)=(zpres/p0ref)**rdocp
- 
-!-------------------------------------------------------------------------------
-
- istat=0; ilocstat=0
- errormsg=''; eroutine='organize_turbdiff'; lerror=.FALSE.
-
- IF (iini.GT.0) THEN !an initialization run
-    lini=.TRUE.
-    IF (iini.EQ.1) THEN !separate initialization before the time loop
-       it_start=1 !only 'it_end' iterations for initialization
-                  !and an additional one at the first time loop
-    ELSE !initialization within the first time step
-       it_start=0 !"it_end+1" iterations for initializatzion
-    END IF
- ELSE !not an initialization run
-    lini=.FALSE.
-    it_start=it_end !only one iteration
- END IF
-
- !Note:
- !A call with "iini=2" (at the first time step) provides the same result as a
- !  call with "iini=1" (before the time loop) followed by a second 
- !  call with "iini=0" (at the first time step).
-
- nvor=nprv !Eingangsbelegung von 'nvor' (wird bei Iterationen auf 'ntur' gesetzt)
-
- !Note:
- !It is also possible to use only one time level for TKE ("ntim=1" and thus "nprv=1=ntur").
-
-!CALL get_param
-
-!print *,"in organize_turbdiff"
- IF (action.EQ.'only_tran') THEN
-    IF (.NOT.lerror) CALL turbtran(dt_tke)
- ELSEIF (action.EQ.'only_diff') THEN
-    IF (.NOT.lerror) CALL turbdiff(dt_var,dt_tke,lstfnct)
- ELSEIF (action.EQ.'tran_diff') THEN
-    IF (.NOT.lerror) CALL turbtran(dt_tke)
-    IF (.NOT.lerror) CALL turbdiff(dt_var,dt_tke,lstfnct)
- END IF
-
-!-------------------------------------------------------------------------------
-CONTAINS
-!-------------------------------------------------------------------------------
-
-!********************************************************************************
 
 !+ Module procedure canopy_source in "src_turbdiff" for calculation                   
 !+ of scalar source terms inside the model canopy        
@@ -1088,9 +721,11 @@ END SUBROUTINE canopy_source
 !+ for turbulent transfer and - diffusion
 
 
-SUBROUTINE turb_param
+SUBROUTINE turb_param (l_hori)
 
    IMPLICIT NONE
+
+   REAL (KIND=ireals), INTENT(IN) :: l_hori
 
    INTEGER (KIND=iintegers) :: i,j !loop indices
 
@@ -1120,20 +755,6 @@ SUBROUTINE turb_param
       tet_g=grav/cp_d
       l_scal=MIN( l_hori, tur_len )
 
-      DO j=jstartpar,jendpar
-      DO i=istartpar,iendpar
-         dd(i,j,0)=d_m
-
-         dd(i,j,1)=d_1
-         dd(i,j,2)=d_2
-         dd(i,j,3)=d_3
-         dd(i,j,4)=d_4
-         dd(i,j,5)=d_5
-         dd(i,j,6)=d_6
-
-         dd(i,j,7)=rim
-      END DO
-      END DO
 
 END SUBROUTINE turb_param
 
@@ -1143,7 +764,27 @@ END SUBROUTINE turb_param
 !+ for turbulent transfer
 
 
-SUBROUTINE turbtran(dt_tke)
+SUBROUTINE turbtran(iini, dt_tke, nprv, ntur, ntim, &
+!
+          ie, je, ke, ke1, vst, &
+          istart, iend, istartu, iendu, istartpar, iendpar, istartv, iendv, &
+          jstart, jend, jstartu, jendu, jstartpar, jendpar, jstartv, jendv, &
+          ntstep, &
+!    
+          l_hori, hhl, &
+!    
+          fr_land, depth_lk, sai, &
+!
+          h_ice, ps, t_g, qv_s, &
+          u, v, w, t, qv, qc, prs, &
+!    
+          gz0, tcm, tch, tfm, tfh, tfv, &
+          tke, tkvm, tkvh, rcld, edr, &
+!    
+          t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
+!
+          ierrstat, errormsg, eroutine)
+
 
 !     INCLUDE 'turbtran.incf'
 
@@ -1405,12 +1046,172 @@ SUBROUTINE turbtran(dt_tke)
 
 !     Uebergabevariablen:
 
-! Array arguments with intent(in):
+! 0. Parameters controlling the call of 'turbtran':
 
-      REAL (KIND=ireals), INTENT (IN) :: &
-              dt_tke !Laenge des Zeitschrittes fuer die TKE-Prognose    
+
+REAL (KIND=ireals), INTENT(IN) :: & 
+   dt_tke          !time step for the 2-nd order porgnostic variable 'tke'
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+   iini,         & !type of initialization (0: no, 1: separate before the time loop
+                   !                             , 2: within the first time step)
+   nprv,         & !previous    time step index of tke
+   ntur,         & !current new time step index of tke
+   ntim            !number of tke time levels
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+! Horizontal and vertical sizes of the fields and related variables:
+! --------------------------------------------------------------------
+!
+    ie,           & ! number of grid points in zonal      direction 
+    je,           & ! number of grid points in meridional direction
+    ke,           & ! index of the lowest main model level
+    ke1             ! index of the lowest model half level (=ke+1)
+
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+    vst             ! velocity component staggering
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+! Start- and end-indices for the computations in the horizontal layers:
+! -----------------------------------------------------------------------
+!   These variables give the start- and the end-indices of the 
+!   forecast for the prognostic variables in a horizontal layer.
+!   Note, that the indices for the wind-speeds u and v differ from 
+!   the other ones because of the use of the staggered Arakawa-B-grid.
+!    
+! Zonal direction:
+    istart,    iend,    & ! start and end index for the inner model domain
+    istartu,   iendu,   & ! start and end index for zonal      wind component
+    istartv,   iendv,   & ! start and end index for meridional wind component
+    istartpar, iendpar, & ! start and end index including model boundary lines
+!
+! Meridional direction:
+    jstart,    jend,    & ! start and end index for the inner model domain
+    jstartu,   jendu,   & ! start and end index for zonal      wind component
+    jstartv,   jendv,   & ! start and end index for meridional wind component
+    jstartpar, jendpar    ! start and end index including model boundary lines
+
+! Time step indices:
+! -----------------------------------------------------------------------
+
+INTEGER (KIND=iintegers), OPTIONAL, INTENT(IN) :: &
+!
+    ntstep          ! current time step
+
+REAL (KIND=ireals), INTENT(IN) :: &
+!
+! Constants related to the earth, the coordinate system
+! and the reference atmosphere:
+! --------------------------------------------------------------------------
+!
+    l_hori          ! horizontal grid spacing (m)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
+!
+    hhl             ! height of model half levels                   ( m )
+
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
+!
+! External parameter fields:
+! ----------------------------
+    fr_land,      & ! land portion of a grid point area             ( 1 )
+    depth_lk,     & ! lake depth                                    ( m )
+    sai             ! surface area index                            ( 1 )
+
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
+!
+! Fields for surface values and soil/canopy model variables:
+! ------------------------------------------------------------
+!
+    h_ice,        & ! ice thickness                                 (  m  )
+    ps,           & ! surface pressure                              ( pa  )
+    t_g,          & ! weighted surface temperature                  (  k  )
+    qv_s            ! specific water vapor content on the surface   (kg/kg)
+
+
+ REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(INOUT) :: &
+!
+! Atmospheric model variables:
+! ---------------------------------
+!
+     u,           & ! zonal wind speed                              ( m/s )
+     v,           & ! meridional wind speed                         ( m/s )
+     t,           & ! temperature                                   (  k  )
+     qv,          & ! specific water vapor content                  (kg/kg)
+     qc             ! specific cloud water content                  (kg/kg)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(IN) :: &
+!
+     prs            ! atmospheric pressure                          ( pa  )
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
+!
+     w              ! vertical wind speed (defined on half levels)  ( m/s )
+
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
+!
+! Diagnostic surface variable of the turbulence model:
+! -----------------------------------------------------
+!
+     gz0,          & ! roughness length * g of the vertically not
+                     ! resolved canopy                               (m2/s2)
+     tcm,          & ! turbulent transfer coefficients for momentum    --
+     tch,          & ! turbulent transfer coefficients for heat        --
+!
+     tfm,          & ! factor of laminar transfer of momentum          --
+     tfh,          & ! factor of laminar transfer of scalars           --
+     tfv             ! laminar reduction factor for evaporation        --
+ 
+! Atmospheric variables of the turbulence model:
+! ------------------------------------------------
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1,ntim), INTENT(INOUT) :: &
+!
+     tke             ! SQRT(2*TKE); TKE='turbul. kin. energy'        ( m/s )
+                     ! (defined on half levels)
+
+REAL (KIND=ireals), DIMENSION(ie,je,2:ke1), INTENT(INOUT) :: &
+!
+     tkvm,         & ! turbulent diffusion coefficients for momentum (m/s2 )
+     tkvh            ! turbulent diffusion coefficients for heat     (m/s2 )
+                     ! and moisture
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(INOUT) :: &
+!
+     rcld            ! standard deviation of the saturation deficit        
+                     ! (as input and output)                             
+                     ! fractional cloud cover (in turbdiff)            --
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), OPTIONAL, INTENT(OUT) :: &
+!
+     edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
+
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(OUT) :: &
+!
+! Diagnostic near surface variables:
+! -----------------------------------------------
+!
+     t_2m,         & ! temperature in 2m                             (  K  )
+     qv_2m,        & ! specific water vapor content in 2m            (kg/kg)
+     td_2m,        & ! dew-point in 2m                               (  K  )
+     rh_2m,        & ! relative humidity in 2m                       (  %  )
+     u_10m,        & ! zonal wind in 10m                             ( m/s )
+     v_10m           ! meridional wind in 10m                        ( m/s )
+
+INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
+
+CHARACTER (LEN=*), INTENT(INOUT) :: eroutine
+CHARACTER (LEN=*), INTENT(INOUT) :: errormsg
 
 ! Local parameters:
+
+REAL (KIND=ireals), DIMENSION(ie,je,0:7), TARGET :: &
+     dd        !local derived turbulence parameter
 
 ! Local scalars:
 
@@ -1534,6 +1335,14 @@ SUBROUTINE turbtran(dt_tke)
 !
            clc(ie,je,ke:ke),clcw(ie,je,ke:ke)
 
+!Declaration of statement functions:
+
+REAL (KIND=ireals) :: &
+     zexner, zpres               !Exner factor and its argument
+
+!Exner-factor:
+ zexner(zpres)=(zpres/p0ref)**rdocp
+
 !---- End of header ---------------------------------------------------------
 
 ! 1)  Vorbereitungen:
@@ -1541,8 +1350,25 @@ SUBROUTINE turbtran(dt_tke)
       istat=0; ilocstat=0; ierrstat=0
       errormsg = ''; eroutine='turbtran'; lerror=.FALSE.
 
+
+ IF (iini.GT.0) THEN !an initialization run
+    lini=.TRUE.
+    IF (iini.EQ.1) THEN !separate initialization before the time loop
+       it_start=1 !only 'it_end' iterations for initialization
+                  !and an additional one at the first time loop
+    ELSE !initialization within the first time step
+       it_start=0 !"it_end+1" iterations for initializatzion
+    END IF
+ ELSE !not an initialization run
+    lini=.FALSE.
+    it_start=it_end !only one iteration
+ END IF
+
+ nvor=nprv !Eingangsbelegung von 'nvor' (wird bei Iterationen auf 'ntur' gesetzt)
+
 !     Unterste Hauptflaeche halbiert den Abstand zur
 !     untersten Nebenflaeche:
+
 
       xf=z2 
       wf=xf-z1
@@ -1558,7 +1384,22 @@ SUBROUTINE turbtran(dt_tke)
 
 !     Berechnung abgeleiteter Parameter:
 
-      CALL turb_param
+      CALL turb_param  (l_hori)
+
+      DO j=jstartpar,jendpar
+      DO i=istartpar,iendpar
+         dd(i,j,0)=d_m
+
+         dd(i,j,1)=d_1
+         dd(i,j,2)=d_2
+         dd(i,j,3)=d_3
+         dd(i,j,4)=d_4
+         dd(i,j,5)=d_5
+         dd(i,j,6)=d_6
+
+         dd(i,j,7)=rim
+      END DO
+      END DO
 
 ! 2)  Initialisierung der z0-Werte ueber Meer
 !     und der laminaren Transferfaktoren: 
@@ -1628,12 +1469,6 @@ SUBROUTINE turbtran(dt_tke)
 !test
 
                   dh=hhl(i,j,ke-1)-hhl(i,j,ke1)
-
-! GZ: I am not sure if the computations are correct here. The velocities and their gradients are
-! multiplied by two (all operations related to COSMO grid staggering must be removed!!!),
-! the vertical temperature gradient is multiplied by 2, but excluding the g/cp factor for
-! converting in potential temperature; fm2 is then 4*(dv/dz)**2, whereas fh2 is a mixture
-! of N**2 and 2*N**2...
 
                   vel1=(u(i,j,ke-1)+u(ii,j,ke-1))
                   vel2=(u(i,j,ke)+u(ii,j,ke))
@@ -1872,11 +1707,6 @@ SUBROUTINE turbtran(dt_tke)
                vel_2d(i,j)=MAX( vel_min, SQRT(vel1_2d(i,j)**2+vel2_2d(i,j)**2) )
             END IF
 
-         END DO   
-         END DO 
-
-         DO j=j_st,j_en
-         DO i=i_st,i_en
 !           Berechnung der unteren Randwerte der Prandtl-Schicht:
 !Achtung!
              ts_2d(i,j)= ta_2d(i,j)*(z1-tfh(i,j))+ t_g(i,j)*tfh(i,j)
@@ -2314,7 +2144,118 @@ SUBROUTINE turbtran(dt_tke)
       END DO
       END DO
 
-END SUBROUTINE turbtran
+
+CONTAINS
+
+
+
+!********************************************************************************
+
+!+ Module procedure stab_funct in "src_turbdiff" for computing the stability
+!+ function for vertical diffusion
+
+
+SUBROUTINE stab_funct (sm, sh, fm2, fh2, frc, tvs, tls, i_st,i_en, j_st,j_en)
+
+   IMPLICIT NONE
+
+   INTEGER (KIND=iintegers) :: i,j !loop indices
+
+   REAL (KIND=ireals)        , INTENT(OUT) :: &
+        sm(:,:),  & !stablility function for momentum             [1] 
+        sh(:,:)     !stablility function for scalars (heat)       [1] 
+
+   REAL (KIND=ireals)        , INTENT(IN) :: &
+        fm2(:,:), & !squared forcing frequency for momentum       [1/s2]
+        fh2(:,:), & !squared forcing frequency for scalars (heat) [1/s2]
+        frc(:,:), & !forcing function for TKE                     [m/s2]
+        tvs(:,:), & !turbulent velocity scale SQRT(2*TKE)         [m/s]
+        tls(:,:)    !turbulent length scale
+
+   INTEGER (KIND=iintegers), INTENT(IN) :: &
+        i_st, i_en, & !start- and end index of horizontal i-loop
+        j_st, j_en    !start- and end index of horizontal j-loop
+
+   REAL (KIND=ireals)          :: &
+!       d0, &
+        d1, d2, d3, d4 ,d5 ,d6
+
+   REAL (KIND=ireals) :: &
+        a11, a12, a22, a21, &
+        a3, a5, a6, be1, be2, &
+        gama, fakt, val1, val2, &
+        gm, gh
+
+!------------------------------------------------------------------
+
+   DO j=j_st, j_en
+   DO i=i_st, i_en
+
+      d1=dd(i,j,1); d2=dd(i,j,2); d3=dd(i,j,3)
+      d4=dd(i,j,4); d5=dd(i,j,5); d6=dd(i,j,6)
+
+      gama=tls(i,j)*frc(i,j)/tvs(i,j)**2 !entspr. 1/d_m im Gleichgewicht
+                                         !und ausserh. des Bestandes
+!test gama=1/d0
+
+      fakt=(tls(i,j)/tvs(i,j))**2 
+
+!     Folgnde Fallunterscheidung muss gemacht werden,
+!     um positiv definete Loesungen fuer die Stabilitaets-
+!     funktionen zu ermoeglichen:
+
+      IF (fh2(i,j).GE.z0) THEN ! stab. Schichtung
+!        Allgemeinste der hier verwendeten Loesungen:
+
+         be1=z1
+         be2=be1-c_g
+       
+         gh=fh2(i,j)*fakt
+         gm=fm2(i,j)*fakt
+         
+         a11=d1+(d5-d4)*gh
+         a12=d4*gm
+         a21=(d6-d4)*gh
+         a22=d2+d3*gh+d4*gm
+
+         fakt=a11*a22-a12*a21
+         sh(i,j)=(be1*a22-be2*a12)/fakt
+         sm(i,j)=(be2*a11-be1*a21)/fakt
+      ELSE ! labile Schichtung
+!        Weiter eingeschraenkte Loesungen, bei denen Gm u.
+!        Gh unter Einfuehrung der Ri-Zahl eliminiert werden.
+!        Dabei wird gama aus der zuvor geloesten TKE-Gleich.
+!        genommen. Wegen frc=tls*(sm*fm2-sh*fh2)
+!        ist dies aber von den Vorgaengerwerten von sh u. sm
+!        aghaengig:
+
+!        Um physikalisch unsinnige Loesungen bez. Singulari-
+!        taeten zu vermeiden, muessen be1 u. be2 > 0 sein:
+
+         be1=z1-d4*gama
+         be2=be1-c_g
+
+!        Weil tvs schon vorher entsprechend nach unten beschraenkt wurde,
+!        ist eine explizite Beschraenkung hier unnoetig!
+
+         a3=d3*gama/d2
+         a5=d5*gama/d1
+         a6=d6*gama/d2
+         be1=be1/d1
+         be2=be2/d2
+
+         val1=(fm2(i,j)*be2+(a5-a3+be1)*fh2(i,j))/(z2*be1)
+         val2=val1+sqrt(val1**2-(a6+be2)*fh2(i,j)*fm2(i,j)/be1)
+         fakt=fh2(i,j)/(val2-fh2(i,j))
+         sh(i,j)=be1-a5*fakt
+         sm(i,j)=sh(i,j)*(be2-a6*fakt)/(be1-(a5-a3)*fakt)
+      END IF   
+
+   END DO
+   END DO
+
+END SUBROUTINE stab_funct
+
 
 !********************************************************************************
 
@@ -2331,7 +2272,7 @@ SUBROUTINE diag_level (i_st, i_en, j_st, j_en, zdia_2d, k_2d, hk_2d, hk1_2d)
 
    REAL (KIND=ireals), INTENT(IN) :: &
 !
-      zdia_2d(:,:)  !diagnostic height
+      zdia_2d(:,:)   ! diagnostic height
 
    INTEGER (KIND=iintegers), INTENT(INOUT) :: &
 !
@@ -2368,13 +2309,41 @@ SUBROUTINE diag_level (i_st, i_en, j_st, j_en, zdia_2d, k_2d, hk_2d, hk1_2d)
 
 END SUBROUTINE diag_level
 
+END SUBROUTINE turbtran
+
 !********************************************************************************
 
 !+ Module procedure turbdiff in "src_turbdiff" for computing the tendencies
 !+ for vertical diffusion
 
 
-SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
+SUBROUTINE turbdiff(iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim, &
+!
+          ie, je, ke, ke1, kcm, vst, &
+          istart, iend, istartu, iendu, istartpar, iendpar, istartv, iendv, &
+          jstart, jend, jstartu, jendu, jstartpar, jendpar, jstartv, jendv, &
+          ntstep, &
+!    
+          l_hori, eddlon, eddlat, edadlat, acrlat, &
+          hhl, dp0, &
+!    
+          fr_land, depth_lk, sai, &
+!
+          d_pat, c_big, c_sml, r_air, &
+!    
+          h_ice, ps, t_g, qv_s, &
+          u, v, w, t, qv, qc, prs, rho, epr, &
+!    
+          gz0, tcm, tch, tfm, tfh, tfv, &
+          tke, tkvm, tkvh, rcld, &
+          edr, tket_sso, tket_hshr, tket_conv, &
+!    
+          u_tens, v_tens, t_tens, qv_tens, qc_tens, tketens, &
+          qvt_diff, ut_sso, vt_sso, &
+!    
+          shfl_s, lhfl_s, &
+!
+          ierrstat, errormsg, eroutine)
 
 !     INCLUDE 'turbdiff.incf'
 
@@ -2581,17 +2550,242 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
      IMPLICIT NONE
 
-! Array arguments with intent(in):
+! 0. Parameters controlling the call of 'turbdiff':
 
-      REAL (KIND=ireals), INTENT (IN) :: &
-             dt_var, &  !Zeitschrittlaenge fuer die turbulente Diffusion
-             dt_tke     !Zeitschrittlaenge fuer die TKE-Prognose
 
-      LOGICAL, INTENT (IN) :: lstfnct
+LOGICAL, INTENT(IN) :: &
+!
+   lstfnct         !calculation of stability function required
+
+REAL (KIND=ireals), INTENT(IN) :: & 
+!
+   dt_var,       & !time step for ordinary prognostic variables
+   dt_tke          !time step for the 2-nd order porgnostic variable 'tke'
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+   iini,         & !type of initialization (0: no, 1: separate before the time loop
+                   !                             , 2: within the first time step)
+   nprv,         & !previous    time step index of tke
+   ntur,         & !current new time step index of tke
+   ntim            !number of tke time levels
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+! Horizontal and vertical sizes of the fields and related variables:
+! --------------------------------------------------------------------
+!
+    ie,           & ! number of grid points in zonal      direction 
+    je,           & ! number of grid points in meridional direction
+    ke,           & ! index of the lowest main model level
+    ke1             ! index of the lowest model half level (=ke+1)
+
+INTEGER (KIND=iintegers), INTENT(INOUT) :: &
+!
+    kcm             ! level index of the upper canopy bound
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+    vst             ! velocity component staggering
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+! Start- and end-indices for the computations in the horizontal layers:
+! -----------------------------------------------------------------------
+!   These variables give the start- and the end-indices of the 
+!   forecast for the prognostic variables in a horizontal layer.
+!   Note, that the indices for the wind-speeds u and v differ from 
+!   the other ones because of the use of the staggered Arakawa-B-grid.
+!    
+! Zonal direction:
+    istart,    iend,    & ! start and end index for the inner model domain
+    istartu,   iendu,   & ! start and end index for zonal      wind component
+    istartv,   iendv,   & ! start and end index for meridional wind component
+    istartpar, iendpar, & ! start and end index including model boundary lines
+!
+! Meridional direction:
+    jstart,    jend,    & ! start and end index for the inner model domain
+    jstartu,   jendu,   & ! start and end index for zonal      wind component
+    jstartv,   jendv,   & ! start and end index for meridional wind component
+    jstartpar, jendpar    ! start and end index including model boundary lines
+
+! Time step indices:
+! -----------------------------------------------------------------------
+
+INTEGER (KIND=iintegers), OPTIONAL, INTENT(IN) :: &
+!
+    ntstep          ! current time step
+
+REAL (KIND=ireals), INTENT(IN) :: &
+!
+! Constants related to the earth, the coordinate system
+! and the reference atmosphere:
+! --------------------------------------------------------------------------
+!
+    l_hori          ! horizontal grid spacing (m)
+
+REAL (KIND=ireals), OPTIONAL, INTENT(IN) :: &
+!
+    eddlon,       & ! 1 / dlon
+    eddlat,       & ! 1 / dlat
+    edadlat         ! 1 / (r_earth * dlat)
+
+REAL (KIND=ireals), DIMENSION(je,2), OPTIONAL, INTENT(IN) :: &
+!
+    acrlat          ! 1 / ( crlat * r_earth)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
+!
+    hhl             ! height of model half levels                   ( m )
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), INTENT(IN) :: &
+!
+    dp0             ! pressure thickness of layer                   (pa )
+
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
+!
+! External parameter fields:
+! ----------------------------
+    fr_land,      & ! land portion of a grid point area             ( 1 )
+    depth_lk,     & ! lake depth                                    ( m )
+    sai             ! surface area index                            ( 1 )
+
+REAL (KIND=ireals), DIMENSION(ie,je), TARGET, OPTIONAL, INTENT(IN) :: &
+!
+    d_pat           ! horizontal pattern length scale
+
+REAL (KIND=ireals), DIMENSION(ie,je,kcm:ke1), TARGET, OPTIONAL, INTENT(IN) :: &
+!
+    c_big,        & ! effective drag coefficient of canopy elements
+!                   ! larger than or equal to the turbulent length scale (1/m)
+    c_sml,        & ! effective drag coefficient of canopy elements
+!                   ! smaller than the turbulent length scale            (1/m)
+    r_air           ! log of air containing fraction of a gridbox inside
+!                   ! the canopy                                          (1)
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
+!
+! Fields for surface values and soil/canopy model variables:
+! ------------------------------------------------------------
+!
+    h_ice,        & ! ice thickness                                 (  m  )
+    ps,           & ! surface pressure                              ( pa  )
+    t_g,          & ! weighted surface temperature                  (  k  )
+    qv_s            ! specific water vapor content on the surface   (kg/kg)
+!amk
+!    w_snow          ! snow water equivalent depth                   (  m  )
+!xxx
+
+ REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(INOUT) :: &
+!
+! Atmospheric model variables:
+! ---------------------------------
+!
+     u,           & ! zonal wind speed                              ( m/s )
+     v,           & ! meridional wind speed                         ( m/s )
+     t,           & ! temperature                                   (  k  )
+     qv,          & ! specific water vapor content                  (kg/kg)
+     qc             ! specific cloud water content                  (kg/kg)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(IN) :: &
+!
+     prs            ! atmospheric pressure                          ( pa  )
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, OPTIONAL, INTENT(IN) :: &
+!
+     rho,         & ! total density of air                          (kg/m3)
+     epr            ! exner pressure                                 (1)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
+!
+     w              ! vertical wind speed (defined on half levels)  ( m/s )
+
+REAL (KIND=ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
+!
+! Diagnostic surface variable of the turbulence model:
+! -----------------------------------------------------
+!
+     gz0,          & ! roughness length * g of the vertically not
+                     ! resolved canopy                               (m2/s2)
+     tcm,          & ! turbulent transfer coefficients for momentum    --
+     tch,          & ! turbulent transfer coefficients for heat        --
+!
+     tfm,          & ! factor of laminar transfer of momentum          --
+     tfh,          & ! factor of laminar transfer of scalars           --
+     tfv             ! laminar reduction factor for evaporation        --
+ 
+! Atmospheric variables of the turbulence model:
+! ------------------------------------------------
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1,ntim), INTENT(INOUT) :: &
+!
+     tke             ! SQRT(2*TKE); TKE='turbul. kin. energy'        ( m/s )
+                     ! (defined on half levels)
+
+REAL (KIND=ireals), DIMENSION(ie,je,2:ke1), INTENT(INOUT) :: &
+!
+     tkvm,         & ! turbulent diffusion coefficients for momentum (m/s2 )
+     tkvh            ! turbulent diffusion coefficients for heat     (m/s2 )
+                     ! and moisture
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(INOUT) :: &
+!
+     rcld            ! standard deviation of the saturation deficit        
+                     ! (as input and output)                             
+                     ! fractional cloud cover (in turbdiff)            --
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, TARGET, INTENT(INOUT) :: &
+!
+! Tendency fields for the prognostic variables:
+! -----------------------------------------------
+!
+     u_tens,       & ! u-tendency                                    ( m/s2)
+     v_tens,       & ! v-tendency                                    ( m/s2)
+     t_tens,       & ! t-tendency                                    ( K/s )
+     qv_tens,      & ! qd-tendency                                   ( 1/s )
+     qc_tens         ! qw-tendency                                   ( 1/s )
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(INOUT) :: &
+!
+     tketens         ! tendency of SQRT(2*TKE)                       ( m/s2)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(IN) :: &
+!
+     ut_sso,       & ! u-tendency due to the SSO-Scheme              ( 1/s )
+     vt_sso          ! v-tendency due to the SSO-Scheme              ( 1/s )
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke1), OPTIONAL, INTENT(OUT) :: &
+!
+     edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(IN) :: &
+!
+     tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
+!
+     tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
+     tket_hshr       ! TKE-tendency due to (sep.) horiz. shear       (m2/s3)
+
+REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
+!
+     qvt_diff        ! qd-tendency due to diffusion                  ( 1/s )
+
+ REAL (KIND=ireals), DIMENSION(ie,je), OPTIONAL, INTENT(INOUT) :: &
+!
+     shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive upward)
+     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive upward)
+
+INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
+
+CHARACTER (LEN=*), INTENT(INOUT) :: eroutine
+CHARACTER (LEN=*), INTENT(INOUT) :: errormsg
 
 !-----------------------------------------------------------------------
 !
 ! Local parameters:
+
+REAL (KIND=ireals), DIMENSION(ie,je,0:7), TARGET :: &
+     dd        !local derived turbulence parameter
 
 ! Local scalars:
 
@@ -2810,10 +3004,34 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 !---- End of header ------------------------------------------------------------
 
+!Declaration of statement functions:
+
+REAL (KIND=ireals) :: &
+     zexner, zpres               !Exner factor and its argument
+
+!Exner-factor:
+ zexner(zpres)=(zpres/p0ref)**rdocp
+
 !     nur in LM-Umgebung:
 
       istat=0; ilocstat=0; ierrstat=0
       errormsg = ''; eroutine='turbtran'; lerror=.FALSE.
+
+
+ IF (iini.GT.0) THEN !an initialization run
+    lini=.TRUE.
+    IF (iini.EQ.1) THEN !separate initialization before the time loop
+       it_start=1 !only 'it_end' iterations for initialization
+                  !and an additional one at the first time loop
+    ELSE !initialization within the first time step
+       it_start=0 !"it_end+1" iterations for initializatzion
+    END IF
+ ELSE !not an initialization run
+    lini=.FALSE.
+    it_start=it_end !only one iteration
+ END IF
+
+ nvor=nprv !Eingangsbelegung von 'nvor' (wird bei Iterationen auf 'ntur' gesetzt)
 
 !     Fuer die Turb.par. benutzter Variablensatz auf Hauptflaechen:
 !     Bei k=ke1 stehen die unteren Randwerte der Prandtlschicht
@@ -2967,7 +3185,22 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 !     Berechnung abgeleiteter Parameter:
 
-      CALL turb_param
+      CALL turb_param  (l_hori)
+
+      DO j=jstartpar,jendpar
+      DO i=istartpar,iendpar
+         dd(i,j,0)=d_m
+
+         dd(i,j,1)=d_1
+         dd(i,j,2)=d_2
+         dd(i,j,3)=d_3
+         dd(i,j,4)=d_4
+         dd(i,j,5)=d_5
+         dd(i,j,6)=d_6
+
+         dd(i,j,7)=rim
+      END DO
+      END DO
 
 !     Bestimmung der initialen Werte fuer die laminaren Reduktions-
 !     koeffizienten :
@@ -5443,112 +5676,6 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 END SUBROUTINE turbdiff
 
-!********************************************************************************
-
-!+ Module procedure stab_funct in "src_turbdiff" for computing the stability
-!+ function for vertical diffusion
-
-
-SUBROUTINE stab_funct (sm, sh, fm2, fh2, frc, tvs, tls, i_st,i_en, j_st,j_en)
-
-   IMPLICIT NONE
-
-   INTEGER (KIND=iintegers) :: i,j !loop indices
-
-   REAL (KIND=ireals)        , INTENT(OUT) :: &
-        sm(:,:),  & !stablility function for momentum             [1] 
-        sh(:,:)     !stablility function for scalars (heat)       [1] 
-
-   REAL (KIND=ireals)        , INTENT(IN) :: &
-        fm2(:,:), & !squared forcing frequency for momentum       [1/s2]
-        fh2(:,:), & !squared forcing frequency for scalars (heat) [1/s2]
-        frc(:,:), & !forcing function for TKE                     [m/s2]
-        tvs(:,:), & !turbulent velocity scale SQRT(2*TKE)         [m/s]
-        tls(:,:)    !turbulent length scale
-
-   INTEGER (KIND=iintegers), INTENT(IN) :: &
-        i_st, i_en, & !start- and end index of horizontal i-loop
-        j_st, j_en    !start- and end index of horizontal j-loop
-
-   REAL (KIND=ireals)          :: &
-!       d0, &
-        d1, d2, d3, d4 ,d5 ,d6
-
-   REAL (KIND=ireals) :: &
-        a11, a12, a22, a21, &
-        a3, a5, a6, be1, be2, &
-        gama, fakt, val1, val2, &
-        gm, gh
-
-!------------------------------------------------------------------
-
-   DO j=j_st, j_en
-   DO i=i_st, i_en
-
-      d1=dd(i,j,1); d2=dd(i,j,2); d3=dd(i,j,3)
-      d4=dd(i,j,4); d5=dd(i,j,5); d6=dd(i,j,6)
-
-      gama=tls(i,j)*frc(i,j)/tvs(i,j)**2 !entspr. 1/d_m im Gleichgewicht
-                                         !und ausserh. des Bestandes
-!test gama=1/d0
-
-      fakt=(tls(i,j)/tvs(i,j))**2 
-
-!     Folgnde Fallunterscheidung muss gemacht werden,
-!     um positiv definete Loesungen fuer die Stabilitaets-
-!     funktionen zu ermoeglichen:
-
-      IF (fh2(i,j).GE.z0) THEN ! stab. Schichtung
-!        Allgemeinste der hier verwendeten Loesungen:
-
-         be1=z1
-         be2=be1-c_g
-       
-         gh=fh2(i,j)*fakt
-         gm=fm2(i,j)*fakt
-         
-         a11=d1+(d5-d4)*gh
-         a12=d4*gm
-         a21=(d6-d4)*gh
-         a22=d2+d3*gh+d4*gm
-
-         fakt=a11*a22-a12*a21
-         sh(i,j)=(be1*a22-be2*a12)/fakt
-         sm(i,j)=(be2*a11-be1*a21)/fakt
-      ELSE ! labile Schichtung
-!        Weiter eingeschraenkte Loesungen, bei denen Gm u.
-!        Gh unter Einfuehrung der Ri-Zahl eliminiert werden.
-!        Dabei wird gama aus der zuvor geloesten TKE-Gleich.
-!        genommen. Wegen frc=tls*(sm*fm2-sh*fh2)
-!        ist dies aber von den Vorgaengerwerten von sh u. sm
-!        aghaengig:
-
-!        Um physikalisch unsinnige Loesungen bez. Singulari-
-!        taeten zu vermeiden, muessen be1 u. be2 > 0 sein:
-
-         be1=z1-d4*gama
-         be2=be1-c_g
-
-!        Weil tvs schon vorher entsprechend nach unten beschraenkt wurde,
-!        ist eine explizite Beschraenkung hier unnoetig!
-
-         a3=d3*gama/d2
-         a5=d5*gama/d1
-         a6=d6*gama/d2
-         be1=be1/d1
-         be2=be2/d2
-
-         val1=(fm2(i,j)*be2+(a5-a3+be1)*fh2(i,j))/(z2*be1)
-         val2=val1+sqrt(val1**2-(a6+be2)*fh2(i,j)*fm2(i,j)/be1)
-         fakt=fh2(i,j)/(val2-fh2(i,j))
-         sh(i,j)=be1-a5*fakt
-         sm(i,j)=sh(i,j)*(be2-a6*fakt)/(be1-(a5-a3)*fakt)
-      END IF   
-
-   END DO
-   END DO
-
-END SUBROUTINE stab_funct
 
 !********************************************************************************
 
@@ -5849,7 +5976,7 @@ END SUBROUTINE turb_stat
    
 !********************************************************************************
 
-END SUBROUTINE organize_turbdiff
+
 
 !********************************************************************************
 !********************************************************************************
