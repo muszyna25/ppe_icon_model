@@ -170,7 +170,7 @@ SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
   ! Initialize timer for horizontal advection
   IF (ltimer) CALL timer_start(timer_adv_horz)
 
-      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
        DO jk = 1, n_zlev
          delta_z = v_base%del_zlev_m(jk)
@@ -1066,7 +1066,7 @@ END SUBROUTINE elad
           !    - positive for outgoing fluxes
           !    - negative for incoming fluxes
           !    this sign convention is related to the definition of the divergence operator.
-           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 !           z_mflx_anti(jc,jk,jb,1) =                                                  &
 !             &     dtime * p_int_state(1)%geofac_div(jc,1,jb) / p_thick_new(jc,jk,jb)  &
 !             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
@@ -1085,26 +1085,26 @@ END SUBROUTINE elad
 !             & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
 !             & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
 !           ENDIF
-          z_mflx_anti(jc,jk,jb,1) =                                                  &
-            &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / p_thick_new(jc,jk,jb)  &
-            &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
+           z_mflx_anti(jc,jk,jb,1) =                                                  &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
 
-          z_mflx_anti(jc,jk,jb,2) =                                                  &
-            &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) / p_thick_new(jc,jk,jb)  &
-            &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
+           z_mflx_anti(jc,jk,jb,2) =                                                  &
+             &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) / p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
 
-          z_mflx_anti(jc,jk,jb,3) =                                                  &
-            &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) / p_thick_new(jc,jk,jb)  &
-            &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
+           z_mflx_anti(jc,jk,jb,3) =                                                  &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) / p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
 
-          !  compute also divergence of low order fluxes
-          z_fluxdiv_c(jc,jk,jb) =  &
-            & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * &
-            & p_op_coeff%div_coeff(jc,jk,jb,1) + &
-            & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * &
-            & p_op_coeff%div_coeff(jc,jk,jb,2) + &
-            & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * &
-            & p_op_coeff%div_coeff(jc,jk,jb,3)
+           !  compute also divergence of low order fluxes
+           z_fluxdiv_c(jc,jk,jb) =  &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,1) + &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,2) + &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,3)
          ENDIF
         ENDDO
       ENDDO
