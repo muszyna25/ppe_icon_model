@@ -2529,19 +2529,19 @@ CONTAINS
         ENDIF
 
       CASE (ZAXIS_HEIGHT)
-        IF(info%name(1:8)=='lnd_prog' .AND. INDEX(info%name,'snow') /= 0) THEN
-          ! This is a special case - use ZA_generic_snow[_p1]
-          IF(info%used_dimensions(2) == nlev_snow) THEN
-            info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow)
-          ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
-            info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
-          ELSE
-            WRITE (message_text,'(a,a,a,i0)') &
-                 &  'SNOW variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-            CALL message('',message_text)
-            CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
-          ENDIF
-        ELSE
+!!$        IF(info%name(1:8)=='lnd_prog' .AND. INDEX(info%name,'snow') /= 0) THEN
+!!$          ! This is a special case - use ZA_generic_snow[_p1]
+!!$          IF(info%used_dimensions(2) == nlev_snow) THEN
+!!$            info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow)
+!!$          ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
+!!$            info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
+!!$          ELSE
+!!$            WRITE (message_text,'(a,a,a,i0)') &
+!!$                 &  'SNOW variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+!!$            CALL message('',message_text)
+!!$            CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
+!!$          ENDIF
+!!$        ELSE
           ! In all other cases, ZAXIS_HEIGHT seems to be equivalent to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF
           ! TODO: Is there a difference to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF ???
           IF (info%used_dimensions(2) == nlevp1) THEN
@@ -2554,6 +2554,18 @@ CONTAINS
             CALL message('',message_text)
             CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
           ENDIF
+!!$        ENDIF
+
+      CASE (ZAXIS_GENERIC)
+        IF(info%used_dimensions(2) == nlev_snow) THEN
+          info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow)
+        ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
+          info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
+        ELSE
+          WRITE (message_text,'(a,a,a,i0)') &
+               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          CALL message('',message_text)
+          CALL finish(routine,'Dimension mismatch for ZAXIS_GENERIC')
         ENDIF
 
       CASE (ZAXIS_PRESSURE)

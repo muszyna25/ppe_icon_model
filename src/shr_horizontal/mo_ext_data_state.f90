@@ -428,7 +428,6 @@ CONTAINS
     CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_list,            &
                                   & lrestart=.FALSE.,          &
-                                  & loutput=.FALSE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -440,7 +439,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,  &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
 
     ! ozone mixing ratio
     !
