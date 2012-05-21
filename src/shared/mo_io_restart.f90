@@ -382,6 +382,8 @@ CONTAINS
     !
     CALL set_vertical_grid(ZAXIS_SURFACE,     1)
     CALL set_vertical_grid(ZAXIS_GENERIC,     1)
+    CALL set_vertical_grid(ZAXIS_GENERIC, nlev_snow)
+    CALL set_vertical_grid(ZAXIS_GENERIC, nlev_snow+1)
     CALL set_vertical_grid(ZAXIS_HYBRID,      nlev)
     CALL set_vertical_grid(ZAXIS_HYBRID_HALF, nlev+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth)
@@ -390,8 +392,6 @@ CONTAINS
     CALL set_vertical_grid(ZAXIS_HEIGHT, nlev+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+2)
-    CALL set_vertical_grid(ZAXIS_GENERIC_SNOW, nlev_snow)
-    CALL set_vertical_grid(ZAXIS_GENERIC_SNOW, nlev_snow+1)
     !
     ! define time axis
     !
@@ -610,7 +610,7 @@ CONTAINS
           END SELECT
         ENDDO
 
-WRITE(0,*) "Test1"
+
 
         !
         ! 4. add vertical grid descriptions
@@ -619,19 +619,37 @@ WRITE(0,*) "Test1"
           SELECT CASE (vgrid_def(ivg)%type)
           CASE (ZAXIS_SURFACE)
             var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, vgrid_def(ivg)%nlevels)
-write (0,*) " vgrid_def(ivg)%nlevels = ",  vgrid_def(ivg)%nlevels
             ALLOCATE(levels(1))
             levels(1) = 0.0_wp
             CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
             DEALLOCATE(levels)
           CASE (ZAXIS_GENERIC)
             write(0,*)'ZAXIS_GENERIC '
-            var_lists(i)%p%cdiGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-                 &                                         vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 0.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiGenericZaxisID, levels)
-            DEALLOCATE(levels)
+
+            IF (vgrid_def(ivg)%nlevels == 1) THEN
+              var_lists(i)%p%cdiGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+                   &                                         vgrid_def(ivg)%nlevels)
+              ALLOCATE(levels(1))
+              levels(1) = 0.0_wp
+              CALL zaxisDefLevels(var_lists(i)%p%cdiGenericZaxisID, levels)
+              DEALLOCATE(levels)
+            ELSE
+              IF (.NOT. lheight_snow_initialised) CYCLE
+              IF (SIZE(private_height_snow_full) == vgrid_def(ivg)%nlevels) THEN
+                var_lists(i)%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+                     &                                            vgrid_def(ivg)%nlevels)
+                CALL zaxisDefLevels(var_lists(i)%p%cdiSnowGenericZaxisID, &
+                     &              private_height_snow_full)
+              ELSE IF (SIZE(private_height_snow_half) == vgrid_def(ivg)%nlevels) THEN
+                var_lists(i)%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+                     &                                            vgrid_def(ivg)%nlevels)
+                CALL zaxisDefLevels(var_lists(i)%p%cdiSnowHalfGenericZaxisID, &
+                     &              private_height_snow_half)
+              ELSE
+                CALL finish('open_writing_restart_files','Number of height levels not available.')
+              ENDIF
+            ENDIF
+
           CASE (ZAXIS_HYBRID)
             IF (.NOT. lvct_initialised) CYCLE
             var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
@@ -699,25 +717,10 @@ write (0,*) " vgrid_def(ivg)%nlevels = ",  vgrid_def(ivg)%nlevels
             ELSE
               CALL finish('open_writing_restart_files','Number of height levels not available.')
             ENDIF
-          CASE (ZAXIS_GENERIC_SNOW)
-            IF (.NOT. lheight_snow_initialised) CYCLE
-            IF (SIZE(private_height_snow_full) == vgrid_def(ivg)%nlevels) THEN
-              var_lists(i)%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-                   &                                            vgrid_def(ivg)%nlevels)
-              CALL zaxisDefLevels(var_lists(i)%p%cdiSnowGenericZaxisID, &
-                   &              private_height_snow_full)
-            ELSE IF (SIZE(private_height_snow_half) == vgrid_def(ivg)%nlevels) THEN
-              var_lists(i)%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-                   &                                            vgrid_def(ivg)%nlevels)
-              CALL zaxisDefLevels(var_lists(i)%p%cdiSnowHalfGenericZaxisID, &
-                   &              private_height_snow_half)
-            ELSE
-              CALL finish('open_writing_restart_files','Number of height levels not available.')
-            ENDIF
           END SELECT
         ENDDO
 
-WRITE(0,*) "Test2"
+
 
         !
         ! 5. restart does contain absolute time 
@@ -726,7 +729,7 @@ WRITE(0,*) "Test2"
         CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
       ENDIF
 
-WRITE(0,*) "Test3"
+
       !
       ! add variables
       !
@@ -739,7 +742,7 @@ WRITE(0,*) "Test3"
              var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%lrestart
         CALL message('',message_text)
       ENDIF
-WRITE(0,*) "Test4"
+
 
       !
       ! loop over all other output var_lists eventually corresponding to the same file
@@ -789,14 +792,11 @@ WRITE(0,*) "Test4"
           ENDIF
         ENDIF
       ENDDO
-WRITE(0,*) "Test5"
+
       !
       IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
-WRITE(0,*) "var_lists(i)%p%cdiFileID_restart ", var_lists(i)%p%cdiFileID_restart
-WRITE(0,*) "var_lists(i)%p%cdiVlistID ", var_lists(i)%p%cdiVlistID
         CALL streamDefVlist(var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%cdiVlistID)
       ENDIF
-WRITE(0,*) "Test6"
       !
     END DO
     !
@@ -892,8 +892,17 @@ WRITE(0,*) "Test6"
         info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
         zaxisID = info%cdiZaxisID
       CASE (ZAXIS_GENERIC)
-        info%cdiZaxisID =  this_list%p%cdiGenericZaxisID
-        zaxisID = info%cdiZaxisID
+
+        IF (info%used_dimensions(2) == 1) THEN
+          info%cdiZaxisID =  this_list%p%cdiGenericZaxisID
+          zaxisID = info%cdiZaxisID
+        ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_half)) THEN
+          info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
+          zaxisID = info%cdiZaxisID
+        ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_full)) THEN
+          info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
+          zaxisID = info%cdiZaxisID
+        ENDIF
       CASE (ZAXIS_HYBRID)
         info%cdiZaxisID =  this_list%p%cdiFullZaxisID
         zaxisID = info%cdiZaxisID
@@ -916,17 +925,6 @@ WRITE(0,*) "Test6"
           info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
           zaxisID = info%cdiZaxisID
         ENDIF
-      CASE (ZAXIS_GENERIC_SNOW)
-        IF (info%used_dimensions(2) == SIZE(private_height_snow_half)) THEN
-          info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
-          zaxisID = info%cdiZaxisID
-        ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_full)) THEN
-          info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
-          zaxisID = info%cdiZaxisID
-        ENDIF
-    !   WRITE(0,*)'before checking zaxis_height',info%used_dimensions(2),&
-    !     & SIZE(private_height_full)
-    !   WRITE(0,*)'size of zh= ',SIZE(private_height_half)
       CASE (ZAXIS_HEIGHT)
         IF (info%used_dimensions(2) == SIZE(private_height_half)) THEN
           info%cdiZaxisID =  this_list%p%cdiHeightHalfZaxisID
