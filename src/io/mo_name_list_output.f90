@@ -1999,6 +1999,10 @@ CONTAINS
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
      !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_SECOND)
      !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_MINUTE)
+     IF (of%name_list%taxis_tunit > 10 .OR. of%name_list%taxis_tunit < 1 ) THEN
+       of%name_list%taxis_tunit=TUNIT_HOUR
+       CALL message('','invalid taxis_tunit, reset to TUNIT_HOUR')
+     END IF
      CALL taxisDefTunit (of%cdiTaxisID, of%name_list%taxis_tunit)
      ini_datetime = time_config%ini_datetime
      CALL taxisDefCalendar (of%cdiTaxisID, time_config%calendar)
@@ -2859,10 +2863,14 @@ CONTAINS
           output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
 
           ! Notify user
+
+#ifndef __SX__
           WRITE(text,'(a,a,a,1pg15.9,a,i6)') &
             'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
              ' by PE ',p_pe
           CALL message('mo_name_list_output',text,all_print=.TRUE.)
+#endif
+
         ENDIF
 
         IF(my_process_is_io()) THEN

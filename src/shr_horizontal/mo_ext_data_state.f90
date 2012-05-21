@@ -436,7 +436,7 @@ CONTAINS
     ! topography_c  p_ext_atm%topography_c(nproma,nblks_c)
     cf_desc    = t_cf_var('surface_height', 'm', &
       &                   'geometric height of the earths surface above sea level')
-    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 3, 6, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,  &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
@@ -470,7 +470,7 @@ CONTAINS
     ! topography_e  p_ext_atm%topography_e(nproma,nblks_e)
     cf_desc    = t_cf_var('surface_height', 'm', &
       &                   'geometric height of the earths surface above sea level')
-    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = t_grib2_var( 0, 3, 6, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_atm_list, 'topography_e', p_ext_atm%topography_e, &
       &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc,         &
       &           grib2_desc, ldims=shape2d_e, loutput=.FALSE.)
@@ -481,7 +481,7 @@ CONTAINS
     ! topography_v  p_ext_atm%topography_v(nproma,nblks_v)
     cf_desc    = t_cf_var('surface_height', 'm', &
       &                   'geometric height of the earths surface above sea level')
-    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_VERTEX)
+    grib2_desc = t_grib2_var( 0, 3, 6, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_ext_atm_list, 'topography_v', p_ext_atm%topography_v, &
       &           GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE, cf_desc,         &
       &           grib2_desc, ldims=shape2d_v, loutput=.FALSE. )
