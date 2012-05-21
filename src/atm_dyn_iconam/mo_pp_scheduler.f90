@@ -285,15 +285,15 @@ CONTAINS
    
         SELECT CASE(ilev)
         CASE (1) 
-          in_varlist => p_onl%ml_varlist
+          varlist => p_onl%ml_varlist
           ilev_type  =  level_type_ml
           max_var    =  max_var_ml
         CASE (2)
-          in_varlist => p_onl%pl_varlist
+          varlist => p_onl%pl_varlist
           ilev_type  =  level_type_pl
           max_var    =  max_var_pl
         CASE (3)
-          in_varlist => p_onl%hl_varlist
+          varlist => p_onl%hl_varlist
           ilev_type  =  level_type_hl
           max_var    =  max_var_hl
         END SELECT
