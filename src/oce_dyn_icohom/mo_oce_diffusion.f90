@@ -747,7 +747,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   REAL(wp), INTENT(inout)           :: field_column(:,:,:)
   REAL(wp), INTENT(IN)              :: h_c(:,:)           !surface height, relevant for thickness of first cell 
-  REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
+  REAL(wp), INTENT(in)              :: A_v(:,:,:)
   REAL(wp), INTENT(out)             :: diff_column(:,:,:)
   !
   !Local variables
