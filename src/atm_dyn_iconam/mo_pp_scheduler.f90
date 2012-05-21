@@ -264,7 +264,6 @@ CONTAINS
 
     CALL pp_scheduler_init_pz(l_init_prm_diag)
 
- 
     !-------------------------------------------------------------
     !-- horizontal interpolation regular lon-lat grids
 
@@ -286,20 +285,20 @@ CONTAINS
    
         SELECT CASE(ilev)
         CASE (1) 
-          varlist   => p_onl%ml_varlist
-          ilev_type =  level_type_ml
-          max_var   = max_var_ml
+          in_varlist => p_onl%ml_varlist
+          ilev_type  =  level_type_ml
+          max_var    =  max_var_ml
         CASE (2)
-          varlist   => p_onl%pl_varlist
-          ilev_type =  level_type_pl
-          max_var   = max_var_pl
+          in_varlist => p_onl%pl_varlist
+          ilev_type  =  level_type_pl
+          max_var    =  max_var_pl
         CASE (3)
-          varlist   => p_onl%hl_varlist
-          ilev_type =  level_type_hl
-          max_var   = max_var_hl
+          in_varlist => p_onl%hl_varlist
+          ilev_type  =  level_type_hl
+          max_var    =  max_var_hl
         END SELECT
         IF (varlist(1) == ' ') CYCLE
-        
+      
         ! Selection criterion: 
         ! - lon-lat interpolation is requested
         IF (p_onl%remap == 1) THEN
@@ -343,6 +342,8 @@ CONTAINS
       ! Note that there may be several variables with different time levels,
       ! we just add unconditionally all
       LIST_LOOP : DO i = 1,nvar_lists
+        ! Do not inspect lists which are disabled for output
+        IF (.NOT. var_lists(i)%p%loutput) CYCLE
         ! Do not inspect lists if vertical level type does not
         ! match (p/z/model levels):
         IF (var_lists(i)%p%vlevel_type/=ll_varlevs(ivar)) CYCLE LIST_LOOP
@@ -472,7 +473,6 @@ CONTAINS
 
     DEALLOCATE(ll_varlist, ll_vargrid, ll_varlevs, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-  
 
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
@@ -761,6 +761,8 @@ CONTAINS
           ! Note that there may be several variables with different time levels,
           ! we just add unconditionally all
           DO i = 1,nvar_lists
+            ! Do not inspect lists which are disabled for output
+            IF (.NOT. var_lists(i)%p%loutput) CYCLE
             ! loop only over model level variables
             IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE         
             ! loop only over variables of current domain
