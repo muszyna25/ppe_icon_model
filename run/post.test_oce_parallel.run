@@ -1,0 +1,155 @@
+#!/bin/ksh
+#=============================================================================
+#=============================================================================
+#
+# ICON run script. Created by ./config/make_target_runscript
+# target machine is mpipc
+# target use_compiler is gcc
+# with mpi=no
+# with openmp=no
+# memory_model=default
+# submit with 
+# 
+#=============================================================================
+set -x
+#-----------------------------------------------------------------------------
+check_error()
+{
+    # Check if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+
+    if [ "${STATUS_FILE}" = "" ]
+    then
+      STATUS_FILE=${basedir}/.status.file
+    fi
+    
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
+
+    if [ $1 != 0 ] 
+    then
+        echo "QSUBW_ERROR: JOB_%HOSTNAME%_%PID%: RC = "
+        echo "check_error()"
+        echo "   ERROR : $2"
+        exit $1
+    fi
+
+}
+
+warning()
+{
+    # Warning if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+    if [ $1 != 0 ]
+    then
+        echo "   WARNING : $2"
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# target parameters
+# ----------------------------
+site="zmaw.de"
+target="mpipc"
+compiler="gcc"
+loadmodule=""
+with_mpi="no"
+with_openmp="no"
+job_name="post.test_oce_parallel.run"
+submit=""
+# ----------------------------
+# restart specifics
+# ----------------------------
+export F_NORCW=65535
+# ----------------------------
+nproma=64
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+mpi_root=/usr
+no_of_nodes=1
+mpi_procs=1
+mpi_total_procs=1
+start=""
+START="$start"
+# ----------------------------
+# openmp environment variables
+# ----------------------------
+export OMP_NUM_THREADS=1
+export ICON_THREADS=1
+export OMP_SCHEDULE=static
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=32M
+#----------------------------------
+ulimit -s unlimited
+#-----------------------------------------------------------------------------
+# absolute paths of directories
+calldir=$(pwd)
+thisdir=$(pwd)
+basedir=${thisdir%/*}                   # determine base directory
+if [[  "mpipc" = "dole"  ]] ; then
+    basedir=/scratch/ram/trunk/icon-dev
+    calldir=$basedir
+    thisdir=$basedir
+fi
+# cd $(dirname $0)
+bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
+BUILDDIR=build/x86_64-unknown-linux-gnu
+MODEL_BASE_PATH=$basedir
+ICON_BASE_PATH=$basedir
+export ICON_BASE_PATH
+# ICON_RUN_PATH=$ICON_BASE_PATH/run
+#-----------------------------------------------------------------------------
+# load ../setting if exists  
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+#-----------------------------------------------------------------------------
+#=============================================================================
+export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
+#=============================================================================
+cdo="cdo"
+cdo_diff="cdo diffn"
+#=============================================================================
+EXP="test_oce_parallel"
+varNames="ELEV T S"
+maskName="wet_c"
+oType="png"
+# ================================================================================
+# technical stuff
+basePath=${ICON_BASE_PATH}
+dataPath="${baseBath}../experiments/${EXP}/"
+scriptPath="${basePath}/scripts/postprocessing/tools"
+nclCaller="${scriptPath}/contrib/nclsh"
+plotCmd="${scriptPath}/icon_plot.ncl"
+# set the CDO path for the dwd to a local installation
+case "$(hostname -d)" in
+  dwd.de)
+    CDO="/e/uhome/extrmuel/local/bin/cdo"
+    ;;
+  *)
+    CDO="cdo"
+esac
+# ================================================================================
+# plotting
+## find the last input file
+cd ${dataPath}
+iFile=$(ls ${EXP}*.nc | tail -n 1)
+## get the index of the last timestamp
+nTimesteps=$(cdo sinfov ${iFile} | grep 'Time axis' | cut -d ' ' -f 8)
+tOutput=$((nTimesteps - 1))
+# perform the ploting
+mkdir -p plots
+for varname in ${varNames}; do 
+  oFile=${varname}_${iFile}
+  ${nclCaller} ${plotCmd} -altLibdir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
+    -varName=$varname -maskName=${maskName} \
+    -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
+  mv ${oFile}.${oType} plots/.
+done
