@@ -160,7 +160,7 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: lwrite_extra, inextra_2d, inextra_3d
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase
   USE mo_util_string,           ONLY: int2string
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
@@ -382,7 +382,7 @@ CONTAINS
     ! nonhydrostatic state
     TYPE(t_nh_state), TARGET,            INTENT(IN)  :: p_nh_state
     ! physical model state and other auxiliary variables
-    TYPE(t_nwp_phy_diag),                INTENT(IN)  :: prm_diag
+    TYPE(t_nwp_phy_diag), INTENT(IN), OPTIONAL       :: prm_diag
     ! model state for the NWP land physics
     TYPE(t_lnd_state), TARGET,           INTENT(IN)  :: p_lnd_state
     ! patch index
@@ -400,12 +400,25 @@ CONTAINS
     p_lnd_prog => p_lnd_state%prog_lnd(nnow(jg))
     p_lnd_diag => p_lnd_state%diag_lnd
 
+    i_REL_HUM(jg) = 0
+
     ! -- atmosphere
 
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "P", "Pa", "Pressure", jg, diag%pres(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "T", "K", "Temperature", jg, diag%temp(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "PEXNER", "-", "Exner pressure", &
       &               jg, prog%exner(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "RHO", "kg/m^3", "Density", jg, prog%rho(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "THETAV", "K", "virtual potential temperature", &
+      &               jg, prog%theta_v(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "U", "m/s", "zonal wind", jg, diag%u(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "V", "m/s", "meridional wind", jg, diag%v(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "W", "m/s", "orthogonal vertical wind", jg, prog%w(:,:,:))
+
+    ! For synthetic test cases: do not sample variables defined below
+    ! this line:
+    IF (ltestcase) RETURN
+
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QV", "kg kg-1", "specific humidity", jg, &
       &               prog%tracer_ptr(iqv)%p_3d(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QC", "kg kg-1", "specific cloud water content", &
@@ -418,11 +431,7 @@ CONTAINS
       &               jg, prog%tracer_ptr(iqs)%p_3d(:,:,:))
     CALL add_atmo_var(IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "RHO", "kg/m^3", "Density", jg, prog%rho(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "THETAV", "K", "virtual potential temperature", &
-      &               jg, prog%theta_v(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "U", "m/s", "zonal wind", jg, diag%u(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "V", "m/s", "meridional wind", jg, diag%v(:,:,:))
+
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "total cloud cover", jg, &
       &               prm_diag%tot_cld(:,:,:,:), icc)
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVM", "m**2/s",             &
@@ -431,8 +440,6 @@ CONTAINS
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVH", "m**2/s",             &
       &               "turbulent diffusion coefficients for heat",     &
       &               jg, prm_diag%tkvh(:,:,:))
-
-    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "W", "m/s", "orthogonal vertical wind", jg, prog%w(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", jg, &
       &               diag%pres_ifc(:,:,:))
 
@@ -557,6 +564,8 @@ CONTAINS
     INTEGER                         :: ilev
     REAL(wp)                        :: e, e_s, temp, pres, qv, p_ex
 
+    IF (i_REL_HUM(jg) == 0) RETURN
+
     meteogram_data => meteogram_local_data(jg)
 
     ! TODO[FP] : In some cases, values (slightly) greater than 100%
@@ -667,7 +676,7 @@ CONTAINS
     ! must be available:
     IF (.NOT. l_pure_io_pe .AND. &
       & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
-      &  (.NOT. PRESENT(p_nh_state))  .OR.  (.NOT. PRESENT(prm_diag))    .OR.  &
+      &  (.NOT. PRESENT(p_nh_state))  .OR.                                     &
       &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing)) )) THEN
       CALL finish (routine, 'Missing argument(s)!')      
     END IF

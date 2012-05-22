@@ -265,15 +265,19 @@ CONTAINS
     !     Setup of meteogram output
     !---------------------------------------------------------------------
 
-    IF (.NOT. ltestcase) THEN
-      DO jg =1,n_dom
-        IF (meteogram_output_config(jg)%lenabled) THEN
+    DO jg =1,n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        IF (ltestcase) THEN
+          CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+            &                ext_data(jg), p_nh_state(jg),                  &
+            &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
+        ELSE
           CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
             &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
             &                p_lnd_state(jg), iforcing)
         END IF
-      END DO
-    END IF
+      END IF
+    END DO
 
     ! Continue operations for real-data initialization
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
@@ -476,16 +480,14 @@ CONTAINS
     END IF
 
     ! finalize meteogram output
-    IF (.NOT. ltestcase) THEN
-      DO jg = 1, n_dom
-        IF (meteogram_output_config(jg)%lenabled) THEN
-          CALL meteogram_finalize(jg)
-        END IF
-      END DO
-      DO jg = 1, max_dom
-        DEALLOCATE(meteogram_output_config(jg)%station_list)
-      END DO
-    END IF
+    DO jg = 1, n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_finalize(jg)
+      END IF
+    END DO
+    DO jg = 1, max_dom
+      DEALLOCATE(meteogram_output_config(jg)%station_list)
+    END DO
 
     CALL message(TRIM(routine),'clean-up finished')
     

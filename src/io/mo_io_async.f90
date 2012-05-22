@@ -268,13 +268,11 @@ CONTAINS
     ENDIF
 
     ! setup of meteogram output
-    IF (.NOT. ltestcase) THEN
-      DO jg =1,n_dom
-        IF (meteogram_output_config(jg)%lenabled) THEN
-          CALL meteogram_init(meteogram_output_config(jg), jg)
-        END IF
-      END DO
-    END IF
+    DO jg =1,n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_init(meteogram_output_config(jg), jg)
+      END IF
+    END DO
 
     ! receive information on patch
     CALL receive_patch_configuration

@@ -3179,7 +3179,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: this_list_element
     CHARACTER(len=32) :: dimension_text, dtext
     INTEGER :: i
-    !
+   
     CALL message('','')
     CALL message('','')
     CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')    

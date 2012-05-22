@@ -67,7 +67,7 @@ MODULE mo_name_list_output
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
-    &                                 msg_level, output_mode
+    &                                 msg_level, output_mode, ltestcase
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
@@ -554,8 +554,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-
-  
+ 
   !> Looks for variable groups ("group:xyz") and replaces them
   !
   SUBROUTINE parse_variable_groups()
@@ -641,6 +640,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+
 
   SUBROUTINE init_name_list_output(lprintlist, isample)
 
