@@ -691,7 +691,7 @@ CONTAINS
     END DO
     ! these are computed an all edges,  thus no sync is required
     ! we sync only in p_test_run for checking
-    IF (p_test_run) THEN
+!    IF (p_test_run) THEN
       CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
       DO jk = 1, n_zlev
         DO je=1,2
@@ -701,7 +701,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-    ENDIF
+!    ENDIF
     !-------------------------------------------------------------
 
     !-------------------------------------------------------------
@@ -732,7 +732,7 @@ CONTAINS
 
     ! these are computed an all cells,  thus no sync is required
     ! we sync only in p_test_run for checking
-    IF (p_test_run) THEN
+!    IF (p_test_run) THEN
       CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
 
       DO je=1,patch%cell_type
@@ -745,7 +745,7 @@ CONTAINS
         ENDDO
 
       ENDDO
-    ENDIF
+!    ENDIF
     !-------------------------------------------------------------
 
     !-------------------------------------------------------------
@@ -950,13 +950,13 @@ CONTAINS
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! these are computed an all cells, thus no sync is required
     ! we sync only in p_test_run for checking
-    IF (p_test_run) THEN
+!    IF (p_test_run) THEN
       DO je=1,patch%cell_type
           CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(1))
           CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(2))
           CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(3))
       ENDDO
-    ENDIF
+!    ENDIF
     !-------------------------------------------------------------
 
     !-------------------------------------------------------------
