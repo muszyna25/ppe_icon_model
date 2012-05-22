@@ -98,6 +98,8 @@ MODULE mo_pp_scheduler
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl, &
     &                                   rbf_vec_interpol_lonlat_nl
+  USE mo_sync,                    ONLY: sync_patch_array,                        &
+    &                                   SYNC_C, SYNC_E, SYNC_V
 
   IMPLICIT NONE
 
@@ -119,6 +121,7 @@ MODULE mo_pp_scheduler
   !------ interpolation tasks:
   INTEGER, PARAMETER :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
   INTEGER, PARAMETER :: TASK_INTP_VER_PZLEV    = 5  !< task: vertical p or z-levels
+  INTEGER, PARAMETER :: TASK_INTP_SYNC         = 6  !< task: synchronizes halo regions
 
   ! interface definition
   PRIVATE
@@ -242,7 +245,7 @@ CONTAINS
       &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, nlev, &
       &  nblks_lonlat, ilev_type, max_var, ilev
     LOGICAL                               :: &
-      &  l_jg_active, found
+      &  l_jg_active, found, l_horintp
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
     TYPE(t_var_list),          POINTER    :: p_opt_diag_list
@@ -271,6 +274,10 @@ CONTAINS
     ALLOCATE(ll_varlist(ndom*max_var_ml), ll_vargrid(ndom*max_var_ml), &
       &      ll_varlevs(ndom*max_var_ml), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! flag. will be set if horizontal interpolation tasks have been
+    ! created
+    l_horintp = .FALSE.
 
     ! loop over the output definitions, collect pairs of variable
     ! names/lon-lat interpolation requests
@@ -441,7 +448,7 @@ CONTAINS
           ! link this new variable to the lon-lat grid:
           new_element%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
             
-            !-- create and add post-processing task
+          !-- create and add post-processing task
           task => pp_task_insert(DEFAULT_PRIORITY2)
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
           task%data_input%p_nh_state      => NULL()
@@ -459,6 +466,10 @@ CONTAINS
             new_element_2%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
             task%data_output%var_2      => new_element_2%field ! set Y-component
           END IF
+          
+          ! Flag. Denotes that at least one interpolation task has
+          ! been created.
+          l_horintp = .TRUE.
             
           found = .TRUE.
           
@@ -473,6 +484,12 @@ CONTAINS
 
     DEALLOCATE(ll_varlist, ll_vargrid, ll_varlevs, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+    ! If at least one interpolation task has been created, we add a
+    ! setup task which synchronizes the halo regions:
+    task => pp_task_insert(HIGH_PRIORITY)
+    WRITE (task%job_name, *) "horizontal interp. SYNC"
+    task%job_type = TASK_INTP_SYNC
 
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
@@ -887,6 +904,8 @@ CONTAINS
         CALL pp_task_lonlat(ptr_task)
       CASE ( TASK_INTP_VER_PZLEV )
         CALL pp_task_pzlev(ptr_task)
+      CASE ( TASK_INTP_SYNC )
+        call pp_task_sync()
       CASE DEFAULT
         CALL finish(routine, "Unknown post-processing job.")
       END SELECT
@@ -1060,6 +1079,57 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE pp_task_lonlat
+
+
+  !---------------------------------------------------------------
+  !> Performs synchroinzation of halo regions
+  !
+  SUBROUTINE pp_task_sync()
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = &
+      &  TRIM("mo_pp_scheduler:pp_task_sync")
+    TYPE(t_job_queue), POINTER :: ptr_task
+    INTEGER                            :: in_var_idx
+    TYPE (t_var_list_element), POINTER :: in_var
+    TYPE (t_var_metadata),     POINTER :: p_info
+    TYPE(t_patch),             POINTER :: p_patch
+
+    ptr_task => job_queue
+    ! loop over job queue
+    LOOP_JOB : DO
+      IF (.NOT. ASSOCIATED(ptr_task)) EXIT
+      IF (ptr_task%job_type == TASK_INTP_HOR_LONLAT) THEN
+        p_info      => ptr_task%data_input%var%info
+        p_patch     => ptr_task%data_input%p_patch
+        in_var      => ptr_task%data_input%var
+        in_var_idx  =  1
+        IF (in_var%info%lcontained) &
+          &  in_var_idx = in_var%info%ncontained
+        
+        SELECT CASE (p_info%hgrid)
+        CASE (GRID_UNSTRUCTURED_CELL)
+          IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+            CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,1,1,1) )
+          ELSE
+            CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+          END IF
+        CASE (GRID_UNSTRUCTURED_EDGE)
+          IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+            CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,1,1,1) )
+          ELSE
+            CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+          END IF
+        CASE (GRID_UNSTRUCTURED_VERT)
+          CALL sync_patch_array(SYNC_V, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+        CASE DEFAULT
+          CALL finish(routine, 'Unknown grid type.')
+        END SELECT
+      END IF
+      !
+      ptr_task => ptr_task%next
+    END DO LOOP_JOB
+
+  END SUBROUTINE pp_task_sync
 
 
   !---------------------------------------------------------------
