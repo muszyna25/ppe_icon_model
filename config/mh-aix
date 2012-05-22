@@ -106,6 +106,8 @@ case $ac_sitename in
     LAPACK_LIB_PATH  = "$LAPACKROOT"
     LAPACK_LIB  = -llapack64_ -llapack_essl64_ -lblas64_
     MPIROOT=/usr/lpp/ppe.poe
+    # increased level of optimization to "-O3" for ECMWF config
+    STD_FLAGS = -O3 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"  -qspillsize=32648
     
     load_profile="." "/etc/profile"
 #   make_command="/sw/aix61/qnq/0.0.5/bin/qnq" "-n" "32" "-c" "cluster" "-w" "03:50:00" "make" "-j" "32"
