@@ -90,7 +90,8 @@ USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output,    ONLY: init_name_list_output,  &
   &                               write_name_list_output, &
-  &                               close_name_list_output
+  &                               close_name_list_output, &
+  &                               parse_variable_groups
 USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
   &                               pp_scheduler_init, pp_scheduler_process, pp_scheduler_finalize
 USE mo_var_list,            ONLY: print_var_list
@@ -316,6 +317,12 @@ CONTAINS
       CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
         &                     p_patch(jg)%nblks_c)
     ENDDO
+
+    ! Map the variable groups given in the output namelist onto the
+    ! corresponding variable subsets:
+    IF (output_mode%l_nml) THEN
+      CALL parse_variable_groups()
+    END IF
 
     IF (.NOT.is_restart_run()) THEN
       ! Initialize the first output file which will contain also the 

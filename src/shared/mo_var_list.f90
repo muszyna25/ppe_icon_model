@@ -9,7 +9,8 @@ MODULE mo_var_list
   USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals, &
     &                            t_tracer_meta,                &
     &                            t_vert_interp_meta,           &
-    &                            t_hor_interp_meta
+    &                            t_hor_interp_meta,            &
+    &                            VARNAME_LEN, VAR_GROUPS
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element, &
        &                         new_list, delete_list,      &
@@ -18,7 +19,7 @@ MODULE mo_var_list
        &                         delete_list_element 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
-  USE mo_util_string,      ONLY: remove_duplicates
+  USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: VINTP_TYPE_NONE, VINTP_METHOD_LIN, &
     &                            HINTP_TYPE_LONLAT,                 &
     &                            max_var_lists, vname_len
@@ -49,6 +50,10 @@ MODULE mo_var_list
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
   PUBLIC :: get_var                   ! obtain reference to existing list entry
   PUBLIC :: get_all_var_names         ! obtain a list of variables names
+
+  PUBLIC :: total_number_of_variables ! returns total number of defined variables
+  PUBLIC :: groups                    ! group array constructor
+  PUBLIC :: collect_group             ! obtain variables in a group
   
   INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_r5d
@@ -217,6 +222,38 @@ CONTAINS
     END DO
     !
   END SUBROUTINE get_var_list
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! @return total number of variables
+  !
+  FUNCTION total_number_of_variables()
+    INTEGER :: total_number_of_variables
+    ! local variables
+    INTEGER :: i
+    TYPE(t_list_element), POINTER :: element
+    
+    total_number_of_variables = 0
+    !- loop over variables
+
+    ! Note that there may be several variables with different time
+    ! levels, we just add unconditionally all
+    DO i = 1,nvar_lists
+      element => NULL()
+      LOOPVAR : DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
+        ! Do not inspect element if it is a container
+        IF (element%field%info%lcontainer) CYCLE LOOPVAR
+        
+        total_number_of_variables = total_number_of_variables + 1
+      ENDDO LOOPVAR ! loop over vlist "i"
+    ENDDO ! i = 1,nvar_lists
+  END FUNCTION total_number_of_variables
 
   !------------------------------------------------------------------------------------------------
   !
@@ -475,6 +512,7 @@ CONTAINS
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
     !
+    this_info%in_group(:)         = groups()
   END FUNCTION default_var_list_metadata
   !------------------------------------------------------------------------------------------------
   !
@@ -651,7 +689,7 @@ CONTAINS
          &                     loutput, lcontainer, lrestart, lrestart_cont, &
          &                     initval, laccu, resetval, lmiss, missval,     &
          &                     tlev_source, tracer_info, vert_interp,        &
-         &                     hor_interp, verbose)
+         &                     hor_interp, in_group, verbose)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -673,6 +711,7 @@ CONTAINS
     TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info   ! tracer meta data
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))    ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     !
     LOGICAL :: lverbose
@@ -723,6 +762,11 @@ CONTAINS
     ! set flags concerning horizontal interpolation
     CALL assign_if_present (info%hor_interp,    hor_interp )
 
+    ! set meta data containing the groups to which a variable belongs
+    IF (PRESENT(in_group)) THEN
+      info%in_group(:) = in_group(:)
+    END IF
+
     !
     ! printout (optional)
     !
@@ -746,7 +790,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       hor_interp, verbose, new_element)
+       hor_interp, in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -770,6 +814,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -813,7 +858,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
-         verbose=verbose)
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -852,7 +897,7 @@ CONTAINS
     IF (PRESENT(initval_r)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
     ENDIF
-    !
+
   END SUBROUTINE add_var_list_element_r5d
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
@@ -863,7 +908,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       hor_interp, verbose, new_element)
+       hor_interp, in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -887,6 +932,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -930,7 +976,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
-         verbose=verbose)
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -981,7 +1027,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       hor_interp, verbose, new_element)
+       hor_interp, in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1005,6 +1051,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1048,7 +1095,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
-         verbose=verbose)
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1099,7 +1146,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       hor_interp, verbose, new_element)
+       hor_interp, in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1123,6 +1170,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1166,7 +1214,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
-         verbose=verbose)
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1217,7 +1265,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       hor_interp, verbose, new_element)
+       hor_interp, in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1241,6 +1289,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1284,7 +1333,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
-         verbose=verbose)
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1337,7 +1386,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, hor_interp, vert_interp,    &
-       verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1359,6 +1408,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1401,7 +1451,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1452,7 +1503,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
-       verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1474,6 +1525,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1516,7 +1568,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1567,7 +1620,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
-       verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1589,6 +1642,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1631,7 +1685,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1682,7 +1737,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1704,6 +1759,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1746,7 +1802,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1797,7 +1854,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1819,6 +1876,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1861,7 +1919,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1914,7 +1973,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1936,6 +1995,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1978,7 +2038,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2029,7 +2090,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2051,6 +2112,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2093,7 +2155,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2144,7 +2207,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2166,6 +2229,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2208,7 +2272,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -2259,7 +2324,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2281,6 +2346,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2323,7 +2389,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -2374,7 +2441,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
-        verbose, new_element)
+       in_group, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2396,6 +2463,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2438,7 +2506,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2741,7 +2810,7 @@ CONTAINS
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        &                                 lmiss, missval_r, tlev_source, tracer_info, info,       &
-       &                                 vert_interp, hor_interp, verbose, new_element)
+       &                                 vert_interp, hor_interp, in_group, verbose, new_element)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2765,6 +2834,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2829,7 +2899,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          tlev_source=tlev_source, tracer_info=tracer_info,                &
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -2873,7 +2944,8 @@ CONTAINS
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        &                                 lmiss, missval_r, tlev_source, tracer_info,             &
-       &                                 info, vert_interp, hor_interp, verbose, new_element)
+       &                                 info, vert_interp, hor_interp, in_group,                &
+       &                                 verbose, new_element)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2897,6 +2969,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2960,7 +3033,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          tlev_source=tlev_source, tracer_info=tracer_info,                &
-         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp,                  &
+         in_group=in_group, verbose=verbose)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions
@@ -3277,6 +3351,112 @@ CONTAINS
     !LK    CALL print_sinfo_list (this_list)
     !
   END SUBROUTINE print_sinfo
+
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF VARIABLE GROUPS
+  !------------------------------------------------------------------------------------------------
+  
+  !> Implements a (somewhat randomly chosen) one-to-one mapping
+  !  between a string and an integer ID number between 1 and
+  !  MAX_VAR_GROUPS.
+  !
+  FUNCTION group_id(in_str)
+    INTEGER                      :: group_id, igrp
+    CHARACTER(LEN=*), INTENT(IN) :: in_str
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:group_id")
+
+    group_id = 0
+    LOOP_GROUPS : DO igrp=1,SIZE(VAR_GROUPS)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(VAR_GROUPS(igrp)))) THEN
+        group_id = igrp
+        EXIT LOOP_GROUPS
+      END IF
+    END DO LOOP_GROUPS
+    ! paranoia:
+    IF ((group_id < 1) .OR. (group_id > SIZE(VAR_GROUPS))) &
+      &  CALL finish(routine, "Invalid group ID!")
+
+  END FUNCTION group_id
+
+  !> Utility function with *a lot* of optional string parameters g1,
+  !  g2, g3, g4, ...; mapping those onto a
+  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  function.
+  !
+  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10)
+    LOGICAL :: groups(SIZE(VAR_GROUPS))
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
+      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10
+    
+    groups(:) = .FALSE.
+    groups(group_id("ALL")) = .TRUE.
+    IF (PRESENT(g01)) groups(group_id(g01)) = .TRUE.
+    IF (PRESENT(g02)) groups(group_id(g02)) = .TRUE.
+    IF (PRESENT(g03)) groups(group_id(g03)) = .TRUE.
+    IF (PRESENT(g04)) groups(group_id(g04)) = .TRUE.
+    IF (PRESENT(g05)) groups(group_id(g05)) = .TRUE.
+    IF (PRESENT(g06)) groups(group_id(g06)) = .TRUE.
+    IF (PRESENT(g07)) groups(group_id(g07)) = .TRUE.
+    IF (PRESENT(g08)) groups(group_id(g08)) = .TRUE.
+    IF (PRESENT(g09)) groups(group_id(g09)) = .TRUE.
+    IF (PRESENT(g10)) groups(group_id(g10)) = .TRUE.
+  END FUNCTION groups
+
+  !> Loops over all variables and collects the variables names
+  !  corresponding to the group @p grp_name
+  !
+  SUBROUTINE collect_group(grp_name, var_name, nvars)
+    CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
+    INTEGER,                    INTENT(OUT)   :: nvars
+    ! local variables
+    INTEGER :: i, ivar, grp_id, idx, idx_x, idx_y, idx_t
+    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_metadata), POINTER :: info
+    
+    nvars  = 0
+    grp_id = group_id(grp_name)
+
+    ! loop over all variable lists and variables
+    DO i = 1,nvar_lists
+      element => NULL()
+      LOOPVAR : DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
+        info => element%field%info
+        ! Do not inspect element if it is a container
+        IF (info%lcontainer) CYCLE LOOPVAR
+        
+        IF (info%in_group(grp_id)) THEN
+          nvars = nvars + 1
+
+          ! find suffix position for component and time level indices:
+          idx_x = INDEX(element%field%info%name,'.X')
+          idx_y = INDEX(element%field%info%name,'.Y')
+          idx_t = INDEX(element%field%info%name,'.TL')
+
+          idx = vname_len
+          IF (idx_t > 0) idx=MIN(idx, idx_t)
+          IF (idx_x > 0) idx=MIN(idx, idx_x)
+          IF (idx_y > 0) idx=MIN(idx, idx_y)
+          IF (idx==vname_len) idx=0
+          IF (idx==0) THEN
+            var_name(nvars) = TRIM(info%name)
+          ELSE
+            var_name(nvars) = TRIM(info%name(1:idx-1))
+          END IF
+        END IF
+      ENDDO LOOPVAR ! loop over vlist "i"
+    ENDDO ! i = 1,nvar_lists
+
+    CALL remove_duplicates(var_name, nvars)
+
+  END SUBROUTINE collect_group
+
   !------------------------------------------------------------------------------------------------
   !
   ! private routines to assign values if actual parameters are present

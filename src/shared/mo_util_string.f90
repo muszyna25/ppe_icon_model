@@ -61,6 +61,7 @@ MODULE mo_util_string
   PUBLIC :: remove_duplicates
   PUBLIC :: difference
   PUBLIC :: one_of
+  PUBLIC :: insert_group
 
   !
   PUBLIC :: normal, bold
@@ -600,16 +601,17 @@ CONTAINS
   ! 
   ! @return     contents of @p varlist where @p group_name has been replaced.
   !------------------------------------------------------------------------------
-  FUNCTION insert_group(varlist, vname_len, n, group_name, group_list) RESULT(result_list)
-    INTEGER,                        INTENT(IN) :: vname_len, n
-    CHARACTER(LEN=vname_len)                   :: result_list(n)
-    CHARACTER(LEN=*),               INTENT(IN) :: varlist(:), group_list(:)
-    CHARACTER(LEN=*),               INTENT(IN) :: group_name
+  SUBROUTINE insert_group(varlist, vname_len, n, group_name, group_list, result_list)
+    INTEGER,                        INTENT(IN)    :: vname_len, n
+    CHARACTER(LEN=vname_len),       INTENT(INOUT) :: result_list(n)
+    CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
+    CHARACTER(LEN=*),               INTENT(IN)    :: group_name
     ! local variables
     INTEGER :: i,j,k
 
     k=0
     DO i=1,SIZE(varlist)
+      IF (varlist(i) == ' ') EXIT
       IF (TRIM(toupper(varlist(i))) == TRIM(toupper(group_name))) THEN
         DO j=1,SIZE(group_list)
           k = k+1
@@ -625,7 +627,7 @@ CONTAINS
       result_list(i) = " "
     END DO
 
-  END FUNCTION insert_group
+  END SUBROUTINE insert_group
 
   
 END MODULE mo_util_string

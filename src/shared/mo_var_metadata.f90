@@ -1,9 +1,9 @@
 MODULE mo_var_metadata
 
-  USE mo_kind,          ONLY: dp, wp
-  USE mo_grib1,         ONLY: t_grib1_var
-  USE mo_grib2,         ONLY: t_grib2_var
-  USE mo_cf_convention, ONLY: t_cf_var
+  USE mo_kind,           ONLY: dp, wp
+  USE mo_grib1,          ONLY: t_grib1_var
+  USE mo_grib2,          ONLY: t_grib2_var
+  USE mo_cf_convention,  ONLY: t_cf_var
 
   IMPLICIT NONE
 
@@ -12,6 +12,23 @@ MODULE mo_var_metadata
   ! maximum string length for variable names
   INTEGER, PARAMETER :: VARNAME_LEN = 31
 
+  ! list of variable groups
+  CHARACTER(LEN=VARNAME_LEN), PARAMETER :: VAR_GROUPS(15) = &
+    (/ "ALL                   ",  &
+    &  "ATMO_ML_VARS          ",  &
+    &  "ATMO_PL_VARS          ",  &
+    &  "ATMO_ZL_VARS          ",  &
+    &  "NH_PROG_VARS          ",  &
+    &  "ATMO_DERIVED_VARS     ",  &
+    &  "RAD_VARS              ",  &
+    &  "PRECIP_VARS           ",  &
+    &  "CLOUD_DIAG            ",  &
+    &  "PBL_VARS              ",  &
+    &  "PHYS_TENDENCIES       ",  &
+    &  "LAND_VARS             ",  &
+    &  "MULTISNOW_VARS        ",  &
+    &  "ADDITIONAL_PRECIP_VARS",  &
+    &  "SNOW_VARS             "/)
 
   TYPE t_union_vals
     REAL(dp) :: rval
@@ -107,6 +124,10 @@ MODULE mo_var_metadata
     ! that this is possible!
     TYPE(t_vert_interp_meta) :: vert_interp 
     TYPE(t_hor_interp_meta)  :: hor_interp 
+
+    ! meta data containing the groups to which a variable belongs
+    LOGICAL :: in_group(SIZE(VAR_GROUPS))
+
   END TYPE t_var_metadata
 
 
@@ -117,5 +138,6 @@ MODULE mo_var_metadata
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
   PUBLIC :: VARNAME_LEN
+  PUBLIC :: VAR_GROUPS
 
 END MODULE mo_var_metadata

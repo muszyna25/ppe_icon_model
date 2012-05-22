@@ -38,10 +38,11 @@ MODULE mo_name_list_output
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
-  USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists, &
-                                      new_var_list, get_all_var_names
+  USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
+    &                                 new_var_list, get_all_var_names,          &
+    &                                 total_number_of_variables, collect_group
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
@@ -80,7 +81,7 @@ MODULE mo_name_list_output
   USE mo_oce_state,             ONLY: set_zlev
 
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword, &
-    &                                 with_keywords, MAX_STRING_LEN
+    &                                 with_keywords, insert_group, MAX_STRING_LEN
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
@@ -120,6 +121,7 @@ MODULE mo_name_list_output
   PUBLIC :: istime4name_list_output
   PUBLIC :: name_list_io_main_proc
   PUBLIC :: output_file
+  PUBLIC :: parse_variable_groups
 
   !------------------------------------------------------------------------------------------------
 
@@ -139,6 +141,9 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 10
   INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 11
   INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 12
+
+  ! prefix for group identifier in output namelist
+  CHARACTER(len=6) :: GRP_PREFIX = "group:"
 
   !------------------------------------------------------------------------------------------------
 
@@ -547,6 +552,94 @@ CONTAINS
 
   END SUBROUTINE read_name_list_output_namelists
 
+
+  !------------------------------------------------------------------------------------------------
+
+  
+  !> Looks for variable groups ("group:xyz") and replaces them
+  !
+  SUBROUTINE parse_variable_groups()
+    CHARACTER(LEN=*), PARAMETER :: routine = &
+      &  TRIM('mo_name_list_output/parse_variable_groups')
+    !
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
+    CHARACTER(LEN=VARNAME_LEN) :: vname, grp_name
+    INTEGER :: nvars, ngrp_vars, i_typ, ierrstat, ivar, ntotal_vars, jvar
+    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
+    TYPE (t_output_name_list), POINTER :: p_onl
+
+    ntotal_vars = total_number_of_variables()
+    ! temporary variables needed for variable group parsing
+    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), &
+      &      new_varlist(ntotal_vars), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    p_onl => first_output_name_list
+    DO
+      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      
+      ! process i_typ=ml_varlist, pl_varlist, hl_varlist:
+      DO i_typ = 1, 3
+
+        IF (i_typ == 1)  in_varlist => p_onl%ml_varlist
+        IF (i_typ == 2)  in_varlist => p_onl%pl_varlist
+        IF (i_typ == 3)  in_varlist => p_onl%hl_varlist
+
+        ! Get the number of variables in varlist
+        nvars = 1
+        DO
+          IF (nvars>SIZE(in_varlist))   EXIT
+          IF (in_varlist(nvars) == ' ') EXIT
+          nvars = nvars + 1
+        END DO
+        nvars = nvars - 1
+
+        varlist(1:nvars) = in_varlist(1:nvars)
+        varlist((nvars+1):ntotal_vars) = " "
+        ! look for variable groups ("group:xyz") and replace them:
+        DO ivar = 1, nvars
+          vname = in_varlist(ivar)
+          IF (INDEX(vname, GRP_PREFIX) > 0) THEN
+            ! this is a group identifier
+            grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
+            CALL collect_group(grp_name, grp_vars, ngrp_vars)
+            CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
+              &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
+              &               grp_vars(1:ngrp_vars), new_varlist)
+            varlist(:) = new_varlist(:)
+
+            ! status output
+            IF (msg_level >= 12) THEN
+              CALL message(routine, "Activating group of variables: "//TRIM(grp_name))
+              DO jvar=1,ngrp_vars
+                CALL message(routine, "   "//TRIM(grp_vars(jvar)))
+              END DO
+            END IF
+          END IF
+        END DO
+
+        ! Again, count the number of variables in varlist
+        nvars = 1
+        DO
+          IF (nvars>SIZE(varlist))   EXIT
+          IF (varlist(nvars) == ' ') EXIT
+          nvars = nvars + 1
+        END DO
+        nvars = nvars - 1
+
+        IF (i_typ == 1)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars) 
+        IF (i_typ == 2)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
+        IF (i_typ == 3)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
+      END DO ! i_typ = 1,3
+      p_onl => p_onl%next
+      
+    END DO ! p_onl
+
+    DEALLOCATE(varlist, grp_vars, new_varlist, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+  END SUBROUTINE parse_variable_groups
+
+
   !------------------------------------------------------------------------------------------------
 
   SUBROUTINE init_name_list_output(lprintlist, isample)
@@ -581,7 +674,6 @@ CONTAINS
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
-
 
 
     DO i = 1, nvar_lists
@@ -3505,6 +3597,10 @@ CONTAINS
       DEALLOCATE(info_storage)
 
     ENDDO
+
+    ! Map the variable groups given in the output namelist onto the
+    ! corresponding variable subsets:
+    CALL parse_variable_groups()
 
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:

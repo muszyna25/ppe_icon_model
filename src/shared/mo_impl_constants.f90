@@ -450,6 +450,5 @@ MODULE mo_impl_constants
     max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
 
-
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

@@ -76,7 +76,7 @@ MODULE mo_nwp_lnd_state
   USE mo_var_list,             ONLY: default_var_list_settings, &
     &                               add_var, add_ref,           &
     &                               new_var_list,               &
-    &                               delete_var_list
+    &                               delete_var_list, groups
   USE mo_var_metadata,         ONLY: t_var_metadata
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
@@ -332,7 +332,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'t_g'//suffix, p_prog_lnd%t_g,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
          & ldims=shape2d,                                                      &
-         & tlev_source=1 ) ! for output take field from nnow_rcf slice
+         & tlev_source=1,                                                      &
+         & in_group=groups("land_vars") ) ! for output take field from nnow_rcf slice
 
 
     ! & p_prog_lnd%w_snow_t(nproma,nblks_c,nsfc_subs)
@@ -775,7 +776,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'qv_s', p_diag_lnd%qv_s,        &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
            & ldims=shape2d,                                                &
-           & initval_r=0.001_wp )      
+           & initval_r=0.001_wp,                                           &
+           & in_group=groups("land_vars") )      
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
     ! check restart settings again, once we have a sea ice model
@@ -818,14 +820,16 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 1, 60, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_snow', p_diag_lnd%w_snow,          &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,          &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+         & in_group=groups("land_vars") )
 
     ! & p_diag_lnd%t_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow', 'K', 'weighted temperature of the snow-surface')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_snow', p_diag_lnd%t_snow,          &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,          &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+         & in_group=groups("land_vars", "snow_vars") )
 
     ! & p_diag_lnd%t_snow_mult(nproma,nlev_snow+1,nblks_c)
     cf_desc    = t_cf_var('t_snow_mult', 'K', 'weighted temperature of the snow')
@@ -833,7 +837,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_snow_mult', p_diag_lnd%t_snow_mult, &
      & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, cf_desc, grib2_desc,                &
      & ldims=(/nproma,nlev_snow+1,kblks/),                                        &
-     & lrestart=.FALSE., loutput=.TRUE. ) 
+     & lrestart=.FALSE., loutput=.TRUE.,                                         &
+     & in_group=groups("multisnow_vars") ) 
 
     ! & p_diag_lnd%t_s(nproma,nblks_c)
     cf_desc    = t_cf_var('t_s', 'K', 'weighted temperature of ground surface')
@@ -847,7 +852,8 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'rho_snow', p_diag_lnd%rho_snow,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,          &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+         & in_group=groups("land_vars", "snow_vars") )
 
     ! & p_diag_lnd%rho_snow_mult(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('rho_snow_mult', 'kg/m**3', 'weighted snow density')
@@ -855,14 +861,16 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'rho_snow_mult',                      &
          & p_diag_lnd%rho_snow_mult, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC,      &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.TRUE.,                                    &
+         & in_group=groups("multisnow_vars"))
 
     ! & p_diag_lnd%w_i(nproma,nblks_c)
     cf_desc    = t_cf_var('w_i', 'm H2O', 'weighted water content of interception water')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_i', p_diag_lnd%w_i,                &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )  
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+         & in_group=groups("land_vars") )  
 
     ! & p_diag_lnd%t_so(nproma,nlev_soil+2,nblks_c)
     cf_desc    = t_cf_var('t_so', 'K', 'weighted soil temperature (main level)')
@@ -870,7 +878,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_so', p_diag_lnd%t_so,              &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+2,kblks/),                                   &
-         & lrestart=.FALSE., loutput=.TRUE. )
+         & lrestart=.FALSE., loutput=.TRUE.,                                     &
+         & in_group=groups("land_vars") )
 
    ! & p_diag_lnd%w_so(nproma,nlev_soil+1,nblks_c)
     cf_desc    = t_cf_var('w_so', 'm H20', 'weighted total water content (ice + liquid water)')
@@ -878,7 +887,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'w_so', p_diag_lnd%w_so,              &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks/),                                   &
-         & lrestart=.FALSE., loutput=.TRUE. )
+         & lrestart=.FALSE., loutput=.TRUE.,                                     &
+         & in_group=groups("land_vars") )
 
     ! & p_diag_lnd%w_so_ice(nproma,nlev_soil+1,nblks_c)
     cf_desc    = t_cf_var('w_so_ice', 'm H20', 'weighted ice content')
@@ -886,7 +896,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'w_so_ice',                           &
          & p_diag_lnd%w_so_ice, GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,  &
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil+1,kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE. )
+         & lrestart=.FALSE., loutput=.TRUE.,                                     &
+         & in_group=groups("land_vars") )
 
     ! & p_diag_lnd%wliq_snow(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'weighted liquid water content in snow')
@@ -894,7 +905,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'wliq_snow',                          &
          & p_diag_lnd%wliq_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC,          & 
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.TRUE.,                                    &
+         & in_group=groups("multisnow_vars", "snow_vars"))
 
     ! & p_diag_lnd%wtot_snow(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'weighted total water content in snow')
@@ -902,7 +914,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'wtot_snow',                          &
          & p_diag_lnd%wtot_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC,          &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.TRUE.,                                    &
+         & in_group=groups("multisnow_vars", "snow_vars"))
 
     ! & p_diag_lnd%dzh_snow(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('dzh_snow', 'm', 'weighted layer thickness between half levels in snow')
@@ -910,7 +923,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'dzh_snow',                           &
          & p_diag_lnd%dzh_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC,           &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
-         & lrestart=.FALSE., loutput=.TRUE.)
+         & lrestart=.FALSE., loutput=.TRUE.,                                    &
+         & in_group=groups("multisnow_vars", "snow_vars"))
 
     ! & p_diag_lnd%h_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('h_snow', 'm', 'weighted snow height')
@@ -930,9 +944,10 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%snowfrac(nproma,nblks_c)
     cf_desc    = t_cf_var('snowfrac', '- ', 'snow-cover fraction')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,     &
+    CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,       &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
-           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
+           & in_group=groups("land_vars") )
 
     ! & p_diag_lnd%runoff_s(nproma,nblks_c)
     cf_desc    = t_cf_var('runoff_s', 'kg/m2', 'weighted surface water runoff; sum over forecast')
