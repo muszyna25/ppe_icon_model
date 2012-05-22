@@ -416,7 +416,7 @@ CONTAINS
 
 
     ! for debug purpose: print var lists
-    IF ( msg_level >=20 .AND. my_process_is_stdio() ) THEN
+    IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
       CALL print_var_list (p_nh_state(1)%prog_list(1))
       CALL print_var_list (p_nh_state(1)%diag_list)
       CALL print_var_list (p_nh_state(1)%metrics_list)
