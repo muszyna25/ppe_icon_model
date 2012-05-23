@@ -691,7 +691,7 @@ CONTAINS
     END DO
     ! these are computed an all edges,  thus no sync is required
     ! we sync only in p_test_run for checking
-!    IF (p_test_run) THEN
+    IF (p_test_run) THEN
       CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
       DO jk = 1, n_zlev
         DO je=1,2
@@ -701,7 +701,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!    ENDIF
+    ENDIF
     !-------------------------------------------------------------
 
     !-------------------------------------------------------------
