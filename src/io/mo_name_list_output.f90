@@ -28,7 +28,7 @@ MODULE mo_name_list_output
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
 #endif
 
-  USE mo_kind,                  ONLY: wp, i8
+  USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
     &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT, &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert
@@ -50,7 +50,8 @@ MODULE mo_name_list_output
   ! MPI Communicators
   USE mo_mpi,                   ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
   ! MPI Data types
-  USE mo_mpi,                   ONLY: p_real_dp, p_int, p_int_i8
+  USE mo_mpi,                   ONLY: p_int, p_int_i8, &
+    &                                 p_real_dp, p_real_sp
   ! MPI Process type intrinsics
   USE mo_mpi,                   ONLY: my_process_is_stdio, my_process_is_mpi_test,          &
                                       my_process_is_mpi_workroot, my_process_is_mpi_seq,    &
@@ -63,7 +64,7 @@ MODULE mo_name_list_output
   ! Processor numbers
   USE mo_mpi,                   ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
   USE mo_model_domain,          ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,       ONLY: nproma, p_test_run
+  USE mo_parallel_config,       ONLY: nproma, p_test_run, use_sp_output
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
@@ -229,7 +230,8 @@ MODULE mo_name_list_output
   !------------------------------------------------------------------------------------------------
   ! Currently, we use only 1 MPI window for all output files
   INTEGER mpi_win
-  REAL(wp), POINTER :: mem_ptr(:) ! Pointer to memory window
+  REAL(dp), POINTER :: mem_ptr_dp(:) ! Pointer to memory window (REAL*8)
+  REAL(sp), POINTER :: mem_ptr_sp(:) ! Pointer to memory window (REAL*4)
   !------------------------------------------------------------------------------------------------
   ! Broadcast root for intercommunicator broadcasts form compute PEs to IO PEs using p_comm_work_2_io
   INTEGER :: bcast_root
@@ -3044,8 +3046,11 @@ CONTAINS
     INTEGER(i8) :: ioff
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
+
     REAL(wp), POINTER :: r_ptr(:,:,:)
-    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:), r_out(:,:)
+    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
+    REAL(sp), ALLOCATABLE :: r_out_sp(:,:)
+    REAL(dp), ALLOCATABLE :: r_out_dp(:,:)
     TYPE(t_comm_pattern), POINTER :: p_pat
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
@@ -3197,22 +3202,32 @@ CONTAINS
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
 
           ! De-block the array
-          ALLOCATE(r_out(n_points, nlevs), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-          DO jk = 1, nlevs
-            r_out(:,jk) = RESHAPE(r_tmp(:,jk,:), (/ n_points /))
-          ENDDO
+          IF(use_sp_output) THEN
+            ALLOCATE(r_out_sp(n_points, nlevs), r_out_dp(1, 1), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            DO jk = 1, nlevs
+              r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
+            ENDDO
+          ELSE
+            ALLOCATE(r_out_dp(n_points, nlevs), r_out_sp(1, 1), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            DO jk = 1, nlevs
+              r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
+            ENDDO
+          ENDIF
 
           ! In the case of a test run: Compare results on worker PEs and test PE
-          IF(p_test_run .AND. .NOT.use_async_name_list_io) THEN
+          IF(p_test_run .AND. .NOT.use_async_name_list_io .AND. .NOT.use_sp_output) THEN
+            ! Currently we don't do the check for REAL*4, we would need
+            ! p_send/p_recv for this type
             IF(.NOT. my_process_is_mpi_test()) THEN
               ! Send to test PE
-              CALL p_send(r_out, process_mpi_all_test_id, 1)
+              CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
             ELSE
               ! Receive result from parallel worker PEs and check for correctness
               ALLOCATE(r_out_recv(n_points,nlevs))
               CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
-              IF(ANY(r_out_recv(:,:) /= r_out(:,:))) &
+              IF(ANY(r_out_recv(:,:) /= r_out_dp(:,:))) &
                 CALL finish(routine,'Sync error test PE/worker PEs for '//TRIM(info%name))
               DEALLOCATE(r_out_recv)
             ENDIF
@@ -3222,12 +3237,21 @@ CONTAINS
         !
         ! write data
         !
-        IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) &
-          CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out, 0)
+        IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) THEN
+          IF(use_sp_output) THEN
+            CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
+          ELSE
+            CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out_dp, 0)
+          ENDIF
+        ENDIF
 
         DEALLOCATE(r_tmp)
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
-          DEALLOCATE(r_out, STAT=ierrstat)
+          IF(use_sp_output) THEN
+            DEALLOCATE(r_out_sp, STAT=ierrstat)
+          ELSE
+            DEALLOCATE(r_out_dp, STAT=ierrstat)
+          END IF
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
         ENDIF
 
@@ -3236,9 +3260,15 @@ CONTAINS
         ! Asynchronous I/O is used, just copy the OWN data points to the memory window
 
         DO jk = 1, nlevs
-          DO i = 1, p_ri%n_own
-            mem_ptr(ioff+INT(i,i8)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
-          ENDDO
+          IF(use_sp_output) THEN
+            DO i = 1, p_ri%n_own
+              mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+            ENDDO
+          ELSE
+            DO i = 1, p_ri%n_own
+              mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+            ENDDO
+          END IF
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO
       END IF
@@ -3669,8 +3699,10 @@ CONTAINS
     TYPE (t_var_metadata), POINTER :: info
 #ifdef USE_CRAY_POINTER
     INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-    REAL(wp) :: tmp
-    POINTER(tmp_ptr,tmp(*))
+    REAL(sp) :: tmp_sp
+    POINTER(tmp_ptr_sp,tmp_sp(*))
+    REAL(dp) :: tmp_dp
+    POINTER(tmp_ptr_dp,tmp_dp(*))
 #else
     TYPE(c_ptr) :: c_mem_ptr
 #endif
@@ -3736,8 +3768,13 @@ CONTAINS
 
     ! mem_size is calculated as number of variables above, get number of bytes
 
-    ! Get the amount of bytes per REAL(dp) variable (as used in MPI communication)
-    CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+    ! Get the amount of bytes per REAL*4 or REAL*8 variable (as used in MPI
+    ! communication)
+    IF(use_sp_output) THEN
+      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+    ELSE
+      CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+    ENDIF
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
@@ -3747,8 +3784,13 @@ CONTAINS
 #ifdef USE_CRAY_POINTER
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
 
-    tmp_ptr = iptr
-    CALL set_mem_ptr(tmp, INT(mem_size))
+    IF(use_sp_output) THEN
+      tmp_ptr_sp = iptr
+      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
+    ELSE
+      tmp_ptr_dp = iptr
+      CALL set_mem_ptr_dp(tmp_dp, INT(mem_size))
+    ENDIF
 #else
     ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
     ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
@@ -3767,16 +3809,23 @@ CONTAINS
     ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
     ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
 
-    NULLIFY(mem_ptr)
+    NULLIFY(mem_ptr_sp)
+    NULLIFY(mem_ptr_dp)
 
 #ifdef __SX__
-    CALL C_F_POINTER(c_mem_ptr, mem_ptr, (/ INT(mem_size) /) )
+    IF(use_sp_output) THEN
+      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ INT(mem_size) /) )
+    ELSE
+      CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ INT(mem_size) /) )
+    ENDIF
 #else
-    CALL C_F_POINTER(c_mem_ptr, mem_ptr, (/ mem_size /) )
+    IF(use_sp_output) THEN
+      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ mem_size /) )
+    ELSE
+      CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
+    ENDIF
 #endif
 #endif
-
-    mem_ptr(:) = 0._wp
 
     rma_cache_hint = MPI_INFO_NULL
 #ifdef __xlC__
@@ -3788,26 +3837,39 @@ CONTAINS
 #endif
 
     ! Create memory window for communication
-    CALL MPI_Win_create( mem_ptr,mem_bytes,nbytes_real,rma_cache_hint,&
-      &                  p_comm_work_io,mpi_win,mpierr )
+    IF(use_sp_output) THEN
+      mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,mpi_win,mpierr )
+    ELSE
+      mem_ptr_dp(:) = 0._dp
+      CALL MPI_Win_create( mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,mpi_win,mpierr )
+    ENDIF
+    IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpierr);
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
 #endif
 
-
   END SUBROUTINE init_memory_window
 
 #ifdef USE_CRAY_POINTER
   !------------------------------------------------------------------------------------------------
-  ! Helper routine for setting mem_ptr with the correct size information
+  ! Helper routines for setting mem_ptr with the correct size information
 
-  SUBROUTINE set_mem_ptr(arr, len)
+  SUBROUTINE set_mem_ptr_sp(arr, len)
     INTEGER          :: len
-    REAL(wp), TARGET :: arr(len)
-    mem_ptr => arr
-  END SUBROUTINE set_mem_ptr
+    REAL(sp), TARGET :: arr(len)
+    mem_ptr_sp => arr
+  END SUBROUTINE set_mem_ptr_sp
+  !------------------------------------------------------------------------------------------------
+  SUBROUTINE set_mem_ptr_dp(arr, len)
+    INTEGER          :: len
+    REAL(dp), TARGET :: arr(len)
+    mem_ptr_dp => arr
+  END SUBROUTINE set_mem_ptr_dp
 #endif
 
 
@@ -3827,7 +3889,9 @@ CONTAINS
       &     lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER :: voff(0:num_work_procs-1)
-    REAL(wp), ALLOCATABLE :: var1(:), var2(:), var3(:,:)
+    REAL(sp), ALLOCATABLE :: var1_sp(:), var2_sp(:), var3_sp(:,:)
+    REAL(dp), ALLOCATABLE :: var1_dp(:), var2_dp(:), var3_dp(:,:)
+    REAL(wp), ALLOCATABLE :: r_ll(:,:,:)
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
     CHARACTER*10 ctime
@@ -3872,7 +3936,11 @@ CONTAINS
       IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
     ENDDO
 
-    ALLOCATE(var1(nval*nlev_max), var2(nval), STAT=ierrstat)
+    IF(use_sp_output) THEN
+      ALLOCATE(var1_sp(nval*nlev_max), var2_sp(nval), STAT=ierrstat)
+    ELSE
+      ALLOCATE(var1_dp(nval*nlev_max), var2_dp(nval), STAT=ierrstat)
+    ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ioff(:) = of%mem_win_off(:)
@@ -3919,8 +3987,13 @@ CONTAINS
         t_0 = MPI_Wtime()
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
-        CALL MPI_Get(var1(nv_off+1), nval, p_real_dp, np, ioff(np), &
-          &          nval, p_real_dp, mpi_win, mpierr)
+        IF(use_sp_output) THEN
+          CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+            &          nval, p_real_sp, mpi_win, mpierr)
+        ELSE
+          CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+            &          nval, p_real_dp, mpi_win, mpierr)
+        ENDIF
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
         t_get  = t_get  + MPI_Wtime()-t_0
@@ -3946,33 +4019,59 @@ CONTAINS
       ! get it back into the global storage order
 
       t_0 = MPI_Wtime()
-      ALLOCATE(var3(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      IF(use_sp_output) THEN
+        ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      ELSE
+        ALLOCATE(var3_dp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
+ 
       DO jk = 1, nlevs
         nv_off = 0
         DO np = 0, num_work_procs-1
-          var2(nv_off+1:nv_off+p_ri%pe_own(np)) = var1(voff(np)+1:voff(np)+p_ri%pe_own(np))
+          IF(use_sp_output) THEN
+            var2_sp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
+          ELSE
+            var2_dp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
+          ENDIF
           nv_off = nv_off+p_ri%pe_own(np)
           voff(np) = voff(np)+p_ri%pe_own(np)
         ENDDO
-        DO i = 1, p_ri%n_glb
-          var3(i,jk) = var2(p_ri%reorder_index(i))
-        ENDDO
+        IF(use_sp_output) THEN
+          DO i = 1, p_ri%n_glb
+            var3_sp(i,jk) = var2_sp(p_ri%reorder_index(i))
+          ENDDO
+        ELSE
+          DO i = 1, p_ri%n_glb
+            var3_dp(i,jk) = var2_dp(p_ri%reorder_index(i))
+          ENDDO
+        ENDIF
       ENDDO ! Loop over levels
       t_copy = t_copy + MPI_Wtime()-t_0
 
       t_0 = MPI_Wtime()
-      CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3, 0)
-      mb_wr = mb_wr + SIZE(var3)
+      IF(use_sp_output) THEN
+        CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
+      ELSE
+        CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
+      ENDIF
+      mb_wr = mb_wr + SIZE(var3_sp)
       t_write = t_write + MPI_Wtime()-t_0
 
-      DEALLOCATE(var3, STAT=ierrstat)
+      IF(use_sp_output) THEN
+        DEALLOCATE(var3_sp, STAT=ierrstat)
+      ELSE
+        DEALLOCATE(var3_dp, STAT=ierrstat)
+      ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ENDDO ! Loop over output variables
 
-    DEALLOCATE(var1, var2, STAT=ierrstat)
+    IF(use_sp_output) THEN
+      DEALLOCATE(var1_sp, var2_sp, STAT=ierrstat)
+    ELSE
+      DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
+    ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     CALL date_and_time(TIME=ctime)
@@ -3990,6 +4089,17 @@ CONTAINS
       CALL message('',message_text)
     ENDIF
 #endif
+
+    ! Convert mb_get/mb_wr to MB
+    IF(use_sp_output) THEN
+      mb_get = mb_get*4*1.d-6
+    ELSE
+      mb_get = mb_get*8*1.d-6
+    ENDIF
+    mb_wr = mb_wr*4*1.d-6 ! always 4 byte since dp output is implicitly converted to sp
+    ! PRINT *,' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get,&
+    !   ' MB/s], time write: ',t_write,' s [',mb_wr/t_write, &
+    !   ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
 
   END SUBROUTINE io_proc_write_name_list
 

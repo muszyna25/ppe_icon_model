@@ -51,7 +51,7 @@ MODULE mo_parallel_config
        &    p_test_run, l_test_openmp,                                &
        &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
-       &    use_dycore_barrier
+       &    use_dycore_barrier, use_sp_output
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -118,7 +118,12 @@ MODULE mo_parallel_config
   INTEGER :: radiation_ompthreads   = 1
   INTEGER :: nh_stepping_ompthreads = 1
 
-
+  ! Flag. Enable this flag if output fields shall be gathered and written in
+  ! single-precision. The resulting files are identical to the "normal"
+  ! operation with double-precision, since the NetCDF is finally converted to
+  ! single precision by the NetCDF library itself.
+  !
+  LOGICAL :: use_sp_output
 
 CONTAINS
   

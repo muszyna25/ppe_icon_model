@@ -105,12 +105,12 @@ MODULE mo_mpi
   PUBLIC :: MPI_ANY_SOURCE
 
   ! real data type matching real type of MPI implementation
-  PUBLIC :: p_real_dp
+  PUBLIC :: p_real_dp, p_real_sp
   PUBLIC :: p_int
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
-  PUBLIC :: p_real_dp_byte
+  PUBLIC :: p_real_dp_byte, p_real_sp_byte
 
 
   ! old fashioned method (MPI-1)

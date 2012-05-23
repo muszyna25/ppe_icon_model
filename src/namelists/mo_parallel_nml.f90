@@ -67,13 +67,15 @@ MODULE mo_parallel_nml
     & config_icon_comm_debug     => icon_comm_debug,        &
     & div_geometric, check_parallel_configuration,          &
     & config_max_sr_buffer_size => max_send_recv_buffer_size, &
-    & config_use_dycore_barrier => use_dycore_barrier
+    & config_use_dycore_barrier => use_dycore_barrier,        &
+    & config_use_sp_output => use_sp_output
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_parallel_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: version = &
+    &  '$Id$'
 
 
        
@@ -147,6 +149,8 @@ MODULE mo_parallel_nml
     INTEGER :: nproma    ! inner loop length/vector length
 
     INTEGER :: openmp_threads  
+
+    LOGICAL :: use_sp_output
     
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, &
       & l_log_checks,      l_fast_sum,          &
@@ -158,7 +162,8 @@ MODULE mo_parallel_nml
       & parallel_radiation_mpi,  use_icon_comm, &
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
-      & division_file_name, use_dycore_barrier
+      & division_file_name, use_dycore_barrier, &
+      & use_sp_output
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -222,6 +227,9 @@ MODULE mo_parallel_nml
     radiation_threads = 1
     nh_stepping_threads = 1
 
+    ! output in single precision
+    use_sp_output = .FALSE.
+
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -280,6 +288,7 @@ MODULE mo_parallel_nml
     config_test_parallel_radiation= test_parallel_radiation
     config_max_sr_buffer_size  = max_send_recv_buffer_size
     config_use_dycore_barrier  = use_dycore_barrier
+    config_use_sp_output       = use_sp_output
     !-----------------------------------------------------
     CALL check_parallel_configuration()
     
