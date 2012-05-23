@@ -93,7 +93,7 @@ case "$fortran_compiler" in
         GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
-	MISMATCHS   = -wmismatch=mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_allgather,mpi_pack,mpi_unpack,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_allgather,mpi_pack,mpi_unpack,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" 
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
@@ -143,7 +143,8 @@ case "$fortran_compiler" in
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = ifort
         FDEBUG      = -check bounds -check pointers -check uninit -debug -g
-        FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+        FFLAGS      =           -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+ #      FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
  #      FFLAGS      = "$FDEBUG" -O0 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS"
