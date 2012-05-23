@@ -689,19 +689,6 @@ CONTAINS
         ENDDO
       END DO
     END DO
-    ! these are computed an all edges,  thus no sync is required
-    ! we sync only in p_test_run for checking
-    IF (p_test_run) THEN
-      CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
-      DO jk = 1, n_zlev
-        DO je=1,2
-          DO jb=1,3
-            CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2cell_coeff_cc_t(:,jk,:,je)%x(jb))
-            CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2vert_coeff_cc_t(:,jk,:,je)%x(jb))
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDIF
     !-------------------------------------------------------------
 
     !-------------------------------------------------------------
@@ -729,24 +716,6 @@ CONTAINS
         ENDDO ! jc = i_startidx_c, i_endidx_c
       END DO ! jk=1,n_zlev
     END DO ! jb = all_cells%start_block, all_cells%end_block
-
-    ! these are computed an all cells,  thus no sync is required
-    ! we sync only in p_test_run for checking
-!    IF (p_test_run) THEN
-      CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
-
-      DO je=1,patch%cell_type
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%div_coeff(:,:,:, je))
-
-        DO jk = 1, n_zlev
-          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,jk,:,je)%x(1))
-          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,jk,:,je)%x(2))
-          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,jk,:,je)%x(3))
-        ENDDO
-
-      ENDDO
-!    ENDIF
-    !-------------------------------------------------------------
 
     !-------------------------------------------------------------
     !2) prepare coefficients for rot at boundary edges
@@ -948,15 +917,6 @@ CONTAINS
 
       END DO ! jc = i_startidx_c, i_endidx_c
     END DO ! jb = all_cells%start_block, all_cells%end_block
-    ! these are computed an all cells, thus no sync is required
-    ! we sync only in p_test_run for checking
-!    IF (p_test_run) THEN
-      DO je=1,patch%cell_type
-          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(1))
-          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(2))
-          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(3))
-      ENDDO
-!    ENDIF
     !-------------------------------------------------------------
 
     !-------------------------------------------------------------
@@ -2362,6 +2322,7 @@ CONTAINS
 !$OMP END PARALLEL
 
     ! synchronize all elements of ptr_intp:
+    CALL sync_patch_array(sync_e, ptr_patch, ptr_intp%grad_coeff)
     DO ie = 1, i_cell_type
 
       z_sync_c(:,:,:) = ptr_intp%div_coeff(:,:,:,ie)
