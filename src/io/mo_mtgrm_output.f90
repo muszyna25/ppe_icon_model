@@ -1212,6 +1212,9 @@ CONTAINS
     ! deallocate global meteogram data
 
     IO_PE : IF (l_is_collecting_pe) THEN
+
+      nvars    = meteogram_global_data(jg)%nvars
+      nsfcvars = meteogram_global_data(jg)%nsfcvars
     
       DO jb=1,meteogram_global_data(jg)%nblks
         i_startidx = 1
