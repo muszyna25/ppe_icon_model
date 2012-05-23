@@ -3205,13 +3205,13 @@ CONTAINS
 
           ! De-block the array
           IF(use_sp_output) THEN
-            ALLOCATE(r_out_sp(n_points, nlevs), r_out_dp(1, 1), STAT=ierrstat)
+            ALLOCATE(r_out_sp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
             DO jk = 1, nlevs
               r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
             ENDDO
           ELSE
-            ALLOCATE(r_out_dp(n_points, nlevs), r_out_sp(1, 1), STAT=ierrstat)
+            ALLOCATE(r_out_dp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
             DO jk = 1, nlevs
               r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
