@@ -487,9 +487,12 @@ CONTAINS
 
     ! If at least one interpolation task has been created, we add a
     ! setup task which synchronizes the halo regions:
-    task => pp_task_insert(HIGH_PRIORITY)
-    WRITE (task%job_name, *) "horizontal interp. SYNC"
-    task%job_type = TASK_INTP_SYNC
+    IF (l_horintp) THEN
+      task => pp_task_insert(HIGH_PRIORITY)
+      WRITE (task%job_name, *) "horizontal interp. SYNC"
+      task%job_type = TASK_INTP_SYNC
+      task%activity = new_simulation_status(l_output_step=.TRUE.)
+    END IF
 
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
