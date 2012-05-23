@@ -65,11 +65,11 @@ MODULE mo_nwp_phy_state
 ! !USES:
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: success, max_char_length,           &
+USE mo_impl_constants,      ONLY: icc, success, max_char_length,      &
   &                               VINTP_METHOD_UV, VINTP_TYPE_P_OR_Z, &
 &                                 VINTP_METHOD_LIN,VINTP_METHOD_QV
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: ntracer, nqtendphy
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom
@@ -369,7 +369,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
 CHARACTER(len=max_char_length) :: listname
 INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
 
-!-----------------------------------------------------------------------
+!-------------------------------------------------------------------------
 
 CALL message('mo_nwp_phy_state:construct_nwp_state', &
   'start to construct 3D state vector')
@@ -537,35 +537,35 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & TRIM(vname_prefix)//'qv', diag%tra_rate_ptr(1)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','unknown'),             &
-                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape2d)
            !qc
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qc', diag%tra_rate_ptr(2)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '','unknown'),             &
-                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape2d)
 !          !qi
 !       CALL add_ref( diag_list, 'tracer_rate',                                     &
 !                   & TRIM(vname_prefix)//'qi', diag%tra_rate_ptr(3)%p_2d,          &
 !                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
 !                   & t_cf_var(TRIM(vname_prefix)//'qi', '','unknown'),             &
-!                   & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL), &
+!                   & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),     &
 !                   & ldims=shape2d)
            !qr
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qr', diag%tra_rate_ptr(3)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qr', '','precipitation rate'),  &
-                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape2d)
            !qs
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qs', diag%tra_rate_ptr(4)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qs', '','snowfall rate'),       &
-                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape2d)
 
 
@@ -625,7 +625,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'gsp_prec_rate_avg', diag%gsp_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d, lrestart=.FALSE.,                           &
+                & ldims=shape2d, lrestart=.FALSE.,                            &
                 & in_group=groups("additional_precip_vars") )
 
     ! &      diag%cape(nproma,nblks_c)
@@ -633,7 +633,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'cape', diag%cape,                               &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d, lrestart=.FALSE.,                           &
+                & ldims=shape2d, lrestart=.FALSE.,                            &
                 & in_group=groups("additional_precip_vars") )
 
     ! &      diag%con_gust(nproma,nblks_c)
@@ -746,38 +746,38 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     vname_prefix='avg_'
 
            !CC
-        CALL add_ref( diag_list, 'tot_cld_vi_avg',                        &
-                    & TRIM(vname_prefix)//'cc', diag%tav_ptr(1)%p_2d,     &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,              &
-                    & t_cf_var(TRIM(vname_prefix)//'cc', '','tci_cloud_cover_avg'), &
-                    & t_grib2_var(0, 6, 1, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape2d, lrestart=.FALSE. )
+    CALL add_ref( diag_list, 'tot_cld_vi_avg',                                 &
+                & TRIM(vname_prefix)//'cc', diag%tav_ptr(1)%p_2d,              &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var(TRIM(vname_prefix)//'cc', '','tci_cloud_cover_avg'), &
+                & t_grib2_var(0, 6, 1, ientr, GRID_REFERENCE, GRID_CELL),      &
+                & ldims=shape2d, lrestart=.FALSE. )
 
-           !QV
-        CALL add_ref( diag_list, 'tot_cld_vi_avg',               &
-                    & TRIM(vname_prefix)//'qv', diag%tav_ptr(2)%p_2d,                     &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                              &
-                    & t_cf_var(TRIM(vname_prefix)//'qv', '','tci_specific_humidity_avg'), &
-                    & t_grib2_var( 0, 1, 64, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape2d, lrestart=.FALSE. )
+       !QV
+    CALL add_ref( diag_list, 'tot_cld_vi_avg',               &
+                & TRIM(vname_prefix)//'qv', diag%tav_ptr(2)%p_2d,              &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var(TRIM(vname_prefix)//'qv', '','tci_specific_humidity_avg'), &
+                & t_grib2_var( 0, 1, 64, ientr, GRID_REFERENCE, GRID_CELL),    &
+                & ldims=shape2d, lrestart=.FALSE. )
 
-           !qc
-        CALL add_ref( diag_list, 'tot_cld_vi_avg',      &
-                    & TRIM(vname_prefix)//'qc', diag%tav_ptr(3)%p_2d,               &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
-                    & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
-                    & 'tci_specific_cloud_water_content_avg'),                      &
-                    & t_grib2_var(0, 6, 18, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape2d, lrestart=.FALSE. )
+       !qc
+    CALL add_ref( diag_list, 'tot_cld_vi_avg',      &
+                & TRIM(vname_prefix)//'qc', diag%tav_ptr(3)%p_2d,              &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var(TRIM(vname_prefix)//'qc', '',                       &
+                & 'tci_specific_cloud_water_content_avg'),                     &
+                & t_grib2_var(0, 6, 18, ientr, GRID_REFERENCE, GRID_CELL),     &
+                & ldims=shape2d, lrestart=.FALSE. )
 
-           !qi
-        CALL add_ref( diag_list, 'tot_cld_vi_avg',          &
-                    & TRIM(vname_prefix)//'qi', diag%tav_ptr(4)%p_2d,              & 
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
-                    & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
-                    & 'tci_specific_cloud_ice_content_avg'),                       &
-                    & t_grib2_var(0, 6, 19, ientr, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape2d, lrestart=.FALSE. )
+       !qi
+    CALL add_ref( diag_list, 'tot_cld_vi_avg',          &
+                & TRIM(vname_prefix)//'qi', diag%tav_ptr(4)%p_2d,              & 
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
+                & 'tci_specific_cloud_ice_content_avg'),                       &
+                & t_grib2_var(0, 6, 19, ientr, GRID_REFERENCE, GRID_CELL),     &
+                & ldims=shape2d, lrestart=.FALSE. )
 
    ! &      diag%tot_cld(nproma,nlev,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld', ' ','total cloud variables (cc,qv,qc,qi)')
@@ -793,7 +793,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !CC
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'cc', diag%tot_ptr(1)%p_3d,                  &
+                    & TRIM(vname_prefix)//'cc', diag%tot_ptr(icc)%p_3d,                &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                     & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),      &
                     & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL),         &
@@ -808,7 +808,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !QV
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'qv', diag%tot_ptr(2)%p_3d,                  &
+                    & TRIM(vname_prefix)//'qv', diag%tot_ptr(iqv)%p_3d,                &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','total_specific_humidity'),&
                     & t_grib2_var( 0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),         &
@@ -822,7 +822,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !QC
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'qc', diag%tot_ptr(3)%p_3d,                  &
+                    & TRIM(vname_prefix)//'qc', diag%tot_ptr(iqc)%p_3d,                &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                           &
                     & 'total_specific_cloud_water_content'),                           &
@@ -838,7 +838,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !QI
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'qi', diag%tot_ptr(4)%p_3d,                  &
+                    & TRIM(vname_prefix)//'qi', diag%tot_ptr(iqi)%p_3d,                &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                           &
                     & 'total_specific_cloud_ice_content'),                             &
@@ -2149,7 +2149,7 @@ END SUBROUTINE new_nwp_phy_tend_list
 
 
 !
-!-----------------------------<--------------------------------------------
+!-------------------------------------------------------------------------
 
 END MODULE mo_nwp_phy_state
 !<
