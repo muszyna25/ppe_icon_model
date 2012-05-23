@@ -3893,7 +3893,6 @@ CONTAINS
     INTEGER :: voff(0:num_work_procs-1)
     REAL(sp), ALLOCATABLE :: var1_sp(:), var2_sp(:), var3_sp(:,:)
     REAL(dp), ALLOCATABLE :: var1_dp(:), var2_dp(:), var3_dp(:,:)
-    REAL(wp), ALLOCATABLE :: r_ll(:,:,:)
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
     CHARACTER*10 ctime
@@ -4054,10 +4053,11 @@ CONTAINS
       t_0 = MPI_Wtime()
       IF(use_sp_output) THEN
         CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
+        mb_wr = mb_wr + SIZE(var3_sp)
       ELSE
         CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
+        mb_wr = mb_wr + SIZE(var3_dp)
       ENDIF
-      mb_wr = mb_wr + SIZE(var3_sp)
       t_write = t_write + MPI_Wtime()-t_0
 
       IF(use_sp_output) THEN
