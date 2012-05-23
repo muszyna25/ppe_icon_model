@@ -76,9 +76,9 @@ MODULE mo_cf_convention
   END TYPE t_cf_global
 
   TYPE t_cf_var
-    CHARACTER(len=128) :: long_name     = ''
-    CHARACTER(len=128) :: units         = ''
     CHARACTER(len=128) :: standard_name = ''
+    CHARACTER(len=128) :: units         = ''
+    CHARACTER(len=128) :: long_name     = ''
   END TYPE t_cf_var
 
   TYPE t_cf_gridspec

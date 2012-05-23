@@ -44,6 +44,7 @@ MODULE mo_name_list_output
     &                                 new_var_list, get_all_var_names,          &
     &                                 total_number_of_variables, collect_group
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
+  USE mo_util_uuid,             ONLY: t_uuid
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
     &                                 get_my_mpi_work_id, p_max, get_my_mpi_work_communicator
@@ -211,6 +212,10 @@ MODULE mo_name_list_output
     ! to NetCDF since this information is normally not read and
     ! thus not present in the patch description
     CHARACTER(LEN=filename_max) :: grid_filename
+
+    ! uuid of grid
+    TYPE(t_uuid) :: grid_uuid
+
   END TYPE t_patch_info
 
   TYPE(t_patch_info),   ALLOCATABLE, TARGET :: patch_info (:)
@@ -1260,6 +1265,8 @@ CONTAINS
                               p_patch(jl)%verts%glb_index, patch_info(jp)%verts)
         ! Set grid_filename on work and test PE
         patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
+        ! Set UUID on work and test PE
+        patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
       ENDIF
 #ifndef NOMPI
       IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
@@ -1268,6 +1275,8 @@ CONTAINS
         CALL transfer_reorder_info(patch_info(jp)%edges)
         CALL transfer_reorder_info(patch_info(jp)%verts)
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(jp)%grid_uuid%data, SIZE(patch_info(jp)%grid_uuid%data),  &
+          &          bcast_root, p_comm_work_2_io)
       ENDIF
 #endif
 
@@ -1914,6 +1923,7 @@ CONTAINS
       DEALLOCATE(p_lonlat)
 
     ELSE
+
       ! Cells
 
       of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%cells%n_glb)
@@ -1926,7 +1936,9 @@ CONTAINS
       CALL gridDefYname(of%cdiCellGridID, 'clat')
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
-
+      !
+      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+   
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -1939,6 +1951,8 @@ CONTAINS
       CALL gridDefYname(of%cdiVertGridID, 'vlat')
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
+      !
+      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
 
       ! Edges
 
@@ -1952,6 +1966,8 @@ CONTAINS
       CALL gridDefYname(of%cdiEdgeGridID, 'elat')
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
+      !
+      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
 
       of%cdiLonLatGridID = CDI_UNDEFID
 
@@ -2629,19 +2645,6 @@ CONTAINS
         ENDIF
 
       CASE (ZAXIS_HEIGHT)
-!!$        IF(info%name(1:8)=='lnd_prog' .AND. INDEX(info%name,'snow') /= 0) THEN
-!!$          ! This is a special case - use ZA_generic_snow[_p1]
-!!$          IF(info%used_dimensions(2) == nlev_snow) THEN
-!!$            info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow)
-!!$          ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
-!!$            info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
-!!$          ELSE
-!!$            WRITE (message_text,'(a,a,a,i0)') &
-!!$                 &  'SNOW variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-!!$            CALL message('',message_text)
-!!$            CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
-!!$          ENDIF
-!!$        ELSE
           ! In all other cases, ZAXIS_HEIGHT seems to be equivalent to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF
           ! TODO: Is there a difference to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF ???
           IF (info%used_dimensions(2) == nlevp1) THEN
@@ -2654,7 +2657,6 @@ CONTAINS
             CALL message('',message_text)
             CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
           ENDIF
-!!$        ENDIF
 
       CASE (ZAXIS_GENERIC)
         IF(info%used_dimensions(2) == nlev_snow) THEN
@@ -2702,21 +2704,25 @@ CONTAINS
 
       CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
 
-!DR
-!DR Still missing: Set typeOfStatisticalProcessing
-!DR This feature is not yet supported by CDI
-!DR
-
-      ! Set GRIB2 Triplet
-      CALL vlistDefVarParam(vlistID, varID,                                              &
-        &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
-
-        
       IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
       IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+
+
+      IF ( of%output_type == FILETYPE_GRB2 ) THEN
+        ! Set GRIB2 Triplet
+        CALL vlistDefVarParam(vlistID, varID,                                              &
+          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+      ENDIF
+
+!DR
+!DR Still missing: Set typeOfStatisticalProcessing
+!DR This feature is not yet fully supported by CDI
+!DR
+!DR      CALL  vlistDefVarTsteptype(vlistID, varID, 4);
+        
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist

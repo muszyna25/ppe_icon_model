@@ -29475,7 +29475,7 @@ void gribapiDefGrid(grib_handle *gh, int gridID, int ljpeg, int lieee, int datat
 	    GRIB_CHECK(grib_set_long(gh, "numberOfGridUsed", gridInqNumber(gridID)), 0);
 	    GRIB_CHECK(grib_set_long(gh, "numberOfGridInReference", gridInqPosition(gridID)), 0);
             len = 16;
-            GRIB_CHECK(grib_set_string(gh, "uuidOfHGrid", gridInqUUID(gridID, uuid), &len), 0);
+            //DR GRIB_CHECK(grib_set_string(gh, "uuidOfHGrid", gridInqUUID(gridID, uuid), &len), 0);
 	  }
 
 	break;
@@ -29756,7 +29756,7 @@ void gribapiDefLevel(grib_handle *gh, int param, int zaxisID, int levelID)
             GRIB_CHECK(grib_set_long(gh, "nlev", (long) zaxisInqSize(zaxisID)), 0);
             GRIB_CHECK(grib_set_long(gh, "numberOfVGridUsed", reference), 0);
             len = 16;
-            GRIB_CHECK(grib_set_string(gh, "uuidOfVGrid", zaxisInqUUID(zaxisID, uuid), &len), 0);
+            //DR GRIB_CHECK(grib_set_string(gh, "uuidOfVGrid", zaxisInqUUID(zaxisID, uuid), &len), 0);
           }
         break;
       }
