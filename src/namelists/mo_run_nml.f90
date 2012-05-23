@@ -62,7 +62,8 @@ MODULE mo_run_nml
                          & t_output_mode, max_output_modes
 
   USE mo_kind,           ONLY: wp
-  USE mo_exception,      ONLY: finish
+  USE mo_exception,      ONLY: finish, &
+    &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
   USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
@@ -120,6 +121,8 @@ MODULE mo_run_nml
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
+  LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
+
   REAL(wp) :: check_epsilon ! small value for checks
 
   INTEGER :: testbed_mode  ! if =0 then run the standard version, otherwise
@@ -147,7 +150,8 @@ MODULE mo_run_nml
                      msg_level, check_epsilon,      &
                      testbed_mode,                  &
                      dump_filename, dd_filename,    &
-                     lonlat_dump_filename, output
+                     lonlat_dump_filename, output,  &
+                     msg_timestamp
 
 CONTAINS
   !>
@@ -189,12 +193,13 @@ CONTAINS
     nsteps = 0
     dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
 
-    ltimer       = .TRUE.
-    timers_level = 1
+    ltimer               = .TRUE.
+    timers_level         = 1
     activate_sync_timers = .FALSE.
-    msg_level    = 10
-    check_epsilon=1.e-6_wp
-    testbed_mode = 0
+    msg_level            = 10
+    msg_timestamp        = .FALSE.
+    check_epsilon        = 1.e-6_wp
+    testbed_mode         = 0
 
     output(:) = " "
     output(1) = "default"
@@ -277,6 +282,7 @@ CONTAINS
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
     config_msg_level       = msg_level
+    config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon
     config_testbed_mode    = testbed_mode
 

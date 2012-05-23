@@ -61,6 +61,7 @@ MODULE mo_exception
   PUBLIC :: debug_messages_on, debug_messages_off
   PUBLIC :: number_of_warnings, number_of_errors
   PUBLIC :: get_filename_noext
+  PUBLIC :: msg_timestamp
 
   INTEGER, PARAMETER :: em_none  = 0   !< normal message
   INTEGER, PARAMETER :: em_info  = 1   !< informational message
@@ -71,8 +72,13 @@ MODULE mo_exception
 
   CHARACTER(len=256) :: message_text = ''
 
-  LOGICAL :: l_debug = .FALSE.
-  LOGICAL :: l_log   = .FALSE.
+  LOGICAL :: l_debug     = .FALSE.
+  LOGICAL :: l_log       = .FALSE.
+
+  !> Flag. If .TRUE., precede output messages by time stamp.
+  !  This parameters is set by mo_run_nml
+  LOGICAL :: msg_timestamp
+
 
   INTEGER :: number_of_warnings  = 0
   INTEGER :: number_of_errors    = 0
@@ -241,6 +247,8 @@ CONTAINS
 
     CHARACTER(len=LEN(message_text)) :: write_text
 
+    CHARACTER*10 ctime
+ 
     IF (PRESENT(all_print)) THEN
       lprint = all_print
     ELSE
@@ -316,8 +324,14 @@ CONTAINS
        &       (proc_split .AND. (get_my_mpi_work_id() == get_glob_proc0()))
 
     IF (lactive) THEN
-      WRITE(iout,'(1x,a)') TRIM(write_text)
-      IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
+      IF (msg_timestamp) THEN
+        CALL DATE_AND_TIME(time=ctime)
+        WRITE(iout,'(1x,a)') ctime//':'//TRIM(write_text)
+        IF (l_log) WRITE(nlog,'(1x,a)') ctime//':'//TRIM(write_text)
+      ELSE
+        WRITE(iout,'(1x,a)') TRIM(write_text)
+        IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
+      END IF
     END IF
 
   END SUBROUTINE message
