@@ -507,11 +507,13 @@ CONTAINS
         lonlat%grid%north_pole(:)  = north_pole(:)
 
         IF(reg_lon_def(2)<=0._wp) CALL finish(routine,'Illegal LON increment')
-        IF(reg_lat_def(2)<=0._wp) CALL finish(routine,'Illegal LAT increment')
+        IF(reg_lat_def(2)==0._wp) CALL finish(routine,'Illegal LAT increment')
         IF(reg_lon_def(3)<=reg_lon_def(1)) CALL finish(routine,'end lon <= start lon')
-        IF(reg_lat_def(3)<=reg_lat_def(1)) CALL finish(routine,'end lat <= start lat')
+        
         lonlat%grid%lon_dim = INT( (reg_lon_def(3)-reg_lon_def(1))/reg_lon_def(2) ) + 1
         lonlat%grid%lat_dim = INT( (reg_lat_def(3)-reg_lat_def(1))/reg_lat_def(2) ) + 1
+
+        IF(lonlat%grid%lat_dim <= 0) CALL finish(routine,'Illegal LAT grid description')
 
         ! Flag those domains, which are used for this lon-lat grid:
         !     If dom(:) was not specified in namelist input, it is set
