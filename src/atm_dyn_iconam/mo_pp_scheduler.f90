@@ -1085,7 +1085,23 @@ CONTAINS
 
 
   !---------------------------------------------------------------
-  !> Performs synchroinzation of halo regions
+  !> Performs synchronization of halo regions.
+  !  This is necessary before starting the lon-lat interpolation.
+  !  All variables that are part of an interpolation task are
+  !  synchronized.
+  !
+  ! To avoid unnecessary overhead in the synchronization,
+  ! several improvements are possible:
+  !   - Use "*_mult" synchronization routines
+
+  !   - Copy 2D fields into a 3D field which is
+  !     synchronized. Afterwards, 2D fields are extracted again from
+  !     the temporary 3D field.
+  !
+  !   - Introduce some kind of meta information of each variable list.
+  !     For example, prognostic fields must not be synchronized,
+  !     therefore the corresponding variable lists can be marked as
+  !     "skip_sync".
   !
   SUBROUTINE pp_task_sync()
     ! local variables
