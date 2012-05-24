@@ -475,7 +475,7 @@ MODULE mo_nonhydro_state
 
     ! vn           p_prog%vn(nproma,nlev,nblks_e)
     cf_desc    = t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge')
-    grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = t_grib2_var(0, 2, 34, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'vn'//suffix, p_prog%vn,     &
       &           GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
       &           ldims=shape3d_e, in_group=groups("nh_prog_vars") )
@@ -515,7 +515,7 @@ MODULE mo_nonhydro_state
     IF (.NOT. l_extra_timelev) THEN
       ! exner        p_prog%exner(nproma,nlev,nblks_c)
       cf_desc    = t_cf_var('exner_pressure', '-', 'exner pressure')
-      grib2_desc = t_grib2_var(0, 3, 195, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(0, 3, 26, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_prog_list, TRIM(vname_prefix)//'exner'//suffix, p_prog%exner, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
         &           ldims=shape3d_c, in_group=groups("nh_prog_vars") )
@@ -908,7 +908,7 @@ MODULE mo_nonhydro_state
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'tangential-component of wind')
-    grib2_desc = t_grib2_var(0, 2, 198, ientr, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = t_grib2_var(0, 2, 35, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'vt', p_diag%vt,                                 &
                 & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_e )
@@ -963,7 +963,7 @@ MODULE mo_nonhydro_state
     ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure')
-    grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 3, 26, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
@@ -1108,7 +1108,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('virtual_potential_temperature_at_half_levels', 'K',&
       &                   'virtual_potential temperature at half levels')
-    grib2_desc = t_grib2_var( 0, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 0, 15, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'theta_v_ic', p_diag%theta_v_ic,               &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                 & ldims=shape3d_chalf, lrestart=.FALSE. )

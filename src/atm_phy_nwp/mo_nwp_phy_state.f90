@@ -582,7 +582,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 1, 15, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_gsp', diag%snow_gsp,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-                & ldims=shape2d, laccu=.TRUE., in_group=groups("precip_vars") )
+                & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM,        &
+                & in_group=groups("precip_vars") )
 
     ! &      diag%rain_con(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con', 'kg m-2 ', 'convective rain')
@@ -596,14 +597,16 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 1, 14, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_con', diag%snow_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d, laccu=.TRUE., in_group=groups("precip_vars") )
+                & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM,         &
+                & in_group=groups("precip_vars") )
 
     ! &      diag%tot_prec(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec', '', 'total precip')
     grib2_desc = t_grib2_var(0, 1, 52, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d, laccu=.TRUE., in_group=groups("precip_vars") )
+                & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM,         &
+                & in_group=groups("precip_vars") )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', '', 'total precip, time average')
@@ -997,7 +1000,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 5, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, laccu=.TRUE.)
+          & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM)
 
 
         ! &      diag%swflxtoa_a(nproma,nblks_c)

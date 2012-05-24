@@ -1857,6 +1857,10 @@ CONTAINS
     !
     of%cdiVlistID = vlistCreate()
 
+    !
+    ! 2. add global attributes for netCDF
+    !
+
     ! define output generating institute
     !
     ! get instID
@@ -1864,9 +1868,6 @@ CONTAINS
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
 
-    !
-    ! 2. add global attributes for netCDF
-    !
     ! 3. add horizontal grid descriptions
 
     IF(of%name_list%remap == 1) THEN
@@ -2721,7 +2722,7 @@ CONTAINS
 !DR Still missing: Set typeOfStatisticalProcessing
 !DR This feature is not yet fully supported by CDI
 !DR
-!DR      CALL  vlistDefVarTsteptype(vlistID, varID, 4);
+!DR      CALL  vlistDefVarTsteptype(vlistID, varID, info%istatproc);
         
     ENDDO
     !
