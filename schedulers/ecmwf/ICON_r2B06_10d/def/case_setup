@@ -23,7 +23,7 @@ INDIR=${basedir}/input/grids
 # absolute path to external parameter directory
 EXTPARDIR=${basedir}/input/extpar
 # absolute path to IFS2ICON data directory
-IFS2ICONDIR=${basedir}/input/ifs2icon
+IFS2ICONDIR=${ifsdir}
 # absolute path to files needed for radiation
 RADDIR=${basedir}/input/radiation
 
