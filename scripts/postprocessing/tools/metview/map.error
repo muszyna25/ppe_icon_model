@@ -1,6 +1,6 @@
 # Metview Macro: ICON errors
 # 
-# run as: metview -b map.error 22 CC ml diff 20110101 00 20110103 00
+# run as: metview -b map.error 22 CC ml diff 20110101 00 20110103 00 2 R2B04
 #
 # Koehler Martin, August 2011
 #-----------------------------------------------------------------------
@@ -11,15 +11,17 @@ mode = runmode()
 if mode = 'batch' or mode = 'execute' then  
   args    = arguments()
   print()
-  print("parameters: ", args)
+  print("map.error parameters: ", args)
   expnum  = args[1]      # experiment ID (e.g. 22)
-  varfile = args[2]      # variable name (e.g. T)
+  varname = args[2]      # variable name (e.g. T)
   levtype = args[3]      # level type (e.g. sfc, pl, zl, ml, lnd, L90)
   stat    = args[4]      # statistic (snap, ctr or diff) 
   inidate = args[5]      # 
   initime = args[6]      # 
   verdate = args[7]      # 
-  vertime = args[8]      # 
+  vertime = args[8]      #
+  ndays   = args[9]      # mean of multiple forecasts separated by one day
+  exphres = args[10]     # horizontal resolution (e.g. R2B04)
   if initime < 10 then
      initime = "0"&initime
   end if
@@ -27,147 +29,244 @@ if mode = 'batch' or mode = 'execute' then
      vertime = "0"&vertime
   end if
 else
-  expnum  = 22
-  varfile = 'TCC'        # T U V QV QC QI CC Q1 Q2 Q3;  T_SO_tile_1 W_SO_tile_1
-  levtype = 'sfc'              
-  stat    = 'snap'  
+  expnum  = 37
+  varname = 'TCC'        # T U V QV QC QI CC Q1 Q2 Q3;  T_SO_tile_1 W_SO_tile_1
+  levtype = 'sfc'                    
+  stat    = 'ctr' 
   inidate = '20110101'
   initime = '00'
   verdate = '20110102'
   vertime = '00'
+  ndays   = 1
+  exphres = 'R2B04'
 end if  
+
 
 #-----------------------------------------------------------------------
 # --- setup
 
-expres  = 'NWP.R2B04L90'
-vartext = varfile 
+expres  = 'NWP.'&exphres&'L90'
+
+varfile  = varname
+case levtype of
+  'ml':  
+     vartitle = varname&'  ml'
+     varplot  = varname
+     end
+  'pl':  
+     vartitle = varname&'  pl'  
+     varplot  = varname&'_P'
+     end
+  'zl':  
+     vartitle = varname&'  zl'  
+     varplot  = varname&'_Z'
+     end
+  'sfc': 
+     vartitle = varname
+     varplot  = varname
+     end 
+  'lnd': 
+     vartitle = varname
+     varplot  = varname
+     end 
+end case
 
 user = getenv("USER")
 plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
 
+if ndays > 1  then
+  nd_txt1 = '_n'&ndays
+  nd_txt2 = ' '&ndays&' days'
+else
+  nd_txt1 = ''
+  nd_txt2 = ''
+end if
+
 case stat of
   'diff':
-    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&'-ifs.'&varfile&'.'&verdate&vertime    # no ".ps"
-    title   = vartext&'    exp'&expnum&'     EXP-ANA    '&inidate&initime&' to '&verdate&vertime
+    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&'-ifs.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    title   = vartitle&'    exp'&expnum&'     EXP-ANA    '&inidate&initime&' to '&verdate&vertime&nd_txt2
   end
   'snap':
-    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&    '.'&varfile&'.'&verdate&vertime
-    title   = vartext&'    exp'&expnum&'    '&verdate&vertime
+    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&    '.'&varplot&'.'&verdate&vertime&nd_txt1
+    title   = vartitle&'    exp'&expnum&'    '&verdate&vertime&nd_txt2
   end
   'ctr':
-    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&'.ifs.'&varfile&'.'&verdate&vertime
-    title   = vartext&'    ANA    '&verdate&vertime
+    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1
+    title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
   end
 end case
 
 precision( 4 )           # precision of numbers in plots
 
 
-
 #-----------------------------------------------------------------------
 #--- read data
 
+# delete "_tile_1"
+txt_index = search (varfile, '_tile_1')
+if txt_index > 0 then
+  varfile = substring(varfile, 1, txt_index-1)
+end if
+# capitalization
+if varname = 'QC'     or varname = 'QI'   or varname = 'RAIN_CON' or varname = 'RAIN_GSP' or 
+   varname = 'T_SNOW' or varname = 'W_I'  or
+   varname = 'CLWC'   or varname = 'CIWC' or varname = 'CRWC'     or varname = 'CSWC' then
+  varfile = lowercase(varfile)
+end if
+# rename
+case varfile of
+ 'ACCSOB_S':  varfile = '0.4.0'       end
+ 'ACCSOB_T':  varfile = '0.4.1'       end
+ 'ACCTHB_S':  varfile = '0.5.0'       end
+ 'ACCTHB_T':  varfile = '0.5.1'       end
+ 'ACCLHFL_S': varfile = '0.0.10'      end
+ 'ACCSHFL_S': varfile = '0.0.11'      end
+ 'TOT_PREC':  varfile = '0.1.52'      end
+ 'RAIN_CON':  varfile = 'PRR_CON'     end
+ 'RAIN_GSP':  varfile = 'PRR_GSP'     end
+ 'SNOW_CON':  varfile = '0.1.14'      end
+ 'SNOW_GSP':  varfile = '0.1.15'      end
+ 'TCC':       varfile = 'CLCT'        end
+ 'CC':        varfile = 'CLC'         end
+ 'Q1':        varfile = '192.201.28'  end
+ 'QTVAR':     varfile = '192.201.39'  end
+ 'ttendsw':   varfile = '192.162.100' end
+ 'ttendlw':   varfile = '192.162.101' end
+end case
+
+for nd=1 to ndays do 
+
 #--- read ICON experiment:
 
-if stat <> 'ctr' then
-  var_exp = read(  
-		SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&'/NWP_iconR2B04_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb',
-		date     : verdate,
-		time     : vertime
-	    )
-  nlev = count(var_exp)
- #print(var_exp)
-  scale = 1.0
-  case varfile of
-    'swflxsfc_acc':    scale= 1.0/86400.0 end
-    'lwflxsfc_acc':    scale= 1.0/86400.0 end
-    'swflxtoa_acc':    scale= 1.0/86400.0 end
-    'lwflxtoa_acc':    scale= 1.0/86400.0 end
-    'LHFL_S_acc':      scale= 1.0/86400.0 end
-    'SHFL_S_acc':      scale= 1.0/86400.0 end
-  end case
-  var_exp = var_exp * scale
-end if
+  if stat <> 'ctr' then
+    temp = read(
+                SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+                           '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb',
+#               SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+#                          '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_ML_0001.grb',
+#               param    : varname,
+#               levtype  : levtype,
+  		date     : verdate,
+  		time     : vertime
+  	       )
+    scale = 1.0
+    case varname of
+      'ACCSOB_S':        scale= 1.0/86400.0 end
+      'ACCTHB_S':        scale= 1.0/86400.0 end
+      'ACCSOB_T':        scale= 1.0/86400.0 end
+      'ACCTHB_T':        scale= 1.0/86400.0 end
+      'ACCLHFL_S':       scale= 1.0/86400.0 end
+      'ACCSHFL_S':       scale= 1.0/86400.0 end
+    end case
+    temp = temp * scale
+    if nd=1 then
+      nlev    = count(temp)
+      var_exp = temp
+     #print(var_exp)
+    else
+      var_exp = var_exp & temp
+    end if
+  end if
 
 #--- read IFS data:
 	
-if stat <> 'snap' then
-  case levtype of
-    'pl':
-      case varfile of
-        'T_P' : param = 'T' end
-        'U_P' : param = 'U' end
-        'V_P' : param = 'V' end
-        'QV_P': param = 'Q' end
-        'Z'   : param = 'Z' end
-      end case
-      var_ana = read(  
-		SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb',
-		param    : param,
-		date     : date(verdate)-1,
-		time     : vertime
-    	)
-      end
-    'sfc':
-      scale  = 1.0
-      ddays = date(verdate)+hour(vertime) - date(inidate)-hour(initime)
-      case varfile of
-        'TCC':             param = 'TCC'  end
-        'TQV':             param = 'TCWV' end
-        'TQC':             param = 'TCLW' end
-        'TQI':             param = 'TCIW' end
-        'U_10m':           param = '10U'  end
-        'V_10m':           param = '10V'  end
-        'T_2m':            param = '2T'   end
-       #'':                param = 'CP'   end
-       #'':                param = 'LSP'  end
-        'TOT_PREC':        param = 'TP'  ; scale=1000.0 end
-       #'':                param = 'SSTK' end
-        'H_SNOW_tile_1':   param = 'SD'   end
-        'RHO_SNOW_tile_1': param = 'RSN'  end
-        'T_G':             param = 'SKT'  end
-        'swflxsfc_acc':    param = 'SSR'  ; scale= 1.0/86400.0/ddays end
-        'lwflxsfc_acc':    param = 'STR'  ; scale= 1.0/86400.0/ddays end
-        'swflxtoa_acc':    param = 'TSR'  ; scale= 1.0/86400.0/ddays end
-        'lwflxtoa_acc':    param = 'TTR'  ; scale= 1.0/86400.0/ddays end
-        'LHFL_S_acc':      param = 'SLHF' ; scale= 1.0/86400.0/ddays end
-        'SHFL_S_acc':      param = 'SSHF' ; scale= 1.0/86400.0/ddays end
-      end case
-      var_ana = read(  
-		SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb',
-		param    : param,
-		date     : verdate,
-		time     : vertime
-    	)
-      var_ana = var_ana * scale
-      end
-    otherwise:
-      var_ana = read(  
-		SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&'/NWP_iconR2B04_DOM01_'&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb', 
-		date     : verdate,
-		time     : vertime
-	    )
-	  end
-  end case 
-  
-  nlev = count(var_ana)
- #print(var_ana)
-end if
+  if stat <> 'snap' then
+    case levtype of
+      'pl':
+        param = varname
+        case varname of
+#         'T_P' : param = 'T' end
+#         'U_P' : param = 'U' end
+#         'V_P' : param = 'V' end
+#         'QV_P': param = 'Q' end
+          'FI'  : param = 'Z' end
+#         'R_P' : param = 'R' end
+        end case
+        temp = read(  
+                SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb',
+                param    : param,
+                date     : verdate,
+  		time     : vertime
+        )
+        end
+      'sfc':
+        scale  = 1.0
+       #ddays = date(verdate)+hour(vertime) - date(inidate)-hour(initime)
+        vertime1 = parse(vertime)
+        initime1 = parse(initime)
+        ddays = date(verdate)+vertime1[1]/24.0  - date(inidate)-initime1[1]/24.0
+        case varname of
+          'CLCT':            param = 'TCC'  end
+          'TQV':             param = 'TCWV' end
+          'TQC':             param = 'TCLW' end
+          'TQI':             param = 'TCIW' end
+          'U_10M':           param = '10U'  end
+          'V_10M':           param = '10V'  end
+          'T_2M':            param = '2T'   end
+         #'':                param = 'CP'   end
+         #'':                param = 'LSP'  end
+          'TOT_PREC':        param = 'TP'  ; scale=1000.0 end
+         #'':                param = 'SSTK' end
+          'H_SNOW_tile_1':   param = 'SD'   end
+          'RHO_SNOW_tile_1': param = 'RSN'  end
+          'T_G':             param = 'SKT'  end
+          'ACCSOB_S':        param = 'SSR'  ; scale= 1.0/86400.0/ddays end
+          'ACCTHB_S':        param = 'STR'  ; scale= 1.0/86400.0/ddays end
+          'ACCSOB_T':        param = 'TSR'  ; scale= 1.0/86400.0/ddays end
+          'ACCTHB_T':        param = 'TTR'  ; scale= 1.0/86400.0/ddays end
+          'ACCLHFL_S':       param = 'SLHF' ; scale= 1.0/86400.0/ddays end
+          'ACCSHFL_S':       param = 'SSHF' ; scale= 1.0/86400.0/ddays end
+        end case
+        temp = read(  
+  		SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb',
+  		param    : param,
+  		date     : verdate,
+  		time     : vertime
+      	)
+        temp = temp * scale
+        end
+      otherwise:
+        temp = read(  
+                SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+                           '/NWP_icon'&exphres&'_DOM01_'&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb', 
+#  		SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+#                          '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_ML_0001.grb',
+#               param    : varname,
+#               levtype  : levtype,
+   		date     : verdate,
+   		time     : vertime
+  	)
+        end
+    end case
 
+    if nd=1 then
+      nlev    = count(temp)
+      var_ana = temp
+     #print(var_ana)
+    else
+      var_ana = var_ana & temp
+    end if
+  end if
+
+  inidate = inidate + 1
+  verdate = verdate + 1
+
+end for
 
 #-----------------------------------------------------------------------
 #--- processing
 
 case stat of
-  'diff':var_diff = var_exp-var_ana
+  'diff':var_data = var_exp-var_ana
   end
-  'snap':var_diff = var_exp
+  'snap':var_data = var_exp
   end
-  'ctr': var_diff = var_ana
+  'ctr': var_data = var_ana
   end
 end case
 
+var_data = avgtime_met(var_data,nlev,ndays)
 
 if mode = 'visualize' or mode = 'prepare' then  
   nlev=1
@@ -176,16 +275,21 @@ end if
 for k=1 to nlev do 
 
   if mode = 'visualize' or mode = 'prepare' then  
-    var_diff_k = var_diff
+    var_data_k = var_data
   else
-    var_diff_k = var_diff[k]
+    var_data_k = var_data[k]
   end if
   
-  statistic = 'Min:  '&minvalue(var_diff_k)&'   Mean:  '&integrate(mean(var_diff_k))&'   Max:  '&maxvalue(var_diff_k)
+  statistic   = 'Min:  ' &minvalue(var_data_k)&'   Max:  '&maxvalue(var_data_k)&
+             '   Mean:  '&integrate(mean(var_data_k))
+  if stat = 'diff' then 
+    statistic = statistic&'   RMS:  '&sqrt(integrate(var_data_k*var_data_k))
+  end if
+
   if levtype = 'pl' then
-    title1    = title&'    L'&k
+    title1   = title&'    L'&k
   else
-    title1    = title&'    L'&k  
+    title1   = title&'    L'&k  
   end if
 
 
@@ -195,17 +299,23 @@ for k=1 to nlev do
   level_type  = 'level_list'    #exponential
   level_count = 12
  #min_level   = 0
- #max_level   = 40        # 20               0.03   40
+ #max_level   = 4        # 20               0.03   40
 
-  min_level  = minvalue(var_diff_k)
-  max_level  = max(-minvalue(var_diff_k),maxvalue(var_diff_k))
+  min_level  = minvalue(var_data_k)
+  max_level  = max(-minvalue(var_data_k),maxvalue(var_data_k))
   if max_level > 0.0 then
     max_level  = 4*round( max_level/4, -round(log10(max_level/4),0)+1 )
   end if
 
+#custom contours:
+#level_count = 14
+#min_level   = 0.01
+#max_level   = 0.16
+
  #level_list = [-20,-10,-5,-2,-1, 1,2,5,10,20]
   level_list = [-max_level, -max_level/2, -max_level/4, -max_level/8, -max_level/16, max_level/16, max_level/8, max_level/4, max_level/2, max_level]
 
+#level_list = [1, 1.4, 2, 2.8, 4, 5.7, 8, 11.3, 16, 22.6, 32, 45.2]
 
 #-----------------------------------------------------------------------
 # --- Plot setup
@@ -217,58 +327,59 @@ for k=1 to nlev do
         text_font_size  :   0.6,
         TEXT_COLOUR     :   'BLACK' 
     )
-  
-  neg = mcont(  
-		CONTOUR                        : 'OFF', 
-		CONTOUR_LEVEL_SELECTION_TYPE   : 'COUNT', 
-		CONTOUR_LEVEL_COUNT            : level_count,
-		CONTOUR_MAX_LEVEL              : -min_level, 
-		CONTOUR_MIN_LEVEL              : -max_level, 
-		CONTOUR_SHADE                  : 'ON', 
-		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
-		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'YELLOW' 
-	) 
-  pos = mcont(  
-		CONTOUR                        : 'OFF', 
-		CONTOUR_LEVEL_SELECTION_TYPE   : 'COUNT', 
-		CONTOUR_LEVEL_COUNT            : level_count,
-		CONTOUR_MAX_LEVEL              : max_level, 
-		CONTOUR_MIN_LEVEL              : min_level, 
-		CONTOUR_SHADE                  : 'ON', 
-		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
-		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'BLUE_PURPLE', 
-		CONTOUR_SHADE_MIN_LEVEL_COLOUR : 'YELLOW' 
-	)
+
   all = mcont(  
+                LEGEND                         : 'ON',
 		CONTOUR                        : 'OFF', 
 		CONTOUR_LEVEL_SELECTION_TYPE   : 'COUNT', 
+#		CONTOUR_LEVEL_SELECTION_TYPE   : 'LEVEL_LIST', 
 		CONTOUR_LEVEL_COUNT            : level_count,
+#		contour_level_list             : level_list,
 #		CONTOUR_MAX_LEVEL              : max_level, 
-# 		CONTOUR_MIN_LEVEL              : min_level, 
+# 		CONTOUR_MIN_LEVEL              : min_level,
+                CONTOUR_LABEL                  : 'OFF',
 		CONTOUR_SHADE                  : 'ON', 
 		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
-		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'RED', 
-		CONTOUR_SHADE_MIN_LEVEL_COLOUR : 'BLUE_PURPLE',
-        contour_shade_colour_direction : "clockwise"
-	)
-  cont = mcont(  
-		CONTOUR                        : 'OFF', 
+#		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'RED', 
+#		CONTOUR_SHADE_MIN_LEVEL_COLOUR : 'BLUE_PURPLE',
+#               contour_shade_colour_direction : "clockwise"
+		contour_shade_colour_method    : "list",
+                contour_shade_colour_list      : [                         # 12 colors:
+                                                 "RGB(0.0 , 0.2 , 0.6)",   # dark blue
+                                                 "RGB(0.2 , 0.4 , 0.7)",   #  i
+                                                 "RGB(0.4 , 0.6 , 0.8)",   #  i
+                                                 "RGB(0.6 , 0.8 , 0.9)",   #  i
+                                                 "RGB(0.9 , 0.95, 1.0)",   # light blue
+                                                 "RGB(0.93, 0.9 , 0.85)",  #  i
+                                                 "RGB(0.96, 0.85, 0.75)",  #  i
+                                                 "RGB(1.0 , 0.8 , 0.6)",   # light beige 
+                                                 "RGB(0.95, 0.6 , 0.45)",  #  i
+                                                 "RGB(0.9 , 0.4 , 0.3)",   #  i 
+                                                 "RGB(0.8 , 0.2 , 0.15)",  #  i
+                                                 "RGB(0.7 , 0.0 , 0.0)" ]  # dark red
+        )
+  cont = mcont(
+                LEGEND                         : 'ON',
+		CONTOUR                        : 'OFF',
 		CONTOUR_LEVEL_SELECTION_TYPE   : level_type, 
 		CONTOUR_LEVEL_COUNT            : level_count,
 		CONTOUR_MAX_LEVEL              : max_level, 
 		CONTOUR_MIN_LEVEL              : -max_level, 
 		contour_level_list             : level_list,
+                CONTOUR_LABEL                  : 'OFF',
 		CONTOUR_SHADE                  : 'ON', 
 		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
 		contour_shade_colour_method    : "list",
 #		contour_shade_colour_list      : ["red","orange","orange_yellow","yellow","white","white","green","blue_green","blue","blue_purple"]
-		contour_shade_colour_list      : ["blue_purple", "blue", "blue_green", "green", "white", "yellow", "orange_yellow", "orange","red"]
+#		contour_shade_colour_list      : ["blue_purple", "blue", "blue_green", "green", "white", "yellow", "orange_yellow", "orange","red"]
 #		contour_shade_colour_list      : ["red","orange","yellow","white","white","green","blue_green","blue"]
+                contour_shade_colour_list      : ["RGB(0.0,0.2,0.7)", "RGB(0.3,0.5,0.8)", "RGB(0.6,0.7,0.9)", "RGB(0.9,0.95,1.0)", "white", 
+                                                  "RGB(1.0,0.9,0.7)", "RGB(0.9,0.6,0.4)", "RGB(0.8,0.3,0.2)", "RGB(0.7,0.0 ,0.0)" ]                   # 9
  	)  
 
   legend = mlegend(
-        legend_text_colour    :    "black",
-        legend_text_height    :    0.4
+        legend_text_colour      :    "black",
+        legend_text_font_size   :    0.4
         )
 
 
@@ -288,15 +399,15 @@ for k=1 to nlev do
 
 
   if stat = 'diff' then
-    plot ( display_window[1], text, var_diff_k, cont, legend ) 
+    plot ( display_window[1], text, var_data_k, cont, legend ) 
   else
-    plot ( display_window[1], text, var_diff_k, all,  legend )
+    plot ( display_window[1], text, var_data_k, all,  legend )
   end if
 
 end for
 
-print('output: ',plotfile,'*.ps')
-#shell('gv '&plotfile&'.ps&')
+print('output: ',plotfile,'*.*')
+#shell('xv '&plotfile&'*.png&')
 
 
 #-----------------------------------------------------------------------
@@ -312,10 +423,10 @@ function build_layout()
     Global = mapview(  
     		MAP_PROJECTION              : "CYLINDRICAL", 
     		AREA                        : [ -90,-180,90,180 ], 
-    		SUBPAGE_X_POSITION          : 7.5, 
-    		SUBPAGE_Y_POSITION          : 5, 
-    		SUBPAGE_X_LENGTH            : 85, 
-    		SUBPAGE_Y_LENGTH            : 85, 
+    		SUBPAGE_X_POSITION          : 5, 
+    		SUBPAGE_Y_POSITION          : 12, 
+    		SUBPAGE_X_LENGTH            : 90, 
+    		SUBPAGE_Y_LENGTH            : 90, 
     		PAGE_FRAME                  : "ON", 
     		PAGE_FRAME_COLOUR           : "BLUE", 
     		PAGE_FRAME_LINE_STYLE       : "SOLID", 
@@ -360,3 +471,27 @@ function build_layout()
 
 end build_layout
 
+
+#-----------------------------------------------------------------------
+# --- Metview function to average many 3D fields.
+
+function avgtime_met(fields,nfld,nsteps)
+
+   for i=1 to nfld do
+      onefld  = fields[i,i+((nsteps-1)*nfld),nfld]
+      meanfld = mean(onefld)
+      if i=1 then
+         meanall=meanfld
+      else
+         meanall=meanall & meanfld
+      end if		
+   end for
+   return meanall
+
+end avgtime_met
+
+
+#-----------------------------------------------------------------------
+# --- Fortran function to average many 3D fields.
+
+#include "avgtime.f90"
