@@ -879,7 +879,7 @@ CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , KSTE
              & PVAR    , &
 !xxx
 !amk
-             & LDLAND , &   
+             & LDLAND  , &   
 !xxx
              & PBIR    , LDNODECP, LLRUNDRY, KPBLTYPE, ZWQT2 )
 

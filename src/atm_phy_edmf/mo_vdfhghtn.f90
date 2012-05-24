@@ -49,9 +49,9 @@ SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , K
                    & PAPHM1  , PAPM1   , PGEOM1  , PGEOH  , PVERVEL , PQE    , PTE      , &
                    & PKMFL   , PKHFL   , PKQFL   , PMFLX  , &
 ! DIAGNOSTIC OUTPUT
-                   & PEXTR2  , KFLDX2  , PEXTRA  , KLEVX  , KFLDX   , JCNT   , LLDIAG,&
+                   & PEXTR2  , KFLDX2  , PEXTRA  , KLEVX  , KFLDX   , JCNT   , LLDIAG   , &
 !                   
-                   & PUUH    , PVUH    , PSLGUH  , PQTUH  , PFRACB  , PWUH  , &
+                   & PUUH    , PVUH    , PSLGUH  , PQTUH  , PFRACB  , PWUH   , &
                    & PZPTOP  , KPTOP   , PZPLCL  , KPLCL  , KPLZB   , &
                    & PWUAVG  , PRICUI  , PMCU    , PDTHV  , &
                    & PFPLVL  , PFPLVN  , PDETR   , &
@@ -59,7 +59,7 @@ SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , K
                    & PVAR    , &
 !xxx
 !amk
- & LDLAND , &   
+                   & LDLAND  , &   
 !xxx
                    & PBIR    , LDNODECP, LDRUNDRY, KPBLTYPE, PWQT2)
                    

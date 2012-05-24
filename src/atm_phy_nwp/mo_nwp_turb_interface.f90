@@ -862,18 +862,21 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !       & PDHTIS  = ...                                         &! (OUT)  optional out: DDH
         & )
 
-! Update QV, QC, QI and temperature with turbulence tendencies
+
+! Turbulence updating strategy:
+! * Update T, QV, QC, QI with turbulence tendencies
+! * Give U, V tendencies to dynamics
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
-          p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
-          p_prog_rcf%tracer(jc,jk,jb,iqi) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
-          p_diag%temp(jc,jk,jb) =                           p_diag%temp(jc,jk,jb) &
-           &               + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+          p_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
+                        & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
+          p_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
+                        & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+          p_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
+                        & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
+          p_diag%temp(jc,jk,jb) =                          p_diag%temp(jc,jk,jb) &
+                        & + tcall_turb_jg * prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
       ENDDO
 
@@ -883,6 +886,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         prm_diag%shfl_s(jc,jb) = shfl_s_t(jc,1)           ! should be tile mean !!!
         prm_diag%lhfl_s(jc,jb) = evap_s_t(jc,1) * alv     ! should be tile mean !!!
       ENDDO
+
 
     ENDIF !inwp_turb
 
