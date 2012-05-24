@@ -25,7 +25,9 @@ echo "INIT_DATA.SMS"
 
 REQUEST_DATE="%REQUEST_DATE%"
 
+IFSCONFIGFILE="%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf"
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
+IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%"
 GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
 CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
 RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
@@ -41,13 +43,24 @@ export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-
 # Change directory ----------------------------
 smsevent change_dir
 cd ${IFSDATADIR}
-IFS_FILENAME="${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb"
+
+# create IFSDATAOUTDIR, if necessary
+if [ ! -d ${IFSDATAOUTDIR} ]; then
+    mkdir -p ${IFSDATAOUTDIR}
+fi
+
+cp ${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb ${IFSDATAOUTDIR}
+IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_${REQUEST_DATE}.grb"
 
 module unload cdo
 module load cdo/1.5.0
+
+# The following environment variable is important for the "cdo splitname" command (Otherwise: "Not enough space")
+export LDR_CNTRL=MAXDATA=0xD0000000@DSA
+
    
 # Compute weights for ifs2icon ----------------
-if [ -f "cellweights/initialized.flag" ];
+if [ -f "${IFSDATADIR}/cellweights/initialized.flag" ];
 then
    echo "CDO cell weights already computed!"
 else
@@ -85,30 +98,37 @@ fi
 # Prepare IFS data for ICON -------------------
 smsevent ifs2icon 
 
+cd ${TMPDIR}
 export INPUTFILE=${IFS_FILENAME}
 
    # Build a temporary shell script for IFS2ICON processing
 
-cat > ${IFSDATADIR}/run_ifs2icon << EOF
+cat > run_ifs2icon << EOF
 #!/bin/ksh
 set -x
 # cut path from file name
 GRIDFILENAME=\`echo \$1 | awk -F/ '{print \$NF}'\`
-# set environment variables for Ruby script:
-export INPUTFILE=${IFS_FILENAME}
-export OUTPUTFILE=${IFSDATADIR}/ifs2icon_\${GRIDFILENAME}
-export GRIDFILE=${GRIDDIR}/\${GRIDFILENAME}
-export CELLWEIGHTFILE=${IFSDATADIR}/cellweights/\${GRIDFILENAME}
-# process grid file:
-echo "IFS2ICON: Processing \$1..."
-${RUBYBIN} ${IFS2ICON} -c ${IFSDATADIR}/config/ifs2icon_1279.conf
+# do not process DOM00 (reduced radiation grid):
+if [[ "\${GRIDFILENAME}" == *DOM00.nc ]]
+then
+  echo "Skipping reduced radiation grid \${GRIDFILENAME}"
+else
+    # set environment variables for Ruby script:
+    export INPUTFILE=${IFS_FILENAME}
+    export OUTPUTFILE=${IFSDATAOUTDIR}/ifs2icon_\${GRIDFILENAME}
+    export GRIDFILE=${GRIDDIR}/\${GRIDFILENAME}
+    export CELLWEIGHTFILE=${IFSDATADIR}/cellweights/\${GRIDFILENAME}
+    # process grid file:
+    echo "IFS2ICON: Processing \$1..."
+    ${RUBYBIN} ${IFS2ICON} -c ${IFSCONFIGFILE}
+fi
 echo "done."
 EOF
 
-   chmod +x ${IFSDATADIR}/run_ifs2icon
-   find ${GRIDDIR} -name "*.nc" -exec ${IFSDATADIR}/run_ifs2icon {} \;
+   chmod +x run_ifs2icon
+   find ${GRIDDIR} -name "*.nc" -exec ./run_ifs2icon {} \;
 
-   rm ${IFSDATADIR}/run_ifs2icon
+   rm run_ifs2icon
 
 
 # Rename the resulting files ------------------
@@ -116,23 +136,31 @@ EOF
 
    # Build a temporary shell script
 
-cat > ${IFSDATADIR}/do_rename << EOF
+cat > do_rename << EOF
 #!/bin/ksh
 set -x
 # cut path from file name
 GRIDFILENAME=\`echo \$1 | awk -F/ '{print \$NF}'\`
-# original name of IFS2ICON result
-IFS2ICONNAME="ifs2icon_\${GRIDFILENAME}"
-# generate new file name
-NEW_FILENAME=\`echo \${IFS2ICONNAME} | awk '{str=\$0;sub(/ifs2icon_icon/,"ifs2icon_",str);print str;}'\`
-# rename file
-mv \${IFS2ICONNAME} \${NEW_FILENAME}
+# do not process DOM00 (reduced radiation grid):
+if [[ "\${GRIDFILENAME}" == *DOM00.nc ]]
+then
+  echo "Skipping reduced radiation grid \${GRIDFILENAME}"
+else
+    # original name of IFS2ICON result
+    IFS2ICONNAME="ifs2icon_\${GRIDFILENAME}"
+    # generate new file name
+    NEW_FILENAME=\`echo \${IFS2ICONNAME} | awk '{str=\$0;sub(/ifs2icon_icon/,"ifs2icon_",str);print str;}'\`
+    # rename file
+    mv ${IFSDATAOUTDIR}/\${IFS2ICONNAME} ${IFSDATAOUTDIR}/\${NEW_FILENAME}
+    # give status output
+    ${CDOBIN} infov ${IFSDATAOUTDIR}/\${NEW_FILENAME}
+fi
 EOF
 
-   chmod +x ${IFSDATADIR}/do_rename
-   find ${GRIDDIR} -name "*.nc" -exec ${IFSDATADIR}/do_rename {} \;
+   chmod +x do_rename
+   find ${GRIDDIR} -name "*.nc" -exec do_rename {} \;
 
-   rm ${IFSDATADIR}/do_rename
+   rm do_rename
 
 
 

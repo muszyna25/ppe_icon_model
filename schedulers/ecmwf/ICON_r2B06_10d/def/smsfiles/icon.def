@@ -23,7 +23,7 @@ setenv -i TMPDIR
 set UID `id -u`
 
 # global definitions:
-set  SUITE_NAME   "ICON_r2B06_10d"
+set SUITE_NAME    "ICON_r2B06_10d"
 set FIRST_DATE    20120213
 set LAST_DATE     20191231
 set REQUEST_DATE  "2012051400"
@@ -90,14 +90,14 @@ suite icon
 
     # init local variables:
     set ENABLE_INIT               1
-    set     ENABLE_GET_DATA       1
+    set     ENABLE_GET_DATA       0
     set     ENABLE_INIT_DATA      1
-    set     ENABLE_BUILD          1
+    set     ENABLE_BUILD          0
     set         ENABLE_INIT_SVN   1
     set ENABLE_FORECAST           1
     set     ENABLE_DUMPSTATE      1
     set     ENABLE_MODEL          1
-    set ENABLE_POST               1
+    set ENABLE_POST               0
 
     edit SUITE_NAME   $SUITE_NAME
     edit REQUEST_DATE $REQUEST_DATE
@@ -128,6 +128,9 @@ suite icon
             on_ecgate
             defstatus unknown
             label date "$REQUEST_DATE"
+            #
+            event enable_build
+            event enable_dumpstate
     endfamily
 
 
@@ -166,10 +169,10 @@ suite icon
             event ifs2icon
 
         family build
-            complete (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0))
-
-            task init_svn
-                complete ($ENABLE_INIT_SVN == 0)
+            trigger (/icon/ifs_fct/fct_ifs == complete)
+            #
+            task init_svn 
+                complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) 
                 #
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
@@ -182,13 +185,14 @@ suite icon
                 event clear_directory
 
             task init_build
-                trigger init_svn==complete
-                #
+                trigger (init_svn==complete)
+                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) 
+                 #
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
                 edit SCTOTALTASKS 4
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 05:00:00
                 #
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0)) then
                     label status "skipped"
@@ -223,7 +227,7 @@ suite icon
                 event clear_directory
 
             task dumpstate
-                complete ($ENABLE_DUMPSTATE == 0)
+#                complete ($ENABLE_DUMPSTATE == 0) or not (/icon/ifs_fct/fct_ifs:enable_dumpstate)
                 trigger (pre_clean == complete)
                 #
                 on_hpc_parallel

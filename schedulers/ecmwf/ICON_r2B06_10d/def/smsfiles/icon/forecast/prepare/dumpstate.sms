@@ -30,12 +30,11 @@ EXP=%SUITE_NAME%
 echo "DUMPSTATE.SMS"
 set -x
 
-# directory for dump state output
-DUMPSTATEDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/dumpstate"
 # directory where the case setup is stored
 SETUPDIR="%SCBASEDIR%/%SUITE_NAME%/def"
 
-
+# ifsdir
+ifsdir=%SCTEMP%/input/%SUITE_NAME%
 # base directory
 basedir="%SCBASEDIR%/%SUITE_NAME%/cluster"
 # output base directory
@@ -86,29 +85,23 @@ if [ "${stage}" = "total" ] ; then
     lrestore_states=.FALSE.
 fi
 
-# If no dump state available: create one ------
-if [ -f "${DUMPSTATEDIR}/initialized.flag" ];
-then
-   echo "CDO cell weights already computed!"
-else
 
-   # include experiment parameters
-   smsevent prepare
+# include experiment parameters
+smsevent prepare
 
-   . ${SETUPDIR}/case_setup
+. ${SETUPDIR}/case_setup
 
-   # copy binary and execute in parallel
-   smsevent create_dumpstate
-   cp -p $MODEL ./icon.exe
-   
-   echo "job::start"
-   date
-   ./icon.exe
-   echo "job::end"
-   date
+# copy binary and execute in parallel
+smsevent create_dumpstate
+cp -p $MODEL ./icon.exe
 
-   touch "initialized.flag"
-fi
+echo "job::start"
+date
+./icon.exe
+echo "job::end"
+date
+
+
 
 
 # -------------------------------------------------

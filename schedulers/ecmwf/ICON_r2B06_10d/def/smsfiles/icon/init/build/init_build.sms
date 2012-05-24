@@ -39,7 +39,7 @@ module swap fortran fortran/xlf/13.1.0.9
 
 # Run configure script ------------------------
 smsevent configure
-./configure --with-flags=hiopt
+./configure # --with-flags=hiopt
 
 # Submit ''Make'' -----------------------------
 smsevent make

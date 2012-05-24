@@ -12,6 +12,7 @@
 #@ wall_clock_limit = %SCWALLCLOCKLIMIT%
 #@ resources        = ConsumableMemory(1500MB)
 #@ queue
+#@ core_limit = unlimited
 
 
 #==========================================================================
