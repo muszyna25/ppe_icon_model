@@ -682,10 +682,10 @@ run/run_ICONAM_R2B4_APE -text
 run/run_ICONAM_R2B4_NWP -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
-schedulers/ecmwf/ICON_r2B06_10d/cluster/input/ifs2icon/config/ifs2icon_1279.conf -text
 schedulers/ecmwf/ICON_r2B06_10d/def/bin/date_fmt.awk -text
 schedulers/ecmwf/ICON_r2B06_10d/def/bin/logserver -text
 schedulers/ecmwf/ICON_r2B06_10d/def/case_setup -text
+schedulers/ecmwf/ICON_r2B06_10d/def/ifs2icon_1279.conf -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/end_job.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/head.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/init_icon_job.h -text
