@@ -791,21 +791,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     ALLOCATE( diag%tot_ptr(kcloud))
     vname_prefix='tot_'
 
-           !CC
-        CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'cc', diag%tot_ptr(icc)%p_3d,                &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
-                    & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),      &
-                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL),         &
-                    & ldims=shape3d,                                                   &
-                    & vert_interp=create_vert_interp_metadata(                         &
-                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
-                    &             vert_intp_method=VINTP_METHOD_LIN,                   &
-                    &             l_loglin=.FALSE.,                                    &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
-                    &             lower_limit=0._wp ),                                 &
-                    & in_group=groups("cloud_diag") )
-
            !QV
         CALL add_ref( diag_list, 'tot_cld',                                            &
                     & TRIM(vname_prefix)//'qv', diag%tot_ptr(iqv)%p_3d,                &
@@ -843,6 +828,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                           &
                     & 'total_specific_cloud_ice_content'),                             &
                     & t_grib2_var(0, 1, 84, ientr, GRID_REFERENCE, GRID_CELL),         &
+                    & ldims=shape3d,                                                   &
+                    & vert_interp=create_vert_interp_metadata(                         &
+                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                   &
+                    &             l_loglin=.FALSE.,                                    &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
+                    &             lower_limit=0._wp ),                                 &
+                    & in_group=groups("cloud_diag") )
+
+           !CC
+        CALL add_ref( diag_list, 'tot_cld',                                            &
+                    & TRIM(vname_prefix)//'cc', diag%tot_ptr(icc)%p_3d,                &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
+                    & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),      &
+                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL),         &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
