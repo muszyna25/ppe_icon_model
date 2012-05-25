@@ -79,7 +79,7 @@ INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
 INLINE   = $INLINE -pi rexp=foelhmcu,foeewmcu,foeewm,foeldcp,foeldcpm
 INLINE   = $INLINE -pi rexp=foeewm_v,foeewmcu_v,foedem,foeldcpmcu,foedemcu
 INLINE   = $INLINE -pi rexp=foeewl,foeewi
-INLINE   = $INLINE -pi rexp=foealfa,vdfthermo,psimu,phihs,phims,psihu,psihs,vdfpdftable,psims,foeew,foedesu
+INLINE   = $INLINE -pi rexp=foealfa,vdfthermo,psimu,phihs,phims,psihu,psihs,vdfpdftable,psims,foeew,foedesu,vdfsat
 INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
 INLINE   = $INLINE -pi rexp=p_wait
 

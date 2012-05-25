@@ -1369,6 +1369,8 @@ DO JL=KIDIA,KFDIA
 ENDDO
 !xxx
 
+ZDQTDZ(:,:)  = 0._JPRB
+
 DO JK=KLEV-1,2,-1
   DO JL=KIDIA,KFDIA
     
@@ -1394,7 +1396,6 @@ DO JK=KLEV-1,2,-1
       ZVARDISS   = 0._JPRB
       ZVARGEN    = 0._JPRB
       ZVARTRANS  = 0._JPRB
-      ZDQTDZ  = 0._JPRB
       ZWQTF   = 0._JPRB
       
       IF (LLPBL(JL,JK)) THEN
@@ -1626,31 +1627,31 @@ ENDDO
       PAE(JL,JK) = ( ZAUPD(JL,JK) - PAM1(JL,JK) ) * ZRTMST
       
 !amk: debug
-IF ( PTE(JL,JK)  > 30.0/3600 ) THEN
-  WRITE(*,*) 'PTE>30K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
-ENDIF
-IF ( PVOM(JL,JK) > 30.0/3600 ) THEN
-  WRITE(*,*) 'PVOM>30m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
-ENDIF
-IF ( PVOL(JL,JK) > 30.0/3600 ) THEN
-  WRITE(*,*) 'PVOL>30m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
-ENDIF
+!IF ( PTE(JL,JK)  > 30.0/3600 ) THEN
+!  WRITE(*,*) 'PTE>30K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
+!ENDIF
+!IF ( PVOM(JL,JK) > 30.0/3600 ) THEN
+!  WRITE(*,*) 'PVOM>30m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
+!ENDIF
+!IF ( PVOL(JL,JK) > 30.0/3600 ) THEN
+!  WRITE(*,*) 'PVOL>30m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
+!ENDIF
 !xxx
 
     ENDDO
   ENDDO
 
 !amk: debug
-  DO JK=1,KLEV
-    DO JL=KIDIA,KFDIA
-      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
-        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
-      ENDIF
-      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
-        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
-      ENDIF
-    ENDDO
-  ENDDO
+!  DO JK=1,KLEV
+!    DO JL=KIDIA,KFDIA
+!      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
+!        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
+!      ENDIF
+!      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
+!        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
+!      ENDIF
+!    ENDDO
+!  ENDDO
 !xxx
 
 

@@ -361,10 +361,10 @@ DO JK=1,KLEV-1
       ZX0(:)    = (/ PSLGM(JL,JK)/RCPD   , 1000._JPRB * PQTM(JL,JK)   , 0._JPRB /)
       ZXMEAN(:) = ZX1(:)
       ZNORM     = SQRT(DOT_PRODUCT(ZX1(:) - ZX0(:),ZX1(:) - ZX0(:)))
-      IF (ZNORM.EQ.0.) THEN
+      !IF (ZNORM.EQ.0.) THEN
         !-- Protection against zero length: assume mixing line = dry zero buoyancy line --
-        print '(a)',"zero length mixing line vector - terror!"
-      ENDIF  
+      !  print '(a)',"zero length mixing line vector - terror!"
+      !ENDIF  
       ZNX(:) = (ZX1(:) - ZX0(:))  / ZNORM
       
       
