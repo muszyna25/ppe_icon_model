@@ -117,15 +117,24 @@ MODULE mo_icon_comm_lib
   !--------------------------------------------------------------
   ! grid locations.
   ! Note that these are used also as indexes for the communication patterns
-  INTEGER, PARAMETER ::  cells_not_in_domain = 1
-  INTEGER, PARAMETER ::  cells_not_owned = cells_not_in_domain
-  INTEGER, PARAMETER ::  cells_one_edge_in_domain = 2
-  INTEGER, PARAMETER ::  edges_not_owned = 3
-  INTEGER, PARAMETER ::  edges_not_in_domain = 4
-  INTEGER, PARAMETER ::  verts_not_owned = 5
-  INTEGER, PARAMETER ::  verts_not_in_domain = 6
-  INTEGER, PARAMETER ::  max_comm_patterns = 6
 
+  ! Halo comm patterns: these will eventually be specialized
+  INTEGER ::  cells_not_in_domain = -1
+  INTEGER ::  cells_not_owned = -1          ! = cells_not_in_domain
+  INTEGER ::  cells_one_edge_in_domain = -1
+  INTEGER ::  edges_not_owned = -1
+  INTEGER ::  edges_not_in_domain = -1
+  INTEGER ::  verts_not_owned = -1
+  INTEGER ::  verts_not_in_domain = -1
+
+  ! non halo comm patterns, these should eventually go to a different universe
+  INTEGER :: radiation_repartition
+
+  !--------------------------------------------------------------
+  INTEGER ::  max_comm_patterns = 0
+  INTEGER, PARAMETER ::  allocated_comm_patterns = 12
+
+  !--------------------------------------------------------------
   ! grid dimensions
   INTEGER, PARAMETER ::  grid_2D = 2
   INTEGER, PARAMETER ::  grid_3D = 3
@@ -144,9 +153,9 @@ MODULE mo_icon_comm_lib
      INTEGER :: pid             ! the process to communicate to
      
      INTEGER :: start_index      ! the start point in the whole bufffer
-     INTEGER :: end_index        ! the start point in the whole bufffer
-     INTEGER :: current_index    ! the start point in the whole bufffer
-     INTEGER :: buffer_size      ! the start point in the whole bufffer
+     INTEGER :: end_index        ! the end   point in the whole bufffer
+     INTEGER :: current_index    ! the current point in the whole bufffer
+     INTEGER :: buffer_size      ! the size of this comm to process bufffer
        
   END TYPE t_comm_process_buffer
   !--------------------------------------------------------------
@@ -194,10 +203,10 @@ MODULE mo_icon_comm_lib
     INTEGER :: request                         ! not_active, ...
     INTEGER :: comm_status                     ! not_active, ...
     INTEGER :: comm_buffer                     ! for future use
-    INTEGER :: scope                           ! temorary= will be deleted after sync
+    INTEGER :: scope                           ! until_sync = temporary, will be deleted after sync
                                                ! global = will be kept until deleted
      
-    INTEGER :: grid_location                   ! location where varibake lives:
+    INTEGER :: comm_pattern_index                   ! location where variable lives:
                                                  ! edges, vertices, cells
     INTEGER :: grid_dim                        ! 1D, 2D 3D
     TYPE(t_patch), POINTER :: p_patch          ! the patch the varibale exists
@@ -230,7 +239,7 @@ MODULE mo_icon_comm_lib
   TYPE(t_comm_process_buffer), TARGET :: recv_procs_buffer(max_no_of_comm_processes)
   
   TYPE(t_grid_comm_pattern), TARGET ::  &
-    & grid_comm_pattern_list(max_comm_patterns, max_no_of_patches)
+    & grid_comm_pattern_list(allocated_comm_patterns, max_no_of_patches)
 
   ! At the moment we only have on sett of communication buffers
   ! This means that only one communation bulk can be executed each time
@@ -370,11 +379,10 @@ CONTAINS
     INTEGER :: i
     CHARACTER(*), PARAMETER :: method_name = "init_icon_comm_patterns"
     
+    max_comm_patterns = 0
     IF(this_is_mpi_sequential) RETURN
-
     ! set id of grid_comm_pattern_list to identity
     DO i = 1, max_comm_patterns
-      grid_comm_pattern_list(i,p_patch%id)%id = i
     ENDDO
 
 #ifdef _OPENMP
@@ -388,12 +396,13 @@ CONTAINS
     ! halo cells comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern cells_not_in_domain..."
-    CALL setup_grid_comm_pattern(grid_comm_pattern_list(cells_not_in_domain, p_patch%id),&
+    cells_not_in_domain = new_halo_comm_pattern(p_patch%id, &
       & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
       & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
       & name="cells_not_in_domain" )
-            
-    CALL setup_grid_comm_pattern(grid_comm_pattern_list(cells_one_edge_in_domain, p_patch%id),&
+    cells_not_owned = cells_not_in_domain
+               
+    cells_one_edge_in_domain = new_halo_comm_pattern(p_patch%id,&
       & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
       & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
       & halo_level=p_patch%cells%halo_level, level_start=1, level_end=1,&
@@ -402,12 +411,12 @@ CONTAINS
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern edges_not_owned..."
-    CALL setup_grid_comm_pattern(grid_comm_pattern_list(edges_not_owned, p_patch%id), &
+    edges_not_owned = new_halo_comm_pattern(p_patch%id, &
       & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
       & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
       & name="edges_not_owned")
     
-    CALL setup_grid_comm_pattern(grid_comm_pattern_list(edges_not_in_domain, p_patch%id),&
+    edges_not_in_domain = new_halo_comm_pattern(p_patch%id,&
       & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
       & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
       & halo_level=p_patch%edges%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
@@ -416,12 +425,12 @@ CONTAINS
     ! halo verts comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern verts_not_owned..."
-    CALL setup_grid_comm_pattern(grid_comm_pattern_list(verts_not_owned, p_patch%id), &
+    verts_not_owned = new_halo_comm_pattern(p_patch%id, &
       & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
       & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
       & name="verts_not_owned" )
         
-    CALL setup_grid_comm_pattern(grid_comm_pattern_list(verts_not_in_domain, p_patch%id), &
+    verts_not_in_domain = new_halo_comm_pattern(p_patch%id, &
       & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
       & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
       & halo_level=p_patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
@@ -439,6 +448,33 @@ CONTAINS
  !   CALL finish("init_icon_comm_patterns","ends")
 
   END SUBROUTINE init_icon_comm_patterns
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION new_halo_comm_pattern(p_patch_id, total_no_of_points, &
+    & owner, global_index, local_index, halo_level, level_start, level_end, name)
+
+    INTEGER, INTENT(IN) :: p_patch_id
+    INTEGER, INTENT(in) :: total_no_of_points
+    INTEGER, INTENT(in) :: owner(:), global_index(:), local_index(:)
+    INTEGER, INTENT(in), OPTIONAL :: halo_level(:,:), level_start, level_end
+    CHARACTER(*), INTENT(in) :: name
+
+    max_comm_patterns = max_comm_patterns + 1
+    IF (max_comm_patterns > allocated_comm_patterns) THEN
+      CALL finish("new_halo_comm_pattern","max_comm_patterns > allocated_comm_patterns")
+    ENDIF
+       
+    grid_comm_pattern_list(max_comm_patterns,p_patch_id)%id = max_comm_patterns
+    
+    CALL setup_grid_comm_pattern(grid_comm_pattern_list(max_comm_patterns, p_patch_id), &
+      & total_no_of_points, owner, global_index, local_index, &
+      & halo_level, level_start, level_end, name)
+
+    new_halo_comm_pattern = max_comm_patterns
+
+  END FUNCTION new_halo_comm_pattern
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -792,9 +828,9 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r4d(var,  grid_location, p_patch, vertical_layers, &
+  INTEGER FUNCTION new_comm_variable_r4d(var,  comm_pattern_index, p_patch, vertical_layers, &
     & no_of_variables, status, scope, name )
-    INTEGER, INTENT(IN)       :: grid_location
+    INTEGER, INTENT(IN)       :: comm_pattern_index
     TYPE(t_patch), INTENT(IN) :: p_patch
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
     REAL(wp), POINTER  :: var(:,:,:,:)
@@ -820,10 +856,10 @@ CONTAINS
     var_3d => var(:,:,:,1)
     IF (PRESENT(vertical_layers)) THEN
       new_comm_variable_r4d = &
-        & new_comm_variable_r3d(var_3d,  grid_location, p_patch, vertical_layers)
+        & new_comm_variable_r3d(var_3d,  comm_pattern_index, p_patch, vertical_layers)
     ELSE
       new_comm_variable_r4d = &
-        & new_comm_variable_r3d(var_3d,  grid_location, p_patch)
+        & new_comm_variable_r3d(var_3d,  comm_pattern_index, p_patch)
     ENDIF
     
     comm_variable(new_comm_variable_r4d)%values_4d => var
@@ -860,10 +896,10 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-!   INTEGER FUNCTION new_comm_variable_r3d_target(var,  grid_location, p_patch, &
+!   INTEGER FUNCTION new_comm_variable_r3d_target(var,  comm_pattern_index, p_patch, &
 !     & vertical_layers, status, scope, name)
 !     
-!     INTEGER, INTENT(IN)       :: grid_location
+!     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     TYPE(t_patch), INTENT(IN) :: p_patch
 ! !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
 !     REAL(wp), TARGET, INTENT(inout) :: var(:,:,:)
@@ -880,7 +916,7 @@ CONTAINS
 ! 
 !     p_var => var
 !     new_comm_variable_r3d_target = &
-!       & new_comm_variable_r3d(p_var, grid_location, p_patch, &
+!       & new_comm_variable_r3d(p_var, comm_pattern_index, p_patch, &
 !       & vertical_layers, status, scope, name)
 !       
 !   END FUNCTION new_comm_variable_r3d_target
@@ -889,11 +925,11 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r3d(var,  grid_location, p_patch, &
+  INTEGER FUNCTION new_comm_variable_r3d(var,  comm_pattern_index, p_patch, &
     & vertical_layers, status, scope, name) !, &
    ! & var_dim, no_of_variables, vertical_layers)
     
-    INTEGER, INTENT(IN)       :: grid_location
+    INTEGER, INTENT(IN)       :: comm_pattern_index
     TYPE(t_patch), INTENT(IN) :: p_patch
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), POINTER   :: var(:,:,:)
@@ -916,21 +952,23 @@ CONTAINS
     new_comm_variable_r3d = get_new_comm_variable()
 
     ! where the variable lives
-    SELECT CASE (grid_location)
-    CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
-      comm_variable(new_comm_variable_r3d)%grid_location = grid_location
-   CASE default
-      CALL finish(method_name, "Unrecoginzed grid_location")
-    END SELECT
+!     SELECT CASE (comm_pattern_index)
+!     CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
+!       comm_variable(new_comm_variable_r3d)%comm_pattern_index = comm_pattern_index
+!    CASE default
+!       CALL finish(method_name, "Unrecoginzed comm_pattern_index")
+!     END SELECT
+    
+    comm_variable(new_comm_variable_r3d)%comm_pattern_index = comm_pattern_index
 
     ! check if comm_pattern is initialized
     IF ( p_patch%id > max_no_of_patches ) &
       CALL finish(method_name, "p_patch%id > max_no_of_patches")
-    IF ( grid_comm_pattern_list(grid_location, p_patch%id)%status == not_active ) &
+    IF ( grid_comm_pattern_list(comm_pattern_index, p_patch%id)%status == not_active ) &
       CALL finish(method_name, "grid_comm_pattern status = not_active")
     
     comm_variable(new_comm_variable_r3d)%grid_comm_pattern => &
-        & grid_comm_pattern_list(grid_location, p_patch%id)          
+        & grid_comm_pattern_list(comm_pattern_index, p_patch%id)
     
     ! this is for a 3D variable
     comm_variable(new_comm_variable_r3d)%grid_dim = grid_3D
@@ -976,11 +1014,11 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r2d(var,  grid_location, p_patch, &
+  INTEGER FUNCTION new_comm_variable_r2d(var,  comm_pattern_index, p_patch, &
     & vertical_layers, status, scope, name) !, &
    ! & var_dim, no_of_variables, vertical_layers)
     
-    INTEGER, INTENT(IN)       :: grid_location
+    INTEGER, INTENT(IN)       :: comm_pattern_index
     TYPE(t_patch), INTENT(IN) :: p_patch
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
     REAL(wp), POINTER   :: var(:,:)
@@ -1003,21 +1041,22 @@ CONTAINS
     new_comm_variable_r2d = get_new_comm_variable()
 
     ! where the variable lives
-    SELECT CASE (grid_location)
-    CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
-      comm_variable(new_comm_variable_r2d)%grid_location = grid_location
-   CASE default
-      CALL finish(method_name, "Unrecoginzed grid_location")
-    END SELECT
+!     SELECT CASE (comm_pattern_index)
+!     CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
+!       comm_variable(new_comm_variable_r2d)%comm_pattern_index = comm_pattern_index
+!     CASE default
+!       CALL finish(method_name, "Unrecoginzed comm_pattern_index")
+!     END SELECT
+    comm_variable(new_comm_variable_r2d)%comm_pattern_index = comm_pattern_index
 
     ! check if comm_pattern is initialized
     IF ( p_patch%id > max_no_of_patches ) &
       CALL finish(method_name, "p_patch%id > max_no_of_patches")
-    IF ( grid_comm_pattern_list(grid_location, p_patch%id)%status == not_active ) &
+    IF ( grid_comm_pattern_list(comm_pattern_index, p_patch%id)%status == not_active ) &
       CALL finish(method_name, "grid_comm_pattern status = not_active")
     
     comm_variable(new_comm_variable_r2d)%grid_comm_pattern => &
-        & grid_comm_pattern_list(grid_location, p_patch%id)          
+        & grid_comm_pattern_list(comm_pattern_index, p_patch%id)
     
     ! this is for a 3D variable
     comm_variable(new_comm_variable_r2d)%grid_dim = grid_2D
@@ -1163,8 +1202,8 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_2D_1(var,  grid_location, patch)
-    INTEGER, INTENT(IN)       :: grid_location
+  SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index, patch)
+    INTEGER, INTENT(IN)       :: comm_pattern_index
     TYPE(t_patch), INTENT(IN) :: patch
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), POINTER   :: var(:,:)
@@ -1173,7 +1212,7 @@ CONTAINS
 
     IF(this_is_mpi_sequential) RETURN
 
-    comm_var = new_icon_comm_variable(var,  grid_location, patch, &
+    comm_var = new_icon_comm_variable(var,  comm_pattern_index, patch, &
       & status=is_ready, scope=until_sync )
     CALL icon_comm_sync_all
  
@@ -1182,8 +1221,8 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_1(var,  grid_location, patch)
-    INTEGER, INTENT(IN)       :: grid_location
+  SUBROUTINE icon_comm_sync_3D_1(var,  comm_pattern_index, patch)
+    INTEGER, INTENT(IN)       :: comm_pattern_index
     TYPE(t_patch), INTENT(IN) :: patch
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), POINTER   :: var(:,:,:)
@@ -1192,7 +1231,7 @@ CONTAINS
 
     IF(this_is_mpi_sequential) RETURN
 
-    comm_var = new_icon_comm_variable(var,  grid_location, patch, &
+    comm_var = new_icon_comm_variable(var,  comm_pattern_index, patch, &
       & status=is_ready, scope=until_sync )
     CALL icon_comm_sync_all
  
@@ -1201,8 +1240,8 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, grid_location, patch)
-    INTEGER, INTENT(IN)       :: grid_location
+  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, comm_pattern_index, patch)
+    INTEGER, INTENT(IN)       :: comm_pattern_index
     TYPE(t_patch), INTENT(IN) :: patch
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
@@ -1213,9 +1252,9 @@ CONTAINS
 
     IF(this_is_mpi_sequential) RETURN
 
-    comm_var_1 = new_icon_comm_variable(var1,  grid_location, patch, &
+    comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, patch, &
       & status=is_ready, scope=until_sync)
-    comm_var_2 = new_icon_comm_variable(var2,  grid_location, patch,&
+    comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, patch,&
       & status=is_ready, scope=until_sync)
     CALL icon_comm_sync_all
  
