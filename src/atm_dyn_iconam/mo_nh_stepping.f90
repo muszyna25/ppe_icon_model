@@ -111,7 +111,8 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
-    &                               proc_split, push_glob_comm, pop_glob_comm
+    &                               proc_split, push_glob_comm, pop_glob_comm,       &
+    &                               get_my_mpi_all_id
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
@@ -390,14 +391,17 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: jstep, jb, nlen, jg, kstep
   REAL(wp)                             :: vmax(2)
-  REAL(wp) :: vn_aux(p_patch(1)%edges%end_blk(min_rledge_int,MAX(1,p_patch(1)%n_childdom)))
-  REAL(wp) :: w_aux (p_patch(1)%cells%end_blk(min_rlcell_int,MAX(1,p_patch(1)%n_childdom)))
+  REAL(wp) :: vn_aux(p_patch(1)%edges%end_blk(min_rledge_int,MAX(1,p_patch(1)%n_childdom)), &
+    &                p_patch(1)%nlev)
+  REAL(wp) :: w_aux (p_patch(1)%cells%end_blk(min_rlcell_int,MAX(1,p_patch(1)%n_childdom)), &
+    &                p_patch(1)%nlevp1)
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
-  INTEGER                              :: ierr, i_nchdom
+  INTEGER                              :: ierr, i_nchdom, jk
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_vlist_output, l_nml_output, &
     &                                     l_supervise_total_integrals
   TYPE(t_simulation_status)            :: simulation_status
+  INTEGER                              :: proc_id(2), keyval(2)
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -421,34 +425,67 @@ MODULE mo_nh_stepping
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1, p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)
-        IF (jb /= p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)) THEN
-          nlen = nproma
-        ELSE
-          nlen = p_patch(1)%edges%end_idx(min_rledge_int,i_nchdom)
-        ENDIF
-        vn_aux(jb) = MAXVAL(ABS(p_vn(1:nlen,:,jb)))
-      ENDDO
+      DO jk=1,p_patch(1)%nlev
+        DO jb = 1, p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)
+          IF (jb /= p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)) THEN
+            nlen = nproma
+          ELSE
+            nlen = p_patch(1)%edges%end_idx(min_rledge_int,i_nchdom)
+          ENDIF
+          vn_aux(jb,jk) = MAXVAL(ABS(p_vn(1:nlen,jk,jb)))
+        ENDDO
+      END DO
 !$OMP END DO
+
 !$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1, p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)
-        IF (jb /=  p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)) THEN
-          nlen = nproma
-        ELSE
-          nlen = p_patch(1)%cells%end_idx(min_rlcell_int,i_nchdom)
-        ENDIF
-        w_aux(jb) = MAXVAL(ABS(p_w(1:nlen,:,jb)))
-      ENDDO
+      DO jk=1,p_patch(1)%nlevp1
+        DO jb = 1, p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)
+          IF (jb /=  p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)) THEN
+            nlen = nproma
+          ELSE
+            nlen = p_patch(1)%cells%end_idx(min_rlcell_int,i_nchdom)
+          ENDIF
+          w_aux(jb,jk) = MAXVAL(ABS(p_w(1:nlen,jk,jb)))
+        ENDDO
+      END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      vmax(1) = MAXVAL(vn_aux)
-      vmax(2) = MAXVAL(w_aux)
+      !--- Get max over all PEs
+      IF (msg_level > 5) THEN
 
-      vmax = global_max(vmax) ! Get max over all PEs
+        ! print a detailed information on global maxima:
+        ! containing the process ID and the level where the
+        ! maximum occurred.
+        DO jk=1,p_patch(1)%nlev
+          vn_aux(1,jk) = MAXVAL(vn_aux(:,jk))
+        END DO
+        DO jk=1,p_patch(1)%nlevp1
+          w_aux(1,jk)  = MAXVAL(w_aux(:,jk))
+        END DO
+        vmax(1)   = MAXVAL(vn_aux(1,:))
+        keyval(1) = MAXLOC(vn_aux(1,:),1)
+        vmax(2)   = MAXVAL(w_aux(1,:))
+        keyval(2) = MAXLOC(w_aux(1,:),1)
+        proc_id(:) = get_my_mpi_all_id()
+        vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval)
 
-      WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vmax(1), vmax(2)
-      CALL message(TRIM(routine),message_text)
+        IF (my_process_is_stdio()) THEN
+          WRITE(0,'(a,2(e18.10,a,i5,a,i5,a))') 'MAXABS VN, W ',      &
+            & vmax(1), " (on proc #", proc_id(1), ", level ", keyval(1), "), ", &
+            & vmax(2), " (on proc #", proc_id(2), ", level ", keyval(2), "), "
+        END IF
+
+      ELSE
+
+        ! print a short information on global maxima:
+        vmax(1) = MAXVAL(vn_aux)
+        vmax(2) = MAXVAL(w_aux)
+        vmax       = global_max(vmax)
+        WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vmax(1), vmax(2)
+        CALL message(TRIM(routine),message_text)
+
+      END IF
 
     ENDIF ! msg_level >= 5
 

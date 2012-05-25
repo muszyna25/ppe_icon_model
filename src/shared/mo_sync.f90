@@ -1578,15 +1578,25 @@ END FUNCTION global_min_1d
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-FUNCTION global_max_0d(zfield) RESULT(global_max)
+!
+! @param[out]   proc_id  (Optional:) PE number of maximum value
+! @param[inout] keyval   (Optional:) additional meta information
+!
+! The parameter @p keyval can be used to communicate
+! additional data on the maximum value, e.g., the level
+! index where the maximum occurred.
+!
+FUNCTION global_max_0d(zfield, proc_id, keyval) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield
+  INTEGER, OPTIONAL, INTENT(inout) :: proc_id
+  INTEGER, OPTIONAL, INTENT(inout) :: keyval
   REAL(wp) :: global_max
 
   IF(comm_lev==0) THEN
-    global_max = p_max(zfield, comm=p_comm_work)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=p_comm_work)
   ELSE
-    global_max = p_max(zfield, comm=glob_comm(comm_lev))
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=glob_comm(comm_lev))
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
@@ -1595,15 +1605,25 @@ END FUNCTION global_max_0d
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-FUNCTION global_max_1d(zfield) RESULT(global_max)
+!
+! @param[out]   proc_id  (Optional:) PE number of maximum value
+! @param[inout] keyval   (Optional:) additional meta information
+!
+! The parameter @p keyval can be used to communicate
+! additional data on the maximum value, e.g., the level
+! index where the maximum occurred.
+!
+FUNCTION global_max_1d(zfield, proc_id, keyval) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield(:)
+  INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
+  INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
   REAL(wp) :: global_max(SIZE(zfield))
 
   IF(comm_lev==0) THEN
-    global_max = p_max(zfield, comm=p_comm_work)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=p_comm_work)
   ELSE
-    global_max = p_max(zfield, comm=glob_comm(comm_lev))
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=glob_comm(comm_lev))
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( global_max, 'global_max' )
