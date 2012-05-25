@@ -145,6 +145,7 @@ MODULE mo_math_utilities
   PUBLIC :: rotate_latlon
   PUBLIC :: rotate_latlon_vec
   PUBLIC :: rotate_latlon_grid
+  PUBLIC :: latlon_compute_area_weights
   PUBLIC :: qrdec
   PUBLIC :: gnomonic_proj
   PUBLIC :: orthogr_proj
@@ -1451,6 +1452,58 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
   END FORALL
 
 END SUBROUTINE rotate_latlon_grid
+
+
+!-------------------------------------------------------------------------
+!> Compute normalized area weights for lon-lat grid
+!! 
+!! @return 1D array (index: latitude)
+!!
+!! @par Revision History
+!!  developed by F. Prill, 2012-05-24
+!!
+SUBROUTINE latlon_compute_area_weights( grid, area )
+
+  TYPE (t_lon_lat_grid), INTENT(IN)    :: grid
+  REAL(wp),              INTENT(INOUT) :: area(:)
+  ! local variables
+  REAL(wp) :: start_lat, delta_lon, delta_lat, delta_lat_2,  &
+    &         pi_180, radius, rr_dlon, tot_area
+  REAL(wp) :: latitude(grid%lat_dim)
+  INTEGER  :: k, pole1, pole2
+
+  radius = re ! earth's radius (average)
+  pi_180 = ATAN(1._wp)/45._wp
+  start_lat   = grid%reg_lat_def(1) * pi_180
+  delta_lon   = grid%reg_lon_def(2) * pi_180
+  delta_lat   = grid%reg_lat_def(2) * pi_180
+  delta_lat_2 = delta_lat / 2._wp
+  rr_dlon     = radius*radius * delta_lon
+
+  ! for each latitude, compute area of a grid box with a lon-lat
+  ! point at its center
+  DO k = 1, grid%lat_dim
+    latitude(k)  = start_lat + REAL(k-1,wp)*delta_lat
+    area(k)      = 2._wp*rr_dlon * SIN(delta_lat_2) * COS(latitude(k))
+  END DO
+  ! treat the special case of the poles (compute area of "triangle"
+  ! with one vertex at the pole and the opposite side with constant
+  ! latitude)
+  pole1 = INT(( 90._wp - grid%reg_lat_def(1))/grid%reg_lat_def(2)) + 1
+  pole2 = INT((-90._wp - grid%reg_lat_def(1))/grid%reg_lat_def(2)) + 1
+  IF ((pole1 > 0) .AND. (pole1 <= grid%lat_dim)) THEN
+    area(pole1) = rr_dlon*(1._wp-SIN(latitude(pole1)-delta_lat_2))
+  END IF
+  IF ((pole2 > 0) .AND. (pole2 <= grid%lat_dim)) THEN
+    area(pole2) = rr_dlon*(1._wp-ABS(SIN(latitude(pole2)+delta_lat_2)))
+  END IF
+  ! normalize
+  tot_area = grid%lon_dim * SUM(area)
+  DO k = 1, grid%lat_dim
+    area(k) = area(k)/tot_area
+  END DO
+
+END SUBROUTINE latlon_compute_area_weights
 
 !-----------------------------------------------------------------------
 !

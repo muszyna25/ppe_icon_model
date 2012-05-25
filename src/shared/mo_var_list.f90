@@ -4,6 +4,7 @@ MODULE mo_var_list
   USE mo_cdi_constants,    ONLY: DATATYPE_FLT64, &
        &                         DATATYPE_INT32, &
        &                         DATATYPE_INT8,  &
+       &                         TIME_VARIABLE,  &
        &                         TSTEP_INSTANT
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
@@ -515,6 +516,8 @@ CONTAINS
     this_info%hor_interp          = create_hor_interp_metadata()
     !
     this_info%in_group(:)         = groups()
+    !
+    this_info%cdiTimeID           = TIME_VARIABLE
   END FUNCTION default_var_list_metadata
   !------------------------------------------------------------------------------------------------
   !
@@ -691,7 +694,7 @@ CONTAINS
          &                     loutput, lcontainer, lrestart, lrestart_cont,   &
          &                     initval, laccu, istatproc, resetval, lmiss,     &
          &                     missval, tlev_source, tracer_info, vert_interp, &
-         &                     hor_interp, in_group, verbose)
+         &                     hor_interp, in_group, verbose, cdiTimeID)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -716,6 +719,7 @@ CONTAINS
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))    ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
+    INTEGER,                 INTENT(in), OPTIONAL :: cdiTimeID     ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     LOGICAL :: lverbose
     !
@@ -771,6 +775,8 @@ CONTAINS
       info%in_group(:) = in_group(:)
     END IF
 
+    CALL assign_if_present (info%cdiTimeID,   cdiTimeID)
+
     !
     ! printout (optional)
     !
@@ -794,7 +800,8 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element)
+       vert_interp, hor_interp, in_group, verbose, new_element, &
+       cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -822,6 +829,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -863,7 +871,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,        &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose)
+         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
+         cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -913,7 +922,8 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element)
+       vert_interp, hor_interp, in_group, verbose, new_element, &
+       cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -941,6 +951,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -982,7 +993,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,        &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose)
+         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
+         cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1033,7 +1045,8 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element)
+       vert_interp, hor_interp, in_group, verbose, new_element, &
+       cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1061,6 +1074,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1102,7 +1116,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,        &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose)
+         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
+         cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1153,7 +1168,8 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element)
+       vert_interp, hor_interp, in_group, verbose, new_element, &
+       cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1181,6 +1197,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1222,7 +1239,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,        &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose)
+         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
+         cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1273,7 +1291,8 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element)
+       vert_interp, hor_interp, in_group, verbose, new_element, &
+       cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1301,6 +1320,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1342,7 +1362,8 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, istatproc=istatproc,resetval=resetval, lmiss=lmiss,         &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose)
+         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
+         cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1395,7 +1416,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, istatproc,   &
        resetval_i, lmiss, missval_i, info, p5, hor_interp,     &
-       vert_interp, in_group, verbose, new_element)
+       vert_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1421,6 +1442,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1462,7 +1484,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,&
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1513,7 +1535,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, istatproc,   &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1539,6 +1561,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1580,7 +1603,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,&
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1631,7 +1654,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, istatproc,   &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1657,6 +1680,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1698,7 +1722,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,&
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1749,7 +1773,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, istatproc,   &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1775,6 +1799,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1867,7 +1892,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, istatproc,   &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1893,6 +1918,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1987,7 +2013,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, istatproc,   &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2013,6 +2039,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2105,7 +2132,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, istatproc,   &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2131,6 +2158,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2223,7 +2251,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, istatproc,   &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2249,6 +2277,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2341,7 +2370,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, istatproc,   &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2367,6 +2396,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2459,7 +2489,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, istatproc,   &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element)
+       hor_interp, in_group, verbose, new_element, cdiTimeID)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2485,6 +2515,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2526,7 +2557,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,&
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2830,7 +2861,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element)
+       &                                 new_element, cdiTimeID)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2858,6 +2889,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
     REAL(wp), POINTER :: target_ptr4d(:,:,:,:)
@@ -2921,7 +2953,7 @@ CONTAINS
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,  &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -2966,7 +2998,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, laccu, istatproc,   &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
-       &                                 verbose, new_element)
+       &                                 verbose, new_element, cdiTimeID)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2994,6 +3026,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     REAL(wp), POINTER :: target_ptr2d(:,:)
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
@@ -3056,7 +3089,7 @@ CONTAINS
          laccu=laccu, istatproc=istatproc, resetval=resetval, lmiss=lmiss,  &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions

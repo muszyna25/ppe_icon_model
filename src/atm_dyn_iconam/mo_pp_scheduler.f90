@@ -475,11 +475,11 @@ CONTAINS
           
         ENDDO VAR_LOOP ! loop over vlist "i"
       ENDDO LIST_LOOP ! i = 1,nvar_lists
-        
-      ! Check that at least one element with this name has been found
-      IF(.NOT. found) &
-        CALL finish(routine,'No feasible variable found: ' &
-        &   //TRIM(ll_varlist(ivar)))
+
+!      ! Check that at least one element with this name has been found
+!      IF(.NOT. found) &
+!        CALL finish(routine,'No feasible variable found: ' &
+!        &   //TRIM(ll_varlist(ivar)))
     END DO ! ivar
 
     DEALLOCATE(ll_varlist, ll_vargrid, ll_varlevs, STAT=ierrstat)

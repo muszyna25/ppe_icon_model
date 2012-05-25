@@ -1127,12 +1127,13 @@ CONTAINS
 
           ! Do not inspect element if output is disabled
           IF(.NOT.element%field%info%loutput) CYCLE
-          
+
           IF (p_of%name_list%remap==1) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
             grid_of  = p_of%name_list%lonlat_id
             grid_var = element%field%info%hor_interp%lonlat_id
+
             IF (grid_of /= grid_var) CYCLE
           ELSE
             ! On the other hand: If no lon-lat interpolation is
@@ -1832,7 +1833,6 @@ CONTAINS
     LOGICAL :: lwrite_pzlev
     INTEGER :: idate, itime
     TYPE(t_datetime) :: ini_datetime
-
 
     ! Read map_file - we do it here and not during initialization
     ! since it is enough if only the output PE does the read (and not all)
@@ -2698,7 +2698,8 @@ CONTAINS
         ENDDO
       ENDIF
 
-      varID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
+      varID = vlistDefVar(vlistID, gridID, zaxisID, info%cdiTimeID)
+      
       info%cdiVarID   = varID
 
       CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
@@ -2835,6 +2836,9 @@ CONTAINS
   SUBROUTINE close_output_file(of)
 
     TYPE (t_output_file), INTENT(INOUT) :: of
+
+    CHARACTER(LEN=*), PARAMETER :: routine = &
+      & TRIM('mo_name_list_output/close_output_file')
 
     IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
 
@@ -2979,11 +2983,13 @@ CONTAINS
         IF(my_process_is_io()) THEN
 #ifndef NOMPI
           IF(output_file(i)%io_proc_id == p_pe) THEN
-            CALL io_proc_write_name_list(output_file(i))
+            CALL io_proc_write_name_list(output_file(i), &
+              &          (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
           ENDIF
 #endif
         ELSE
-          CALL write_name_list(output_file(i))
+          CALL write_name_list(output_file(i), &
+            &            (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
         ENDIF
       ENDIF
 
@@ -3042,13 +3048,14 @@ CONTAINS
   !
   ! Write a output name list
   !
-  SUBROUTINE write_name_list(of)
+  SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
+    LOGICAL, INTENT(IN) :: l_first_write
 
     INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, &
       &        nindex, mpierr, lonlat_id, ierrstat
@@ -3083,6 +3090,10 @@ CONTAINS
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
+
+      ! inspect time-constant variables only if we are writing the
+      ! first step in this file:
+      IF ((info%cdiTimeID == TIME_CONSTANT) .AND. .NOT. l_first_write) CYCLE
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
@@ -3886,11 +3897,12 @@ CONTAINS
   !>
   !! Output routine on the IO PE
 
-  SUBROUTINE io_proc_write_name_list(of)
+  SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_Wtime
 
     TYPE (t_output_file), INTENT(IN), TARGET :: of
+    LOGICAL, INTENT(IN) :: l_first_write
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/io_proc_write_name_list'
 
@@ -3959,6 +3971,10 @@ CONTAINS
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
+
+      ! inspect time-constant variables only if we are writing the
+      ! first step in this file:
+      IF ((info%cdiTimeID == TIME_CONSTANT) .AND. .NOT. l_first_write) CYCLE
 
       IF(info%ndims == 2) THEN
         nlevs = 1

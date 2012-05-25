@@ -115,6 +115,7 @@ MODULE mo_var_metadata
     INTEGER            :: cdiGridID
     INTEGER            :: cdiZaxisID
     INTEGER            :: cdiDataType
+    INTEGER            :: cdiTimeID             ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     !
     TYPE(t_tracer_meta):: tracer                ! metadata for tracer fields
     !

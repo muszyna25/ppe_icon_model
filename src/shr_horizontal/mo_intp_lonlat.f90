@@ -52,7 +52,8 @@
     !
     USE mo_kind,                ONLY: wp
     USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom
+    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom, &
+      &                               HINTP_TYPE_NONE
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom
@@ -61,7 +62,8 @@
       &                               timer_lonlat_setup
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
       &                               arc_length_v, t_cartesian_coordinates,     &
-      &                               t_geographical_coordinates
+      &                               t_geographical_coordinates,                &
+      &                               latlon_compute_area_weights
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                         &
       &                               compute_lonlat_blocking,                &
       &                               compute_lonlat_specs
@@ -88,6 +90,13 @@
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
     USE mo_intp_state,          ONLY: allocate_int_state_lonlat_grid,    &
       &                               deallocate_int_state_lonlat
+    USE mo_cf_convention,       ONLY: t_cf_var
+    USE mo_grib2,               ONLY: t_grib2_var
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, &
+      &                               GRID_CELL, ZAXIS_SURFACE, TIME_CONSTANT
+    USE mo_nonhydro_state,      ONLY: p_nh_state
+    USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
+    USE mo_linked_list,         ONLY: t_list_element
 
     IMPLICIT NONE
 
@@ -99,6 +108,7 @@
     PUBLIC :: init_lonlat_grid_list
     PUBLIC :: destroy_lonlat_grid_list
     PUBLIC :: compute_lonlat_intp_coeffs
+    PUBLIC :: compute_lonlat_area_weights
     PUBLIC :: rbf_vec_compute_coeff_lonlat
     PUBLIC :: rbf_compute_coeff_c2grad_lonlat
     PUBLIC :: rbf_setup_interpol_lonlat_grid
@@ -295,6 +305,76 @@
       IF (dbg_level > 5) CALL message(routine, "Done")
 
     END SUBROUTINE compute_lonlat_intp_coeffs
+
+
+    !---------------------------------------------------------------
+    !> Adds a special metrics variable containing the area weights of
+    !  the regular lon-lat grid.
+    !
+    !  @note This new variable is time-constant!
+    !
+    SUBROUTINE compute_lonlat_area_weights(p_patch, p_int_state)
+      TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
+      TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
+      ! local variables
+      CHARACTER(*), PARAMETER :: routine = &
+        &  TRIM("mo_intp_lonlat:compute_lonlat_area_weights")
+      TYPE(t_cf_var)       :: cf_desc
+      TYPE(t_grib2_var)    :: grib2_desc
+      INTEGER              :: var_shape(3), nblks_lonlat, i, jg, ierrstat, &
+        &                     i_lat, idx_glb, jc, jb, j
+      TYPE (t_lon_lat_grid), POINTER :: grid
+      TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
+      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
+      TYPE(t_list_element),  POINTER :: new_element
+
+      ! Add area weights
+      DO i=1, n_lonlat_grids
+        DO jg=1,n_dom
+          IF (lonlat_grid_list(i)%l_dom(jg)) THEN
+            
+            grid           => lonlat_grid_list(i)%grid
+            ptr_int_lonlat => lonlat_grid_list(i)%intp(jg)
+
+            nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
+            var_shape = (/ nproma, 1, nblks_lonlat /)
+            cf_desc    = t_cf_var('gw', '-', 'area weights')
+            grib2_desc = t_grib2_var(0, 0, 0, 0, GRID_REFERENCE, GRID_CELL)
+
+            ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            
+            CALL add_var( p_nh_state(jg)%diag_list,                             &
+              &           "gw", p_dummy,                                        &
+              &           GRID_REGULAR_LONLAT, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+              &           ldims=var_shape, lrestart=.FALSE.,                    &
+              &           loutput=.TRUE., new_element=new_element,              &
+              &           hor_interp=create_hor_interp_metadata(                &
+              &             hor_intp_type=HINTP_TYPE_NONE ),                    &
+              &           cdiTimeID=TIME_CONSTANT )
+            ! link this new variable to the lon-lat grid:
+            new_element%field%info%hor_interp%lonlat_id = i
+            ! compute area weights:
+            CALL latlon_compute_area_weights(grid, area_weights)
+            ! for each local lon-lat point on this PE:
+            DO j=1, ptr_int_lonlat%nthis_local_pts
+              ! determine block, index
+              jb = (j-1)/nproma + 1
+              jc = j - (jb-1)*nproma
+              ! determine latitude index:
+              idx_glb = ptr_int_lonlat%global_idx(j)
+              i_lat   = (idx_glb-1)/grid%lon_dim + 1
+              ! set area weight:
+              p_dummy(jc,1,jb) = area_weights(i_lat)
+            END DO
+
+            DEALLOCATE(area_weights, STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+          END IF
+        END DO
+      END DO
+
+    END SUBROUTINE compute_lonlat_area_weights
 
 
     !===============================================================

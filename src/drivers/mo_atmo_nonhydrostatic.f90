@@ -95,6 +95,7 @@ USE mo_name_list_output,    ONLY: init_name_list_output,  &
 USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
   &                               pp_scheduler_init, pp_scheduler_process, pp_scheduler_finalize
 USE mo_var_list,            ONLY: print_var_list
+USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 !-------------------------------------------------------------------------
 
@@ -351,6 +352,10 @@ CONTAINS
 !DR      END IF
 
     END IF
+    
+    ! Add a special metrics variable containing the area weights of
+    ! the regular lon-lat grid.
+    CALL compute_lonlat_area_weights(p_patch(1:), p_int_state(1:))
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
