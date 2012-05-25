@@ -686,9 +686,9 @@ ENDIF
 
 !amk  turn on specified surface fluxes everywhere globally
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
-LLSFCFLX   = .TRUE.
-ZEXTSHF(:) = -15.0_JPRB
-ZEXTLHF(:) = -60.0_JPRB
+!LLSFCFLX   = .TRUE.
+!ZEXTSHF(:) = -15.0_JPRB
+!ZEXTLHF(:) = -60.0_JPRB
 !xxx
 
 !*         1.1  Store initial tendencies for flux calculation
