@@ -66,14 +66,20 @@ INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
 INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
 INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cufunctions.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cuparameters.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_satad.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_mpi.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_edmf_param.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfthermo.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfpdftable.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfsat.f90
 INLINE   = $INLINE -pi rexp=tracer_q1_q2,tracer_q3,disp_new,dxg,regrot,turnwi
 INLINE   = $INLINE -pi rexp=init_pure_adv_wind,init_pure_adv_tracers
 INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
 INLINE   = $INLINE -pi rexp=foelhmcu,foeewmcu,foeewm,foeldcp,foeldcpm
 INLINE   = $INLINE -pi rexp=foeewm_v,foeewmcu_v,foedem,foeldcpmcu,foedemcu
 INLINE   = $INLINE -pi rexp=foeewl,foeewi
+INLINE   = $INLINE -pi rexp=foealfa,vdfthermo,psimu,phihs,phims,psihu,psihs,vdfpdftable,psims,foeew,foedesu
 INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
 INLINE   = $INLINE -pi rexp=p_wait
 
