@@ -5,7 +5,7 @@
 !!
 !! @par Revision History
 !! Imported from IFS by Martin Koehler  (starting 2012-4-30)
-!!   (IFS cycle CY37R2)
+!!   (IFS cycle CY36R1)
 !!
 !!-----------------------------------------------------------------------------
 !!
@@ -50,7 +50,7 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , PTSTEP, PRVDIFTS &
 ! input data, non-tiled
  & , KTVL, KTVH, PCVL, PCVH &
- & , PUMLEV, PVMLEV, PTMLEV, PQMLEV, PAPHMS, PGEOMLEV, PCPTGZLEV &
+ & , PUMLEV, PVMLEV, PTMLEV, PQMLEV, PAPHMS, PAPMS, PGEOMLEV, PCPTGZLEV &
  & , PSST, PTSKM1M, PCHAR, PSSRFL, PSLRFL, PEMIS, PTICE, PTSNOW &
  & , PHLICE,PTLICE,PTLWML &   
  & , PWLMX, PUCURR, PVCURR &
@@ -67,9 +67,9 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
 ! output data, non-tiled
  & , PKHLEV, PCFMLEV, PKMFL, PKHFL, PKQFL, PEVAPSNW &
  & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP &
-! output data, diagnostics
-!dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &   <<< deleted DDH outputs and
- & )                                      ! <<< associated compute_ddh
+! output data, diagnostics                  <<< deleted DDH outputs and
+!dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &   <<< associated compute_ddh
+ & )                                      ! 
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -103,6 +103,7 @@ USE mo_vexcs        ,ONLY : vexcs
 USE mo_vsurf        ,ONLY : vsurf
 USE mo_vevap        ,ONLY : vevap
 USE mo_surfseb_ctl  ,ONLY : surfseb_ctl
+USE mo_nwp_sfc_interface_edmf, ONLY : nwp_surface_edmf
 
 
 ! #ifdef DOC
@@ -178,6 +179,7 @@ USE mo_surfseb_ctl  ,ONLY : surfseb_ctl
 !      PTMLEV   :    TEMPERATURE,   lowest atmospheric level          K
 !      PQMLEV   :    SPECIFIC HUMIDITY                                kg/kg
 !      PAPHMS   :    Surface pressure                                 Pa
+!      PAPMS    :    Pressure, lowest model level                     Pa
 !      PGEOMLEV :    Geopotential, lowest atmospehric level           m2/s2
 !      PCPTGZLEV:    DRY STATIC ENERGY, LOWEST MODEL LEVEL            J/kg
 !      PSST     :    (OPEN) SEA SURFACE TEMPERATURE                   K
@@ -301,6 +303,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PVMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PQMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPHMS(:)
+REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPMS(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PCPTGZLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSST(:)
@@ -624,22 +627,20 @@ ENDDO
 
 !*         3.2  CALL TERRA
 
-! CALL nwp_surface_terra_edmf (&   
-!   p_patch          =   , & !>in   !!! DELETE
-!   ext_data         =   , & !>in   !!! DELETE
-!   jb               =   , & !      !!! DELETE
-!   nproma           = KLON   , & ! array dimensions
-!   i_startidx       = KIDIA  , & ! start index for computations in the parallel program
-!   i_endidx         = KFDIA  , & ! end index for computations in the parallel program
-!   nsubs0           =   , & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
-!   nsubs1           =   , & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
-!   dt               = PTSTEP , &
-!  
+! CALL nwp_surface_edmf (&   
+!   ext_data         =   , & !>in  
+!   jb               =   , & ! block  
+!   jg               =   , & ! patch
+!   nproma           = KLON    , & ! array dimensions
+!   i_startidx       = KIDIA   , & ! start index for computations in the parallel program
+!   i_endidx         = KFDIA   , & ! end index for computations in the parallel program
+!   dt               = PTSTEP  , &
+
 !   u_ex             = PUMLEV  , & ! zonal wind speed                        ( m/s )
 !   v_ex             = PVMLEV  , & ! meridional wind speed                   ( m/s )
 !   t_ex             = PTMLEV  , & ! temperature                             (  k  )
 !   qv_ex            = PQMLEV  , & ! specific water vapor content            (kg/kg)
-!   p0_ex            =   , & ! pressure lowest level                         ( Pa  ) 
+!   p0_ex            = PAPMS   , & ! pressure lowest level                   ( Pa  ) 
 !   ps_ex            = PAPHMS  , & ! surface pressure                        ( Pa  )
 !  
 !   t_snow_ex        =   , & ! temperature of the snow-surface               (  K  )

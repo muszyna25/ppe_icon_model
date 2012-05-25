@@ -5,7 +5,7 @@
 !!
 !! @par Revision History
 !! Imported from IFS by Martin Koehler  (starting 2012-4-30)
-!!   (IFS cycle CY37R2)
+!!   (IFS cycle CY36R1)
 !!
 !!-----------------------------------------------------------------------------
 !!
@@ -50,7 +50,7 @@ SUBROUTINE SURFEXCDRIVER    (CDCONF &
  & , PTSTEP, PRVDIFTS &
 ! input data, non-tiled
  & , KTVL, KTVH, PCVL, PCVH &
- & , PUMLEV, PVMLEV, PTMLEV, PQMLEV, PAPHMS, PGEOMLEV, PCPTGZLEV &
+ & , PUMLEV, PVMLEV, PTMLEV, PQMLEV, PAPHMS, PAPMS, PGEOMLEV, PCPTGZLEV &
  & , PSST, PTSKM1M, PCHAR, PSSRFL, PSLRFL, PEMIS, PTICE, PTSNOW &
  & , PHLICE,PTLICE,PTLWML & 
  & , PWLMX, PUCURR, PVCURR &
@@ -67,9 +67,9 @@ SUBROUTINE SURFEXCDRIVER    (CDCONF &
 ! output data, non-tiled
  & , PKHLEV, PCFMLEV, PKMFL, PKHFL, PKQFL, PEVAPSNW &
  & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP &
-! output data, diagnostics
-!dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &   <<< deleted DDH outputs
- & )                                      ! <<< associated compute_ddh also deleted
+! output data, diagnostics                 <<< deleted DDH outputs and
+!dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &  <<< associated compute_ddh 
+ & ) 
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 !ifndef INTERFACE
@@ -151,6 +151,7 @@ USE mo_surfexcdriver_ctl,ONLY : surfexcdriver_ctl
 !      PTMLEV   :    TEMPERATURE,   lowest atmospheric level          K
 !      PQMLEV   :    SPECIFIC HUMIDITY                                kg/kg
 !      PAPHMS   :    Surface pressure                                 Pa
+!      PAPMS    :    Pressure, lowest model level                     Pa
 !      PGEOMLEV :    Geopotential, lowest atmospehric level           m2/s2
 !      PCPTGZLEV:    Geopotential, lowest atmospehric level           J/kg
 !      PSST     :    (OPEN) SEA SURFACE TEMPERATURE                   K
@@ -271,6 +272,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PVMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PQMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPHMS(:)
+REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPMS(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOMLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PCPTGZLEV(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSST(:)
@@ -364,6 +366,10 @@ ENDIF
 
 IF(UBOUND(PAPHMS,1) < KLON) THEN
   CALL ABORT_SURF('SURFEXCDRIVER: PAPHMS TOO SHORT!')
+ENDIF
+
+IF(UBOUND(PAPMS,1) < KLON) THEN
+  CALL ABORT_SURF('SURFEXCDRIVER: PAPMS TOO SHORT!')
 ENDIF
 
 IF(UBOUND(PGEOMLEV,1) < KLON) THEN
@@ -689,7 +695,7 @@ CALL SURFEXCDRIVER_CTL(CDCONF &
  & , KDHVTTS, KDHFTTS, KDHVTIS, KDHFTIS, K_VMASS &
  & , PTSTEP, PRVDIFTS &
  & , KTVL, KTVH, PCVL, PCVH &
- & , PUMLEV, PVMLEV, PTMLEV, PQMLEV, PAPHMS, PGEOMLEV, PCPTGZLEV &
+ & , PUMLEV, PVMLEV, PTMLEV, PQMLEV, PAPHMS, PAPMS, PGEOMLEV, PCPTGZLEV &
  & , PSST, PTSKM1M, PCHAR, PSSRFL, PSLRFL, PEMIS, PTICE, PTSNOW &
  & , PHLICE,PTLICE,PTLWML &   
  & , PWLMX, PUCURR, PVCURR &

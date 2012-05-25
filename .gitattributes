@@ -1007,9 +1007,13 @@ src/atm_phy_echam/mo_vdiff_solver.f90 -text
 src/atm_phy_echam/mo_vdiff_upward_sweep.f90 -text
 src/atm_phy_edmf/mo_cuadjtq_2.f90 -text
 src/atm_phy_edmf/mo_edmf_param.f90 -text
+src/atm_phy_edmf/mo_sppcfl.f90 -text
+src/atm_phy_edmf/mo_sppgust.f90 -text
 src/atm_phy_edmf/mo_srfrootfr.f90 -text
 src/atm_phy_edmf/mo_surfexcdriver.f90 -text
 src/atm_phy_edmf/mo_surfexcdriver_ctl.f90 -text
+src/atm_phy_edmf/mo_surfpp.f90 -text
+src/atm_phy_edmf/mo_surfpp_ctl.f90 -text
 src/atm_phy_edmf/mo_surfseb.f90 -text
 src/atm_phy_edmf/mo_surfseb_ctl.f90 -text
 src/atm_phy_edmf/mo_vdfbuoysort.f90 -text
@@ -1032,6 +1036,7 @@ src/atm_phy_edmf/mo_vdfthermo.f90 -text
 src/atm_phy_edmf/mo_vdftofdc.f90 -text
 src/atm_phy_edmf/mo_vevap.f90 -text
 src/atm_phy_edmf/mo_vexcs.f90 -text
+src/atm_phy_edmf/mo_voskin.f90 -text
 src/atm_phy_edmf/mo_vsurf.f90 -text
 src/atm_phy_edmf/mo_vupdz0.f90 -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text

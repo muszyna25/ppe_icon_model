@@ -59,7 +59,7 @@ MODULE mo_nwp_sfc_interface_edmf
   
   IMPLICIT NONE 
 
-  PUBLIC  ::  nwp_surface_terra_edmf
+  PUBLIC  ::  nwp_surface_edmf
 
   PRIVATE
 
@@ -77,15 +77,13 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
 
-  SUBROUTINE nwp_surface_terra_edmf (&   
-                  p_patch          , & !>in   !!! DELETE
-                  ext_data         , & !>in   !!! DELETE
-                  jb               , & !      !!! DELETE
+  SUBROUTINE nwp_surface_edmf (&   
+                  ext_data         , & !>in
+                  jb               , & ! block
+                  jg               , & ! patch
                   nproma           , & ! array dimensions
                   i_startidx       , & ! start index for computations in the parallel program
                   i_endidx         , & ! end index for computations in the parallel program
-                  nsubs0           , & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
-                  nsubs1           , & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
                   dt               , & ! time step                                     ( s  )
                             
                   u_ex             , & ! zonal wind speed                              ( m/s )
@@ -146,8 +144,8 @@ CONTAINS
                   nproma,            & ! array dimensions
                   i_startidx,        & ! start index for computations in the parallel program
                   i_endidx,          & ! end index for computations in the parallel program
-                  nsubs0,nsubs1    , &
-                  jb
+                  jb               , & ! block
+                  jg                   ! patch
   REAL(wp), INTENT(IN)  ::  &
                   dt
   REAL(wp), DIMENSION(nproma), INTENT(IN) :: & 
@@ -208,10 +206,9 @@ CONTAINS
                   t_g              , &
                   qv_s
 
-  TYPE(t_patch), TARGET, INTENT(in) :: p_patch         !< grid/patch info
   TYPE(t_external_data), INTENT(in) :: ext_data        !< external data
 
-  TYPE(t_tiles)                     :: p_tiles(nsubs1) !< tiles structure
+  TYPE(t_tiles)                     :: p_tiles(nsfc_subs) !< tiles structure
 
 
     ! Local array bounds:
@@ -220,7 +217,7 @@ CONTAINS
 
     ! Local scalars:
     !
-    INTEGER :: jc,jg,jk      !loop indices
+    INTEGER :: jc,jk      !loop indices
 
     REAL(wp) :: ps_t       (nproma)
     REAL(wp) :: prr_con_t  (nproma)
@@ -317,9 +314,7 @@ CONTAINS
       dummy_prg_gsp(1:nproma) = 0._wp
   
       ! local variables related to the blocking
-  
-      jg        = p_patch%id
-    
+      
       IF (msg_level >= 15) THEN
         CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
       ENDIF
@@ -445,9 +440,8 @@ CONTAINS
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
         &  nsubs0=1,          nsubs1=nsfc_subs               , & ! nsfc_subs
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
-        &  czmls=zml_soil,    ldiag_tg=.TRUE.                , & ! processing soil level structure 
+        &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  dt=dt                                             , &
-!
         &  soiltyp_subs = ext_data%atm%soiltyp_t(:,jb,isubs) , & ! type of the soil (keys 0-9)         --
         &  plcov        = ext_data%atm%plcov_t(:,jb,isubs)   , & ! fraction of plant cover             --
         &  rootdp       = ext_data%atm%rootdp_t(:,jb,isubs)  , & ! depth of the roots                ( m  )
@@ -622,19 +616,16 @@ CONTAINS
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp(ic,jb)
             t_g_s(jc)  = t_g_s(jc)  + ext_data%atm%lc_frac_t(jc,jb,isubs)* &
-                         t_g_ex(jc,isubs)
+                         t_g_ex(jc,isubs)**4
             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* &
                          qv_s_ex(jc,isubs)
           ENDDO
         ENDDO
 
-! Apply relaxation if the grid cell contains water - actually, separate
-! fields carrying SST and/or lake temperature would be needed for such a weighting
-! to make really sense! What is done here has an unjustified time-step dependence!
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_lp(ic,jb)
-          t_g(jc)  = t_g_s(jc) ! &
+          t_g(jc)  = SQRT(SQRT(t_g_s(jc))) ! &
     !     ! This does not work in combination with disaggregating the surface radiation flux terms
     !        (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
     !         ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
@@ -654,7 +645,7 @@ CONTAINS
     ENDIF !inwp_sfc
 
 
-  END SUBROUTINE nwp_surface_terra_edmf
+  END SUBROUTINE nwp_surface_edmf
 
 
 END MODULE mo_nwp_sfc_interface_edmf
