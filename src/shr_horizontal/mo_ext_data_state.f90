@@ -119,7 +119,7 @@ MODULE mo_ext_data_state
   ! Number of landcover classes provided by external parameter data
   ! Needs to be changed into a variable if landcover classifications 
   ! with a different number of classes become available
-  INTEGER, PARAMETER :: num_lcc = 23
+  INTEGER, PARAMETER :: num_lcc = 23, n_param_lcc = 7
 
   INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
                                         !< dim: n_dom
@@ -422,12 +422,14 @@ CONTAINS
     shape3d_nt = (/ nproma, nblks_c, nsfc_subs     /) 
 
 
+
     !
     ! Register a field list and apply default settings
     !
     CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_list,            &
                                   & lrestart=.FALSE.,          &
+
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -622,6 +624,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+
 
 
 
@@ -877,8 +880,10 @@ CONTAINS
        ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
                 p_ext_atm%plcovmax_lcc(num_lcc),   & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(num_lcc),     & ! Maximum leaf area index for each land-cover class
+                p_ext_atm%rootdmax_lcc(num_lcc),   & ! Maximum root depth each land-cover class
                 p_ext_atm%stomresmin_lcc(num_lcc), & ! Minimum stomata resistance for each land-cover class
-                p_ext_atm%snowalb_lcc(num_lcc)     ) ! Albedo in case of snow cover for each land-cover class
+                p_ext_atm%snowalb_lcc(num_lcc),    & ! Albedo in case of snow cover for each land-cover class
+                p_ext_atm%snowtile_lcc(num_lcc)     )! Specification of snow tiles for land-cover class
 
       !--------------------------------
       ! soil parameters
@@ -1612,7 +1617,7 @@ CONTAINS
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(len=max_char_length) :: rawdata_attr
 
-    INTEGER :: jg, jc, jb, i, mpi_comm
+    INTEGER :: jg, jc, jb, i, mpi_comm, ilu
     INTEGER :: i_lev,jk
     INTEGER :: ncid, varid
 
@@ -1625,6 +1630,63 @@ CONTAINS
                                ! 1: GLC2000, 2: Globcover2009
 
     REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
+
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
+
+!                    z0    pcmx laimx rd   rsmin  snowalb snowtile
+!
+ DATA lu_glc2000 /   1.00,  0.8,  5.0, 1.0, 250.0,  0.38,   -1., & ! evergreen broadleaf forest   
+                 &   1.00,  0.9,  6.0, 1.0, 150.0,  0.31,   -1., & ! deciduous broadleaf closed forest
+                 &   0.15,  0.8,  4.0, 2.0, 150.0,  0.31,   -1., & ! deciduous broadleaf open   forest
+                 &   1.00,  0.8,  5.0, 0.6, 150.0,  0.27,   -1., & ! evergreen needleleaf forest   
+                 &   1.00,  0.9,  5.0, 0.6, 150.0,  0.33,   -1., & ! deciduous needleleaf forest
+                 &   1.00,  0.9,  5.0, 0.8, 150.0,  0.29,   -1., & ! mixed leaf trees            
+                 &   1.00,  0.8,  5.0, 1.0, 150.0,  -1.0,   -1., & ! fresh water flooded trees
+                 &   1.00,  0.8,  5.0, 1.0, 150.0,  -1.0,   -1., & ! saline water flooded trees
+                 &   0.20,  0.8,  2.5, 1.0, 150.0,  -1.0,    1., & ! mosaic tree / natural vegetation
+                 &   0.05,  0.5,  0.6, 0.3, 150.0,  -1.0,    1., & ! burnt tree cover
+                 &   0.20,  0.8,  3.0, 1.0, 120.0,  -1.0,    1., & ! evergreen shrubs closed-open
+                 &   0.15,  0.8,  1.5, 2.0, 120.0,  -1.0,    1., & ! decidous shrubs closed-open
+                 &   0.03,  0.9,  3.1, 0.6,  40.0,  -1.0,    1., & ! herbaceous vegetation closed-open
+                 &   0.05,  0.5,  0.6, 0.3,  40.0,  -1.0,    1., & ! sparse herbaceous or grass 
+                 &   0.05,  0.8,  2.0, 0.4,  40.0,  -1.0,   -1., & ! flooded shrubs or herbaceous
+                 &   0.07,  0.9,  3.3, 1.0, 120.0,  -1.0,    1., & ! cultivated & managed areas
+                 &   0.25,  0.8,  3.0, 1.0, 120.0,  -1.0,    1., & ! mosaic crop / tree / natural vegetation
+                 &   0.07,  0.9,  3.5, 1.0, 100.0,  -1.0,    1., & ! mosaic crop / shrub / grass
+                 &   0.05,  0.05, 0.6, 0.3, 120.0,  -1.0,    1., & ! bare areas                       
+                 &   2.E-4, 0.0,  0.0, 0.0, 120.0,  -1.0,   -1., & ! water
+                 &   0.01,  0.0,  0.0, 0.0, 120.0,  -1.0,   -1., & ! snow & ice 
+                 &   1.00,  0.2,  1.0, 0.6, 120.0,  -1.0,   -1., & ! artificial surface  
+                 &   0.00,  0.0,  0.0, 0.0,  40.0,  -1.0,   -1.  / ! undefined           
+
+ DATA lu_gcv2009 /   0.07 , 0.9,  3.3, 1.0, 120.0,  -1.0,    1., & ! irrigated croplands                           
+                 &   0.07 , 0.9,  3.3, 1.0, 120.0,  -1.0,    1., & ! rainfed croplands                             
+                 &   0.25 , 0.8,  3.0, 1.0, 120.0,  -1.0,    1., & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                 &   0.07 , 0.9,  3.5, 1.0, 100.0,  -1.0,    1., & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                 &   1.0  , 0.8,  5.0, 1.0, 250.0,  0.38,   -1., & ! closed broadleaved evergreen forest           
+                 &   1.0  , 0.9,  6.0, 1.0, 150.0,  0.31,   -1., & ! closed broadleaved deciduous forest           
+                 &   0.15 , 0.8,  4.0, 2.0, 150.0,  0.31,   -1., & ! open broadleaved deciduous forest             
+                 &   1.0  , 0.8,  5.0, 0.6, 150.0,  0.27,   -1., & ! closed needleleaved evergreen forest          
+                 &   1.0  , 0.9,  5.0, 0.6, 150.0,  0.33,   -1., & ! open needleleaved deciduous forest            
+                 &   1.0  , 0.9,  5.0, 0.8, 150.0,  0.29,   -1., & ! mixed broadleaved and needleleaved forest     
+                 &   0.20 , 0.8,  2.5, 1.0, 150.0,  -1.0,    1., & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                 &   0.20 , 0.8,  2.5, 1.0, 150.0,  -1.0,    1., & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                 &   0.15 , 0.8,  2.5, 1.5, 120.0,  -1.0,    1., & ! closed to open shrubland                      
+                 &   0.03 , 0.9,  3.1, 0.6,  40.0,  -1.0,    1., & ! closed to open herbaceous vegetation          
+                 &   0.05 , 0.5,  0.6, 0.3,  40.0,  -1.0,    1., & ! sparse vegetation                             
+                 &   1.0  , 0.8,  5.0, 1.0, 150.0,  -1.0,   -1., & ! closed to open forest regulary flooded        
+                 &   1.0  , 0.8,  5.0, 1.0, 150.0,  -1.0,   -1., & ! closed forest or shrubland permanently flooded
+                 &   0.05 , 0.8,  2.0, 1.0,  40.0,  -1.0,   -1., & ! closed to open grassland regularly flooded    
+                 &   1.0  , 0.2,  1.6, 0.6, 120.0,  -1.0,   -1., & ! artificial surfaces                           
+                 &   0.05 , 0.05, 0.6, 0.3, 120.0,  -1.0,    1., & ! bare areas                                    
+                 &   2.E-4, 0.0,  0.0, 0.0, 120.0,  -1.0,   -1., & ! water bodies                                  
+                 &   0.01 , 0.0,  0.0, 0.0, 120.0,  -1.0,   -1., & ! permanent snow and ice                        
+                 &   0.   , 0.0,  0.0, 0.0, 250.0,  -1.0,   -1.  / !undefined                                  
+
+
+
+
 
     !----------------------------------------------------------------------
 
@@ -1653,8 +1715,34 @@ CONTAINS
 
           IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
             i_lctype(jg) = 1
+            ilu=0
+            do i = 0, num_lcc*n_param_lcc -1
+               IF(MOD(i,n_param_lcc).eq.0) THEN
+                  ilu=ilu+1
+             ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i+1)  ! Land-cover related roughness length
+             ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_glc2000(i+2)  ! Maximum plant cover fraction for each land-cover class
+             ext_data(jg)%atm%laimax_lcc(ilu)      = lu_glc2000(i+3)  ! Maximum leaf area index for each land-cover class
+             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_glc2000(i+4)  ! Maximum root depth for each land-cover class
+             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_glc2000(i+5)  ! Minimum stomata resistance for each land-cover class
+             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+6)  ! Albedo in case of snow cover for each land-cover class
+             ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_glc2000(i+7)  ! Specification of snow tiles for land-cover class
+               END IF
+            end do
           ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
             i_lctype(jg) = 2
+            ilu=0
+            do i = 0, num_lcc*n_param_lcc -1
+               IF(MOD(i,n_param_lcc).eq.0) THEN
+                  ilu=ilu+1
+             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i+1)  ! Land-cover related roughness length
+             ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009(i+2)  ! Maximum plant cover fraction for each land-cover class
+             ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009(i+3)  ! Maximum leaf area index for each land-cover class
+             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009(i+4)  ! Maximum root depth for each land-cover class
+             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+5)  ! Minimum stomata resistance for each land-cover class
+             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+6)  ! Albedo in case of snow cover for each land-cover class
+             ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_gcv2009(i+7)  ! Specification of snow tiles for land-cover class
+               END IF
+            end do
           ELSE
             CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
           ENDIF
@@ -2430,8 +2518,8 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    LOGICAL  :: tile_mask(23) = .true. 
-    REAL(wp) :: tile_frac(23), sum_frac
+    LOGICAL  :: tile_mask(num_lcc) = .true. 
+    REAL(wp) :: tile_frac(num_lcc), sum_frac
     INTEGER  :: lu_subs, it_count(nsfc_subs)
     INTEGER  :: npoints, npoints_sea
 
@@ -2516,8 +2604,8 @@ CONTAINS
              ELSE    
 
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
-
-               DO i_lu = 1, nsfc_subs
+! JH
+               DO i_lu = 1, nsfc_subs !- nsfc_snow
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)
                  IF (tile_frac(lu_subs) >= frac_thresh) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1
@@ -2534,6 +2622,7 @@ CONTAINS
                  ELSE
                    EXIT ! no more land cover classes exceeding the threshold
                  ENDIF
+
                END DO
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:nsfc_subs))
@@ -2553,7 +2642,7 @@ CONTAINS
                    ELSE
                      ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
-                   ENDIF
+                   ENDIF 
                  END IF
 
                  lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)

@@ -248,11 +248,14 @@ MODULE mo_ext_data_types
       & plcovmax_lcc(:)        ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum leaf area index for each land-cover class  [ ]
       & laimax_lcc(:)          ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Maximum root depth for each land-cover class  [ ]
+      & rootdmax_lcc(:)        ! index1=1,23
     REAL(wp), POINTER ::  &    !< Minimum stomata resistance for each land-cover class  [ ]
       & stomresmin_lcc(:)      ! index1=1,23
     REAL(wp), POINTER ::  &    !< Albedo in case of snow cover for each land-cover class  [ ]
       & snowalb_lcc(:)         ! index1=1,23
-
+    REAL(wp), POINTER ::  &    !< Specification of snow tiles for land-cover class [ ]
+      & snowtile_lcc(:)           ! index1=1,23
 
   END TYPE t_external_atmos
 
