@@ -192,7 +192,8 @@ ZD2=-0.00105_JPRB  !    wind function constant (U>2)
 !
 ZDZC=3._JPRB       !    depth scale                         (m)
                    !    ZFI=Fraction of solar radiation absorbed in warm layer (-)
-ZFI=1._JPRB-0.28_JPRB*exp(-71.5_JPRB*ZDZC)-0.27_JPRB*exp(-2.8_JPRB*ZDZC)-0.45_JPRB*exp(-0.07_JPRB*ZDZC)
+ZFI=1._JPRB-0.28_JPRB*exp(-71.5_JPRB*ZDZC)-0.27_JPRB*exp(-2.8_JPRB*ZDZC) &
+  &  - 0.45_JPRB*EXP(-0.07_JPRB*ZDZC)
 ! ZFI=1._JPRB
 ZCON3=ZDZC*RKAP*RG/(ZROA/ZROW)**1.5_JPRB
 ZAN=0.3_JPRB       !    Nu (exponent of temperature profile)
