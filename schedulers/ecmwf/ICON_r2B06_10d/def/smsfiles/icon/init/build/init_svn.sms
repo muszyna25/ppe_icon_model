@@ -22,13 +22,33 @@
 
 echo "INIT_SVN.SMS"
 
+if [ "%SVN_UPDATE%" -eq "1" ]
+then
+
+# [1] SVN UPDATE =================================
+
+# requires previous check-out of a working copy
+# with 
+# svn co http://svn.zmaw.de/svn/icon/trunk/icon-dev
+
+smsevent svn_update
+rsh %SCHOST% "svn update %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev"
+
+smsevent make_distclean
+rsh %SCHOST% "svn update %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev"
+rsh %SCHOST% "rsh c1a 'cd %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev ; gmake distclean'"
+
+else
+
+# [2] EXPORT TARBALL FROM ECGATE =================
+
 # Change directory ----------------------------
 smsevent change_dir
 cd %TMPDIR%
 ls -lrt
-rm -rf icon-dev
 
-# Check out working trunk version ----------------
+# Export working trunk version -------------------
+rm -rf icon-dev
 smsevent svn_export
 svn export https://svn.zmaw.de/svn/icon/trunk/icon-dev
 ls -lrt
@@ -44,6 +64,7 @@ rm -rf icon-dev.tar.gz
 rm -rf icon-dev
 ls -lrt
 
+fi
 
 # -------------------------------------------------
 

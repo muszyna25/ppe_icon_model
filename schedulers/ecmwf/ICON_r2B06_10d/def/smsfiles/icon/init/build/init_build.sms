@@ -28,18 +28,31 @@ smsevent change_dir
 cd %SCBASEDIR%/%SUITE_NAME%/cluster/
 ls -lrt
 
+if [ "%SVN_UPDATE%" -eq "1" ]
+then
+
+# [1] SVN UPDATE =================================
+
+cd icon-dev
+
+else
+
+# [2] EXPORTED TARBALL FROM ECGATE ===============
+
 # Extract tar file with current trunk version -
 smsevent uncompress
 rm -rf icon-dev
 tar xvf icon-dev.tar.gz
 cd icon-dev
 
+fi
+
 # load Fortran compiler environment
 module swap fortran fortran/xlf/13.1.0.9
 
 # Run configure script ------------------------
 smsevent configure
-./configure # --with-flags=hiopt
+./configure --with-openmp # --with-flags=hiopt
 
 # Submit ''Make'' -----------------------------
 smsevent make
