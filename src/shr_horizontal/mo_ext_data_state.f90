@@ -429,7 +429,6 @@ CONTAINS
     CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_list,            &
                                   & lrestart=.FALSE.,          &
-
                                   & restart_type=FILETYPE_NC2  )
 
 
