@@ -55,7 +55,7 @@ MODULE mo_gw_test
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm_prog
-  USE mo_physical_constants,   ONLY: grav, rd, cpd, re, omega
+  USE mo_physical_constants,   ONLY: grav, rd, cpd, earth_radious, omega
   USE mo_math_constants,       ONLY: pi
   USE mo_vertical_coord_table, ONLY: vct_a,vct_b
   USE mo_parallel_config,      ONLY: nproma
@@ -127,7 +127,7 @@ MODULE mo_gw_test
   z_sot   = (grav/gw_brunt_vais)**2/cpd/z_t_0
   z_kappa = rd/cpd
   z_nsqog = gw_brunt_vais**2/grav
-  z_rr    = re/3.0_wp
+  z_rr    = earth_radious/3.0_wp
 
   nblks_c   = pt_patch%nblks_int_c
   npromz_c  = pt_patch%npromz_int_c
@@ -154,8 +154,8 @@ MODULE mo_gw_test
 
            ! surface pressure (ncells_all,nblks)
            pt_prog%pres_sfc(jc,jb) = z_ps_0 * EXP ( &
-                  -re*(gw_brunt_vais**2)*gw_u0*0.5_wp/(grav**2)/z_kappa*&
-                  ( gw_u0/re +2.0_wp*z_omega) * ((SIN(z_lat))**2) )
+                  -earth_radious*(gw_brunt_vais**2)*gw_u0*0.5_wp/(grav**2)/z_kappa*&
+                  ( gw_u0/earth_radious +2.0_wp*z_omega) * ((SIN(z_lat))**2) )
         ENDDO
      ENDDO
 !$OMP END DO
@@ -208,7 +208,7 @@ MODULE mo_gw_test
               z_lon   = pt_patch%cells%center(jc,jb)%lon
 
               ! Horizontal shape function
-              z_r     = re*ACOS(SIN(z_latc)*SIN(z_lat)+&
+              z_r     = earth_radious*ACOS(SIN(z_latc)*SIN(z_lat)+&
                                 COS(z_latc)*COS(z_lat)*COS(z_lon-z_lonc))
               IF ( z_r < z_rr ) THEN
                  z_hshape = 0.5_wp*(1.0_wp+COS(pi*z_r/z_rr))

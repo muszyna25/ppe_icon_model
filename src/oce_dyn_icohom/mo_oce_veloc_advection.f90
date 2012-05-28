@@ -45,7 +45,6 @@ MODULE mo_oce_veloc_advection
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &
     & sea_boundary, sea, boundary, min_dolic
-  USE mo_physical_constants,  ONLY: re
   USE mo_math_constants,  ONLY: pi
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, l_inverse_flip_flop !, ab_beta, ab_gam

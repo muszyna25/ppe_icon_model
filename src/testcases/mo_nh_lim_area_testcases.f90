@@ -52,7 +52,7 @@
 
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
-                                   & cvd_o_rd, re, omega, cpd ,     &
+                                   & cvd_o_rd, earth_radious, omega, cpd ,     &
                                      vtmpc1 , rdv,  rd            
                                      
    USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
@@ -430,7 +430,7 @@ jglayer(:,:,:)=0
                !WRITE(*,*) "from the layer base"
                ! here we integrate from the base of the layer
                !
-               ! here I could re-estimate the values at the base of the layer
+               ! here I could earth_radious-estimate the values at the base of the layer
                ! integrating from (jc,jk+1,jb) to the base of the layer 
                ! in the case jN>1
 !!$                IF (jg>1  .AND. pres_poly(jg) > pres(jc,jk+1,jb)) THEN
@@ -799,14 +799,14 @@ jnlayer(:,:,:)=0
                            &  z_qv(jc, jk+1,jb), z_qv(jc, jk+1,jb))
                 pres_aux  = p0ref*(exner(jc,jk,jb)**cpd_o_rd)
                 temp_aux  = theta(jc,jk,jb)*exner(jc,jk,jb)
-                ! 1st estimation of  qv, then re-estimate exner
+                ! 1st estimation of  qv, then earth_radious-estimate exner
                 z_qv(jc,jk,jb)= qv_rhtp(relhum(jc,jk,jb), temp_aux, pres_aux )
                 exner(jc,jk,jb)= exner_nconst(exner(jc,jk+1,jb), N_nconst(jn),  &
                             &  theta(jc,jk+1,jb), theta(jc,jk,jb),              &
                             &  z_qv(jc, jk+1,jb), z_qv(jc, jk,jb))
                 pres_aux  = p0ref*(exner(jc,jk,jb)**cpd_o_rd)
                  temp_aux  = theta(jc,jk,jb)*exner(jc,jk,jb)
-                ! re-estimate qv, then re-estimate exner
+                ! earth_radious-estimate qv, then earth_radious-estimate exner
                 z_qv(jc,jk,jb)= qv_rhtp(relhum(jc,jk,jb), temp_aux, pres_aux )
                ELSE
                 z_qv(jc,jk,jb)= 0.0_wp
@@ -816,7 +816,7 @@ jnlayer(:,:,:)=0
                            &  z_qv(jc, jk+1,jb), z_qv(jc, jk,jb))
                pres_aux  = p0ref*(exner(jc,jk,jb)**cpd_o_rd)
                temp_aux  = theta(jc,jk,jb)*exner(jc,jk,jb)
-               ! re-estimate qv
+               ! earth_radious-estimate qv
                z_qv(jc,jk,jb)= qv_rhtp(relhum(jc,jk,jb), temp_aux, pres_aux )
                theta_v(jc,jk,jb)=theta(jc,jk,jb)*(1._wp+vtmpc1*z_qv(jc,jk,jb))
 
@@ -825,7 +825,7 @@ jnlayer(:,:,:)=0
                !WRITE(*,*) "from the layer base"
                ! here we integrate from the base of the layer
                !
-               ! here I could re-estimate the values at the base of the layer
+               ! here I could earth_radious-estimate the values at the base of the layer
                ! integrating from (jc,jk+1,jb) to the base of the layer 
                ! in the case jn>1
 !!$                IF (jn>1  .AND. exnerb(jn) > exner(jc,jk+1,jb)) THEN
@@ -841,13 +841,13 @@ jnlayer(:,:,:)=0
                             &  theta(jc,jk,jb), qvb(jn), qvb(jn))
                 pres_aux  = p0ref*(exner(jc,jk,jb)**cpd_o_rd)
                 temp_aux  = theta(jc,jk,jb)*exner(jc,jk,jb)
-                ! 1st estimation of  qv, then re-estimate exner
+                ! 1st estimation of  qv, then earth_radious-estimate exner
                 z_qv(jc,jk,jb)= qv_rhtp(relhum(jc,jk,jb), temp_aux, pres_aux )
                 exner(jc,jk,jb)= exner_nconst(exnerb(jn), N_nconst(jn),thetab(jn), & 
                             &  theta(jc,jk,jb), qvb(jn),z_qv(jc,jk,jb) )
                 pres_aux  = p0ref*(exner(jc,jk,jb)**cpd_o_rd)
                 temp_aux  = theta(jc,jk,jb)*exner(jc,jk,jb)
-                ! re-estimate qv, then re-estimate exner
+                ! earth_radious-estimate qv, then earth_radious-estimate exner
                 z_qv(jc,jk,jb)= qv_rhtp(relhum(jc,jk,jb), temp_aux, pres_aux )
                ELSE
                 z_qv(jc,jk,jb)= 0.0_wp
@@ -856,7 +856,7 @@ jnlayer(:,:,:)=0
                            &  theta(jc,jk,jb), qvb(jn),z_qv(jc,jk,jb) )
                pres_aux  = p0ref*(exner(jc,jk,jb)**cpd_o_rd)
                temp_aux  = theta(jc,jk,jb)*exner(jc,jk,jb)
-               ! re-estimate qv
+               ! earth_radious-estimate qv
                z_qv(jc,jk,jb)= qv_rhtp(relhum(jc,jk,jb), temp_aux, pres_aux )
                theta_v(jc,jk,jb)=theta(jc,jk,jb)*(1._wp+vtmpc1*z_qv(jc,jk,jb))
                
@@ -1230,8 +1230,8 @@ jnlayer(:,:,:)=0
 !
    
   IF (lplane) THEN
-    z_d_lon = re*(lon-lonc)
-    z_d_lat = re*(lat-latc)
+    z_d_lon = earth_radious*(lon-lonc)
+    z_d_lat = earth_radious*(lat-latc)
 
     dx = z_d_lon * COS(rotangle) - z_d_lat * SIN(rotangle) 
     dy = z_d_lon * SIN(rotangle) + z_d_lat * COS(rotangle)
@@ -1260,8 +1260,8 @@ jnlayer(:,:,:)=0
         dy = ACOS(COS(dx)*COS(z_d) / z_tmp)
         IF (latc > lat) dy = -dy
       END IF
-      dx = (re + height) * dx
-      dy = (re + height) * dy
+      dx = (earth_radious + height) * dx
+      dy = (earth_radious + height) * dy
   END IF
 
 

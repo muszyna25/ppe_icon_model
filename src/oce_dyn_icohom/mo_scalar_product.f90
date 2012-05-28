@@ -62,7 +62,7 @@ MODULE mo_scalar_product
     & gvec2cvec, cvec2gvec
   !USE mo_oce_index,          ONLY: ne_b, ne_i, nv_b, nv_i, form4ar, ldbg, c_k!, c_b, c_i
   USE mo_exception,                 ONLY: message, finish
-  USE mo_physical_constants, ONLY: re
+  USE mo_physical_constants, ONLY: earth_radious
   USE mo_math_constants,     ONLY: pi
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_oce_math_operators,     ONLY: rot_vertex_ocean_3d, map_edges2vert
@@ -487,7 +487,7 @@ CONTAINS
           
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
             
-            vort_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
+            vort_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (earth_radious*earth_radious*z_weight(jv,jk,jb))!
             
             
           ELSEIF(i_v_ctr(jv,jk,jb)/=0)THEN!boundary edges are involved
@@ -516,8 +516,8 @@ CONTAINS
             ! !               &  + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
             ! !           END IF
             ! !         END DO
-            ! !         z_area_scaled   = zarea_fraction*re*re
-            ! !        !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
+            ! !         z_area_scaled   = zarea_fraction*earth_radious*earth_radious
+            ! !        !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
             
             !Finalize vorticity calculation by closing the dual loop along boundary edges
             IF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN
@@ -841,7 +841,7 @@ CONTAINS
 ! 
 !           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
 ! 
-!             z_area_scaled         = p_patch%verts%dual_area(jv,jb)/(re*re)
+!             z_area_scaled         = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
 !             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)
 ! 
 ! 
@@ -875,7 +875,7 @@ CONTAINS
 !             ! no division by zero
 !             IF (zarea_fraction /= 0.0_wp) THEN
 !               !z_area_scaled   = zarea_fraction
-!               z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
+!               z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
 !               p_vn_dual(jv,jk,jb)%x  = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)!
 !             ENDIF
 !           ENDIF
@@ -961,7 +961,7 @@ CONTAINS
             
             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x      &
               & +edge2vert_coeff_cc(jv,jk,jb,jev)%x &
-              & *vn(ile,jk,ibe)/(p_patch%verts%dual_area(jv,jb)/(re*re))
+              & *vn(ile,jk,ibe)/(p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious))
           END DO
           
         END DO ! jv = i_startidx_v, i_endidx_v
@@ -3659,9 +3659,9 @@ CONTAINS
   ! !       !divide by apropriate fraction if boundaries are involved
   ! !       IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
   ! !
-  ! !         !vort_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
+  ! !         !vort_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (earth_radious*earth_radious*z_weight(jv,jk,jb))!
   ! !
-  ! !         z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
+  ! !         z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
   ! !         u_v_cc(jv,jk,jb)%x  = u_v_cc(jv,jk,jb)%x/z_area_scaled
   ! !
   ! !         !u_v_cc(jv,jk,jb)%x  = u_v_cc(jv,jk,jb)%x/z_weight(jv,jk,jb)
@@ -3688,13 +3688,13 @@ CONTAINS
   ! !           IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
   ! !
   ! !            zarea_fraction = zarea_fraction  &
-  ! !               &     + re*re*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+  ! !               &     + earth_radious*earth_radious*triangle_area(cell1_cc, vertex_cc, cell2_cc)
   ! !
   ! !           ! edge with indices ile, ibe is boundary edge
   ! !           ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
   ! !
   ! !            zarea_fraction = zarea_fraction  &
-  ! !               &  + 0.5_wp*re*re*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+  ! !               &  + 0.5_wp*earth_radious*earth_radious*triangle_area(cell1_cc, vertex_cc, cell2_cc)
   ! !
   ! !           END IF
   ! !
@@ -3705,8 +3705,8 @@ CONTAINS
   ! !           !vort_v(jv,jk,jb) = 0.0_wp
   ! !           u_v_cc(jv,jk,jb)%x=0.0_wp
   ! !         ELSE
-  ! !           !vort_v(jv,jk,jb)    = z_vort_tmp /zarea_fraction!(re*re*z_weight(jv,jk,jb))!
-  ! !           z_area_scaled       = zarea_fraction/(re*re)
+  ! !           !vort_v(jv,jk,jb)    = z_vort_tmp /zarea_fraction!(earth_radious*earth_radious*z_weight(jv,jk,jb))!
+  ! !           z_area_scaled       = zarea_fraction/(earth_radious*earth_radious)
   ! !           u_v_cc(jv,jk,jb)%x  = u_v_cc(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)!
   ! !         ENDIF
   ! !       ENDIF

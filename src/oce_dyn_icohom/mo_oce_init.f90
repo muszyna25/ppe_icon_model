@@ -53,8 +53,9 @@ USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
 USE mo_grid_config,        ONLY: nroot
-USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, sal_ref, grav, SItodBar,  &
-  &                              sfc_press_bar, tmelt, Tf
+USE mo_physical_constants, ONLY: earth_radious, earth_radious, omega, rgrav, rho_ref, &
+  & sal_ref, grav, SItodBar,  &
+  & sfc_press_bar, tmelt, Tf
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer,                               &
@@ -107,7 +108,7 @@ PUBLIC :: init_ho_coupled
 PUBLIC :: init_ho_recon_fields
 
 REAL(wp), PARAMETER :: aleph = 0.0_wp 
-REAL(wp), PARAMETER :: u0 =(2.0_wp*pi*re)/(12.0_wp*24.0_wp*3600.0_wp)
+REAL(wp), PARAMETER :: u0 =(2.0_wp*pi*earth_radious)/(12.0_wp*24.0_wp*3600.0_wp)
 
 CONTAINS
 
@@ -2172,7 +2173,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! 1st factor
 
-    z_fact1 = re * omega
+    z_fact1 = earth_radious * omega
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -2286,7 +2287,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
     p_vort = SIN(p_lat)* COS(aleph)
     p_vort = p_vort - COS(p_lon) * COS(p_lat) * SIN(aleph)
-    p_vort = 2._wp * u0 * rre * p_vort
+    p_vort = 2._wp * u0 * earth_radious * p_vort
 
   END FUNCTION test2_vort
 
@@ -2328,7 +2329,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! 1st factor
 
-    z_fact1 = re * omega
+    z_fact1 = earth_radious * omega
     z_fact1 = z_fact1 + 0.5_wp * uzero
     z_fact1 = z_fact1 * uzero * rgrav
 
@@ -2507,7 +2508,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! !DEFINED PARAMETERS:
 !    REAL (wp), PARAMETER  :: h0 = 8000._wp, re_omg_kk = 50._wp
-    REAL (wp), PARAMETER  :: h0 = 8000._wp, omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
+    REAL (wp), PARAMETER  :: h0 = 8000._wp, omg_kk = 7.848e-6_wp !(earth_radious * omg_kk is not 50.)
                                                                  ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
@@ -2532,9 +2533,9 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega  = re * omega
-    !z_omg     = re_omg_kk / re
-    z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
+    z_r_omega  = earth_radious * omega
+    !z_omg     = re_omg_kk / earth_radious
+    z_re_omg_kk= earth_radious * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
 !    i_r1      = r + 1
 !    i_r2      = r + 2
@@ -2614,7 +2615,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! !DEFINED PARAMETERS:
    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
-    REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
+    REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(earth_radious * omg_kk is not 50.)
                                                                  ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
@@ -2640,9 +2641,9 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega  = re * omega
-    !z_omg     = re_omg_kk / re
-    z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
+    z_r_omega  = earth_radious * omega
+    !z_omg     = re_omg_kk / earth_radious
+    z_re_omg_kk= earth_radious * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
 
 
@@ -2701,7 +2702,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! !DEFINED PARAMETERS:
    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
-    REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
+    REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(earth_radious * omg_kk is not 50.)
                                                                  ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
@@ -2727,9 +2728,9 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega = re * omega
-    !z_omg     = re_omg_kk / re
-    z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
+    z_r_omega = earth_radious * omega
+    !z_omg     = re_omg_kk / earth_radious
+    z_re_omg_kk= earth_radious * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
 !    i_r1      = r + 1
 !    i_r2      = r + 2
@@ -2782,7 +2783,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! !DEFINED PARAMETERS:
    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
-    REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
+    REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(earth_radious * omg_kk is not 50.)
                                                                  ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
@@ -2808,9 +2809,9 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega = re * omega
-    !z_omg     = re_omg_kk / re
-    z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
+    z_r_omega = earth_radious * omega
+    !z_omg     = re_omg_kk / earth_radious
+    z_re_omg_kk= earth_radious * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
    ! i_r1      = r + 1
    ! i_r2      = r + 2
@@ -2894,7 +2895,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! 2nd summand: r_e \Omega \sin \varphi
 
-    z_summand = re * omega * SIN(p_lat)
+    z_summand = earth_radious * omega * SIN(p_lat)
 
 ! one factor
 
@@ -2904,7 +2905,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
     p_hh      = d0 - z_phi_t_k *  z_fact
     p_hh      = p_hh * rgrav
-!write(*,*)'param:', u0, pi, rgrav,re, omega
+!write(*,*)'param:', u0, pi, rgrav,earth_radious, omega
 !stop
   END FUNCTION test_usbr_h
 
@@ -3020,7 +3021,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 ! calculate factor
 
-    z_fact = re * omega * SIN(p_lat)
+    z_fact = earth_radious * omega * SIN(p_lat)
     z_fact = z_fact * z_fact
 
 ! height of orography
@@ -3187,7 +3188,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
        z_val = func(z_lat)
 
        z_val2 = 2._wp * omega * SIN(z_lat)
-       z_val2 = z_val2 + z_val * TAN(z_lat)* rre
+       z_val2 = z_val2 + z_val * TAN(z_lat)* earth_radious
        z_val2 = z_val * z_val2
 
        p_hh = p_hh + z_val2 * z_step
@@ -3385,8 +3386,8 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
        u = func(phidash)
 
         temp = 2._wp * omega * SIN(phidash)
-        temp = temp + ( u * TAN(phidash)* rre)
-        temp = re *rgrav * u * temp
+        temp = temp + ( u * TAN(phidash)* earth_radious)
+        temp = earth_radious *rgrav * u * temp
 
         p_hh = p_hh + temp * dphi
 

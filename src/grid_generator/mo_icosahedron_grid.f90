@@ -43,7 +43,7 @@ MODULE mo_icosahedron_grid
   USE mo_exception,      ONLY: message_text, message, finish
   USE mo_io_units,       ONLY: nnml, filename_max
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
-  USE mo_physical_constants, ONLY: re
+!   USE mo_physical_constants, ONLY: re
 
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates!, cc2gc
   USE mo_math_constants, ONLY: pi_5
@@ -531,66 +531,67 @@ CONTAINS
     out_grid%is_filled = .true.
     !--------------------------------------------------------------
     ! create geometry
-    CALL compute_sphere_grid_geometry(out_grid_id)
-    icon_norm_edge = new_edges%primal_edge_length(1) / re
-    icon_norm_dual_edge = new_edges%dual_edge_length(1) / re
+    ! this will be created by the caller
+!     CALL compute_sphere_grid_geometry(out_grid_id)
+!     icon_norm_edge = new_edges%primal_edge_length(1) / re
+!     icon_norm_dual_edge = new_edges%dual_edge_length(1) / re
 
     RETURN
     
-    new_verts%no_of_neigbors(:) = 0
-    DO edge=1,no_of_output_edges
-      ! fill the vertex connectivity
-      vertex1 = new_edges%get_vertex_index(edge,1)
-      vertex2 = new_edges%get_vertex_index(edge,2)
-      IF (vertex1 > no_of_output_verts .OR. vertex1 < 0) &
-        CALL finish('get_icosahedron_grid','vertex1 > no_of_output_verts .OR. vertex1 < 0')
-      IF (vertex2 > no_of_output_verts .OR. vertex2 < 0) &
-        CALL finish('get_icosahedron_grid','vertex2 > no_of_output_verts .OR. vertex2 < 0')
-      new_verts%no_of_neigbors(vertex1) = new_verts%no_of_neigbors(vertex1) + 1
-      new_verts%no_of_neigbors(vertex2) = new_verts%no_of_neigbors(vertex2) + 1
-      IF (new_verts%no_of_neigbors(vertex1) > max_vertex_connect) &
-        & CALL finish('get_icosahedron_grid', &
-        & 'new_verts%no_of_neigbors(vertex1) > max_vertex_connect')
-      IF (new_verts%no_of_neigbors(vertex2) > max_vertex_connect) &
-        & CALL finish('get_icosahedron_grid', &
-        & 'new_verts%no_of_neigbors(vertex2) > max_vertex_connect')
-
-      ! add edge to the vertices
-      new_verts%get_edge_index(vertex1,   new_verts%no_of_neigbors(vertex1)) = edge
-      new_verts%get_edge_index(vertex2,   new_verts%no_of_neigbors(vertex2)) = edge
-
-      ! add the vertices to the neigbors list
-      new_verts%get_neighbor_index(vertex1,   new_verts%no_of_neigbors(vertex1)) = vertex2
-      new_verts%get_neighbor_index(vertex2,   new_verts%no_of_neigbors(vertex2)) = vertex1
-
-      !fill cell neigbors
-      cell1 = new_edges%get_cell_index(edge,1)
-      cell2 = new_edges%get_cell_index(edge,2)
-      IF (cell1 > no_of_output_cells .OR. cell1 < 0) &
-        CALL finish('get_icosahedron_grid','cell1 > no_of_output_cells .OR. cell1 < 0')
-      IF (cell2 > no_of_output_cells .OR. cell2 < 0) &
-        CALL finish('get_icosahedron_grid','cell2 > no_of_output_cells .OR. cell2 < 0')
-      new_cells%no_of_vertices(cell1) =   new_cells%no_of_vertices(cell1) + 1
-      new_cells%get_neighbor_index(cell1, new_cells%no_of_vertices(cell1)) = cell2
-      new_cells%no_of_vertices(cell2) =   new_cells%no_of_vertices(cell2) + 1
-      new_cells%get_neighbor_index(cell2, new_cells%no_of_vertices(cell2)) = cell1
-    ENDDO ! edge=1,no_of_output_edges
-
-    !--------------------------------------------------------------
-    ! connectivity is created
-    ! temporarly set  parameters to default
-    CALL set_nest_defaultindexes(out_grid_id)
-    CALL set_no_of_subgrids(out_grid_id, 1)
-    CALL set_start_subgrids(out_grid_id, 0)
-    out_grid%geometry_type   = sphere_geometry
-    out_grid%is_filled = .true.
-    !--------------------------------------------------------------
-    ! create geometry
-    CALL compute_sphere_grid_geometry(out_grid_id)
-    icon_norm_edge = new_edges%primal_edge_length(1) / re
-    icon_norm_dual_edge = new_edges%dual_edge_length(1) / re
-
-    RETURN
+!     new_verts%no_of_neigbors(:) = 0
+!     DO edge=1,no_of_output_edges
+!       ! fill the vertex connectivity
+!       vertex1 = new_edges%get_vertex_index(edge,1)
+!       vertex2 = new_edges%get_vertex_index(edge,2)
+!       IF (vertex1 > no_of_output_verts .OR. vertex1 < 0) &
+!         CALL finish('get_icosahedron_grid','vertex1 > no_of_output_verts .OR. vertex1 < 0')
+!       IF (vertex2 > no_of_output_verts .OR. vertex2 < 0) &
+!         CALL finish('get_icosahedron_grid','vertex2 > no_of_output_verts .OR. vertex2 < 0')
+!       new_verts%no_of_neigbors(vertex1) = new_verts%no_of_neigbors(vertex1) + 1
+!       new_verts%no_of_neigbors(vertex2) = new_verts%no_of_neigbors(vertex2) + 1
+!       IF (new_verts%no_of_neigbors(vertex1) > max_vertex_connect) &
+!         & CALL finish('get_icosahedron_grid', &
+!         & 'new_verts%no_of_neigbors(vertex1) > max_vertex_connect')
+!       IF (new_verts%no_of_neigbors(vertex2) > max_vertex_connect) &
+!         & CALL finish('get_icosahedron_grid', &
+!         & 'new_verts%no_of_neigbors(vertex2) > max_vertex_connect')
+! 
+!       ! add edge to the vertices
+!       new_verts%get_edge_index(vertex1,   new_verts%no_of_neigbors(vertex1)) = edge
+!       new_verts%get_edge_index(vertex2,   new_verts%no_of_neigbors(vertex2)) = edge
+! 
+!       ! add the vertices to the neigbors list
+!       new_verts%get_neighbor_index(vertex1,   new_verts%no_of_neigbors(vertex1)) = vertex2
+!       new_verts%get_neighbor_index(vertex2,   new_verts%no_of_neigbors(vertex2)) = vertex1
+! 
+!       !fill cell neigbors
+!       cell1 = new_edges%get_cell_index(edge,1)
+!       cell2 = new_edges%get_cell_index(edge,2)
+!       IF (cell1 > no_of_output_cells .OR. cell1 < 0) &
+!         CALL finish('get_icosahedron_grid','cell1 > no_of_output_cells .OR. cell1 < 0')
+!       IF (cell2 > no_of_output_cells .OR. cell2 < 0) &
+!         CALL finish('get_icosahedron_grid','cell2 > no_of_output_cells .OR. cell2 < 0')
+!       new_cells%no_of_vertices(cell1) =   new_cells%no_of_vertices(cell1) + 1
+!       new_cells%get_neighbor_index(cell1, new_cells%no_of_vertices(cell1)) = cell2
+!       new_cells%no_of_vertices(cell2) =   new_cells%no_of_vertices(cell2) + 1
+!       new_cells%get_neighbor_index(cell2, new_cells%no_of_vertices(cell2)) = cell1
+!     ENDDO ! edge=1,no_of_output_edges
+! 
+!     !--------------------------------------------------------------
+!     ! connectivity is created
+!     ! temporarly set  parameters to default
+!     CALL set_nest_defaultindexes(out_grid_id)
+!     CALL set_no_of_subgrids(out_grid_id, 1)
+!     CALL set_start_subgrids(out_grid_id, 0)
+!     out_grid%geometry_type   = sphere_geometry
+!     out_grid%is_filled = .true.
+!     !--------------------------------------------------------------
+!     ! create geometry
+!     CALL compute_sphere_grid_geometry(out_grid_id)
+!     icon_norm_edge = new_edges%primal_edge_length(1) / re
+!     icon_norm_dual_edge = new_edges%dual_edge_length(1) / re
+! 
+!     RETURN
 
   END FUNCTION get_icosahedron_grid
   !---------------------------------------------------------------------------------------------

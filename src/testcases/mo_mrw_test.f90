@@ -52,7 +52,7 @@ MODULE mo_mrw_test
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_physical_constants,  ONLY: cpd, grav, rd, re, omega
+  USE mo_physical_constants,  ONLY: cpd, grav, rd, earth_radious, omega
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
@@ -130,7 +130,7 @@ MODULE mo_mrw_test
            zlon = pt_patch%cells%center(jc,jb)%lon
 
            zr = SIN(zlat_mc)*SIN(zlat)+COS(zlat_mc)*COS(zlat)*COS(zlon-zlon_mc)
-           zexp = re*ACOS(zr)/mount_half_width
+           zexp = earth_radious*ACOS(zr)/mount_half_width
 
            pt_ext_data%atm%topography_c(jc,jb) = &
                         mountctr_height*EXP( - zexp*zexp )
@@ -138,7 +138,7 @@ MODULE mo_mrw_test
            ! surface pressure
            zcoslat  = COS(zlat)
            pt_prog%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u_0 *&
-                              ( 0.5_wp*u_0 + re*omega) * zcoslat*zcoslat - &
+                              ( 0.5_wp*u_0 + earth_radious*omega) * zcoslat*zcoslat - &
                               pt_ext_data%atm%topography_c(jc,jb)*grav))
         ENDDO
      ENDDO
@@ -236,7 +236,7 @@ MODULE mo_mrw_test
            zlon = pt_patch%cells%center(jc,jb)%lon
 
            zr = SIN(zlat_mc)*SIN(zlat)+COS(zlat_mc)*COS(zlat)*COS(zlon-zlon_mc)
-           zexp = re*ACOS(zr)/mount_half_width
+           zexp = earth_radious*ACOS(zr)/mount_half_width
 
            topo_aux(jc,1) = mountctr_height*EXP( - zexp*zexp )*&
                             0.5_wp*(1._wp+COS(pi*zexp*2._wp))
@@ -258,7 +258,7 @@ MODULE mo_mrw_test
              zlon = pt_patch%verts%vertex(iiv,ibv)%lon
 
              zr = SIN(zlat_mc)*SIN(zlat)+COS(zlat_mc)*COS(zlat)*COS(zlon-zlon_mc)
-             zexp = re*ACOS(zr)/mount_half_width
+             zexp = earth_radious*ACOS(zr)/mount_half_width
 
              topo_aux(jc,iv+1) = mountctr_height*EXP( - zexp*zexp )*&
                                  0.5_wp*(1._wp+COS(pi*zexp*2._wp))
@@ -277,7 +277,7 @@ MODULE mo_mrw_test
 
            zcoslat  = COS(zlat)
            pt_prog%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u_0 *&
-                              ( 0.5_wp*u_0 + re*omega) * zcoslat*zcoslat - &
+                              ( 0.5_wp*u_0 + earth_radious*omega) * zcoslat*zcoslat - &
                               pt_ext_data%atm%topography_c(jc,jb)*grav))
         ENDDO
      ENDDO

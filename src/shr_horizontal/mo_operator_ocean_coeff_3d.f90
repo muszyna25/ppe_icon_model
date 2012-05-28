@@ -47,7 +47,7 @@ MODULE mo_operator_ocean_coeff_3d
     & min_rledge_int,min_rlcell_int,min_rlvert_int,&
     & sea_boundary, boundary, sea
   USE mo_math_constants,      ONLY: deg2rad, pi
-  USE mo_physical_constants,  ONLY: re,omega
+  USE mo_physical_constants,  ONLY: earth_radious,omega
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     & t_geographical_coordinates, vector_product, &
     & arc_length
@@ -961,7 +961,7 @@ CONTAINS
           z_area_scaled    = 0.0_wp
           !IF ( ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) == 0 ) THEN
           IF ( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) ) THEN
-            z_area_scaled = patch%verts%dual_area(jv,jb)/(re*re)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            z_area_scaled = patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
 
             !Final coefficient calculation
             DO jev = 1, patch%verts%num_edges(jv,jb)
@@ -1005,7 +1005,7 @@ CONTAINS
             END DO
             ! no division by zero
             !IF (zarea_fraction /= 0.0_wp) THEN
-            z_area_scaled   = patch%verts%dual_area(jv,jb)/(re*re)!zarea_fraction !SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            z_area_scaled   = patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)!zarea_fraction !SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
             !ENDIF
             !Final coefficient calculation
             DO jev = 1, patch%verts%num_edges(jv,jb)
@@ -1341,7 +1341,7 @@ CONTAINS
           z_area_scaled    = 0.0_wp
           !IF ( ptr_coeff%bnd_edges_per_vertex(jv,jk,jb) == 0 ) THEN
           IF ( i_v_ctr(jv,jk,jb) == ptr_patch%verts%num_edges(jv,jb) ) THEN
-            z_area_scaled = ptr_patch%verts%dual_area(jv,jb)/(re*re)!SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            z_area_scaled = ptr_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)!SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
 
             !Final coefficient calculation
             DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
@@ -1385,7 +1385,7 @@ CONTAINS
             END DO
             ! no division by zero
             !IF (zarea_fraction /= 0.0_wp) THEN
-            z_area_scaled   = ptr_patch%verts%dual_area(jv,jb)/(re*re)!zarea_fraction !SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            z_area_scaled   = ptr_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)!zarea_fraction !SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
             !ENDIF
             !Final coefficient calculation
             DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
@@ -1618,8 +1618,8 @@ CONTAINS
               & +  0.5_wp*norm*z_edge_length(ie)
             ptr_intp%variable_vol_norm(il_c1,jk,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
 
-            !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
-            !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re
+            !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/earth_radious
+            !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/earth_radious
           END DO
 
           !normals in cell 2
@@ -1651,7 +1651,7 @@ CONTAINS
               xx2%x             = xx2%x/norm
 
               z_edge_length(ie) = arc_length(xx2,xx1)
-              !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/re
+              !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/earth_radious
               !write(*,*)'arc length',arc_length(xx2,xx1),z_edge_length(ie),SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
             ELSE
               z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
@@ -1881,12 +1881,12 @@ CONTAINS
                 gc2%lat = gc_mid_dual_edge(ie)%lat!*deg2rad
                 gc2%lon = 0.0_wp
                 xx2     = gc2cc(gc2)
-                z_y     = re*arc_length(xx2,xx1)
+                z_y     = earth_radious*arc_length(xx2,xx1)
 
                 !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
                 ptr_patch%edges%f_e(il_e, ib_e) = &
                   & 2.0_wp*omega*( SIN(basin_center_lat * deg2rad) + &
-                  & (COS(basin_center_lat * deg2rad)/re)*z_y)
+                  & (COS(basin_center_lat * deg2rad)/earth_radious)*z_y)
               ENDIF
             ELSE
               cc_mid_dual_edge(ie)%x = cc_dual_edge(ie)%x

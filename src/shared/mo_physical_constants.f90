@@ -111,8 +111,10 @@ MODULE mo_physical_constants
   !> Earth and Earth orbit constants
   !! -------------------------------
   !!
-  REAL(wp), PARAMETER :: re    = 6.371229e6_wp    !! [m]    average radius
-  REAL(wp), PARAMETER :: rre   = 1._wp/re         !! [1/m]
+!   REAL(wp), PARAMETER :: re    = 6.371229e6_wp    !! [m]    average radius
+!   REAL(wp), PARAMETER :: rre   = 1._wp/ph_re         !! [1/m]
+  REAL(wp), PARAMETER :: earth_radious           = 6.371229e6_wp    !! [m]    average radius
+  REAL(wp), PARAMETER :: inverse_earth_radious   = 1._wp/earth_radious         !! [1/m]
   !
 !!$  ! ECHAM values
 !!  REAL(wp), PARAMETER :: grav  = 9.80616_wp       ! [m/s2] av. gravitational acceleration

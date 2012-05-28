@@ -50,7 +50,7 @@ MODULE mo_grid_checktools
   USE mo_local_grid_geometry,  ONLY: edges_cell_angle, edges_normal_angle, no_angle, &
     & get_cell_barycenters
     !, get_triangle_circumcenters, geographical_to_cartesian
-  USE mo_physical_constants, ONLY: re
+  USE mo_physical_constants, ONLY: earth_radious
   USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
   USE mo_statistics_tools
   
@@ -357,10 +357,10 @@ CONTAINS
     WRITE(0,*) 'Min/Max dual area:', min_dual_area, max_dual_area, max_dual_area/min_dual_area
     WRITE(0,*) 'Max dual cell dual edge ratio:', max_dual_edge_ratio
     WRITE(0,*) 'Max dual cell edge ratio:', max_edge_ratio
-    WRITE(0,*) 'Max vertex-dual baryceneter distance:', max_barycenter_distance * re
+    WRITE(0,*) 'Max vertex-dual baryceneter distance:', max_barycenter_distance * earth_radious
 
     WRITE(latex_file_v, '(" & ", f8.2, " & ", f6.3," & ",f6.3," & ",f6.3)', advance='no')  &
-      & max_barycenter_distance * re / 1000.0_wp, max_dual_area/min_dual_area, &
+      & max_barycenter_distance * earth_radious / 1000.0_wp, max_dual_area/min_dual_area, &
       & max_dual_edge_ratio, max_edge_ratio
 
 !     CALL delete_grid(dual_grid_id)
@@ -706,7 +706,8 @@ CONTAINS
         max_dual_edge_cell =  max_dual_edge
       ENDIF
 
-      centers_diff = arc_length(cells%cartesian_center(cell_no), barycenters(cell_no)) * re
+      centers_diff = arc_length(cells%cartesian_center(cell_no), barycenters(cell_no)) &
+        & * earth_radious
       max_centers_diff = MAX(max_centers_diff, centers_diff)
       max_centers_diff_ratio = MAX(max_centers_diff_ratio,&
         & centers_diff/min_cell_edge_cell_length)
@@ -722,7 +723,7 @@ CONTAINS
 
     ENDDO ! cell_no=1,no_of_cells
 
-    write(0,*) 'Max barycenter-center distance:', max_centers_diff * re
+    write(0,*) 'Max barycenter-center distance:', max_centers_diff * earth_radious
     write(0,*) 'Min/Max cell area:', min_area, max_area, max_area/min_area
     write(0,*) 'Min/Max cell angle:', min_cell_angle * rad2deg, max_cell_angle * rad2deg
     write(0,*) 'cell max_edge_ratio:', min_prime_edge_cell, max_prime_edge_cell, max_edge_ratio

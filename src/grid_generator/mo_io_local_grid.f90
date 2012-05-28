@@ -83,7 +83,7 @@ MODULE mo_io_local_grid
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_math_constants,     ONLY: pi,pi_2!, eps
-  USE mo_physical_constants, ONLY: re
+!   USE mo_physical_constants, ONLY: re
   USE mo_local_grid
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
     & min_rlvert, max_rlvert, &

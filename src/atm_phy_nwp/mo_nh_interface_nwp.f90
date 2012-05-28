@@ -609,7 +609,7 @@ CONTAINS
 
         !-------------------------------------------------------------------------
         !>
-        !! Re-calculate scalar prognostic variables out of physics variables!
+        !! re-calculate scalar prognostic variables out of physics variables!
         !!
         !-------------------------------------------------------------------------
 

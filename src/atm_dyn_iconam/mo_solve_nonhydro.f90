@@ -58,7 +58,7 @@ MODULE mo_solve_nonhydro
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
   USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
-  USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref, re
+  USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref, earth_radious
   USE mo_math_gradients,    ONLY: grad_green_gauss_cell
   USE mo_math_constants,    ONLY: pi
   USE mo_math_divrot,       ONLY: div, rot_vertex, div_avg
@@ -663,9 +663,11 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     IF (divdamp_order == 2) THEN
-      scal_divdamp = divdamp_fac*4._wp*pi*re**2/REAL(20*nroot**2*4**(p_patch%level),wp)
+      scal_divdamp = divdamp_fac*4._wp*pi*earth_radious**2 &
+        & / REAL(20*nroot**2*4**(p_patch%level),wp)
     ELSE IF (divdamp_order == 4) THEN
-      scal_divdamp = -divdamp_fac*(4._wp*pi*re**2/REAL(20*nroot**2*4**(p_patch%level),wp))**2
+      scal_divdamp = -divdamp_fac*(4._wp*pi*earth_radious**2 &
+        & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
     ENDIF
 
     ! Set pointer to velocity field that is used for mass flux computation

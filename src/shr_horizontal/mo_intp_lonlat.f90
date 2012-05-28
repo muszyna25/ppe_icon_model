@@ -79,7 +79,7 @@
       &                               gnat_query_containing_triangles,        &
       &                               gnat_merge_distributed_queries, gk
     USE mo_math_utilities,      ONLY: rotate_latlon_grid
-    USE mo_physical_constants,  ONLY: re
+    USE mo_physical_constants,  ONLY: earth_radious
     USE mo_mpi,                 ONLY: p_gather_field, my_process_is_mpi_workroot, &
       &                               get_my_mpi_work_id, p_n_work,               &
       &                               p_max, get_my_mpi_work_communicator,        &
@@ -912,8 +912,8 @@
           z_norm = SQRT( DOT_PRODUCT(z_nx2(:),z_nx2(:)) )
           z_nx2(:)  = 1._wp/z_norm * z_nx2(:)
           ! projection, scale with earth radius
-          ptr_int_lonlat%rdist(1, jc, jb) = re*DOT_PRODUCT(p1%x(:), z_nx1)
-          ptr_int_lonlat%rdist(2, jc, jb) = re*DOT_PRODUCT(p1%x(:), z_nx2)
+          ptr_int_lonlat%rdist(1, jc, jb) = earth_radious*DOT_PRODUCT(p1%x(:), z_nx1)
+          ptr_int_lonlat%rdist(2, jc, jb) = earth_radious*DOT_PRODUCT(p1%x(:), z_nx2)
         END DO
       END DO
 

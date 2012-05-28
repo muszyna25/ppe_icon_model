@@ -81,7 +81,7 @@ MODULE mo_io_grid
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_physical_constants, ONLY: re
+  USE mo_physical_constants, ONLY: earth_radious
   USE mo_grid,               ONLY: t_grid, construct_grid
   USE mo_grid_levels,        ONLY: itype_optimize, l_c_grid
   USE mo_base_geometry,      ONLY: x_rot_angle, y_rot_angle, z_rot_angle
@@ -315,7 +315,7 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, re))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radious))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, ilevel))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))

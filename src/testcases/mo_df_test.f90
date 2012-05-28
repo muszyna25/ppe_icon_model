@@ -46,7 +46,7 @@ MODULE mo_df_test
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
-  USE mo_physical_constants,  ONLY: re
+  USE mo_physical_constants,  ONLY: earth_radious
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi
@@ -75,7 +75,7 @@ MODULE mo_df_test
   REAL(wp), PARAMETER :: tottime = 1036800._wp !< total time 12 days
 
   REAL(wp), PARAMETER ::   &
-    u0      = (2._wp*pi*re)/(tottime)  !< circumference / 12 days [m/s]
+    u0      = (2._wp*pi*earth_radious)/(tottime)  !< circumference / 12 days [m/s]
 
   REAL(wp), PARAMETER ::   &                   !< flow field amplitude [m/s]
     &   u1 = 73.741_wp, u2 = 61.451_wp, u3 = 30.725_wp, u4 = 61.451_wp
@@ -83,7 +83,7 @@ MODULE mo_df_test
                                               !< for unit sphere
 
   REAL(wp), PARAMETER ::   &      !< prescribed radius of bell shaped
-    &  bell_radius = 0.5_wp * re  !< tracer distribution
+    &  bell_radius = 0.5_wp * earth_radious  !< tracer distribution
 
   ! position of north pole Nair et al. (2010) (no rotation)
   REAL(wp), PARAMETER :: npole_lon = 0._wp
@@ -625,11 +625,11 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = re * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = re * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
           d1 = z_dist_1/bell_radius
@@ -681,27 +681,27 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = re * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = re * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
 
           IF (z_dist_1 <= bell_radius &
-            &  .AND. ABS(gc_rot%lon - ic_c1%lon)>= bell_radius/(6._wp*re)) THEN
+            &  .AND. ABS(gc_rot%lon - ic_c1%lon)>= bell_radius/(6._wp*earth_radious)) THEN
             p_cc(jc,1,jb) = c_slotted
           ELSE IF (z_dist_2 <= bell_radius                           & 
-             &  .AND. ABS(gc_rot%lon - ic_c2%lon)>= bell_radius/(6._wp*re)) THEN
+             &  .AND. ABS(gc_rot%lon - ic_c2%lon)>= bell_radius/(6._wp*earth_radious)) THEN
             p_cc(jc,1,jb) = c_slotted
           ELSE IF (z_dist_1 <= bell_radius                           &
-            & .AND. ABS(gc_rot%lon - ic_c1%lon)< bell_radius/(6._wp*re)   &
-            & .AND. (gc_rot%lat-ic_c1%lat) < -5._wp*bell_radius/(12._wp*re)) THEN
+            & .AND. ABS(gc_rot%lon - ic_c1%lon)< bell_radius/(6._wp*earth_radious)   &
+            & .AND. (gc_rot%lat-ic_c1%lat) < -5._wp*bell_radius/(12._wp*earth_radious)) THEN
             p_cc(jc,1,jb) = c_slotted
           ELSE IF(z_dist_2 <= bell_radius                            &
-            & .AND. ABS(gc_rot%lon - ic_c2%lon) < bell_radius/(6._wp*re)  &
-            & .AND. (gc_rot%lat-ic_c2%lat) > 5._wp*bell_radius/(12._wp*re)) THEN
+            & .AND. ABS(gc_rot%lon - ic_c2%lon) < bell_radius/(6._wp*earth_radious)  &
+            & .AND. (gc_rot%lat-ic_c2%lat) > 5._wp*bell_radius/(12._wp*earth_radious)) THEN
             p_cc(jc,1,jb) = c_slotted
           ELSE
             p_cc(jc,1,jb) = b_slotted
@@ -805,11 +805,11 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = re * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = re * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
           d1 = z_dist_1/bell_radius
@@ -863,11 +863,11 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = re * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = re * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
           d1 = z_dist_1/bell_radius
@@ -1019,16 +1019,16 @@ CONTAINS
           ! meridional velocity component at edge midpoint
           v_wind = 0.5_wp * u1 * SIN(zlon_rot) * COS(zlat_rot) * z_timing_func
 
-          c_1 = u_wind/(re * COS(zlat_rot))
+          c_1 = u_wind/(earth_radious * COS(zlat_rot))
 
-          c_3 = v_wind/re
+          c_3 = v_wind/earth_radious
 
-          c_2 = (u1/re) * SIN(0.5_wp*zlon_rot) * ( -SIN(0.5_wp*zlon_rot)   &
+          c_2 = (u1/earth_radious) * SIN(0.5_wp*zlon_rot) * ( -SIN(0.5_wp*zlon_rot)   &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)  &
             & + z_timing_func * (c_3 * COS(zlat_rot)*SIN(0.5_wp*zlon_rot)  &
             & + COS(0.5_wp*zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.25_wp*u1/re) * (-SIN(zlon_rot) * COS(zlat_rot)          &
+          c_4 = (0.25_wp*u1/earth_radious) * (-SIN(zlon_rot) * COS(zlat_rot)          &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)                  &
             & + z_timing_func * (COS(zlat_rot) * COS(zlon_rot)             &
             & * c_1 - c_3 * SIN(zlon_rot) * SIN(zlat_rot)) )
@@ -1080,16 +1080,16 @@ CONTAINS
           ! velocity in local north direction
           v_wind = u2 * SIN(2._wp*zlon_rot) * COS(zlat_rot) * z_timing_func
 
-          c_1 = u_wind/(re * COS(zlat_rot))
+          c_1 = u_wind/(earth_radious * COS(zlat_rot))
 
-          c_3 = v_wind/re
+          c_3 = v_wind/earth_radious
 
-          c_2 = (u2/re) * SIN(zlon_rot) * ( -SIN(zlon_rot)                 &
+          c_2 = (u2/earth_radious) * SIN(zlon_rot) * ( -SIN(zlon_rot)                 &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)  &
             & + z_timing_func * (c_3 * COS(zlat_rot)*SIN(zlon_rot)         &
             & + 2._wp * COS(zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.5_wp*u2/re) * (-SIN(2._wp*zlon_rot) * COS(zlat_rot)           &
+          c_4 = (0.5_wp*u2/earth_radious) * (-SIN(2._wp*zlon_rot) * COS(zlat_rot)           &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)                        &
             & + z_timing_func * (2._wp*COS(zlat_rot) * COS(2._wp*zlon_rot) * c_1 &
             & - c_3 * SIN(2._wp*zlon_rot) * SIN(zlat_rot)) )
@@ -1142,16 +1142,16 @@ CONTAINS
           ! meridional velocity component at edge midpoint
           v_wind = 0.5_wp * u3 * SIN(zlon_rot) * COS(zlat_rot) * z_timing_func
 
-          c_1 = u_wind/(re * COS(zlat_rot))
+          c_1 = u_wind/(earth_radious * COS(zlat_rot))
 
-          c_3 = v_wind/re
+          c_3 = v_wind/earth_radious
 
-          c_2 = (u3/re) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)  &
+          c_2 = (u3/earth_radious) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)  &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)  &
             & - z_timing_func * (c_3 * COS(zlat_rot)*SIN(0.5_wp*zlon_rot)  &
             & + COS(0.5_wp*zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.25_wp*u3/re) * (-SIN(zlon_rot) * COS(zlat_rot)       &
+          c_4 = (0.25_wp*u3/earth_radious) * (-SIN(zlon_rot) * COS(zlat_rot)       &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)               &
             & + z_timing_func * (COS(zlat_rot) * COS(zlon_rot) * c_1    &
             & - c_3 * SIN(zlon_rot) * SIN(zlat_rot)) )
@@ -1204,16 +1204,16 @@ CONTAINS
           v_wind = - u4 * SIN(zlon_rot) * COS(zlat_rot) * COS(zlat_rot) &
             &      * z_timing_func
 
-          c_1 = u_wind/(re * COS(zlat_rot))
+          c_1 = u_wind/(earth_radious * COS(zlat_rot))
 
-          c_3 = v_wind/re
+          c_3 = v_wind/earth_radious
 
-          c_2 = (u4/re) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)       &
+          c_2 = (u4/earth_radious) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)       &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)       &
             & - z_timing_func * (c_3 * COS(zlat_rot)*SIN(0.5_wp*zlon_rot)       &
             & + COS(0.5_wp*zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.5_wp*u4/re) * (SIN(zlon_rot) * COS(zlat_rot) * COS(zlat_rot) &
+          c_4 = (0.5_wp*u4/earth_radious) * (SIN(zlon_rot) * COS(zlat_rot) * COS(zlat_rot) &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)                       &
             & - z_timing_func * (COS(zlat_rot) * COS(zlat_rot) * COS(zlon_rot)  &
             & * c_1 - SIN(2._wp*zlat_rot) * SIN(zlon_rot) * c_3 ) )
@@ -1274,7 +1274,7 @@ CONTAINS
          ! Save distance vector cell center -> barycenter of advected area
          ! in an edge based data structure. This is possible, since one
          ! unique distance vector corresponds to one edge.
-         df_distv_barycenter(je,1,jb,1:2) = re * z_dist_g(1:2)
+         df_distv_barycenter(je,1,jb,1:2) = earth_radious * z_dist_g(1:2)
 
       ENDDO
     ENDDO

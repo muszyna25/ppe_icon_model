@@ -180,7 +180,7 @@ CONTAINS
 
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
 
-            z_area_scaled         = p_patch%verts%dual_area(jv,jb)/(re*re)
+            z_area_scaled         = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)
 
 
@@ -214,7 +214,7 @@ CONTAINS
             ! no division by zero
             IF (zarea_fraction /= 0.0_wp) THEN
               !z_area_scaled   = zarea_fraction
-              z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
+              z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
               p_vn_dual(jv,jk,jb)%x  = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)!
             ENDIF
           ENDIF
@@ -1703,7 +1703,7 @@ CONTAINS
 
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
 
-            rot_vec_v(jv,jk,jb) = z_vort_tmp/p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
+            rot_vec_v(jv,jk,jb) = z_vort_tmp/p_patch%verts%dual_area(jv,jb)! (earth_radious*earth_radious*z_weight(jv,jk,jb))!
 
             !Finalize vorticity calculation by closing the dual loop along boundary edges
           ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN!(i_v_ctr(jv,jk,jb)==2)THEN
@@ -1921,7 +1921,7 @@ CONTAINS
 
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
 
-            rot_vec_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
+            rot_vec_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (earth_radious*earth_radious*z_weight(jv,jk,jb))!
 
 
           ELSEIF(i_v_ctr(jv,jk,jb)/=0)THEN!boundary edges are involved
@@ -1950,8 +1950,8 @@ CONTAINS
             ! !               &  + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
             ! !           END IF
             ! !         END DO
-            ! !         z_area_scaled   = zarea_fraction*re*re
-            !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
+            ! !         z_area_scaled   = zarea_fraction*earth_radious*earth_radious
+            !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
 
             !Finalize vorticity calculation by closing the dual loop along boundary edges
             IF(i_v_ctr(jv,jk,jb)==2)THEN

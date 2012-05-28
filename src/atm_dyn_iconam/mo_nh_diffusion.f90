@@ -69,7 +69,7 @@ MODULE mo_nh_diffusion
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
-  USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re, rd, p0ref
+  USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, earth_radious, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
 
   IMPLICIT NONE
@@ -1007,7 +1007,7 @@ MODULE mo_nh_diffusion
     !------------------------------------------
 
       ! a) mean area edge
-      z_mean_area_edge=8.0_wp*pi*re*re/REAL(p_patch%n_patch_edges_g,wp)
+      z_mean_area_edge=8.0_wp*pi*earth_radious*earth_radious/REAL(p_patch%n_patch_edges_g,wp)
 
       ! b) compute density at vertices and edges
       CALL cells2verts_scalar(p_nh_prog%rho, p_patch, p_int%cells_aw_verts, z_rho_v)
