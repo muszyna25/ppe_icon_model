@@ -138,6 +138,7 @@ MODULE mo_model_domimp_patches
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
+  USE mo_physical_constants, ONLY: re
   
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -758,6 +759,7 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, je, jcv, jce, ilc, ibc
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
+    INTEGER :: netcd_status
     
     !-----------------------------------------------------------------------
     
@@ -845,7 +847,24 @@ CONTAINS
       CALL finish  (TRIM(routine), TRIM(message_text))
     END IF
     
-    !
+    !--------------------------------------
+    ! get geometry parameters
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', p_patch%geometry_type)
+    IF (netcd_status /= nf_noerr) p_patch%geometry_type = 0
+    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radious', p_patch%sphere_radious)
+    IF (netcd_status /= nf_noerr) THEN
+      ! by default this is the earth sphere
+      ! we should add here the case of torus, ellipsoides, etc. 
+      p_patch%sphere_radious = re
+      p_patch%earth_rescale_factor = 1.0_wp
+    ELSE
+      netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
+        & p_patch%earth_rescale_factor)
+      IF (netcd_status /= nf_noerr) &
+        & CALL finish(routine, "earth_rescale_factor not defined")
+    ENDIF
+     
+    !--------------------------------------
     ! get number of cells, edges and vertices
     !
     CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
