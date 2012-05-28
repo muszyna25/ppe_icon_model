@@ -365,8 +365,17 @@ CONTAINS
     ELSE
        start_subgrid_id = 0
     ENDIF
-    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%grid_geometry)
-    IF (netcd_status /= nf_noerr) grid_obj%grid_geometry = undefined
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%geometry_type)
+    IF (netcd_status /= nf_noerr) grid_obj%geometry_type = undefined
+    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radious', grid_obj%sphere_radious)
+    IF (netcd_status /= nf_noerr) THEN
+      CALL set_default_geometry_parameters(to_grid_id=grid_id)
+    ELSE
+      netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
+        & grid_obj%earth_rescale_factor)
+      IF (netcd_status /= nf_noerr) &
+        & CALL finish(method_name, "earth_rescale_factor not defined")
+    ENDIF
     
     print *, 'Read ', grid_obj%ncells, ' cells...'
     CALL allocate_grid_object(grid_id)
@@ -402,7 +411,7 @@ CONTAINS
     ! allocate tmp arrays for reading
     ALLOCATE(tmp_index(no_of_cells,max_cell_vertices),stat=i)
     IF (i > 0) THEN
-      CALL finish ('read_netcdf_grid', 'failed to ALLOCATE(tmp_index)')
+      CALL finish (method_name, 'failed to ALLOCATE(tmp_index)')
     ENDIF
 
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
@@ -479,7 +488,7 @@ CONTAINS
     ! allocate tmp arrays for reading
     ALLOCATE(tmp_real(no_of_edges,2),stat=i)
     IF (i > 0) THEN
-      CALL finish ('read_netcdf_grid', 'failed to ALLOCATE(tmp_real)')
+      CALL finish (method_name, 'failed to ALLOCATE(tmp_real)')
     ENDIF
     CALL nf(nf_inq_varid(ncid, 'edge_vert_distance', varid))
     CALL nf(nf_get_var_double   (ncid, varid, tmp_real))
@@ -496,7 +505,7 @@ CONTAINS
     ! allocate tmp arrays for reading
     ALLOCATE(tmp_index(no_of_edges,2),stat=i)
     IF (i > 0) THEN
-      CALL finish ('read_netcdf_grid', 'failed to ALLOCATE(tmp_index)')
+      CALL finish (method_name, 'failed to ALLOCATE(tmp_index)')
     ENDIF
     CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
     CALL nf(nf_get_var_int   (ncid, varid, tmp_index))
@@ -596,7 +605,7 @@ CONTAINS
     ! allocate tmp arrays for reading
     ALLOCATE(tmp_index(no_of_verts,max_vert_connect),stat=i)
     IF (i > 0) THEN
-      CALL finish ('read_netcdf_grid', 'failed to ALLOCATE(tmp_index)')
+      CALL finish (method_name, 'failed to ALLOCATE(tmp_index)')
     ENDIF
 
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
@@ -822,13 +831,18 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, re))
+!    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, re))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, &
+      & grid_obj%sphere_radious))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, ilevel))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_geometry', nf_int, 1, &
-      & grid_obj%grid_geometry))
-    CALL nf(nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%grid_geometry))
+      & grid_obj%geometry_type))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'sphere_radious' , nf_double, 1, &
+      & grid_obj%sphere_radious))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'earth_rescale_factor' , nf_double, 1, &
+      & grid_obj%earth_rescale_factor))
     
     ! The following three attributes are nontrivial in the presence of grid refinement
     ! and are set here because they are checked in the ICON code
@@ -846,24 +860,24 @@ CONTAINS
       & grid_obj%start_subgrid_id))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'max_childdom', nf_int, 1, 1))
 
-    SELECT CASE (itype_optimize)
-    CASE (0)
-      CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 12, 'natural grid'))
-    CASE (1)
-      IF (l_c_grid) THEN
-        CALL nf(nf_put_att_text(ncid, nf_global, 'grid_optimization', 50, &
-          & 'Heikes-Randall with additional c-grid optimization'))
-      ELSE
-        CALL nf(nf_put_att_text(ncid, nf_global, 'grid_optimization', 27, &
-          & 'Heikes-Randall optimization'))
-      ENDIF
-    CASE (2)
-      CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 22, &
-        & 'equal area subdivision'))
-    CASE (3)
-      CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 30, &
-        & 'c-grid small circle constraint'))
-    END SELECT
+!     SELECT CASE (itype_optimize)
+!     CASE (0)
+!       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 12, 'natural grid'))
+!     CASE (1)
+!       IF (l_c_grid) THEN
+!         CALL nf(nf_put_att_text(ncid, nf_global, 'grid_optimization', 50, &
+!           & 'Heikes-Randall with additional c-grid optimization'))
+!       ELSE
+!         CALL nf(nf_put_att_text(ncid, nf_global, 'grid_optimization', 27, &
+!           & 'Heikes-Randall optimization'))
+!       ENDIF
+!     CASE (2)
+!       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 22, &
+!         & 'equal area subdivision'))
+!     CASE (3)
+!       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 30, &
+!         & 'c-grid small circle constraint'))
+!     END SELECT
     CALL nf(nf_put_att_double  (ncid, nf_global, 'rotation_vector', nf_double, 3, &
       & rotation_vector))
     !----------------------------------------------------------------------

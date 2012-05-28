@@ -50,7 +50,7 @@ MODULE mo_icosahedron_grid
   USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid, &
     & write_ascii_decomposition
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
-  USE mo_local_grid_geometry,     ONLY: set_sphere_geom_grid, get_cell_barycenters!, &
+  USE mo_local_grid_geometry,     ONLY: compute_sphere_grid_geometry, get_cell_barycenters!, &
 !    & use_cartesian_centers
   USE mo_local_grid_refinement,   ONLY: refine_grid_edgebisection, refine_grid_insert_centers, &
     & complete_grid_connectivity
@@ -159,7 +159,9 @@ CONTAINS
     IF (input_file == 'NULL') THEN
       !level = -1, iccosahedron
       base_grid_id = get_icosahedron_grid()
-      CALL set_sphere_geom_grid(base_grid_id)
+      CALL set_default_geometry_parameters(to_grid_id=base_grid_id, &
+        & param_file_name=param_file_name)
+      CALL compute_sphere_grid_geometry(base_grid_id)
       CALL set_grid_level(base_grid_id, -1)
       CALL set_grid_parent_id(base_grid_id, 0)
       IF (-1 == decompose_cells_at_level) THEN
@@ -224,7 +226,7 @@ CONTAINS
         CALL optimize_grid(base_grid_id)
       ENDIF
 
-      CALL set_sphere_geom_grid(base_grid_id)
+      CALL compute_sphere_grid_geometry(base_grid_id)
       CALL set_grid_parent_id(base_grid_id, 0)
 
       IF (level == decompose_cells_at_level) THEN
@@ -529,7 +531,7 @@ CONTAINS
     out_grid%is_filled = .true.
     !--------------------------------------------------------------
     ! create geometry
-    CALL set_sphere_geom_grid(out_grid_id)
+    CALL compute_sphere_grid_geometry(out_grid_id)
     icon_norm_edge = new_edges%primal_edge_length(1) / re
     icon_norm_dual_edge = new_edges%dual_edge_length(1) / re
 
@@ -580,11 +582,11 @@ CONTAINS
     CALL set_nest_defaultindexes(out_grid_id)
     CALL set_no_of_subgrids(out_grid_id, 1)
     CALL set_start_subgrids(out_grid_id, 0)
-    out_grid%grid_geometry   = sphere_geometry
+    out_grid%geometry_type   = sphere_geometry
     out_grid%is_filled = .true.
     !--------------------------------------------------------------
     ! create geometry
-    CALL set_sphere_geom_grid(out_grid_id)
+    CALL compute_sphere_grid_geometry(out_grid_id)
     icon_norm_edge = new_edges%primal_edge_length(1) / re
     icon_norm_dual_edge = new_edges%dual_edge_length(1) / re
 

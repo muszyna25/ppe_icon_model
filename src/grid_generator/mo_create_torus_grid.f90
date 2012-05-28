@@ -260,7 +260,7 @@ CONTAINS
     torus_grid%nverts = no_of_vertices
     torus_grid%cells%max_no_of_vertices = max_cell_vertices
     torus_grid%verts%max_connectivity   = max_vertex_connect
-    torus_grid%grid_geometry   = torus_geometry
+    torus_grid%geometry_type   = torus_geometry
 
     CALL allocate_grid_object(torus_grid_id)
     CALL grid_set_exist_eq_allocated(torus_grid_id)

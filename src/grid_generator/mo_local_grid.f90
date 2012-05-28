@@ -46,7 +46,7 @@ MODULE mo_local_grid
 #include "grid_definitions.inc"
 
   USE mo_kind,            ONLY: wp
-  USE mo_io_units,        ONLY: filename_max
+  USE mo_io_units,        ONLY: nnml, filename_max
   USE mo_exception,       ONLY: message_text, message, finish
   USE mo_base_geometry,   ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
     & t_tangent_vectors
@@ -54,6 +54,8 @@ MODULE mo_local_grid
     & min_rlcell, max_rlcell, min_rlcell_int, &
     & min_rlvert, max_rlvert,                 & ! min_rlvert_int,
     & min_rledge, max_rledge, min_rledge_int
+  USE mo_namelist,        ONLY: position_nml, open_nml, positioned
+  USE mo_physical_constants, ONLY: re
 
   IMPLICIT NONE
 
@@ -71,7 +73,8 @@ MODULE mo_local_grid
     & destruct_cells, destruct_edges, destruct_verts,          &
     & allocate_vertical_columns, deallocate_vertical,          &
     & allocate_vertical_zlayers, allocate_vertical,            &
-    & set_nest_defaultindexes, get_next_cell_edge_vertex
+    & set_nest_defaultindexes, get_next_cell_edge_vertex,      &
+    & set_default_geometry_parameters
 
   ! Public object-oriented methods
   PUBLIC :: destruct_grid_objects, new_grid, delete_grid, get_grid,  &
@@ -97,7 +100,7 @@ MODULE mo_local_grid
     & linear_interpolation, min_interpolation, max_interpolation,     &
     & parents_from_idpointers, parents_from_parentpointers,           &
     & netcdf_CF_1_1_convention, sphere_geometry, torus_geometry,      &
-    & max_decompositions
+    & max_decompositions, dualy_refined_grid
   !--------------------------------------------------------------
   ! definitions of parameters (constants)
   ! Note: 0 is always reserved for undefined value
@@ -151,6 +154,7 @@ MODULE mo_local_grid
   ! types of grid creation
   INTEGER, PARAMETER ::  cut_off_grid = 1
   INTEGER, PARAMETER ::  refined_bisection_grid = 2
+  INTEGER, PARAMETER ::  dualy_refined_grid = 3
   
   ! -----------------------------
   ! types of grid geometries
@@ -423,9 +427,15 @@ MODULE mo_local_grid
     INTEGER :: grid_creation_process
     !> The grid optimization procces
     INTEGER :: grid_optimization_process
-    !> The grid domain geometry
-    INTEGER :: grid_geometry
-
+    
+    !> The grid domain geometry parameters
+    INTEGER :: geometry_type
+    !> Sphere radious. 
+    REAL(wp) :: sphere_radious
+    !> Earth rescaling factor.
+    ! When > 0, then this geometry is rescaled from earth by earth_rescale_factor
+    REAL(wp) :: earth_rescale_factor
+ 
     ! grid entities
     !> The number of cells in the grid
     INTEGER :: ncells
@@ -713,12 +723,17 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Sets the grid_creation_process flag associated with the grid_id
-  SUBROUTINE set_grid_creation(grid_id, creation_id)
-    INTEGER, INTENT(in) :: grid_id, creation_id
+  SUBROUTINE set_grid_creation(created_grid_id, creation_id, from_grid_id)
+    INTEGER, INTENT(in) :: created_grid_id, creation_id
+    INTEGER, INTENT(in), OPTIONAL :: from_grid_id
 
-    CALL check_active_grid_id(grid_id)
+    CALL check_active_grid_id(created_grid_id)
 
-    get_grid_object(grid_id)%grid_creation_process = creation_id
+    get_grid_object(created_grid_id)%grid_creation_process = creation_id
+    IF (PRESENT(from_grid_id)) THEN
+      CALL set_default_geometry_parameters(to_grid_id=created_grid_id, from_grid_id=from_grid_id)
+    ENDIF
+    
 
   END SUBROUTINE set_grid_creation
   !-------------------------------------------------------------------------
@@ -1000,7 +1015,9 @@ CONTAINS
     
     to_grid%grid_creation_process     = from_grid%grid_creation_process
     to_grid%grid_optimization_process = from_grid%grid_optimization_process
-    to_grid%grid_geometry             = from_grid%grid_geometry
+    to_grid%geometry_type             = from_grid%geometry_type
+    to_grid%sphere_radious            = from_grid%sphere_radious
+    to_grid%earth_rescale_factor    = from_grid%earth_rescale_factor
     to_grid%level                     = from_grid%level
     to_grid%vertical_structure        => from_grid%vertical_structure
     to_grid%patch_id                  = from_grid%patch_id
@@ -2329,7 +2346,7 @@ CONTAINS
     grid_obj%out_file_name    = ''
     grid_obj%grid_creation_process    = undefined
     grid_obj%grid_optimization_process= undefined
-    grid_obj%grid_geometry            = undefined
+    ! grid_obj%geometry_type = undefined, this will be set by set_default_geometry_parameters
     grid_obj%netcdf_flags             = undefined
     grid_obj%netcdf_flags             = netcdf_CF_1_1_convention
 
@@ -2361,8 +2378,69 @@ CONTAINS
     grid_obj%is_filled  = .false.
     grid_is_active(grid_id) = .true.
 
+    CALL set_default_geometry_parameters(to_grid_id=grid_id)
+  
   END SUBROUTINE init_grid_object
   !-----------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !   SUBROUTINE set_sphere_geometry_parameters
+  !>
+  !! sets the parameters for the sphere geometry. Public
+  SUBROUTINE set_default_geometry_parameters(to_grid_id, param_file_name, from_grid_id)
+
+    INTEGER :: to_grid_id
+    CHARACTER(LEN=*), INTENT(in), OPTIONAL :: param_file_name
+    INTEGER, OPTIONAL :: from_grid_id
+
+    TYPE(t_grid), POINTER :: grid
+    INTEGER  :: geometry_type
+    REAL(wp) :: sphere_radious, earth_rescale_factor
+    INTEGER  :: i_status
+    
+    NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radious, earth_rescale_factor
+
+    
+    geometry_type = sphere_geometry
+    earth_rescale_factor = 1.0_wp
+    sphere_radious = re
+    
+    IF (PRESENT(from_grid_id)) THEN
+      grid => get_grid(from_grid_id)
+      geometry_type          = grid%geometry_type
+      earth_rescale_factor = grid%earth_rescale_factor
+      sphere_radious         = grid%sphere_radious
+    ENDIF
+           
+    IF (PRESENT(param_file_name)) THEN
+      ! read namelist
+      CALL open_nml(param_file_name)
+      CALL position_nml('grid_geometry_parameters',STATUS=i_status)
+      IF (i_status == positioned) THEN
+        READ (nnml,grid_geometry_parameters)
+      ENDIF
+      CLOSE(nnml)
+    ENDIF
+
+    ! check
+    SELECT CASE(geometry_type)
+      CASE (sphere_geometry) ! ok
+      CASE default
+        CALL finish ('assign_geometry_parameters', 'Unkown geometry_type')
+    END SELECT
+    
+    IF (earth_rescale_factor > 0.0_wp) THEN
+      sphere_radious = re * earth_rescale_factor
+    ENDIF
+    
+    grid => get_grid(to_grid_id)
+    grid%geometry_type = geometry_type
+    grid%sphere_radious = sphere_radious
+    grid%earth_rescale_factor = earth_rescale_factor
+
+  END SUBROUTINE set_default_geometry_parameters
+  !-------------------------------------------------------------------------
+  
 
   !-----------------------------------------------------------------------
   !>

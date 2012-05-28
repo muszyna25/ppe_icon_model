@@ -132,10 +132,7 @@ PROGRAM grid_command
       CALL check_inverse_connect_verts(param_1, param_2)
 
     CASE (compute_sphere_geometry_c)
-      OPEN (500, FILE = command_file,STATUS = 'OLD')
-      READ (500, *) command, param_1, param_2
-      CLOSE(500)
-      CALL compute_sphere_geometry(param_1, param_2)
+      CALL compute_sphere_geometry(param_file_name=param_1)
 
     CASE (create_torus_c)
       CALL create_torus_grid(param_1)

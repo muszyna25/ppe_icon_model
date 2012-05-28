@@ -282,10 +282,6 @@ CONTAINS
 !$OMP END PARALLEL
     DEALLOCATE(metis_xadj,metis_adjncy,metis_color,          &
       & metis_cell_weights,metis_edge_weights,metis_options)
-
-    ! for plotting
-!     cells%sea_land_mask(:) = cells%get_domain_id(decomposition_id, :)
-!     CALL write_netcdf_grid(grid_id)
 #endif
 
   END SUBROUTINE decompose_metis

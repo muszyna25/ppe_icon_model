@@ -698,7 +698,7 @@ CONTAINS
 
     !--------------------------------------------------------------
     CALL set_nest_defaultindexes(out_grid_id)
-    CALL set_grid_creation(out_grid_id, cut_off_grid)
+    CALL set_grid_creation(out_grid_id, cut_off_grid, from_grid_id=in_grid_id)
     CALL set_grid_parent_id(out_grid_id, in_grid_id)
     !--------------------------------------------------------------
     DEALLOCATE (vertices_old_to_new_pointer,&

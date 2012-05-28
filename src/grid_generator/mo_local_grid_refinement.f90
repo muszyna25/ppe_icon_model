@@ -54,7 +54,7 @@ MODULE mo_local_grid_refinement
 !     & set_grid_parent_id, set_no_of_subgrids, set_start_subgrids
 
   USE mo_grid_conditions,    ONLY: cut_conditional_grid
-  USE mo_local_grid_geometry,ONLY: set_sphere_geom_grid, get_common_edge_vertex
+  USE mo_local_grid_geometry,ONLY: compute_sphere_grid_geometry, get_common_edge_vertex
 !   USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy
   USE mo_local_grid_optimization, ONLY: read_grid_optimization_param, optimize_grid
 
@@ -165,7 +165,7 @@ CONTAINS
 
     CALL read_grid_optimization_param(param_file_name)
     CALL optimize_grid(out_grid_id)
-    CALL set_sphere_geom_grid(out_grid_id)
+    CALL compute_sphere_grid_geometry(out_grid_id)
 
     IF (refine_depth < 2) THEN
       WRITE(file_name,'(a)')  TRIM(output_file)
@@ -249,7 +249,7 @@ CONTAINS
     CALL print_timer(timer_coarsen)
     CALL delete_timer(timer_coarsen)
 
-    CALL set_sphere_geom_grid(parent_grid_id)
+    CALL compute_sphere_grid_geometry(parent_grid_id)
 
   END SUBROUTINE coarsen_child_parent_grid
   !-------------------------------------------------------------------------
@@ -759,12 +759,11 @@ CONTAINS
     ! temporarly set  parameters to default
     CALL set_nest_defaultindexes(out_grid_id)
     CALL set_grid_parent_id(out_grid_id, in_grid_id)
-    CALL set_grid_creation(out_grid_id, refined_bisection_grid)
+    CALL set_grid_creation(out_grid_id, refined_bisection_grid, from_grid_id=in_grid_id)
     CALL set_no_of_subgrids(out_grid_id, 1)
     CALL set_start_subgrids(out_grid_id, 0)
     out_grid%cells%min_sea_depth = in_grid%cells%min_sea_depth
     out_grid%is_filled = .true.
-    out_grid%grid_geometry  = in_grid%grid_geometry
 
     !--------------------------------------------------------------
     CALL timer_stop(timer_grid_refine)
@@ -975,12 +974,11 @@ CONTAINS
 
     CALL set_nest_defaultindexes(out_grid_id)
     !CALL set_grid_parent_id(out_grid_id, in_grid_id)
-    !CALL set_grid_creation(out_grid_id, refined_bisection_grid)
+    CALL set_grid_creation(out_grid_id, dualy_refined_grid, from_grid_id=in_grid_id)
     CALL set_no_of_subgrids(out_grid_id, 1)
     CALL set_start_subgrids(out_grid_id, 0)
     out_grid%cells%min_sea_depth = in_grid%cells%min_sea_depth
     out_grid%is_filled = .true.
-    out_grid%grid_geometry  = in_grid%grid_geometry
     !--------------------------------------------------------------
 
   END FUNCTION refine_grid_insert_centers

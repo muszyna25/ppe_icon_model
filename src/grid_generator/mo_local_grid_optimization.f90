@@ -444,7 +444,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: vertex_cell_force(16)
     REAL(wp) :: vertex_centers_length(16)
 
-    TYPE(t_cartesian_coordinates) :: edge_vector, vertex_vector, force_vector
+    TYPE(t_cartesian_coordinates) :: edge_vector, vertex_vector !, force_vector
     REAL(wp),  ALLOCATABLE :: vertex_edge_ref_length(:)
     REAL(wp),  ALLOCATABLE :: cell_center_ref_length(:)
     REAL(wp),  ALLOCATABLE :: edge_ref_length(:)

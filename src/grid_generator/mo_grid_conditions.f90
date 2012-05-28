@@ -453,7 +453,7 @@ CONTAINS
     CALL get_conditional_cells(in_grid_id, cut_cell_list)
     CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list)
     cut_grid_id = get_grid_from_cell_list(in_grid_id, smooth_cell_list)
-    CALL set_grid_creation(cut_grid_id, cut_off_grid)
+    CALL set_grid_creation(cut_grid_id, cut_off_grid, from_grid_id=in_grid_id)
 
     DEALLOCATE(cut_cell_list%value)
     DEALLOCATE(smooth_cell_list%value)

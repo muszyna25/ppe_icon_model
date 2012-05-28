@@ -54,7 +54,7 @@ MODULE mo_create_ocean_grid
     & get_conditional_list, set_edge_elev_fromcells, get_grid_conditional_cells,       &
     & until_convergence
   USE mo_local_grid_refinement,ONLY: refine_grid_edgebisection
-  USE mo_local_grid_geometry,  ONLY: set_sphere_geom_grid
+  USE mo_local_grid_geometry,  ONLY: compute_sphere_grid_geometry
   USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy
   !   USE mo_grid_checktools
   USE mo_zlayers,              ONLY: read_zlayers, get_grid_zlayers, count_dry_wet_cells
@@ -260,7 +260,7 @@ CONTAINS
       CALL fill_sea_land_mask_from_list(init_grid_id, sea_cell_list)
     ENDIF
     !------------------------------------------------------------------------
-    CALL set_sphere_geom_grid(init_grid_id)
+    CALL compute_sphere_grid_geometry(init_grid_id)
     CALL fill_edges_sea_land_mask(init_grid_id)
     IF (output_atmo_file /= "") THEN
       CALL write_netcdf_grid(ocean_grid_id, output_atmo_file)

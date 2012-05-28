@@ -41,14 +41,14 @@ MODULE mo_local_grid_geometry
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_math_constants,     ONLY: rad2deg
-  USE mo_physical_constants, ONLY: re
   USE mo_exception,          ONLY: finish! , message
   USE mo_local_grid
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,  triangle_area, &
     & inter_section, t_geographical_coordinates, angle_of_vectors,  &
     & sphere_cartesian_midpoint
-  USE mo_io_units,       ONLY:  filename_max
+  USE mo_io_units,       ONLY: nnml, filename_max
+  USE mo_namelist,       ONLY: position_nml, open_nml, positioned
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
   USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
 
@@ -60,7 +60,7 @@ MODULE mo_local_grid_geometry
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: compute_sphere_geometry
-  PUBLIC :: set_sphere_geom_grid
+  PUBLIC :: compute_sphere_grid_geometry
   PUBLIC :: geographical_to_cartesian, cartesian_to_geographical
   PUBLIC :: order_cell_connectivity     ! Reorders the cell vertices, edges, neigbors
   PUBLIC :: get_cell_barycenters
@@ -84,17 +84,34 @@ MODULE mo_local_grid_geometry
 
 CONTAINS
 
+
   !-------------------------------------------------------------------------
   !>
   !!Computes the sphere geometry for a netcdf grid
   !-------------------------------------------------------------------------
-  SUBROUTINE compute_sphere_geometry(in_file, out_file)
-    CHARACTER(LEN=filename_max), INTENT(in) :: in_file, out_file
-
+  SUBROUTINE compute_sphere_geometry(param_file_name)
+    CHARACTER(LEN=*), INTENT(in) :: param_file_name
+    
+    CHARACTER(LEN=filename_max) :: in_file, out_file
     INTEGER :: grid_id
+    INTEGER :: i_status
+    
+    NAMELIST /file_names/ in_file, out_file
 
+    in_file=""
+    out_file=""
+    CALL open_nml(param_file_name)
+    CALL position_nml('file_names',STATUS=i_status)
+    IF (i_status == positioned) THEN
+      READ (nnml,file_names)
+    ELSE
+      CALL finish("compute_sphere_geometry","file_names section not found")
+    ENDIF
+    
     grid_id = read_new_netcdf_grid(in_file, read_grid_ids=.true.)
-    CALL set_sphere_geom_grid(grid_id)
+    CALL set_default_geometry_parameters(to_grid_id=grid_id, param_file_name=param_file_name, &
+      & from_grid_id=grid_id)
+    CALL compute_sphere_grid_geometry(grid_id)
     
     CALL write_netcdf_grid(grid_id, out_file)
     CALL delete_grid(grid_id)
@@ -104,7 +121,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------
-  SUBROUTINE set_sphere_geom_grid(in_grid_id)
+  SUBROUTINE compute_sphere_grid_geometry(in_grid_id)
     INTEGER, INTENT(in) :: in_grid_id
 
     TYPE(t_grid), POINTER :: compute_grid
@@ -117,7 +134,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: cartesian_center,edge_vector, edge_normal_vector, x,y
     TYPE(t_cartesian_coordinates) :: circumcenters_vector,tmp_vector
 
-    REAL(wp) :: real_tmp,re_square,lon,lat
+    REAL(wp) :: real_tmp,sphere_radious,sphere_radious_squared,lon,lat
 
     INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: i,j,cell_index,edge_index,vertex_index
@@ -127,11 +144,10 @@ CONTAINS
 
     INTEGER :: timer_set_sphere_geom_grid
 
-    timer_set_sphere_geom_grid = new_timer("set_sphere_geom_grid")
+    timer_set_sphere_geom_grid = new_timer("compute_sphere_grid_geometry")
     CALL timer_start(timer_set_sphere_geom_grid)
 
 
-    re_square = re*re
     compute_grid => get_grid(in_grid_id)
     verts=>compute_grid%verts
     edges=>compute_grid%edges
@@ -139,10 +155,10 @@ CONTAINS
     no_of_cells = cells%no_of_existcells
     no_of_edges = edges%no_of_existedges
     no_of_verts = verts%no_of_existvertices
-    compute_grid%grid_geometry = sphere_geometry
+    compute_grid%geometry_type = sphere_geometry
 
     IF (cells%max_no_of_vertices /= 3) THEN
-      CALL finish('set_sphere_geom_grid','Not a triangular grid')
+      CALL finish('compute_sphere_grid_geometry','Not a triangular grid')
     ENDIF
 
 !$OMP PARALLEL
@@ -397,27 +413,30 @@ CONTAINS
 ! !$OMP END DO
 
 
-    ! Finally,rescale distances by radius of the Earth
+    !----------------------------------------------------------
+    ! Finally,rescale distances by radius of the sphere
+    sphere_radious         = compute_grid%sphere_radious
+    sphere_radious_squared = sphere_radious*sphere_radious
 !$OMP DO PRIVATE(vertex_index)
     DO vertex_index=1,no_of_verts
       verts%dual_area(vertex_index) = &
-        & re_square * verts%dual_area(vertex_index)
+        & sphere_radious_squared * verts%dual_area(vertex_index)
     ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(cell_index)
     DO cell_index=1,no_of_cells
-      cells%area(cell_index) = re_square * cells%area(cell_index)
+      cells%area(cell_index) = sphere_radious_squared * cells%area(cell_index)
     ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(edge_index,i)
      DO edge_index=1, no_of_edges
-      edges%primal_edge_length(edge_index) = re* edges%primal_edge_length(edge_index)
-      edges%dual_edge_length(edge_index)   = re* edges%dual_edge_length(edge_index)
+      edges%primal_edge_length(edge_index) = sphere_radious * edges%primal_edge_length(edge_index)
+      edges%dual_edge_length(edge_index)   = sphere_radious * edges%dual_edge_length(edge_index)
       DO i=1,2
         edges%get_edge_vert_length(edge_index, i) = &
-          & re * edges%get_edge_vert_length(edge_index, i)
+          & sphere_radious * edges%get_edge_vert_length(edge_index, i)
         edges%get_edge_cell_length(edge_index, i) = &
-          & re * edges%get_edge_cell_length(edge_index, i)
+          & sphere_radious * edges%get_edge_cell_length(edge_index, i)
       ENDDO
     ENDDO
 !$OMP END DO
@@ -435,7 +454,7 @@ CONTAINS
     CALL delete_timer(timer_set_sphere_geom_grid)
     !----------------------------------
 
-  END SUBROUTINE set_sphere_geom_grid
+  END SUBROUTINE compute_sphere_grid_geometry
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

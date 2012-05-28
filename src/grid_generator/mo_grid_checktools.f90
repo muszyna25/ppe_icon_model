@@ -48,7 +48,7 @@ MODULE mo_grid_checktools
     & gc2cc, arc_length, norma, sin_cc, gvec2cvec!, sphere_tanget_coordinates
   USE mo_math_constants, ONLY: rad2deg
   USE mo_local_grid_geometry,  ONLY: edges_cell_angle, edges_normal_angle, no_angle, &
-    & get_cell_barycenters, set_sphere_geom_grid
+    & get_cell_barycenters
     !, get_triangle_circumcenters, geographical_to_cartesian
   USE mo_physical_constants, ONLY: re
   USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
