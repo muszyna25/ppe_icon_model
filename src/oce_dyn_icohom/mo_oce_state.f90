@@ -71,7 +71,7 @@ MODULE mo_oce_state
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
-  USE mo_physical_constants,  ONLY: earth_radious, omega, rho_ref
+  USE mo_physical_constants,  ONLY: omega, rho_ref
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array, global_sum_array
   USE mo_linked_list,         ONLY: t_var_list
@@ -2574,15 +2574,15 @@ CONTAINS
       DO jb = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
-            !z_y = earth_radious*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
+            !z_y = ptr_patch%sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
             gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
             gc2%lon = 0.0_wp
             xx2=gc2cc(gc2)        
-            z_y = earth_radious*arc_length(xx2,xx1)
+            z_y = ptr_patch%sphere_radius * arc_length(xx2,xx1)
             ptr_patch%verts%f_v(jv,jb) = 2.0_wp*omega*( sin(z_lat_basin_center)     &
-            &                          + (cos(z_lat_basin_center)/earth_radious)*z_y)
+            &                          + (cos(z_lat_basin_center)/ptr_patch%sphere_radius)*z_y)
          !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*omega*sin(z_lat_basin_center),&
-         !  &2.0_wp*omega*((cos(z_lat_basin_center)/earth_radious)*z_y)
+         !  &2.0_wp*omega*((cos(z_lat_basin_center)/ptr_patch%sphere_radius)*z_y)
         END DO
       END DO
 
@@ -2593,11 +2593,11 @@ CONTAINS
             gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad
             gc2%lon = 0.0_wp
             xx2=gc2cc(gc2)        
-            z_y = earth_radious*arc_length(xx2,xx1)
+            z_y = ptr_patch%sphere_radius*arc_length(xx2,xx1)
 
             !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
             ptr_patch%edges%f_e(je,jb) = 2.0_wp*omega*( sin(z_lat_basin_center)     &
-            &                          + (cos(z_lat_basin_center)/earth_radious)*z_y)
+            &                          + (cos(z_lat_basin_center)/ptr_patch%sphere_radius)*z_y)
         END DO
       END DO
     CASE(F_PLANE_CORIOLIS)

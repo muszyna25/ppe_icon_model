@@ -62,7 +62,6 @@ MODULE mo_scalar_product
     & gvec2cvec, cvec2gvec
   !USE mo_oce_index,          ONLY: ne_b, ne_i, nv_b, nv_i, form4ar, ldbg, c_k!, c_b, c_i
   USE mo_exception,                 ONLY: message, finish
-  USE mo_physical_constants, ONLY: earth_radious
   USE mo_math_constants,     ONLY: pi
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_oce_math_operators,     ONLY: rot_vertex_ocean_3d, map_edges2vert
@@ -926,6 +925,10 @@ CONTAINS
     INTEGER,PARAMETER :: ino_dual_edges = 6
     
     TYPE(t_subset_range), POINTER :: verts_in_domain
+    REAL(wp) :: sphere_radius_squared
+
+    !-----------------------------------------------------------------------
+    sphere_radius_squared = p_patch%sphere_radius * p_patch%sphere_radius 
     !-----------------------------------------------------------------------
 
     verts_in_domain => p_patch%verts%in_domain
@@ -961,7 +964,7 @@ CONTAINS
             
             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x      &
               & +edge2vert_coeff_cc(jv,jk,jb,jev)%x &
-              & *vn(ile,jk,ibe)/(p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious))
+              & *vn(ile,jk,ibe)/(p_patch%verts%dual_area(jv,jb)/sphere_radius_squared)
           END DO
           
         END DO ! jv = i_startidx_v, i_endidx_v

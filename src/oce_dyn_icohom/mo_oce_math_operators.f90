@@ -127,11 +127,14 @@ CONTAINS
     !INTEGER :: il_v1, il_v2,ib_v1, ib_v2
     INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
-    INTEGER,PARAMETER :: ino_dual_edges = 6
-
     TYPE(t_subset_range), POINTER :: verts_in_domain
+    INTEGER,PARAMETER :: ino_dual_edges = 6
+    REAL(wp) :: sphere_radius_squared
+
     !-----------------------------------------------------------------------
+    sphere_radius_squared = p_patch%sphere_radius * p_patch%sphere_radius 
     verts_in_domain => p_patch%verts%in_domain
+    
 
     i_v_ctr(:,:,:) = 0
     slev         = 1
@@ -180,7 +183,7 @@ CONTAINS
 
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
 
-            z_area_scaled         = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
+            z_area_scaled         = p_patch%verts%dual_area(jv,jb)/sphere_radius_squared
             p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)
 
 
@@ -214,7 +217,7 @@ CONTAINS
             ! no division by zero
             IF (zarea_fraction /= 0.0_wp) THEN
               !z_area_scaled   = zarea_fraction
-              z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(earth_radious*earth_radious)
+              z_area_scaled       = p_patch%verts%dual_area(jv,jb)/sphere_radius_squared
               p_vn_dual(jv,jk,jb)%x  = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)!
             ENDIF
           ENDIF
@@ -1598,6 +1601,7 @@ CONTAINS
     !INTEGER,PARAMETER :: ino_dual_edges = 6
 
     TYPE(t_subset_range), POINTER :: verts_in_domain
+    
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
 
