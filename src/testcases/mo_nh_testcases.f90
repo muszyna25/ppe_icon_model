@@ -77,7 +77,6 @@ MODULE mo_nh_testcases
   USE mo_vertical_coord_table, ONLY: vct_b
   USE mo_loopindices,          ONLY: get_indices_e, get_indices_c
   USE mo_advection_config,     ONLY: advection_config
-  USE mo_ncar_testcases,       ONLY: tracer_q1_q2, tracer_q3
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
   USE mo_nh_hs_test,           ONLY: init_nh_state_prog_held_suarez

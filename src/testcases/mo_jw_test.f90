@@ -66,7 +66,8 @@ MODULE mo_jw_test
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltransport, ntracer, iforcing, iqv, iqt
-  USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, regrot, turnwi
+  USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, regrot, turnwi, &
+    & init_ncar_testcases_domain
   USE mo_exception,           ONLY: message, message_text
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
@@ -162,6 +163,7 @@ MODULE mo_jw_test
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
 
+  CALL init_ncar_testcases_domain(pt_patch)
 !--------------------------------------------------------------------
 ! First check optional arguments
 

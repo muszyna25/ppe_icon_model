@@ -57,7 +57,7 @@ MODULE mo_ldf_init
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltransport, ntracer, iforcing, iqv, iqt
   USE mo_vertical_coord_table,ONLY: ceta
-  USE mo_ncar_testcases,      ONLY: regrot, turnwi
+  USE mo_ncar_testcases,      ONLY: regrot, turnwi, init_ncar_testcases_domain
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
     &                               spec_humi          !! Specific humidity
@@ -153,6 +153,7 @@ CONTAINS
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
 
+  CALL init_ncar_testcases_domain(pt_patch)
 
 !--------------------------------------------------------------------
 ! First check optional arguments

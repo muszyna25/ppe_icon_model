@@ -61,7 +61,9 @@ USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp,                ONLY: cells2edges_scalar
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nsteps, ntracer
-USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers
+USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers, &
+  & init_ncar_testcases_domain
+
 USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish
 USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -124,7 +126,7 @@ CONTAINS
 
 !--------------------------------------------------------------------
 !
-
+    CALL init_ncar_testcases_domain(ptr_patch)
     ! get patch ID
     pid = ptr_patch%id
 

@@ -43,6 +43,7 @@ MODULE mo_ncar_testcases
 
   USE mo_kind,           ONLY: wp
   USE mo_math_constants, ONLY: pi, pi_2, deg2rad
+  USE mo_model_domain,   ONLY: t_patch
 
   IMPLICIT NONE
 
@@ -56,18 +57,16 @@ MODULE mo_ncar_testcases
        Rd         = 287.04_wp,                 & ! gas constant J/(K kg)
        cp         = 1004.64_wp,                & ! specific heat at constant pressure J/(K kg)
        kappa      = Rd/cp,                     & ! kappa = 2/7
-       g          = 9.80616_wp,                & ! gravitational acceleration (m/s^2)
-       a          = 6371229._wp,               & ! Earth's radius in m
-       omega      = 2._wp*pi/86164._wp           ! Earth's angular velocity 1/s
+       g          = 9.80616_wp                   ! gravitational acceleration (m/s^2)
 
 !-----------------------------------------------------------------------
 ! steady-state and baroclinic wave tuning parameter
 !-----------------------------------------------------------------------
-  REAL(wp), PARAMETER ::                            &
+  REAL(wp), PARAMETER ::                             &
        eta_tropo  = 0.2_wp     ,                     & ! tropopause level
-       u0         = 35._wp     ,                     & ! 35 m/s
        T0         = 288._wp    ,                     & ! horizontal mean T at surface
        eta0       = 0.252_wp   ,                     & ! center of jets (hybrid)
+       u0         = 35._wp     ,                     & ! 35 m/s  
        !
        radius                 = 10._wp,             & ! reciprocal radius of the
                                                       ! perturbation without 'a'
@@ -79,11 +78,26 @@ MODULE mo_ncar_testcases
        gamma                  = 0.005_wp,           & ! lapse rate
        !
        perturbation_latitude_tracer = 55._wp,        &
-       a_omega                = a*omega,            &
        exponent               = Rd*gamma/g
+
+   REAL(wp) :: a       ! Domain radius in m
+   REAL(wp) :: omega   ! angular velocity 1/s
+   REAL(wp) :: a_omega ! periphery velocity =a*omega
 
 CONTAINS
 
+  !-------------------------------------------------------------------
+  !>
+  SUBROUTINE init_ncar_testcases_domain(patch)
+    TYPE(t_patch), INTENT(IN) :: patch
+
+    a = patch%sphere_radius
+    omega = patch%angular_velocity
+    a_omega = a*omega
+  END SUBROUTINE init_ncar_testcases_domain
+  !-------------------------------------------------------------------
+
+  
 !********************************************************************
 !
 ! Temperature (equation (6) in Jablonowski and Williamson, 2006)
@@ -557,14 +571,14 @@ CONTAINS
   !-----------------------------------------------------------------------
   !     test case parameters
   !-----------------------------------------------------------------------
-  REAL(wp), PARAMETER ::                       &
-    u0      = (2._wp*pi*a)/(12._wp*86400._wp)  ! circumference / 12 days
+  REAL(wp) :: this_u0   ! circumference / 12 days
   !-----------------------------------------------------------------------
   !     local variables
   !-----------------------------------------------------------------------
   REAL(wp) :: alpha, rot_lon, rot_lat, u_lat, v_lat, u_tmp, v_tmp
 
-  alpha = rotation_angle*deg2rad
+  this_u0 = (2._wp*pi*a)/(12._wp*86400._wp)  ! circumference / 12 days
+  alpha   = rotation_angle*deg2rad
   !-----------------------------------------------------------------------
   !    initialize the wind components
   !-----------------------------------------------------------------------
@@ -575,7 +589,7 @@ CONTAINS
     CALL regrot(lon,lat,rot_lon,rot_lat,0.0_wp,-0.5_wp*pi+alpha,1)
   ENDIF
 
-  u_lat  = u0 *  COS(rot_lat)
+  u_lat  =  this_u0 *  COS(rot_lat)
 
   IF (ABS(rotation_angle)<1.0E-8_wp) THEN
     u_wind = u_lat
@@ -786,28 +800,30 @@ CONTAINS
       REAL(wp),PARAMETER :: u0      = 50._wp,        &   ! reference wind
                             T0      = 288._wp,       &   ! reference temperature
                             n       = 4._wp,         &   ! wavenumber
-                            MM      = u0/(n*a),      &   ! parameter M and p_ref=95500.
-                            KK      = u0/(n*a),      &   ! parameter K
                             gamma   = 0.0065_wp,     &   ! lapse rate in K/m
                             p_ref   = 95500._wp          ! reference pressure
 
 !-----------------------------------------------------------------------
 !     local
 !-----------------------------------------------------------------------
+      REAL(wp) ::   this_MM,      &   ! parameter M and p_ref=95500.
+                    this_KK           ! parameter K
       REAL(wp) :: tmp1, tmp2, tmp3
       REAL(wp) :: cos_lat, sin_lat
       REAL(wp) :: exponent_1, exponent_2
       REAL(wp) :: AA, BB, CC
       REAL(wp) :: phis_perturb
 
+      this_MM      = u0/(n*a)   ! parameter M and p_ref=95500.
+      this_KK      = u0/(n*a)   ! parameter K
 !-----------------------------------------------------------------------
 !     initialize the wind components
 !-----------------------------------------------------------------------
       cos_lat = COS(lat)
       sin_lat = SIN(lat)
-      tmp1 = a * MM * cos_lat
-      tmp2 = a * KK * cos_lat**(n-1._wp)*(n*sin_lat**2 - cos_lat**2)
-      tmp3 = -a * KK * n * cos_lat**(n-1._wp) * sin_lat
+      tmp1 = a * this_MM * cos_lat
+      tmp2 = a * this_KK * cos_lat**(n-1._wp)*(n*sin_lat**2 - cos_lat**2)
+      tmp3 = -a * this_KK * n * cos_lat**(n-1._wp) * sin_lat
       u_wind = tmp1 + tmp2 * COS(n*lon)
       v_wind = tmp3 * SIN(n*lon)
 !-----------------------------------------------------------------------
@@ -823,12 +839,12 @@ CONTAINS
       exponent_2 = (gamma*Rd)/g
 
       cos_lat = COS(lat)
-      AA = tmp2 * (0.5_wp * MM*(2._wp*omega+MM) * cos_lat**2 + 0.25_wp * KK**2           &
+      AA = tmp2 * (0.5_wp * this_MM*(2._wp*omega+this_MM) * cos_lat**2 + 0.25_wp * this_KK**2  &
            &    * cos_lat**(2._wp*n) * ( (n+1._wp)*cos_lat**2 + (2._wp*n*n - n - 2._wp)) &
-           &    - 0.5_wp*n*n*KK**2 * cos_lat**(2._wp*(n-1._wp)))
-      BB = tmp2 * (2._wp*(omega+MM)*KK/((n+1._wp)*(n+2._wp)) * cos_lat**n &
+           &    - 0.5_wp*n*n*this_KK**2 * cos_lat**(2._wp*(n-1._wp)))
+      BB = tmp2 * (2._wp*(omega+this_MM)*this_KK/((n+1._wp)*(n+2._wp)) * cos_lat**n &
            &    * ( (n*n + 2._wp*n +2._wp) - (n+1._wp)**2 * cos_lat**2 ))
-      CC = tmp2 * (0.25_wp * KK**2 * cos_lat**(2._wp*n) * ( (n+1._wp)*cos_lat**2 - (n+2._wp)))
+      CC = tmp2 * (0.25_wp * this_KK**2 * cos_lat**(2._wp*n) * ( (n+1._wp)*cos_lat**2 - (n+2._wp)))
       phis_perturb = AA + BB * COS(n*lon) + CC * COS(2._wp*n*lon)
       surface_pressure = p_ref * (1._wp + tmp1*phis_perturb)**exponent_1   ! surface pressure
       temperature      = T0 * (pressure/p_ref)**exponent_2                 ! temperature
@@ -924,13 +940,13 @@ CONTAINS
 !-----------------------------------------------------------------------
       REAL(wp),PARAMETER :: p0      = 100000._wp,    & ! reference pressure
                             T0      = 300._wp,       & ! reference temperature
-                            RR      = a/3._wp,       & ! half width
                             Lz      = 20.e3_wp,      & ! vertical wave length, 20 km
                             delta_theta = 10._wp       ! potential temp. perturbation amplitude
 
 !-----------------------------------------------------------------------
 !     local variables
 !-----------------------------------------------------------------------
+      REAL(wp) :: this_RR                                   ! half width
       REAL(wp) :: sin_tmp, cos_tmp
       REAL(wp) :: tmp1
       REAL(wp) :: theta                                ! potential temperature
@@ -949,6 +965,7 @@ CONTAINS
                   gw_omega,                        &   ! rotation
                   p_eq
 
+      this_RR      = a/3._wp   ! half width
 !-----------------------------------------------------------------------
 !    initialize parameters
 !-----------------------------------------------------------------------
@@ -1007,8 +1024,8 @@ CONTAINS
       cos_tmp = COS(lat) * COS(phi0)
       theta_mean = T0 /( T0/S * ((pres/p0)**kappa - 1._wp) + 1._wp )
       r = a * ACOS (sin_tmp + cos_tmp*COS(lon-lambda0))     ! great circle distance with radius
-      IF (r < RR) THEN
-        tmp1 = 0.5_wp * (1._wp + COS(pi*r/RR))
+      IF (r < this_RR) THEN
+        tmp1 = 0.5_wp * (1._wp + COS(pi*r/this_RR))
       ELSE
         tmp1 = 0._wp
       ENDIF

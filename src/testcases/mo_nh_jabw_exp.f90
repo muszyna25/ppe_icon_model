@@ -61,7 +61,8 @@ MODULE mo_nh_jabw_exp
      &                               spec_humi          !! Specific humidity
    USE mo_exception,           ONLY: message, finish, message_text
    USE mo_advection_config,    ONLY: advection_config
-   USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3
+   USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, &
+     & init_ncar_testcases_domain
    USE mo_math_constants,      ONLY: pi, pi_2
    USE mo_intp_data_strc,      ONLY: t_int_state
    USE mo_intp,                ONLY: cells2edges_scalar, edges2cells_scalar
@@ -404,7 +405,8 @@ MODULE mo_nh_jabw_exp
    CHARACTER(LEN=1)                     :: ctracer
 !--------------------------------------------------------------------
 !
-    ! number of vertical levels
+    CALL init_ncar_testcases_domain(ptr_patch)
+   ! number of vertical levels
     nlev   = ptr_patch%nlev
     nblks_c   = ptr_patch%nblks_int_c
     npromz_c  = ptr_patch%npromz_int_c
