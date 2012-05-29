@@ -252,8 +252,8 @@ MODULE mo_jw_test
 
            pt_ext_data%atm%topography_c(jc,jb) = tmp1*(tmp2+tmp3)*rgrav
            ! Coriolis parameter
-           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
-                                     -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
+           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity * &
+             & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
 
         ENDDO
      ENDDO
@@ -270,8 +270,8 @@ MODULE mo_jw_test
            lon= pt_patch%verts%vertex(jv,jb)%lon
            lat= pt_patch%verts%vertex(jv,jb)%lat
            ! Coriolis parameter
-           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
-                                     -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
+           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity * &
+             & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
         ENDDO
      ENDDO
 !$OMP END DO
@@ -338,8 +338,8 @@ MODULE mo_jw_test
                    & + zv * pt_patch%edges%primal_normal(je,jb)%v2
 
               ! Coriolis parameter
-              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
-                                        -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
+              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity * &
+                & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
            ENDDO ! edge loop
         ENDDO ! vertical level loop
      ENDDO ! block loop

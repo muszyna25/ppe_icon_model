@@ -238,14 +238,15 @@ CONTAINS
            tmp3  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
              & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
            tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 88._wp/105._wp
-           tmp5  = pt_patch%angular_velocity*pt_patch%sphere_radius*(8._wp/3._wp*zcosy**3 - pi/2._wp )
+           tmp5  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
+             & (8._wp/3._wp*zcosy**3 - pi/2._wp )
            tmp6  = 4._wp*zcosy**4 -3.2_wp/1.5_wp
 
 
            pt_ext_data%atm%topography_c(jc,jb) = (tmp1*(tmp2+tmp3+tmp4)-tmp5+tmp6)*rgrav
            ! Coriolis parameter
-           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
-                                     -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
+           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity * &
+             & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
 
         ENDDO
      ENDDO
@@ -262,8 +263,8 @@ CONTAINS
            lon= pt_patch%verts%vertex(jv,jb)%lon
            lat= pt_patch%verts%vertex(jv,jb)%lat
            ! Coriolis parameter
-           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
-                                     -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
+           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity * &
+             & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
         ENDDO
      ENDDO
 !$OMP END DO
@@ -322,8 +323,8 @@ CONTAINS
                    & + zv * pt_patch%edges%primal_normal(je,jb)%v2
 
               ! Coriolis parameter
-              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
-                                        -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
+              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity * &
+                & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
            ENDDO ! edge loop
         ENDDO ! vertical level loop
      ENDDO ! block loop
