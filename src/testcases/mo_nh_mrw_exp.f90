@@ -54,7 +54,7 @@ MODULE mo_nh_mrw_exp
    USE mo_model_domain,        ONLY: t_patch
    USE mo_parallel_config,     ONLY: nproma
    USE mo_math_constants,      ONLY: pi
-   USE mo_physical_constants,  ONLY: rd, cpd, cvd_o_rd, grav, omega, p0ref
+   USE mo_physical_constants,  ONLY: rd, cpd, cvd_o_rd, grav, p0ref
    USE mo_extpar_config,       ONLY: itopo
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 
@@ -278,8 +278,8 @@ MODULE mo_nh_mrw_exp
         zlat= ptr_patch%cells%center(jc,jb)%lat
         zcoslat=COS(zlat)
         ptr_nh_diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u0_mrw *&
-          & ( 0.5_wp*u0_mrw + ptr_patch%sphere_radius*omega) * zcoslat*zcoslat - &
-          &   topo_c(jc,jb)*grav))
+          & ( 0.5_wp*u0_mrw + ptr_patch%sphere_radius*ptr_patch%angular_velocity) * &
+          & zcoslat*zcoslat - topo_c(jc,jb)*grav))
       ENDDO !jc
       DO jk = nlev, 1, -1
           ! Use analytic expressions at lowest model level
@@ -444,7 +444,7 @@ MODULE mo_nh_mrw_exp
   zhelp1_i     = bruntvaissq_i/grav/grav/kappa
   zhelp2_i     = grav/rd/temp_i_mwbr_const
   zhelp1_u     = bruntvaissq_u/grav/grav/kappa
-  zhelp3       = u0_mrw/ptr_patch%sphere_radius + 2.0_wp*omega
+  zhelp3       = u0_mrw/ptr_patch%sphere_radius + 2.0_wp*ptr_patch%angular_velocity
  ! theta_v_int  = temp_i_mwbr_const * (p0ref/p_int_mwbr_const)**kappa
   rkappa       = 1.0_wp/kappa
 

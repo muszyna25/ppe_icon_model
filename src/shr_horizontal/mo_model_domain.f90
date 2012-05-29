@@ -775,7 +775,8 @@ MODULE mo_model_domain
     INTEGER  :: geometry_type   ! 1=sphere, 2=torus
     REAL(wp) :: sphere_radius  ! in case of sphere, the sphere_radius
     REAL(wp) :: earth_rescale_factor ! if earth_rescale_factor > 0,
-                                     ! then this is a rescaled earth by earth_rescale_factor
+                                     ! then this is a rescaled earth by earth_rescale_factor                                     
+    REAL(wp) :: angular_velocity ! if earth_rescale_factor > 0,
     
   END TYPE t_patch
   

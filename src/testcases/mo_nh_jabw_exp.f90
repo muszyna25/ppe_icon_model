@@ -50,7 +50,7 @@ MODULE mo_nh_jabw_exp
 
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd, rd_o_cpd, p0ref, grav, tmelt,  &
-     &                               cvd_o_rd, omega, rv
+     &                               cvd_o_rd, rv
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iqv, ntracer
@@ -157,7 +157,7 @@ MODULE mo_nh_jabw_exp
           tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                   1.0_wp/6.3_wp ) *tmp1
           tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*omega
+                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*ptr_patch%angular_velocity
           IF ( itopo==0 ) topo_c(jc,jb) = tmp1*(tmp2+tmp3)/grav
           IF (itopo==0 .AND. lmount ) THEN
             z_lon = ptr_patch%cells%center(jc,jb)%lon
@@ -182,7 +182,7 @@ MODULE mo_nh_jabw_exp
           tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                   1.0_wp/6.3_wp ) *tmp1
           tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*omega
+                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*ptr_patch%angular_velocity
           IF ( itopo==0 ) topo_v(jv,jb) = tmp1*(tmp2+tmp3)/grav
           IF (itopo==0 .AND. lmount ) THEN
             z_lon = ptr_patch%verts%vertex(jv,jb)%lon
@@ -276,7 +276,7 @@ MODULE mo_nh_jabw_exp
           z_cosy(jc) = COS(z_lat(jc))
           z_fac1(jc) = 1.0_wp/6.3_wp-2.0_wp*(z_siny(jc)**6)*(z_cosy(jc)**2+1.0_wp/3.0_wp)
           z_fac2(jc) = (8.0_wp/5.0_wp*(z_cosy(jc)**3)*(z_siny(jc)**2+2.0_wp/3.0_wp)&
-                       -0.25_wp*pi)*ptr_patch%sphere_radius*omega
+                       -0.25_wp*pi)*ptr_patch%sphere_radius*ptr_patch%angular_velocity
           z_exp(jc)  = rd*gamma/grav
           zeta_old(jc) = 1.0e-7_wp
         ENDDO

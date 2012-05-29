@@ -57,7 +57,7 @@ MODULE mo_jw_test
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, inwp, iecham
-  USE mo_physical_constants,  ONLY: rgrav, omega, rd,tmelt, vtmpc1
+  USE mo_physical_constants,  ONLY: rgrav, rd,tmelt, vtmpc1
   USE mo_math_constants,      ONLY: pi_2, pi
   USE mo_advection_config,    ONLY: advection_config
   USE mo_vertical_coord_table,ONLY: ceta
@@ -248,11 +248,11 @@ MODULE mo_jw_test
            tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                    1.0_wp/6.3_wp ) *tmp1
            tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*pt_patch%sphere_radius*omega
+                   - 0.5_wp*pi_2 )*pt_patch%sphere_radius*pt_patch%angular_velocity
 
            pt_ext_data%atm%topography_c(jc,jb) = tmp1*(tmp2+tmp3)*rgrav
            ! Coriolis parameter
-           pt_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
+           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
                                      -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
 
         ENDDO
@@ -270,7 +270,7 @@ MODULE mo_jw_test
            lon= pt_patch%verts%vertex(jv,jb)%lon
            lat= pt_patch%verts%vertex(jv,jb)%lat
            ! Coriolis parameter
-           pt_patch%verts%f_v(jv,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
+           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
                                      -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
         ENDDO
      ENDDO
@@ -338,7 +338,7 @@ MODULE mo_jw_test
                    & + zv * pt_patch%edges%primal_normal(je,jb)%v2
 
               ! Coriolis parameter
-              pt_patch%edges%f_e(je,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
+              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
                                         -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
            ENDDO ! edge loop
         ENDDO ! vertical level loop
@@ -381,7 +381,7 @@ MODULE mo_jw_test
               tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) &
                        + 1.0_wp/6.3_wp )*2.0_wp*u0*zcos32z
               tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp) &
-                      - 0.5_wp*pi_2 )*pt_patch%sphere_radius*omega
+                      - 0.5_wp*pi_2 )*pt_patch%sphere_radius*pt_patch%angular_velocity
 
               pt_hydro_prog%temp(jc,jk,jb) = ztemp + tmp1*(tmp2+tmp3)
 

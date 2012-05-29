@@ -173,7 +173,6 @@ MODULE mo_intp_coeffs
 USE mo_kind,                ONLY: wp
 USE mo_mpi,                 ONLY: p_pe_work
 USE mo_math_constants,      ONLY: pi2, pi_2, deg2rad
-USE mo_physical_constants,  ONLY: omega
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH,&
   &  beta_plane_coriolis,full_coriolis,min_rledge_int,min_rlcell_int,min_rlvert_int
@@ -4421,7 +4420,7 @@ END SUBROUTINE complete_patchinfo
 
              coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
              patch%edges%f_e(edge_index,edge_block) = &
-               & 2._wp * omega * SIN(coriolis_geo_coordinates%lat)
+               & 2._wp * patch%angular_velocity * SIN(coriolis_geo_coordinates%lat)
 
           ENDDO
         ENDDO
@@ -4444,7 +4443,7 @@ END SUBROUTINE complete_patchinfo
           length              = patch%sphere_radius * &
             & arc_length(edge_center, coriolis_cartesian_coordinates)
 
-          patch%edges%f_e(edge_index,edge_block) =  2.0_wp * omega *     &
+          patch%edges%f_e(edge_index,edge_block) =  2.0_wp * patch%angular_velocity * &
             & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / &
             &   patch%sphere_radius) * length)
 
@@ -4930,7 +4929,8 @@ END SUBROUTINE complete_patchinfo
             gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie))
 
             IF(CORIOLIS_TYPE==full_coriolis)THEN
-              ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*omega*SIN(gc_mid_dual_edge(ie)%lat)
+              ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*ptr_patch%angular_velocity*&
+                & SIN(gc_mid_dual_edge(ie)%lat)
             ELSEIF(CORIOLIS_TYPE==BETA_PLANE_CORIOLIS)THEN
               gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
               gc1%lon = 0.0_wp
@@ -4942,7 +4942,8 @@ END SUBROUTINE complete_patchinfo
               z_y     = ptr_patch%sphere_radius*arc_length(xx2,xx1)
 
               !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
-              ptr_patch%edges%f_e(il_e, ib_e) = 2.0_wp*omega*( sin(basin_center_lat * deg2rad) &
+              ptr_patch%edges%f_e(il_e, ib_e) = 2.0_wp*ptr_patch%angular_velocity * &
+                & ( sin(basin_center_lat * deg2rad) &
                 & + (cos(basin_center_lat * deg2rad)/ptr_patch%sphere_radius)*z_y)
             ENDIF
           ELSE

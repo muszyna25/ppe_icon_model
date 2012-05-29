@@ -56,7 +56,7 @@ MODULE mo_nh_pa_test
 
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-USE mo_physical_constants,  ONLY: omega, rd, cpd, p0ref
+USE mo_physical_constants,  ONLY: rd, cpd, p0ref
 USE mo_math_constants,      ONLY: pi_2, pi
 USE mo_advection_config,    ONLY: advection_config
 USE mo_model_domain,        ONLY: t_patch
@@ -237,8 +237,8 @@ CONTAINS
                     + zv * ptr_patch%edges%primal_normal(je,jb)%v2
 
           ! Coriolis parameter
-          ptr_patch%edges%f_e(je,jb) = 2.0_wp*omega*(SIN(zlat)*COS(z_aleph) &
-                                     - COS(zlon)*COS(zlat)*SIN(z_aleph))
+          ptr_patch%edges%f_e(je,jb) = 2.0_wp*ptr_patch%angular_velocity &
+            & *(SIN(zlat)*COS(z_aleph) - COS(zlon)*COS(zlat)*SIN(z_aleph))
 
           ! get line and block indices of 
           ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
@@ -332,8 +332,8 @@ CONTAINS
           zlat = ptr_patch%cells%center(jc,jb)%lat
 
           ! Coriolis parameter
-          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(zlat)*COS(z_aleph)&
-                                     -COS(zlon)*COS(zlat)*SIN(z_aleph))
+          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*ptr_patch%angular_velocity &
+            & *(SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
         ENDDO ! cell loop
 
       ENDDO ! vertical level loop
@@ -353,8 +353,8 @@ CONTAINS
         zlat   = ptr_patch%verts%vertex(jv,jb)%lat
         zlon   = ptr_patch%verts%vertex(jv,jb)%lon
         ! Coriolis parameter
-        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*omega*(SIN(zlat)*COS(z_aleph)&
-                                   -COS(zlon)*COS(zlat)*SIN(z_aleph))
+        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*ptr_patch%angular_velocity &
+          & *(SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
       ENDDO
 
     ENDDO
@@ -449,7 +449,7 @@ CONTAINS
       WRITE (n_file_ti,'(4A22,A8,I3,A4,F12.5)') &
         &  ' TIMESTEP            ,'    ,       &
         &  ' ELAPSED TIME  (days),'    ,       &
-        &  ' OMEGA         (Pa/s),'    ,       &
+        &  ' ptr_patch%angular_velocity         (Pa/s),'    ,       &
         &  ' W             (m/s) '     ,       &
         &  ' at Z(', ikcenter, ') = '  ,       &
         &   p_metrics%z_mc(1,ikcenter,1)

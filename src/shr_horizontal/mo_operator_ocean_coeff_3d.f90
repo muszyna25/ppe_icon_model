@@ -47,7 +47,6 @@ MODULE mo_operator_ocean_coeff_3d
     & min_rledge_int,min_rlcell_int,min_rlvert_int,&
     & sea_boundary, boundary, sea
   USE mo_math_constants,      ONLY: deg2rad, pi
-  USE mo_physical_constants,  ONLY: omega
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     & t_geographical_coordinates, vector_product, &
     & arc_length
@@ -1876,7 +1875,8 @@ CONTAINS
               gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie))
 
               IF(coriolis_type==full_coriolis)THEN
-                ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*omega*SIN(gc_mid_dual_edge(ie)%lat)
+                ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*ptr_patch%angular_velocity&
+                  & *SIN(gc_mid_dual_edge(ie)%lat)
               ELSEIF(coriolis_type==beta_plane_coriolis)THEN
                 gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
                 gc1%lon = 0.0_wp
@@ -1889,7 +1889,7 @@ CONTAINS
 
                 !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
                 ptr_patch%edges%f_e(il_e, ib_e) = &
-                  & 2.0_wp*omega*( SIN(basin_center_lat * deg2rad) + &
+                  & 2.0_wp*ptr_patch%angular_velocity*( SIN(basin_center_lat * deg2rad) + &
                   & (COS(basin_center_lat * deg2rad)/ptr_patch%sphere_radius)*z_y)
               ENDIF
             ELSE

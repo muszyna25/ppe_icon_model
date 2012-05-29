@@ -53,7 +53,7 @@ MODULE mo_rh_test
 
   USE mo_kind,                 ONLY: wp
   USE mo_math_constants,       ONLY: pi
-  USE mo_physical_constants,   ONLY: omega, rd, grav
+  USE mo_physical_constants,   ONLY: rd, grav
   USE mo_vertical_coord_table, ONLY: vct_a,vct_b
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -156,13 +156,14 @@ MODULE mo_rh_test
            zcoslat  = COS(lat)
            zcosmlon = COS(REAL(m,wp)*lon)
 
-           tmp1 =   0.5_wp*A0*( 2._wp*omega + A0 )*zcoslat*zcoslat       &
+           tmp1 =   0.5_wp*A0*( 2._wp*pt_patch%angular_velocity + A0 )*zcoslat*zcoslat &
                 & + 0.25_wp*Am*Am*zcoslat**(2*m)                         &
                 & *( (REAL(m,wp)+1._wp)*zcoslat*zcoslat                  &
                 &   +(2._wp*REAL(m,wp)*REAL(m,wp) - REAL(m,wp) -2._wp)   &
                 &   - 2._wp*REAL(m,wp)*REAL(m,wp)/zcoslat/zcoslat )
 
-           tmp2 =  2._wp*(omega+A0)*Am/(REAL(m,wp)+1._wp)/(REAL(m,wp)+2._wp) &
+           tmp2 =  2._wp*(pt_patch%angular_velocity+A0)*Am &
+                & /(REAL(m,wp)+1._wp)/(REAL(m,wp)+2._wp) &
                 & * zcoslat**m *( REAL(m,wp)*REAL(m,wp)                      &
                 & + 2._wp*REAL(m,wp) + 2._wp                                 &
                 & -(REAL(m,wp)+1._wp)*(REAL(m,wp)+1._wp)*zcoslat*zcoslat )

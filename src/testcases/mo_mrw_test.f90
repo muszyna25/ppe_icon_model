@@ -52,7 +52,7 @@ MODULE mo_mrw_test
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_physical_constants,  ONLY: cpd, grav, rd, omega
+  USE mo_physical_constants,  ONLY: cpd, grav, rd
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
@@ -137,9 +137,9 @@ MODULE mo_mrw_test
 
            ! surface pressure
            zcoslat  = COS(zlat)
-           pt_prog%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u_0 *&
-                              ( 0.5_wp*u_0 + pt_patch%sphere_radius*omega) * zcoslat*zcoslat - &
-                              pt_ext_data%atm%topography_c(jc,jb)*grav))
+           pt_prog%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u_0 *  &
+             & ( 0.5_wp*u_0 + pt_patch%sphere_radius*pt_patch%angular_velocity) * &
+             &   zcoslat*zcoslat - pt_ext_data%atm%topography_c(jc,jb)*grav))
         ENDDO
      ENDDO
 !$OMP END DO
@@ -276,9 +276,9 @@ MODULE mo_mrw_test
            zlon = pt_patch%cells%center(jc,jb)%lon
 
            zcoslat  = COS(zlat)
-           pt_prog%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u_0 *&
-                              ( 0.5_wp*u_0 + pt_patch%sphere_radius*omega) * zcoslat*zcoslat - &
-                              pt_ext_data%atm%topography_c(jc,jb)*grav))
+           pt_prog%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u_0 *& 
+             & ( 0.5_wp*u_0 + pt_patch%sphere_radius*pt_patch%angular_velocity) * &
+             &   zcoslat*zcoslat - pt_ext_data%atm%topography_c(jc,jb)*grav))
         ENDDO
      ENDDO
 

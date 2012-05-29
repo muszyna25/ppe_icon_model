@@ -49,7 +49,7 @@ MODULE mo_ldf_init
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, ildf_echam
   USE mo_math_constants,      ONLY: pi, pi_2
-  USE mo_physical_constants,  ONLY: rgrav, omega, rd, tmelt,vtmpc1 !!new vtmpc1
+  USE mo_physical_constants,  ONLY: rgrav, rd, tmelt,vtmpc1 !!new vtmpc1
   USE mo_advection_config,    ONLY: advection_config
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -235,16 +235,16 @@ CONTAINS
 
            tmp1  = u0*COS((1._wp-eta0)*pi_2)**1.5_wp
            tmp2  = tmp1*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) + 1.0_wp/6.3_wp)
-           tmp3  = omega*pt_patch%sphere_radius * &
+           tmp3  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
              & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
            tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 88._wp/105._wp
-           tmp5  = omega*pt_patch%sphere_radius*(8._wp/3._wp*zcosy**3 - pi/2._wp )
+           tmp5  = pt_patch%angular_velocity*pt_patch%sphere_radius*(8._wp/3._wp*zcosy**3 - pi/2._wp )
            tmp6  = 4._wp*zcosy**4 -3.2_wp/1.5_wp
 
 
            pt_ext_data%atm%topography_c(jc,jb) = (tmp1*(tmp2+tmp3+tmp4)-tmp5+tmp6)*rgrav
            ! Coriolis parameter
-           pt_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
+           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
                                      -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
 
         ENDDO
@@ -262,7 +262,7 @@ CONTAINS
            lon= pt_patch%verts%vertex(jv,jb)%lon
            lat= pt_patch%verts%vertex(jv,jb)%lat
            ! Coriolis parameter
-           pt_patch%verts%f_v(jv,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
+           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
                                      -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
         ENDDO
      ENDDO
@@ -322,7 +322,7 @@ CONTAINS
                    & + zv * pt_patch%edges%primal_normal(je,jb)%v2
 
               ! Coriolis parameter
-              pt_patch%edges%f_e(je,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
+              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(lat)*COS(zrotate_axis_rad)&
                                         -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
            ENDDO ! edge loop
         ENDDO ! vertical level loop
@@ -364,7 +364,7 @@ CONTAINS
 
               tmp1  = 1.5_wp*zeta*pi_2*u0/rd * zsinz*zcos12z
               tmp2  = 2.0_wp*u0*zcos32z*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) +10._wp/63._wp)
-              tmp3  = omega*pt_patch%sphere_radius * &
+              tmp3  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
                 & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
               tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 8.8_wp/10.5_wp
 

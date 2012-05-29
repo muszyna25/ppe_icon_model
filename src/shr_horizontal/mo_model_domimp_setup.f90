@@ -108,7 +108,7 @@ MODULE mo_model_domimp_setup
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, warning
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_physical_constants, ONLY: omega
+  USE mo_physical_constants, ONLY: earth_angular_velocity
   USE mo_parallel_config,    ONLY: nproma
   USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
   USE mo_math_constants,     ONLY: pi_2
@@ -684,6 +684,12 @@ CONTAINS
     npromz_v = p_patch%npromz_v
     
     
+    IF (p_patch%earth_rescale_factor > 0.0_wp) THEN
+      p_patch%angular_velocity = earth_angular_velocity / p_patch%earth_rescale_factor
+    ELSE
+      p_patch%angular_velocity = earth_angular_velocity
+    ENDIF
+    
     IF (lcorio .AND. .NOT. lplane) THEN
       
       DO jb = 1, nblks_c
@@ -694,7 +700,7 @@ CONTAINS
         ENDIF
         DO jc = 1, nlen
           zlat = p_patch%cells%center(jc,jb)%lat
-          p_patch%cells%f_c(jc,jb) = 2._wp*omega*SIN(zlat)
+          p_patch%cells%f_c(jc,jb) = 2._wp * p_patch%angular_velocity * SIN(zlat)
         END DO
       END DO
       
@@ -706,7 +712,7 @@ CONTAINS
         ENDIF
         DO je = 1, nlen
           zlat = p_patch%edges%center(je,jb)%lat
-          p_patch%edges%f_e(je,jb) = 2._wp*omega*SIN(zlat)
+          p_patch%edges%f_e(je,jb) = 2._wp * p_patch%angular_velocity * SIN(zlat)
         END DO
       END DO
       
@@ -718,18 +724,18 @@ CONTAINS
         ENDIF
         DO jv = 1, nlen
           zlat = p_patch%verts%vertex(jv,jb)%lat
-          p_patch%verts%f_v(jv,jb) = 2._wp*omega*SIN(zlat)
+          p_patch%verts%f_v(jv,jb) = 2._wp * p_patch%angular_velocity * SIN(zlat)
         END DO
       END DO
       
     ELSEIF (lcorio .AND. lplane) THEN
       
-      p_patch%cells%f_c(:,:) = 2._wp*omega*SIN(corio_lat)
-      p_patch%edges%f_e(:,:) = 2._wp*omega*SIN(corio_lat)
-      p_patch%verts%f_v(:,:) = 2._wp*omega*SIN(corio_lat)
+      p_patch%cells%f_c(:,:) = 2._wp*p_patch%angular_velocity*SIN(corio_lat)
+      p_patch%edges%f_e(:,:) = 2._wp*p_patch%angular_velocity*SIN(corio_lat)
+      p_patch%verts%f_v(:,:) = 2._wp*p_patch%angular_velocity*SIN(corio_lat)
       
     ELSE
-      
+      p_patch%angular_velocity = 0.0_wp
       p_patch%cells%f_c(:,:) = 0.0_wp
       p_patch%edges%f_e(:,:) = 0.0_wp
       p_patch%verts%f_v(:,:) = 0.0_wp

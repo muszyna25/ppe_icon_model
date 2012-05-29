@@ -52,7 +52,7 @@
 
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
-                                   & cvd_o_rd, omega, cpd ,     &
+                                   & cvd_o_rd, cpd ,     &
                                      vtmpc1 , rdv,  rd            
                                      
    USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg

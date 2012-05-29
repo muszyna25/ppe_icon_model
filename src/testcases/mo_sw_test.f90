@@ -54,7 +54,7 @@ MODULE mo_sw_test
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
-  USE mo_physical_constants,  ONLY: omega, rgrav
+  USE mo_physical_constants,  ONLY: rgrav
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_dynamics_config,     ONLY: sw_ref_height
   USE mo_parallel_config,     ONLY: nproma
@@ -112,7 +112,7 @@ MODULE mo_sw_test
     z_aleph = p_rotate_axis_deg * pi / 180.0_wp
 
     ! 1st factor for height (= thickness, because topography is zero)
-    z_fact1 = pt_patch%sphere_radius * omega
+    z_fact1 = pt_patch%sphere_radius * pt_patch%angular_velocity
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -144,7 +144,7 @@ MODULE mo_sw_test
         pt_prog%pres_sfc(jc,jb) = h0 - z_fact1 * z_fact2
 
         ! Coriolis parameter
-        pt_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
+        pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(z_lat)*COS(z_aleph)&
                                   -COS(z_lon)*COS(z_lat)*SIN(z_aleph))
       ENDDO
     ENDDO
@@ -172,7 +172,7 @@ MODULE mo_sw_test
            +z_vv * pt_patch%edges%primal_normal(je,jb)%v2
 
         ! Coriolis parameter
-        pt_patch%edges%f_e(je,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
+        pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(z_lat)*COS(z_aleph)&
                                   -COS(z_lon)*COS(z_lat)*SIN(z_aleph))
       ENDDO
     ENDDO
@@ -187,7 +187,7 @@ MODULE mo_sw_test
         z_lat   = pt_patch%verts%vertex(jv,jb)%lat
         z_lon   = pt_patch%verts%vertex(jv,jb)%lon
         ! Coriolis parameter
-        pt_patch%verts%f_v(jv,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
+        pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(z_lat)*COS(z_aleph)&
                                   -COS(z_lon)*COS(z_lat)*SIN(z_aleph))
       ENDDO
     ENDDO
@@ -252,11 +252,12 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         CALL rotate( z_lon, z_lat, z_aleph, z_rotlon, z_rotlat )
-        z_hh = geostr_balance( z_rotlat, symmetric_u_velo(z_rotlat,u0), inverse_sphere_radius)
+        z_hh = geostr_balance( z_rotlat, symmetric_u_velo, &
+          & inverse_sphere_radius, pt_patch%angular_velocity, u0 )
         pt_prog%pres_sfc(jc,jb) = h0 - pt_patch%sphere_radius * rgrav * z_hh
 
         ! Coriolis parameter
-        pt_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
+        pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(z_lat)*COS(z_aleph)&
                                   -COS(z_lon)*COS(z_lat)*SIN(z_aleph))
       ENDDO
     ENDDO
@@ -288,7 +289,7 @@ MODULE mo_sw_test
            +z_vv * pt_patch%edges%primal_normal(je,jb)%v2
 
         ! Coriolis parameter
-        pt_patch%edges%f_e(je,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
+        pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(z_lat)*COS(z_aleph)&
                                   -COS(z_lon)*COS(z_lat)*SIN(z_aleph))
       ENDDO
     ENDDO
@@ -303,7 +304,7 @@ MODULE mo_sw_test
         z_lat   = pt_patch%verts%vertex(jv,jb)%lat
         z_lon   = pt_patch%verts%vertex(jv,jb)%lon
         ! Coriolis parameter
-        pt_patch%verts%f_v(jv,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
+        pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity*(SIN(z_lat)*COS(z_aleph)&
                                   -COS(z_lon)*COS(z_lat)*SIN(z_aleph))
       ENDDO
     ENDDO
@@ -346,7 +347,7 @@ MODULE mo_sw_test
     sw_ref_height = 0.9_wp * h0
 
     ! 1st factor for height (= thickness, because topography is zero)
-    z_fact1 = pt_patch%sphere_radius * omega
+    z_fact1 = pt_patch%sphere_radius * pt_patch%angular_velocity
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -429,7 +430,7 @@ MODULE mo_sw_test
     TYPE(t_external_data), INTENT(INOUT) :: pt_ext_data !< external data
 
     REAL(wp), PARAMETER  :: h0     = 8000.0_wp     ! maximum height
-    REAL(wp), PARAMETER  :: omg_kk = 7.848e-6_wp  ! omega = K
+    REAL(wp), PARAMETER  :: omg_kk = 7.848e-6_wp  ! pt_patch%angular_velocity = K
     INTEGER,  PARAMETER  :: ir     = 4             ! R
 
     INTEGER   :: j, jb, jc, je, nblks_e, nblks_c, npromz_e, npromz_c, nlen
@@ -444,7 +445,7 @@ MODULE mo_sw_test
     ! set reference height
     sw_ref_height =  h0
 
-    z_r_omega  = pt_patch%sphere_radius * omega
+    z_r_omega  = pt_patch%sphere_radius * pt_patch%angular_velocity
     z_re_omg_kk= pt_patch%sphere_radius * omg_kk
 
     z_r       = REAL(ir,wp)
@@ -687,7 +688,7 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         ! height of orography
-        z_fact = pt_patch%sphere_radius * omega * SIN(z_lat)
+        z_fact = pt_patch%sphere_radius * pt_patch%angular_velocity * SIN(z_lat)
         z_fact = z_fact * z_fact
         z_or = .5_wp * z_fact * rgrav
         pt_ext_data%atm%topography_c(jc,jb)= z_or
@@ -701,8 +702,8 @@ MODULE mo_sw_test
         z_phi_t_k = z_phi_t_k - COS(z_angle2) * COS(z_lat) * SIN(z_angle1)
         z_phi_t_k = u0 * z_phi_t_k
 
-        ! 2nd summand: r_e \Omega \sin \varphi
-        z_summand = pt_patch%sphere_radius * omega * SIN(z_lat)
+        ! 2nd summand: r_e \pt_patch%angular_velocity \sin \varphi
+        z_summand = pt_patch%sphere_radius * pt_patch%angular_velocity * SIN(z_lat)
 
         ! one factor
         z_fact    = .5_wp *  z_phi_t_k + z_summand
@@ -766,14 +767,14 @@ MODULE mo_sw_test
   !! @par Remarks
   !! was htmp2 in previous code
   !!
-  FUNCTION geostr_balance( p_lat, func, inverse_sphere_radius)  RESULT(p_hh)
+  FUNCTION geostr_balance( p_lat, func, inverse_sphere_radius, angular_velocity, u0)  RESULT(p_hh)
 
     INTERFACE                        ! selected function
 
-      FUNCTION func(p_t) RESULT(p_vv)
+      FUNCTION func(p_t, u0) RESULT(p_vv)
 
         USE mo_kind, ONLY: wp
-        REAL(wp), INTENT(in) :: p_t
+        REAL(wp), INTENT(in) :: p_t, u0
         REAL(wp)             :: p_vv
 
       END FUNCTION func
@@ -781,7 +782,7 @@ MODULE mo_sw_test
     END INTERFACE
 
     REAL(wp), INTENT(in) :: p_lat           ! rotated latitude
-    REAL(wp), INTENT(in) :: inverse_sphere_radius
+    REAL(wp), INTENT(in) :: inverse_sphere_radius, angular_velocity, u0
 
     REAL(wp)             :: p_hh            ! balanced height
 
@@ -808,9 +809,9 @@ MODULE mo_sw_test
     DO j = 1, 50
        z_lat = z_lat + z_step
 
-       z_val = func(z_lat)
+       z_val = func(z_lat, u0)
 
-       z_val2 = 2._wp * omega * SIN(z_lat)
+       z_val2 = 2._wp * angular_velocity * SIN(z_lat)
        z_val2 = z_val2 + z_val * TAN(z_lat)* inverse_sphere_radius
        z_val2 = z_val * z_val2
 

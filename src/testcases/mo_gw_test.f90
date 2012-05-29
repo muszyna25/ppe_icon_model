@@ -55,7 +55,7 @@ MODULE mo_gw_test
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm_prog
-  USE mo_physical_constants,   ONLY: grav, rd, cpd, omega
+  USE mo_physical_constants,   ONLY: grav, rd, cpd
   USE mo_math_constants,       ONLY: pi
   USE mo_vertical_coord_table, ONLY: vct_a,vct_b
   USE mo_parallel_config,      ONLY: nproma
@@ -114,7 +114,7 @@ MODULE mo_gw_test
 !---initialize the prognostic variables
 !
   IF (lcorio) THEN
-     z_omega = omega
+     z_omega = pt_patch%angular_velocity
   ELSE
      z_omega = 0.0_wp
   ENDIF

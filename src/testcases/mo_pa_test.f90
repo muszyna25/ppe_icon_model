@@ -49,7 +49,7 @@ MODULE mo_pa_test
 
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-USE mo_physical_constants,  ONLY: rgrav, omega, rd
+USE mo_physical_constants,  ONLY: rgrav, rd
 USE mo_math_constants,      ONLY: pi_2, pi
 USE mo_advection_config,    ONLY: advection_config
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta, cetah
@@ -246,8 +246,8 @@ CONTAINS
                     + zv * ptr_patch%edges%primal_normal(je,jb)%v2
 
           ! Coriolis parameter
-          ptr_patch%edges%f_e(je,jb) = 2.0_wp*omega*(SIN(zlat)*COS(z_aleph)&
-                                     -COS(zlon)*COS(zlat)*SIN(z_aleph))
+          ptr_patch%edges%f_e(je,jb) = 2.0_wp*ptr_patch%angular_velocity * &
+             & (SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
 
         ENDDO ! edge loop
 
@@ -305,8 +305,8 @@ CONTAINS
           zlat = ptr_patch%cells%center(jc,jb)%lat
 
           ! Coriolis parameter
-          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(zlat)*COS(z_aleph)&
-                                          -COS(zlon)*COS(zlat)*SIN(z_aleph))
+          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*ptr_patch%angular_velocity * &
+            & (SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
         ENDDO ! cell loop
 
       ENDDO ! vertical level loop
@@ -325,8 +325,8 @@ CONTAINS
         zlat   = ptr_patch%verts%vertex(jv,jb)%lat
         zlon   = ptr_patch%verts%vertex(jv,jb)%lon
         ! Coriolis parameter
-        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*omega*(SIN(zlat)*COS(z_aleph)&
-                                   -COS(zlon)*COS(zlat)*SIN(z_aleph))
+        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*ptr_patch%angular_velocity * &
+          & (SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
       ENDDO
 
     ENDDO
@@ -404,7 +404,7 @@ CONTAINS
         &  ' TIMESTEP            ,',      &
         &  ' ELAPSED TIME  (days),',      &
         &  ' ETA_DOT        (1/s),',      &
-        &  ' OMEGA         (Pa/s) ',      &
+        &  ' ptr_patch%angular_velocity         (Pa/s) ',      &
         &  ' at ETA(', ikcenter, ') = ',  &
         &   cetah(ikcenter)
     ENDIF
