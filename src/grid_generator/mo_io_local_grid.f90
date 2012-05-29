@@ -367,7 +367,7 @@ CONTAINS
     ENDIF
     netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%geometry_type)
     IF (netcd_status /= nf_noerr) grid_obj%geometry_type = undefined
-    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radious', grid_obj%sphere_radious)
+    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', grid_obj%sphere_radius)
     IF (netcd_status /= nf_noerr) THEN
       CALL set_default_geometry_parameters(to_grid_id=grid_id)
     ELSE
@@ -833,14 +833,14 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
 !    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, re))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, &
-      & grid_obj%sphere_radious))
+      & grid_obj%sphere_radius))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, ilevel))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_geometry', nf_int, 1, &
       & grid_obj%geometry_type))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'sphere_radious' , nf_double, 1, &
-      & grid_obj%sphere_radious))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'sphere_radius' , nf_double, 1, &
+      & grid_obj%sphere_radius))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'earth_rescale_factor' , nf_double, 1, &
       & grid_obj%earth_rescale_factor))
     

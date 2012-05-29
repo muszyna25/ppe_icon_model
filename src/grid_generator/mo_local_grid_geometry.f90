@@ -134,7 +134,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: cartesian_center,edge_vector, edge_normal_vector, x,y
     TYPE(t_cartesian_coordinates) :: circumcenters_vector,tmp_vector
 
-    REAL(wp) :: real_tmp,sphere_radious,sphere_radious_squared,lon,lat
+    REAL(wp) :: real_tmp,sphere_radius,sphere_radious_squared,lon,lat
 
     INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: i,j,cell_index,edge_index,vertex_index
@@ -415,8 +415,8 @@ CONTAINS
 
     !----------------------------------------------------------
     ! Finally,rescale distances by radius of the sphere
-    sphere_radious         = compute_grid%sphere_radious
-    sphere_radious_squared = sphere_radious*sphere_radious
+    sphere_radius         = compute_grid%sphere_radius
+    sphere_radious_squared = sphere_radius*sphere_radius
 !$OMP DO PRIVATE(vertex_index)
     DO vertex_index=1,no_of_verts
       verts%dual_area(vertex_index) = &
@@ -430,13 +430,13 @@ CONTAINS
 !$OMP END DO
 !$OMP DO PRIVATE(edge_index,i)
      DO edge_index=1, no_of_edges
-      edges%primal_edge_length(edge_index) = sphere_radious * edges%primal_edge_length(edge_index)
-      edges%dual_edge_length(edge_index)   = sphere_radious * edges%dual_edge_length(edge_index)
+      edges%primal_edge_length(edge_index) = sphere_radius * edges%primal_edge_length(edge_index)
+      edges%dual_edge_length(edge_index)   = sphere_radius * edges%dual_edge_length(edge_index)
       DO i=1,2
         edges%get_edge_vert_length(edge_index, i) = &
-          & sphere_radious * edges%get_edge_vert_length(edge_index, i)
+          & sphere_radius * edges%get_edge_vert_length(edge_index, i)
         edges%get_edge_cell_length(edge_index, i) = &
-          & sphere_radious * edges%get_edge_cell_length(edge_index, i)
+          & sphere_radius * edges%get_edge_cell_length(edge_index, i)
       ENDDO
     ENDDO
 !$OMP END DO

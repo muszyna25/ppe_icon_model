@@ -431,7 +431,7 @@ MODULE mo_local_grid
     !> The grid domain geometry parameters
     INTEGER :: geometry_type
     !> Sphere radious. 
-    REAL(wp) :: sphere_radious
+    REAL(wp) :: sphere_radius
     !> Earth rescaling factor.
     ! When > 0, then this geometry is rescaled from earth by earth_rescale_factor
     REAL(wp) :: earth_rescale_factor
@@ -1016,7 +1016,7 @@ CONTAINS
     to_grid%grid_creation_process     = from_grid%grid_creation_process
     to_grid%grid_optimization_process = from_grid%grid_optimization_process
     to_grid%geometry_type             = from_grid%geometry_type
-    to_grid%sphere_radious            = from_grid%sphere_radious
+    to_grid%sphere_radius            = from_grid%sphere_radius
     to_grid%earth_rescale_factor    = from_grid%earth_rescale_factor
     to_grid%level                     = from_grid%level
     to_grid%vertical_structure        => from_grid%vertical_structure
@@ -2395,21 +2395,21 @@ CONTAINS
 
     TYPE(t_grid), POINTER :: grid
     INTEGER  :: geometry_type
-    REAL(wp) :: sphere_radious, earth_rescale_factor
+    REAL(wp) :: sphere_radius, earth_rescale_factor
     INTEGER  :: i_status
     
-    NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radious, earth_rescale_factor
+    NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radius, earth_rescale_factor
 
     
     geometry_type = sphere_geometry
     earth_rescale_factor = 1.0_wp
-    sphere_radious = earth_radious
+    sphere_radius = earth_radious
     
     IF (PRESENT(from_grid_id)) THEN
       grid => get_grid(from_grid_id)
       geometry_type          = grid%geometry_type
       earth_rescale_factor = grid%earth_rescale_factor
-      sphere_radious         = grid%sphere_radious
+      sphere_radius         = grid%sphere_radius
     ENDIF
            
     IF (PRESENT(param_file_name)) THEN
@@ -2430,12 +2430,12 @@ CONTAINS
     END SELECT
     
     IF (earth_rescale_factor > 0.0_wp) THEN
-      sphere_radious = earth_radious * earth_rescale_factor
+      sphere_radius = earth_radious * earth_rescale_factor
     ENDIF
     
     grid => get_grid(to_grid_id)
     grid%geometry_type = geometry_type
-    grid%sphere_radious = sphere_radious
+    grid%sphere_radius = sphere_radius
     grid%earth_rescale_factor = earth_rescale_factor
 
   END SUBROUTINE set_default_geometry_parameters
