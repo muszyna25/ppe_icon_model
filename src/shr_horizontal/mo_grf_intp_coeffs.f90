@@ -61,7 +61,6 @@ MODULE mo_grf_intp_coeffs
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_physical_constants,  ONLY: earth_radious
 USE mo_exception,           ONLY: finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell, min_rledge, min_rlcell_int, min_rledge_int
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_vertices, &
@@ -215,22 +214,22 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       z_norm = SQRT( DOT_PRODUCT(cc_dis4%x(1:3),cc_dis4%x(1:3)) )
       cc_dis4%x(1:3) = cc_dis4%x(1:3)/z_norm
 
-      p_grfs%grf_dist_pc2cc(jc,1,1,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,1,1,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch1)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
-      p_grfs%grf_dist_pc2cc(jc,2,1,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,2,1,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch2)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
-      p_grfs%grf_dist_pc2cc(jc,3,1,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,3,1,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch3)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
-      p_grfs%grf_dist_pc2cc(jc,4,1,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,4,1,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch4)*DOT_PRODUCT(z_nx1(1:3),cc_dis4%x(1:3))
 
-      p_grfs%grf_dist_pc2cc(jc,1,2,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,1,2,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch1)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
-      p_grfs%grf_dist_pc2cc(jc,2,2,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,2,2,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch2)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
-      p_grfs%grf_dist_pc2cc(jc,3,2,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,3,2,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch3)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
-      p_grfs%grf_dist_pc2cc(jc,4,2,jb) = earth_radious* &
+      p_grfs%grf_dist_pc2cc(jc,4,2,jb) = p_pc%sphere_radius* &
         arc_length(cc_center,cc_ch4)*DOT_PRODUCT(z_nx2(1:3),cc_dis4%x(1:3))
 
     ENDDO
@@ -327,10 +326,10 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
 
       ! The distance in tangential direction is needed normalized with the primal edge length
-      p_grfs%grf_dist_pe2ce(je,1,jb) = earth_radious*p_ep%system_orientation(je,jb)* &
+      p_grfs%grf_dist_pe2ce(je,1,jb) = p_pc%sphere_radius*p_ep%system_orientation(je,jb)* &
         arc_length(cc_center,cc_ch1)*DOT_PRODUCT(z_nx(1:3),cc_dis1%x(1:3))/&
         (p_ep%primal_edge_length(je,jb)*ABS(DOT_PRODUCT(z_nx(1:3),cc_dis1%x(1:3))))
-      p_grfs%grf_dist_pe2ce(je,2,jb) = earth_radious*p_ep%system_orientation(je,jb)* &
+      p_grfs%grf_dist_pe2ce(je,2,jb) = p_pc%sphere_radius*p_ep%system_orientation(je,jb)* &
         arc_length(cc_center,cc_ch2)*DOT_PRODUCT(z_nx(1:3),cc_dis2%x(1:3))/&
         (p_ep%primal_edge_length(je,jb)*ABS(DOT_PRODUCT(z_nx(1:3),cc_dis2%x(1:3))))
 

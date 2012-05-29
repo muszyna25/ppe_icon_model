@@ -169,7 +169,6 @@ MODULE mo_intp_coeffs_lsq_bln
 !
 USE mo_kind,                ONLY: wp
 USE mo_math_constants,      ONLY: pi2
-USE mo_physical_constants,  ONLY: earth_radious
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell
 USE mo_model_domain,        ONLY: t_patch
@@ -637,7 +636,8 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
       ENDDO
       ! multiply with earth radius and store
-      z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:) = earth_radious*z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:)
+      z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:) = ptr_patch%sphere_radius * &
+        & z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:)
 
 
 
@@ -679,14 +679,14 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
         ENDDO
       ! multiply with earth radius
-        distxy_v(1:nverts,1:2) = earth_radious * distxy_v(1:nverts,1:2)
+        distxy_v(1:nverts,1:2) = ptr_patch%sphere_radius * distxy_v(1:nverts,1:2)
 
 
       !
       ! b: calculate moments for given cell
       !    (calculated analytically; see Lauritzen CSLAM 09 for first 5 moments)
       !
-      ! !DR: Those moments have been earth_radious-rechecked, using an alternative,
+      ! !DR: Those moments have been re-rechecked, using an alternative,
       !      quadrature-based formulation. Results have been identical up to 
       !      roundoff-errors. Similarly the hat-moments have been checked. The 
       !      inconsistency caused by the different projections involved do not 
@@ -1124,7 +1124,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 !!!!!DEBUG !!!
 #ifdef DEBUG_COEFF
     za_debug(:,:,:)  = 0._wp
-    ! earth_radious-COMPUTE A:: U * SIGMA * TRANSPOSE(V)  !!! Funktioniert
+    ! re-COMPUTE A:: U * SIGMA * TRANSPOSE(V)  !!! Funktioniert
     DO jja = 1, lsq_dim_c
       DO jjb = 1, lsq_dim_unk
         DO jjk = 1, lsq_dim_unk  !lsq_dim_c

@@ -81,7 +81,7 @@
 !! <ol>
 !! <li> You may use or modify this code for your own non commercial and non
 !!    violent purposes.
-!! <li> The code may not be earth_radious-distributed without the consent of the authors.
+!! <li> The code may not be re-distributed without the consent of the authors.
 !! <li> The copyright notice and statement of authorship must appear in all
 !!    copies.
 !! <li> You accept the warranty conditions (see WARRANTY).
@@ -138,7 +138,7 @@ MODULE mo_model_domimp_patches
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
-  USE mo_physical_constants, ONLY: earth_radious
+  USE mo_physical_constants, ONLY: earth_radius
   
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -856,7 +856,7 @@ CONTAINS
     IF (netcd_status /= nf_noerr) THEN
       ! by default this is the earth sphere
       ! we should add here the case of torus, ellipsoides, etc. 
-      p_patch%sphere_radius = earth_radious
+      p_patch%sphere_radius = earth_radius
       p_patch%earth_rescale_factor = 1.0_wp
     ELSE
       netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
