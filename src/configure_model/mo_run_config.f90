@@ -43,6 +43,7 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY
   USE mo_io_units,       ONLY: filename_max
+  USE mo_grid_config,    ONLY: get_grid_rescale_factor
 
   IMPLICIT NONE
   PRIVATE
@@ -146,10 +147,13 @@ CONTAINS
   SUBROUTINE configure_run( opt_iadv_rcf )
 
     INTEGER, OPTIONAL, INTENT(IN) :: opt_iadv_rcf  !< reduced calling freq. for advection
-  
+
+    REAL(wp) :: rescale_factor
 
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
 
+    rescale_factor = get_grid_rescale_factor()
+    dtime = dtime * rescale_factor
     !----------------------------
     ! advective timestep on global patch
     IF ( PRESENT(opt_iadv_rcf) ) THEN

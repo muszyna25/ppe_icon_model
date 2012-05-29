@@ -97,7 +97,6 @@ MODULE mo_grid_nml
   CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
-  INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
 
   NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
     &                 lplane, corio_lat, l_limited_area,        &
@@ -132,8 +131,6 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     !  set up the default values for grid_nml
     !------------------------------------------------------------
-    no_of_dynamics_grids  = 0
-    no_of_radiation_grids = 0
     DO i = 1, max_dom
       dynamics_grid_filename(i)   = ""
       dynamics_parent_grid_id(i)  = i-1
@@ -176,86 +173,6 @@ MODULE mo_grid_nml
 
     ! convert degrees in radiant for the Coriolis latitude
     corio_lat =  corio_lat/rad2deg
-
-!     IF (dynamics_grid_filename(1) == "") THEN
-!       ! dynamics_grid_filename not filled
-!       ! we have an old style namelist
-! 
-!       ! fill dynamics_grid_filename
-!       ! fill level and parent ids
-!       patch_level(1) = start_lev
-!       dynamics_parent_grid_id(1) = 0       
-!       DO jg = 2, n_dom
-!         dynamics_parent_grid_id(jg) = parent_id(jg-1)
-!         patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
-!       ENDDO 
-!     
-!       ! fill the grid prefix
-!       IF (lplane) THEN
-!            gridtype='plan'
-!       ELSE
-!            gridtype='icon'
-!       END IF
-!     
-!       DO jg = 1, n_dom
-!         jlev = patch_level(jg)
-!         ! Allow file names without "DOM" specifier if n_dom=1.
-!         IF (n_dom == 1) THEN
-!           ! Check if file name without "DOM" specifier exists.
-!           WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-!               & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-!           INQUIRE (FILE=patch_file, EXIST=l_exist)
-!           ! Otherwise use file name with "DOM" specifier
-!           IF (.NOT. l_exist)                                           &
-!               & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-!               & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-!         ELSE
-!           ! n_dom >1 --> "'_DOM',jg" required in file name
-!           WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-!               & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-!         ENDIF
-!         dynamics_grid_filename(jg) = patch_file
-!       ENDDO
-! 
-!       IF (lpatch0) THEN
-!         ! fill radiation_grid_filename
-!         jlev = start_lev-1
-!         jg=0        
-!         WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-!             & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-!         radiation_grid_filename(1) = patch_file
-!         dynamics_radiation_grid_link(1) = 1
-!       ENDIF
-!     
-!     ENDIF
-
-    ! find out how many grids we have
-!     jg=1
-!     DO WHILE (dynamics_grid_filename(jg) /= "")
-!       jg=jg+1
-!     END DO
-!     no_of_dynamics_grids  = jg-1
-!     jg=1
-!     DO WHILE (radiation_grid_filename(jg) /= "")
-!       jg=jg+1
-!     END DO
-!     no_of_radiation_grids = jg-1
-!     n_dom = no_of_dynamics_grids
-!     IF (no_of_radiation_grids > 0) THEN
-!       n_dom_start = 0
-!     ENDIF
-!            
-!     write(0,*) no_of_dynamics_grids
-!     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
-!     write(0,*) dynamics_parent_grid_id(1:no_of_dynamics_grids)
-!     write(0,*) no_of_radiation_grids
-!     IF (no_of_radiation_grids > 0) THEN
-!       write(0,*) radiation_grid_filename(1:no_of_radiation_grids)
-!       write(0,*) dynamics_radiation_grid_link(1:no_of_dynamics_grids)
-!     ENDIF
-
-!     CALL finish("grid_nml_setup","stop")
-
 
     !-----------------------------------------------------
     !  Store the namelist for restart

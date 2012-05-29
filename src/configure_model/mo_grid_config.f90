@@ -47,7 +47,8 @@ USE mo_read_netcdf_parallel, ONLY:                &
    nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
    nf_open            => p_nf_open,               &
    nf_close           => p_nf_close,              &
-   nf_get_att_int     => p_nf_get_att_int
+   nf_get_att_int     => p_nf_get_att_int ,       &
+   nf_get_att_double  => p_nf_get_att_double
 #endif
 
   IMPLICIT NONE
@@ -56,7 +57,8 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PRIVATE
 
-  PUBLIC :: check_grid_configuration, max_rad_dom
+  PUBLIC :: check_grid_configuration, get_grid_rescale_factor
+  PUBLIC :: max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
@@ -101,12 +103,15 @@ INCLUDE 'netcdf.inc'
                                        ! for any of the first level child patches,
                                        ! processor splitting will be performed
 
+  REAL(wp) :: grid_rescale_factor = 0.0_wp
+
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
   CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
-  INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
+  INTEGER :: no_of_dynamics_grids  = 0
+  INTEGER :: no_of_radiation_grids = 0
 
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent variables
@@ -167,8 +172,8 @@ CONTAINS
       
     ! get here the nroot, eventually it should be moved into the patch info
 !     nroot = get_grid_root(dynamics_grid_filename(1))
-    CALL get_grid_root_level(dynamics_grid_filename(1), nroot, start_lev)
-    
+    CALL get_gridfile_root_level(dynamics_grid_filename(1), nroot, start_lev)
+    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
 !     write(0,*) "   nroot = ", nroot
         
     IF (no_of_radiation_grids > 0) THEN
@@ -208,7 +213,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE get_grid_root_level( patch_file, grid_root, grid_level )
+  SUBROUTINE get_gridfile_root_level( patch_file, grid_root, grid_level )
     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
     INTEGER,    INTENT(inout)  ::  grid_root, grid_level
 
@@ -219,7 +224,34 @@ CONTAINS
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_level))
     CALL nf(nf_close(ncid))
 
-  END SUBROUTINE get_grid_root_level
+  END SUBROUTINE get_gridfile_root_level
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE get_gridfile_rescale_factor( patch_file, rescale_factor )
+    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+    REAL(wp),   INTENT(out)          ::  rescale_factor
+
+    INTEGER :: ncid, netcd_status
+
+    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
+    netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
+        & rescale_factor)
+    IF (netcd_status /= nf_noerr) rescale_factor = 1.0_wp
+    CALL nf(nf_close(ncid))
+
+  END SUBROUTINE get_gridfile_rescale_factor
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  FUNCTION get_grid_rescale_factor( ) result(rescale_factor)
+    REAL(wp) ::  rescale_factor
+
+    IF (no_of_dynamics_grids < 1) &
+      CALL finish( "get_grid_rescale_factor", 'no dynamics grid is defined')
+    rescale_factor = grid_rescale_factor
+
+  END FUNCTION get_grid_rescale_factor
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
