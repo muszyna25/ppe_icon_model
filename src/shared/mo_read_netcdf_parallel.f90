@@ -73,6 +73,7 @@ PUBLIC :: p_nf_inq_dimlen
 PUBLIC :: p_nf_inq_varid
 PUBLIC :: p_nf_get_att_text
 PUBLIC :: p_nf_get_att_int
+PUBLIC :: p_nf_get_att_double
 PUBLIC :: p_nf_get_var_int
 PUBLIC :: p_nf_get_var_double
 PUBLIC :: p_nf_get_vara_double
@@ -294,6 +295,36 @@ INTEGER FUNCTION p_nf_get_att_text(ncid, varid, name, tval)
 
 END FUNCTION p_nf_get_att_text
 
+!-----------------------------------------------------------
+!>
+!!               Wrapper for nf_get_att_double
+!!
+!!
+!! @par Revision History
+!! Initial version by Leonidas Linardakis, May 2012
+!!
+INTEGER FUNCTION p_nf_get_att_double(ncid, varid, name, dvalue)
+
+!
+   INTEGER, INTENT(IN) :: ncid, varid
+   CHARACTER*(*), INTENT(IN) :: name
+   REAL(dp), INTENT(OUT) :: dvalue
+
+   INTEGER :: res
+
+   IF(p_pe == p_io) THEN
+      res = nf_get_att_double(ncid, varid, name, dvalue)
+   ENDIF
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_get_att_double = res
+
+   CALL p_bcast(dvalue, p_io, p_comm_input_bcast)
+
+END FUNCTION p_nf_get_att_double
+!-----------------------------------------------------------------------
+
+!-----------------------------------------------------------------------
 !>
 !!               Wrapper for nf_get_att_int.
 !!

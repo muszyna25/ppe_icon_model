@@ -154,6 +154,7 @@ MODULE mo_model_domimp_patches
     & nf_inq_varid       => p_nf_inq_varid,          &
     & nf_get_att_text    => p_nf_get_att_text,       &
     & nf_get_att_int     => p_nf_get_att_int,        &
+    & nf_get_att_double  => p_nf_get_att_double,     &
     & nf_get_var_int     => p_nf_get_var_int,        &
     & nf_get_var_double  => p_nf_get_var_double
 #endif
