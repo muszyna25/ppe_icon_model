@@ -214,7 +214,7 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr                 = 0.16
  damp_height                  = 50000.
  rayleigh_coeff               = 0.1
- iadv_rcf                     = 5
+ iadv_rcf                     = 4 ! 5
  l_open_ubc                   = .TRUE.
  l_nest_rcf                   = .TRUE.
  l_masscorr_nest              = .TRUE.
