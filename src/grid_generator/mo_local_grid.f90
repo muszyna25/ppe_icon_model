@@ -55,7 +55,7 @@ MODULE mo_local_grid
     & min_rlvert, max_rlvert,                 & ! min_rlvert_int,
     & min_rledge, max_rledge, min_rledge_int
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
-  USE mo_physical_constants, ONLY: earth_radious
+  USE mo_physical_constants, ONLY: earth_radius
 
   IMPLICIT NONE
 
@@ -2403,7 +2403,7 @@ CONTAINS
     
     geometry_type = sphere_geometry
     earth_rescale_factor = 1.0_wp
-    sphere_radius = earth_radious
+    sphere_radius = earth_radius
     
     IF (PRESENT(from_grid_id)) THEN
       grid => get_grid(from_grid_id)
@@ -2430,7 +2430,7 @@ CONTAINS
     END SELECT
     
     IF (earth_rescale_factor > 0.0_wp) THEN
-      sphere_radius = earth_radious * earth_rescale_factor
+      sphere_radius = earth_radius * earth_rescale_factor
     ENDIF
     
     grid => get_grid(to_grid_id)

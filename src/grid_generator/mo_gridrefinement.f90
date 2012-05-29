@@ -74,7 +74,7 @@ MODULE mo_gridref
   !
   USE mo_kind,               ONLY: wp
   USE mo_math_constants,     ONLY: rad2deg,pi,pi2
-  USE mo_physical_constants, ONLY: earth_radious
+  USE mo_physical_constants, ONLY: earth_radius
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_io_units,           ONLY: ngmt, nnml, filename_max
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
@@ -2414,7 +2414,7 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name', 30,'Spherical 2D Coordinate System'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radious))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radius))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, i_lev))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
@@ -3149,7 +3149,7 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name',30, 'Spherical 2D Coordinate System'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radious))
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radius))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, i_lev))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))

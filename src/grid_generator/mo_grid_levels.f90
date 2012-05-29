@@ -88,7 +88,7 @@ MODULE mo_grid_levels
   USE mo_io_units,           ONLY: filename_max, nnml, nstat
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_math_constants,     ONLY: pi, rad2deg
-  USE mo_physical_constants, ONLY: earth_radious
+  USE mo_physical_constants, ONLY: earth_radius
   USE mo_base_geometry,      ONLY: t_geographical_coordinates,  &
        &                           cc2gc, x_rot_angle, y_rot_angle, z_rot_angle
 
@@ -795,7 +795,7 @@ CONTAINS
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
-      CALL nf(nf_put_att_double(ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radious))
+      CALL nf(nf_put_att_double(ncid, nf_global, 'semi_major_axis' , nf_double, 1, earth_radius))
       CALL nf(nf_put_att_double(ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
       CALL nf(nf_put_att_int   (ncid, nf_global, 'grid_level', nf_int, 1, jgrid))
       CALL nf(nf_put_att_int   (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
@@ -1724,7 +1724,7 @@ CONTAINS
       !
       WRITE (nstat,*)
       WRITE (nstat,'(a,f19.16,a,f19.16,a)') 'total area of hexagons = ', &
-        & z_atot/earth_radious/earth_radious,' (', 4.0_wp*pi, ')'
+        & z_atot/earth_radius/earth_radius,' (', 4.0_wp*pi, ')'
       WRITE (nstat,'(a,f11.1)') 'minimum hexagon area         [km**2]: ', &
         & z_amn*1e-6_wp
       WRITE (nstat,'(a,f11.1)') 'maximum hexagon area         [km**2]: ', &
@@ -1753,7 +1753,7 @@ CONTAINS
       !
       WRITE (nstat,*)
       WRITE (nstat,'(a,f19.16,a,f19.16,a)') 'total area of triangles = ', &
-        & z_atot/earth_radious/earth_radious, ' (', 4._wp*pi, ')'
+        & z_atot/earth_radius/earth_radius, ' (', 4._wp*pi, ')'
       WRITE (nstat,'(a,f11.1)') 'minimum triangle area        [km**2]: ', &
         & z_amn*1.e-6_wp
       WRITE (nstat,'(a,f11.1)') 'maximum triangle  area       [km**2]: ', &

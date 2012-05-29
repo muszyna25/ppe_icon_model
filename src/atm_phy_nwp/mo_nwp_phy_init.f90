@@ -43,7 +43,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: earth_radious, grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
+  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_grid_config,         ONLY: nroot   
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
@@ -585,7 +585,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! Please take care for scale-dependent initializations!
     ! Spectral resolution corresponding to ICON
     ! needed for RTAU - CAPE calculation
-    nsmax = INT(2._wp*pi*earth_radious/phy_params%mean_charlen)
+    nsmax = INT(2._wp*pi*p_patch%sphere_radius/phy_params%mean_charlen)
 
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))

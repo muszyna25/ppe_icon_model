@@ -93,7 +93,7 @@ MODULE mo_geometry
     & circum_center, cc2gc, arc_length,      &
     & inter_section2, t_geographical_coordinates
 
-  USE mo_physical_constants, ONLY: earth_radious
+  USE mo_physical_constants, ONLY: earth_radius
 
   USE mo_base_datatypes, ONLY: t_triangle, t_spheres, dummy_e
 
@@ -1379,18 +1379,18 @@ CONTAINS
       ! Almut (2009-01-13): moved from input_grid in mo_io_grid at this position
       !   rescale geometric quantities by radius of the Earth
       DO j=0, novs-1
-        ptr_tl%vs(j)%area_dual_cell   = earth_radious*earth_radious*ptr_tl%vs(j)%area_dual_cell
+        ptr_tl%vs(j)%area_dual_cell   = earth_radius*earth_radius*ptr_tl%vs(j)%area_dual_cell
       ENDDO
       DO j=0,nots-1
-        ptr_tl%ts(j)%triangle_area    = earth_radious*earth_radious*ptr_tl%ts(j)%triangle_area
+        ptr_tl%ts(j)%triangle_area    = earth_radius*earth_radius*ptr_tl%ts(j)%triangle_area
       ENDDO
       DO j=0, noeds-1
-        ptr_tl%es(j)%edge_dual_arc    = earth_radious*   ptr_tl%es(j)%edge_dual_arc
-        ptr_tl%es(j)%edge_primal_arc  = earth_radious*   ptr_tl%es(j)%edge_primal_arc
-        ptr_tl%es(j)%edge_vert0_arc   = earth_radious*   ptr_tl%es(j)%edge_vert0_arc
-        ptr_tl%es(j)%edge_vert1_arc   = earth_radious*   ptr_tl%es(j)%edge_vert1_arc
-        ptr_tl%es(j)%edge_cell0_arc   = earth_radious*   ptr_tl%es(j)%edge_cell0_arc
-        ptr_tl%es(j)%edge_cell1_arc   = earth_radious*   ptr_tl%es(j)%edge_cell1_arc
+        ptr_tl%es(j)%edge_dual_arc    = earth_radius*   ptr_tl%es(j)%edge_dual_arc
+        ptr_tl%es(j)%edge_primal_arc  = earth_radius*   ptr_tl%es(j)%edge_primal_arc
+        ptr_tl%es(j)%edge_vert0_arc   = earth_radius*   ptr_tl%es(j)%edge_vert0_arc
+        ptr_tl%es(j)%edge_vert1_arc   = earth_radius*   ptr_tl%es(j)%edge_vert1_arc
+        ptr_tl%es(j)%edge_cell0_arc   = earth_radius*   ptr_tl%es(j)%edge_cell0_arc
+        ptr_tl%es(j)%edge_cell1_arc   = earth_radius*   ptr_tl%es(j)%edge_cell1_arc
       ENDDO
 
     END SUBROUTINE compute_geometry

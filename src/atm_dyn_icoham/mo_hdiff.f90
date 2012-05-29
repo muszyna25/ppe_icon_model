@@ -84,7 +84,7 @@ MODULE mo_hdiff
                                     verts2cells_scalar
   USE mo_gridref_config,      ONLY: denom_diffu_v, denom_diffu_t, grf_intmethod_c
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array
-  USE mo_physical_constants,  ONLY: cpd, earth_radious
+  USE mo_physical_constants,  ONLY: cpd
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_hdiff_expl
 
   
@@ -172,8 +172,12 @@ MODULE mo_hdiff
      INTEGER :: nlev
 
      LOGICAL :: ltheta_dyn
+    REAL(wp) :: sphere_radius_squared
+
+    !-----------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_hdiff_expl)
+    sphere_radius_squared = pt_patch%sphere_radius * pt_patch%sphere_radius 
 !--------------------------------------------------------------------
 !
     i_nchdom   = MAX(1,pt_patch%n_childdom)
@@ -608,7 +612,7 @@ MODULE mo_hdiff
        IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
          ! mean area edge
-         z_mean_area_edge=8.0_wp*pi*earth_radious*earth_radious/REAL(pt_patch%n_patch_edges_g,wp)
+         z_mean_area_edge=8.0_wp*pi*sphere_radius_squared/REAL(pt_patch%n_patch_edges_g,wp)
 
          ! c) compute thicknesses at vertices
          CALL cells2verts_scalar(pt_diag%delp_c, pt_patch, pt_int%cells_aw_verts, z_delp_v)
