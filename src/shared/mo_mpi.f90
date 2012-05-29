@@ -607,7 +607,7 @@ CONTAINS
     CHARACTER (len=*), INTENT(in) :: name
     CHARACTER (len=*), INTENT(in) :: text
 
-    WRITE (nerr,'(i4.4,a,a,a)') my_global_mpi_id, ": ", TRIM(name), ": ", TRIM(text)
+    WRITE (nerr,'(i4.4,a,a,a,a)') my_global_mpi_id, ": ", TRIM(name), ": ", TRIM(text)
     CALL p_abort
       
   END SUBROUTINE finish
@@ -5806,7 +5806,7 @@ CONTAINS
         IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
         ! use MPI_MAXLOC to transfer additional data
         in_val(1) = zfield
-        in_val(2) = REAL( meta_info )
+        in_val(2) = REAL( meta_info, wp )
         CALL MPI_ALLREDUCE (MPI_IN_PLACE, in_val, 1, MPI_2DOUBLE_PRECISION, &
           MPI_MAXLOC, p_comm, p_error)
         ! decode meta info:
@@ -5891,7 +5891,7 @@ CONTAINS
           meta_info = 0
           IF (PRESENT(keyval))  meta_info = meta_info + keyval(j)*process_mpi_all_size
           IF (PRESENT(proc_id)) meta_info = meta_info + proc_id(j)
-          in_val(2,j) = REAL( meta_info )
+          in_val(2,j) = REAL( meta_info, wp )
         END DO
         ! use MPI_MAXLOC to transfer additional data
         CALL MPI_ALLREDUCE (MPI_IN_PLACE, in_val, SIZE(zfield), MPI_2DOUBLE_PRECISION, &
