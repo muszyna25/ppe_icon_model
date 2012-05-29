@@ -65,8 +65,8 @@ MODULE mo_ape_params
 
   ! Recommendations for APE
 
-  REAL(wp),PARAMETER :: omega = 7.292115e-5_wp !< Earth rotation rate [1/m]
-  REAL(wp),PARAMETER :: re    = 6.371e6_wp     !< mean Earth radius [m]
+!   REAL(wp),PARAMETER :: omega = 7.292115e-5_wp !< Earth rotation rate [1/m]
+!   REAL(wp),PARAMETER :: re    = 6.371e6_wp     !< mean Earth radius [m]
   REAL(wp),PARAMETER :: grav  = 9.79764_wp     !< mean surface gravity [m/s^2]
   REAL(wp),PARAMETER :: rd    = 287.04_wp      !< gas const. for dry air [J/kg/K]
   REAL(wp),PARAMETER :: cpd   = 1004.64_wp     !< specific heat capacity for dry air [J/kg/K]

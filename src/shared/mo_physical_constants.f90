@@ -123,8 +123,6 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: grav  = 9.80665_wp       !> [m/s2] av. gravitational acceleration
   REAL(wp), PARAMETER :: rgrav = 1._wp/grav       !! [s2/m]
   !
-  REAL(wp), PARAMETER :: omega = 7.29212e-5_wp    !! [1/s]  angular velocity
-  !
   REAL(wp), PARAMETER :: rae   = 0.1277E-2_wp     !> [m/m]  ratio of atm. scale height
   !                                               !!        to Earth radius
 
