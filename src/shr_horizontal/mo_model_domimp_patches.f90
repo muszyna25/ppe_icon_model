@@ -852,11 +852,11 @@ CONTAINS
     ! get geometry parameters
     netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', p_patch%geometry_type)
     IF (netcd_status /= nf_noerr) p_patch%geometry_type = 0
-    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radious', p_patch%sphere_radious)
+    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', p_patch%sphere_radius)
     IF (netcd_status /= nf_noerr) THEN
       ! by default this is the earth sphere
       ! we should add here the case of torus, ellipsoides, etc. 
-      p_patch%sphere_radious = earth_radious
+      p_patch%sphere_radius = earth_radious
       p_patch%earth_rescale_factor = 1.0_wp
     ELSE
       netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &

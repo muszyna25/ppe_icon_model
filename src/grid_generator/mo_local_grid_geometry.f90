@@ -134,7 +134,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: cartesian_center,edge_vector, edge_normal_vector, x,y
     TYPE(t_cartesian_coordinates) :: circumcenters_vector,tmp_vector
 
-    REAL(wp) :: real_tmp,sphere_radius,sphere_radious_squared,lon,lat
+    REAL(wp) :: real_tmp,sphere_radius,sphere_radius_squared,lon,lat
 
     INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: i,j,cell_index,edge_index,vertex_index
@@ -416,16 +416,16 @@ CONTAINS
     !----------------------------------------------------------
     ! Finally,rescale distances by radius of the sphere
     sphere_radius         = compute_grid%sphere_radius
-    sphere_radious_squared = sphere_radius*sphere_radius
+    sphere_radius_squared = sphere_radius*sphere_radius
 !$OMP DO PRIVATE(vertex_index)
     DO vertex_index=1,no_of_verts
       verts%dual_area(vertex_index) = &
-        & sphere_radious_squared * verts%dual_area(vertex_index)
+        & sphere_radius_squared * verts%dual_area(vertex_index)
     ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(cell_index)
     DO cell_index=1,no_of_cells
-      cells%area(cell_index) = sphere_radious_squared * cells%area(cell_index)
+      cells%area(cell_index) = sphere_radius_squared * cells%area(cell_index)
     ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(edge_index,i)
