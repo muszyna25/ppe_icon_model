@@ -1,0 +1,34 @@
+#! /bin/ksh
+#-----------------------------------------------------------------------------
+
+infile=iconR2B04-grid
+rescale=0.1
+outfile=${infile}_rescaled_${rescale}
+#-----------------------------------------------------------------------------
+GRIDDIR=grids
+WRKDIR=${basedir}/$GRIDDIR
+run_commmand="${start} $bindir/grid_command"
+commandFile=command.grid
+command=compute_sphere_geometry
+namelist="rescale_${infile}.namelist"
+cd $WRKDIR
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+cat > ${namelist} << EOF
+&file_names
+ in_file = "${infile}.nc"
+ out_file= "${outfile}.nc"
+/
+&grid_geometry_parameters
+ earth_rescale_factor = ${rescale}
+/
+EOF
+#-----------------------------------------------------------------------------
+
+
+echo $command ${namelist}  > $commandFile
+${run_commmand}
+#-----------------------------------------------------------------------------
+
+cd $thisdir
