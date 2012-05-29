@@ -213,7 +213,8 @@ CONTAINS
     ndomain = SIZE(p_patch)
  
     DO jg= 1,ndomain
-      CALL mean_domain_values (p_patch(jg)%level, nroot, mean_charlen(jg))
+      CALL mean_domain_values (p_patch(jg)%level, nroot, p_patch(jg)%sphere_radius, &
+        & mean_charlen(jg))
     ENDDO
     
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)

@@ -106,7 +106,6 @@ MODULE mo_math_utilities
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
-  USE mo_physical_constants,  ONLY: earth_radius
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
@@ -1462,9 +1461,10 @@ END SUBROUTINE rotate_latlon_grid
 !! @par Revision History
 !!  developed by F. Prill, 2012-05-24
 !!
-SUBROUTINE latlon_compute_area_weights( grid, area )
+SUBROUTINE latlon_compute_area_weights( grid, sphere_radius, area )
 
   TYPE (t_lon_lat_grid), INTENT(IN)    :: grid
+  REAL(wp),              INTENT(IN)    :: sphere_radius
   REAL(wp),              INTENT(INOUT) :: area(:)
   ! local variables
   REAL(wp) :: start_lat, delta_lon, delta_lat, delta_lat_2,  &
@@ -1472,7 +1472,7 @@ SUBROUTINE latlon_compute_area_weights( grid, area )
   REAL(wp) :: latitude(grid%lat_dim)
   INTEGER  :: k, pole1, pole2
 
-  radius = earth_radius ! earth's radius (average)
+  radius = sphere_radius ! earth's radius (average)
   pi_180 = ATAN(1._wp)/45._wp
   start_lat   = grid%reg_lat_def(1) * pi_180
   delta_lon   = grid%reg_lon_def(2) * pi_180
@@ -1878,13 +1878,14 @@ END FUNCTION gamma_fct
 !! Implemented by Kristina Froehlich, DWD (2010-10-29).
 !! moved to a more general place, Kristina Froehlich, MPI-M (2011-10-06)
 !!
-SUBROUTINE mean_domain_values( p_level,nroot, mean_charlen ) ! output
+SUBROUTINE mean_domain_values( p_level,nroot, sphere_radius, mean_charlen ) ! output
 !
 INTEGER , INTENT(IN)  :: p_level !  level of patch
 INTEGER , INTENT(IN)  :: nroot   !  root division of initial edges
+REAL(wp), INTENT(IN)  :: sphere_radius
 REAL(wp), INTENT(OUT) :: mean_charlen
 
- mean_charlen      = SQRT (4._wp*pi*earth_radius**2 /REAL(20*nroot**2*4**(p_level),wp))
+ mean_charlen      = SQRT (4._wp*pi*sphere_radius**2 /REAL(20*nroot**2*4**(p_level),wp))
 
 END SUBROUTINE mean_domain_values
 

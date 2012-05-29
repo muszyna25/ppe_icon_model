@@ -79,7 +79,6 @@
       &                               gnat_query_containing_triangles,        &
       &                               gnat_merge_distributed_queries, gk
     USE mo_math_utilities,      ONLY: rotate_latlon_grid
-    USE mo_physical_constants,  ONLY: earth_radius
     USE mo_mpi,                 ONLY: p_gather_field, my_process_is_mpi_workroot, &
       &                               get_my_mpi_work_id, p_n_work,               &
       &                               p_max, get_my_mpi_work_communicator,        &
@@ -355,7 +354,7 @@
             ! link this new variable to the lon-lat grid:
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:
-            CALL latlon_compute_area_weights(grid, area_weights)
+            CALL latlon_compute_area_weights(grid, p_patch(jg)%sphere_radius, area_weights)
             ! for each local lon-lat point on this PE:
             DO j=1, ptr_int_lonlat%nthis_local_pts
               ! determine block, index
@@ -912,8 +911,8 @@
           z_norm = SQRT( DOT_PRODUCT(z_nx2(:),z_nx2(:)) )
           z_nx2(:)  = 1._wp/z_norm * z_nx2(:)
           ! projection, scale with earth radius
-          ptr_int_lonlat%rdist(1, jc, jb) = earth_radius*DOT_PRODUCT(p1%x(:), z_nx1)
-          ptr_int_lonlat%rdist(2, jc, jb) = earth_radius*DOT_PRODUCT(p1%x(:), z_nx2)
+          ptr_int_lonlat%rdist(1, jc, jb) = ptr_patch%sphere_radius*DOT_PRODUCT(p1%x(:), z_nx1)
+          ptr_int_lonlat%rdist(2, jc, jb) = ptr_patch%sphere_radius*DOT_PRODUCT(p1%x(:), z_nx2)
         END DO
       END DO
 

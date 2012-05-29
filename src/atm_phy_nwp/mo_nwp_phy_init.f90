@@ -291,7 +291,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !--------------------------------------------------------------
     !< characteristic gridlength needed by convection and turbulence
     !--------------------------------------------------------------
-      CALL mean_domain_values (p_patch%level, nroot, phy_params%mean_charlen)
+    CALL mean_domain_values (p_patch%level, nroot, p_patch%sphere_radius, &
+      & phy_params%mean_charlen)
 
 
     !--------------------------------------------------------------
