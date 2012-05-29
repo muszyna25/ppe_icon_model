@@ -10,7 +10,7 @@
 #@ class            = %SCJOBCLASS%
 #@ total_tasks      = %SCTOTALTASKS%
 #@ wall_clock_limit = %SCWALLCLOCKLIMIT%
-#@ resources        = ConsumableMemory(1500MB)
+#@ resources        = ConsumableMemory(%SCMEM%) ConsumableCpus(%SCCPUS%)
 #@ queue
 #@ core_limit = unlimited
 

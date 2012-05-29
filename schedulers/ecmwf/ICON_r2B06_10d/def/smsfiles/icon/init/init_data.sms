@@ -23,7 +23,10 @@
 
 echo "INIT_DATA.SMS"
 
-REQUEST_DATE="%REQUEST_DATE%"
+module load python
+
+# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
+REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 
 IFSCONFIGFILE="%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf"
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"

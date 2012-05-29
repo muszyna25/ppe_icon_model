@@ -23,7 +23,6 @@
 
 echo "FCT_IFS.SMS"
 
-smsevent enable_dumpstate
 
 # -------------------------------------------------
 

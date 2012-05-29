@@ -43,6 +43,7 @@ else
 smsevent uncompress
 rm -rf icon-dev
 tar xvf icon-dev.tar.gz
+rm icon-dev.tar.gz
 cd icon-dev
 
 fi
@@ -57,10 +58,7 @@ smsevent configure
 # Submit ''Make'' -----------------------------
 smsevent make
 export LDR_CNTRL=MAXDAT=0xD000000DSA
-gmake
-
-# Clean-up ------------------------------------
-rm icon-dev.tar.gz
+gmake -j%SCTOTALTASKS%
 
 
 # -------------------------------------------------
