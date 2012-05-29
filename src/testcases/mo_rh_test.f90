@@ -53,7 +53,7 @@ MODULE mo_rh_test
 
   USE mo_kind,                 ONLY: wp
   USE mo_math_constants,       ONLY: pi
-  USE mo_physical_constants,   ONLY: earth_radious, omega, rd, grav
+  USE mo_physical_constants,   ONLY: omega, rd, grav
   USE mo_vertical_coord_table, ONLY: vct_a,vct_b
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -76,8 +76,8 @@ MODULE mo_rh_test
   REAL(wp), PARAMETER :: rgeo0 = lr0/rd/temp0
 
   INTEGER  :: rh_wavenum   ! zonal wavenumber, used in namelist
-  REAL(wp) :: A0  ! = 50._wp/earth_radious/m, amplitude of zonal flow
-  REAL(wp) :: Am  ! = 50._wp/earth_radious/m, amplitude of wave
+  REAL(wp) :: A0  ! = 50._wp/ptr_patch%sphere_radius/m, amplitude of zonal flow
+  REAL(wp) :: Am  ! = 50._wp/ptr_patch%sphere_radius/m, amplitude of wave
   REAL(wp) :: rh_init_shift_deg  ! shift of the initial state
 
   PUBLIC :: rh_wavenum, rh_init_shift_deg
@@ -123,8 +123,8 @@ MODULE mo_rh_test
   nlev   = pt_patch%nlev
 
   m   = rh_wavenum
-  A0  = 50._wp/earth_radious/REAL(m,wp)
-  Am  = 50._wp/earth_radious/REAL(m,wp)
+  A0  = 50._wp/pt_patch%sphere_radius/REAL(m,wp)
+  Am  = 50._wp/pt_patch%sphere_radius/REAL(m,wp)
 
   zshift = rh_init_shift_deg*pi/180._wp
 !
@@ -173,7 +173,7 @@ MODULE mo_rh_test
            zgeo = tmp1 + tmp2*zcosmlon + tmp3*( 2._wp*zcosmlon*zcosmlon-1._wp )
 
            pt_prog%pres_sfc(jc,jb) = &
-                  ps0*(1._wp+rgeo0*earth_radious*earth_radious*zgeo)**(1._wp/lr0)
+             & ps0*(1._wp+rgeo0*pt_patch%sphere_radius*pt_patch%sphere_radius*zgeo)**(1._wp/lr0)
         ENDDO
      ENDDO
 !$OMP END DO
@@ -195,11 +195,11 @@ MODULE mo_rh_test
            zsinmlon = SIN(REAL(m,wp)*lon)
            zcosmlon = COS(REAL(m,wp)*lon)
 
-           zu =  earth_radious*A0*zcoslat                                          &
-              & +earth_radious*Am*( REAL(m,wp)*zsinlat*zsinlat - zcoslat*zcoslat ) &
+           zu =  pt_patch%sphere_radius*A0*zcoslat                                          &
+              & +pt_patch%sphere_radius*Am*( REAL(m,wp)*zsinlat*zsinlat - zcoslat*zcoslat ) &
               &    *zcoslat**(m-1) *zcosmlon
 
-           zv = -earth_radious*REAL(m,wp)*Am* zcoslat**(m-1) *zsinlat*zsinmlon
+           zv = -pt_patch%sphere_radius*REAL(m,wp)*Am* zcoslat**(m-1) *zsinlat*zsinmlon
 
            pt_prog%vn(je,:,jb) =                                     &
              &          zu * pt_patch%edges%primal_normal(je,jb)%v1  &

@@ -52,7 +52,7 @@
 
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
-                                   & cvd_o_rd, earth_radious, omega, cpd ,     &
+                                   & cvd_o_rd, omega, cpd ,     &
                                      vtmpc1 , rdv,  rd            
                                      
    USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
@@ -1113,7 +1113,7 @@ jnlayer(:,:,:)=0
            z_lat   = ptr_patch%cells%center(jc,jb)%lat
            z_lon   = ptr_patch%cells%center(jc,jb)%lon
            CALL xy_distances(z_lon, z_lat, z_lonc, z_latc, &
-                             0.0_wp, 0.0_wp, z_dx, z_dy, lplane)
+             & 0.0_wp, 0.0_wp, z_dx, z_dy, ptr_patch%sphere_radius, lplane)
 
            SELECT CASE (itype_topo_ana)
            CASE (1)  !schaer mountain
@@ -1159,7 +1159,7 @@ jnlayer(:,:,:)=0
            z_lat   = ptr_patch%verts%vertex(jv,jb)%lat
            z_lon   = ptr_patch%verts%vertex(jv,jb)%lon
            CALL xy_distances(z_lon, z_lat, z_lonc, z_latc, &
-                             0.0_wp, 0.0_wp, z_dx, z_dy, lplane)
+              & 0.0_wp, 0.0_wp, z_dx, z_dy, ptr_patch%sphere_radius, lplane)
 
            SELECT CASE (itype_topo_ana)
            CASE (1)  !schaer mountain
@@ -1210,7 +1210,8 @@ jnlayer(:,:,:)=0
   !! @par Revision History
   !!
   !!
-  SUBROUTINE xy_distances(lon, lat, lonc, latc, rotangle, height, dx, dy, lplane)
+  SUBROUTINE xy_distances(lon, lat, lonc, latc, rotangle, height, dx, dy, &
+    & sphere_radius, lplane)
 
    REAL(wp), INTENT (IN) :: lon, lat   !lon and lat of the point (in radians)
    REAL(wp), INTENT (IN) :: lonc, latc !lon and lat of the center point (in radians)
@@ -1219,6 +1220,7 @@ jnlayer(:,:,:)=0
    REAL(wp), INTENT (IN) :: height     !vertical height of the point (in meters)
    REAL(wp), INTENT (OUT):: dx, dy     !distances in meters from (lon,lat) to
                                        ! (lonc,latc) in zonal and meridional directions
+   REAL(wp) :: sphere_radius
    LOGICAL, INTENT(in) :: lplane
 
    ! Local variables
@@ -1230,8 +1232,8 @@ jnlayer(:,:,:)=0
 !
    
   IF (lplane) THEN
-    z_d_lon = earth_radious*(lon-lonc)
-    z_d_lat = earth_radious*(lat-latc)
+    z_d_lon = sphere_radius * (lon-lonc)
+    z_d_lat = sphere_radius * (lat-latc)
 
     dx = z_d_lon * COS(rotangle) - z_d_lat * SIN(rotangle) 
     dy = z_d_lon * SIN(rotangle) + z_d_lat * COS(rotangle)
@@ -1260,8 +1262,8 @@ jnlayer(:,:,:)=0
         dy = ACOS(COS(dx)*COS(z_d) / z_tmp)
         IF (latc > lat) dy = -dy
       END IF
-      dx = (earth_radious + height) * dx
-      dy = (earth_radious + height) * dy
+      dx = (sphere_radius + height) * dx
+      dy = (sphere_radius + height) * dy
   END IF
 
 

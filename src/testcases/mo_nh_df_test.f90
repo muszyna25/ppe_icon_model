@@ -49,7 +49,7 @@ MODULE mo_nh_df_test
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell,  &
     &                               MIURA, MIURA3
-  USE mo_physical_constants,  ONLY: earth_radious, rd, cpd, p0ref
+  USE mo_physical_constants,  ONLY: rd, cpd, p0ref
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi
@@ -77,19 +77,11 @@ MODULE mo_nh_df_test
   REAL(wp), PARAMETER :: deg2rad = pi/180._wp  !< convert degrees to radians
   REAL(wp), PARAMETER :: tottime = 1036800._wp !< total time 12 days
 
-  REAL(wp), PARAMETER ::   &
-    &  u0  = (2._wp*pi*earth_radious)/(tottime), &  !< circumference / 12 days [m/s]
-    &  u3  = (5._wp*earth_radious)/(tottime)   , &  !< for case 3 (divergent flow)
-    &  u4  = (10._wp*earth_radious)/(tottime)       !< flow field amplitude [m/s]
                                          !< case 4
   REAL(wp), PARAMETER ::   &             !< flow field amplitude [m/s]
     &   u1 = 73.741_wp, u2 = 61.451_wp
 !    &   u1 = 2.4_wp, u2 = 2.0_wp, u3 = 1._wp !< original values
                                               !< for unit sphere
-
-  REAL(wp), PARAMETER ::   &      !< prescribed radius of bell shaped
-    &  bell_radius = 0.5_wp * earth_radious  !< tracer distribution
-
   ! position of north pole Nair et al. (2010) (no rotation)
   REAL(wp), PARAMETER :: npole_lon = 0._wp
   REAL(wp), PARAMETER :: npole_lat = 0.5_wp * pi
@@ -297,8 +289,13 @@ CONTAINS
       &  zpsi(nproma,ptr_patch%nblks_v)
     INTEGER  :: ilv1, ilv2, ibv1, ibv2
     REAL(wp) :: iorient             !< system orientation
+    
+    REAL(wp) ::  u0, u3, u4       !< flow field amplitude [m/s]
     !---------------------------------------------------------------------------
-
+    ! constants
+    u0  = (2._wp*pi*ptr_patch%sphere_radius)/(tottime)  !< circumference / 12 days [m/s]
+    u3  = (5._wp*ptr_patch%sphere_radius)/(tottime)     !< for case 3 (divergent flow)
+    u4  = (10._wp*ptr_patch%sphere_radius)/(tottime)    !< flow field amplitude [m/s]
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_int_e
     npromz_e = ptr_patch%npromz_int_e
@@ -526,7 +523,7 @@ CONTAINS
           ! (dn x pn) is computed and not (pn x dn). 
           iorient = ptr_patch%edges%system_orientation(je,jb)
 
-          ptr_prog%vn(je,1,jb) = earth_radious * iorient                             &
+          ptr_prog%vn(je,1,jb) = ptr_patch%sphere_radius * iorient                             &
             &                  * (zpsi(ilv2,ibv2) - zpsi(ilv1,ibv1))      &
             &                  / ptr_patch%edges%primal_edge_length(je,jb)
         ENDDO
@@ -594,8 +591,10 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: &  !< cart. coords of ic-centers
       &  ic_cc_c1, ic_cc_c2,         &
       &  cc_rot                         !< rotated point in cart. coords
+    REAL(wp) :: bell_radius  !< tracer distribution
     !-----------------------------------------------------------------------
-
+    ! constants
+    bell_radius = 0.5_wp * ptr_patch%sphere_radius  !< tracer distribution
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_int_c
     npromz_c = ptr_patch%npromz_int_c
@@ -691,12 +690,14 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
-            &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
+          z_dist_1 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+            & * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
-            &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
+          z_dist_2 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+            & * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
           d1 = z_dist_1/bell_radius
           d2 = z_dist_2/bell_radius
@@ -747,30 +748,36 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
-            &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
+          z_dist_1 = ptr_patch%sphere_radius * &
+            &  ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+            &  * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
-            &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
+          z_dist_2 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+            & * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
 
           IF (z_dist_1 <= bell_radius &
-            &  .AND. ABS(gc_rot%lon - ic_c1%lon)>= bell_radius/(6._wp*earth_radious)) THEN
-            p_cc(jc,1,jb) = c_slotted
+            & .AND. ABS(gc_rot%lon - ic_c1%lon)>= bell_radius/(6._wp*ptr_patch%sphere_radius)) &
+            & THEN
+              p_cc(jc,1,jb) = c_slotted
           ELSE IF (z_dist_2 <= bell_radius                           & 
-             &  .AND. ABS(gc_rot%lon - ic_c2%lon)>= bell_radius/(6._wp*earth_radious)) THEN
-            p_cc(jc,1,jb) = c_slotted
+            & .AND. ABS(gc_rot%lon - ic_c2%lon)>= bell_radius/(6._wp*ptr_patch%sphere_radius)) &
+            & THEN
+              p_cc(jc,1,jb) = c_slotted
           ELSE IF (z_dist_1 <= bell_radius                           &
-            & .AND. ABS(gc_rot%lon - ic_c1%lon)< bell_radius/(6._wp*earth_radious)   &
-            & .AND. (gc_rot%lat-ic_c1%lat) < -5._wp*bell_radius/(12._wp*earth_radious)) THEN
-            p_cc(jc,1,jb) = c_slotted
+            & .AND. ABS(gc_rot%lon - ic_c1%lon)< bell_radius/(6._wp*ptr_patch%sphere_radius)   &
+            & .AND. (gc_rot%lat-ic_c1%lat) < -5._wp*bell_radius/(12._wp*ptr_patch%sphere_radius)) &
+            & THEN
+              p_cc(jc,1,jb) = c_slotted
           ELSE IF(z_dist_2 <= bell_radius                            &
-            & .AND. ABS(gc_rot%lon - ic_c2%lon) < bell_radius/(6._wp*earth_radious)  &
-            & .AND. (gc_rot%lat-ic_c2%lat) > 5._wp*bell_radius/(12._wp*earth_radious)) THEN
-            p_cc(jc,1,jb) = c_slotted
+            & .AND. ABS(gc_rot%lon - ic_c2%lon) < bell_radius/(6._wp*ptr_patch%sphere_radius)  &
+            & .AND. (gc_rot%lat-ic_c2%lat) > 5._wp*bell_radius/(12._wp*ptr_patch%sphere_radius)) &
+            &  THEN
+              p_cc(jc,1,jb) = c_slotted
           ELSE
-            p_cc(jc,1,jb) = b_slotted
+              p_cc(jc,1,jb) = b_slotted
           ENDIF  
 
         ENDDO
@@ -871,12 +878,14 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
-            &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
+          z_dist_1 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+            &  * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
-            &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
+          z_dist_2 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+            & * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
           d1 = z_dist_1/bell_radius
           d2 = z_dist_2/bell_radius
@@ -929,11 +938,13 @@ CONTAINS
 
           ! initial distribution
           ! distance (arclength) to ic-center1
-          z_dist_1 = earth_radious * ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
+          z_dist_1 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c1%lat) * SIN(gc_rot%lat) + COS(ic_c1%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c1%lon) )
 
           ! distance (arclength) to ic-center2
-          z_dist_2 = earth_radious * ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
+          z_dist_2 = ptr_patch%sphere_radius * &
+            & ACOS( SIN(ic_c2%lat) * SIN(gc_rot%lat) + COS(ic_c2%lat)   &
             &    * COS(gc_rot%lat) * COS(gc_rot%lon - ic_c2%lon) )
 
           d1 = z_dist_1/bell_radius
@@ -1003,12 +1014,12 @@ CONTAINS
     INTEGER  :: jb,je,jc,jk         !< loop indices
 
     LOGICAL  :: lcompute, lcleanup
-    LOGICAL  :: lcoupled_rho        !< earth_radious-integrate mass continuity
+    LOGICAL  :: lcoupled_rho        !< ptr_patch%sphere_radius-integrate mass continuity
                                     !< equation (.TRUE.)
     INTEGER  :: pid                 !< patch ID
     !---------------------------------------------------------------------------
 
-    lcoupled_rho=.FALSE. ! earth_radious-integrate mass continuity equation (.TRUE.)
+    lcoupled_rho=.FALSE. ! ptr_patch%sphere_radius-integrate mass continuity equation (.TRUE.)
 
     ! get patch ID
     pid = p_patch%id
@@ -1030,7 +1041,7 @@ CONTAINS
 
 
     IF (lcoupled_rho) THEN
-    ! explicit (earth_radious)-integration of mass continuity equation.
+    ! explicit (ptr_patch%sphere_radius)-integration of mass continuity equation.
 
       !
       ! get time-averaged velocity field for mass flux and trajectory 
@@ -1136,7 +1147,7 @@ CONTAINS
 !!$OMP END PARALLEL
 
     ELSE
-    ! mass continuity equation will not be (earth_radious)-integrated.
+    ! mass continuity equation will not be (ptr_patch%sphere_radius)-integrated.
     ! Only the updated mass flux is provided, assuming a homogeneuos,
     ! constant in time density field with \rho=1 everywhere.
 
@@ -1222,7 +1233,12 @@ CONTAINS
     REAL(wp) ::   &                 !< geographical coordinates of departure region
      &  z_barycenter(nproma,ptr_patch%nlev,ptr_patch%nblks_int_e,2) !< barycenter
 
+    REAL(wp) :: u0, u3, u4      !< flow field amplitude [m/s]
     !---------------------------------------------------------------------------
+    ! constants
+    u0  = (2._wp*pi*ptr_patch%sphere_radius)/(tottime)  !< circumference / 12 days [m/s]
+    u3  = (5._wp*ptr_patch%sphere_radius)/(tottime)     !< for case 3 (divergent flow)
+    u4  = (10._wp*ptr_patch%sphere_radius)/(tottime)    !< flow field amplitude [m/s]
 
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_int_e
@@ -1285,16 +1301,16 @@ CONTAINS
           ! meridional velocity component at edge midpoint
           v_wind = 0.5_wp * u1 * SIN(zlon_rot) * COS(zlat_rot) * z_timing_func
 
-          c_1 = u_wind/(earth_radious * COS(zlat_rot))
+          c_1 = u_wind/(ptr_patch%sphere_radius * COS(zlat_rot))
 
-          c_3 = v_wind/earth_radious
+          c_3 = v_wind/ptr_patch%sphere_radius
 
-          c_2 = (u1/earth_radious) * SIN(0.5_wp*zlon_rot) * ( -SIN(0.5_wp*zlon_rot)   &
+          c_2 = (u1/ptr_patch%sphere_radius) * SIN(0.5_wp*zlon_rot) * ( -SIN(0.5_wp*zlon_rot)   &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)  &
             & + z_timing_func * (c_3 * COS(zlat_rot)*SIN(0.5_wp*zlon_rot)  &
             & + COS(0.5_wp*zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.25_wp*u1/earth_radious) * (-SIN(zlon_rot) * COS(zlat_rot)          &
+          c_4 = (0.25_wp*u1/ptr_patch%sphere_radius) * (-SIN(zlon_rot) * COS(zlat_rot)          &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)                  &
             & + z_timing_func * (COS(zlat_rot) * COS(zlon_rot)             &
             & * c_1 - c_3 * SIN(zlon_rot) * SIN(zlat_rot)) )
@@ -1346,16 +1362,16 @@ CONTAINS
           ! velocity in local north direction
           v_wind = u2 * SIN(2._wp*zlon_rot) * COS(zlat_rot) * z_timing_func
 
-          c_1 = u_wind/(earth_radious * COS(zlat_rot))
+          c_1 = u_wind/(ptr_patch%sphere_radius * COS(zlat_rot))
 
-          c_3 = v_wind/earth_radious
+          c_3 = v_wind/ptr_patch%sphere_radius
 
-          c_2 = (u2/earth_radious) * SIN(zlon_rot) * ( -SIN(zlon_rot)                 &
+          c_2 = (u2/ptr_patch%sphere_radius) * SIN(zlon_rot) * ( -SIN(zlon_rot)  &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)  &
             & + z_timing_func * (c_3 * COS(zlat_rot)*SIN(zlon_rot)         &
             & + 2._wp * COS(zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.5_wp*u2/earth_radious) * (-SIN(2._wp*zlon_rot) * COS(zlat_rot)           &
+          c_4 = (0.5_wp*u2/ptr_patch%sphere_radius) * (-SIN(2._wp*zlon_rot) * COS(zlat_rot) &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)                        &
             & + z_timing_func * (2._wp*COS(zlat_rot) * COS(2._wp*zlon_rot) * c_1 &
             & - c_3 * SIN(2._wp*zlon_rot) * SIN(zlat_rot)) )
@@ -1408,16 +1424,16 @@ CONTAINS
           ! meridional velocity component at edge midpoint
           v_wind = 0.5_wp * u3 * SIN(zlon_rot) * COS(zlat_rot) * z_timing_func
 
-          c_1 = u_wind/(earth_radious * COS(zlat_rot))
+          c_1 = u_wind/(ptr_patch%sphere_radius * COS(zlat_rot))
 
-          c_3 = v_wind/earth_radious
+          c_3 = v_wind/ptr_patch%sphere_radius
 
-          c_2 = (u3/earth_radious) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)  &
+          c_2 = (u3/ptr_patch%sphere_radius) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot) &
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)  &
             & - z_timing_func * (c_3 * COS(zlat_rot)*SIN(0.5_wp*zlon_rot)  &
             & + COS(0.5_wp*zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.25_wp*u3/earth_radious) * (-SIN(zlon_rot) * COS(zlat_rot)       &
+          c_4 = (0.25_wp*u3/ptr_patch%sphere_radius) * (-SIN(zlon_rot) * COS(zlat_rot)       &
             & * SIN(pi*p_sim_time/tottime) * (pi/tottime)               &
             & + z_timing_func * (COS(zlat_rot) * COS(zlon_rot) * c_1    &
             & - c_3 * SIN(zlon_rot) * SIN(zlat_rot)) )
@@ -1470,17 +1486,17 @@ CONTAINS
           v_wind = - u4 * SIN(zlon_rot) * COS(zlat_rot) * COS(zlat_rot) &
             &      * z_timing_func
 
-          c_1 = u_wind/(earth_radious * COS(zlat_rot))
+          c_1 = u_wind/(ptr_patch%sphere_radius * COS(zlat_rot))
 
-          c_3 = v_wind/earth_radious
+          c_3 = v_wind/ptr_patch%sphere_radius
 
-          c_2 = (u4/earth_radious) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)       &
+          c_2 = (u4/ptr_patch%sphere_radius) * SIN(0.5_wp*zlon_rot) * ( SIN(0.5_wp * zlon_rot)&
             & * SIN(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)       &
             & - z_timing_func * (c_3 * COS(zlat_rot)*SIN(0.5_wp*zlon_rot)       &
             & + COS(0.5_wp*zlon_rot) * SIN(zlat_rot) * c_1) )
 
-          c_4 = (0.5_wp*u4/earth_radious) * (SIN(zlon_rot) * COS(zlat_rot) * COS(zlat_rot) &
-            & * SIN(pi*p_sim_time/tottime) * (pi/tottime)                       &
+          c_4 = (0.5_wp*u4/ptr_patch%sphere_radius) * (SIN(zlon_rot) * COS(zlat_rot) &
+            & * COS(zlat_rot) * SIN(pi*p_sim_time/tottime) * (pi/tottime)            &
             & - z_timing_func * (COS(zlat_rot) * COS(zlat_rot) * COS(zlon_rot)  &
             & * c_1 - SIN(2._wp*zlat_rot) * SIN(zlon_rot) * c_3 ) )
 
@@ -1540,7 +1556,7 @@ CONTAINS
          ! Save distance vector cell center -> barycenter of advected area
          ! in an edge based data structure. This is possible, since one
          ! unique distance vector corresponds to one edge.
-         df_distv_barycenter(je,1,jb,1:2) = earth_radious * z_dist_g(1:2)
+         df_distv_barycenter(je,1,jb,1:2) = ptr_patch%sphere_radius * z_dist_g(1:2)
 
       ENDDO
     ENDDO

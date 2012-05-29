@@ -54,7 +54,7 @@ MODULE mo_sw_test
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
-  USE mo_physical_constants,  ONLY: earth_radious, omega, rgrav, inverse_earth_radious
+  USE mo_physical_constants,  ONLY: omega, rgrav
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_dynamics_config,     ONLY: sw_ref_height
   USE mo_parallel_config,     ONLY: nproma
@@ -96,13 +96,14 @@ MODULE mo_sw_test
     TYPE(t_external_data), INTENT(INOUT) :: pt_ext_data !< external data
 
     REAL(wp), PARAMETER  :: h0 = 2.94e4_wp * rgrav  ! maximum height
-    REAL(wp), PARAMETER  :: u0 =(2.0_wp*pi*earth_radious)/(12.0_wp*rdaylen) ! [m/s]
+    REAL(wp)  :: u0     ! [m/s]
 
     REAL(wp)  :: z_fact1, z_fact2, z_lat, z_lon, z_aleph, z_uu, z_vv
     INTEGER   :: jb, jc, jv, je, nblks_e, nblks_c, nblks_v, &
                  npromz_e, npromz_c, npromz_v, nlen
 
 !-----------------------------------------------------------------------
+    u0 =(2.0_wp*pi*pt_patch%sphere_radius)/(12.0_wp*rdaylen) ! [m/s]
 
     ! set reference height
     sw_ref_height = 0.9_wp * h0
@@ -111,7 +112,7 @@ MODULE mo_sw_test
     z_aleph = p_rotate_axis_deg * pi / 180.0_wp
 
     ! 1st factor for height (= thickness, because topography is zero)
-    z_fact1 = earth_radious * omega
+    z_fact1 = pt_patch%sphere_radius * omega
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -216,13 +217,17 @@ MODULE mo_sw_test
     TYPE(t_external_data), INTENT(INOUT) :: pt_ext_data !< external data
 
     REAL(wp), PARAMETER  :: h0 = 2.94e4_wp * rgrav  ! maximum height
+    REAL(wp)  :: u0
 
     INTEGER   :: jb, jc, je, jv, nblks_e, nblks_c, nblks_v, &
                  npromz_e, npromz_c, npromz_v, nlen
     REAL(wp)  :: z_aleph, z_lat, z_lon, z_hh, z_rotlon, z_rotlat, z_uu, z_vv
-
+    REAL(wp)  :: inverse_sphere_radius
+    
   !-----------------------------------------------------------------------
     ! set reference height
+    u0 =(2.0_wp*pi*pt_patch%sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp) ! [m/s]
+    inverse_sphere_radius = 1.0_wp / pt_patch%sphere_radius
     sw_ref_height = 0.9_wp * h0
 
     z_aleph = p_rotate_axis_deg * pi/180.0_wp
@@ -247,8 +252,8 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         CALL rotate( z_lon, z_lat, z_aleph, z_rotlon, z_rotlat )
-        z_hh = geostr_balance( z_rotlat, symmetric_u_velo)
-        pt_prog%pres_sfc(jc,jb) = h0 - earth_radious * rgrav * z_hh
+        z_hh = geostr_balance( z_rotlat, symmetric_u_velo(z_rotlat,u0), inverse_sphere_radius)
+        pt_prog%pres_sfc(jc,jb) = h0 - pt_patch%sphere_radius * rgrav * z_hh
 
         ! Coriolis parameter
         pt_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(z_lat)*COS(z_aleph)&
@@ -270,12 +275,12 @@ MODULE mo_sw_test
 
         z_uu = COS(z_aleph) * SIN(z_rotlon) * SIN(z_lon)
         z_uu = COS(z_lon)   * COS(z_rotlon) + z_uu
-        z_uu = symmetric_u_velo(z_rotlat) * z_uu
+        z_uu = symmetric_u_velo(z_rotlat,u0) * z_uu
 
         z_vv = COS(z_aleph) * SIN(z_lat) * COS(z_lon)   * SIN(z_rotlon)
         z_vv = z_vv         - SIN(z_lat) * SIN(z_lon)   * COS(z_rotlon)
         z_vv = z_vv         - COS(z_lat) * SIN(z_aleph) * SIN(z_rotlon)
-        z_vv = symmetric_u_velo(z_rotlat) * z_vv
+        z_vv = symmetric_u_velo(z_rotlat,u0) * z_vv
 
         ! normal velocity component
         pt_prog%vn(je,1,jb) = &
@@ -341,7 +346,7 @@ MODULE mo_sw_test
     sw_ref_height = 0.9_wp * h0
 
     ! 1st factor for height (= thickness, because topography is zero)
-    z_fact1 = earth_radious * omega
+    z_fact1 = pt_patch%sphere_radius * omega
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -439,8 +444,8 @@ MODULE mo_sw_test
     ! set reference height
     sw_ref_height =  h0
 
-    z_r_omega  = earth_radious * omega
-    z_re_omg_kk= earth_radious * omg_kk
+    z_r_omega  = pt_patch%sphere_radius * omega
+    z_re_omg_kk= pt_patch%sphere_radius * omg_kk
 
     z_r       = REAL(ir,wp)
     z_r1      = z_r + 1._wp
@@ -608,8 +613,8 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         z_hh  = h0 + amplitude*&
-                EXP(-( (earth_radious*(z_lon-pi*c_lon/180.0_wp)/r_lon)**2   &
-                     + (earth_radious*(z_lat-pi*c_lat/180.0_wp)/r_lat)**2 ) )
+                EXP(-( (pt_patch%sphere_radius*(z_lon-pi*c_lon/180.0_wp)/r_lon)**2   &
+                     + (pt_patch%sphere_radius*(z_lat-pi*c_lat/180.0_wp)/r_lat)**2 ) )
 
         pt_prog%pres_sfc(jc,jb) = z_hh
       ENDDO
@@ -648,7 +653,7 @@ MODULE mo_sw_test
     TYPE(t_hydro_atm_prog), INTENT(INOUT) :: pt_prog
     TYPE(t_external_data), INTENT(INOUT) :: pt_ext_data !< external data
 
-    REAL(wp), PARAMETER :: u0 = (2.0_wp*pi*earth_radious)/(12.0_wp*rdaylen) ! [m/s]
+    REAL(wp) :: u0  ! [m/s]
     REAL(wp), PARAMETER :: d0 = 133681.0_wp  ! additive constant
 
     INTEGER   :: jb, jc, je, nblks_e, nblks_c, npromz_e, npromz_c, nlen
@@ -660,6 +665,7 @@ MODULE mo_sw_test
     REAL(wp)  :: z_angle2
     REAL(wp)  :: z_angle
 
+    u0 = (2.0_wp*pi*pt_patch%sphere_radius)/(12.0_wp*rdaylen) ! [m/s]
 
   !-----------------------------------------------------------------------
     ! set reference height
@@ -681,7 +687,7 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         ! height of orography
-        z_fact = earth_radious * omega * SIN(z_lat)
+        z_fact = pt_patch%sphere_radius * omega * SIN(z_lat)
         z_fact = z_fact * z_fact
         z_or = .5_wp * z_fact * rgrav
         pt_ext_data%atm%topography_c(jc,jb)= z_or
@@ -696,7 +702,7 @@ MODULE mo_sw_test
         z_phi_t_k = u0 * z_phi_t_k
 
         ! 2nd summand: r_e \Omega \sin \varphi
-        z_summand = earth_radious * omega * SIN(z_lat)
+        z_summand = pt_patch%sphere_radius * omega * SIN(z_lat)
 
         ! one factor
         z_fact    = .5_wp *  z_phi_t_k + z_summand
@@ -760,7 +766,7 @@ MODULE mo_sw_test
   !! @par Remarks
   !! was htmp2 in previous code
   !!
-  FUNCTION geostr_balance( p_lat, func)  RESULT(p_hh)
+  FUNCTION geostr_balance( p_lat, func, inverse_sphere_radius)  RESULT(p_hh)
 
     INTERFACE                        ! selected function
 
@@ -775,6 +781,7 @@ MODULE mo_sw_test
     END INTERFACE
 
     REAL(wp), INTENT(in) :: p_lat           ! rotated latitude
+    REAL(wp), INTENT(in) :: inverse_sphere_radius
 
     REAL(wp)             :: p_hh            ! balanced height
 
@@ -804,7 +811,7 @@ MODULE mo_sw_test
        z_val = func(z_lat)
 
        z_val2 = 2._wp * omega * SIN(z_lat)
-       z_val2 = z_val2 + z_val * TAN(z_lat)* inverse_earth_radious
+       z_val2 = z_val2 + z_val * TAN(z_lat)* inverse_sphere_radius
        z_val2 = z_val * z_val2
 
        p_hh = p_hh + z_val2 * z_step
@@ -830,16 +837,14 @@ MODULE mo_sw_test
   !! @par Remarks
   !! was us in previous code
   !!
-  FUNCTION symmetric_u_velo(p_rlatd) RESULT (p_usres)
+  FUNCTION symmetric_u_velo(p_rlatd, u0) RESULT (p_usres)
 
-    REAL(wp),INTENT(in) :: p_rlatd  ! LATITUDE
+    REAL(wp),INTENT(in) :: p_rlatd, u0  ! LATITUDE
 
     REAL(wp)            :: p_usres  ! MAX AMPLITUDE OF FLOW
                                     ! (12 DAY ROTATION SPEED)
     REAL(wp)            :: z_rlate, z_rlatb  ! NORTH-SOUTH EXTENT OF FLOW FIELD
     REAL(wp)            :: z_xe, z_x         ! FLOW PROFILE TEMPORARIES
-
-    REAL (wp), PARAMETER :: u0 =(2.0_wp*pi*earth_radious)/(12.0_wp*24.0_wp*3600.0_wp) ! [m/s]
 
   !-----------------------------------------------------------------------
 
