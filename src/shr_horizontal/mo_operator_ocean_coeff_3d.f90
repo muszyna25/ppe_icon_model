@@ -62,6 +62,8 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_coeffs,         ONLY: par_init_scalar_product_oce
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
+
 
   IMPLICIT NONE
 
@@ -1130,7 +1132,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
-    omega = ptr_patch%angular_velocity
+    omega = grid_angular_velocity
 
     rl_start     = 1
     rl_end       = min_rlcell_int

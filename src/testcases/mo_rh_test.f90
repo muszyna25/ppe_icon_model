@@ -59,6 +59,7 @@ MODULE mo_rh_test
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm_prog
   USE mo_parallel_config,      ONLY: nproma
+  USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
 
   IMPLICIT NONE
 
@@ -156,13 +157,13 @@ MODULE mo_rh_test
            zcoslat  = COS(lat)
            zcosmlon = COS(REAL(m,wp)*lon)
 
-           tmp1 =   0.5_wp*A0*( 2._wp*pt_patch%angular_velocity + A0 )*zcoslat*zcoslat &
+           tmp1 =   0.5_wp*A0*( 2._wp*grid_angular_velocity + A0 )*zcoslat*zcoslat &
                 & + 0.25_wp*Am*Am*zcoslat**(2*m)                         &
                 & *( (REAL(m,wp)+1._wp)*zcoslat*zcoslat                  &
                 &   +(2._wp*REAL(m,wp)*REAL(m,wp) - REAL(m,wp) -2._wp)   &
                 &   - 2._wp*REAL(m,wp)*REAL(m,wp)/zcoslat/zcoslat )
 
-           tmp2 =  2._wp*(pt_patch%angular_velocity+A0)*Am &
+           tmp2 =  2._wp*(grid_angular_velocity+A0)*Am &
                 & /(REAL(m,wp)+1._wp)/(REAL(m,wp)+2._wp) &
                 & * zcoslat**m *( REAL(m,wp)*REAL(m,wp)                      &
                 & + 2._wp*REAL(m,wp) + 2._wp                                 &

@@ -45,7 +45,7 @@ MODULE mo_nwp_phy_init
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
   USE mo_math_utilities,      ONLY: mean_domain_values
-  USE mo_grid_config,         ONLY: nroot   
+  USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -291,7 +291,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !--------------------------------------------------------------
     !< characteristic gridlength needed by convection and turbulence
     !--------------------------------------------------------------
-    CALL mean_domain_values (p_patch%level, nroot, p_patch%sphere_radius, &
+    CALL mean_domain_values (p_patch%level, nroot, &
       & phy_params%mean_charlen)
 
 
@@ -586,7 +586,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! Please take care for scale-dependent initializations!
     ! Spectral resolution corresponding to ICON
     ! needed for RTAU - CAPE calculation
-    nsmax = INT(2._wp*pi*p_patch%sphere_radius/phy_params%mean_charlen)
+    nsmax = INT(2._wp*pi*grid_sphere_radius/phy_params%mean_charlen)
 
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))

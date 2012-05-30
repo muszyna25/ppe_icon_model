@@ -63,6 +63,7 @@ MODULE mo_ldf_init
     &                               spec_humi          !! Specific humidity
   USE mo_eta_coord_diag,      ONLY: half_level_pressure,full_level_pressure
   USE mo_exception,           ONLY: message, message_text
+  USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
   IMPLICIT NONE
 
@@ -153,7 +154,7 @@ CONTAINS
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
 
-  CALL init_ncar_testcases_domain(pt_patch)
+  CALL init_ncar_testcases_domain()
 
 !--------------------------------------------------------------------
 ! First check optional arguments
@@ -236,17 +237,17 @@ CONTAINS
 
            tmp1  = u0*COS((1._wp-eta0)*pi_2)**1.5_wp
            tmp2  = tmp1*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) + 1.0_wp/6.3_wp)
-           tmp3  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
+           tmp3  = grid_angular_velocity*pt_patch%sphere_radius * &
              & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
            tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 88._wp/105._wp
-           tmp5  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
+           tmp5  = grid_angular_velocity*pt_patch%sphere_radius * &
              & (8._wp/3._wp*zcosy**3 - pi/2._wp )
            tmp6  = 4._wp*zcosy**4 -3.2_wp/1.5_wp
 
 
            pt_ext_data%atm%topography_c(jc,jb) = (tmp1*(tmp2+tmp3+tmp4)-tmp5+tmp6)*rgrav
            ! Coriolis parameter
-           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity * &
+           pt_patch%cells%f_c(jc,jb) = 2.0_wp*grid_angular_velocity * &
              & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
 
         ENDDO
@@ -264,7 +265,7 @@ CONTAINS
            lon= pt_patch%verts%vertex(jv,jb)%lon
            lat= pt_patch%verts%vertex(jv,jb)%lat
            ! Coriolis parameter
-           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity * &
+           pt_patch%verts%f_v(jv,jb) = 2.0_wp*grid_angular_velocity * &
              & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
         ENDDO
      ENDDO
@@ -324,7 +325,7 @@ CONTAINS
                    & + zv * pt_patch%edges%primal_normal(je,jb)%v2
 
               ! Coriolis parameter
-              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity * &
+              pt_patch%edges%f_e(je,jb) = 2.0_wp*grid_angular_velocity * &
                 & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
            ENDDO ! edge loop
         ENDDO ! vertical level loop
@@ -366,7 +367,7 @@ CONTAINS
 
               tmp1  = 1.5_wp*zeta*pi_2*u0/rd * zsinz*zcos12z
               tmp2  = 2.0_wp*u0*zcos32z*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) +10._wp/63._wp)
-              tmp3  = pt_patch%angular_velocity*pt_patch%sphere_radius * &
+              tmp3  = grid_angular_velocity*pt_patch%sphere_radius * &
                 & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
               tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 8.8_wp/10.5_wp
 

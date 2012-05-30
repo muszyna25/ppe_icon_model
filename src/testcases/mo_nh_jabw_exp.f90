@@ -71,6 +71,7 @@ MODULE mo_nh_jabw_exp
    USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: global_sum_array, sync_patch_array, SYNC_C, SYNC_E
    USE mo_nh_init_utils,        ONLY: init_w
+   USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
 
    IMPLICIT NONE
 
@@ -158,7 +159,7 @@ MODULE mo_nh_jabw_exp
           tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                   1.0_wp/6.3_wp ) *tmp1
           tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*ptr_patch%angular_velocity
+                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*grid_angular_velocity
           IF ( itopo==0 ) topo_c(jc,jb) = tmp1*(tmp2+tmp3)/grav
           IF (itopo==0 .AND. lmount ) THEN
             z_lon = ptr_patch%cells%center(jc,jb)%lon
@@ -183,7 +184,7 @@ MODULE mo_nh_jabw_exp
           tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                   1.0_wp/6.3_wp ) *tmp1
           tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*ptr_patch%angular_velocity
+                   - 0.5_wp*pi_2 )*ptr_patch%sphere_radius*grid_angular_velocity
           IF ( itopo==0 ) topo_v(jv,jb) = tmp1*(tmp2+tmp3)/grav
           IF (itopo==0 .AND. lmount ) THEN
             z_lon = ptr_patch%verts%vertex(jv,jb)%lon
@@ -277,7 +278,7 @@ MODULE mo_nh_jabw_exp
           z_cosy(jc) = COS(z_lat(jc))
           z_fac1(jc) = 1.0_wp/6.3_wp-2.0_wp*(z_siny(jc)**6)*(z_cosy(jc)**2+1.0_wp/3.0_wp)
           z_fac2(jc) = (8.0_wp/5.0_wp*(z_cosy(jc)**3)*(z_siny(jc)**2+2.0_wp/3.0_wp)&
-                       -0.25_wp*pi)*ptr_patch%sphere_radius*ptr_patch%angular_velocity
+                       -0.25_wp*pi)*ptr_patch%sphere_radius*grid_angular_velocity
           z_exp(jc)  = rd*gamma/grav
           zeta_old(jc) = 1.0e-7_wp
         ENDDO
@@ -405,7 +406,7 @@ MODULE mo_nh_jabw_exp
    CHARACTER(LEN=1)                     :: ctracer
 !--------------------------------------------------------------------
 !
-    CALL init_ncar_testcases_domain(ptr_patch)
+    CALL init_ncar_testcases_domain()
    ! number of vertical levels
     nlev   = ptr_patch%nlev
     nblks_c   = ptr_patch%nblks_int_c

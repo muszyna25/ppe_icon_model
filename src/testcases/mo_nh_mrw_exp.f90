@@ -68,6 +68,7 @@ MODULE mo_nh_mrw_exp
    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH,inwp
    USE mo_sync,                ONLY: sync_patch_array, SYNC_C
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
    IMPLICIT NONE
 
@@ -143,7 +144,7 @@ MODULE mo_nh_mrw_exp
           z_lon   = ptr_patch%cells%center(jc,jb)%lon
 
           zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
-          zexp = ptr_patch%sphere_radius*ACOS(zr)/mount_half_width
+          zexp = grid_sphere_radius*ACOS(zr)/mount_half_width
 
           IF ( itopo==0 ) THEN
             IF (.NOT. l_modified ) THEN
@@ -171,7 +172,7 @@ MODULE mo_nh_mrw_exp
           z_lon   = ptr_patch%verts%vertex(jv,jb)%lon
 
           zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
-          zexp = ptr_patch%sphere_radius*ACOS(zr)/mount_half_width
+          zexp = grid_sphere_radius*ACOS(zr)/mount_half_width
 
           IF ( itopo==0 ) THEN
             IF (.NOT. l_modified ) THEN
@@ -278,7 +279,7 @@ MODULE mo_nh_mrw_exp
         zlat= ptr_patch%cells%center(jc,jb)%lat
         zcoslat=COS(zlat)
         ptr_nh_diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u0_mrw *&
-          & ( 0.5_wp*u0_mrw + ptr_patch%sphere_radius*ptr_patch%angular_velocity) * &
+          & ( 0.5_wp*u0_mrw + grid_sphere_radius*grid_angular_velocity) * &
           & zcoslat*zcoslat - topo_c(jc,jb)*grav))
       ENDDO !jc
       DO jk = nlev, 1, -1
@@ -444,7 +445,7 @@ MODULE mo_nh_mrw_exp
   zhelp1_i     = bruntvaissq_i/grav/grav/kappa
   zhelp2_i     = grav/rd/temp_i_mwbr_const
   zhelp1_u     = bruntvaissq_u/grav/grav/kappa
-  zhelp3       = u0_mrw/ptr_patch%sphere_radius + 2.0_wp*ptr_patch%angular_velocity
+  zhelp3       = u0_mrw/grid_sphere_radius + 2.0_wp*grid_angular_velocity
  ! theta_v_int  = temp_i_mwbr_const * (p0ref/p_int_mwbr_const)**kappa
   rkappa       = 1.0_wp/kappa
 
@@ -488,12 +489,12 @@ MODULE mo_nh_mrw_exp
 
         z_sfc  = topo_c(jc,jb)
         z_int_c(jc,jb) = LOG(pres_sp/p_int_mwbr_const)/grav/zhelp1_i + &
-                         zcoslat*zcoslat*zhelp3*ptr_patch%sphere_radius*u0_mrw/2.0_wp/grav
+                         zcoslat*zcoslat*zhelp3*grid_sphere_radius*u0_mrw/2.0_wp/grav
         IF (z_int_c(jc,jb) <  0._wp ) icount = icount + 1
         IF (z_int_c(jc,jb) >= z_sfc ) THEN
 
           ptr_nh_diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1_i * ( u0_mrw * &
-                              zhelp3*ptr_patch%sphere_radius * zcoslat*zcoslat/2.0_wp - &
+                              zhelp3*grid_sphere_radius * zcoslat*zcoslat/2.0_wp - &
                               z_sfc*grav))
         ELSE
           zhelp4 = z_sfc - z_int_c(jc,jb)

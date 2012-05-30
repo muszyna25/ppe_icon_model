@@ -213,7 +213,7 @@ CONTAINS
     ndomain = SIZE(p_patch)
  
     DO jg= 1,ndomain
-      CALL mean_domain_values (p_patch(jg)%level, nroot, p_patch(jg)%sphere_radius, &
+      CALL mean_domain_values (p_patch(jg)%level, nroot, &
         & mean_charlen(jg))
     ENDDO
     

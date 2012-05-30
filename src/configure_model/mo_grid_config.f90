@@ -38,6 +38,7 @@ MODULE mo_grid_config
   USE mo_exception,          ONLY: message_text, finish
   USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
+  USE mo_physical_constants, ONLY: earth_radius
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -62,7 +63,10 @@ USE mo_read_netcdf_parallel, ONLY:                &
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
-    &       lredgrid_phys, ifeedback_type, grid_rescale_factor
+    &       lredgrid_phys, ifeedback_type
+
+   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
+     & grid_area_rescale_factor, grid_sphere_radius, grid_angular_velocity
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
@@ -104,6 +108,10 @@ INCLUDE 'netcdf.inc'
                                        ! processor splitting will be performed
 
   REAL(wp) :: grid_rescale_factor = 0.0_wp
+  REAL(wp) :: grid_length_rescale_factor = 0.0_wp
+  REAL(wp) :: grid_area_rescale_factor = 0.0_wp
+  REAL(wp) :: grid_sphere_radius  = 0.0_wp
+  REAL(wp) :: grid_angular_velocity  = 0.0_wp
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
@@ -132,6 +140,9 @@ CONTAINS
     LOGICAL  :: file_exists
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:check_grid_configuration"
 
+    IF (no_of_dynamics_grids /= 0) &
+      CALL finish( "check_grid_configuration", 'should not be called twice')
+    
     !-----------------------------------------------------------------------
     ! find out how many grids we have
     ! and check if they exist
@@ -173,7 +184,16 @@ CONTAINS
     ! get here the nroot, eventually it should be moved into the patch info
 !     nroot = get_grid_root(dynamics_grid_filename(1))
     CALL get_gridfile_root_level(dynamics_grid_filename(1), nroot, start_lev)
+
+
+    ! domain geometric properties
 !    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
+    IF ( grid_rescale_factor <= 0.0_wp ) grid_rescale_factor = 1.0_wp
+    CALL get_gridfile_sphere_radius(dynamics_grid_filename(1), grid_sphere_radius)
+    grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
+    grid_length_rescale_factor = grid_rescale_factor
+    grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
+    grid_angular_velocity      = grid_angular_velocity /  grid_rescale_factor
 !     write(0,*) "   nroot = ", nroot
         
     IF (no_of_radiation_grids > 0) THEN
@@ -241,6 +261,21 @@ CONTAINS
 !     CALL nf(nf_close(ncid))
 ! 
 !   END SUBROUTINE get_gridfile_rescale_factor
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  SUBROUTINE get_gridfile_sphere_radius( patch_file, sphere_radius )
+    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+    REAL(wp),   INTENT(out)          ::  sphere_radius
+
+    INTEGER :: ncid, netcd_status
+
+    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
+    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', &
+        & sphere_radius )
+    IF (netcd_status /= nf_noerr) sphere_radius = earth_radius
+    CALL nf(nf_close(ncid))
+
+  END SUBROUTINE get_gridfile_sphere_radius
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------

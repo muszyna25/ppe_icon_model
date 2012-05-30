@@ -52,7 +52,7 @@ MODULE mo_oce_init
 USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
-USE mo_grid_config,        ONLY: nroot
+USE mo_grid_config,        ONLY: nroot, grid_angular_velocity
 USE mo_physical_constants, ONLY: rgrav, rho_ref, &
   & sal_ref, grav, SItodBar,  &
   & sfc_press_bar, tmelt, Tf
@@ -107,7 +107,7 @@ PUBLIC :: init_ho_relaxation
 PUBLIC :: init_ho_coupled
 PUBLIC :: init_ho_recon_fields
 
-REAL(wp) :: sphere_radius, u0, angular_velocity
+REAL(wp) :: sphere_radius, u0
 
 REAL(wp), PARAMETER :: aleph = 0.0_wp
  
@@ -151,7 +151,6 @@ CONTAINS
 
     CALL message (TRIM(routine), 'start')
     sphere_radius = ppatch%sphere_radius
-    angular_velocity = ppatch%angular_velocity
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
 
     all_cells => ppatch%cells%all
@@ -337,7 +336,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
     sphere_radius = ppatch%sphere_radius
-    angular_velocity = ppatch%angular_velocity    
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     all_cells => ppatch%cells%all
 
@@ -513,7 +511,6 @@ CONTAINS
     INTEGER :: jk
 
     sphere_radius = p_patch%sphere_radius
-    angular_velocity = p_patch%angular_velocity
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     
     IF(idisc_scheme==1)THEN
@@ -561,7 +558,6 @@ CONTAINS
   TYPE(t_hydro_ocean_state), TARGET :: p_os
 
     sphere_radius = ppatch%sphere_radius
-    angular_velocity = ppatch%angular_velocity
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
 
 !rr  ! Local declarations for coupling:
@@ -689,7 +685,6 @@ CONTAINS
   CALL message (TRIM(routine), 'start')
 
   sphere_radius = ppatch%sphere_radius
-  angular_velocity = ppatch%angular_velocity
   u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
   
   all_cells => ppatch%cells%all
@@ -2198,7 +2193,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
 ! 1st factor
 
-    z_fact1 = sphere_radius * angular_velocity
+    z_fact1 = sphere_radius * grid_angular_velocity
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -2354,7 +2349,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
 ! 1st factor
 
-    z_fact1 = sphere_radius * angular_velocity
+    z_fact1 = sphere_radius * grid_angular_velocity
     z_fact1 = z_fact1 + 0.5_wp * uzero
     z_fact1 = z_fact1 * uzero * rgrav
 
@@ -2558,7 +2553,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega  = sphere_radius * angular_velocity
+    z_r_omega  = sphere_radius * grid_angular_velocity
     !z_omg     = re_omg_kk / sphere_radius
     z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
@@ -2575,7 +2570,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
     z_r1r2    = z_r1 * z_r2
     z_rr1r2   = 1._wp / z_r1r2
 
-    z_dlon    = omg_kk * z_r * (3._wp+z_r) - 2.0_wp * angular_velocity
+    z_dlon    = omg_kk * z_r * (3._wp+z_r) - 2.0_wp * grid_angular_velocity
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
     z_cosdl   = COS(z_dlon)
@@ -2666,7 +2661,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega  = sphere_radius * angular_velocity
+    z_r_omega  = sphere_radius * grid_angular_velocity
     !z_omg     = re_omg_kk / sphere_radius
     z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
@@ -2683,7 +2678,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
     z_r1r2    = z_r1 * z_r2
     z_rr1r2   = 1._wp / z_r1r2
 
-    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * angular_velocity
+    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * grid_angular_velocity
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
     z_cosdl   = COS(z_dlon)
@@ -2753,7 +2748,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega = sphere_radius * angular_velocity
+    z_r_omega = sphere_radius * grid_angular_velocity
     !z_omg     = re_omg_kk / sphere_radius
     z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
@@ -2768,7 +2763,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
     z_r1r2    = z_r1 * z_r2
     z_rr1r2   = 1._wp / z_r1r2
 
-    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * angular_velocity
+    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * grid_angular_velocity
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
     z_sindl   = SIN(z_dlon)
@@ -2834,7 +2829,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_r_omega = sphere_radius * angular_velocity
+    z_r_omega = sphere_radius * grid_angular_velocity
     !z_omg     = re_omg_kk / sphere_radius
     z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
 
@@ -2849,7 +2844,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
     z_r1r2    = z_r1 * z_r2
     z_rr1r2   = 1._wp / z_r1r2
 
-    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * angular_velocity
+    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * grid_angular_velocity
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
     z_cosdl   = COS(z_dlon)
@@ -2910,7 +2905,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 ! relevant angles
 
     z_angle1 = .25_wp * pi
-    z_angle2 = p_lon + angular_velocity * p_t
+    z_angle2 = p_lon + grid_angular_velocity * p_t
 
 ! 1st summand: \phi_t(\vec c) \cdot \vec k
 
@@ -2918,9 +2913,9 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
     z_phi_t_k = z_phi_t_k - COS(z_angle2) * COS(p_lat) * SIN(z_angle1)
     z_phi_t_k = u0 * z_phi_t_k
 
-! 2nd summand: r_e \angular_velocity \sin \varphi
+! 2nd summand: r_e \grid_angular_velocity \sin \varphi
 
-    z_summand = sphere_radius * angular_velocity * SIN(p_lat)
+    z_summand = sphere_radius * grid_angular_velocity * SIN(p_lat)
 
 ! one factor
 
@@ -2930,7 +2925,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
     p_hh      = d0 - z_phi_t_k *  z_fact
     p_hh      = p_hh * rgrav
-!write(*,*)'param:', u0, pi, rgrav,sphere_radius, angular_velocity
+!write(*,*)'param:', u0, pi, rgrav,sphere_radius, grid_angular_velocity
 !stop
   END FUNCTION test_usbr_h
 
@@ -2967,7 +2962,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 !BOC
 
     z_angle1 = .25_wp * pi
-    z_angle2 = p_lon + angular_velocity * p_t
+    z_angle2 = p_lon + grid_angular_velocity * p_t
     p_uu = COS(p_lat) * COS(z_angle1)
     p_uu = p_uu + COS(z_angle2) * SIN(p_lat) * SIN(z_angle1)
     p_uu = u0 * p_uu
@@ -3005,7 +3000,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 !-----------------------------------------------------------------------
 !BOC
 
-    z_angle = p_lon + angular_velocity * p_t
+    z_angle = p_lon + grid_angular_velocity * p_t
     p_vv = SIN(z_angle)
     z_angle = .25_wp * pi
     p_vv = p_vv * SIN(z_angle)
@@ -3046,7 +3041,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
 ! calculate factor
 
-    z_fact = sphere_radius * angular_velocity * SIN(p_lat)
+    z_fact = sphere_radius * grid_angular_velocity * SIN(p_lat)
     z_fact = z_fact * z_fact
 
 ! height of orography
@@ -3212,7 +3207,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
        z_val = func(z_lat)
 
-       z_val2 = 2._wp * angular_velocity * SIN(z_lat)
+       z_val2 = 2._wp * grid_angular_velocity * SIN(z_lat)
        z_val2 = z_val2 + z_val * TAN(z_lat)* sphere_radius
        z_val2 = z_val * z_val2
 
@@ -3410,7 +3405,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
        u = func(phidash)
 
-        temp = 2._wp * angular_velocity * SIN(phidash)
+        temp = 2._wp * grid_angular_velocity * SIN(phidash)
         temp = temp + ( u * TAN(phidash)* sphere_radius)
         temp = sphere_radius *rgrav * u * temp
 

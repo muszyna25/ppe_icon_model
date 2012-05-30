@@ -52,7 +52,7 @@ MODULE mo_solve_nonhydro
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,         ONLY: ltimer, lvert_nest
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_grid_config,        ONLY: l_limited_area, nroot
+  USE mo_grid_config,        ONLY: l_limited_area, nroot, grid_sphere_radius
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp,              ONLY: cells2edges_scalar
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
@@ -620,7 +620,7 @@ MODULE mo_solve_nonhydro
     REAL(wp) :: sphere_radius_squared
 
     !-----------------------------------------------------------------------
-    sphere_radius_squared = p_patch%sphere_radius * p_patch%sphere_radius 
+    sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
 
     !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN

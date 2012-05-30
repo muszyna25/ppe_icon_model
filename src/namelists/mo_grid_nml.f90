@@ -48,6 +48,7 @@ MODULE mo_grid_nml
   USE mo_impl_constants,     ONLY: max_dom, itri
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_control,     ONLY: is_restart_run
+  USE mo_physical_constants, ONLY: earth_angular_velocity
 !  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
 !                                    & open_and_restore_namelist, close_tmpfile
 
@@ -64,7 +65,8 @@ MODULE mo_grid_nml
     & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,      &
     & config_radiation_grid_filename      => radiation_grid_filename,      &
     & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link, &
-    & config_grid_rescale_factor          => grid_rescale_factor, &
+    & config_grid_rescale_factor          => grid_rescale_factor,          &
+    & config_grid_angular_velocity        => grid_angular_velocity,        &
     & check_grid_configuration, max_rad_dom
 
   IMPLICIT NONE
@@ -117,7 +119,7 @@ MODULE mo_grid_nml
     CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
     INTEGER                     :: dynamics_radiation_grid_link(max_dom)
       
-    REAL(wp) :: grid_rescale_factor
+    REAL(wp) :: grid_rescale_factor, grid_angular_velocity
 
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
@@ -156,7 +158,11 @@ MODULE mo_grid_nml
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
     lredgrid_phys = .FALSE.
-    grid_rescale_factor = 1.0_wp
+
+
+    !----------------------------------------------------------------
+    grid_rescale_factor   = 1.0_wp
+    grid_angular_velocity = earth_angular_velocity
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above

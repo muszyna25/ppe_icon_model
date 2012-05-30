@@ -178,7 +178,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_L
   &  beta_plane_coriolis,full_coriolis,min_rledge_int,min_rlcell_int,min_rlvert_int
 USE mo_impl_constants_grf,  ONLY: grf_nudge_start_c, grf_nudge_start_e
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_vertices, t_grid_cells
-USE mo_grid_config,         ONLY: lplane, lfeedback
+USE mo_grid_config,         ONLY: lplane, lfeedback, grid_sphere_radius, grid_angular_velocity
 USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
                                 & gvec2cvec, cvec2gvec,                      &
                                 & t_cartesian_coordinates,                   &
@@ -2859,7 +2859,7 @@ DO jb = i_startblk, i_endblk
     ! inverse length bewtween vertices 3 and 4
     IF (ptr_patch%cell_type == 3 ) THEN
       ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
-        & (ptr_patch%sphere_radius*arc_length(cc_ev3,cc_ev4))
+        & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4))
     ENDIF
 
     ! next step: compute projected orientation vectors for cells and vertices
@@ -3300,19 +3300,19 @@ END SUBROUTINE complete_patchinfo
 
         ! centers
         !
-        ptr_int%pos_on_tplane_e(je,jb,1,1) = ptr_patch%sphere_radius * (      &
+        ptr_int%pos_on_tplane_e(je,jb,1,1) = grid_sphere_radius * (      &
           &     xyloc_plane_n1(1)  * ptr_patch%edges%primal_normal(je,jb)%v1  &
           &   + xyloc_plane_n1(2)  * ptr_patch%edges%primal_normal(je,jb)%v2 )
 
-        ptr_int%pos_on_tplane_e(je,jb,1,2) = ptr_patch%sphere_radius * (      &
+        ptr_int%pos_on_tplane_e(je,jb,1,2) = grid_sphere_radius * (      &
           &     xyloc_plane_n1(1)  * ptr_patch%edges%dual_normal(je,jb)%v1    &
           &   + xyloc_plane_n1(2)  * ptr_patch%edges%dual_normal(je,jb)%v2 )
 
-        ptr_int%pos_on_tplane_e(je,jb,2,1) = ptr_patch%sphere_radius * (      &
+        ptr_int%pos_on_tplane_e(je,jb,2,1) = grid_sphere_radius * (      &
           &     xyloc_plane_n2(1)  * ptr_patch%edges%primal_normal(je,jb)%v1  &
           &   + xyloc_plane_n2(2)  * ptr_patch%edges%primal_normal(je,jb)%v2 )
 
-        ptr_int%pos_on_tplane_e(je,jb,2,2) = ptr_patch%sphere_radius * (      &
+        ptr_int%pos_on_tplane_e(je,jb,2,2) = grid_sphere_radius * (      &
           &     xyloc_plane_n2(1)  * ptr_patch%edges%dual_normal(je,jb)%v1    &
           &   + xyloc_plane_n2(2)  * ptr_patch%edges%dual_normal(je,jb)%v2 )
 
@@ -3320,11 +3320,11 @@ END SUBROUTINE complete_patchinfo
         ! edges
         !
         DO ne = 1,4
-          ptr_int%pos_on_tplane_e(je,jb,2+ne,1) = ptr_patch%sphere_radius * (        &
+          ptr_int%pos_on_tplane_e(je,jb,2+ne,1) = grid_sphere_radius * (        &
             &     xyloc_plane_quad(ne,1)  * ptr_patch%edges%primal_normal(je,jb)%v1  &
             &   + xyloc_plane_quad(ne,2)  * ptr_patch%edges%primal_normal(je,jb)%v2 )
 
-          ptr_int%pos_on_tplane_e(je,jb,2+ne,2) = ptr_patch%sphere_radius * (        &
+          ptr_int%pos_on_tplane_e(je,jb,2+ne,2) = grid_sphere_radius * (        &
             &     xyloc_plane_quad(ne,1)  * ptr_patch%edges%dual_normal(je,jb)%v1    &
             &   + xyloc_plane_quad(ne,2)  * ptr_patch%edges%dual_normal(je,jb)%v2 )
         END DO
@@ -3333,11 +3333,11 @@ END SUBROUTINE complete_patchinfo
         ! vertices
         !
         DO nv = 1,2
-          ptr_int%pos_on_tplane_e(je,jb,6+nv,1) = ptr_patch%sphere_radius * (     &
+          ptr_int%pos_on_tplane_e(je,jb,6+nv,1) = grid_sphere_radius * (     &
             &     xyloc_plane_ve(nv,1)  * ptr_patch%edges%primal_normal(je,jb)%v1 &
             &   + xyloc_plane_ve(nv,2)  * ptr_patch%edges%primal_normal(je,jb)%v2 )
 
-          ptr_int%pos_on_tplane_e(je,jb,6+nv,2) = ptr_patch%sphere_radius * (     &
+          ptr_int%pos_on_tplane_e(je,jb,6+nv,2) = grid_sphere_radius * (     &
             &     xyloc_plane_ve(nv,1)  * ptr_patch%edges%dual_normal(je,jb)%v1   &
             &   + xyloc_plane_ve(nv,2)  * ptr_patch%edges%dual_normal(je,jb)%v2 )
         END DO
@@ -3645,22 +3645,22 @@ END SUBROUTINE complete_patchinfo
         dn_cell2(2) = ptr_patch%edges%dual_normal_cell(je,jb,2)%v2
 
         ! components in longitudinal direction (cell 1)
-        ptr_int%pos_on_tplane_c_edge(je,jb,1,1:3)%lon =  ptr_patch%sphere_radius          &
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,1:3)%lon =  grid_sphere_radius          &
           &             *( xyloc_trans1_v(1:3,1) * pn_cell1(1)       &
           &             +  xyloc_trans1_v(1:3,2) * dn_cell1(1) )
 
         ! components in latitudinal direction (cell 1)
-        ptr_int%pos_on_tplane_c_edge(je,jb,1,1:3)%lat =  ptr_patch%sphere_radius          &
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,1:3)%lat =  grid_sphere_radius          &
           &             *( xyloc_trans1_v(1:3,1) * pn_cell1(2)       &
           &             +  xyloc_trans1_v(1:3,2) * dn_cell1(2) )
 
         ! components in longitudinal direction (cell 2)
-        ptr_int%pos_on_tplane_c_edge(je,jb,2,1:3)%lon =  ptr_patch%sphere_radius          &
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,1:3)%lon =  grid_sphere_radius          &
           &             *( xyloc_trans2_v((/1,2,4/),1) * pn_cell2(1) &
           &             +  xyloc_trans2_v((/1,2,4/),2) * dn_cell2(1) )
 
         ! components in latitudinal direction (cell 2)
-        ptr_int%pos_on_tplane_c_edge(je,jb,2,1:3)%lat =  ptr_patch%sphere_radius          &
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,1:3)%lat =  grid_sphere_radius          &
           &             *( xyloc_trans2_v((/1,2,4/),1) * pn_cell2(2) &
           &             +  xyloc_trans2_v((/1,2,4/),2) * dn_cell2(2) )
 
@@ -3755,20 +3755,20 @@ END SUBROUTINE complete_patchinfo
 
 
         ! components in longitudinal direction (cell 1)
-        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lon =  ptr_patch%sphere_radius * &
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lon =  grid_sphere_radius * &
           & xyloc_plane_bf1(1:2,1)
 
         ! components in latitudinal direction (cell 1)
-        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lat =  ptr_patch%sphere_radius * &
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lat =  grid_sphere_radius * &
           & xyloc_plane_bf1(1:2,2)
 
 
         ! components in longitudinal direction (cell 2)
-        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lon =  ptr_patch%sphere_radius * &
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lon =  grid_sphere_radius * &
           & xyloc_plane_bf2(1:2,1)
 
         ! components in latitudinal direction (cell 2)
-        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lat =  ptr_patch%sphere_radius * &
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lat =  grid_sphere_radius * &
           & xyloc_plane_bf2(1:2,2)
 
       ENDDO  ! je
@@ -4061,7 +4061,7 @@ END SUBROUTINE complete_patchinfo
 !     TYPE(t_cartesian_coordinates) :: check_v2(nproma, patch%nblks_e, 2)
 !     REAL(wp) :: max_diff, max_val
     !-----------------------------------------------------------------------
-    inverse_sphere_radius = 1.0_wp / patch%sphere_radius
+    inverse_sphere_radius = 1.0_wp / grid_sphere_radius
 
     owned_edges => patch%edges%owned
     owned_cells => patch%cells%owned
@@ -4420,7 +4420,7 @@ END SUBROUTINE complete_patchinfo
 
              coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
              patch%edges%f_e(edge_index,edge_block) = &
-               & 2._wp * patch%angular_velocity * SIN(coriolis_geo_coordinates%lat)
+               & 2._wp * grid_angular_velocity * SIN(coriolis_geo_coordinates%lat)
 
           ENDDO
         ENDDO
@@ -4440,12 +4440,12 @@ END SUBROUTINE complete_patchinfo
           geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
           geo_coordinates%lon = 0.0_wp
           edge_center         = gc2cc(geo_coordinates)
-          length              = patch%sphere_radius * &
+          length              = grid_sphere_radius * &
             & arc_length(edge_center, coriolis_cartesian_coordinates)
 
-          patch%edges%f_e(edge_index,edge_block) =  2.0_wp * patch%angular_velocity * &
+          patch%edges%f_e(edge_index,edge_block) =  2.0_wp * grid_angular_velocity * &
             & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / &
-            &   patch%sphere_radius) * length)
+            &   grid_sphere_radius) * length)
 
           ENDDO
         ENDDO
@@ -4706,8 +4706,8 @@ END SUBROUTINE complete_patchinfo
             &                                        0.5_wp*norm*z_edge_length(ie)
           ptr_intp%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
 
-          !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/ptr_patch%sphere_radius
-          !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/ptr_patch%sphere_radius
+          !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/grid_sphere_radius
+          !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/grid_sphere_radius
         END DO
 
         !normals in cell 2
@@ -4739,7 +4739,7 @@ END SUBROUTINE complete_patchinfo
             xx2%x             = xx2%x/norm
 
             z_edge_length(ie) = arc_length(xx2,xx1)
-            !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/ptr_patch%sphere_radius
+            !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/grid_sphere_radius
              !write(*,*)'arc length',arc_length(xx2,xx1),z_edge_length(ie),SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
           ELSE
             z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
@@ -4929,7 +4929,7 @@ END SUBROUTINE complete_patchinfo
             gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie))
 
             IF(CORIOLIS_TYPE==full_coriolis)THEN
-              ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*ptr_patch%angular_velocity*&
+              ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*grid_angular_velocity*&
                 & SIN(gc_mid_dual_edge(ie)%lat)
             ELSEIF(CORIOLIS_TYPE==BETA_PLANE_CORIOLIS)THEN
               gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
@@ -4939,12 +4939,12 @@ END SUBROUTINE complete_patchinfo
               gc2%lat = gc_mid_dual_edge(ie)%lat!*deg2rad
               gc2%lon = 0.0_wp
               xx2     = gc2cc(gc2)
-              z_y     = ptr_patch%sphere_radius*arc_length(xx2,xx1)
+              z_y     = grid_sphere_radius*arc_length(xx2,xx1)
 
               !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
-              ptr_patch%edges%f_e(il_e, ib_e) = 2.0_wp*ptr_patch%angular_velocity * &
+              ptr_patch%edges%f_e(il_e, ib_e) = 2.0_wp*grid_angular_velocity * &
                 & ( sin(basin_center_lat * deg2rad) &
-                & + (cos(basin_center_lat * deg2rad)/ptr_patch%sphere_radius)*z_y)
+                & + (cos(basin_center_lat * deg2rad)/grid_sphere_radius)*z_y)
             ENDIF
           ELSE
             cc_mid_dual_edge(ie)%x = cc_dual_edge(ie)%x

@@ -73,6 +73,7 @@ MODULE mo_jw_test
     &                               sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
     &                               spec_humi          !! Specific humidity
   USE mo_eta_coord_diag,      ONLY: half_level_pressure,full_level_pressure
+  USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
   IMPLICIT NONE
 
@@ -163,7 +164,7 @@ MODULE mo_jw_test
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
 
-  CALL init_ncar_testcases_domain(pt_patch)
+  CALL init_ncar_testcases_domain()
 !--------------------------------------------------------------------
 ! First check optional arguments
 
@@ -250,11 +251,11 @@ MODULE mo_jw_test
            tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                    1.0_wp/6.3_wp ) *tmp1
            tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*pt_patch%sphere_radius*pt_patch%angular_velocity
+                   - 0.5_wp*pi_2 )*pt_patch%sphere_radius*grid_angular_velocity
 
            pt_ext_data%atm%topography_c(jc,jb) = tmp1*(tmp2+tmp3)*rgrav
            ! Coriolis parameter
-           pt_patch%cells%f_c(jc,jb) = 2.0_wp*pt_patch%angular_velocity * &
+           pt_patch%cells%f_c(jc,jb) = 2.0_wp*grid_angular_velocity * &
              & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
 
         ENDDO
@@ -272,7 +273,7 @@ MODULE mo_jw_test
            lon= pt_patch%verts%vertex(jv,jb)%lon
            lat= pt_patch%verts%vertex(jv,jb)%lat
            ! Coriolis parameter
-           pt_patch%verts%f_v(jv,jb) = 2.0_wp*pt_patch%angular_velocity * &
+           pt_patch%verts%f_v(jv,jb) = 2.0_wp*grid_angular_velocity * &
              & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
         ENDDO
      ENDDO
@@ -340,7 +341,7 @@ MODULE mo_jw_test
                    & + zv * pt_patch%edges%primal_normal(je,jb)%v2
 
               ! Coriolis parameter
-              pt_patch%edges%f_e(je,jb) = 2.0_wp*pt_patch%angular_velocity * &
+              pt_patch%edges%f_e(je,jb) = 2.0_wp*grid_angular_velocity * &
                 & (SIN(lat)*COS(zrotate_axis_rad)-COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
            ENDDO ! edge loop
         ENDDO ! vertical level loop
@@ -383,7 +384,7 @@ MODULE mo_jw_test
               tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) &
                        + 1.0_wp/6.3_wp )*2.0_wp*u0*zcos32z
               tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp) &
-                      - 0.5_wp*pi_2 )*pt_patch%sphere_radius*pt_patch%angular_velocity
+                      - 0.5_wp*pi_2 )*pt_patch%sphere_radius*grid_angular_velocity
 
               pt_hydro_prog%temp(jc,jk,jb) = ztemp + tmp1*(tmp2+tmp3)
 

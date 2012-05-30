@@ -177,6 +177,7 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
+USE mo_grid_config,         ONLY: grid_sphere_radius
 
 USE mo_intp_data_strc
 
@@ -636,7 +637,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
       ENDDO
       ! multiply with earth radius and store
-      z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:) = ptr_patch%sphere_radius * &
+      z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:) = grid_sphere_radius * &
         & z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:)
 
 
@@ -679,7 +680,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
         ENDDO
       ! multiply with earth radius
-        distxy_v(1:nverts,1:2) = ptr_patch%sphere_radius * distxy_v(1:nverts,1:2)
+        distxy_v(1:nverts,1:2) = grid_sphere_radius * distxy_v(1:nverts,1:2)
 
 
       !

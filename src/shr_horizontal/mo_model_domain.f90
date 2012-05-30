@@ -776,7 +776,6 @@ MODULE mo_model_domain
     REAL(wp) :: sphere_radius  ! in case of sphere, the sphere_radius
     REAL(wp) :: earth_rescale_factor ! if earth_rescale_factor > 0,
                                      ! then this is a rescaled earth by earth_rescale_factor                                     
-    REAL(wp) :: angular_velocity ! if earth_rescale_factor > 0,
     
   END TYPE t_patch
   

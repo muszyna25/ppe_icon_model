@@ -56,8 +56,9 @@ MODULE mo_sv_test
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_exception,           ONLY: finish
+  USE mo_grid_config,         ONLY: grid_sphere_radius
 
   IMPLICIT NONE
 
@@ -262,7 +263,7 @@ MODULE mo_sv_test
          &                   zlon_rot,zlat_rot )     !<inout
 
         ! get angular velocity depending on zlat_rot
-        vmax    = (2._wp*pi*ptr_patch%sphere_radius/tottime)*1.5_wp*sqrt(3._wp)
+        vmax    = (2._wp*pi*grid_sphere_radius/tottime)*1.5_wp*sqrt(3._wp)
         zrho   = rho0 * cos(zlat_rot)
         zt     = tanh(zrho)
         zomega = vmax * (1._wp - zt**2._wp) * zt
@@ -270,14 +271,14 @@ MODULE mo_sv_test
         IF (ABS(zrho) < dbl_eps) THEN
           zomega = 0._wp
         ELSE
-          zomega = zomega / (ptr_patch%sphere_radius * zrho)
+          zomega = zomega / (grid_sphere_radius * zrho)
         ENDIF
 
         ! calculate zonal and meridional velocity component at edge midpoint
-        u_wind = ptr_patch%sphere_radius * zomega * ( (sin(npole_lat) * cos(zlat))            &
+        u_wind = grid_sphere_radius * zomega * ( (sin(npole_lat) * cos(zlat))            &
           & - (cos(npole_lat) * cos(zlon - npole_lon) * sin(zlat)) )
 
-        v_wind = ptr_patch%sphere_radius * zomega * ( cos(npole_lat) * sin(zlon - npole_lon) )
+        v_wind = grid_sphere_radius * zomega * ( cos(npole_lat) * sin(zlon - npole_lon) )
 
         ! calculate normal wind component
         ptr_prog%vn(je,1,jb) = &
@@ -359,7 +360,7 @@ MODULE mo_sv_test
          &                   zlon_rot,zlat_rot )     !<inout
 
         ! get angular velocity depending on zlat_rot
-        vmax   = (2._wp*pi*ptr_patch%sphere_radius/tottime)*1.5_wp*sqrt(3._wp)
+        vmax   = (2._wp*pi*grid_sphere_radius/tottime)*1.5_wp*sqrt(3._wp)
         zrho   = rho0 * cos(zlat_rot)
         zt     = tanh(zrho)
         zomega = vmax * (1._wp - zt**2._wp) * zt
@@ -367,7 +368,7 @@ MODULE mo_sv_test
         IF (ABS(zrho) < dbl_eps) THEN
           zomega = 0._wp
         ELSE
-          zomega = zomega / (ptr_patch%sphere_radius * zrho)
+          zomega = zomega / (grid_sphere_radius * zrho)
         ENDIF
 
         ztime   = p_sim_time !!* v0 ??? what is 'scale' ?

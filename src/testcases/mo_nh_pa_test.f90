@@ -71,6 +71,7 @@ USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_datetime,            ONLY: rdaylen
+USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
 IMPLICIT NONE
 
@@ -143,7 +144,7 @@ CONTAINS
     INTEGER :: pid         !< patch ID
 !--------------------------------------------------------------------
 !
-    CALL init_ncar_testcases_domain(ptr_patch)
+    CALL init_ncar_testcases_domain()
     ! get patch ID
     pid = ptr_patch%id
 
@@ -239,7 +240,7 @@ CONTAINS
                     + zv * ptr_patch%edges%primal_normal(je,jb)%v2
 
           ! Coriolis parameter
-          ptr_patch%edges%f_e(je,jb) = 2.0_wp*ptr_patch%angular_velocity &
+          ptr_patch%edges%f_e(je,jb) = 2.0_wp*grid_angular_velocity &
             & *(SIN(zlat)*COS(z_aleph) - COS(zlon)*COS(zlat)*SIN(z_aleph))
 
           ! get line and block indices of 
@@ -334,7 +335,7 @@ CONTAINS
           zlat = ptr_patch%cells%center(jc,jb)%lat
 
           ! Coriolis parameter
-          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*ptr_patch%angular_velocity &
+          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*grid_angular_velocity &
             & *(SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
         ENDDO ! cell loop
 
@@ -355,7 +356,7 @@ CONTAINS
         zlat   = ptr_patch%verts%vertex(jv,jb)%lat
         zlon   = ptr_patch%verts%vertex(jv,jb)%lon
         ! Coriolis parameter
-        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*ptr_patch%angular_velocity &
+        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*grid_angular_velocity &
           & *(SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
       ENDDO
 
@@ -451,7 +452,7 @@ CONTAINS
       WRITE (n_file_ti,'(4A22,A8,I3,A4,F12.5)') &
         &  ' TIMESTEP            ,'    ,       &
         &  ' ELAPSED TIME  (days),'    ,       &
-        &  ' ptr_patch%angular_velocity         (Pa/s),'    ,       &
+        &  ' grid_angular_velocity         (Pa/s),'    ,       &
         &  ' W             (m/s) '     ,       &
         &  ' at Z(', ikcenter, ') = '  ,       &
         &   p_metrics%z_mc(1,ikcenter,1)

@@ -56,7 +56,7 @@
       &                               HINTP_TYPE_NONE
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
-    USE mo_grid_config,         ONLY: n_dom
+    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius
     USE mo_timer,               ONLY: timer_start, timer_stop, &
       &                               timers_level,            &
       &                               timer_lonlat_setup
@@ -354,7 +354,7 @@
             ! link this new variable to the lon-lat grid:
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:
-            CALL latlon_compute_area_weights(grid, p_patch(jg)%sphere_radius, area_weights)
+            CALL latlon_compute_area_weights(grid, area_weights)
             ! for each local lon-lat point on this PE:
             DO j=1, ptr_int_lonlat%nthis_local_pts
               ! determine block, index
@@ -911,8 +911,8 @@
           z_norm = SQRT( DOT_PRODUCT(z_nx2(:),z_nx2(:)) )
           z_nx2(:)  = 1._wp/z_norm * z_nx2(:)
           ! projection, scale with earth radius
-          ptr_int_lonlat%rdist(1, jc, jb) = ptr_patch%sphere_radius*DOT_PRODUCT(p1%x(:), z_nx1)
-          ptr_int_lonlat%rdist(2, jc, jb) = ptr_patch%sphere_radius*DOT_PRODUCT(p1%x(:), z_nx2)
+          ptr_int_lonlat%rdist(1, jc, jb) = grid_sphere_radius*DOT_PRODUCT(p1%x(:), z_nx1)
+          ptr_int_lonlat%rdist(2, jc, jb) = grid_sphere_radius*DOT_PRODUCT(p1%x(:), z_nx2)
         END DO
       END DO
 

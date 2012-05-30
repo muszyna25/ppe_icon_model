@@ -44,6 +44,7 @@ MODULE mo_ncar_testcases
   USE mo_kind,           ONLY: wp
   USE mo_math_constants, ONLY: pi, pi_2, deg2rad
   USE mo_model_domain,   ONLY: t_patch
+  USE mo_grid_config,    ONLY: grid_sphere_radius, grid_angular_velocity
 
   IMPLICIT NONE
 
@@ -88,11 +89,9 @@ CONTAINS
 
   !-------------------------------------------------------------------
   !>
-  SUBROUTINE init_ncar_testcases_domain(patch)
-    TYPE(t_patch), INTENT(IN) :: patch
-
-    a = patch%sphere_radius
-    omega = patch%angular_velocity
+  SUBROUTINE init_ncar_testcases_domain()
+    a = grid_sphere_radius
+    omega = grid_angular_velocity
     a_omega = a*omega
   END SUBROUTINE init_ncar_testcases_domain
   !-------------------------------------------------------------------

@@ -123,7 +123,8 @@ MODULE mo_model_domimp_patches
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename,  global_cell_type, lplane
+    & radiation_grid_filename,  global_cell_type, lplane, &
+    & grid_area_rescale_factor, grid_length_rescale_factor
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
@@ -138,7 +139,6 @@ MODULE mo_model_domimp_patches
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
-  USE mo_physical_constants, ONLY: earth_radius
   
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -483,10 +483,6 @@ CONTAINS
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     
     DO jg = n_dom_start, n_dom
-      CALL get_patch_attributes(p_patch(jg))
-    ENDDO
-    
-    DO jg = n_dom_start, n_dom
       
       ! For non parallel runs: Allocate and preset remaining arrays in patch
       IF(.NOT.my_process_is_mpi_parallel()) CALL allocate_remaining_patch(p_patch(jg))
@@ -504,10 +500,25 @@ CONTAINS
       
       ! Get all patch information not read by read_basic_patch
       CALL read_remaining_patch( jg, p_patch(jg), n_lp, id_lp )
-      
-      ! Fill the subsets information
+    ENDDO
+    
+    ! Fill the subsets information
+    DO jg = n_dom_start, n_dom
       CALL fill_grid_subsets(p_patch(jg))
-      
+    ENDDO
+
+    ! rescale grids
+    DO jg = n_dom_start, n_dom
+      CALL rescale_grid( p_patch(jg) )      
+    ENDDO
+    IF(my_process_is_mpi_parallel() ) THEN
+      DO jg = n_dom_start+1, n_dom
+        CALL rescale_grid( p_patch_local_parent(jg) )
+      ENDDO
+    ENDIF
+    
+    ! do other stuff  
+    DO jg = n_dom_start, n_dom
       ! calculate Cartesian components of primal normal
       ! (later these should be provided by the grid generator)
       ! these are read from the grid file, kept though for backwards compatibility
@@ -548,6 +559,28 @@ CONTAINS
     ENDDO
     
   END SUBROUTINE complete_patches
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !> Rescale grids
+  SUBROUTINE rescale_grid( patch )
+    
+    TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
+    
+    !-----------------------------------------------------------------------
+    patch%cells%area(:,:)               = &
+      & patch%cells%area(:,:)               * grid_area_rescale_factor
+    patch%verts%dual_area(:,:)          = &
+      & patch%verts%dual_area(:,:)          * grid_area_rescale_factor
+    patch%edges%primal_edge_length(:,:) = &
+      & patch%edges%primal_edge_length(:,:) * grid_length_rescale_factor
+    patch%edges%dual_edge_length(:,:)   = &
+      & patch%edges%dual_edge_length(:,:)   * grid_length_rescale_factor
+    patch%edges%edge_cell_length(:,:,:) = &
+      & patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
+    patch%edges%edge_vert_length(:,:,:) = &
+      & patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
+    
+  END SUBROUTINE rescale_grid
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -698,32 +731,33 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE get_patch_attributes(patch)
-  
-    TYPE(t_patch), INTENT(inout) :: patch
-    
-    INTEGER :: netcd_status, ncid
-    
-    CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-    !--------------------------------------
-    ! get geometry parameters
-    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', patch%geometry_type)
-    IF (netcd_status /= nf_noerr) patch%geometry_type = 0
-    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', patch%sphere_radius)
-    IF (netcd_status /= nf_noerr) THEN
-      ! by default this is the earth sphere
-      ! we should add here the case of torus, ellipsoides, etc. 
-      patch%sphere_radius = earth_radius
-      patch%earth_rescale_factor = 1.0_wp
-    ELSE
-      netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
-        & patch%earth_rescale_factor)
-      IF (netcd_status /= nf_noerr) &
-        & CALL finish("get_patch_attributes", "earth_rescale_factor not defined")
-    ENDIF
-    CALL nf(nf_close(ncid))
-    
-  END SUBROUTINE get_patch_attributes
+  ! not used
+!   SUBROUTINE get_patch_attributes(patch)
+!   
+!     TYPE(t_patch), INTENT(inout) :: patch
+!     
+!     INTEGER :: netcd_status, ncid
+!     
+!     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
+!     !--------------------------------------
+!     ! get geometry parameters
+!     netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', patch%geometry_type)
+!     IF (netcd_status /= nf_noerr) patch%geometry_type = 0
+!     netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', patch%sphere_radius)
+!     IF (netcd_status /= nf_noerr) THEN
+!       ! by default this is the earth sphere
+!       ! we should add here the case of torus, ellipsoides, etc. 
+!       patch%sphere_radius = earth_radius
+!       patch%earth_rescale_factor = 1.0_wp
+!     ELSE
+!       netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
+!         & patch%earth_rescale_factor)
+!       IF (netcd_status /= nf_noerr) &
+!         & CALL finish("get_patch_attributes", "earth_rescale_factor not defined")
+!     ENDIF
+!     CALL nf(nf_close(ncid))
+!     
+!   END SUBROUTINE get_patch_attributes
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -1402,7 +1436,8 @@ CONTAINS
     
   END SUBROUTINE read_basic_patch
   !-------------------------------------------------------------------------
- 
+   
+
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
   SUBROUTINE read_remaining_patch( ig, p_patch, n_lp, id_lp )
@@ -2116,7 +2151,7 @@ CONTAINS
       CALL finish ('mo_model_domain_import:read_remaining_patch',  &
         & 'deallocation for array_[cev]_real failed')
     ENDIF
-    
+
     CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
     
   !-------------------------------------------------------------------------

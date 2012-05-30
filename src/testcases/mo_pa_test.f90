@@ -68,6 +68,7 @@ USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_datetime,            ONLY: rdaylen
+USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
 IMPLICIT NONE
 
@@ -126,7 +127,7 @@ CONTAINS
 
 !--------------------------------------------------------------------
 !
-    CALL init_ncar_testcases_domain(ptr_patch)
+    CALL init_ncar_testcases_domain()
     ! get patch ID
     pid = ptr_patch%id
 
@@ -248,7 +249,7 @@ CONTAINS
                     + zv * ptr_patch%edges%primal_normal(je,jb)%v2
 
           ! Coriolis parameter
-          ptr_patch%edges%f_e(je,jb) = 2.0_wp*ptr_patch%angular_velocity * &
+          ptr_patch%edges%f_e(je,jb) = 2.0_wp*grid_angular_velocity * &
              & (SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
 
         ENDDO ! edge loop
@@ -307,7 +308,7 @@ CONTAINS
           zlat = ptr_patch%cells%center(jc,jb)%lat
 
           ! Coriolis parameter
-          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*ptr_patch%angular_velocity * &
+          ptr_patch%cells%f_c(jc,jb) = 2.0_wp*grid_angular_velocity * &
             & (SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
         ENDDO ! cell loop
 
@@ -327,7 +328,7 @@ CONTAINS
         zlat   = ptr_patch%verts%vertex(jv,jb)%lat
         zlon   = ptr_patch%verts%vertex(jv,jb)%lon
         ! Coriolis parameter
-        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*ptr_patch%angular_velocity * &
+        ptr_patch%verts%f_v(jv,jb) = 2.0_wp*grid_angular_velocity * &
           & (SIN(zlat)*COS(z_aleph)-COS(zlon)*COS(zlat)*SIN(z_aleph))
       ENDDO
 
@@ -406,7 +407,7 @@ CONTAINS
         &  ' TIMESTEP            ,',      &
         &  ' ELAPSED TIME  (days),',      &
         &  ' ETA_DOT        (1/s),',      &
-        &  ' ptr_patch%angular_velocity         (Pa/s) ',      &
+        &  ' grid_angular_velocity         (Pa/s) ',      &
         &  ' at ETA(', ikcenter, ') = ',  &
         &   cetah(ikcenter)
     ENDIF
