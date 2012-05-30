@@ -119,7 +119,7 @@ MODULE mo_run_config
     INTEGER :: iqash1        !< Volcanic ash, first class
 
 
-    REAL(wp) :: dtime_adv !< advective timestep on global patch (iadv_rcf*dtime) [s]
+    REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
 
     INTEGER :: num_levp1(MAX_DOM) !< number of half levels for each domain
     INTEGER :: nlev               !< number of full levels for each domain
