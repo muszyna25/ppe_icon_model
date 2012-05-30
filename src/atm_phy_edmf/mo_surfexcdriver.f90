@@ -43,7 +43,21 @@ MODULE mo_surfexcdriver
 
 CONTAINS
 
-SUBROUTINE SURFEXCDRIVER    (CDCONF &
+SUBROUTINE SURFEXCDRIVER    ( &
+! TERRA data
+ &   ext_data                                                           & !in
+ & , jb, jg                                                             & ! -
+ & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
+ & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+ & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+ & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
+ & , tch_ex, tcm_ex, tfv_ex                                             & !inout
+ & , sobs_ex, thbs_ex, pabs_ex                                          & !in
+ & , runoff_s_ex, runoff_g_ex                                           & !inout
+ & , t_g, qv_s                                                          & ! -
+! standard input
+ & , CDCONF &
  & , KIDIA, KFDIA, KLON, KLEVS, KTILES, KSTEP &
  & , KLEVSN, KLEVI, KDHVTLS, KDHFTLS, KDHVTSS, KDHFTSS &
  & , KDHVTTS, KDHFTTS, KDHVTIS, KDHFTIS, K_VMASS &
@@ -69,6 +83,7 @@ SUBROUTINE SURFEXCDRIVER    (CDCONF &
  & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP &
 ! output data, diagnostics                 <<< deleted DDH outputs and
 !dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &  <<< associated compute_ddh 
+
  & ) 
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
@@ -81,6 +96,8 @@ SUBROUTINE SURFEXCDRIVER    (CDCONF &
 USE mo_kind             ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters     ,ONLY : lhook    ,dr_hook           !yomcst  (& yos_exc)
 
+USE mo_lnd_nwp_config   ,ONLY : nlev_soil, nlev_snow, nsfc_subs
+USE mo_ext_data_types   ,ONLY : t_external_data
 USE mo_edmf_param       ,ONLY : abort_surf
 USE mo_surfexcdriver_ctl,ONLY : surfexcdriver_ctl
 
@@ -291,7 +308,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PUCURR(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVCURR(:) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSAM1M(:,:) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PWSAM1M(:,:) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PFRTI(:,:) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PFRTI(:,:) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PALBTI(:,:) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PUSTRTI(:,:) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PVSTRTI(:,:) 
@@ -327,6 +344,38 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PZDLPP(:)
 !    REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTTS(:,:,:) 
 !xxx REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTIS(:,:,:) 
 
+! TERRA data
+
+INTEGER          ,INTENT(IN)                                              :: &
+  jb             ,jg                 
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
+  t_snow_mult_ex ,rho_snow_mult_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          , & 
+  w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
+  t_so_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
+  w_so_ex        ,w_so_ice_ex          
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  freshsnow_ex   ,snowfrac_ex          
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+  wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
+REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON)                          :: &
+  prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  tch_ex         ,tcm_ex         ,tfv_ex               
+REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON,nsfc_subs)                :: &
+  sobs_ex        ,thbs_ex        ,pabs_ex              
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  runoff_s_ex    ,runoff_g_ex        
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+  t_g            ,qv_s
+TYPE(t_external_data), INTENT(IN)                                         :: &
+  ext_data
+  
 !ifndef INTERFACE
 
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
@@ -705,8 +754,21 @@ CALL SURFEXCDRIVER_CTL(CDCONF &
  & , PZ0M, PZ0H &
  & , PSSRFLTI, PQSTI, PDQSTI, PCPTSTI, PCFHTI, PCFQTI, PCSATTI, PCAIRTI &
  & , PKHLEV, PCFMLEV, PKMFL, PKHFL, PKQFL, PEVAPSNW &
- & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP ) ! &
+ & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP &
 !dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS )
+! TERRA data
+ & , ext_data                                                           & !in
+ & , jb, jg                                                             & ! -
+ & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
+ & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+ & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+ & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
+ & , tch_ex, tcm_ex, tfv_ex                                             & !inout
+ & , sobs_ex, thbs_ex, pabs_ex                                          & !in
+ & , runoff_s_ex, runoff_g_ex                                           & !inout
+ & , t_g, qv_s                                                          ) ! -
+
 IF (LHOOK) CALL DR_HOOK('SRFEXCDRIVER',1,ZHOOK_HANDLE)
 
 !endif INTERFACE

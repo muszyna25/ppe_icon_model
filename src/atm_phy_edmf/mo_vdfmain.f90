@@ -80,8 +80,19 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & LDLAND , &   
 !xxx
  ! DDH OUTPUTS
- & PDHTLS , PDHTSS , PDHTTS , PDHTIS)
-
+ & PDHTLS , PDHTSS , PDHTTS , PDHTIS &
+! TERRA data
+ & , ext_data                                                           & !in
+ & , jb, jg                                                             & ! -
+ & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
+ & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+ & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+ & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
+ & , tch_ex, tcm_ex, tfv_ex                                             & !inout
+ & , sobs_ex, thbs_ex, pabs_ex                                          & !in
+ & , runoff_s_ex, runoff_g_ex                                           & !inout
+ & , t_g, qv_s                                                          ) ! -
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -389,6 +400,8 @@ USE mo_edmf_param   ,ONLY : &
                 & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM,& !yomsekf
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFA                                             !fcttre.f
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs
+USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl
 USE mo_vdfhghtn     ,ONLY : vdfhghtn
@@ -461,7 +474,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PHLICE(KLON)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTLICE(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTLWML(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSST(KLON) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PFRTI(KLON,KTILES) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PFRTI(KLON,KTILES) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PALBTI(KLON,KTILES) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PWLMX(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PCHAR(KLON) 
@@ -539,6 +552,38 @@ LOGICAL                          :: LDLAND(KLON)
 INTEGER(KIND=JPIM),INTENT(IN)    :: KFLDX2, KLEVX, KFLDX
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX)
 LOGICAL           ,INTENT(IN)    :: LLDIAG
+
+! TERRA data
+
+INTEGER          ,INTENT(IN)                                              :: &
+  jb             ,jg                 
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
+  t_snow_mult_ex ,rho_snow_mult_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          , & 
+  w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
+  t_so_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
+  w_so_ex        ,w_so_ice_ex          
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  freshsnow_ex   ,snowfrac_ex          
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+  wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
+REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON)                          :: &
+  prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  tch_ex         ,tcm_ex         ,tfv_ex               
+REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON,nsfc_subs)                :: &
+  sobs_ex        ,thbs_ex        ,pabs_ex              
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  runoff_s_ex    ,runoff_g_ex        
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+  t_g            ,qv_s
+TYPE(t_external_data), INTENT(IN)                                         :: &
+  ext_data
 
 !*         0.2    LOCAL VARIABLES
 
@@ -764,7 +809,21 @@ ENDDO
 !*         3.  Compute all surface related quantities
 !          ------------------------------------------
 
-CALL SURFEXCDRIVER(CDCONF=CDCONF, &
+CALL SURFEXCDRIVER( &
+  ! TERRA data
+   &   ext_data                                                           & !in
+   & , jb, jg                                                             & ! -
+   & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
+   & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+   & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+   & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+   & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
+   & , tch_ex, tcm_ex, tfv_ex                                             & !inout
+   & , sobs_ex, thbs_ex, pabs_ex                                          & !in
+   & , runoff_s_ex, runoff_g_ex                                           & !inout
+   & , t_g, qv_s,                                                         & ! -
+  ! standard input
+   & CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
    & KLEVSN=KLEVSN, KLEVI=KLEVI, KDHVTLS=KDHVTLS, KDHFTLS=KDHFTLS, &
    & KDHVTSS=KDHVTSS, KDHFTSS=KDHFTSS, KDHVTTS=KDHVTTS, KDHFTTS=KDHFTTS, &
@@ -794,10 +853,9 @@ CALL SURFEXCDRIVER(CDCONF=CDCONF, &
    & PKHLEV=PKH(:,KLEV), PCFMLEV=ZCFM(:,KLEV), PKMFL=ZKMFL, PKHFL=ZKHFL, &
    & PKQFL=ZKQFL, PEVAPSNW=PEVAPSNW, PZ0MW=ZZ0MW, PZ0HW=ZZ0HW, PZ0QW=ZZ0QW, &
    & PBLENDPP=ZBLEND, PCPTSPP=ZZCPTS, PQSAPP=ZZQSA, PBUOMPP=ZZBUOM, &
-   & PZDLPP=ZZZDL ) !, &
+   & PZDLPP=ZZZDL ) !&
 ! output data, diagnostics
 !dmk   & PDHTLS=PDHTLS, PDHTSS=PDHTSS, PDHTTS=PDHTTS, PDHTIS=PDHTIS &
-
 
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
@@ -1627,31 +1685,31 @@ ENDDO
       PAE(JL,JK) = ( ZAUPD(JL,JK) - PAM1(JL,JK) ) * ZRTMST
       
 !amk: debug
-!IF ( PTE(JL,JK)  > 30.0/3600 ) THEN
-!  WRITE(*,*) 'PTE>30K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
-!ENDIF
-!IF ( PVOM(JL,JK) > 30.0/3600 ) THEN
-!  WRITE(*,*) 'PVOM>30m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
-!ENDIF
-!IF ( PVOL(JL,JK) > 30.0/3600 ) THEN
-!  WRITE(*,*) 'PVOL>30m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
-!ENDIF
+IF ( PTE(JL,JK)  > 30.0/3600 ) THEN
+  WRITE(*,*) 'PTE>30K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
+ENDIF
+IF ( PVOM(JL,JK) > 30.0/3600 ) THEN
+  WRITE(*,*) 'PVOM>30m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
+ENDIF
+IF ( PVOL(JL,JK) > 30.0/3600 ) THEN
+  WRITE(*,*) 'PVOL>30m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
+ENDIF
 !xxx
 
     ENDDO
   ENDDO
 
 !amk: debug
-!  DO JK=1,KLEV
-!    DO JL=KIDIA,KFDIA
-!      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
-!        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
-!      ENDIF
-!      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
-!        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
-!      ENDIF
-!    ENDDO
-!  ENDDO
+  DO JK=1,KLEV
+    DO JL=KIDIA,KFDIA
+      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
+        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
+      ENDIF
+      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
+        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
+      ENDIF
+    ENDDO
+  ENDDO
 !xxx
 
 

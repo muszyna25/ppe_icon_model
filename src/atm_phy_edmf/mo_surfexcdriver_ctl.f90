@@ -69,7 +69,19 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP &
 ! output data, diagnostics                  <<< deleted DDH outputs and
 !dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &   <<< associated compute_ddh
- & )                                      ! 
+! TERRA data
+ & , ext_data                                                           & !in
+ & , jb, jg                                                             & ! -
+ & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
+ & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+ & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+ & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
+ & , tch_ex, tcm_ex, tfv_ex                                             & !inout
+ & , sobs_ex, thbs_ex, pabs_ex                                          & !in
+ & , runoff_s_ex, runoff_g_ex                                           & !inout
+ & , t_g, qv_s                                                          & ! -
+ & )
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -97,6 +109,8 @@ USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
       & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
       & FOEEW                                               !fcttrm.h (& fcsttre.h)
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs
+USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vupdz0       ,ONLY : vupdz0
 USE mo_vexcs        ,ONLY : vexcs
@@ -322,7 +336,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PUCURR(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVCURR(:)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSAM1M(:,:) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PWSAM1M(:,:) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PFRTI(:,:) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PFRTI(:,:) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PALBTI(:,:) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PUSTRTI(:,:) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PVSTRTI(:,:) 
@@ -358,6 +372,39 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PZDLPP(:)
 !    REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTSS(:,:,:) 
 !    REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTTS(:,:,:) 
 !xxx REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTIS(:,:,:) 
+
+! TERRA data
+
+INTEGER          ,INTENT(IN)                                              :: &
+  jb             ,jg                 
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
+  t_snow_mult_ex ,rho_snow_mult_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          , & 
+  w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
+  t_so_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
+  w_so_ex        ,w_so_ice_ex          
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  freshsnow_ex   ,snowfrac_ex          
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+  wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
+REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON)                          :: &
+  prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  tch_ex         ,tcm_ex         ,tfv_ex               
+REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON,nsfc_subs)                :: &
+  sobs_ex        ,thbs_ex        ,pabs_ex              
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+  runoff_s_ex    ,runoff_g_ex        
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+  t_g            ,qv_s
+TYPE(t_external_data), INTENT(IN)                                         :: &
+  ext_data
+  
 
 ! Local variables
 
@@ -625,68 +672,66 @@ ENDDO
 !-------------------------------------------------------------------------
 
 
-!*         3.2  CALL TERRA
+!*         3.2a  CALL TERRA
 
-! CALL nwp_surface_edmf (&   
-!   ext_data         =   , & !>in  
-!   jb               =   , & ! block  
-!   jg               =   , & ! patch
-!   nproma           = KLON    , & ! array dimensions
-!   i_startidx       = KIDIA   , & ! start index for computations in the parallel program
-!   i_endidx         = KFDIA   , & ! end index for computations in the parallel program
-!   dt               = PTSTEP  , &
-
-!   u_ex             = PUMLEV  , & ! zonal wind speed                        ( m/s )
-!   v_ex             = PVMLEV  , & ! meridional wind speed                   ( m/s )
-!   t_ex             = PTMLEV  , & ! temperature                             (  k  )
-!   qv_ex            = PQMLEV  , & ! specific water vapor content            (kg/kg)
-!   p0_ex            = PAPMS   , & ! pressure lowest level                   ( Pa  ) 
-!   ps_ex            = PAPHMS  , & ! surface pressure                        ( Pa  )
+CALL nwp_surface_edmf (&
+   ext_data         = ext_data        , & !>in  
+   jb               = jb              , & ! block  
+   jg               = jg              , & ! patch
+   nproma           = KLON            , & ! array dimensions
+   i_startidx       = KIDIA           , & ! start index for computations in the parallel program
+   i_endidx         = KFDIA           , & ! end index for computations in the parallel program
+   dt               = PTSTEP          , & ! time step
+!                                      
+   u_ex             = PUMLEV          , & ! zonal wind speed                              ( m/s )
+   v_ex             = PVMLEV          , & ! meridional wind speed                         ( m/s )
+   t_ex             = PTMLEV          , & ! temperature                                   (  k  )
+   qv_ex            = PQMLEV          , & ! specific water vapor content                  (kg/kg)
+   p0_ex            = PAPMS           , & ! pressure lowest level                         ( Pa  ) 
+   ps_ex            = PAPHMS          , & ! surface pressure                              ( Pa  )
 !  
-!   t_snow_ex        =   , & ! temperature of the snow-surface               (  K  )
-!   t_snow_mult_ex   =   , & ! temperature of the snow-surface               (  K  )
-!   t_s_ex           =   , & ! temperature of the ground surface             (  K  )
-!   t_g_ex           =   , & ! surface temperature                           (  K  )
-!   qv_s_ex          =   , & ! specific humidity at the surface              (kg/kg)
-!   w_snow_ex        =   , & ! water content of snow                         (m H2O)
-!   rho_snow_ex      =   , & ! snow density                                  (kg/m**3)
-!   rho_snow_mult_ex =   , & ! snow density                                  (kg/m**3)
-!   h_snow_ex        =   , & ! snow height                                   (  m  )
-!   w_i_ex           =   , & ! water content of interception water           (m H2O)
-!   t_so_ex          =   , & ! soil temperature (main level)                 (  K  )
-!   w_so_ex          =   , & ! total water conent (ice + liquid water)       (m H20)
-!   w_so_ice_ex      =   , & ! ice content                                   (m H20)
-!   t_2m_ex          =   , & ! temperature in 2m                             (  K  )
-!   u_10m_ex         =   , & ! zonal wind in 10m                             ( m/s )
-!   v_10m_ex         =   , & ! meridional wind in 10m                        ( m/s )
+   t_snow_ex        = t_snow_ex       , & ! temperature of the snow-surface               (  K  )
+   t_snow_mult_ex   = t_snow_mult_ex  , & ! temperature of the snow-surface               (  K  )
+   t_s_ex           = t_s_ex          , & ! temperature of the ground surface             (  K  )
+   t_g_ex           = t_g_ex          , & ! surface temperature                           (  K  )
+   qv_s_ex          = qv_s_ex         , & ! specific humidity at the surface              (kg/kg)
+   w_snow_ex        = w_snow_ex       , & ! water content of snow                         (m H2O)
+   rho_snow_ex      = rho_snow_ex     , & ! snow density                                  (kg/m**3)
+   rho_snow_mult_ex = rho_snow_mult_ex, & ! snow density                                  (kg/m**3)
+   h_snow_ex        = h_snow_ex       , & ! snow height                                   (  m  )
+   w_i_ex           = w_i_ex          , & ! water content of interception water           (m H2O)
+   t_so_ex          = t_so_ex         , & ! soil temperature (main level)                 (  K  )
+   w_so_ex          = w_so_ex         , & ! total water conent (ice + liquid water)       (m H20)
+   w_so_ice_ex      = w_so_ice_ex     , & ! ice content                                   (m H20)
+   t_2m_ex          = t_2m_ex         , & ! temperature in 2m                             (  K  )
+   u_10m_ex         = u_10m_ex        , & ! zonal wind in 10m                             ( m/s )
+   v_10m_ex         = v_10m_ex        , & ! meridional wind in 10m                        ( m/s )
 !  
-!   freshsnow_ex     =   , & ! indicator for age of snow in top of snow layer(  -  )
-!   snowfrac_ex      =   , & ! snow-cover fraction                           (  -  )
-!   wliq_snow_ex     =   , & ! liquid water content in the snow              (m H2O)
-!   wtot_snow_ex     =   , & ! total (liquid + solid) water content of snow  (m H2O)
-!   dzh_snow_ex      =   , & ! layer thickness between half levels in snow   (  m  )
-!   subsfrac_ex      = PFRTI  , & ! tile fraction                            (  1  )
+   freshsnow_ex     = freshsnow_ex    , & ! indicator for age of snow in top of snow layer(  -  )
+   snowfrac_ex      = snowfrac_ex     , & ! snow-cover fraction                           (  -  )
+   wliq_snow_ex     = wliq_snow_ex    , & ! liquid water content in the snow              (m H2O)
+   wtot_snow_ex     = wtot_snow_ex    , & ! total (liquid + solid) water content of snow  (m H2O)
+   dzh_snow_ex      = dzh_snow_ex     , & ! layer thickness between half levels in snow   (  m  )
+   subsfrac_ex      = PFRTI           , & ! tile fraction                                 (  1  )
 !   
-!   prr_con_ex       =   , & ! precipitation rate of rain, convective        (kg/m2*s)
-!   prs_con_ex       =   , & ! precipitation rate of snow, convective        (kg/m2*s)
-!   prr_gsp_ex       =   , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-!   prs_gsp_ex       =   , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
-!  
-!   tch_ex           =   , & ! turbulent transfer coefficient for heat       ( -- )
-!   tcm_ex           =   , & ! turbulent transfer coefficient for momentum   ( -- )
-!   tfv_ex           =   , & ! laminar reduction factor for evaporation      ( -- )
-!  
-!   sobs_ex          =   , & ! solar radiation at the ground                 ( W/m2)
-!   thbs_ex          =   , & ! thermal radiation at the ground               ( W/m2)
-!   pabs_ex          =   , & !!!! photosynthetic active radiation            ( W/m2)
-!  
-!   runoff_s_ex      =   , & ! surface water runoff; sum over forecast       (kg/m2)
-!   runoff_g_ex      =   , & ! soil water runoff; sum over forecast          (kg/m2)
-!  
-!   t_g              =   , & ! surface temperature (grid mean)               ( K )
-!   qv_s             =     & ! surface specific humidity (grid mean)         (kg/kg)
-!                    )
-
+   prr_con_ex       = prr_con_ex      , & ! precipitation rate of rain, convective        (kg/m2*s)
+   prs_con_ex       = prs_con_ex      , & ! precipitation rate of snow, convective        (kg/m2*s)
+   prr_gsp_ex       = prr_gsp_ex      , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+   prs_gsp_ex       = prs_gsp_ex      , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+!                                   
+   tch_ex           = tch_ex          , & ! turbulent transfer coefficient for heat       ( -- )
+   tcm_ex           = tcm_ex          , & ! turbulent transfer coefficient for momentum   ( -- )
+   tfv_ex           = tfv_ex          , & ! laminar reduction factor for evaporation      ( -- )
+!                                   
+   sobs_ex          = sobs_ex         , & ! solar radiation at the ground                 ( W/m2)
+   thbs_ex          = thbs_ex         , & ! thermal radiation at the ground               ( W/m2)
+   pabs_ex          = pabs_ex         , & !!!! photosynthetic active radiation            ( W/m2)
+!                                   
+   runoff_s_ex      = runoff_s_ex     , & ! surface water runoff; sum over forecast       (kg/m2)
+   runoff_g_ex      = runoff_g_ex     , & ! soil water runoff; sum over forecast          (kg/m2)
+!                                   
+   t_g              = t_g             , & ! surface temperature (grid mean)               ( K )
+   qv_s             = qv_s            )   ! surface specific humidity (grid mean)         (kg/kg)
 
 
 !-------------------------------------------------------------------------

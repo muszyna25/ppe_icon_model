@@ -72,7 +72,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, nsfc_subs
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, nsfc_subs, lmulti_snow
 
   IMPLICIT NONE
 
@@ -93,7 +93,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                           & p_prog_now_rcf, p_prog_rcf,        & !>in/inout
                           & p_diag ,                           & !>inout
                           & prm_diag, prm_nwp_tend,            & !>inout 
-                          & lnd_prog_now, lnd_diag             ) !>inout
+                          & lnd_prog_now, lnd_prog_new,        & !>inout 
+                          & lnd_diag                           ) !>inout
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
@@ -106,6 +107,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -211,15 +213,52 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma),                    &
     &         zucurr(nproma)                , zvcurr(nproma),                   &
     &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev),      &
-    &         zsobeta(nproma,p_patch%nlev)  , sobs_t(nproma,nsfc_subs),         &
-    &         shfl_s_t(nproma,nsfc_subs)    , &
-    &         evap_s_t(nproma,nsfc_subs)    , tskin_t(nproma,nsfc_subs),        &
+    &         zsobeta(nproma,p_patch%nlev)  , &
+    &         shfl_s_t(nproma,nsfc_subs)    , evap_s_t(nproma,nsfc_subs),       &
+    &         tskin_t(nproma,nsfc_subs)     , &
     &         ustr_s_t(nproma,nsfc_subs)    , vstr_s_t(nproma,nsfc_subs),       &
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
     &         zsigflt(nproma)               , zfrti(nproma,nsfc_subs)
   LOGICAL  :: l_land(nproma), ldummy_vdf_a(nproma)
+
+  ! local variables for TERRA
+  REAL(wp) :: prr_con_t  (nproma, p_patch%nblks_c)
+  REAL(wp) :: prs_con_t  (nproma, p_patch%nblks_c)
+  REAL(wp) :: prr_gsp_t  (nproma, p_patch%nblks_c)
+  REAL(wp) :: prs_gsp_t  (nproma, p_patch%nblks_c)
+  REAL(wp) :: t_snow_t   (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: t_s_t      (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: t_g_t      (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: qv_s_t     (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: w_snow_t   (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: rho_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: h_snow_t   (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: w_i_t      (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: t_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: u_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: v_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: snowfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: tch_t      (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: tcm_t      (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: tfv_t      (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: thbs_t     (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: pabs_t     (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: runoff_s_t (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: runoff_g_t (nproma, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: t_snow_mult_t    (nproma, nlev_snow+1, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: rho_snow_mult_t  (nproma, nlev_snow,   p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: wliq_snow_t      (nproma, nlev_snow,   p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: wtot_snow_t      (nproma, nlev_snow,   p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: dzh_snow_t       (nproma, nlev_snow,   p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: t_so_t           (nproma, nlev_soil+2, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: w_so_t           (nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
+  REAL(wp) :: w_so_ice_t       (nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
+
+!--------------------------------------------------------------
+
 
   ! number of vertical levels
   nlev   = p_patch%nlev
@@ -278,7 +317,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP z_omega_p, zchar, &
 !$OMP zucurr,    zvcurr, &
 !$OMP zsoteu,    zsotev, &
-!$OMP zsobeta,   sobs_t, &
+!$OMP zsobeta, &
 !$OMP shfl_s_t, &
 !$OMP evap_s_t,  tskin_t, &
 !$OMP ustr_s_t,  vstr_s_t, &
@@ -651,6 +690,51 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       icnt = 0
 
+!     TERRA variable initializtion
+
+      DO jt = 1,nsfc_subs
+        DO jc = i_startidx, i_endidx
+          lnd_prog_new%t_snow_t  (jc,jb,jt) = lnd_prog_now%t_snow_t  (jc,jb,jt) 
+          lnd_prog_new%t_s_t     (jc,jb,jt) = lnd_prog_now%t_s_t     (jc,jb,jt)   
+          lnd_prog_new%t_g_t     (jc,jb,jt) = lnd_prog_now%t_g_t     (jc,jb,jt)
+          lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)    
+          lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)  
+          lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)       
+          lnd_prog_new%t_so_t(jc,nlev_soil+2,jb,jt) &
+                                               = lnd_prog_now%t_so_t(jc,nlev_soil+2,jb,jt)
+          IF(lmulti_snow) THEN
+            lnd_prog_new%t_snow_mult_t  (jc,nlev_snow+1,jb,jt) &
+                                               = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,jt)
+          ENDIF
+        ENDDO
+      ENDDO
+      DO jt = 1,nsfc_subs
+        DO jc = i_startidx, i_endidx
+          IF(lmulti_snow) THEN
+            DO jk=1,nlev_snow
+              lnd_prog_new%t_snow_mult_t  (jc,jk,jb,jt) &
+                                               = lnd_prog_now%t_snow_mult_t  (jc,jk,jb,jt)
+              lnd_prog_new%rho_snow_mult_t(jc,jk,jb,jt) &
+                                               = lnd_prog_now%rho_snow_mult_t(jc,jk,jb,jt)
+              lnd_prog_new%wliq_snow_t    (jc,jk,jb,jt) &
+                                               = lnd_prog_now%wliq_snow_t    (jc,jk,jb,jt) 
+              lnd_prog_new%wtot_snow_t    (jc,jk,jb,jt) &
+                                               = lnd_prog_now%wtot_snow_t    (jc,jk,jb,jt)
+              lnd_prog_new%dzh_snow_t     (jc,jk,jb,jt) &
+                                               = lnd_prog_now%dzh_snow_t     (jc,jk,jb,jt) 
+            ENDDO
+          ENDIF
+        ENDDO
+      ENDDO
+      DO jk=1,nlev_soil+1
+        DO jc = i_startidx, i_endidx
+            lnd_prog_new%t_so_t    (jc,jk,jb,jt) = lnd_prog_now%t_so_t    (jc,jk,jb,jt)         
+            lnd_prog_new%w_so_t    (jc,jk,jb,jt) = lnd_prog_now%w_so_t    (jc,jk,jb,jt)    
+            lnd_prog_new%w_so_ice_t(jc,jk,jb,jt) = lnd_prog_now%w_so_ice_t(jc,jk,jb,jt)
+        ENDDO
+      ENDDO
+
+!     Various variables for VDFOUTER
       DO jc = i_startidx, i_endidx
         zchar  (jc) = 0.018_wp ! default value from IFS if no wave model
         zucurr (jc) = 0.0_wp
@@ -674,7 +758,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       DO jt = 1,nsfc_subs
         DO jc = i_startidx, i_endidx
-          sobs_t  (jc,jt) = prm_diag%swflxsfc(jc,jb)   ! simple grid-mean flux (should be tile albedo specific)!!!!!
           shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
           tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
@@ -813,7 +896,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
         & KHPBLN  = idummy_vdf_0d                              ,&! (OUT) optional out: PBL top level 
         & KVARTOP = idummy_vdf_0e                              ,&! (OUT) optional out: top level of predictied qt,var
-        & PSSRFLTI= sobs_t                                     ,&! (INOUT) net SW sfc flux for each tile (use tile ablbedo!!!)
+        & PSSRFLTI= prm_diag%swflxsfc_t(:,jb,:)                ,&! (INOUT) net SW sfc flux for each tile (use tile ablbedo!!!)
         & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
         & PGUST   = zdummy_vdf_1p                              ,&! (OUT) optional out: 10m gust
         & PWUAVG  = zdummy_vdf_1q                              ,&! (OUT) optional out: w,up averaged
@@ -860,7 +943,44 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !       & PDHTSS  = ...                                        ,&! (OUT)  optional out: DDH
 !       & PDHTTS  = ...                                        ,&! (OUT)  optional out: DDH
 !       & PDHTIS  = ...                                         &! (OUT)  optional out: DDH
-        & )
+! TERRA data
+        & , ext_data        = ext_data                            & !in
+        & , jb=jb, jg=jg                                          & ! -
+        & , t_snow_ex       = lnd_prog_new%t_snow_t    (:,jb,:)   & !inout
+        & , t_snow_mult_ex  = lnd_prog_new%t_snow_mult_t(:,:,jb,:)& ! -
+        & , t_s_ex          = lnd_prog_new%t_s_t       (:,jb,:)   & ! -
+        & , t_g_ex          = lnd_prog_new%t_g_t       (:,jb,:)   & ! - 
+        & , qv_s_ex         = lnd_diag%qv_s_t          (:,jb,:)   & ! -
+        & , w_snow_ex       = lnd_prog_new%w_snow_t    (:,jb,:)   & ! -
+        & , rho_snow_ex     = lnd_prog_new%rho_snow_t  (:,jb,:)   & ! -
+        & , rho_snow_mult_ex= lnd_prog_new%rho_snow_mult_t(:,:,jb,:) & ! -
+        & , h_snow_ex       = lnd_diag%h_snow_t        (:,jb,:)   & ! -
+        & , w_i_ex          = lnd_prog_new%w_i_t       (:,jb,:)   & ! -
+        & , t_so_ex         = lnd_prog_new%t_so_t      (:,:,jb,:) & ! -
+        & , w_so_ex         = lnd_prog_new%w_so_t      (:,:,jb,:) & ! -
+        & , w_so_ice_ex     = lnd_prog_new%w_so_ice_t  (:,:,jb,:) & ! -
+        & , t_2m_ex         = prm_diag%t_2m            (:,jb)     & ! -
+        & , u_10m_ex        = prm_diag%u_10m           (:,jb)     & ! - 
+        & , v_10m_ex        = prm_diag%v_10m           (:,jb)     & ! -
+        & , freshsnow_ex    = lnd_diag%freshsnow_t     (:,jb,:)   & ! -
+        & , snowfrac_ex     = lnd_diag%snowfrac_t      (:,jb,:)   & ! -
+        & , wliq_snow_ex    = lnd_prog_new%wliq_snow_t (:,:,jb,:) & ! -
+        & , wtot_snow_ex    = lnd_prog_new%wtot_snow_t (:,:,jb,:) & ! -
+        & , dzh_snow_ex     = lnd_prog_new%dzh_snow_t  (:,:,jb,:) & ! -
+        & , prr_con_ex      = prm_diag%tracer_rate     (:,jb,3)   & !in
+        & , prs_con_ex      = prm_diag%tracer_rate     (:,jb,4)   & ! -
+        & , prr_gsp_ex      = prm_diag%tracer_rate     (:,jb,1)   & ! -
+        & , prs_gsp_ex      = prm_diag%tracer_rate     (:,jb,2)   & ! -
+        & , tch_ex          = prm_diag%tch             (:,jb)     & !inout
+        & , tcm_ex          = prm_diag%tcm             (:,jb)     & ! -
+        & , tfv_ex          = prm_diag%tfv             (:,jb)     & ! -
+        & , sobs_ex         = prm_diag%swflxsfc_t      (:,jb,:)   & !in
+        & , thbs_ex         = prm_diag%lwflxsfc_t      (:,jb,:)   & ! -
+        & , pabs_ex         = prm_diag%swflxsfc_t      (:,jb,:)   & ! -
+        & , runoff_s_ex     = lnd_diag%runoff_s_t      (:,jb,:)   & !inout
+        & , runoff_g_ex     = lnd_diag%runoff_g_t      (:,jb,:)   & ! -
+        & , t_g             = lnd_prog_new%t_g         (:,jb)     & ! -
+        & , qv_s            = lnd_diag%qv_s            (:,jb)     ) ! -
 
 
 ! Turbulence updating strategy:

@@ -531,7 +531,8 @@ CONTAINS
                             & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
                             & pt_diag ,                         & !>inout
                             & prm_diag,prm_nwp_tend,            & !>inout 
-                            & lnd_prog_now,lnd_diag             )!>inout
+                            & lnd_prog_now, lnd_prog_new,       & !>inout 
+                            & lnd_diag                          ) !>inout
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
