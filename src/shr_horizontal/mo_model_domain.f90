@@ -770,12 +770,6 @@ MODULE mo_model_domain
     TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_e
     TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c_fbk
     TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_e_fbk
-
-    ! patch geometry parameters
-    INTEGER  :: geometry_type   ! 1=sphere, 2=torus
-    REAL(wp) :: sphere_radius  ! in case of sphere, the sphere_radius
-    REAL(wp) :: earth_rescale_factor ! if earth_rescale_factor > 0,
-                                     ! then this is a rescaled earth by earth_rescale_factor                                     
     
   END TYPE t_patch
   

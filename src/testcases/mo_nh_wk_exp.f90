@@ -73,6 +73,7 @@ MODULE mo_nh_wk_exp
    USE mo_sync,                 ONLY: sync_patch_array, SYNC_C
    USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust
    USE mo_vertical_coord_table, ONLY: vct_a
+    USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
 
@@ -467,7 +468,7 @@ MODULE mo_nh_wk_exp
             z_lon = ptr_patch%cells%center(jc,jb)%lon
             z_lat = ptr_patch%cells%center(jc,jb)%lat
             z_cosr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr)
-            z_r = (ptr_patch%sphere_radius+z_klev)*ACOS(z_cosr)
+            z_r = (grid_sphere_radius+z_klev)*ACOS(z_cosr)
             z_h = z_klev-bubctr_z
             z_rR_2= (z_r/bub_hor_width)**2
             z_hH_2= (z_h/bub_ver_width)**2

@@ -64,7 +64,7 @@ MODULE mo_hdiff
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,          ONLY: nroot
+  USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
 !  USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
@@ -177,7 +177,7 @@ MODULE mo_hdiff
     !-----------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_hdiff_expl)
-    sphere_radius_squared = pt_patch%sphere_radius * pt_patch%sphere_radius 
+    sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
 !--------------------------------------------------------------------
 !
     i_nchdom   = MAX(1,pt_patch%n_childdom)

@@ -251,7 +251,7 @@ MODULE mo_jw_test
            tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
                    1.0_wp/6.3_wp ) *tmp1
            tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*pt_patch%sphere_radius*grid_angular_velocity
+                   - 0.5_wp*pi_2 )*grid_sphere_radius*grid_angular_velocity
 
            pt_ext_data%atm%topography_c(jc,jb) = tmp1*(tmp2+tmp3)*rgrav
            ! Coriolis parameter
@@ -384,7 +384,7 @@ MODULE mo_jw_test
               tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) &
                        + 1.0_wp/6.3_wp )*2.0_wp*u0*zcos32z
               tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp) &
-                      - 0.5_wp*pi_2 )*pt_patch%sphere_radius*grid_angular_velocity
+                      - 0.5_wp*pi_2 )*grid_sphere_radius*grid_angular_velocity
 
               pt_hydro_prog%temp(jc,jk,jb) = ztemp + tmp1*(tmp2+tmp3)
 

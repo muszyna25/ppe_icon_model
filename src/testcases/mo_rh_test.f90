@@ -124,8 +124,8 @@ MODULE mo_rh_test
   nlev   = pt_patch%nlev
 
   m   = rh_wavenum
-  A0  = 50._wp/pt_patch%sphere_radius/REAL(m,wp)
-  Am  = 50._wp/pt_patch%sphere_radius/REAL(m,wp)
+  A0  = 50._wp/grid_sphere_radius/REAL(m,wp)
+  Am  = 50._wp/grid_sphere_radius/REAL(m,wp)
 
   zshift = rh_init_shift_deg*pi/180._wp
 !
@@ -175,7 +175,7 @@ MODULE mo_rh_test
            zgeo = tmp1 + tmp2*zcosmlon + tmp3*( 2._wp*zcosmlon*zcosmlon-1._wp )
 
            pt_prog%pres_sfc(jc,jb) = &
-             & ps0*(1._wp+rgeo0*pt_patch%sphere_radius*pt_patch%sphere_radius*zgeo)**(1._wp/lr0)
+             & ps0*(1._wp+rgeo0*grid_sphere_radius*grid_sphere_radius*zgeo)**(1._wp/lr0)
         ENDDO
      ENDDO
 !$OMP END DO
@@ -197,11 +197,11 @@ MODULE mo_rh_test
            zsinmlon = SIN(REAL(m,wp)*lon)
            zcosmlon = COS(REAL(m,wp)*lon)
 
-           zu =  pt_patch%sphere_radius*A0*zcoslat                                          &
-              & +pt_patch%sphere_radius*Am*( REAL(m,wp)*zsinlat*zsinlat - zcoslat*zcoslat ) &
+           zu =  grid_sphere_radius*A0*zcoslat                                          &
+              & +grid_sphere_radius*Am*( REAL(m,wp)*zsinlat*zsinlat - zcoslat*zcoslat ) &
               &    *zcoslat**(m-1) *zcosmlon
 
-           zv = -pt_patch%sphere_radius*REAL(m,wp)*Am* zcoslat**(m-1) *zsinlat*zsinmlon
+           zv = -grid_sphere_radius*REAL(m,wp)*Am* zcoslat**(m-1) *zsinlat*zsinmlon
 
            pt_prog%vn(je,:,jb) =                                     &
              &          zu * pt_patch%edges%primal_normal(je,jb)%v1  &

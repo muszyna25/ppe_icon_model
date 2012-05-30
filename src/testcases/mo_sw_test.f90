@@ -59,7 +59,7 @@ MODULE mo_sw_test
   USE mo_dynamics_config,     ONLY: sw_ref_height
   USE mo_parallel_config,     ONLY: nproma
   USE mo_datetime,            ONLY: rdaylen
-  USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
+  USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
   IMPLICIT NONE
 
@@ -104,7 +104,7 @@ MODULE mo_sw_test
                  npromz_e, npromz_c, npromz_v, nlen
 
 !-----------------------------------------------------------------------
-    u0 =(2.0_wp*pi*pt_patch%sphere_radius)/(12.0_wp*rdaylen) ! [m/s]
+    u0 =(2.0_wp*pi*grid_sphere_radius)/(12.0_wp*rdaylen) ! [m/s]
 
     ! set reference height
     sw_ref_height = 0.9_wp * h0
@@ -113,7 +113,7 @@ MODULE mo_sw_test
     z_aleph = p_rotate_axis_deg * pi / 180.0_wp
 
     ! 1st factor for height (= thickness, because topography is zero)
-    z_fact1 = pt_patch%sphere_radius * grid_angular_velocity
+    z_fact1 = grid_sphere_radius * grid_angular_velocity
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -227,8 +227,8 @@ MODULE mo_sw_test
     
   !-----------------------------------------------------------------------
     ! set reference height
-    u0 =(2.0_wp*pi*pt_patch%sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp) ! [m/s]
-    inverse_sphere_radius = 1.0_wp / pt_patch%sphere_radius
+    u0 =(2.0_wp*pi*grid_sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp) ! [m/s]
+    inverse_sphere_radius = 1.0_wp / grid_sphere_radius
     sw_ref_height = 0.9_wp * h0
 
     z_aleph = p_rotate_axis_deg * pi/180.0_wp
@@ -255,7 +255,7 @@ MODULE mo_sw_test
         CALL rotate( z_lon, z_lat, z_aleph, z_rotlon, z_rotlat )
         z_hh = geostr_balance( z_rotlat, symmetric_u_velo, &
           & inverse_sphere_radius, grid_angular_velocity, u0 )
-        pt_prog%pres_sfc(jc,jb) = h0 - pt_patch%sphere_radius * rgrav * z_hh
+        pt_prog%pres_sfc(jc,jb) = h0 - grid_sphere_radius * rgrav * z_hh
 
         ! Coriolis parameter
         pt_patch%cells%f_c(jc,jb) = 2.0_wp*grid_angular_velocity*(SIN(z_lat)*COS(z_aleph)&
@@ -348,7 +348,7 @@ MODULE mo_sw_test
     sw_ref_height = 0.9_wp * h0
 
     ! 1st factor for height (= thickness, because topography is zero)
-    z_fact1 = pt_patch%sphere_radius * grid_angular_velocity
+    z_fact1 = grid_sphere_radius * grid_angular_velocity
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
@@ -446,8 +446,8 @@ MODULE mo_sw_test
     ! set reference height
     sw_ref_height =  h0
 
-    z_r_omega  = pt_patch%sphere_radius * grid_angular_velocity
-    z_re_omg_kk= pt_patch%sphere_radius * omg_kk
+    z_r_omega  = grid_sphere_radius * grid_angular_velocity
+    z_re_omg_kk= grid_sphere_radius * omg_kk
 
     z_r       = REAL(ir,wp)
     z_r1      = z_r + 1._wp
@@ -615,8 +615,8 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         z_hh  = h0 + amplitude*&
-                EXP(-( (pt_patch%sphere_radius*(z_lon-pi*c_lon/180.0_wp)/r_lon)**2   &
-                     + (pt_patch%sphere_radius*(z_lat-pi*c_lat/180.0_wp)/r_lat)**2 ) )
+                EXP(-( (grid_sphere_radius*(z_lon-pi*c_lon/180.0_wp)/r_lon)**2   &
+                     + (grid_sphere_radius*(z_lat-pi*c_lat/180.0_wp)/r_lat)**2 ) )
 
         pt_prog%pres_sfc(jc,jb) = z_hh
       ENDDO
@@ -667,7 +667,7 @@ MODULE mo_sw_test
     REAL(wp)  :: z_angle2
     REAL(wp)  :: z_angle
 
-    u0 = (2.0_wp*pi*pt_patch%sphere_radius)/(12.0_wp*rdaylen) ! [m/s]
+    u0 = (2.0_wp*pi*grid_sphere_radius)/(12.0_wp*rdaylen) ! [m/s]
 
   !-----------------------------------------------------------------------
     ! set reference height
@@ -689,7 +689,7 @@ MODULE mo_sw_test
         z_lon   = pt_patch%cells%center(jc,jb)%lon
 
         ! height of orography
-        z_fact = pt_patch%sphere_radius * grid_angular_velocity * SIN(z_lat)
+        z_fact = grid_sphere_radius * grid_angular_velocity * SIN(z_lat)
         z_fact = z_fact * z_fact
         z_or = .5_wp * z_fact * rgrav
         pt_ext_data%atm%topography_c(jc,jb)= z_or
@@ -704,7 +704,7 @@ MODULE mo_sw_test
         z_phi_t_k = u0 * z_phi_t_k
 
         ! 2nd summand: r_e \grid_angular_velocity \sin \varphi
-        z_summand = pt_patch%sphere_radius * grid_angular_velocity * SIN(z_lat)
+        z_summand = grid_sphere_radius * grid_angular_velocity * SIN(z_lat)
 
         ! one factor
         z_fact    = .5_wp *  z_phi_t_k + z_summand

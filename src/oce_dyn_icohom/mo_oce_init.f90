@@ -52,7 +52,7 @@ MODULE mo_oce_init
 USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
-USE mo_grid_config,        ONLY: nroot, grid_angular_velocity
+USE mo_grid_config,        ONLY: nroot, grid_sphere_radius, grid_angular_velocity
 USE mo_physical_constants, ONLY: rgrav, rho_ref, &
   & sal_ref, grav, SItodBar,  &
   & sfc_press_bar, tmelt, Tf
@@ -150,7 +150,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
-    sphere_radius = ppatch%sphere_radius
+    sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
 
     all_cells => ppatch%cells%all
@@ -335,7 +335,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
-    sphere_radius = ppatch%sphere_radius
+    sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     all_cells => ppatch%cells%all
 
@@ -510,7 +510,7 @@ CONTAINS
 
     INTEGER :: jk
 
-    sphere_radius = p_patch%sphere_radius
+    sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     
     IF(idisc_scheme==1)THEN
@@ -557,7 +557,7 @@ CONTAINS
   TYPE(t_patch)                     :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
 
-    sphere_radius = ppatch%sphere_radius
+    sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
 
 !rr  ! Local declarations for coupling:
@@ -684,7 +684,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
 
-  sphere_radius = ppatch%sphere_radius
+  sphere_radius = grid_sphere_radius
   u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
   
   all_cells => ppatch%cells%all

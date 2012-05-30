@@ -76,6 +76,7 @@
                                    &  SYNC_C, SYNC_E, SYNC_V
    USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars, virtual_temp
    USE mo_vertical_coord_table, ONLY: vct_a
+    USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
 
@@ -1113,7 +1114,7 @@ jnlayer(:,:,:)=0
            z_lat   = ptr_patch%cells%center(jc,jb)%lat
            z_lon   = ptr_patch%cells%center(jc,jb)%lon
            CALL xy_distances(z_lon, z_lat, z_lonc, z_latc, &
-             & 0.0_wp, 0.0_wp, z_dx, z_dy, ptr_patch%sphere_radius, lplane)
+             & 0.0_wp, 0.0_wp, z_dx, z_dy, grid_sphere_radius, lplane)
 
            SELECT CASE (itype_topo_ana)
            CASE (1)  !schaer mountain
@@ -1159,7 +1160,7 @@ jnlayer(:,:,:)=0
            z_lat   = ptr_patch%verts%vertex(jv,jb)%lat
            z_lon   = ptr_patch%verts%vertex(jv,jb)%lon
            CALL xy_distances(z_lon, z_lat, z_lonc, z_latc, &
-              & 0.0_wp, 0.0_wp, z_dx, z_dy, ptr_patch%sphere_radius, lplane)
+              & 0.0_wp, 0.0_wp, z_dx, z_dy, grid_sphere_radius, lplane)
 
            SELECT CASE (itype_topo_ana)
            CASE (1)  !schaer mountain

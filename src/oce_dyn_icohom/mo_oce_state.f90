@@ -65,7 +65,7 @@ MODULE mo_oce_state
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: n_dom, grid_angular_velocity
+  USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
     &                               t_geographical_coordinates, &!vector_product, &
@@ -2574,15 +2574,15 @@ CONTAINS
       DO jb = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
-            !z_y = ptr_patch%sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
+            !z_y = grid_sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
             gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
             gc2%lon = 0.0_wp
             xx2=gc2cc(gc2)        
-            z_y = ptr_patch%sphere_radius * arc_length(xx2,xx1)
+            z_y = grid_sphere_radius * arc_length(xx2,xx1)
             ptr_patch%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
-              & ( sin(z_lat_basin_center) + (cos(z_lat_basin_center)/ptr_patch%sphere_radius)*z_y)
+              & ( sin(z_lat_basin_center) + (cos(z_lat_basin_center)/grid_sphere_radius)*z_y)
          !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*grid_angular_velocity*sin(z_lat_basin_center),&
-         !  &2.0_wp*grid_angular_velocity*((cos(z_lat_basin_center)/ptr_patch%sphere_radius)*z_y)
+         !  &2.0_wp*grid_angular_velocity*((cos(z_lat_basin_center)/grid_sphere_radius)*z_y)
         END DO
       END DO
 
@@ -2593,12 +2593,12 @@ CONTAINS
             gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad
             gc2%lon = 0.0_wp
             xx2=gc2cc(gc2)        
-            z_y = ptr_patch%sphere_radius*arc_length(xx2,xx1)
+            z_y = grid_sphere_radius*arc_length(xx2,xx1)
 
             !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
             ptr_patch%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * &
               & ( sin(z_lat_basin_center) + &
-              &  (cos(z_lat_basin_center)/ptr_patch%sphere_radius)*z_y)
+              &  (cos(z_lat_basin_center)/grid_sphere_radius)*z_y)
         END DO
       END DO
     CASE(F_PLANE_CORIOLIS)

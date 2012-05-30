@@ -237,10 +237,10 @@ CONTAINS
 
            tmp1  = u0*COS((1._wp-eta0)*pi_2)**1.5_wp
            tmp2  = tmp1*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) + 1.0_wp/6.3_wp)
-           tmp3  = grid_angular_velocity*pt_patch%sphere_radius * &
+           tmp3  = grid_angular_velocity*grid_sphere_radius * &
              & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
            tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 88._wp/105._wp
-           tmp5  = grid_angular_velocity*pt_patch%sphere_radius * &
+           tmp5  = grid_angular_velocity*grid_sphere_radius * &
              & (8._wp/3._wp*zcosy**3 - pi/2._wp )
            tmp6  = 4._wp*zcosy**4 -3.2_wp/1.5_wp
 
@@ -367,7 +367,7 @@ CONTAINS
 
               tmp1  = 1.5_wp*zeta*pi_2*u0/rd * zsinz*zcos12z
               tmp2  = 2.0_wp*u0*zcos32z*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) +10._wp/63._wp)
-              tmp3  = grid_angular_velocity*pt_patch%sphere_radius * &
+              tmp3  = grid_angular_velocity*grid_sphere_radius * &
                 & (8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4._wp)
               tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 8.8_wp/10.5_wp
 

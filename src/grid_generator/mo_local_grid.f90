@@ -1016,8 +1016,8 @@ CONTAINS
     to_grid%grid_creation_process     = from_grid%grid_creation_process
     to_grid%grid_optimization_process = from_grid%grid_optimization_process
     to_grid%geometry_type             = from_grid%geometry_type
-    to_grid%sphere_radius            = from_grid%sphere_radius
-    to_grid%earth_rescale_factor    = from_grid%earth_rescale_factor
+    to_grid%sphere_radius             = from_grid%sphere_radius
+    to_grid%earth_rescale_factor      = from_grid%earth_rescale_factor
     to_grid%level                     = from_grid%level
     to_grid%vertical_structure        => from_grid%vertical_structure
     to_grid%patch_id                  = from_grid%patch_id

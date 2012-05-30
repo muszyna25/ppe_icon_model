@@ -61,6 +61,7 @@ MODULE mo_gnat_gridsearch
   USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id, &
     &                               p_allreduce_minloc, p_comm_work
   USE mo_kind
+  USE mo_grid_config,         ONLY: grid_sphere_radius
 
   IMPLICIT NONE
 
@@ -1069,7 +1070,7 @@ CONTAINS
       &                i_startidx, i_endidx, &
       &                rl_start, rl_end)
     radius = 3._gk * REAL(p_patch%edges%primal_edge_length(i_startidx,i_startblk) &
-      & /p_patch%sphere_radius, gk)
+      & /grid_sphere_radius, gk)
 
     ! query list of nearest neighbors
     ! TODO[FP] : For some test cases it might be reasonable to enable
