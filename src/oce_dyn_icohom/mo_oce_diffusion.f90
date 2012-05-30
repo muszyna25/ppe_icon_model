@@ -576,7 +576,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 
     ! compute rotation of vector field for the ocean
     CALL rot_vertex_ocean_3D( ptr_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
-    CALL sync_patch_array(SYNC_C,ptr_patch,z_div_c)
+    CALL sync_patch_array(SYNC_V,ptr_patch,z_rot_v)
     !z_rot_v=vort
     !
     !  loop through all patch edges (and blocks)
