@@ -62,7 +62,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
-    &       lredgrid_phys, ifeedback_type
+    &       lredgrid_phys, ifeedback_type, grid_rescale_factor
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
@@ -173,7 +173,7 @@ CONTAINS
     ! get here the nroot, eventually it should be moved into the patch info
 !     nroot = get_grid_root(dynamics_grid_filename(1))
     CALL get_gridfile_root_level(dynamics_grid_filename(1), nroot, start_lev)
-    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
+!    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
 !     write(0,*) "   nroot = ", nroot
         
     IF (no_of_radiation_grids > 0) THEN
@@ -228,19 +228,19 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE get_gridfile_rescale_factor( patch_file, rescale_factor )
-    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
-    REAL(wp),   INTENT(out)          ::  rescale_factor
-
-    INTEGER :: ncid, netcd_status
-
-    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
-    netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
-        & rescale_factor)
-    IF (netcd_status /= nf_noerr) rescale_factor = 1.0_wp
-    CALL nf(nf_close(ncid))
-
-  END SUBROUTINE get_gridfile_rescale_factor
+!   SUBROUTINE get_gridfile_rescale_factor( patch_file, rescale_factor )
+!     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+!     REAL(wp),   INTENT(out)          ::  rescale_factor
+! 
+!     INTEGER :: ncid, netcd_status
+! 
+!     CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
+!     netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
+!         & rescale_factor)
+!     IF (netcd_status /= nf_noerr) rescale_factor = 1.0_wp
+!     CALL nf(nf_close(ncid))
+! 
+!   END SUBROUTINE get_gridfile_rescale_factor
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------

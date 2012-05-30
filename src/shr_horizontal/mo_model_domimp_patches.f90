@@ -483,6 +483,10 @@ CONTAINS
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     
     DO jg = n_dom_start, n_dom
+      CALL get_patch_attributes(p_patch(jg))
+    ENDDO
+    
+    DO jg = n_dom_start, n_dom
       
       ! For non parallel runs: Allocate and preset remaining arrays in patch
       IF(.NOT.my_process_is_mpi_parallel()) CALL allocate_remaining_patch(p_patch(jg))
@@ -694,6 +698,35 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
+  SUBROUTINE get_patch_attributes(patch)
+  
+    TYPE(t_patch), INTENT(inout) :: patch
+    
+    INTEGER :: netcd_status, ncid
+    
+    CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
+    !--------------------------------------
+    ! get geometry parameters
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', patch%geometry_type)
+    IF (netcd_status /= nf_noerr) patch%geometry_type = 0
+    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', patch%sphere_radius)
+    IF (netcd_status /= nf_noerr) THEN
+      ! by default this is the earth sphere
+      ! we should add here the case of torus, ellipsoides, etc. 
+      patch%sphere_radius = earth_radius
+      patch%earth_rescale_factor = 1.0_wp
+    ELSE
+      netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
+        & patch%earth_rescale_factor)
+      IF (netcd_status /= nf_noerr) &
+        & CALL finish("get_patch_attributes", "earth_rescale_factor not defined")
+    ENDIF
+    CALL nf(nf_close(ncid))
+    
+  END SUBROUTINE get_patch_attributes
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
   !>
   !! Initialization of the patch components with data stored
   !! in files.
@@ -760,7 +793,6 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, je, jcv, jce, ilc, ibc
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
-    INTEGER :: netcd_status
     
     !-----------------------------------------------------------------------
     
@@ -848,22 +880,6 @@ CONTAINS
       CALL finish  (TRIM(routine), TRIM(message_text))
     END IF
     
-    !--------------------------------------
-    ! get geometry parameters
-    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', p_patch%geometry_type)
-    IF (netcd_status /= nf_noerr) p_patch%geometry_type = 0
-    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', p_patch%sphere_radius)
-    IF (netcd_status /= nf_noerr) THEN
-      ! by default this is the earth sphere
-      ! we should add here the case of torus, ellipsoides, etc. 
-      p_patch%sphere_radius = earth_radius
-      p_patch%earth_rescale_factor = 1.0_wp
-    ELSE
-      netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
-        & p_patch%earth_rescale_factor)
-      IF (netcd_status /= nf_noerr) &
-        & CALL finish(routine, "earth_rescale_factor not defined")
-    ENDIF
      
     !--------------------------------------
     ! get number of cells, edges and vertices

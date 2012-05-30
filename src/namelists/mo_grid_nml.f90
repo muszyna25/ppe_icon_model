@@ -64,6 +64,7 @@ MODULE mo_grid_nml
     & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,      &
     & config_radiation_grid_filename      => radiation_grid_filename,      &
     & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link, &
+    & config_grid_rescale_factor          => grid_rescale_factor, &
     & check_grid_configuration, max_rad_dom
 
   IMPLICIT NONE
@@ -77,32 +78,6 @@ MODULE mo_grid_nml
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
   ! ------------------------------------------------------------------------
-
-  INTEGER    :: cell_type                ! cell type:
-
-  LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
-  INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
-  LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
-  LOGICAL    :: l_limited_area            
-
-  LOGICAL    :: lplane                   ! f-plane option
-  REAL(wp)   :: corio_lat                ! Latitude, where the f-plane is located if lplane=.true.
- 
-  REAL(wp)   :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
-                                         ! for any of the first level child patches,
-                                         ! processor splitting will be performed
-
-  CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
-  INTEGER                     :: dynamics_parent_grid_id(max_dom)
-  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
-  INTEGER                     :: dynamics_radiation_grid_link(max_dom)
-
-
-  NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
-    &                 lplane, corio_lat, l_limited_area,        &
-    &                 patch_weight, lredgrid_phys,                &
-    &                 dynamics_grid_filename,  dynamics_parent_grid_id,    &
-    &                 radiation_grid_filename, dynamics_radiation_grid_link
 
 
   CONTAINS
@@ -122,6 +97,37 @@ MODULE mo_grid_nml
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i
+
+    INTEGER    :: cell_type                ! cell type:
+
+    LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
+    INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
+    LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
+    LOGICAL    :: l_limited_area            
+
+    LOGICAL    :: lplane                   ! f-plane option
+    REAL(wp)   :: corio_lat                ! Latitude, where the f-plane is located if lplane=.true.
+  
+    REAL(wp)   :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
+                                          ! for any of the first level child patches,
+                                          ! processor splitting will be performed
+
+    CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
+    INTEGER                     :: dynamics_parent_grid_id(max_dom)
+    CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
+    INTEGER                     :: dynamics_radiation_grid_link(max_dom)
+      
+    REAL(wp) :: grid_rescale_factor
+
+
+    NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
+      &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
+      &  patch_weight, lredgrid_phys,                &
+      &  dynamics_grid_filename,  dynamics_parent_grid_id,    &
+      &  radiation_grid_filename, dynamics_radiation_grid_link
+
+
+
 !    INTEGER  :: funit
 !    INTEGER  :: jg, jlev
 !    CHARACTER(filename_max) :: patch_file, gridtype
@@ -150,6 +156,7 @@ MODULE mo_grid_nml
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
     lredgrid_phys = .FALSE.
+    grid_rescale_factor = 1.0_wp
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -188,15 +195,6 @@ MODULE mo_grid_nml
 
 
     !-----------------------------------------------------
-    CALL fill_grid_nml_configure()
-       
-  END SUBROUTINE read_grid_namelist
-  !-----------------------------------------------------------------------
-  
-  
-  !-----------------------------------------------------------------------
-  SUBROUTINE fill_grid_nml_configure()
-
     config_global_cell_type  = cell_type
     config_lfeedback         = lfeedback
     config_ifeedback_type    = ifeedback_type
@@ -209,12 +207,12 @@ MODULE mo_grid_nml
     config_dynamics_parent_grid_id = dynamics_parent_grid_id
     config_radiation_grid_filename = radiation_grid_filename
     config_dyn_radiation_grid_link = dynamics_radiation_grid_link
-
+    config_grid_rescale_factor     = grid_rescale_factor
     ! check the configuration
     CALL check_grid_configuration()
-        
-  END SUBROUTINE fill_grid_nml_configure
+       
+  END SUBROUTINE read_grid_namelist
   !-----------------------------------------------------------------------
   
-
+  
 END MODULE mo_grid_nml
