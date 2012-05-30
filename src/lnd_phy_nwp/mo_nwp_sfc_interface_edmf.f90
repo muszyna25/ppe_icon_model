@@ -155,7 +155,7 @@ CONTAINS
                   qv_ex            , & ! specific water vapor content                  (kg/kg)
                   p0_ex            , & !!!! base state pressure                        ( Pa ) 
                   ps_ex                ! surface pressure                              ( pa  )
-  REAL(wp), DIMENSION(nproma,0:nlev_snow,nsfc_subs), INTENT(INOUT) :: &
+  REAL(wp), DIMENSION(nproma,nlev_snow+1,nsfc_subs), INTENT(INOUT) :: &
                   t_snow_mult_ex   , & ! temperature of the snow-surface               (  K  )
                   rho_snow_mult_ex     ! snow density                                  (kg/m**3)
   REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(INOUT) :: &
@@ -167,7 +167,7 @@ CONTAINS
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height  
                   w_i_ex               ! water content of interception water           (m H2O)
-  REAL(wp), DIMENSION(nproma,0:nlev_soil+1,nsfc_subs), INTENT(INOUT) :: &
+  REAL(wp), DIMENSION(nproma,nlev_soil+2,nsfc_subs), INTENT(INOUT) :: &
                   t_so_ex              ! soil temperature (main level)                 (  K  )
   REAL(wp), DIMENSION(nproma,nlev_soil+1,nsfc_subs), INTENT(INOUT) :: &
                   w_so_ex          , & ! total water conent (ice + liquid water)       (m H20)
@@ -390,7 +390,7 @@ CONTAINS
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1,isubs) = &
                t_snow_mult_ex(jc,nlev_snow+1,isubs)
-            h_snow_t(ic,isubs)  =  h_snow_ex(jc,isubs)
+            h_snow_t(ic,isubs) = h_snow_ex(jc,isubs)
           ENDIF
         ENDDO
 
