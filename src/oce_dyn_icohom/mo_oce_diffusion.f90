@@ -162,8 +162,8 @@ SUBROUTINE velocity_diffusion(p_patch, vn_in, p_param, p_diag,p_op_coeff, laplac
  ENDIF
 
 ! DO jk=1, n_zlev
-!   write(*,*)'LAPLACIAN',jk,&
-!   &maxval(laplacian_vn_out(:,jk,:)),minval(laplacian_vn_out(:,jk,:))!,&
+!  write(*,*)'LAPLACIAN',jk,&
+!  &maxval(laplacian_vn_out(:,jk,:)),minval(laplacian_vn_out(:,jk,:))!,&
 ! ! &maxval(z_lapl(:,jk,:)),minval(z_lapl(:,jk,:))
 ! END DO
 
