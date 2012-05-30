@@ -470,12 +470,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                                & z_cellthick_intmed,      &
                                & FLUX_CALCULATION_HORZ)
 
-  !     DO jk = 1, n_zlev
-  !        write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-  !                                              & minval(trac_old(:,jk,:)),&
-  !                                              & maxval(trac_tmp(:,jk,:)),&
-  !                                              & minval(trac_tmp(:,jk,:))
-  !     END DO
+!       DO jk = 1, n_zlev
+!          write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+!                                                & minval(trac_old(:,jk,:)),&
+!                                                & maxval(trac_tmp(:,jk,:)),&
+!                                                & minval(trac_tmp(:,jk,:))
+!       END DO
 !trac_new = trac_tmp
 !return
   IF( iswm_oce /= 1) THEN
@@ -492,16 +492,16 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                            & trac_new, timestep, delta_t,    &
                            & z_cellthick_intmed,             &
                            & FLUX_CALCULATION_VERT, tracer_id)
-  ! DO jk = 1, n_zlev
-  !   write(*,*)'max/min tracer old-new:',jk,&
-  !   & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
-  !   & maxval(trac_new(:,jk,:)),minval(trac_new(:,jk,:))
+!   DO jk = 1, n_zlev
+!     write(*,*)'max/min tracer old-new:',jk,&
+!     & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
+!     & maxval(trac_new(:,jk,:)),minval(trac_new(:,jk,:))
 !           ipl_src=3  ! output print level (1-5, fix)
 !           CALL print_mxmn('adv-vert trac-old',jk,trac_old(:,:,:),n_zlev, &
 !             &              p_patch%nblks_c,'trc',ipl_src)
 !           CALL print_mxmn('adv-vert trac-new',jk,trac_new(:,:,:),n_zlev, &
 !             &              p_patch%nblks_c,'trc',ipl_src)
-  !   END DO
+!     END DO
   ELSEIF( iswm_oce == 1) THEN
 
     trac_new = trac_tmp

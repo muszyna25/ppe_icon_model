@@ -1445,13 +1445,13 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
       &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
   END DO
   ipl_src=2  ! output print level (1-5, fix)
-  DO jk = 1, n_zlev
- !  write(*,*)'max/min new veloc',jk,&
- !    &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)),&
- !    &minval(p_os%p_prog(nnew(1))%vn(:,jk,:))
-     CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
-       &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-  END DO
+! DO jk = 1, n_zlev
+!  write(*,*)'max/min new veloc',jk,&
+! &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)),&
+! &minval(p_os%p_prog(nnew(1))%vn(:,jk,:))
+!    CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
+!      &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
+! END DO
   ipl_src=3  ! output print level (1-5, fix)
   DO jk = 1, n_zlev
     CALL print_mxmn('vn change',jk,p_os%p_prog(nnew(1))%vn(:,:,:)-p_os%p_prog(nold(1))%vn(:,:,:), &
@@ -1627,7 +1627,8 @@ CHARACTER(len=*), PARAMETER :: &
     edges_in_domain => p_patch%edges%in_domain
 
 ! #slo# due to nag -nan compiler-option:
-  IF (p_test_run) z_div_c(:,:,:) = 0.0_wp
+  z_div_c(:,:,:) = 0.0_wp
+  pw_c(:,:,:) = 0.0_wp
 ! CALL map_edges2cell( p_patch, p_diag%vn_time_weighted, z_vn_c)
 ! CALL map_cell2edges( p_patch, z_vn_c, p_diag%vn_time_weighted)
 !------------------------------------------------------------------
@@ -1745,7 +1746,7 @@ END DO
 DO jk = 1, n_zlev
   CALL print_mxmn('div veloc',jk,z_div_c(:,:,:), n_zlev+1, p_patch%nblks_c,'abt',ipl_src)
 END DO
-!DO jk = 1,n_zlev
+DO jk = 1,n_zlev
 !write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,&
 !&maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:))
 !write(987,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&
@@ -1760,7 +1761,7 @@ END DO
 ! &min_w(jk),min_idx(jk), min_blk(jk)!,&
 ! !&v_base%lsm_oce_c(max_idx(jk),jk,max_blk(jk)),&
 ! !&v_base%lsm_oce_c(min_idx(jk),jk,min_blk(jk))
-!END DO
+ END DO
 END SUBROUTINE calc_vert_velocity_mimetic
 !-------------------------------------------------------------------------
 !
