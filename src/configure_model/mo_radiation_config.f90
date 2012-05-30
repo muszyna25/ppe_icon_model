@@ -113,7 +113,7 @@ MODULE mo_radiation_config
     !
     ! --- Time control
     !
-    REAL(wp) :: dt_rad      !< time interval of full radiation computation 
+    REAL(wp) :: dt_rad = 0.0_wp   !< time interval of full radiation computation
                             !< given in seconds 
     !
     ! --- Different specifications of the zenith angle
