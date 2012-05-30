@@ -1393,6 +1393,21 @@ L & .FALSE.& & &
 \tabularnewline
 
 \hline 
+grid\_angular\_velocity &
+R & Earth rotation  &  &
+The angular velocity of the domain.
+&
+\tabularnewline
+
+\hline 
+grid\_rescale\_factor &
+R & 1.0   &  &
+The geometry and the timestep will be rescaled by this factor.
+The angular velocity will be divided by this factor.
+&
+\tabularnewline
+
+\hline 
 lfeedback &
 L(n\_dom) & .TRUE.& &
 Specifies if feedback to parent grid is performed. Setting lfeedback(1)=.false. turns off feedback 

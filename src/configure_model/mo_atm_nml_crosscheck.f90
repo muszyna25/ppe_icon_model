@@ -69,7 +69,7 @@ MODULE mo_nml_crosscheck
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              activate_sync_timers, timers_level,iqash1, & !K.L. ICON-ART
-    &                              output_mode
+    &                              output_mode, dtime_adv
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -129,7 +129,14 @@ CONTAINS
   !!
   SUBROUTINE resize_simulation_length()
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
+
     CHARACTER(len=*), PARAMETER :: routine =  'resize_simulation_length'
+    
+    !----------------------------
+    ! rescale timestep
+    dtime     = dtime     * grid_rescale_factor
+    dtime_adv = dtime_adv * grid_rescale_factor
+    dt_rad    = dt_rad    * grid_rescale_factor
     !--------------------------------------------------------------------
     ! Length if this integration
     !--------------------------------------------------------------------

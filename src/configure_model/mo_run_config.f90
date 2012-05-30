@@ -151,9 +151,7 @@ CONTAINS
     REAL(wp) :: rescale_factor
 
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
-
-    rescale_factor = get_grid_rescale_factor()
-    dtime = dtime * rescale_factor
+    
     !----------------------------
     ! advective timestep on global patch
     IF ( PRESENT(opt_iadv_rcf) ) THEN
