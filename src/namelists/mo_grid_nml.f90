@@ -214,6 +214,7 @@ MODULE mo_grid_nml
     config_radiation_grid_filename = radiation_grid_filename
     config_dyn_radiation_grid_link = dynamics_radiation_grid_link
     config_grid_rescale_factor     = grid_rescale_factor
+    config_grid_angular_velocity   = grid_angular_velocity
     ! check the configuration
     CALL check_grid_configuration()
        

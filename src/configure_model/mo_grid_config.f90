@@ -195,7 +195,12 @@ CONTAINS
     grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
     grid_angular_velocity      = grid_angular_velocity /  grid_rescale_factor
 !     write(0,*) "   nroot = ", nroot
-        
+    
+    write(0,*) "grid_sphere_radius=",grid_sphere_radius
+    write(0,*) "grid_length_rescale_factor=",grid_length_rescale_factor 
+    write(0,*) "grid_area_rescale_factor=", grid_area_rescale_factor
+    write(0,*) "grid_angular_velocity=", grid_angular_velocity
+
     IF (no_of_radiation_grids > 0) THEN
       n_dom_start = 0
     ELSE
