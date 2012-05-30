@@ -119,7 +119,7 @@ MODULE mo_ocean_model
   USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
     & finalise_ho_integration
-
+  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 !   USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
 !     &                               v_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, v_params!, t_ho_physics
@@ -162,7 +162,7 @@ CONTAINS
 
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: p_atm_f
-
+    TYPE(t_operator_coeff)                          :: ptr_op_coeff
     TYPE(t_datetime)                                :: datetime
 
     INTEGER :: n_io, jg, jgp, jfile, ist
@@ -494,7 +494,7 @@ CONTAINS
 
     ! Prepare time integration
     CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
-      &                         v_params, p_as, p_atm_f, v_sea_ice)
+      &                         v_params, p_as, p_atm_f, v_sea_ice,ptr_op_coeff,p_int_state(1:))
 
     !------------------------------------------------------------------
     ! Daniel: Suggestion for point 5 of Feature #333
@@ -571,7 +571,7 @@ CONTAINS
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
       &                       p_int_state(1:),                              &
       &                       v_sfc_flx,                                    &
-      &                       v_params, p_as, p_atm_f,v_sea_ice,  &
+      &                       v_params, p_as, p_atm_f,v_sea_ice,ptr_op_coeff,&
       &                       l_have_output)
 
     IF (ltimer) CALL print_timer

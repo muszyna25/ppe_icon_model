@@ -57,7 +57,7 @@ MODULE mo_oce_boundcond
                                  & map_cell2edges
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_physics,        ONLY: t_ho_params
-  USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce
+  USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce_3D
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec,cvec2gvec
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
@@ -127,11 +127,11 @@ CONTAINS
     ELSEIF(iswm_oce /= 1)THEN
       z_scale = rho_ref
     ENDIF
-        
+
     SELECT CASE (i_bc_veloc_top)
-    
+
     CASE (0)
-      
+
       ! CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -141,9 +141,9 @@ CONTAINS
           top_bc_u_cc(jc,jb)%x =0.0_wp
         END DO
       END DO
-      
+
     CASE (1) ! Forced by wind stress stored in p_sfc_flx
-      
+
       ! CALL message (TRIM(routine),'(1) top velocity boundary condition: use surface wind stress')
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -161,13 +161,13 @@ CONTAINS
       END DO
 
     CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
-      
+
       ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-          
+
           top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
             & - p_os%p_diag%u(jc,1,jb) ) / z_scale
           top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
@@ -183,15 +183,15 @@ CONTAINS
       END DO
     END SELECT
     ! LL: no sync rquired
-    
+
     CALL map_cell2edges( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn, level=1)
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_top_vn)
-    
+
   !  write(*,*)'BC: MAX/MIN: wind:u/v',maxval(p_os%p_aux%bc_top_vn),&
   !                              & minval(p_os%p_aux%bc_top_vn)&
   !                              &,maxval(p_sfc_flx%forc_wind_v), &
   !                              &minval(p_sfc_flx%forc_wind_v)
-    
+
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:)=top_bc_u_c(:,:)
     CALL print_mxmn('top.bound.cond u',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
@@ -219,11 +219,12 @@ CONTAINS
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
   !!  mpi parallelized LL
   !!
-  SUBROUTINE bot_bound_cond_horz_veloc( p_patch, p_os, p_phys_param)
+  SUBROUTINE bot_bound_cond_horz_veloc( p_patch, p_os, p_phys_param, div_coeff)
     !
     TYPE(t_patch), TARGET, INTENT(in)        :: p_patch         ! patch on which computation is performed
     TYPE(t_hydro_ocean_state), INTENT(inout) :: p_os            ! ocean state variable
     TYPE(t_ho_params), INTENT(in)            :: p_phys_param    ! physical parameters
+    REAL(wp), INTENT(in)                     :: div_coeff(:,:,:,:)
     
     ! Local variables
     INTEGER :: jb, je,jc
@@ -311,7 +312,7 @@ CONTAINS
       END DO
       
       z_depth(:,1,:)=p_os%p_diag%thick_e
-      CALL div_oce( z_depth, p_patch, z_div_depth, opt_slev=1,opt_elev=1 )
+      CALL div_oce_3d( z_depth, p_patch, div_coeff, z_div_depth, opt_slev=1,opt_elev=1 )
 
       
       ! LL: the whole loop seems to be doing nothing,
@@ -344,8 +345,6 @@ CONTAINS
           
         END DO
       END DO
-      
-      
       
       CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
       CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)

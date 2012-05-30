@@ -80,9 +80,9 @@ USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, &
-  &                              height_related_quantities, rot_vertex_ocean
+  &                              calc_scalar_product_veloc_3D
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_3D,&
+  &                              height_related_quantities
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity,update_time_indices
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
@@ -518,11 +518,13 @@ CONTAINS
     
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
-      CALL calc_scalar_product_veloc( p_patch,&
+      CALL calc_scalar_product_veloc_3D( p_patch,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_diag%h_e,        &
-        & p_os%p_diag)
+        & p_os%p_diag,            &
+        & p_op_coeff)
+
       IF (is_restart_run()) CALL update_time_indices(1)
     ELSE
       ! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
@@ -636,10 +638,11 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
-  SUBROUTINE init_ho_testcases(ppatch, p_os, p_ext_data, p_sfc_flx)
+  SUBROUTINE init_ho_testcases(ppatch, p_os, p_ext_data, p_op_coeff,p_sfc_flx)
   TYPE(t_patch),TARGET,INTENT(IN)   :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_external_data)             :: p_ext_data
+  TYPE(t_operator_coeff)            :: p_op_coeff
   TYPE(t_sfc_flx)                   :: p_sfc_flx
   ! Local Variables
   INTEGER :: jb, jc, je, jk
@@ -834,7 +837,7 @@ CONTAINS
 
              ELSEIF(abs(z_lat_deg)<=20.0_wp)THEN
 
-
+!p_os%p_prog(nold(1))%h(jc,jb)=0.25_wp
                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
                 p_os%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
 
@@ -846,6 +849,7 @@ CONTAINS
 
 
              ELSEIF(abs(z_lat_deg)<40.0_wp .AND. abs(z_lat_deg)>20.0_wp)THEN
+
                  z_tmp = pi*((abs(z_lat_deg) -20.0_wp)/20.0_wp)
                   p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
                                           & + 0.5_wp*25.0_wp*(1.0_wp+cos(z_tmp))
@@ -864,7 +868,7 @@ CONTAINS
         END DO
       END DO
     END DO
-
+p_os%p_prog(nold(1))%tracer=16.0_wp
    CASE (34)
    ! Adjusting density front in a basin: vertical wall at basin_center_lon
       CALL message(TRIM(routine), 'Initialization of testcases (34)')
@@ -1899,15 +1903,15 @@ ELSEIF( iswm_oce == 1 )THEN
       &maxval( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
       &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
       IF(idisc_scheme==1)THEN
-        CALL calc_scalar_product_veloc( ppatch,                 &
-          &                                 p_os%p_prog(nold(1))%vn,&
-          &                                 p_os%p_prog(nold(1))%vn,&
-          &                                 p_os%p_diag%h_e,        &
-          &                                 p_os%p_diag)
-        CALL grad_fd_norm_oce( p_os%p_diag%kin, &
-                             & ppatch,    &
-                             & p_os%p_diag%grad,&
-                             & opt_slev=1,opt_elev=1 )
+        CALL calc_scalar_product_veloc_3D( ppatch,                 &
+          &                                p_os%p_prog(nold(1))%vn,&
+          &                                p_os%p_prog(nold(1))%vn,&
+          &                                p_os%p_diag%h_e,        &
+          &                                p_os%p_diag, p_op_coeff)
+        CALL grad_fd_norm_oce_2D_3D( p_os%p_diag%kin(:,1,:), &
+                             & ppatch,        &
+                             & p_op_coeff%grad_coeff,&
+                             & p_os%p_diag%grad(:,1,:) )
       ENDIF
 ! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
 !                           & ppatch,                &
@@ -1935,10 +1939,11 @@ CALL message (TRIM(routine), 'end')
 
 END SUBROUTINE init_ho_testcases
 !-------------------------------------------------------------------------------
-FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
+FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
    !
    TYPE(t_patch) :: p_patch
    REAL(wp)      :: h_e(:,:)
+   REAL(wp)      :: grad_coeff(:,:,:)
    REAL(wp)      :: rhs_e(:,:)!(nproma,n_zlev,p_patch%nblks_e)
    REAL(wp)      :: vn_e(SIZE(rhs_e,1),SIZE(rhs_e,2))
    !
@@ -1968,7 +1973,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
      vn_e2(:,:) = rhs_e(:,:)
      rhstemp(:,:) = rhs_e(:,:)&
-       & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,p_patch,jk,zimpl_coeff,h_e)
+       & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,p_patch,jk,zimpl_coeff,grad_coeff,h_e)
 
      If (maxval (ABS (rhstemp (:,:))) <= tolerance) THEN
        vn_e(:,:) = vn_e2(:,:)
@@ -1994,7 +1999,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    !                 )
 
         rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),p_patch, jk,&
-          &            zimpl_coeff,h_e)
+          &            zimpl_coeff,grad_coeff, h_e)
        WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
       &jk, maxval(rhstemp),minval(rhstemp)
 
@@ -2032,11 +2037,12 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
    END FUNCTION geo_balance_mim
    !--------------------------------------------------------------------
-   FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff, h_e) RESULT(llhs)
+   FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff,grad_coeff, h_e) RESULT(llhs)
      TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
      INTEGER                         :: lev
      REAL(wp),INTENT(inout)          :: x(:,:)
      REAL(wp),INTENT(in)             :: p_coeff
+     REAL(wp), INTENT(in)            :: grad_coeff(:,:,:)
      REAL(wp),OPTIONAL,INTENT(in)    :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
      REAL(wp)                        :: llhs(SIZE(x,1), SIZE(x,2))
 
@@ -2070,10 +2076,10 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
        END DO
      END DO
 
-     CALL grad_fd_norm_oce( z_kin, &
+     CALL grad_fd_norm_oce_3D( z_kin,  &
                           & p_patch,   &
-                          & z_grad,    &
-                          & opt_slev=1,opt_elev=1 )
+                          & grad_coeff,&
+                          & z_grad)
 
   !   z_x_out(:,:,:) = dual_flip_flop(p_patch, z_x_e, z_x_e, z_x_vort, h_e,&
   !                                  &opt_slev=1, opt_elev=1)

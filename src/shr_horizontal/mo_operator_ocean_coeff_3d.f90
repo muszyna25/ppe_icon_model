@@ -47,6 +47,7 @@ MODULE mo_operator_ocean_coeff_3d
     & min_rledge_int,min_rlcell_int,min_rlvert_int,&
     & sea_boundary, boundary, sea
   USE mo_math_constants,      ONLY: deg2rad, pi
+  USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     & t_geographical_coordinates, vector_product, &
     & arc_length
@@ -67,10 +68,12 @@ MODULE mo_operator_ocean_coeff_3d
 
   PRIVATE
 
+  PUBLIC  :: t_operator_coeff
   PUBLIC :: allocate_exp_coeff
-  PUBLIC :: init_operator_coeff, par_init_operator_coeff
-  PUBLIC :: t_operator_coeff
-  PUBLIC :: apply_boundary2coeffs
+  PUBLIC  :: par_init_operator_coeff
+  !PRIVATE :: init_operator_coeff 
+  PUBLIC  :: par_apply_boundary2coeffs
+  !PRIVATE  :: apply_boundary2coeffs
   PRIVATE :: init_scalar_product_oce_3d
   PRIVATE :: init_geo_factors_oce_3d
 
@@ -642,15 +645,13 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: owned_verts
 
-    REAL(wp) :: sphere_radius_squared
  !   REAL(wp) :: comm_edges(nproma,n_zlev,patch%nblks_e)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:apply_boundary2coeffs')
 
     !-----------------------------------------------------------------------
-!     CALL message (TRIM(routine), 'start')
-    sphere_radius_squared = patch%sphere_radius * patch%sphere_radius 
+    CALL message (TRIM(routine), 'start')
 
     all_cells   => patch%cells%all
     all_edges   => patch%edges%all
@@ -706,14 +707,10 @@ CONTAINS
             ile = patch%cells%edge_idx(jc,jb,je)
             ibe = patch%cells%edge_blk(jc,jb,je)
             IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
-
               ocean_coeff%div_coeff(jc,jk,jb,je) = 0.0_wp
               ocean_coeff%edge2cell_coeff_cc(jc,jk,jb,je)%x(1:3) = 0.0_wp
-
             ENDIF
-
           ENDDO ! je = 1, patch%cells%num_edges(jc,jb)
-          !write(1234,*)'div coeff 3D',jk,jc,jb,ptr_intp%div_coeff(jc,jk,jb,:)
         ENDDO ! jc = i_startidx_c, i_endidx_c
       END DO ! jk=1,n_zlev
     END DO ! jb = all_cells%start_block, all_cells%end_block
@@ -829,7 +826,41 @@ CONTAINS
           IF( MOD(boundary_counter,2) /= 0 ) THEN
             CALL finish (routine,'MOD(boundary_counter,2) /= 0 !!')
           ENDIF
+!---------------------------------------------------------------------------------
+            !Modified area calculation
+            vertex_cc = patch%verts%cartesian(jv,jb)
+            zarea_fraction=0.0_wp
+            DO jev = 1, patch%verts%num_edges(jv,jb)
+              ! get line and block indices of edge jev around vertex jv
+              ile = patch%verts%edge_idx(jv,jb,jev)
+              ibe = patch%verts%edge_blk(jv,jb,jev)
+              !get neighbor cells
+              icell_idx_1 = patch%edges%cell_idx(ile,ibe,1)
+              icell_idx_2 = patch%edges%cell_idx(ile,ibe,2)
+              icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
+              icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
+              cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
+              cell2_cc    = gc2cc(patch%cells%center(icell_idx_2,icell_blk_2))
 
+              !Check, if edge is sea or boundary edge and take care of dummy edge
+              !edge with indices ile, ibe is sea edge
+              !Add up for wet dual area.
+              IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+                zarea_fraction = zarea_fraction  &
+                  & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
+                ! edge with indices ile, ibe is boundary edge
+              ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+                zarea_fraction = zarea_fraction  &
+                  & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+              END IF
+            END DO
+!IF(zarea_fraction*(re*re)/= patch%verts%dual_area(jv,jb))&
+!&write(*,*)'areas',zarea_fraction*(re*re), patch%verts%dual_area(jv,jb)
+            ! no division by zero
+            !IF (zarea_fraction /= 0.0_wp) THEN
+            z_area_scaled   =  zarea_fraction*(earth_radius*earth_radius)!patch%verts%dual_area(jv,jb)! !SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            !ENDIF
+!---------------------------------------------------------------------------------------------
           DO je = 1, boundary_counter
 !-original
 !             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(je) )=&
@@ -842,36 +873,12 @@ CONTAINS
 
           ENDDO
 
-          ! LL: the above loop should be equivelant to the following
-!           IF(boundary_counter == 2)THEN
-!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(1) )=&
-!               & 0.5_wp*z_orientation(1)&
-!               & *patch%edges%primal_edge_length(ibnd_edge_idx(1),ibnd_edge_blk(1))
-!
-!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(2))=&
-!               & 0.5_wp*z_orientation(2)&
-!               & *patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-!
-!           ELSEIF(boundary_counter == 4)THEN
-!
-!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(1))=&
-!               & 0.5_wp*z_orientation(1)&
-!               & *patch%edges%primal_edge_length(ibnd_edge_idx(1),ibnd_edge_blk(1))
-!
-!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(2))=&
-!               & 0.5_wp*z_orientation(2)&
-!               & *patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-!
-!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(3))=&
-!               & 0.5_wp*z_orientation(3)&
-!               & *patch%edges%primal_edge_length(ibnd_edge_idx(3),ibnd_edge_blk(3))
-!
-!             ocean_coeff%rot_coeff(jv,jk,jb,i_edge_idx(4))=&
-!               & 0.5_wp*z_orientation(4)&
-!               & *patch%edges%primal_edge_length(ibnd_edge_idx(4),ibnd_edge_blk(4))
-!           ENDIF
-          !ocean_coeff%rot_coeff(jv,jk,jb,:)=ocean_coeff%rot_coeff(jv,jk,jb,:)/patch%verts%dual_area(jv,jb)
-
+          IF(z_area_scaled/=0.0_wp)THEN
+            ocean_coeff%rot_coeff(jv,jk,jb,:)&
+            &=ocean_coeff%rot_coeff(jv,jk,jb,:)/z_area_scaled
+          ELSE
+            ocean_coeff%rot_coeff(jv,jk,jb,:)=0.0_wp
+          ENDIF
         END DO ! jv = i_startidx_v, i_endidx_v
         !!$OMP END PARALLEL DO
 
@@ -962,18 +969,18 @@ CONTAINS
           z_area_scaled    = 0.0_wp
           !IF ( ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) == 0 ) THEN
           IF ( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) ) THEN
-            z_area_scaled = patch%verts%dual_area(jv,jb)/ sphere_radius_squared !SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            z_area_scaled = patch%verts%dual_area(jv,jb)/(earth_radius*earth_radius)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
 
-            !Final coefficient calculation
-            DO jev = 1, patch%verts%num_edges(jv,jb)
-
-              IF(z_area_scaled/=0.0_wp)THEN
-                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-                  & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
-              ELSE
-                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
-              ENDIF
-            END DO
+!TODO ram   !Final coefficient calculation
+!            DO jev = 1, patch%verts%num_edges(jv,jb)
+!
+!              IF(z_area_scaled/=0.0_wp)THEN
+!                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
+!                  & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
+!              ELSE
+!                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
+!              ENDIF
+!            END DO
 
             !ELSEIF(ocean_coeff%bnd_edges_per_vertex(jv,jk,jb)/=0)THEN!boundary edges are involved
           ELSEIF ( i_v_ctr(jv,jk,jb) /= 0 ) THEN
@@ -1006,19 +1013,21 @@ CONTAINS
             END DO
             ! no division by zero
             !IF (zarea_fraction /= 0.0_wp) THEN
-            z_area_scaled   = patch%verts%dual_area(jv,jb)/sphere_radius_squared!zarea_fraction !SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+            z_area_scaled = zarea_fraction !patch%verts%dual_area(jv,jb)/(re*re)!!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
             !ENDIF
+          ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
+
             !Final coefficient calculation
             DO jev = 1, patch%verts%num_edges(jv,jb)
               IF(z_area_scaled/=0.0_wp)THEN
                 ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-                  & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
+                & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
               ELSE
                 ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
               ENDIF
             END DO
-
-          ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
+!
+!          ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
         ENDDO
       END DO
@@ -1038,393 +1047,7 @@ CONTAINS
   END SUBROUTINE par_apply_boundary2coeffs
   !--------------------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !> Initialize expansion coefficients.
-  !!
-  !! @par Revision History
-  !! Peter Korn (2012-2)
-  !!
-  SUBROUTINE init_operator_coeff( ptr_patch, ptr_coeff)
-    !
-    TYPE(t_patch),      INTENT(inout)     :: ptr_patch
-    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
-    !-----------------------------------------------------------------------
-
-    CALL init_scalar_product_oce_3d( ptr_patch, ptr_coeff)
-    CALL init_geo_factors_oce_3d( ptr_patch, ptr_coeff )
-
-    CALL apply_boundary2coeffs(ptr_patch, ptr_coeff)
-
-  END SUBROUTINE init_operator_coeff
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !> Initialize expansion coefficients.
-  !!
-  !! @par Revision History
-  !! Peter Korn (2012-2)
-  !!
-  SUBROUTINE apply_boundary2coeffs( ptr_patch, ptr_coeff)
-    ! !
-    TYPE(t_patch),      INTENT(inout)     :: ptr_patch
-    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
-
-    !Local variables
-    INTEGER :: jk, jc, jb, je, ibe, ile, jev, jv
-    INTEGER :: rl_start_e, rl_end_e
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_c, rl_end_c
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: rl_start_v != 2
-    INTEGER :: rl_end_v
-    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
-
-    INTEGER :: i_v_ctr(nproma,n_zlev,ptr_patch%nblks_v)
-    INTEGER :: i_v_bnd_edge_ctr(nproma,n_zlev,ptr_patch%nblks_v)
-    INTEGER :: ibnd_edge_idx(4), ibnd_edge_blk(4)  !maximal 4 boundary edges in a dual loop.
-    INTEGER :: i_edge_idx(4)
-    REAL(wp) :: z_orientation(4),z_area_scaled, zarea_fraction
-    INTEGER :: icell_idx_1, icell_blk_1
-    INTEGER :: icell_idx_2, icell_blk_2
-    TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
-    REAL(wp) :: sphere_radius_squared
-
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_operator_ocean_coeff_3d:apply_boundary2coeffs')
-
-    !-----------------------------------------------------------------------
-
-    CALL message (TRIM(routine), 'start')
-    sphere_radius_squared = ptr_patch%sphere_radius * ptr_patch%sphere_radius 
-
-    rl_start_c   = 1
-    rl_end_c     = min_rlcell_int
-    i_startblk_c = ptr_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = ptr_patch%cells%end_blk(rl_end_c,1)
-    rl_start_e   = 1
-    rl_end_e     = min_rledge ! Loop over the whole local domain
-    i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
-    rl_start_v   = 1
-    rl_end_v     = min_rlvert
-    i_startblk_v = ptr_patch%verts%start_blk(rl_start_v,1)
-    i_endblk_v   = ptr_patch%verts%end_blk(rl_end_v,1)
-
-    i_v_ctr(:,:,:)          = 0
-    i_v_bnd_edge_ctr(:,:,:) = 0
-
-    !1) Set coefficients for div and grad to zero at boundary edges
-    DO jk=1,n_zlev
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
-          & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          DO je = 1, ptr_patch%cells%num_edges(jc,jb)
-
-            ile = ptr_patch%cells%edge_idx(jc,jb,je)
-            ibe = ptr_patch%cells%edge_blk(jc,jb,je)
-
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
-              ptr_coeff%div_coeff(jc,jk,jb,je) = 0.0_wp
-              ptr_coeff%grad_coeff(ile,jk,ibe) = 0.0_wp
-            ENDIF
-          ENDDO
-          !write(1234,*)'div coeff 3D',jk,jc,jb,ptr_intp%div_coeff(jc,jk,jb,:)
-        ENDDO
-      END DO
-    END DO
-
-    !2) prepare coefficients for rot at boundary edges
-    DO jb = i_startblk_v, i_endblk_v
-
-      CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v, &
-        & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
-      DO jk = 1, n_zlev
-        !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
-        !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
-        DO jv = i_startidx_v, i_endidx_v
-
-          ibnd_edge_idx(1:4)      = 0
-          ibnd_edge_blk(1:4)      = 0
-          i_edge_idx(1:4)         = 0
-          z_orientation(1:4)      = 0.0_wp
-
-          DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
-
-            ! get line and block indices of edge jev around vertex jv
-            ile = ptr_patch%verts%edge_idx(jv,jb,jev)
-            ibe = ptr_patch%verts%edge_blk(jv,jb,jev)
-            !Check, if edge is sea or boundary edge and take care of dummy edge
-            ! edge with indices ile, ibe is sea edge
-            ! edge with indices ile, ibe is boundary edge
-
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
-              i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
-            ELSEIF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-
-              !increase boundary edge counter
-              i_v_bnd_edge_ctr(jv,jk,jb)=i_v_bnd_edge_ctr(jv,jk,jb)+1
-
-              ptr_coeff%bnd_edges_per_vertex(jv,jk,jb) &
-                & = ptr_coeff%bnd_edges_per_vertex(jv,jk,jb) +1
-
-              !Store actual boundary edge indices
-              IF(i_v_bnd_edge_ctr(jv,jk,jb)==1)THEN
-                ibnd_edge_idx(1) = ile
-                ibnd_edge_blk(1) = ibe
-                z_orientation(1) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                i_edge_idx(1)    = jev
-
-                ptr_coeff%bnd_edge_idx(jv,jk,jb,1)= ile
-                ptr_coeff%bnd_edge_blk(jv,jk,jb,1)= ibe
-                ptr_coeff%orientation(jv,jk,jb,1) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                ptr_coeff%edge_idx(jv,jk,jb,1)    = jev
-
-              ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN
-                ibnd_edge_idx(2) = ile
-                ibnd_edge_blk(2) = ibe
-                z_orientation(2) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                i_edge_idx(2)    = jev
-
-                ptr_coeff%bnd_edge_idx(jv,jk,jb,2)= ile
-                ptr_coeff%bnd_edge_blk(jv,jk,jb,2)= ibe
-                ptr_coeff%orientation(jv,jk,jb,2) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                ptr_coeff%edge_idx(jv,jk,jb,2)    = jev
-
-              ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==3)THEN
-                ibnd_edge_idx(3) = ile
-                ibnd_edge_blk(3) = ibe
-                z_orientation(3) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                i_edge_idx(3)    = jev
-
-                ptr_coeff%bnd_edge_idx(jv,jk,jb,3)= ile
-                ptr_coeff%bnd_edge_blk(jv,jk,jb,3)= ibe
-                ptr_coeff%orientation(jv,jk,jb,3) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                ptr_coeff%edge_idx(jv,jk,jb,3)    = jev
-
-              ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
-                ibnd_edge_idx(4) = ile
-                ibnd_edge_blk(4) = ibe
-                z_orientation(4) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                i_edge_idx(4)    = jev
-
-                ptr_coeff%bnd_edge_idx(jv,jk,jb,4)= ile
-                ptr_coeff%bnd_edge_blk(jv,jk,jb,4)= ibe
-                ptr_coeff%orientation(jv,jk,jb,4) = ptr_patch%verts%edge_orientation(jv,jb,jev)
-                ptr_coeff%edge_idx(jv,jk,jb,4)    = jev
-
-              ELSE
-                !maximal 4 boundary edges per dual loop are allowed: somethings wrong withe the grid
-                CALL message (TRIM('sbr nonlinear Coriolis'), &
-                  & 'more than 4 boundary edges per dual loop: something is wrong with the grid')
-                CALL finish ('TRIM(sbr nonlinear Coriolis)','Grid-boundary error !!')
-              ENDIF
-            END IF
-          END DO
-
-          IF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN
-            ptr_coeff%rot_coeff(jv,jk,jb,i_edge_idx(1) )=&
-              & 0.5_wp*z_orientation(1)&
-              & *ptr_patch%edges%primal_edge_length(ibnd_edge_idx(1),ibnd_edge_blk(1))
-
-            ptr_coeff%rot_coeff(jv,jk,jb,i_edge_idx(2))=&
-              & 0.5_wp*z_orientation(2)&
-              & *ptr_patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-
-          ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
-
-            ptr_coeff%rot_coeff(jv,jk,jb,i_edge_idx(1))=&
-              & 0.5_wp*z_orientation(1)&
-              & *ptr_patch%edges%primal_edge_length(ibnd_edge_idx(1),ibnd_edge_blk(1))
-
-            ptr_coeff%rot_coeff(jv,jk,jb,i_edge_idx(2))=&
-              & 0.5_wp*z_orientation(2)&
-              & *ptr_patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-
-            ptr_coeff%rot_coeff(jv,jk,jb,i_edge_idx(3))=&
-              & 0.5_wp*z_orientation(3)&
-              & *ptr_patch%edges%primal_edge_length(ibnd_edge_idx(3),ibnd_edge_blk(3))
-
-            ptr_coeff%rot_coeff(jv,jk,jb,i_edge_idx(4))=&
-              & 0.5_wp*z_orientation(4)&
-              & *ptr_patch%edges%primal_edge_length(ibnd_edge_idx(4),ibnd_edge_blk(4))
-          ENDIF
-          !ptr_coeff%rot_coeff(jv,jk,jb,:)=ptr_coeff%rot_coeff(jv,jk,jb,:)/ptr_patch%verts%dual_area(jv,jb)
-        END DO
-        !!$OMP END PARALLEL DO
-      END DO
-    END DO
-    ! DO jb = i_startblk_v, i_endblk_v
-    !   CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v, &
-    !                      i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
-    !   DO jk = 1, n_zlev
-    !     DO jv = i_startidx_v, i_endidx_v
-    ! !IF(rot_vec_v(jv,jk,jb)/=0.0_wp)THEN
-    ! write(1234567,*)'rot 3D COEFF:',jk,jv,jb,i_v_bnd_edge_ctr(jv,jk,jb),i_v_ctr(jv,jk,jb)
-    ! !ENDIF
-    !     END DO
-    !   END DO
-    ! END DO
-
-
-    !3) Handle scalar product coefficients
-    !3.1) Edge to cell coefficient
-    DO jk=1,n_zlev
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
-          & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          DO je = 1, ptr_patch%cells%num_edges(jc,jb)
-
-            ile = ptr_patch%cells%edge_idx(jc,jb,je)
-            ibe = ptr_patch%cells%edge_blk(jc,jb,je)
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
-              ptr_coeff%edge2cell_coeff_cc(jc,jk,jb,je)%x(1:3) = 0.0_wp
-            ENDIF
-          ENDDO
-        ENDDO
-      END DO
-    END DO
-    !The dynamical changing coefficient for the surface layer
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
-        & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
-        DO je = 1, ptr_patch%cells%num_edges(jc,jb)
-
-          ile = ptr_patch%cells%edge_idx(jc,jb,je)
-          ibe = ptr_patch%cells%edge_blk(jc,jb,je)
-          IF ( v_base%lsm_oce_e(ile,1,ibe) /= sea) THEN
-            ptr_coeff%edge2cell_coeff_cc_dyn(jc,1,jb,je)%x(1:3) = 0.0_wp
-          ENDIF
-        ENDDO
-      ENDDO
-    END DO
-
-    DO jk=1,n_zlev
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e,      &
-          & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e
-
-          IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
-            ptr_coeff%edge2cell_coeff_cc_t(je,jk,jb,1)%x(1:3) = 0.0_wp
-            ptr_coeff%edge2cell_coeff_cc_t(je,jk,jb,2)%x(1:3) = 0.0_wp
-          ENDIF
-        ENDDO
-      END DO
-    END DO
-
-    !3.3) Edge to vert coefficient
-    DO jk=1,n_zlev
-      DO jb = i_startblk_v, i_endblk_v
-        CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v,      &
-          & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
-        DO jv = i_startidx_v, i_endidx_v
-          DO je = 1, ptr_patch%verts%num_edges(jv,jb)
-            ile = ptr_patch%verts%edge_idx(jv,jb,je)
-            ibe = ptr_patch%verts%edge_blk(jv,jb,je)
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
-              ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,je)%x(1:3) = 0.0_wp
-              ptr_coeff%variable_dual_vol_norm(jv,jk,jb,je)=0.0_wp
-            ENDIF
-          ENDDO
-        ENDDO
-      END DO
-    END DO
-
-    !Merge dual area calculation with coefficients
-    DO jk=1,n_zlev
-      DO jb = i_startblk_v, i_endblk_v
-        CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v,      &
-          & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
-        DO jv = i_startidx_v, i_endidx_v
-
-          zarea_fraction   = 0.0_wp
-          z_area_scaled    = 0.0_wp
-          !IF ( ptr_coeff%bnd_edges_per_vertex(jv,jk,jb) == 0 ) THEN
-          IF ( i_v_ctr(jv,jk,jb) == ptr_patch%verts%num_edges(jv,jb) ) THEN
-            z_area_scaled = ptr_patch%verts%dual_area(jv,jb)/sphere_radius_squared!SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
-
-            !Final coefficient calculation
-            DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
-
-              IF(z_area_scaled/=0.0_wp)THEN
-                ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-                  & =ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
-              ELSE
-                ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
-              ENDIF
-            END DO
-
-            !ELSEIF(ptr_coeff%bnd_edges_per_vertex(jv,jk,jb)/=0)THEN!boundary edges are involved
-          ELSEIF ( i_v_ctr(jv,jk,jb) /= 0 ) THEN
-
-            !Modified area calculation
-            vertex_cc = gc2cc(ptr_patch%verts%vertex(jv,jb))
-            DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
-              ! get line and block indices of edge jev around vertex jv
-              ile = ptr_patch%verts%edge_idx(jv,jb,jev)
-              ibe = ptr_patch%verts%edge_blk(jv,jb,jev)
-              !get neighbor cells
-              icell_idx_1 = ptr_patch%edges%cell_idx(ile,ibe,1)
-              icell_idx_2 = ptr_patch%edges%cell_idx(ile,ibe,2)
-              icell_blk_1 = ptr_patch%edges%cell_blk(ile,ibe,1)
-              icell_blk_2 = ptr_patch%edges%cell_blk(ile,ibe,2)
-              cell1_cc    = gc2cc(ptr_patch%cells%center(icell_idx_1,icell_blk_1))
-              cell2_cc    = gc2cc(ptr_patch%cells%center(icell_idx_2,icell_blk_2))
-
-              !Check, if edge is sea or boundary edge and take care of dummy edge
-              !edge with indices ile, ibe is sea edge
-              !Add up for wet dual area.
-              IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
-                zarea_fraction = zarea_fraction  &
-                  & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
-                ! edge with indices ile, ibe is boundary edge
-              ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-                zarea_fraction = zarea_fraction  &
-                  & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
-              END IF
-            END DO
-            ! no division by zero
-            !IF (zarea_fraction /= 0.0_wp) THEN
-            z_area_scaled   = ptr_patch%verts%dual_area(jv,jb)/ sphere_radius_squared !zarea_fraction !SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
-            !ENDIF
-            !Final coefficient calculation
-            DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
-              IF(z_area_scaled/=0.0_wp)THEN
-                ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-                  & =ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
-              ELSE
-                ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
-              ENDIF
-            END DO
-          ENDIF
-        ENDDO
-      END DO
-    END DO
-
-
-    !3.4) Vert to edge coefficient
-    DO jk=1,n_zlev
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e,      &
-          & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e
-
-          IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
-            ptr_coeff%edge2vert_coeff_cc_t(je,jk,jb,1)%x(1:3) = 0.0_wp
-            ptr_coeff%edge2vert_coeff_cc_t(je,jk,jb,2)%x(1:3) = 0.0_wp
-          ENDIF
-        ENDDO
-      END DO
-    END DO
-
-    CALL message (TRIM(routine), 'end')
-
-  END SUBROUTINE apply_boundary2coeffs
-  !--------------------------------------------------------------------------------------
-
+ 
   !-------------------------------------------------------------------------
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This
@@ -1499,11 +1122,15 @@ CONTAINS
     REAL(wp) :: z_sync_e(nproma,n_zlev, ptr_patch%nblks_e)
     REAL(wp) :: z_sync_v(nproma,n_zlev, ptr_patch%nblks_v)
 
+    REAL(wp) :: omega
+
     LOGICAL, PARAMETER :: mid_point_dual_edge = .TRUE. !Please do not change this unless
     !you are sure, you know what you do.
     LOGICAL, PARAMETER :: larc_length = .FALSE.
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
+
+    omega = ptr_patch%angular_velocity
 
     rl_start     = 1
     rl_end       = min_rlcell_int
@@ -1621,8 +1248,8 @@ CONTAINS
               & +  0.5_wp*norm*z_edge_length(ie)
             ptr_intp%variable_vol_norm(il_c1,jk,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
 
-            !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/earth_radious
-            !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/earth_radious
+            !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
+            !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re
           END DO
 
           !normals in cell 2
@@ -1654,7 +1281,7 @@ CONTAINS
               xx2%x             = xx2%x/norm
 
               z_edge_length(ie) = arc_length(xx2,xx1)
-              !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/earth_radious
+              !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/re
               !write(*,*)'arc length',arc_length(xx2,xx1),z_edge_length(ie),SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
             ELSE
               z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
@@ -1875,8 +1502,7 @@ CONTAINS
               gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie))
 
               IF(coriolis_type==full_coriolis)THEN
-                ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*ptr_patch%angular_velocity&
-                  & *SIN(gc_mid_dual_edge(ie)%lat)
+                ptr_patch%edges%f_e(il_e, ib_e) = 2._wp*omega*SIN(gc_mid_dual_edge(ie)%lat)
               ELSEIF(coriolis_type==beta_plane_coriolis)THEN
                 gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
                 gc1%lon = 0.0_wp
@@ -1885,12 +1511,12 @@ CONTAINS
                 gc2%lat = gc_mid_dual_edge(ie)%lat!*deg2rad
                 gc2%lon = 0.0_wp
                 xx2     = gc2cc(gc2)
-                z_y     = ptr_patch%sphere_radius *arc_length(xx2,xx1)
+                z_y     = earth_radius*arc_length(xx2,xx1)
 
                 !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
                 ptr_patch%edges%f_e(il_e, ib_e) = &
-                  & 2.0_wp*ptr_patch%angular_velocity*( SIN(basin_center_lat * deg2rad) + &
-                  & (COS(basin_center_lat * deg2rad)/ptr_patch%sphere_radius)*z_y)
+                  & 2.0_wp*omega*( SIN(basin_center_lat * deg2rad) + &
+                  & (COS(basin_center_lat * deg2rad)/earth_radius)*z_y)
               ENDIF
             ELSE
               cc_mid_dual_edge(ie)%x = cc_dual_edge(ie)%x

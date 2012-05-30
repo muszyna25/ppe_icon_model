@@ -52,11 +52,11 @@ MODULE mo_oce_veloc_advection
   USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
   USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
   USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_rbf, &
-    & grad_fd_norm_oce_3d, grad_fd_norm_oce, &
-    & div_oce, div_oce_3d, rot_vertex_ocean_3d
+    &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, &
+    &                               div_oce_3d, rot_vertex_ocean_3d
   USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates, gc2cc,&
                                     & vector_product!,cc2gc
-  USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop,nonlinear_coriolis, &
+  USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
     & primal_map_c2e, map_edges2edges, map_edges2cell,   &
     & nonlinear_coriolis_3d
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -256,8 +256,6 @@ CONTAINS
     elev = n_zlev
 
     !calculate vorticity flux across dual edge
-    ! CALL nonlinear_Coriolis(p_patch,vn_old,p_diag%p_vn, p_diag%p_vn_dual,&
-    !                        &p_diag%thick_e,p_diag%vt, p_diag%vort, z_vort_flx)
     !   LL: nonlinear_coriolis_3d is mpi parallized. p_diag%vort must have been synced
     CALL nonlinear_coriolis_3d( p_patch,         &
       & vn_old,          &
@@ -267,12 +265,6 @@ CONTAINS
       & p_diag%vort,     &
       & p_op_coeff,      &
       & z_vort_flx)
-
-    ! LL: z_vort_flx is synced in nonlinear_coriolis_3d
-!     DO jk = slev, elev
-!       CALL sync_patch_array(sync_v, p_patch, z_vort_flx(:,jk,:))
-!     END DO
-
     !-------------------------------------------------------------------------------
     ! IF(L_ENSTROPHY_DISSIPATION)THEN
     !  DO jk = slev, elev
@@ -285,6 +277,8 @@ CONTAINS
 
     DO jk = slev, elev
       ipl_src=3  ! output print level (1-5, fix)
+! write(*,*)'vort',jk, maxval(p_diag%vort(:,jk,:)),&
+! &minval(p_diag%vort(:,jk,:))
       CALL print_mxmn('vorticity',jk,p_diag%vort(:,:,:),n_zlev, &
         & p_patch%nblks_v,'vel',ipl_src)
       ipl_src=4  ! output print level (1-5, fix)
@@ -309,8 +303,8 @@ CONTAINS
     CALL grad_fd_norm_oce_3d( p_diag%kin, &
       & p_patch,    &
       & p_op_coeff%grad_coeff,&
-      & p_diag%grad)!,&
-    !& opt_slev=slev,opt_elev=elev )
+      & p_diag%grad)
+
     CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))    
 
     DO jk = slev, elev
@@ -349,18 +343,6 @@ CONTAINS
         & opt_slev=slev,opt_elev=elev)
       CALL sync_patch_array(SYNC_E, p_patch, p_diag%vt)
 
-      ! DO jb = i_startblk_e,i_endblk_e
-      !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-      !     &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-      !   DO jk = slev, elev
-      !     DO je=i_startidx_e, i_endidx_e
-      !       IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
-      !         !p_diag%vt(je,jk,jb) = 0.0_wp
-      !         vn_old(je,jk,jb) = 0.0_wp
-      !       ENDIF
-      !     END DO
-      !   END DO
-      ! END DO
 
       CALL rot_vertex_ocean_rbf(p_patch, vn_old, p_diag%vt, p_diag%vort)
       CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
@@ -438,9 +420,10 @@ CONTAINS
         END DO
       END DO
 
-      CALL grad_fd_norm_oce( p_diag%kin, &
-        & p_patch,    &
-        & z_grad_ekin_rbf, opt_slev=slev,opt_elev=elev)
+     CALL grad_fd_norm_oce_3d( p_diag%kin, &
+      & p_patch,    &
+      & p_op_coeff%grad_coeff,&
+      & z_grad_ekin_rbf)
 
       CALL sync_patch_array(SYNC_E, p_patch, z_grad_ekin_rbf)      
 
@@ -536,7 +519,6 @@ CONTAINS
               & p_diag%p_vn_dual(il_c2,jk,ib_c2)%x)
 
             u_v_cc_e(je,jk,jb)%x = vn(je,jk,jb) * u_v_cc_e(je,jk,jb)%x
-
           ENDIF
         END DO
       END DO
@@ -553,7 +535,6 @@ CONTAINS
           u_v_cc_c(jc,jk,jb)= vector_product(p_op_coeff%cell_position_cc(jc,jk,jb),&
                                 &p_diag%p_vn(jc,jk,jb))
           u_v_cc_c(jc,jk,jb)%x = p_patch%cells%f_c(jc,jb)*u_v_cc_c(jc,jk,jb)%x
-
 
          il_e1 = p_patch%cells%edge_idx(jc,jb,1)
          ib_e1 = p_patch%cells%edge_blk(jc,jb,1)
@@ -581,11 +562,11 @@ CONTAINS
     !calculates the curl. This is needed in Laplace-beltrami operator (velocity diffusion).
     !It is not needed for velocity advection.
     !CALL rot_vertex_ocean( p_patch, vn, p_diag%p_vn_dual, p_diag%vort)
-     CALL rot_vertex_ocean_3D( p_patch,             &
-                             & vn,                  &
-                             & p_diag%p_vn_dual,    &
-                             & p_op_coeff,          &
-                             & p_diag%vort)
+      CALL rot_vertex_ocean_3D( p_patch,             &
+                              & vn,                  &
+                              & p_diag%p_vn_dual,    &
+                              & p_op_coeff,          &
+                              & p_diag%vort)
     CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
 
   END SUBROUTINE veloc_adv_horz_mimetic_div
@@ -1128,7 +1109,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_horz_rbf( p_patch, vn, p_diag, veloc_adv_horz_e, p_int)
+  SUBROUTINE veloc_adv_horz_rbf( p_patch, vn, p_diag, grad_coeff, veloc_adv_horz_e, p_int)
     !
     !
     !  patch on which computation is performed
@@ -1143,6 +1124,8 @@ CONTAINS
     !diagnostic ocean state stores horizontally advected velocity
     !
     TYPE(t_hydro_ocean_diag) :: p_diag
+
+    REAL(wp), INTENT(in)    :: grad_coeff(:,:,:)
     !
     ! variable in which horizontally advected velocity is stored
     !
@@ -1366,10 +1349,15 @@ CONTAINS
       END DO
     END DO
 
-    CALL grad_fd_norm_oce( p_diag%kin, &
+   CALL grad_fd_norm_oce_3d( p_diag%kin, &
       & p_patch,    &
-      & z_grad_ekin_rbf, opt_slev=slev,opt_elev=elev)
-    CALL sync_patch_array(SYNC_C, p_patch, z_grad_ekin_rbf)
+      & grad_coeff, &
+      & z_grad_ekin_rbf)
+
+!     CALL grad_fd_norm_oce( p_diag%kin, &
+!       & p_patch,    &
+!       & z_grad_ekin_rbf, opt_slev=slev,opt_elev=elev)
+!     CALL sync_patch_array(SYNC_C, p_patch, z_grad_ekin_rbf)
 
 
     !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection

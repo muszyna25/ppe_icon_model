@@ -66,7 +66,7 @@ USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, v_base
 USE mo_oce_thermodyn,          ONLY: calc_density, calc_internal_press
-USE mo_oce_math_operators,     ONLY: grad_fd_norm_oce_2d, grad_fd_norm_oce, div_oce
+USE mo_oce_math_operators!,     ONLY: grad_fd_norm_oce_3d, grad_fd_norm_oce, div_oce
 USE mo_advection_utils,        ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_physical_constants,     ONLY: grav
 USE mo_io_vlist,               ONLY: destruct_vlist
@@ -271,19 +271,19 @@ CONTAINS
       !------------------------------------------------------------------
 
       ! calculate gradient of hydrostatic pressure in 3D
-      CALL grad_fd_norm_oce( pstate_oce(jg)%p_diag%press_hyd(:,:,:),  &
-        &                    ppatch(jg),                              &
-        &                    pstate_oce(jg)%p_diag%press_grad(:,:,:))
+!       CALL grad_fd_norm_oce( pstate_oce(jg)%p_diag%press_hyd(:,:,:),  &
+!         &                    ppatch(jg),                              &
+!         &                    pstate_oce(jg)%p_diag%press_grad(:,:,:))
 
       END IF
 
       !------------------------------------------------------------------
       ! calculate gradient of surface height
       !------------------------------------------------------------------
-      !CALL message (TRIM(routine), 'call grad_fd_norm_oce_2d')
+      !CALL message (TRIM(routine), 'call grad_fd_norm_oce_3d')
 
       ! #slo# use 3-d version!
-      CALL grad_fd_norm_oce_2d( pstate_oce(jg)%p_prog(jt)%h, ppatch(jg), z_gradh_e)
+      !CALL grad_fd_norm_oce_3D( pstate_oce(jg)%p_prog(jt)%h, ppatch(jg), z_gradh_e)
 
       IF (my_process_is_stdio() .AND. ldbg) THEN
         WRITE(message_text,form4ar) &
@@ -385,7 +385,7 @@ CONTAINS
       IF (my_process_is_stdio() .AND. ldbg) THEN
 
         ! test call of divergence of hor.vel. as in calc_vert_velocity:
-        CALL div_oce( z_vn_pred_e, ppatch(jg), z_divhor_c)
+        !CALL div_oce( z_vn_pred_e, ppatch(jg), z_divhor_c)
         jkp=c_k+1
         if ( iswm_oce == 1 ) jkp=1
         WRITE(message_text,form4ar) &
@@ -479,7 +479,7 @@ CONTAINS
         !------------------------------------------------------------------
         !  divergence of horizontal upwind fluxes of tracers calculates tracer tendencies
         !------------------------------------------------------------------
-        CALL div_oce( z_upflux_e, ppatch(jg), z_divhor_c)
+        !CALL div_oce( z_upflux_e, ppatch(jg), z_divhor_c)
 
         !------------------------------------------------------------------
         !  vertical advection of tracers with upwind-method

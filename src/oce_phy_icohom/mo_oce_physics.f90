@@ -54,7 +54,7 @@ USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
-  &                               CWA, CWT, HORZ_VELOC_DIFF_TYPE
+  &                               CWA, CWT, HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
@@ -68,7 +68,7 @@ USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold, nnew
 ! USE mo_oce_forcing,         ONLY: t_sfc_flx
 USE mo_sea_ice_types,       ONLY: t_sfc_flx
-
+USE mo_run_config,          ONLY: dtime
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
@@ -80,7 +80,7 @@ USE mo_grib2
 USE mo_cdi_constants
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, &
-  &                               sync_patch_array, sync_idx, global_max
+  &                               sync_patch_array, sync_idx, global_max, global_min
 
 IMPLICIT NONE
 
@@ -99,7 +99,6 @@ PUBLIC  :: construct_ho_params
 PUBLIC  :: destruct_ho_params
 PUBLIC  :: init_ho_params
 PUBLIC  :: update_ho_params
-PRIVATE :: calc_munk_based_lapl_diff
 
 ! variables
 Type (t_var_list), PUBLIC :: ocean_params_list
@@ -151,12 +150,19 @@ CONTAINS
   !
   !! mpi parallelized, syncs p_phys_param%K_tracer_h, p_phys_param%K_veloc_h
   SUBROUTINE init_ho_params(  ppatch, p_phys_param )
-    TYPE(t_patch), INTENT(IN)  :: ppatch
+    TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
     TYPE (t_ho_params)         :: p_phys_param
 
     ! Local variables
-    INTEGER  :: i, i_no_trac
+    INTEGER  :: i, i_no_trac 
+    INTEGER  :: je,jb
+    INTEGER  :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_lower_bound_diff
+    REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
+    REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
+    TYPE(t_subset_range), POINTER :: all_edges
+    !-------------------------------------------------------------------------
+    all_edges => ppatch%edges%all
     !-------------------------------------------------------------------------
     !Init from namelist
     p_phys_param%K_veloc_h_back = k_veloc_h
@@ -164,30 +170,77 @@ CONTAINS
     p_phys_param%K_veloc_h      = k_veloc_h
     p_phys_param%A_veloc_v      = k_veloc_v
 
-    SELECT CASE(HORZ_VELOC_DIFF_TYPE)
-    CASE(0)
-      p_phys_param%K_veloc_h(:,:,:) = 0.0_wp
+    z_largest_edge_length = global_max(MAXVAL(ppatch%edges%primal_edge_length))
 
-    CASE(1)
-      CALL calc_lower_bound_veloc_diff(  ppatch, z_lower_bound_diff )
-      IF(z_lower_bound_diff>p_phys_param%K_veloc_h_back)THEN
 
-        CALL message ('init_ho_params','WARNING: Specified diffusivity&
-                      & does not satisfy Munk criterion. This may lead&
-                      &to stability problems for experiments with lateral boundaries')
-      ENDIF
-      p_phys_param%K_veloc_h(:,:,:) = p_phys_param%K_veloc_h_back
-      write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
+    !Distinghuish between harmonic and biharmonic laplacian
+    !Harmonic laplacian
+    IF(veloc_diffusion_order==1)THEN
+      SELECT CASE(HORZ_VELOC_DIFF_TYPE)
+      CASE(0)!no friction
+        p_phys_param%K_veloc_h(:,:,:) = 0.0_wp
 
-    CASE(2)
-      CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h)
+      CASE(1)!use uniform viscosity coefficient from namelist
+        CALL calc_lower_bound_veloc_diff(  ppatch, z_lower_bound_diff )
+        IF(z_lower_bound_diff>p_phys_param%K_veloc_h_back)THEN
+          CALL message ('init_ho_params','WARNING: Specified diffusivity&
+                        & does not satisfy Munk criterion. This may lead&
+                        &to stability problems for experiments with lateral boundaries')
+        ENDIF
 
-    CASE(3)
-      CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h)
+        p_phys_param%K_veloc_h(:,:,:) = p_phys_param%K_veloc_h_back
+        write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
 
-    END SELECT
+      CASE(2)!calculate uniform viscosity coefficient, according to Munk criterion
 
+        p_phys_param%K_veloc_h(:,:,:) = 3.82E-12_wp&
+        &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
+
+      CASE(3)!
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+          DO je = i_startidx_e, i_endidx_e
+            !calculate lower bound for diffusivity
+            !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
+            p_phys_param%K_veloc_h(je,:,jb) = 3.82E-12_wp&
+            &*(N_POINTS_IN_MUNK_LAYER*ppatch%edges%primal_edge_length(je,jb))**3&
+            &*cos( ppatch%edges%center(je,jb)%lat)!*deg2rad
+          END DO
+        END DO
+      END SELECT
+    !Biharmonic laplacian
+    ELSEIF(veloc_diffusion_order==2)THEN
+
+        !The general form follows the hydrostatic atmospheric code.
+        !The number that controls all that the "z_diff_efdt_ratio"
+        !is different. Higher z_diff_efdt_ratio decreases the final
+        !diffusion coefficient 
+        z_diff_efdt_ratio = 10000.0_wp
+        z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+          DO je = i_startidx_e, i_endidx_e
+             p_phys_param%K_veloc_h(je,:,jb) = &
+             &ppatch%edges%area_edge(je,jb)*ppatch%edges%area_edge(je,jb)*z_diff_multfac
+          END DO
+        END DO
+
+!          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
+!         DO jb = all_edges%start_block, all_edges%end_block
+!            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!            DO je = i_startidx_e, i_endidx_e
+!              p_phys_param%K_veloc_h(je,:,jb) = &
+!              &(ppatch%edges%primal_edge_length(je,jb)**4)*z_diff_multfac
+!            END DO
+!          END DO
+
+write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),&
+&minval(p_phys_param%K_veloc_h(:,1,:))
+
+
+    ENDIF
     CALL smooth_lapl_diff( ppatch, p_phys_param%K_veloc_h )
+
 
     DO i=1,no_tracer
 
@@ -245,8 +298,6 @@ CONTAINS
     edges_in_domain => p_patch%edges%in_domain
 
     ! Get the largest edge length globally
-    z_largest_edge_length = 0.0_wp
-
     z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
 
     !calculate lower bound for diffusivity: The factor cos(lat) is omitted here, because of
@@ -256,60 +307,6 @@ CONTAINS
   END SUBROUTINE calc_lower_bound_veloc_diff
 
   !-------------------------------------------------------------------------
-  !
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011-08)
-  !
-  !! mpi parameters, no sync required
-  SUBROUTINE calc_munk_based_lapl_diff( p_patch, K_h )
-    TYPE(t_patch), TARGET,INTENT(IN)  :: p_patch
-    REAL(wp), INTENT(OUT)             :: K_h(:,:,:)
-    ! Local variables
-    REAL(wp), PARAMETER  :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
-    INTEGER  :: je,jb
-    INTEGER  :: i_startidx_e, i_endidx_e
-    REAL(wp) :: z_largest_edge_length
-    !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_edges
-    !-------------------------------------------------------------------------
-    all_edges => p_patch%edges%all
-
-    z_largest_edge_length = 0.0_wp
-    z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
-
-    SELECT CASE(HORZ_VELOC_DIFF_TYPE)
-    CASE(2)
-      !write(*,*)'largest edge length',z_largest_edge_length
-      DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
-
-          !calculate lower bound for diffusivity
-          !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
-          K_h(je,:,jb) = 3.82E-12_wp*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
-        END DO
-      END DO
-
-    CASE(3)
-
-      DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
-
-          !calculate lower bound for diffusivity
-          !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
-          K_h(je,:,jb) = 3.82E-12_wp&
-            &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3&
-            &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
-        END DO
-      END DO
-    END SELECT
-
-    ipl_src = 1  ! output print level (1-5, fix)
-    CALL print_mxmn('PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
-
-  END SUBROUTINE calc_munk_based_lapl_diff
-
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)

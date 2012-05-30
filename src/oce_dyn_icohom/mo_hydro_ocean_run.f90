@@ -79,8 +79,8 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values
 USE mo_oce_math_operators!,     ONLY: height_related_quantities
-USE mo_operator_ocean_coeff_3d
-USE mo_scalar_product,         ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
+USE mo_operator_ocean_coeff_3d!, ONLY: ptr_op_coeff
+USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_io_restart,             ONLY: write_restart_info_file
 USE mo_intp_data_strc,         ONLY: t_int_state
@@ -141,7 +141,7 @@ CONTAINS
   SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data,               &
                                 & datetime, n_io, jfile, lwrite_restart, p_int, &
                                 & p_sfc_flx, p_phys_param,                      &
-                                & p_as, p_atm_f, p_ice,                         &
+                                & p_as, p_atm_f, p_ice,ptr_op_coeff,            &
                                 & l_have_output)
 
   TYPE(t_patch),             TARGET, INTENT(INOUT) :: ppatch(n_dom)
@@ -157,6 +157,7 @@ CONTAINS
   TYPE(t_atmos_for_ocean),  INTENT(INOUT)          :: p_as
   TYPE(t_atmos_fluxes ),    INTENT(INOUT)          :: p_atm_f
   TYPE (t_sea_ice),         INTENT(INOUT)          :: p_ice
+  TYPE(t_operator_coeff),   INTENT(INOUT)          :: ptr_op_coeff
   LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
 
@@ -166,7 +167,7 @@ CONTAINS
   LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
-  TYPE(t_operator_coeff)          :: ptr_op_coeff
+  !TYPE(t_operator_coeff)          :: ptr_op_coeff
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -182,8 +183,8 @@ CONTAINS
   END IF
   jg = n_dom
 
-  CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
-  CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+!   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
+!   CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
   ! As an alternative a serial 2D version of the coefficient computation can be used
 !   IF (my_process_is_mpi_all_parallel()) THEN
 !     CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
@@ -191,7 +192,7 @@ CONTAINS
 !     CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
 !   ENDIF
 
-  CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
+!   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
   IF (idiag_oce == 1) &
     & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
@@ -378,7 +379,7 @@ CONTAINS
   !
   SUBROUTINE prepare_ho_integration(ppatch, pstate_oce, p_ext_data, p_sfc_flx, &
                                   & p_phys_param, p_as,&
-                                  & p_atm_f, p_ice)
+                                  & p_atm_f, p_ice, ptr_op_coeff, p_int)
 
     TYPE(t_patch),                INTENT(INOUT)  :: ppatch(n_dom)
     TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: pstate_oce(n_dom)
@@ -388,6 +389,8 @@ CONTAINS
     TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
     TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
+    TYPE(t_operator_coeff),       INTENT(INOUT)  :: ptr_op_coeff
+    TYPE(t_int_state),TARGET,     INTENT(inout)  :: p_int(n_dom)
 
     ! local variables
     !TYPE(t_hydro_ocean_base)                  :: p_base
@@ -443,7 +446,7 @@ CONTAINS
     CALL construct_atmos_fluxes(ppatch(jg), p_atm_f, kice)
 
     IF (init_oce_prog == 0) THEN
-      CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+      CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), ptr_op_coeff,p_sfc_flx)
     ELSE IF (init_oce_prog == 1) THEN
       CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_sfc_flx)
     END IF
@@ -453,6 +456,11 @@ CONTAINS
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
     IF (i_sea_ice == 1) &
       &   CALL ice_init(ppatch(jg), pstate_oce(jg), p_ice)
+
+
+    CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
+    CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+    CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
   ! IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')

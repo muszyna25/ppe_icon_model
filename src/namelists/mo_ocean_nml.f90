@@ -154,8 +154,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: CENTRAL= 2
   INTEGER, PARAMETER :: MIMETIC= 3
   INTEGER, PARAMETER :: MIMETIC_MIURA= 4
-  INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC
-  INTEGER            :: FLUX_CALCULATION_VERT = MIMETIC
+  INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC_MIURA
+  INTEGER            :: FLUX_CALCULATION_VERT = MIMETIC_MIURA
 
 
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
@@ -186,6 +186,11 @@ MODULE mo_ocean_nml
   INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
+  INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
+  INTEGER  :: veloc_diffusion_form  = 1          !form of friction/diffusion operator
+                                                 !1: Laplace=curlcurl-graddiv
+                                                 !2: Laplace=div k  grad
+                                                 !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
   REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
   REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
@@ -243,6 +248,7 @@ MODULE mo_ocean_nml
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
     &                 expl_vertical_tracer_diff,                           &
+    &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT
  
 

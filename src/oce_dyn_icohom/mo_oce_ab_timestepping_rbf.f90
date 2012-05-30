@@ -66,10 +66,9 @@ USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indi
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
-!USE mo_oce_forcing,               ONLY: t_sfc_flx!, update_sfcflx
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
-  &                                     height_related_quantities
+USE mo_oce_math_operators!,        !ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
+  !&                                     height_related_quantities
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_RBF, velocity_diffusion_vert_RBF, &
   &                                     veloc_diffusion_vert_impl_hom
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_RBF, veloc_adv_vert_RBF
@@ -121,6 +120,7 @@ TYPE(t_sfc_flx), INTENT(INOUT)            :: p_sfc_flx
 TYPE (t_ho_params)                        :: p_phys_param
 INTEGER                                   :: timestep
 TYPE(t_int_state),TARGET,INTENT(IN)       :: p_int
+!TYPE(t_operator_coeff)                    :: p_op_coeff
 !
 !Local variables
 !
@@ -232,11 +232,12 @@ IF ( iswm_oce /= 1 ) THEN
   CALL top_bound_cond_horz_veloc(p_patch, p_os, p_sfc_flx,  &
                                 & p_os%p_aux%bc_top_u, p_os%p_aux%bc_top_v,&
                                 & p_os%p_aux%bc_top_veloc_cc) 
-  CALL bot_bound_cond_horz_veloc(p_patch, p_os, p_phys_param)
+  CALL bot_bound_cond_horz_veloc(p_patch, p_os, p_phys_param, p_op_coeff%div_coeff)
 ENDIF
 
 ! Calculate explicit terms of Adams-Bashforth timestepping
-CALL calculate_explicit_term_ab_RBF(p_patch, p_os, p_phys_param, p_int, l_first_timestep )
+CALL calculate_explicit_term_ab_RBF(p_patch, p_os, p_phys_param, p_int, p_op_coeff,&
+                                   &l_first_timestep )
 
 IF(.NOT.l_RIGID_LID)THEN
   ! Calculate RHS of surface equation
@@ -315,12 +316,14 @@ END SUBROUTINE solve_free_sfc_ab_RBF
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE calculate_explicit_term_ab_RBF( p_patch, p_os, p_phys_param, p_int, l_first_timestep)
+ SUBROUTINE calculate_explicit_term_ab_RBF( p_patch, p_os, p_phys_param, p_int, p_op_coeff,&
+                                           &l_first_timestep)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
 TYPE(t_hydro_ocean_state), TARGET             :: p_os
 TYPE (t_ho_params)                            :: p_phys_param
 TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
+TYPE(t_operator_coeff)                        :: p_op_coeff
 LOGICAL                                       :: l_first_timestep 
 !
 !local variables
@@ -350,9 +353,10 @@ CALL grad_fd_norm_oce_2d( p_os%p_prog(nold(1))%h, &
 ! STEP 2: calculate horiz. advcetion
 ! horiz. advcetion= gradient kinetic energy + nonlinear Coriolis term
 !(nonlinear Coriolis term corresponds to (Coriolis param + curl of veloc)*tangential veloc).
-CALL veloc_adv_horz_RBF( p_patch,                    &
+CALL veloc_adv_horz_RBF( p_patch,                &
        &             p_os%p_prog(nold(1))%vn,    &
        &             p_os%p_diag,                &
+       &             p_op_coeff%grad_coeff,      &
        &             p_os%p_diag%veloc_adv_horz, & !contains nonlinear Coriolis term, gradient kinetic energy is calculated seperately
        &             p_int                      )
 
@@ -370,9 +374,9 @@ IF ( iswm_oce /= 1 ) THEN
           &                  p_os%p_diag%press_hyd)
 
   ! calculate gradient of hydrostatic pressure in 3D
-  CALL grad_fd_norm_oce( p_os%p_diag%press_hyd,  &
-         &               p_patch,                &
-         &               p_os%p_diag%press_grad)
+!   CALL grad_fd_norm_oce( p_os%p_diag%press_hyd,  &
+!          &               p_patch,                &
+!          &               p_os%p_diag%press_grad)
 
 
   CALL veloc_adv_vert_RBF( p_patch,                  &
@@ -716,7 +720,7 @@ ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
   z_e(:,1,:) = z_vn_ab(:,1,:)*p_os%p_diag%thick_e(:,:)
 ENDIF
 
-CALL div_oce( z_e, p_patch, div_z_c, 1,1 ) ! to be included surface forcing* +dtime*(P_E)
+!CALL div_oce( z_e, p_patch, div_z_c, 1,1 ) ! to be included surface forcing* +dtime*(P_E)
 IF(l_forc_freshw)THEN
 
   DO jb = i_startblk_c, i_endblk_c
@@ -833,7 +837,7 @@ z_e(:,1,:)=z_grad_h(:,1,:)*thickness_e
 !  END DO
 
 !Step 3) Calculate divergence
-CALL div_oce( z_e, p_patch, div_z_c, top,top )
+!CALL div_oce( z_e, p_patch, div_z_c, top,top )
 
 
 !Step 4) Finalize LHS calculations
@@ -1056,9 +1060,8 @@ z_vn_ab(:,:,:) = 0.0_wp
 ! Step 1) Calculate divergence of horizontal velocity at level jk
 !------------------------------------------------------------------
 z_vn_ab = ab_gam*pvn_new + (1.0_wp -ab_gam)* pvn_old
-! z_vn_ab2 = ab_gam*pvn_new + (1.0_wp -ab_gam)* pvn_old
-! CALL map_edges2edges( p_patch, z_vn_ab2, z_vn_ab)
-CALL div_oce( z_vn_ab, p_patch, z_div_c)
+
+!CALL div_oce( z_vn_ab, p_patch, z_div_c)
 
 !Note we are summing from bottom up to one layer below top.
 !In top layer vertical velocity is given by boundary condition

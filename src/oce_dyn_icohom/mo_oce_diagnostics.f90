@@ -62,12 +62,11 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c!, get_indices_e
-USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
-  &                                     height_related_quantities
+!USE mo_oce_math_operators,        ONLY: height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_intp_data_strc,            ONLY: t_int_state
-USE mo_scalar_product,            ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
+USE mo_scalar_product,            ONLY: calc_scalar_product_veloc_3D
 USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_intp_rbf,                  ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
 USE mo_oce_ab_timestepping,       ONLY: calc_vert_velocity
@@ -159,12 +158,6 @@ rl_start_c = 1
 rl_end_c   = min_rlcell
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
 i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-! rl_start_e = 1
-! rl_end_e   = min_rledge
-! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-
 
 !direct pointer to monitored quantitiy at actual timestep
 ptr_monitor =>oce_ts%oce_diagnostics(timestep)
@@ -181,15 +174,14 @@ IF(iswm_oce/=1)THEN
       !IF ( z_dolic>=MIN_DOLIC)THEN 
         DO jk=1,n_zlev!z_dolic
 
-          IF ( v_base%lsm_oce_c(jc,jk,jb) == sea ) THEN
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-!              delta_z=p_os%p_diag%cons_thick_c(jc,jk,jb)
              delta_z = v_base%del_zlev_m(jk)! 
              IF (jk == 1) THEN
                delta_z = v_base%del_zlev_m(jk)&
                       & + p_os%p_prog(nnew(1))%h(jc,jb)
              ENDIF
-
+!delta_z=p_os%p_diag%depth_c(jc,jk,jb)
             prism_vol = p_patch%cells%area(jc,jb)*delta_z
 
             !Fluid volume 
@@ -215,7 +207,7 @@ IF(iswm_oce/=1)THEN
             !Tracer content
             DO i_no_t=1, no_tracer
               ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-              & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)*v_base%wet_c(jc,jk,jb)
+              & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
             END DO
           ENDIF
         END DO
@@ -249,7 +241,7 @@ ELSEIF(iswm_oce==1)THEN
     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
        &                             rl_start_c, rl_end_c)
     DO jc = i_startidx_c, i_endidx_c
-      IF ( v_base%lsm_oce_e(jc,1,jb) <= sea_boundary ) THEN
+      IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
         prism_vol = p_patch%cells%area(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
         ptr_monitor%volume = ptr_monitor%volume + prism_vol
 
@@ -417,7 +409,7 @@ i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
         DO jc = i_startidx_c, i_endidx_c
 
-          IF ( v_base%lsm_oce_c(jc,jk,jb) == sea ) THEN
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
             delta_z = v_base%del_zlev_m(jk)
             IF (jk == 1) THEN

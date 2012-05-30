@@ -82,17 +82,15 @@ USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges,map_edges2cell,&
   &                                     map_edges2cell_3D,&
   &                                     map_edges2edges,  &
-  &                                     calc_scalar_product_veloc, calc_scalar_product_veloc_3D!,map_cell2edges_upwind
-USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce,grad_fd_norm_oce_2d, &
+  &                                     calc_scalar_product_veloc_3D!,map_cell2edges_upwind
+USE mo_oce_math_operators,        ONLY: grad_fd_norm_oce_2d, &
   &                                     div_oce_3D, grad_fd_norm_oce_3D,&
   &                                     grad_fd_norm_oce_2d_3D,  &
-  &                                     height_related_quantities, nabla2_vec_ocean, &
-  &                                     nabla4_vec_ocean_3d, nabla2_vec_ocean_3D
+  &                                     height_related_quantities
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
-USE mo_intp_data_strc,            ONLY: t_int_state !, rbf_vec_interpol_cell
-USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
-  &                                     velocity_diffusion_vert_mimetic,                  &
-  !&                                     veloc_diffusion_vert_impl,                        &
+USE mo_intp_data_strc,            ONLY: t_int_state 
+USE mo_oce_diffusion,             ONLY: velocity_diffusion,& 
+  &                                     velocity_diffusion_vert_mimetic,  &
   &                                     veloc_diffusion_vert_impl_hom
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -123,6 +121,7 @@ LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
 ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
 ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
 LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
+LOGICAL, PUBLIC,PARAMETER :: l_EDGE_BASED = .TRUE.
 
 CONTAINS
 !-------------------------------------------------------------------------
@@ -189,7 +188,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   IF (is_initial_timestep(timestep) ) THEN
 
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
-    !CALL update_column_thickness( p_patch, p_os, p_os%p_diag, p_op_coeff, timestep )
     ! LL: synced above
 !     CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
     !LL: synced in height_related_quantities
@@ -246,7 +244,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
 
   ! Apply bot boundary condition for horizontal velocity
-  CALL bot_bound_cond_horz_veloc(p_patch, p_os, p_phys_param)
+  CALL bot_bound_cond_horz_veloc(p_patch, p_os, p_phys_param, p_op_coeff%div_coeff)
 
   ! Calculate explicit terms of Adams-Bashforth timestepping
   IF (ltimer) CALL timer_start(timer_ab_expl)
@@ -271,24 +269,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
       z_h_e = p_os%p_diag%h_e         ! #slo# 2011-02-21 bugfix (for mimetic only)
     ENDIF 
 
-!     CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess.
-!       &        lhs_surface_height_ab_mim,&  ! function calculating l.h.s.
-!       &        z_h_e,                   &  !arg 5 of lhs 
-!       &        p_os%p_diag%thick_c,     &  !arg 6 of lhs
-!       &        p_os%p_prog(nold(1))%h,  &  !arg 2 of lhs
-!       &        p_patch,                 &  !arg 3 of lhs
-!       &        p_patch%nblks_c,         &
-!       &        p_patch%npromz_c,        &
-!       &        z_implcoeff,             &  !arg 4 of lhs
-!       &        p_os%p_aux%p_rhs_sfc_eq, &  ! right hand side as input
-!       &        tolerance,               &  ! relative tolerance
-!       &        .FALSE.,                 &  ! NOT absolute tolerance
-!       &        nmax_iter,               &  ! max. # of iterations to do
-!       &        l_maxiter,               &  ! out: .true. = not converged
-!       &        n_iter,                  &  ! out: # of iterations done
-!       &        zresidual )                 ! inout: the residual (array) 
-
-
   CALL sync_patch_array(SYNC_E, p_patch, z_h_e)
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%thick_c)
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_prog(nold(1))%h)
@@ -297,8 +277,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
   CALL gmres_oce( z_h_c(:,:), &  ! arg 1 of lhs. x input is the first guess.
       &        lhs_surface_height_ab_mim,&  ! function calculating l.h.s.
-      &        z_h_e,                   &  !arg 5 of lhs  !not used
-      &        p_os%p_diag%thick_c,     &!p_os%p_diag%thick_c, &  !arg 6 of lhs      !&        p_os%p_prog(nold(1))%h,  &  !   p_os%p_diag%cons_thick_c(:,1,:),&
+      &        p_os%p_diag%thick_e,    &!z_h_e,                   &  !arg 5 of lhs  !not used
+      &        p_os%p_diag%thick_c,     &!p_os%p_diag%thick_c, &  !arg 6 of lhs p_os%p_prog(nold(1))%h,  &  !   p_os%p_diag%cons_thick_c(:,1,:),&
       &        p_os%p_prog(nold(1))%h,  &  !arg 2 of lhs !not used
       &        p_patch,                 &  !arg 3 of lhs 
       &        z_implcoeff,             &  !arg 4 of lhs
@@ -376,7 +356,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: z_en(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
-  REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
+  !REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
   !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
   TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
@@ -436,9 +416,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
             &                  p_os%p_diag%press_hyd)
 
     ! calculate gradient of hydrostatic pressure in 3D
-!     CALL grad_fd_norm_oce( p_os%p_diag%press_hyd,  &
-!            &               p_patch,                &
-!            &               p_os%p_diag%press_grad)
     CALL grad_fd_norm_oce_3D( p_os%p_diag%press_hyd,  &
            &                  p_patch,                &
            &                  p_op_coeff%grad_coeff,  &
@@ -448,6 +425,18 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     CALL veloc_adv_vert_mimetic( p_patch,          &
          &             p_os%p_diag,                &
          &             p_os%p_diag%veloc_adv_vert )
+
+!    DO jk=1, n_zlev
+!      WRITE(*,*)'MAX/MIN horz adv:',jk, &
+!         &        MAXVAL(p_os%p_diag%veloc_adv_horz(:,jk,:)),&
+!         &        MINVAL(p_os%p_diag%veloc_adv_horz(:,jk,:)) 
+!     END DO
+!    DO jk=1, n_zlev
+!      WRITE(*,*)'MAX/MIN vert adv:',jk, &
+!         &        MAXVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)),&
+!         &        MINVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)) 
+!     END DO
+
 
 
     IF (expl_vertical_velocity_diff==0) THEN
@@ -477,15 +466,15 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     DO jk=1, n_zlev
       CALL print_mxmn('internal pressure',jk,p_os%p_diag%press_hyd(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'abt',ipl_src)
-   !  WRITE(987,*)'MAX/MIN internal press:',jk, &
-   !     &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
-   !     &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
+!      WRITE(*,*)'MAX/MIN internal press:',jk, &
+!         &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
+!         &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
 
       CALL print_mxmn('internal press grad',jk,p_os%p_diag%press_grad(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'abt',ipl_src)
-    ! WRITE(987,*)'MAX/MIN internal press grad:',jk, &
-    !   &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
-    !   &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
+!      WRITE(*,*)'MAX/MIN internal press grad:',jk, &
+!        &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
+!        &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
     END DO
 
     ipl_src=4  ! output print level (1-5, fix)
@@ -509,23 +498,16 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     p_os%p_diag%laplacian_vert = 0.0_wp
   ENDIF
 
-  ! STEP 3: compute laplacian diffusion of velocity
-  ! calculate horizontal laplacian of horizontal velocity, provided this term is discretized explicitly
-  ! ! IF(horizontal_diffusion_veloc==EXPLICIT)THEN
+  ! STEP 3: compute harmonic or biharmoic laplacian diffusion of velocity.
+  !         This term is discretized explicitly. Order and form of the laplacian
+  !         are determined in mo_oce_fdiffusion according to namelist settings
+  CALL velocity_diffusion(p_patch, &
+                        & p_os%p_prog(nold(1))%vn, &
+                        & p_phys_param,            &
+                        & p_os%p_diag,p_op_coeff,  &
+                        & p_os%p_diag%laplacian_horz)
 
-
-       CALL nabla2_vec_ocean_3D( p_os%p_prog(nold(1))%vn,z_vt, p_os%p_diag%vort,&
-                                & p_patch, p_phys_param%K_veloc_h, &
-                                & p_op_coeff,&
-                                & p_os%p_diag%p_vn_dual, p_os%p_diag%laplacian_horz)
-
-!        CALL nabla4_vec_ocean_3D( p_os%p_prog(nold(1))%vn,z_vt, p_os%p_diag%vort,&
-!                                 & p_patch, p_phys_param%K_veloc_h, &
-!                                 & p_op_coeff,&
-!                                 & p_os%p_diag%p_vn_dual, p_os%p_diag%laplacian_horz)
-
-
-      CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%laplacian_horz)
+  CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%laplacian_horz)
 
 
   ipl_src=4  ! output print level (1-5, fix)
@@ -536,18 +518,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
       &              p_patch%nblks_e,'abt',ipl_src)
   END DO
 
-!  DO jb = i_startblk, i_endblk
-!    CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,&
-!                     &  i_startidx, i_endidx,&
-!                     &  rl_start, rl_end)
-!    DO jk = 1, n_zlev
-!      DO je = i_startidx, i_endidx
-!      IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-!      write(123,*)'laplacian',jk,p_os%p_diag%laplacian_horz(je,jk,jb),z_e(je,jk,jb)
-!      ENDIF 
-!      ENDDO
-!    END DO
-!  END DO
 
   IF (L_INVERSE_FLIP_FLOP) THEN
 
@@ -906,29 +876,32 @@ TYPE(t_operator_coeff)            :: p_op_coeff
 !  local variables
 !
 INTEGER :: i_startidx_c, i_endidx_c
-INTEGER :: jc, jb, jk!, je
-INTEGER :: i_dolic_c
+INTEGER :: i_startidx_e, i_endidx_e
+INTEGER :: jc, jb, jk, je
+INTEGER :: i_dolic_c,i_dolic_e
 REAL(wp) :: z_e(nproma,p_patch%nblks_e)
+REAL(wp) :: div_z_depth_int_c(nproma,p_patch%nblks_e)
 REAL(wp) :: z_e1(nproma,p_patch%nblks_e)
-REAL(wp) :: gdt2
+REAL(wp) :: gdt2, delta_z
 REAL(wp) :: z_c1(nproma,p_patch%nblks_c)
-REAL(wp) :: div_z_c(nproma,p_patch%nblks_c)
+REAL(wp) :: div_z_c_2D(nproma,p_patch%nblks_c)
+REAL(wp) :: div_z_c(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_cc1(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,p_patch%nblks_c)
-TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
+TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges
 !REAL(wp) :: thick
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_mimetic:fill_rhs4surface_eq_ab')
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')        
-  all_cells => p_patch%cells%all
+  all_cells       => p_patch%cells%all
   cells_in_domain => p_patch%cells%in_domain
+  all_edges       => p_patch%edges%all
 
-! #slo# 2011-02-17: move invert of gdt=grav*dt into module for constants (tbd)
-gdt2 = grav*(dtime)**2
+  gdt2 = grav*(dtime)**2
 
 DO jb = all_cells%start_block, all_cells%end_block
   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -937,9 +910,12 @@ DO jb = all_cells%start_block, all_cells%end_block
     z_u_pred_cc(jc,1,jb)%x(:)           = 0.0_wp
   END DO
 END DO
+z_e(:,:)              =0.0_wp
+div_z_depth_int_c(:,:)=0.0_wp
+div_z_c_2D            =0.0_wp
 
 IF (p_test_run) THEN
-  div_z_c(:,:)=0.0_wp
+  div_z_c(:,:,:)=0.0_wp
   z_e(:,:)    =0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(1) = 0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(2) = 0.0_wp
@@ -951,178 +927,225 @@ ENDIF
    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nold(1))%vn)
    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_impl_vert_diff)
 
-! IF(iswm_oce == 1)THEN
-!   z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
-! ELSEIF(iswm_oce /= 1)THEN
-!   IF(expl_vertical_velocity_diff==1)THEN
-!     z_vn_ab = ab_gam*p_os%p_diag%vn_impl_vert_diff + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
-!   ELSEIF(expl_vertical_velocity_diff==0)THEN
-!     z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
-!   ENDIF
-! ENDIF
+ IF(iswm_oce == 1)THEN
+   z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
+ ELSEIF(iswm_oce /= 1)THEN
+   IF(expl_vertical_velocity_diff==1)THEN
+     z_vn_ab = ab_gam*p_os%p_diag%vn_impl_vert_diff + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
+   ELSEIF(expl_vertical_velocity_diff==0)THEN
+     z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
+   ENDIF
+ ENDIF
+! !    DO jk = 1, n_zlev
+! !      write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
+! !    END DO
 
-CALL map_edges2cell_3D( p_patch,                 &
-                      & p_os%p_prog(nold(1))%vn, &
-                      & p_op_coeff, z_u_cc2)
+IF(l_EDGE_BASED)THEN
 
+!  IF( iswm_oce /= 1 ) THEN !the 3D case
+!   !calculate depth-integrated velocity 
+!     DO jb = all_edges%start_block, all_edges%end_block
+!       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!       DO je = i_startidx_e, i_endidx_e
+!         i_dolic_e = v_base%dolic_e(je,jb)
+!         DO jk=1,i_dolic_e !1,i_dolic_c
+!           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+!             z_e(je,jb)=z_e(je,jb) + z_vn_ab(je,jk,jb)*v_base%del_zlev_m(jk)
+!             !z_vn_ab(je,jk,jb)=z_vn_ab(je,jk,jb)*v_base%del_zlev_m(jk)
+!             IF(jk==1)THEN
+!               !z_vn_ab(je,jk,jb)=z_vn_ab(je,jk,jb)*(v_base%del_zlev_m(jk)+p_os%p_diag%h_e(je,jb))
+!               z_e(je,jb)=z_e(je,jb) + z_vn_ab(je,jk,jb)&
+!               &*(v_base%del_zlev_m(jk)+p_os%p_diag%h_e(je,jb))
+!             ENDIF
+!           ENDIF
+!         END DO
+!        !Add surface elevation
+!        !For a linear surface this can be eleminated
+!        ! IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+!        !   z_e(je,jb)=z_e(je,jb) + z_vn_ab(je,1,jb)*p_os%p_diag%h_e(je,jb)
+!        ! ENDIF
+!       ENDDO
+!     END DO
+!    ENDIF
+  !CALL div_oce_3d(z_e, p_patch,p_op_coeff%div_coeff, div_z_depth_int_c,&
+  !               & level=1,subset_range=cells_in_domain )
 
-IF(iswm_oce == 1)THEN
-  CALL map_edges2cell_3D( p_patch,           &
-                        & p_os%p_diag%vn_pred ,&
-                        & p_op_coeff, z_u_cc1)
+   CALL div_oce_3d(z_vn_ab, p_patch,p_op_coeff%div_coeff, div_z_c,&
+                 & subset_range=cells_in_domain )
+   DO jb = all_cells%start_block, all_cells%end_block
+     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+     DO jc = i_startidx_c, i_endidx_c
+       i_dolic_c = v_base%dolic_c(jc,jb)
+       DO jk=1,i_dolic_c !1,i_dolic_c
+         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+           delta_z=v_base%del_zlev_m(jk)
+           IF(jk==1)delta_z=v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+            div_z_depth_int_c(jc,jb)&
+            &=div_z_depth_int_c(jc,jb) +div_z_c(jc,jk,jb)*delta_z
+           ENDIF
+        END DO
+    END DO
+  END DO
 
-ELSEIF(iswm_oce /= 1)THEN
+  IF(l_forc_freshw)THEN
 
-  IF(expl_vertical_velocity_diff==0)THEN
-    CALL map_edges2cell_3D( p_patch,           &
-                        & p_os%p_diag%vn_pred ,&
-                        & p_op_coeff, z_u_cc1)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+!         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
+!                                        & - dtime*(div_z_c(jc,jb)        &
+!                                        & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
+!                                        &  *v_base%wet_c(jc,1,jb) !last idx=2 for freshwater
+          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
+                                         & - dtime*(div_z_depth_int_c(jc,jb)        &
+                                         & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
+                                         &  *v_base%wet_c(jc,1,jb) !last idx=2 for freshwater
+        ENDIF
+       !write(*,*)'RHS:',jc,jb,p_os%p_aux%p_rhs_sfc_eq(jc,jb), div_z_c(jc,1,jb)
+      ENDDO
+    END DO
+  ELSEIF(.NOT.l_forc_freshw)THEN
 
-  ELSEIF(expl_vertical_velocity_diff==1)THEN
-    CALL map_edges2cell_3D( p_patch,                    &
-                        & p_os%p_diag%vn_impl_vert_diff,&
-                        & p_op_coeff, z_u_cc1)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+!             p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
+!                                            & - dtime*div_z_c(jc,jb))/gdt2)!&
+!                                            !& *v_base%wet_c(jc,1,jb)
+          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
+                                         & - dtime*div_z_depth_int_c(jc,jb))/gdt2)!&
+                                         !& *v_base%wet_c(jc,1,jb)
+        ENDIF
+      ENDDO
+    END DO
   ENDIF
 
-ENDIF
+ELSE!NOT EDGE-BASED
+!  CALL map_edges2cell_3D( p_patch,                 &
+!                        & p_os%p_prog(nold(1))%vn, &
+!                        & p_op_coeff, z_u_pred_cc)
+! 
+! ! CALL map_edges2cell_3D( p_patch,                 &
+! !                       & p_os%p_prog(nold(1))%vn, &
+! !                       & p_op_coeff, z_u_cc2)
+! ! IF(iswm_oce == 1)THEN
+! !   CALL map_edges2cell_3D( p_patch,           &
+! !                         & p_os%p_diag%vn_pred ,&
+! !                         & p_op_coeff, z_u_cc1)
+! ! 
+! ! ELSEIF(iswm_oce /= 1)THEN
+! ! 
+! !   IF(expl_vertical_velocity_diff==0)THEN
+! !     CALL map_edges2cell_3D( p_patch,           &
+! !                         & p_os%p_diag%vn_pred ,&
+! !                         & p_op_coeff, z_u_cc1)
+! ! 
+! !   ELSEIF(expl_vertical_velocity_diff==1)THEN
+! !     CALL map_edges2cell_3D( p_patch,                    &
+! !                         & p_os%p_diag%vn_impl_vert_diff,&
+! !                         & p_op_coeff, z_u_cc1)
+! !   ENDIF
+! ! 
+! ! ENDIF
+! ! 
+! !  DO jb = all_cells%start_block, all_cells%end_block
+! !     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+! !     DO jc = i_startidx_c, i_endidx_c
+! !       i_dolic_c = v_base%dolic_c(jc,jb)
+! !       DO jk=1,i_dolic_c
+! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !           z_u_pred_cc(jc,jk,jb)%x = ab_gam*z_u_cc1(jc,jk,jb)%x&
+! !           & + (1.0_wp -ab_gam)*z_u_cc2(jc,jk,jb)%x
+! !         ENDIF
+! !       END DO
+! !     ENDDO
+! !   END DO
+! 
+! 
+! 
+! ! Step 1) Do within each layer a edge to cell mapping of vn_pred
+! ! For below-surface cells, no height has to be provided, and the reconstructions
+! ! are normalized by cell area (see primal flip-flop).
+! ! For surface cells, the working hypothesis is to do it as in the SW-code, i.e.
+! ! we take also the height at the edges into account:
 
 
+  CALL map_edges2cell_3D( p_patch,              &
+                         & z_vn_ab ,            &
+                         & p_op_coeff, z_u_pred_cc)
 
- DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      i_dolic_c = v_base%dolic_c(jc,jb)
-      DO jk=1,i_dolic_c
-        z_u_pred_cc(jc,jk,jb)%x = ab_gam*z_u_cc1(jc,jk,jb)%x&
-        & + (1.0_wp -ab_gam)*z_u_cc2(jc,jk,jb)%x
-      END DO
-    ENDDO
-  END DO
+  IF( iswm_oce /= 1 ) THEN !the 3D case
+  !calculate depth-integrated velocity 
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        i_dolic_c = v_base%dolic_c(jc,jb)
+        DO jk=1,i_dolic_c !1,i_dolic_c
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
+                                           &+ z_u_pred_cc(jc,jk,jb)%x      &
+                                           &* v_base%del_zlev_m(jk)
+          ENDIF
+        END DO
+       !Add surface elevation
+       !For a linear surface this can be eleminated
+        IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
+                                         &+ z_u_pred_cc(jc,1,jb)%x       &
+                                         &*p_os%p_prog(nold(1))%h(jc,jb)
+        ENDIF
+      ENDDO
+    END DO
+
+  ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_cc(jc,1,jb)%x&
+                                       &*p_os%p_diag%thick_c(jc,jb)
+      ENDDO
+     END DO
+  ENDIF!( iswm_oce /= 1 ) THEN
 
 
-!    DO jk = 1, n_zlev
-!      write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
-!    END DO
-!Step 1) Do within each layer a edge to cell mapping of vn_pred
-!For below-surface cells, no height has to be provided, and the reconstructions
-!are normalized by cell area (see primal flip-flop).
-!For surface cells, the working hypothesis is to do it as in the SW-code, i.e.
-!we take also the height at the edges into account:
-!
-IF( iswm_oce /= 1 ) THEN !the 3D case
+  CALL map_cell2edges(p_patch,z_u_pred_depth_int_cc, z_e, level=1) 
 
-!calculate depth-integrated velocity 
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      i_dolic_c = v_base%dolic_c(jc,jb)
-      DO jk=2,i_dolic_c !1,i_dolic_c
-         z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
-                                        &+ z_u_pred_cc(jc,jk,jb)%x      &
-                                        &* v_base%del_zlev_m(jk)
-      END DO
-     !Add surface elevation
-     !For a linear surface this can be eleminated
-      z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
-                                     &+ z_u_pred_cc(jc,1,jb)%x       &
-                                     &* p_os%p_prog(nold(1))%h(jc,jb)!p_os%p_diag%cons_thick_c(jc,1,jb)
-    ENDDO
-  END DO
-
-!write(*,*)'MAX/MIN z_e 1:', maxval(p_os%p_diag%u_pred(:,1,:)),minval(p_os%p_diag%u_pred(:,1,:)), &
-!& maxval(p_os%p_diag%v_pred(:,1,:)),minval(p_os%p_diag%v_pred(:,1,:))
-
-ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
-
-DO jb = all_cells%start_block, all_cells%end_block
-  CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-  DO jc = i_startidx_c, i_endidx_c
-
-     z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_cc(jc,1,jb)%x&
-                                    &*p_os%p_diag%thick_c(jc,jb)
-  ENDDO
-END DO
-ENDIF
-!z_e(:,1,:) = z_vn_ab(:,1,:)*p_os%p_diag%thick_e(:,:)
-
-!  CALL global_mpi_barrier()
-!  write(0,*) "sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc..."
-!  CALL sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc(:,:)%x(1) )
-!  CALL sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc(:,:)%x(2) )
-!  CALL sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc(:,:)%x(3) )
-
-  CALL map_cell2edges( p_patch,               &
-                      & z_u_pred_depth_int_cc,&
-                      & z_e,                  &
-                      & level=1)
-
-!  CALL global_mpi_barrier()
-!  write(0,*) "sync_patch_array(SYNC_E, p_patch, z__e..."
-!  CALL sync_patch_array(SYNC_E, p_patch, z_e)
-
-! write(*,*)'MAX/MIN depth_int_cc:',1,maxval(z_u_pred_depth_int_cc(:,1,:)%x(1)), &
-!   &  minval(z_u_pred_depth_int_cc(:,1,:)%x(1))
-! DO jk = 1, n_zlev
-! write(*,*)'MAX/MIN z_e:', jk,maxval(p_os%p_diag%u_pred(:,jk,:)),minval(p_os%p_diag%u_pred(:,jk,:)), &
-! & maxval(p_os%p_diag%v_pred(:,jk,:)),minval(p_os%p_diag%v_pred(:,jk,:))
-! END DO
-! write(*,*)'MAX/MIN depth integrated mass vector:', maxval(z_u_pred_depth_int(:,1,:)),minval(z_u_pred_depth_int(:,1,:)), &
-! & maxval(z_v_pred_depth_int(:,1,:)),minval(z_v_pred_depth_int(:,1,:))
-!write(*,*)'MAX/MIN depth integrated mass flux:', maxval(z_e(:,1,:)),minval(z_e(:,1,:)) 
-
-! Step 4) Calculate divergence of predicted horizontal velocity
-! #slo# due to nag -nan compiler-option:
-!  - set divergence to zero otherwise last block contains undef values
-!div_z_c(:,1,:) = 0.0_wp
-!write(0,*)'minval(z_e):',minval(z_e),' maxval:',maxval(z_e)
-! CALL div_oce( z_e, p_patch, div_z_c, opt_slev=1,opt_elev=1 ) ! to be included surface forcing* +dtime*(P_E)
-CALL div_oce_3d( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
+  CALL div_oce_3d( z_e, p_patch,p_op_coeff%div_coeff, div_z_c_2D,&
                & level=1, subset_range=cells_in_domain )
 
-!  CALL global_mpi_barrier()
-!  write(0,*) "sync_patch_array(SYNC_C, p_patch, div_z_c..."
-!  CALL sync_patch_array(SYNC_C, p_patch, div_z_c)
+  IF(l_forc_freshw)THEN
 
-IF(l_forc_freshw)THEN
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)  &
+                                         & - dtime*(div_z_c_2D(jc,jb)        &
+                                         & + p_sfc_flx%forc_tracer(jc,jb,2)))/gdt2)&
+                                         &  *v_base%wet_c(jc,1,jb) !last idx=2 for freshwater
+        ENDIF
+      ENDDO
+    END DO
+  ELSEIF(.NOT.l_forc_freshw)THEN
 
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-        p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                       & - dtime*(div_z_c(jc,jb)        &
-                                       & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
-                                       &  *v_base%wet_c(jc,1,jb)             !last idx=2 for freshwater
-       !ELSE
-       !  p_os%p_aux%p_rhs_sfc_eq(jc,jb) = 0.0_wp
-       ENDIF
-       !write(*,*)'RHS:',jc,jb,p_os%p_aux%p_rhs_sfc_eq(jc,jb), div_z_c(jc,1,jb)
-    ENDDO
-  END DO
-ELSEIF(.NOT.l_forc_freshw)THEN
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+             p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
+                                            & - dtime*div_z_c_2D(jc,jb))/gdt2)!&
+                                            !& *v_base%wet_c(jc,1,jb)
+        ENDIF
+      ENDDO
+    END DO
+  ENDIF
 
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+ENDIF!EDGE-BASED
 
-            p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                           & - dtime*div_z_c(jc,jb))/gdt2)&
-                                           & *v_base%wet_c(jc,1,jb)
-       !ELSE
-       !  p_os%p_aux%p_rhs_sfc_eq(jc,jb) = 0.0_wp
-       !ENDIF
-       !write(*,*)'RHS:',jc,jb,p_os%p_aux%p_rhs_sfc_eq(jc,jb), div_z_c(jc,1,jb)
-    ENDDO
-  END DO
-
-ENDIF
-
-! CALL global_mpi_barrier()
-! write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq ..."
  CALL sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq )
-!  write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq is done"
-!  CALL global_mpi_barrier()
 
  ipl_src=3  ! output print level (1-5, fix)
  jkdim=1    ! vertical dimension
@@ -1133,7 +1156,7 @@ ENDIF
 !  &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
  CALL print_mxmn('RHS z_e',1,z_e(:,:),&
    &             jkdim, p_patch%nblks_e,'abt',ipl_src)
- CALL print_mxmn('div_z_c',1,div_z_c(:,:),&
+ CALL print_mxmn('div_z_c',1,div_z_c(:,:,:),&
    &             jkdim, p_patch%nblks_c,'abt',ipl_src)
  ipl_src=2  ! output print level (1-5, fix)
  z_c1(:,:) = p_os%p_aux%p_rhs_sfc_eq(:,:)
@@ -1185,9 +1208,6 @@ REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
 REAL(wp) :: gdt2
 REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
 REAL(wp) :: z_e(nproma,p_patch%nblks_e)
-!REAL(wp) :: z_e2(nproma,n_zlev,p_patch%nblks_e)
-!REAL(wp) :: z_u_c(nproma,1,p_patch%nblks_c)
-!REAL(wp) :: z_v_c(nproma,1,p_patch%nblks_c)
 REAL(wp) :: div_z_c(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,1,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,p_patch%nblks_c)
 INTEGER :: i_startidx, i_endidx
@@ -1218,7 +1238,6 @@ CALL sync_patch_array(SYNC_C, p_patch, p_x )
 IF (p_test_run) z_grad_h(:,:) = 0.0_wp
 
 !Step 1) Calculate gradient of iterated height.
-!CALL grad_fd_norm_oce_2D( p_x, p_patch, z_grad_h(:,1,:))
 CALL grad_fd_norm_oce_2d_3D( p_x, &
          &                   p_patch,                &
          &                   p_op_coeff%grad_coeff,  &
@@ -1226,6 +1245,9 @@ CALL grad_fd_norm_oce_2d_3D( p_x, &
 
 CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,:) )
 
+IF(l_EDGE_BASED)THEN
+  z_e(:,:)=z_grad_h(:,:)*h_e(:,:)
+ELSE
 !Step 2) map the gradient to the cell center, multiply it
 !by fluid thickness and map the result back to edges 
 IF( iswm_oce /= 1 ) THEN !the 3D case
@@ -1250,7 +1272,9 @@ ENDIF
 DO jb = all_cells%start_block, all_cells%end_block
   CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
+    IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
     z_grad_h_cc(jc,jb)%x = z_grad_h_cc(jc,jb)%x *thickness_c(jc,jb)
+    ENDIF 
   END DO
 END DO
 
@@ -1258,51 +1282,24 @@ END DO
                     & z_grad_h_cc,&
                     & z_e,        &
                     & level=top)
-!  z_e(:,1,:)=z_grad_h(:,1,:)&
-!  &*(v_base%del_zlev_m(1)+h_e(:,:))
+ENDIF
 !write(*,*)'LHS:max/min :', maxval(z_e(:,1,:)), minval(z_e(:,1,:))
-!  rl_start = 1
-!  rl_end = min_rledge
-!  i_startblk = p_patch%edges%start_blk(rl_start,1)
-!  i_endblk   = p_patch%edges%end_blk(rl_end,1)
-!  DO jb = i_startblk, i_endblk
-!     CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-!   DO jc = i_startidx, i_endidx
-!   write(*,*)'z_e:', jc,jb,z_e(jc,1,jb), z_e2(jc,1,jb)
-!     END DO
-!   END DO
-! stop
+
 !Step 3) Calculate divergence
-!CALL div_oce( z_e, p_patch, div_z_c, top,top )
 CALL div_oce_3D( z_e, p_patch, p_op_coeff%div_coeff, div_z_c, &
   & level=top, subset_range=cells_in_domain  )
-!write(*,*)'div', div_z_c(:,1,:)
 
 !Step 4) Finalize LHS calculations
 DO jb = cells_in_domain%start_block, cells_in_domain%end_block
   CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
-    !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-      p_lhs(jc,jb) = v_base%wet_c(jc,1,jb)*&
-                   &(p_x(jc,jb)- gdt2*ab_gam*ab_beta*div_z_c(jc,jb))/gdt2
-   !ELSE
-   !   p_lhs(jc,jb) =0.0_wp
-   !ENDIF
+    IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+      p_lhs(jc,jb) =(p_x(jc,jb)- gdt2*ab_gam*ab_beta*div_z_c(jc,jb))/gdt2
+   ELSE
+      p_lhs(jc,jb) =0.0_wp
+   ENDIF
   END DO
 END DO
-
-!  rl_start = 1
-!  rl_end = min_rlcell
-!  i_startblk = p_patch%cells%start_blk(rl_start,1)
-!  i_endblk   = p_patch%cells%end_blk(rl_end,1)
-!  DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-!   DO jc = i_startidx, i_endidx
-! write(*,*)'P-lhs',jc,jb,p_lhs(jc,jb)
-! ! ! write(*,*)'thickness', jc,jb,thickness_c(jc,jb)
-! !  write(*,*)'vectors', jc,jb,z_u_c(jc,1,jb), z_v_c(jc,1,jb)
-!     END DO
-!   END DO
 !    write(*,*)'max/min LHS z_e', maxval(z_e),minval(z_e) 
 !    write(*,*)'max/min LHS div', maxval(div_z_c),minval(div_z_c)  
 !    write(*,*)'max/min LHS x',   maxval(p_x),minval(p_x)  
@@ -1334,10 +1331,11 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   INTEGER :: i_startidx_c, i_endidx_c
   INTEGER :: je, jk, jb, jc
   REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
-  REAL(wp) :: gdt
+  REAL(wp) :: gdt, delta_z
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
   TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
   TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
   !REAL(wp) :: z_tmp_h_e(nproma,1,p_patch%nblks_e)
   CHARACTER(len=*), PARAMETER ::     &
     &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
@@ -1401,28 +1399,30 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
     ENDIF
   ENDIF
 
+   p_os%p_diag%vn_time_weighted=ab_gam*p_os%p_prog(nnew(1))%vn&
+   &+(1.0_wp -ab_gam)*p_os%p_prog(nold(1))%vn
 
-  CALL map_edges2cell_3d( p_patch,&
-    & p_os%p_prog(nnew(1))%vn, &
-    & p_op_coeff, z_u_cc)
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      DO jk=1,n_zlev
-        z_u_cc2(jc,jk,jb)%x = ab_gam*z_u_cc(jc,jk,jb)%x &
-          & + (1.0_wp -ab_gam)*p_os%p_diag%p_vn(jc,jk,jb)%x
-      END DO
-    ENDDO
-  END DO
-
-  DO jk=1,3
-    CALL sync_patch_array(SYNC_C, p_patch, z_u_cc2(:,:,:)%x(jk))
-  ENDDO
-
-  CALL map_cell2edges( p_patch,                       &
-                     & z_u_cc2,                      &
-                     & p_os%p_diag%vn_time_weighted)
+!   CALL map_edges2cell_3d( p_patch,&
+!     & p_os%p_prog(nnew(1))%vn, &
+!     & p_op_coeff, z_u_cc)
+! 
+!   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+!     DO jc = i_startidx_c, i_endidx_c
+!       DO jk=1,n_zlev
+!         z_u_cc2(jc,jk,jb)%x = ab_gam*z_u_cc(jc,jk,jb)%x &
+!           & + (1.0_wp -ab_gam)*p_os%p_diag%p_vn(jc,jk,jb)%x
+!       END DO
+!     ENDDO
+!   END DO
+! 
+!   DO jk=1,3
+!     CALL sync_patch_array(SYNC_C, p_patch, z_u_cc2(:,:,:)%x(jk))
+!   ENDDO
+! 
+!   CALL map_cell2edges( p_patch,                       &
+!                      & z_u_cc2,                      &
+!                      & p_os%p_diag%vn_time_weighted)
 
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nnew(1))%vn)
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_time_weighted)
@@ -1438,11 +1438,17 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
 
   ipl_src=3  ! output print level (1-5, fix)
   DO jk = 1, n_zlev
+!    write(*,*)'max/min old veloc',jk,&
+! &maxval(p_os%p_prog(nold(1))%vn(:,jk,:)),&
+! &minval(p_os%p_prog(nold(1))%vn(:,jk,:))
     CALL print_mxmn('vn old',jk,p_os%p_prog(nold(1))%vn(:,:,:), &
       &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
   END DO
   ipl_src=2  ! output print level (1-5, fix)
   DO jk = 1, n_zlev
+   write(*,*)'max/min new veloc',jk,&
+&maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)),&
+&minval(p_os%p_prog(nnew(1))%vn(:,jk,:))
      CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
        &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
   END DO
@@ -1451,7 +1457,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
     CALL print_mxmn('vn change',jk,p_os%p_prog(nnew(1))%vn(:,:,:)-p_os%p_prog(nold(1))%vn(:,:,:), &
       &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
   END DO
-
+  !CALL height_related_quantities(p_patch, p_os, p_ext_data)
   ! Update of scalar product quantities
   IF(l_STAGGERED_TIMESTEP)THEN
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
@@ -1599,7 +1605,7 @@ REAL(wp),         INTENT(INOUT)   :: pw_c (:,:,:)  ! vertical velocity on cells
 !
 !
 ! Local variables
-INTEGER :: jc, jk, jb
+INTEGER :: jc, jk, jb, je
 INTEGER :: z_dolic!jic, jib
 INTEGER :: i_startidx, i_endidx
 !INTEGER :: max_blk(1:n_zlev), max_idx(1:n_zlev)
@@ -1612,74 +1618,122 @@ REAL(wp) :: z_div_c(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_subset_range), POINTER :: cells_in_domain
+TYPE(t_subset_range), POINTER :: edges_in_domain
 !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 CHARACTER(len=*), PARAMETER :: &
    & method_name = 'mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic'
 !-----------------------------------------------------------------------  
     cells_in_domain => p_patch%cells%in_domain
+    edges_in_domain => p_patch%edges%in_domain
 
 ! #slo# due to nag -nan compiler-option:
   IF (p_test_run) z_div_c(:,:,:) = 0.0_wp
-
+! CALL map_edges2cell( p_patch, p_diag%vn_time_weighted, z_vn_c)
+! CALL map_cell2edges( p_patch, z_vn_c, p_diag%vn_time_weighted)
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
-! CALL map_edges2cell( p_patch, p_diag%vn_time_weighted, z_vn_c, ph_e)
-! CALL map_cell2edges( p_patch, z_vn_c, z_vn)
-! CALL div_oce(z_vn, p_patch, z_div_c)
-
-
- !CALL map_edges2cell_3D( p_patch, p_diag%vn_time_weighted,p_op_coeff, z_vn_c)
- !CALL map_cell2edges( p_patch, z_vn_c, z_vn)
- !CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
- CALL div_oce_3D(p_diag%vn_time_weighted, p_patch,p_op_coeff%div_coeff, z_div_c,&
-                & subset_range=cells_in_domain)
-
-
-!------------------------------------------------------------------
-! Step 3) Use the divergence and the vertical velocity at the previous deeper
-!         layer to calculate the new vertical velocity at cell centers
-!------------------------------------------------------------------
-
-! !Note we are summing from bottom up to one layer below top.
-! !In top layer vertical velocity is given by boundary condition
-
+IF(l_EDGE_BASED)THEN
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+    DO jk = 1, n_zlev
+      delta_z = v_base%del_zlev_m(jk)
+      DO je = i_startidx, i_endidx
+        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          IF(jk==1)THEN
+             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)!&
+          ENDIF
+          z_vn(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb)*delta_z
+        ENDIF
+      END DO
+    END DO
+  END DO
+ CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
+ ! !Note we are summing from bottom up to one layer below top.
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-      DO jc = i_startidx, i_endidx
+    DO jc = i_startidx, i_endidx
 
-       z_dolic = v_base%dolic_c(jc,jb)
-
-        IF ( z_dolic>=MIN_DOLIC)THEN !v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+      z_dolic = v_base%dolic_c(jc,jb)
+      IF ( z_dolic>=MIN_DOLIC)THEN !
 
         !use bottom boundary condition for vertical velocity at bottom
         !of prism
-        jk=z_dolic
-        delta_z = v_base%del_zlev_m(jk)
-        pw_c(jc,jk,jb) = bot_bc_w(jc,jb) - z_div_c(jc,jk,jb)*delta_z
+        !delta_z = v_base%del_zlev_m(z_dolic)
+        pw_c(jc,z_dolic,jb) = bot_bc_w(jc,jb) - z_div_c(jc,z_dolic,jb)!*delta_z
 
-        DO jk = z_dolic-1, 1, -1
-          delta_z = v_base%del_zlev_m(jk)
-          IF (jk == 1)THEN 
-            ! at surface level (toplev) add surface elevation h_c
-            delta_z = v_base%del_zlev_m(jk) + ph_c(jc,jb)
-          ENDIF
+         DO jk = z_dolic-1, 1, -1
+          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !delta_z = v_base%del_zlev_m(jk)
+          !IF (jk == 1)THEN 
+          ! !at surface level (toplev) add surface elevation h_c
+          !delta_z = v_base%del_zlev_m(jk) + ph_c(jc,jb)
+          !ENDIF
 
-          ! vertical velocity is integrated from bottom to top and multiplied by
-          ! depth of the layer
+          ! vertical velocity is integrated from bottom to top
           ! vertical velocity is negative for positive divergence
           ! of horizontal velocity
-          pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)*delta_z
-
+          pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)!*delta_z
+          ENDIF
         END DO
       END IF
     END DO
   END DO
 
+ELSE
+  CALL map_edges2cell( p_patch, p_diag%vn_time_weighted, z_vn_c)!, ph_e)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
+          z_dolic = v_base%dolic_c(jc,jb)
+          IF ( z_dolic>=MIN_DOLIC)THEN !v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          DO jk = 1,z_dolic
+            delta_z = v_base%del_zlev_m(jk)
+            IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + p_os%p_prog(nold(1))%h(jc,jb)
+            z_vn_c(jc,jk,jb)%x=delta_z*z_vn_c(jc,jk,jb)%x
+          END DO
+        END IF
+      END DO
+    END DO
+  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
+  CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
+
+  !CALL div_oce_3D(p_diag%vn_time_weighted, p_patch,p_op_coeff%div_coeff, z_div_c,&
+  !                & subset_range=cells_in_domain)
+  ! !Note we are summing from bottom up to one layer below top.
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+    DO jc = i_startidx, i_endidx
+
+      z_dolic = v_base%dolic_c(jc,jb)
+      IF ( z_dolic>=MIN_DOLIC)THEN
+        !use bottom boundary condition for vertical velocity at bottom
+        !of prism
+        !delta_z = v_base%del_zlev_m(z_dolic)
+        pw_c(jc,z_dolic,jb) = bot_bc_w(jc,jb) - z_div_c(jc,z_dolic,jb)*delta_z
+
+         DO jk = z_dolic-1, 2, -1
+          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          delta_z = v_base%del_zlev_m(jk)
+          IF (jk == 1)THEN 
+          ! !at surface level (toplev) add surface elevation h_c
+          delta_z = v_base%del_zlev_m(jk) + ph_c(jc,jb)
+          ENDIF
+
+          ! vertical velocity is integrated from bottom to top
+          ! vertical velocity is negative for positive divergence
+          ! of horizontal velocity
+          pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)*delta_z
+          ENDIF
+        END DO
+      END IF
+    END DO
+  END DO
+ENDIF
+
+
 IF(l_RIGID_LID)THEN
-
-  pw_c(:,1,:) = 0.0_wp
-
+  pw_c(:,2,:) = 0.0_wp
 ENDIF
 
     CALL sync_patch_array(SYNC_C, p_patch, pw_c)
@@ -1691,8 +1745,8 @@ END DO
 DO jk = 1, n_zlev
   CALL print_mxmn('div veloc',jk,z_div_c(:,:,:), n_zlev+1, p_patch%nblks_c,'abt',ipl_src)
 END DO
-!DO jk = 1,SIZE(pw_c(1,:,1))!n_zlev
-!write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&
+DO jk = 1,n_zlev
+write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,&
 !&maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:))
 !write(987,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&
 !&maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:))
@@ -1706,7 +1760,7 @@ END DO
 ! &min_w(jk),min_idx(jk), min_blk(jk)!,&
 ! !&v_base%lsm_oce_c(max_idx(jk),jk,max_blk(jk)),&
 ! !&v_base%lsm_oce_c(min_idx(jk),jk,min_blk(jk))
-! END DO
+ END DO
 END SUBROUTINE calc_vert_velocity_mimetic
 !-------------------------------------------------------------------------
 !
@@ -1726,11 +1780,13 @@ END SUBROUTINE calc_vert_velocity_mimetic
 !!   - velocities and sea level are passed through the interface
 !!   - no calculation of new sea level here
 !! mpi not used
-SUBROUTINE calc_vert_velocity_mim_topdown( p_patch, p_os, p_diag, ph_e, top_bc_w, bot_bc_w, pw_c )
+SUBROUTINE calc_vert_velocity_mim_topdown( p_patch, p_os, p_diag,p_op_coeff, &
+                                          &ph_e, top_bc_w, bot_bc_w, pw_c )
 !
 TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
 TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
+TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
 REAL(wp),         INTENT(INOUT)   :: ph_e(:,:)  ! 
 REAL(wp),            INTENT(IN)   :: top_bc_w(:,:) !bottom boundary condition for vertical velocity
 REAL(wp),            INTENT(IN)   :: bot_bc_w(:,:) !bottom boundary condition for vertical velocity
@@ -1752,10 +1808,13 @@ REAL(wp) :: z_div_c(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+TYPE(t_subset_range), POINTER :: cells_in_domain
 CHARACTER(len=*), PARAMETER :: &
   & method_name = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
 !-----------------------------------------------------------------------  
 ! #slo# due to nag -nan compiler-option:
+
+ cells_in_domain => p_patch%cells%in_domain
 
   IF (my_process_is_mpi_parallel()) &
     & CALL finish(method_name, "is not mpi parallelized")
@@ -1770,11 +1829,12 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
- z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
- CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
- CALL map_cell2edges( p_patch, z_vn_c, z_vn)
- CALL div_oce(z_vn, p_patch, z_div_c)
-
+!  z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+!  CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
+!  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
+!  CALL div_oce(z_vn, p_patch, z_div_c)
+CALL div_oce_3D(p_diag%vn_time_weighted, p_patch,p_op_coeff%div_coeff, z_div_c,&
+                & subset_range=cells_in_domain)
 ! iidx => p_patch%edges%cell_idx
 ! iblk => p_patch%edges%cell_blk
 ! write(*,*)'cells',&
