@@ -700,11 +700,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)    
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)  
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)       
-          lnd_prog_new%t_so_t(jc,nlev_soil+2,jb,jt) &
-                                               = lnd_prog_now%t_so_t(jc,nlev_soil+2,jb,jt)
+          lnd_prog_new%t_so_t(jc,nlev_soil+2,jb,jt) = lnd_prog_now%t_so_t(jc,nlev_soil+2,jb,jt)
           IF(lmulti_snow) THEN
-            lnd_prog_new%t_snow_mult_t  (jc,nlev_snow+1,jb,jt) &
-                                               = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,jt)
+            lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,jt) &
+                                             = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,jt)
           ENDIF
         ENDDO
       ENDDO
@@ -712,25 +711,22 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         DO jc = i_startidx, i_endidx
           IF(lmulti_snow) THEN
             DO jk=1,nlev_snow
-              lnd_prog_new%t_snow_mult_t  (jc,jk,jb,jt) &
-                                               = lnd_prog_now%t_snow_mult_t  (jc,jk,jb,jt)
-              lnd_prog_new%rho_snow_mult_t(jc,jk,jb,jt) &
-                                               = lnd_prog_now%rho_snow_mult_t(jc,jk,jb,jt)
-              lnd_prog_new%wliq_snow_t    (jc,jk,jb,jt) &
-                                               = lnd_prog_now%wliq_snow_t    (jc,jk,jb,jt) 
-              lnd_prog_new%wtot_snow_t    (jc,jk,jb,jt) &
-                                               = lnd_prog_now%wtot_snow_t    (jc,jk,jb,jt)
-              lnd_prog_new%dzh_snow_t     (jc,jk,jb,jt) &
-                                               = lnd_prog_now%dzh_snow_t     (jc,jk,jb,jt) 
+              lnd_prog_new%t_snow_mult_t  (jc,jk,jb,jt) = lnd_prog_now%t_snow_mult_t  (jc,jk,jb,jt)
+              lnd_prog_new%rho_snow_mult_t(jc,jk,jb,jt) = lnd_prog_now%rho_snow_mult_t(jc,jk,jb,jt)
+              lnd_prog_new%wliq_snow_t    (jc,jk,jb,jt) = lnd_prog_now%wliq_snow_t    (jc,jk,jb,jt) 
+              lnd_prog_new%wtot_snow_t    (jc,jk,jb,jt) = lnd_prog_now%wtot_snow_t    (jc,jk,jb,jt)
+              lnd_prog_new%dzh_snow_t     (jc,jk,jb,jt) = lnd_prog_now%dzh_snow_t     (jc,jk,jb,jt) 
             ENDDO
           ENDIF
         ENDDO
       ENDDO
-      DO jk=1,nlev_soil+1
+      DO jt = 1,nsfc_subs
         DO jc = i_startidx, i_endidx
+          DO jk=1,nlev_soil+1
             lnd_prog_new%t_so_t    (jc,jk,jb,jt) = lnd_prog_now%t_so_t    (jc,jk,jb,jt)         
             lnd_prog_new%w_so_t    (jc,jk,jb,jt) = lnd_prog_now%w_so_t    (jc,jk,jb,jt)    
             lnd_prog_new%w_so_ice_t(jc,jk,jb,jt) = lnd_prog_now%w_so_ice_t(jc,jk,jb,jt)
+          ENDDO
         ENDDO
       ENDDO
 
