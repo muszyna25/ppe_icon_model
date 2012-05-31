@@ -70,7 +70,7 @@ icon_path=${ICON_BASE_PATH}/
 # (The value you give here must be ASCII representations of integer values, 
 # such as "1" for daily output, and "4" for 6-hourly data.)
 
-export output_frequency=1
+export output_frequency=4
 
 # 1.2 The data file name is constructed in the same way as in the model.
 # The name is composed of experiment name, hor. and vert. resolution (cf. 1.5),
@@ -387,8 +387,6 @@ if [ $plot_ps -eq 1 ]; then
    echo "=== $(date)"
    echo "=== Done."
 fi
-
-exit
 
 #------------------------------------------------------------------------
 # interpolate and plot temperature
