@@ -101,8 +101,6 @@ MODULE mo_nonhydro_types
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  omega_z(:,:,:),      & ! vertical vorticity at dual grid
                               ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
-    &  omega_z_c(:,:,:),    & ! vertical vorticity at cells, available only for output
-                              ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
                               ! (nproma,nlev,nblks_e)                          [m/s^2]
     &  ddt_exner(:,:,:),    & ! exner pressure tendency from forcing (nproma,nlev,nblks_c)  [1/s]
