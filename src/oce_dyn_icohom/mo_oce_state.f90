@@ -826,9 +826,11 @@ CONTAINS
 
     ! local variables
 
+    TYPE(t_subset_range), POINTER :: all_cells
+
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER ::  jc,jb,jk, rl_start, rl_end
+    INTEGER :: jb, jc, je, jv, jk, rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
@@ -836,6 +838,8 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
+
+    all_cells => p_patch%cells%all
 
     ! determine size of arrays
     nblks_c = p_patch%nblks_c
@@ -1068,16 +1072,35 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn at cells failed')
     END IF
-    rl_start = 1
-    rl_end = min_rlcell
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,1)
+    ! with following two loops the complete halo is set to zero, except for the unused last block
+    !  - when checking for min/max values with nag-compiler "Floating invalid operation" occurs
+ !  DO jk=1,n_zlev
+ !    DO jb = all_cells%start_block, all_cells%end_block
+ !      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+ !      DO jc = i_startidx, i_endidx
+ !      END DO
+ !    END DO
+ !  END DO
+
+ !  rl_start = 1
+ !  rl_end = min_rlcell
+ !  i_startblk = p_patch%cells%start_blk(rl_start,1)
+ !  i_endblk   = p_patch%cells%end_blk(rl_end,1)
+ !  DO jk=1,n_zlev
+ !    DO jb = i_startblk, i_endblk
+ !      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
+ !      &                  i_startidx, i_endidx, rl_start, rl_end)
+ !      DO jc = i_startidx, i_endidx
+ !        p_os_diag%p_vn(jc,jk,jb)%x(:)=0.0_wp
+ !      END DO
+ !    END DO
+ !  END DO
+
+    ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
     DO jk=1,n_zlev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-        &                  i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
+      DO jb = all_cells%start_block, all_cells%end_block
+        DO jc = 1, nproma
           p_os_diag%p_vn(jc,jk,jb)%x(:)=0.0_wp
         END DO
       END DO
@@ -1087,17 +1110,26 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn at verts failed')
     END IF
+
+    ! set all values on verts - incl. last block - to zero (NAG compiler)
     rl_start = 1
     rl_end = min_rlvert
-
     i_startblk = p_patch%verts%start_blk(rl_start,1)
     i_endblk   = p_patch%verts%end_blk(rl_end,1)
+  ! DO jk=1,n_zlev
+  !   DO jb = i_startblk, i_endblk
+  !     CALL get_indices_v(p_patch, jb, i_startblk, i_endblk,&
+  !     &                  i_startidx, i_endidx, rl_start, rl_end)
+  !     DO jc = i_startidx, i_endidx
+  !       p_os_diag%p_vn_dual(jc,jk,jb)%x(:)=0.0_wp
+  !     END DO
+  !   END DO
+  ! END DO
     DO jk=1,n_zlev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_v(p_patch, jb, i_startblk, i_endblk,&
-        &                  i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          p_os_diag%p_vn_dual(jc,jk,jb)%x(:)=0.0_wp
+    ! DO jb = i_startblk, i_endblk
+      DO jb = 1, nblks_v
+        DO jv = 1, nproma
+          p_os_diag%p_vn_dual(jv,jk,jb)%x(:)=0.0_wp
         END DO
       END DO
     END DO
@@ -1107,17 +1139,25 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn_mean at edges failed')
     END IF
-    rl_start = 1
-    rl_end = min_rledge
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,1)
+    ! set all values - incl. last block - to zero (NAG compiler)
+  ! rl_start = 1
+  ! rl_end = min_rledge
+  ! i_startblk = p_patch%edges%start_blk(rl_start,1)
+  ! i_endblk   = p_patch%edges%end_blk(rl_end,1)
+  ! DO jk=1,n_zlev
+  !   DO jb = i_startblk, i_endblk
+  !     CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
+  !     &                  i_startidx, i_endidx, rl_start, rl_end)
+  !     DO jc = i_startidx, i_endidx
+  !       p_os_diag%p_vn_mean(jc,jk,jb)%x(:)=0.0_wp
+  !     END DO
+  !   END DO
+  ! END DO
     DO jk=1,n_zlev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
-        &                  i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          p_os_diag%p_vn_mean(jc,jk,jb)%x(:)=0.0_wp
+      DO jb = 1, nblks_e
+        DO je = 1, nproma
+          p_os_diag%p_vn_mean(je,jk,jb)%x(:)=0.0_wp
         END DO
       END DO
     END DO

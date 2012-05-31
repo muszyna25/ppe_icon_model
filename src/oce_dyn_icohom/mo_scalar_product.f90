@@ -165,9 +165,9 @@ CONTAINS
     !CALL map_edges2vert(p_patch, vn_e_old, h_e, p_diag%p_vn_dual)
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
     
-    !CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn)
-    CALL map_edges2cell_3d( p_patch, vn_e_old,p_op_coeff, p_diag%p_vn)
-    !CALL map_edges2cell_3D( p_patch, vn_e_old, p_diag%p_vn,p_op_coeff)
+    !CALL map_edges2cell(p_patch, vn_e_old, p_diag%p_vn)
+    CALL map_edges2cell_3d(p_patch, vn_e_old, p_op_coeff, p_diag%p_vn)
+    !CALL map_edges2cell_3D(p_patch, vn_e_old, p_diag%p_vn, p_op_coeff)
         
     !--------------------------------------------------------------    
     DO jb = all_cells%start_block, all_cells%end_block
@@ -1252,13 +1252,14 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e,p_op_coeff, p_vn_c,opt_slev, opt_elev, &
-    &  subset_range)
+  SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e, p_op_coeff, p_vn_c, opt_slev, opt_elev, &
+    &                                     subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
-    TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,nblks_c)
+                                                                 ! intent(inout) for nag compiler
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
