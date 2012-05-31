@@ -32,7 +32,8 @@ MODULE mo_name_list_output
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
     &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT, &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert
-  USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type
+  USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
+    &                                 grid_rescale_factor
   USE mo_grid_levels,           ONLY: check_orientation
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
@@ -423,7 +424,7 @@ CONTAINS
       ! Output bounds
       IF(output_bounds(1,1) < 0._wp .OR. &
          output_bounds(2,1) <= output_bounds(1,1) .OR. &
-         output_bounds(3,1) <= dtime) THEN
+         output_bounds(3,1) <= dtime * grid_rescale_factor ) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
 
@@ -433,7 +434,7 @@ CONTAINS
           CALL finish(routine,'output_bounds not increasing')
         IF(output_bounds(2,i) <= output_bounds(1,i)) &
           CALL finish(routine,'output_bounds end <= start')
-        IF(output_bounds(3,i) <  dtime) &
+        IF(output_bounds(3,i) <  dtime * grid_rescale_factor ) &
           CALL finish(routine,'output_bounds inc < dtime')
       ENDDO
 
