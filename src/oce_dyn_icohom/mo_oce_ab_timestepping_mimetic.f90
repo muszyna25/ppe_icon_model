@@ -1625,7 +1625,8 @@ CHARACTER(len=*), PARAMETER :: &
 
 ! #slo# due to nag -nan compiler-option:
   z_div_c(:,:,:) = 0.0_wp
-  pw_c(:,:,:) = 0.0_wp
+  pw_c   (:,:,:) = 0.0_wp
+  z_vn   (:,:,:) = 0.0_wp
 ! CALL map_edges2cell( p_patch, p_diag%vn_time_weighted, z_vn_c)
 ! CALL map_cell2edges( p_patch, z_vn_c, p_diag%vn_time_weighted)
 !------------------------------------------------------------------

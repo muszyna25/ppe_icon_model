@@ -431,7 +431,7 @@ CONTAINS
   !! - New boundary definition with inner and boundary points on land/sea
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE div_oce_3d_mlevels( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev, &
+  SUBROUTINE div_oce_3d_mlevels( vec_e, ptr_patch, div_coeff, div_vec_c, opt_slev, opt_elev, &
     & subset_range)
     !
     !
@@ -444,7 +444,7 @@ CONTAINS
     !
     REAL(wp), INTENT(in)          :: vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
-    REAL(wp), INTENT(out)         :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
