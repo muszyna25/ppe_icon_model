@@ -1153,7 +1153,7 @@ CONTAINS
            ENDIF 
         END DO
       END DO
-      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+   !  write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
 
      IF(no_tracer>=1.AND.temperature_relaxation/=0)THEN
 
@@ -1216,12 +1216,12 @@ CONTAINS
         END DO
       END DO
 
-    write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
-    & minval(p_sfc_flx%forc_tracer_relax)
-    write(*,*)'max/min-tracer-flux',maxval(p_sfc_flx%forc_tracer),&
-    & minval(p_sfc_flx%forc_tracer)
-    write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
-                                  & minval(p_sfc_flx%forc_tracer(:,:,1))
+ !  write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
+ !  & minval(p_sfc_flx%forc_tracer_relax)
+ !  write(*,*)'max/min-tracer-flux',maxval(p_sfc_flx%forc_tracer),&
+ !  & minval(p_sfc_flx%forc_tracer)
+ !  write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
+ !                                & minval(p_sfc_flx%forc_tracer(:,:,1))
     ENDIF
 ! ! ! !-----------Old version of Forcing--------------------------------------------------
 ! ! !!------------Please retain, its also interesting------------------------------------
@@ -1322,7 +1322,7 @@ CONTAINS
            ENDIF 
         END DO
       END DO
-      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+  !   write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
       ENDIF
       IF(temperature_relaxation>=1)THEN
       ! CALL message(TRIM(routine), &
@@ -1334,14 +1334,14 @@ CONTAINS
 
       END IF
 
-    write(*,*)'max/min-tracer-diff',&
-    &maxval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
-    & minval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1))
+ !  write(*,*)'max/min-tracer-diff',&
+ !  &maxval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
+ !  & minval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1))
 
-    write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
-    & minval(p_sfc_flx%forc_tracer_relax)
-    write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
-                                  & minval(p_sfc_flx%forc_tracer(:,:,1))
+ !  write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
+ !  & minval(p_sfc_flx%forc_tracer_relax)
+ !  write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
+ !                                & minval(p_sfc_flx%forc_tracer(:,:,1))
     CASE(51)
 
       CALL message(TRIM(routine), &
@@ -1379,7 +1379,7 @@ CONTAINS
            ENDIF 
         END DO
       END DO
-      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+  !   write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
 
       IF(temperature_relaxation>=1)THEN
 
