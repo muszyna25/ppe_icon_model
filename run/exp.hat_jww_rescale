@@ -22,7 +22,8 @@
 #-----------------------------------------------------------------------------
 # the rescale parameter
 set -x
-rescale_factor=0.001
+X=1000
+rescale_factor=$(echo "scale=9; 1 / ${X} " | bc)
 echo "rescale factor is $rescale_factor"
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
