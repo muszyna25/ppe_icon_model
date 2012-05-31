@@ -54,7 +54,7 @@ MODULE mo_nml_crosscheck
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
-    &                              ifluxl_sm, ifluxl_m, ihs_ocean  
+    &                              ifluxl_sm, ifluxl_m, ihs_ocean 
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -101,7 +101,8 @@ MODULE mo_nml_crosscheck
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
+    & testbed_process,  atmo_process, ocean_process, radiation_process
   
   USE mo_art_config,         ONLY: art_config
 
@@ -128,15 +129,31 @@ CONTAINS
   !! Initial revision by Hui Wan, MPI (2011-07)
   !!
   SUBROUTINE resize_simulation_length()
-    REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
 
+    REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
+    INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: routine =  'resize_simulation_length'
     
     !----------------------------
     ! rescale timestep
     dtime     = dtime     * grid_rescale_factor
-    dtime_adv = dtime_adv * grid_rescale_factor
-    dt_rad    = dt_rad    * grid_rescale_factor
+    IF (get_my_process_type() == atmo_process) THEN
+      dtime_adv = dtime_adv * grid_rescale_factor
+      dt_rad    = dt_rad    * grid_rescale_factor
+
+      DO jg=1,max_dom
+        atm_phy_nwp_config(jg)%dt_conv = &
+          atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_ccov = &
+          atm_phy_nwp_config(jg)%dt_ccov * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_rad  = &
+          atm_phy_nwp_config(jg)%dt_rad  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_sso  = &
+          atm_phy_nwp_config(jg)%dt_sso  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_gwd  = &
+          atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
+      ENDDO
+    ENDIF
     !--------------------------------------------------------------------
     ! Length if this integration
     !--------------------------------------------------------------------

@@ -41,8 +41,9 @@
 ;---------------------------------------------------------------
 ; time steps to be plotted
 ;---------------------------------------------------------------
-
-  iday  = (/4,6,7,8,10,  9/)  ; days to plot
+  OutFrq = 1
+  iday  = (/ 6, 7, 8, 9/)  ; days to plot
+;  iday  = (/1/)  ; days to plot
   ndays = dimsizes(iday)
   plot1 = new( ndays-1,graphic )
 
@@ -121,13 +122,13 @@
 
   nmax_needed = max(iday)
 
-  if ( ndays_in_data_file .lt. nmax_needed ) then
-     print("Problem encountered: found only "+ ndays_in_data_file+ \
-           " day(s) of data in the model output")
-     print(nmax_needed +" days are needed for visualising "       \
-           +"the evolution of temperature and surface pressure")  
-     status_exit (1)
-  end if
+;  if ( ndays_in_data_file .lt. nmax_needed ) then
+;     print("Problem encountered: found only "+ ndays_in_data_file+ \
+;           " day(s) of data in the model output")
+;     print(nmax_needed +" days are needed for visualising "       \
+;           +"the evolution of temperature and surface pressure")  
+;     status_exit (1)
+;  end if
 
 ;---------------------------------------------------------------
 ; make plots
