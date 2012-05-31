@@ -2915,6 +2915,7 @@ IMPLICIT NONE
         ! (evaporation, transpiration, formation of dew and rime are already
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
+
         zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i)+zthsoi(i))
         zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
                                                       (zth_low(i) - zts(i))
@@ -3168,6 +3169,7 @@ IMPLICIT NONE
         ! (evaporation, transpiration, formation of dew and rime are already
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
+
         zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i)+zthsoi(i))
         zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
                                                       (zth_low(i) - zts(i))

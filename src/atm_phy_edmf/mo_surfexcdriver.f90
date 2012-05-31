@@ -365,7 +365,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
 REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
   tch_ex         ,tcm_ex         ,tfv_ex               
 REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON,nsfc_subs)                :: &
   sobs_ex        ,thbs_ex        ,pabs_ex              

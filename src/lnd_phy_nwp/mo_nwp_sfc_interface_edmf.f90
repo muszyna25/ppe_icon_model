@@ -55,6 +55,7 @@ MODULE mo_nwp_sfc_interface_edmf
     &                               lseaice, llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   
   IMPLICIT NONE 
@@ -191,7 +192,7 @@ CONTAINS
                   prr_gsp_ex       , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp_ex           ! precipitation rate of snow, grid-scale        (kg/m2*s)
 
-  REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(INOUT) :: &
+  REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
                   tch_ex           , & ! turbulent transfer coefficient for heat       ( -- )
                   tcm_ex           , & ! turbulent transfer coefficient for momentum   ( -- )
                   tfv_ex               ! laminar reduction factor for evaporation      ( -- )
@@ -230,6 +231,9 @@ CONTAINS
     REAL(wp) :: t_t (nproma)
     REAL(wp) :: qv_t(nproma)
     REAL(wp) :: p0_t(nproma)
+
+    REAL(wp) :: sso_sigma_t(nproma)
+    INTEGER  :: lc_class_t (nproma, nsfc_subs)
 
     REAL(wp) :: t_snow_now_t (nproma, nsfc_subs)
     REAL(wp) :: t_snow_new_t (nproma, nsfc_subs)
@@ -340,7 +344,7 @@ CONTAINS
 
 !---- Copy input fields for each tile
 !----------------------------------
-      DO isubs = 1,nsfc_subs
+       DO isubs = 1,nsfc_subs
 !----------------------------------
 
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
@@ -362,6 +366,9 @@ CONTAINS
           qv_t(ic) = qv_ex(jc) 
           p0_t(ic) = p0_ex(jc)     
 
+          sso_sigma_t(ic)       = ext_data%atm%sso_stdh(jc,jb)
+          lc_class_t(ic,isubs)  = ext_data%atm%lc_class_t(jc,jb,isubs)
+
           t_snow_now_t  (ic,isubs) = t_snow_ex   (jc,isubs) 
           t_s_now_t     (ic,isubs) = t_s_ex      (jc,isubs)   
           t_g_t         (ic,isubs) = t_g_ex      (jc,isubs)
@@ -378,9 +385,9 @@ CONTAINS
           t_2m_t (ic,isubs) = t_2m_ex (jc) 
           u_10m_t(ic,isubs) = u_10m_ex(jc)
           v_10m_t(ic,isubs) = v_10m_ex(jc)  
-          tch_t  (ic,isubs) = tch_ex  (jc,isubs)
-          tcm_t  (ic,isubs) = tcm_ex  (jc,isubs)
-          tfv_t  (ic,isubs) = tfv_ex  (jc,isubs)
+          tch_t  (ic,isubs) = tch_ex  (jc)
+          tcm_t  (ic,isubs) = tcm_ex  (jc)
+          tfv_t  (ic,isubs) = tfv_ex  (jc)
           sobs_t (ic,isubs) = sobs_ex (jc,isubs) 
           thbs_t (ic,isubs) = thbs_ex (jc,isubs) 
           pabs_t (ic,isubs) = pabs_ex (jc,isubs) 
@@ -456,22 +463,22 @@ CONTAINS
         &  qv = qv_t(:)                                      , & ! specific water vapor content      (kg/kg)
         &  p0 = p0_t(:)                                      , & ! base state pressure               ( Pa  ) 
         &  ps = ps_t(:)                                      , & ! surface pressure                  ( pa  )
-!                                                            
+!
         &  t_snow_now    = t_snow_now_t(:,isubs)             , & ! temperature of the snow-surface   (  K  )
         &  t_snow_new    = t_snow_new_t(:,isubs)             , & ! temperature of the snow-surface   (  K  )
-!                                                            
+!
         &  t_snow_mult_now = t_snow_mult_now_t(:,:,isubs)    , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_new = t_snow_mult_new_t(:,:,isubs)    , & ! temperature of the snow-surface   (  K  )
-!                                                            
+!
         &  t_s_now       = t_s_now_t(:,isubs)                , & ! temperature of the ground surface (  K  )
         &  t_s_new       = t_s_new_t(:,isubs)                , & ! temperature of the ground surface (  K  )
-!                                                            
+!
         &  t_g           =  t_g_t (:,isubs)                  , & ! weighted surface temperature      (  K  )
         &  qv_s          =  qv_s_t(:,isubs)                  , & ! specific humidity at the surface  (kg/kg)
-!                                                            
+!
         &  w_snow_now    = w_snow_now_t(:,isubs)             , & ! water content of snow             (m H2O) 
         &  w_snow_new    = w_snow_new_t(:,isubs)             , & ! water content of snow             (m H2O) 
-!                                                            
+!
         &  rho_snow_now  = rho_snow_now_t(:,isubs)           , & ! snow density                      (kg/m**3)
         &  rho_snow_new  = rho_snow_new_t(:,isubs)           , & ! snow density                      (kg/m**3)
 !
@@ -479,54 +486,82 @@ CONTAINS
         &  rho_snow_mult_new = rho_snow_mult_new_t(:,:,isubs), & ! snow density                      (kg/m**3) 
 !
         &  h_snow        = h_snow_t(:,isubs)                 , & ! snow height
-!                                                            
+!
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)
         &  w_i_new       = w_i_new_t(:,isubs)                , & ! water content of interception water (m H2O)
-!                                                            
+!
         &  t_so_now      = t_so_now_t(:,:,isubs)             , & ! soil temperature (main level)     (  K  )
         &  t_so_new      = t_so_new_t(:,:,isubs)             , & ! soil temperature (main level)     (  K  )
-!                                                               
+!
         &  w_so_now      = w_so_now_t(:,:,isubs)             , & ! total water content (ice + liquid water) (m H20)
         &  w_so_new      = w_so_new_t(:,:,isubs)             , & ! total water content (ice + liquid water) (m H20)
-!                                                               
+!
         &  w_so_ice_now  = w_so_ice_now_t(:,:,isubs)         , & ! ice content                       (m H20)
         &  w_so_ice_new  = w_so_ice_new_t(:,:,isubs)         , & ! ice content                       (m H20)
-!                                                            
+!
         &  t_2m          = t_2m_t(:,isubs)                   , & ! ,nsfc_subs, temperature in 2m                  (  K  )
         &  u_10m         = u_10m_t(:,isubs)                  , & ! ,nsfc_subs, zonal wind in 10m                  ( m/s )
         &  v_10m         = v_10m_t(:,isubs)                  , & ! ,nsfc_subs,  meridional wind in 10m            ( m/s )
         &  freshsnow     = freshsnow_t(:,isubs)              , & ! indicator for age of snow in top of snow layer (  -  )
-        &  snowfrac      = snowfrac_t(:,isubs)               , & ! snow-cover fraction            (  -  )
+        &  snowfrac      = snowfrac_t(:,isubs)               , & ! snow-cover fraction                            (  -  )
 !                                                            
         &  wliq_snow_now = wliq_snow_now_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
         &  wliq_snow_new = wliq_snow_new_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
-!                                                              
+!
         &  wtot_snow_now = wtot_snow_now_t(:,:,isubs)        , & ! total (liquid + solid) water content of snow (m H2O)
         &  wtot_snow_new = wtot_snow_new_t(:,:,isubs)        , & ! total (liquid + solid) water content of snow (m H2O)
-!                                                              
+!
         &  dzh_snow_now  = dzh_snow_now_t(:,:,isubs)         , & ! layer thickness between half levels in snow  (  m  )
         &  dzh_snow_new  = dzh_snow_new_t(:,:,isubs)         , & ! layer thickness between half levels in snow  (  m  )
 !                                                            
-        &  subsfrac      =  dummy1(:)                        , & ! 
-!                                                 
-        &  prr_con       =  prr_con_t(:)                     , & ! precipitation rate of rain, convective       (kg/m2*s)
-        &  prs_con       =  prs_con_t(:)                     , & ! precipitation rate of snow, convective       (kg/m2*s)
-        &  prr_gsp       =  prr_gsp_t(:)                     , & ! precipitation rate of rain, grid-scale       (kg/m2*s)
-        &  prs_gsp       =  prs_gsp_t(:)                     , & ! precipitation rate of snow, grid-scale       (kg/m2*s)
-        &  prg_gsp       =  dummy_prg_gsp(:)                 , & ! precipitation rate of graupel, grid-scale    (kg/m2*s)
-!                                                 
-        &  tch           = tch_t(:,isubs)                    , & ! ,nsfc_subs, turbulent transfer coefficient for heat     ( -- )
-        &  tcm           = tcm_t(:,isubs)                    , & ! ,nsfc_subs, turbulent transfer coefficient for momentum ( -- )
-        &  tfv           = tfv_t(:,isubs)                    , & ! ,nsfc_subs, laminar reduction factor for evaporation    ( -- )
-!                                                 
-        &  sobs          = sobs_t(:,isubs)                   , & ! ,nsfc_subs, solar radiation at the ground    (W/m2)
-        &  thbs          = thbs_t(:,isubs)                   , & ! ,nsfc_subs, thermal radiation at the ground  (W/m2)
-        &  pabs          = pabs_t(:,isubs)                   , & ! ,nsfc_subs, photosynthetic active radiation  (W/m2)
-!                                                 
+        &  subsfrac      = dummy1(:)                         , & ! ?????? currently not used but FUTURE!!!
+!
+        &  prr_con       = prr_con_t(:)                      , & ! precipitation rate of rain, convective       (kg/m2*s)
+        &  prs_con       = prs_con_t(:)                      , & ! precipitation rate of snow, convective       (kg/m2*s)
+        &  prr_gsp       = prr_gsp_t(:)                      , & ! precipitation rate of rain, grid-scale       (kg/m2*s)
+        &  prs_gsp       = prs_gsp_t(:)                      , & ! precipitation rate of snow, grid-scale       (kg/m2*s)
+        &  prg_gsp       = dummy_prg_gsp(:)                  , & ! precipitation rate of graupel, grid-scale    (kg/m2*s)
+!
+        &  tch           = tch_t(:,isubs)                    , & ! turbulent transfer coefficient for heat      ( -- )
+        &  tcm           = tcm_t(:,isubs)                    , & ! turbulent transfer coefficient for momentum  ( -- )
+        &  tfv           = tfv_t(:,isubs)                    , & ! laminar reduction factor for evaporation     ( -- )
+!
+        &  sobs          = sobs_t(:,isubs)                   , & ! solar radiation at the ground                (W/m2)
+        &  thbs          = thbs_t(:,isubs)                   , & ! thermal radiation at the ground              (W/m2)
+        &  pabs          = pabs_t(:,isubs)                   , & ! photosynthetic active radiation              (W/m2)
+!
         &  runoff_s      = runoff_s_t(:,isubs)               , & ! surface water runoff; sum over forecast      (kg/m2)
         &  runoff_g      = runoff_g_t(:,isubs)               , & ! soil water runoff; sum over forecast         (kg/m2)
         &  pt_tiles      = p_tiles(:)                          & ! tiles structure
         &                                                    )
+
+        IF (lmulti_snow) THEN
+          CALL diag_snowfrac_tg(                        &
+            &  istart = 1, iend = i_count             , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
+            &  t_snow    = t_snow_mult_new_t (:,2,isubs), & ! snow temp
+            &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
+            &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
+            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
+        ELSE
+          CALL diag_snowfrac_tg(                        &
+            &  istart = 1, iend = i_count             , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
+            &  t_snow    = t_snow_new_t      (:,isubs), & ! snow temp
+            &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
+            &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
+            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
+        ENDIF
 
 
 !---------- Copy index list fields back to state fields
