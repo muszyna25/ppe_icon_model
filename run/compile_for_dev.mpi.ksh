@@ -27,7 +27,7 @@
 # Further work:
 #  - compiler options should be read from Makefile (not yet)
 
-set -e
+set -ex
 # you must start this script from below the trunk/branch - e.g. from icon-dev/run
 # in case of multiple builds start below the specific dir - e.g. icon-dev/nag_nMnO/run
 dir=$(pwd -P)
@@ -50,28 +50,26 @@ OBS=$(sed -n '/OBJS =/,/^$/p' ../build/$arch/src/Makefile | sed 's/OBJS =//' | s
 objects="-o ../bin/control_model control_model.o $OBS"
 #echo objects are: $objects
 
-
+# All options should be read from Makefile
 if [ $COMP == "gfortran" ] ; then
 
   # compiler and options gfortran:
-  compopt="gfortran -I../include -I/sw/lenny-x64/netcdf-4.1.1-static-gcc45/include -I/sw/lenny-x64/hdf5-1.8.5-p1-static/include -I/sw/lenny-x64/szip-2.1-static/include -I/usr/include -J../module -I../module -march=native -O0 -ffast-math -D__LOOP_EXCHANGE -xf95-cpp-input -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-99 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -g -fbacktrace -fbounds-check -D__ICON__ -DNOMPI -c ../../../src"
   compopt="gfortran -I../include -I/sw/lenny-x64/netcdf-4.1.1-static-gcc45/include -I/sw/lenny-x64/hdf5-1.8.5-p1-static/include -I/sw/lenny-x64/szip-2.1-static/include -I/usr/include -I/sw/lenny-x64/mpi/mpich2-1.3.1-static-gcc45/include   -J../module -I../module -march=native -O0 -ffast-math -D__LOOP_EXCHANGE -xf95-cpp-input -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-99 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -g -fbacktrace -fbounds-check -D__ICON__ -c ../../../src/" 
 
   # loader with objects and options gfortran:
-  loadobj="gfortran -march=native -O0 -ffast-math -D__LOOP_EXCHANGE $objects \
+  loadobj="gfortran -march=native -O3 -ffast-math -D__LOOP_EXCHANGE $objects \
           -L../lib -lsupport -L../lib -llapack -lblas -L/sw/lenny-x64/netcdf-4.1.1-static-gcc45/lib -lnetcdff -lnetcdf -L/sw/lenny-x64/hdf5-1.8.5-p1-static/lib -lhdf5_hl -lhdf5 -L/sw/lenny-x64/szip-2.1-static/lib -lsz -L/usr/lib -lz"
 
-  loadobj="gfortran -march=native -O0 -ffast-math -D__LOOP_EXCHANGE $objects \
+  loadobj="gfortran -march=native -O3 -ffast-math -D__LOOP_EXCHANGE $objects \
   -L../lib -lsupport -L../lib -llapack -lblas -L/sw/lenny-x64/netcdf-4.1.1-static-gcc45/lib -lnetcdff -lnetcdf -L/sw/lenny-x64/hdf5-1.8.5-p1-static/lib -lhdf5_hl -lhdf5 -L/sw/lenny-x64/szip-2.1-static/lib -lsz -L/usr/lib -lz -L/sw/lenny-x64/mpi/mpich2-1.3.1-static-gcc45/lib -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt"
 
 elif [ $COMP == "nagfor" ] ; then
 
   # compiler and options nag:
-  compopt="nagfor -I../include -I/sw/lenny-x64/netcdf-4.1.1-static-nag52/include -I/sw/lenny-x64/hdf5-1.8.5-p1-static/include -I/sw/lenny-x64/szip-2.1-static/include -I/usr/include    -mdir ../module -I../module -float-store -colour -nan -maxcontin=99 -fpp -f2003 -gline -g -C=all -wmismatch=mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int -w=uep  -D__ICON__ -DNOMPI  -c ../../../src"
+  compopt="nagfor -I../../../src/include -I/sw/squeeze-x64/netcdf-4.1.3-static-nag52/include -I/sw/squeeze-x64/hdf5-1.8.7-static/include -I/sw/squeeze-x64/szip-2.1-static/include -I/usr/include -I/sw/squeeze-x64/mpi/mpich2-1.3.1-static-nag52/include  -mdir ../module -I../module -float-store -colour -nan -maxcontin=99 -fpp -f2003 -gline -g -C=all -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_allgather,mpi_pack,mpi_unpack,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep  -D__ICON__ -c ../../../src"
 
   # loader with objects and options nag:
-  # loadobj="nagfor -I../module -float-store -gline -g -maxcontin=99 -fpp -f2003 -C=all -wmismatch=mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,nf_put_att_double,nf_def_var,nf_get_att_int -w=uep $objects -L../lib -lsupport  -L../lib -llapack -lblas -L/sw/etch-ia32/netcdf-3.6.3/lib -lnetcdf /zmaw/sw/sw/etch-ia32/gcc-4.3.3/bin/../lib/gcc/$arch/4.3.3/libgcc.a    -L/sw/etch-ia32/mpich2-1.2.1-nag52/lib -lmpichf90 -lmpich -lpthread -lrt"
-  loadobj="nagfor  -I../module -float-store -colour -nan -maxcontin=99 -fpp -f2003 -gline -g -C=all -wmismatch=mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int -w=uep  -D__ICON__ -DNOMPI $objects  -L../lib -lsupport -L../lib -llapack -lblas -L/sw/lenny-x64/netcdf-4.1.1-static-nag52/lib -lnetcdff -lnetcdf -L/sw/lenny-x64/hdf5-1.8.5-p1-static/lib -lhdf5_hl -lhdf5 -L/sw/lenny-x64/szip-2.1-static/lib -lsz -L/usr/lib -lz"
+  loadobj="nagfor -I../module -float-store -colour -nan -maxcontin=99 -fpp -f2003 -gline -g -C=all -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_allgather,mpi_pack,mpi_unpack,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep  -D__ICON__ $objects  -L../lib -lsupport -L../lib -llapack -lblas -L/sw/squeeze-x64/netcdf-4.1.3-static-nag52/lib -lnetcdff -lnetcdf -L/sw/squeeze-x64/hdf5-1.8.7-static/lib -lhdf5_hl -lhdf5 -L/sw/squeeze-x64/szip-2.1-static/lib -lsz -L/usr/lib -lz  -L/sw/squeeze-x64/mpi/mpich2-1.3.1-static-nag52/lib -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt"
 
 #elif [ $COMP == "ifort" ] ; then
 
