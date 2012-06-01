@@ -1147,8 +1147,11 @@ MODULE mo_nh_stepping
           IF (lstep_adv(jg)) THEN
 
               IF (art_config(jg)%lart) THEN
-                CALL art_emission_interface( p_patch(jg),			&!in
-     &          p_nh_state(jg)%prog(n_now_rcf)%tracer)                   !inout
+                CALL art_emission_interface( p_patch(jg), &!in
+     &          dtadv_loc,                                &!in
+     &          datetime,                                 &!in   
+     &          p_nh_state(jg)%prog(n_now_rcf)%rho,        &!in
+     &          p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
               ENDIF   
 
             CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,      & !in

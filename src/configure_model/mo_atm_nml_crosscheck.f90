@@ -67,8 +67,8 @@ MODULE mo_nml_crosscheck
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
-    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
-    &                              activate_sync_timers, timers_level,iqash1, & !K.L. ICON-ART
+    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,               &
+    &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
   USE mo_interpol_config
@@ -538,7 +538,8 @@ CONTAINS
                                        'ntracer is set to',ntracer
           CALL message(TRIM(routine),message_text)
         ENDIF
-        IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == 3) ) THEN
+        IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == 3) &
+        & .AND. (.NOT. art_config(jg)%lart) ) THEN
           ntracer = 6
           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
                                        'ntracer is set to',ntracer

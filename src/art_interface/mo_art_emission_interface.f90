@@ -47,9 +47,9 @@ MODULE mo_art_emission_interface
     USE mo_model_domain,        ONLY: t_patch
     USE mo_art_config,          ONLY: art_config
     USE mo_exception,             ONLY: message, message_text, finish
-
+    USE mo_datetime,             ONLY:t_datetime
 #ifdef __ICON_ART
-    USE mo_organize_emission_volc,       ONLY:organize_emission_volc
+    USE mo_art_emission_volc,       ONLY:art_organize_emission_volc
 #endif
 
   IMPLICIT NONE
@@ -73,18 +73,19 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! - Call modified for emission of volcanic ash
-  SUBROUTINE art_emission_interface( p_patch,p_tracer_now)
+  SUBROUTINE art_emission_interface( p_patch,p_dtime,datetime,p_rho_now,p_tracer_now)
 
-!    CHARACTER (LEN=MAX_CHAR_LENGTH) :: yaction
-!    CHARACTER (LEN=10)              :: ydate_ini
-!    INTEGER                         :: ierror
-!    CHARACTER (LEN=MAX_CHAR_LENGTH) :: yerrmsg
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
+    REAL(wp), INTENT(IN) ::p_dtime
+     TYPE(t_datetime), INTENT(IN)::datetime
 
+    REAL(wp), INTENT(INOUT) ::  &  !<density of air 
+      &  p_rho_now(:,:,:)          !< at current time level n (before transport)
+                                   !< [kg/m3]
+                                   !< dim: (nproma,nlev,nblks_c)
     REAL(wp), INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
-!    REAL(wp), INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -94,9 +95,6 @@ CONTAINS
 !                                        !< HA: \Delta p       [Pa]
 !                                        !< dim: (nproma,nlev,nblks_c)
 !
-!    REAL(wp), INTENT(IN) :: &           !< advective time step [s]
-!      &  p_dtime
-
 
     INTEGER  :: jg                !< loop index
 
@@ -107,7 +105,7 @@ CONTAINS
     jg  = p_patch%id
      
      IF (art_config(jg)%lart_volc) THEN
-!      CALL organize_emission_volc(p_patch,p_tracer_now) 
+      CALL art_organize_emission_volc(p_patch,p_dtime,datetime,p_rho_now,p_tracer_now) 
      ENDIF
 
 

@@ -57,7 +57,7 @@ MODULE mo_art_config
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-  INTEGER, PARAMETER  :: MAX_NUM_VOLC  = 20 !Maximum number of volcanoes
+   INTEGER, PARAMETER  :: MAX_NUM_VOLC  = 20 !Maximum number of volcanoes
 
   TYPE t_volc_list
     CHARACTER(len=20)                :: zname    ! < name of volcanoe or location
@@ -85,9 +85,7 @@ MODULE mo_art_config
    INTEGER                     :: nvolc             !< Number ov volcanoes
    TYPE(t_volc_list), POINTER  :: volclist(:,:)    !< (idx,blk)
    INTEGER                     :: nblks,npromz              
-    ! derived variables
-    !
-  
+   
   END TYPE t_art_config
 
   !>

@@ -68,7 +68,7 @@ MODULE mo_nonhydro_state
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
-    &                                nqtendphy, iqash1 
+    &                                nqtendphy 
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
