@@ -124,11 +124,13 @@ CONTAINS
     i_v_ctr(:,:,:) = 0
     slev         = 1
     elev         = n_zlev
-    IF (p_test_run) THEN
-      p_vn_dual(:,:,:)%x(1) = 0.0_wp
-      p_vn_dual(:,:,:)%x(2) = 0.0_wp
-      p_vn_dual(:,:,:)%x(3) = 0.0_wp
-    ENDIF
+ 
+ !  slo: not necessary, should be done in calling routines
+ !  IF (p_test_run) THEN
+ !    p_vn_dual(:,:,:)%x(1) = 0.0_wp
+ !    p_vn_dual(:,:,:)%x(2) = 0.0_wp
+ !    p_vn_dual(:,:,:)%x(3) = 0.0_wp
+ !  ENDIF
 
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)

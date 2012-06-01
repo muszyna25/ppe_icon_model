@@ -520,7 +520,9 @@ CONTAINS
     !CALL message (TRIM(routine), 'start')
     
     edges_in_domain   => p_patch%edges%in_domain
-    IF (p_test_run) ptp_vn(:,:,:) = 0.0_wp
+
+    ! slo: not necessary, should be done in calling routines
+    !IF (p_test_run) ptp_vn(:,:,:) = 0.0_wp
     
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN

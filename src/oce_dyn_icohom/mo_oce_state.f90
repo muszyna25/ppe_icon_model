@@ -1097,42 +1097,10 @@ CONTAINS
  !    END DO
  !  END DO
 
-    ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
-    DO jk=1,n_zlev
-      DO jb = all_cells%start_block, all_cells%end_block
-        DO jc = 1, nproma
-          p_os_diag%p_vn(jc,jk,jb)%x(:)=0.0_wp
-        END DO
-      END DO
-    END DO
-
     ALLOCATE(p_os_diag%p_vn_dual(nproma,n_zlev,nblks_v), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn at verts failed')
     END IF
-
-    ! set all values on verts - incl. last block - to zero (NAG compiler)
-    rl_start = 1
-    rl_end = min_rlvert
-    i_startblk = p_patch%verts%start_blk(rl_start,1)
-    i_endblk   = p_patch%verts%end_blk(rl_end,1)
-  ! DO jk=1,n_zlev
-  !   DO jb = i_startblk, i_endblk
-  !     CALL get_indices_v(p_patch, jb, i_startblk, i_endblk,&
-  !     &                  i_startidx, i_endidx, rl_start, rl_end)
-  !     DO jc = i_startidx, i_endidx
-  !       p_os_diag%p_vn_dual(jc,jk,jb)%x(:)=0.0_wp
-  !     END DO
-  !   END DO
-  ! END DO
-    DO jk=1,n_zlev
-    ! DO jb = i_startblk, i_endblk
-      DO jb = 1, nblks_v
-        DO jv = 1, nproma
-          p_os_diag%p_vn_dual(jv,jk,jb)%x(:)=0.0_wp
-        END DO
-      END DO
-    END DO
 
    !reconstrcuted velocity at edges in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn_mean(nproma,n_zlev,nblks_e), STAT=ist)
@@ -1140,27 +1108,16 @@ CONTAINS
       CALL finish(TRIM(routine), 'allocation for p_vn_mean at edges failed')
     END IF
 
-    ! set all values - incl. last block - to zero (NAG compiler)
-  ! rl_start = 1
-  ! rl_end = min_rledge
-  ! i_startblk = p_patch%edges%start_blk(rl_start,1)
-  ! i_endblk   = p_patch%edges%end_blk(rl_end,1)
-  ! DO jk=1,n_zlev
-  !   DO jb = i_startblk, i_endblk
-  !     CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
-  !     &                  i_startidx, i_endidx, rl_start, rl_end)
-  !     DO jc = i_startidx, i_endidx
-  !       p_os_diag%p_vn_mean(jc,jk,jb)%x(:)=0.0_wp
-  !     END DO
-  !   END DO
-  ! END DO
-    DO jk=1,n_zlev
-      DO jb = 1, nblks_e
-        DO je = 1, nproma
-          p_os_diag%p_vn_mean(je,jk,jb)%x(:)=0.0_wp
-        END DO
-      END DO
-    END DO
+    ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
+    p_os_diag%p_vn     (:,:,:)%x(1)=0.0_wp
+    p_os_diag%p_vn     (:,:,:)%x(2)=0.0_wp
+    p_os_diag%p_vn     (:,:,:)%x(3)=0.0_wp
+    p_os_diag%p_vn_dual(:,:,:)%x(1)=0.0_wp
+    p_os_diag%p_vn_dual(:,:,:)%x(2)=0.0_wp
+    p_os_diag%p_vn_dual(:,:,:)%x(3)=0.0_wp
+    p_os_diag%p_vn_mean(:,:,:)%x(1)=0.0_wp
+    p_os_diag%p_vn_mean(:,:,:)%x(2)=0.0_wp
+    p_os_diag%p_vn_mean(:,:,:)%x(3)=0.0_wp
 
     !remapped velocity at cell edges
     ALLOCATE(p_os_diag%ptp_vn(nproma,n_zlev,nblks_e), STAT=ist)

@@ -48,7 +48,7 @@ MODULE mo_oce_ab_timestepping_mimetic
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_parallel_config,           ONLY: nproma, p_test_run
+USE mo_parallel_config,           ONLY: nproma
 USE mo_master_control,            ONLY: is_restart_run
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_v, sync_patch_array
@@ -915,12 +915,10 @@ div_z_depth_int_c(:,:) = 0.0_wp
 div_z_c_2D             = 0.0_wp
 div_z_c        (:,:,:) = 0.0_wp
 
-IF (p_test_run) THEN
-  z_e(:,:)    =0.0_wp
-  z_u_pred_depth_int_cc(:,:)%x(1) = 0.0_wp
-  z_u_pred_depth_int_cc(:,:)%x(2) = 0.0_wp
-  z_u_pred_depth_int_cc(:,:)%x(3) = 0.0_wp
-ENDIF
+z_e(:,:)    =0.0_wp
+z_u_pred_depth_int_cc(:,:)%x(1) = 0.0_wp
+z_u_pred_depth_int_cc(:,:)%x(2) = 0.0_wp
+z_u_pred_depth_int_cc(:,:)%x(3) = 0.0_wp
 
    ! LL: this should not be required
    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_pred)
@@ -1220,23 +1218,19 @@ TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start - iteration by GMRES')        
 
-  cells_in_domain => p_patch%cells%in_domain
-  all_cells => p_patch%cells%all
+cells_in_domain => p_patch%cells%in_domain
+all_cells => p_patch%cells%all
 
-  IF (p_test_run) THEN
-    p_lhs(:,:)    = 0.0_wp
-    div_z_c(:,:)  = 0.0_wp
-    z_e(:,:)      = 0.0_wp
-    z_grad_h(:,:) = 0.0_wp
-  ENDIF
+p_lhs(:,:)    = 0.0_wp
+div_z_c(:,:)  = 0.0_wp
+z_e(:,:)      = 0.0_wp
+z_grad_h(:,:) = 0.0_wp
 
 gdt2 = grav*(dtime)**2
 !z_u_c     = 0.0_wp
 !z_v_c     = 0.0_wp
 
 CALL sync_patch_array(SYNC_C, p_patch, p_x )
-
-IF (p_test_run) z_grad_h(:,:) = 0.0_wp
 
 !Step 1) Calculate gradient of iterated height.
 CALL grad_fd_norm_oce_2d_3D( p_x, &
@@ -1347,7 +1341,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   edges_in_domain => p_patch%edges%in_domain
   cells_in_domain => p_patch%cells%in_domain
 
-  IF (p_test_run) z_grad_h(:,:) = 0.0_wp
+  z_grad_h(:,:) = 0.0_wp
 
   gdt=grav*dtime
 
@@ -2054,9 +2048,7 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
     !-----------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
 
-    IF (p_test_run) THEN
-      z_x_out(:,:) = 0.0_wp
-    ENDIF
+    z_x_out(:,:) = 0.0_wp
 
     CALL sync_patch_array(SYNC_E, p_patch, x)
 
