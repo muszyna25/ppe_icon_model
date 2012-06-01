@@ -910,12 +910,12 @@ DO jb = all_cells%start_block, all_cells%end_block
     z_u_pred_cc(jc,1,jb)%x(:)           = 0.0_wp
   END DO
 END DO
-z_e(:,:)              =0.0_wp
-div_z_depth_int_c(:,:)=0.0_wp
-div_z_c_2D            =0.0_wp
+z_e(:,:)               = 0.0_wp
+div_z_depth_int_c(:,:) = 0.0_wp
+div_z_c_2D             = 0.0_wp
+div_z_c        (:,:,:) = 0.0_wp
 
 IF (p_test_run) THEN
-  div_z_c(:,:,:)=0.0_wp
   z_e(:,:)    =0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(1) = 0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(2) = 0.0_wp
@@ -940,7 +940,7 @@ ENDIF
 ! !      write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
 ! !    END DO
 
-IF(l_EDGE_BASED)THEN
+IF (l_EDGE_BASED) THEN
 
 !  IF( iswm_oce /= 1 ) THEN !the 3D case
 !   !calculate depth-integrated velocity 
@@ -970,20 +970,19 @@ IF(l_EDGE_BASED)THEN
   !CALL div_oce_3d(z_e, p_patch,p_op_coeff%div_coeff, div_z_depth_int_c,&
   !               & level=1,subset_range=cells_in_domain )
 
-   CALL div_oce_3d(z_vn_ab, p_patch,p_op_coeff%div_coeff, div_z_c,&
-                 & subset_range=cells_in_domain )
-   DO jb = all_cells%start_block, all_cells%end_block
-     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-     DO jc = i_startidx_c, i_endidx_c
-       i_dolic_c = v_base%dolic_c(jc,jb)
-       DO jk=1,i_dolic_c !1,i_dolic_c
-         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-           delta_z=v_base%del_zlev_m(jk)
-           IF(jk==1)delta_z=v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-            div_z_depth_int_c(jc,jb)&
-            &=div_z_depth_int_c(jc,jb) +div_z_c(jc,jk,jb)*delta_z
-           ENDIF
-        END DO
+  CALL div_oce_3d(z_vn_ab, p_patch,p_op_coeff%div_coeff, div_z_c, &
+    &             subset_range=cells_in_domain )
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jc = i_startidx_c, i_endidx_c
+      i_dolic_c = v_base%dolic_c(jc,jb)
+      DO jk=1,i_dolic_c
+        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          delta_z = v_base%del_zlev_m(jk)
+          IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + p_os%p_prog(nold(1))%h(jc,jb)
+          div_z_depth_int_c(jc,jb) = div_z_depth_int_c(jc,jb) + div_z_c(jc,jk,jb)*delta_z
+        ENDIF
+      END DO
     END DO
   END DO
 
@@ -1005,6 +1004,7 @@ IF(l_EDGE_BASED)THEN
        !write(*,*)'RHS:',jc,jb,p_os%p_aux%p_rhs_sfc_eq(jc,jb), div_z_c(jc,1,jb)
       ENDDO
     END DO
+
   ELSEIF(.NOT.l_forc_freshw)THEN
 
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
@@ -1020,9 +1020,10 @@ IF(l_EDGE_BASED)THEN
         ENDIF
       ENDDO
     END DO
-  ENDIF
 
-ELSE!NOT EDGE-BASED
+  ENDIF ! l_forc_freshw
+
+ELSE ! NOT EDGE-BASED
 !  CALL map_edges2cell_3D( p_patch,                 &
 !                        & p_os%p_prog(nold(1))%vn, &
 !                        & p_op_coeff, z_u_pred_cc)
