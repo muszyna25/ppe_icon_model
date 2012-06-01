@@ -206,6 +206,8 @@ MODULE mo_nonhydro_types
 
     TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_ptr(:)      !< pointer array: one pointer for each tracer
     TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_avg_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_nh),ALLOCATABLE :: extra_2d_ptr(:)
+    TYPE(t_ptr_nh),ALLOCATABLE :: extra_3d_ptr(:)
 
   END TYPE t_nh_diag
 

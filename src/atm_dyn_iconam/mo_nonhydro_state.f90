@@ -1637,8 +1637,18 @@ MODULE mo_nonhydro_state
         grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                    & ldims=shape2d_extra, lrestart=.FALSE. )
+                    & lcontainer=.TRUE., ldims=shape2d_extra, lrestart=.FALSE. )
+
+        ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
+        DO jt =1,inextra_2d
+          WRITE(ctrc,'(I2)')jt
+          CALL add_ref( p_diag_list, 'extra_2d', 'extra_2d'//TRIM(ADJUSTL(ctrc)), &
+            &           p_diag%extra_2d_ptr(jt)%p_2d,                             &
+            &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                    &
+            &           cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE. )
+        ENDDO
       ENDIF
+
 
       IF(inextra_3d > 0) THEN
 
@@ -1651,6 +1661,14 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_extra,                                        &
                     & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
+        ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))
+        DO jt =1,inextra_3d
+          WRITE(ctrc,'(I2)')jt
+          CALL add_ref( p_diag_list, 'extra_3d', 'extra_3d'//TRIM(ADJUSTL(ctrc)), &
+            &           p_diag%extra_3d_ptr(jt)%p_3d,                             &
+            &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                     &
+            &           cf_desc, grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
+        ENDDO
       ENDIF
     ENDIF
 
