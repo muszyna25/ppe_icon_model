@@ -888,27 +888,33 @@ CONTAINS
       ! set z axis ID
       !
       SELECT CASE (info%vgrid)
+
       CASE (ZAXIS_SURFACE)
         info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
         zaxisID = info%cdiZaxisID
-      CASE (ZAXIS_GENERIC)
 
+      CASE (ZAXIS_GENERIC)
         IF (info%used_dimensions(2) == 1) THEN
           info%cdiZaxisID =  this_list%p%cdiGenericZaxisID
           zaxisID = info%cdiZaxisID
-        ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_half)) THEN
-          info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
-          zaxisID = info%cdiZaxisID
-        ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_full)) THEN
-          info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
-          zaxisID = info%cdiZaxisID
+        ELSE IF (lheight_snow_initialised) THEN
+          IF (info%used_dimensions(2) == SIZE(private_height_snow_half)) THEN
+            info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
+            zaxisID = info%cdiZaxisID
+          ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_full)) THEN
+            info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
+            zaxisID = info%cdiZaxisID
+          ENDIF
         ENDIF
+
       CASE (ZAXIS_HYBRID)
         info%cdiZaxisID =  this_list%p%cdiFullZaxisID
         zaxisID = info%cdiZaxisID
+
       CASE (ZAXIS_HYBRID_HALF)
         info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
         zaxisID = info%cdiZaxisID
+
       CASE (ZAXIS_DEPTH_BELOW_SEA)
         IF (info%used_dimensions(2) == SIZE(private_depth_half)) THEN
           info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
@@ -917,6 +923,7 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
           zaxisID = info%cdiZaxisID
         ENDIF
+
       CASE (ZAXIS_DEPTH_BELOW_LAND)
         IF (info%used_dimensions(2) == SIZE(private_depth_lnd_half)) THEN
           info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
@@ -925,6 +932,7 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
           zaxisID = info%cdiZaxisID
         ENDIF
+
       CASE (ZAXIS_HEIGHT)
         IF (info%used_dimensions(2) == SIZE(private_height_half)) THEN
           info%cdiZaxisID =  this_list%p%cdiHeightHalfZaxisID
