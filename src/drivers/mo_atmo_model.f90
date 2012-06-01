@@ -124,7 +124,7 @@ USE mo_util_sysinfo,        ONLY: util_get_maxrss
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
-                                  dynamics_parent_grid_id
+                                  dynamics_parent_grid_id, grid_rescale_factor
 USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches
 ! Horizontal interpolation
 !
@@ -673,7 +673,8 @@ CONTAINS
 
     CALL configure_dynamics ( n_dom )
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
-                            & nlev, vct_a, vct_b, apzero      )
+      &                       nlev, vct_a, vct_b, apzero,     &
+      &                       grid_rescale_factor             )
 
     IF (iequations == inh_atmosphere) THEN
       DO jg =1,n_dom
