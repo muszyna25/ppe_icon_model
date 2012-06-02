@@ -118,115 +118,29 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2008-10-30)
   !! - add Coriolis destruction
   !!
-  SUBROUTINE deallocate_patch( p_patch )
+  SUBROUTINE deallocate_patch( p_patch, lddmode )
     
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
+    LOGICAL,     OPTIONAL, INTENT(in)    :: lddmode  ! Skip fields not allocated in ldump_dd mode
     
     !local variables
     INTEGER :: ist
+    LOGICAL :: l_ddmode
     !-----------------------------------------------------------------------    
     !
+    IF (PRESENT(lddmode)) THEN
+      l_ddmode = lddmode
+    ELSE
+      l_ddmode = .FALSE.
+    ENDIF
+
     ! Deallocate grid information
     !
-    ! CELLS
-    DEALLOCATE( p_patch%cells%num_edges,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell index failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%parent_idx,  &
-      & p_patch%cells%parent_blk,  &
-      & p_patch%cells%pc_idx,      &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell parent index failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%child_idx,  &
-      & p_patch%cells%child_blk,  &
-      & p_patch%cells%child_id,   &
-      & p_patch%cells%phys_id,    &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell child index failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%neighbor_idx,  &
-      & p_patch%cells%neighbor_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell neighbor index failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%edge_idx,  &
-      & p_patch%cells%edge_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell edge index failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%vertex_idx,  &
-      & p_patch%cells%vertex_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell vertex index failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%edge_orientation,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell edge_orientation failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%center,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell center failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%area,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell area failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%f_c,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell f_c failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%refin_ctrl,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell refin_ctrl failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%start_idx,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell start_idx failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%end_idx,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell end_idx failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%start_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell start_blk failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%end_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell end_blk failed')
-    ENDIF
+    ! Include deallocation of basic patch variables
+! GZ: this directive should not be needed here, but the NEC compiler crashes otherwise (internal error in optimization phase)
+!CDIR NOIEXPAND
+    CALL deallocate_basic_patch(p_patch)
+
     DEALLOCATE( p_patch%cells%decomp_domain,  &
       & stat=ist )
     IF(ist/=success)THEN
@@ -248,25 +162,84 @@ CONTAINS
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch cell data failed')
     ENDIF
-    !
-    !
-    ! EDGES
-    DEALLOCATE( p_patch%edges%parent_idx,  &
-      & p_patch%edges%parent_blk,  &
-      & p_patch%edges%pc_idx,      &
+
+    DEALLOCATE( p_patch%edges%decomp_domain,  &
       & stat=ist )
     IF(ist/=success)THEN
       CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge parent index failed')
+        & 'deallocate for patch edge decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%child_idx,  &
-      & p_patch%edges%child_blk,  &
-      & p_patch%edges%child_id,   &
-      & p_patch%edges%phys_id,    &
+    DEALLOCATE( p_patch%edges%owner_mask,  &
       & stat=ist )
     IF(ist/=success)THEN
       CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge child index failed')
+        & 'deallocate for patch edge owner_mask failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%glb_index,  &
+      & p_patch%edges%loc_index,  &
+      & p_patch%edges%owner_local,  &
+      & p_patch%edges%owner_g,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge data failed')
+    ENDIF
+
+    DEALLOCATE( p_patch%verts%decomp_domain,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vert decomp_domain failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%owner_mask,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vert owner_mask failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%glb_index,  &
+      & p_patch%verts%loc_index,  &
+      & p_patch%verts%owner_local,  &
+      & p_patch%verts%owner_g,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vert data failed')
+    ENDIF
+
+    IF (l_ddmode) RETURN
+
+    DEALLOCATE(p_patch%cells%phys_id,    &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell physical ID failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%edge_orientation,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell edge_orientation failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%area,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell area failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%f_c,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell f_c failed')
+    ENDIF
+    !
+    !
+    DEALLOCATE(p_patch%edges%phys_id,    &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge physical ID failed')
     ENDIF
     DEALLOCATE( p_patch%edges%cell_idx,  &
       & p_patch%edges%cell_blk,  &
@@ -410,60 +383,8 @@ CONTAINS
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch edge f_e failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%refin_ctrl,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge refin_ctrl failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%start_idx,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge start_idx failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%end_idx,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge end_idx failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%start_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge start_blk failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%end_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge end_blk failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%decomp_domain,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge decomp_domain failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%owner_mask,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge owner_mask failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%glb_index,  &
-      & p_patch%edges%loc_index,  &
-      & p_patch%edges%owner_local,  &
-      & p_patch%edges%owner_g,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge data failed')
-    ENDIF
     !
     !
-    ! VERTICES
     DEALLOCATE( p_patch%verts%neighbor_idx,  &
       & p_patch%verts%neighbor_blk,  &
       & p_patch%verts%phys_id,       &
@@ -498,12 +419,6 @@ CONTAINS
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch vertex number of edges failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%vertex,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex vertex failed')
-    ENDIF
     DEALLOCATE( p_patch%verts%dual_area,  &
       & stat=ist )
     IF(ist/=success)THEN
@@ -515,57 +430,6 @@ CONTAINS
     IF(ist/=success)THEN
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch vertex f_v failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%refin_ctrl,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge refin_ctrl failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%start_idx,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge start_idx failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%end_idx,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge end_idx failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%start_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge start_blk failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%end_blk,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge end_blk failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%decomp_domain,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vert decomp_domain failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%owner_mask,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vert owner_mask failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%glb_index,  &
-      & p_patch%verts%loc_index,  &
-      & p_patch%verts%owner_local,  &
-      & p_patch%verts%owner_g,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vert data failed')
     ENDIF
 
 
@@ -873,9 +737,14 @@ CONTAINS
   !! Initial version (split out from read_patch) Rainer Johanni, Oct. 2010
   !! Split into allocate_basic_patch/allocate_remaining_patch, Rainer Johanni, Nov. 2011
   !!
-  SUBROUTINE allocate_remaining_patch(p_patch)
+  SUBROUTINE allocate_remaining_patch(p_patch,iopmode)
     
     TYPE(t_patch), INTENT(inout) :: p_patch
+    INTEGER,       INTENT(in)    :: iopmode
+
+    ! operation modes: iopmode=1: allocate all remaining patch arrays
+    !                  iopmode=2: allocate only parallelization-related arrays
+    !                  iopmode=3: allocate all but the parallelization-related arrays
     
     INTEGER :: jc, je, jv
     
@@ -894,179 +763,196 @@ CONTAINS
     !
     ! !grid cells
     !
-    ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
+    IF (iopmode /= 2) THEN
+      ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
+      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
+      ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
+      ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
+    ENDIF
     
-    ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
-    ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
-    ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
-    ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
+    IF (iopmode /= 3) THEN
+      ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%nblks_c) )
+      ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%nblks_c) )
+      ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
+      ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
+      ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
+      ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
+    ENDIF
     
     !
     ! !grid edges
     !
-    ALLOCATE( p_patch%edges%phys_id(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%butterfly_idx(nproma,p_patch%nblks_e,2,2) )
-    ALLOCATE( p_patch%edges%butterfly_blk(nproma,p_patch%nblks_e,2,2) )
-    ALLOCATE( p_patch%edges%quad_orientation(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%center(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%primal_normal(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%dual_normal(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%primal_normal_cell(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%dual_normal_cell(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%primal_normal_vert(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%dual_normal_vert(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%primal_edge_length(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%inv_primal_edge_length(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%dual_edge_length(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%inv_dual_edge_length(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%edge_vert_length(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%inv_vert_vert_length(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%edge_cell_length(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%area_edge(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%quad_area(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%f_e(nproma,p_patch%nblks_e) )
+    IF (iopmode /= 2) THEN
+      ALLOCATE( p_patch%edges%phys_id(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
+      ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
+      ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%butterfly_idx(nproma,p_patch%nblks_e,2,2) )
+      ALLOCATE( p_patch%edges%butterfly_blk(nproma,p_patch%nblks_e,2,2) )
+      ALLOCATE( p_patch%edges%quad_orientation(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%center(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%primal_normal(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%dual_normal(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%primal_normal_cell(nproma,p_patch%nblks_e,2) )
+      ALLOCATE( p_patch%edges%dual_normal_cell(nproma,p_patch%nblks_e,2) )
+      ALLOCATE( p_patch%edges%primal_normal_vert(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%dual_normal_vert(nproma,p_patch%nblks_e,4) )
+      ALLOCATE( p_patch%edges%primal_edge_length(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%inv_primal_edge_length(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%dual_edge_length(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%inv_dual_edge_length(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%edge_vert_length(nproma,p_patch%nblks_e,2) )
+      ALLOCATE( p_patch%edges%inv_vert_vert_length(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%edge_cell_length(nproma,p_patch%nblks_e,2) )
+      ALLOCATE( p_patch%edges%area_edge(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%quad_area(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%f_e(nproma,p_patch%nblks_e) )
+    ENDIF
+
     
-    ALLOCATE( p_patch%edges%decomp_domain(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%owner_mask(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%glb_index(p_patch%n_patch_edges) )
-    ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
-    ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
-    ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
+    IF (iopmode /= 3) THEN
+      ALLOCATE( p_patch%edges%decomp_domain(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%owner_mask(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%glb_index(p_patch%n_patch_edges) )
+      ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
+      ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
+      ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
+    ENDIF
     
     !
     ! !grid verts
     !
-    ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-    ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%dual_area(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%f_v(nproma,p_patch%nblks_v) )
+    IF (iopmode /= 2) THEN
+      ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%dual_area(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%f_v(nproma,p_patch%nblks_v) )
+    ENDIF
     
-    ALLOCATE( p_patch%verts%decomp_domain(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%owner_mask(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
-    ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
-    ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
-    ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
+    IF (iopmode /= 3) THEN
+      ALLOCATE( p_patch%verts%decomp_domain(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%owner_mask(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
+      ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
+      ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
+      ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
+    ENDIF
     
     ! Set all newly allocated arrays to 0
     
-    p_patch%cells%phys_id = 0
-    p_patch%cells%edge_orientation = 0._wp
-    p_patch%cells%area = 0._wp
-    p_patch%cells%f_c = 0._wp
+    IF (iopmode /= 2) THEN
+      p_patch%cells%phys_id = 0
+      p_patch%cells%edge_orientation = 0._wp
+      p_patch%cells%area = 0._wp
+      p_patch%cells%f_c = 0._wp
     
-    p_patch%edges%phys_id = 0
-    p_patch%edges%cell_idx = 0
-    p_patch%edges%cell_blk = 0
-    p_patch%edges%vertex_idx = 0
-    p_patch%edges%vertex_blk = 0
-    p_patch%edges%system_orientation = 0._wp
-    p_patch%edges%quad_idx = 0
-    p_patch%edges%quad_blk = 0
-    p_patch%edges%butterfly_idx = 0
-    p_patch%edges%butterfly_blk = 0
-    p_patch%edges%quad_orientation = 0._wp
-    p_patch%edges%center(:,:)%lon = 0._wp
-    p_patch%edges%center(:,:)%lat = 0._wp
-    p_patch%edges%primal_normal(:,:)%v1 = 0._wp
-    p_patch%edges%primal_normal(:,:)%v2 = 0._wp
-    p_patch%edges%dual_normal(:,:)%v1 = 0._wp
-    p_patch%edges%dual_normal(:,:)%v2 = 0._wp
-    p_patch%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
-    p_patch%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
-    p_patch%edges%dual_normal_cell(:,:,:)%v1 = 0._wp
-    p_patch%edges%dual_normal_cell(:,:,:)%v2 = 0._wp
-    p_patch%edges%primal_normal_vert(:,:,:)%v1 = 0._wp
-    p_patch%edges%primal_normal_vert(:,:,:)%v2 = 0._wp
-    p_patch%edges%dual_normal_vert(:,:,:)%v1 = 0._wp
-    p_patch%edges%dual_normal_vert(:,:,:)%v2 = 0._wp
-    p_patch%edges%primal_edge_length = 0._wp
-    p_patch%edges%inv_primal_edge_length = 0._wp
-    p_patch%edges%dual_edge_length = 0._wp
-    p_patch%edges%inv_dual_edge_length = 0._wp
-    p_patch%edges%edge_vert_length = 0._wp
-    p_patch%edges%inv_vert_vert_length = 0._wp
-    p_patch%edges%edge_cell_length = 0._wp
-    p_patch%edges%area_edge = 0._wp
-    p_patch%edges%quad_area = 0._wp
-    p_patch%edges%f_e = 0._wp
+      p_patch%edges%phys_id = 0
+      p_patch%edges%cell_idx = 0
+      p_patch%edges%cell_blk = 0
+      p_patch%edges%vertex_idx = 0
+      p_patch%edges%vertex_blk = 0
+      p_patch%edges%system_orientation = 0._wp
+      p_patch%edges%quad_idx = 0
+      p_patch%edges%quad_blk = 0
+      p_patch%edges%butterfly_idx = 0
+      p_patch%edges%butterfly_blk = 0
+      p_patch%edges%quad_orientation = 0._wp
+      p_patch%edges%center(:,:)%lon = 0._wp
+      p_patch%edges%center(:,:)%lat = 0._wp
+      p_patch%edges%primal_normal(:,:)%v1 = 0._wp
+      p_patch%edges%primal_normal(:,:)%v2 = 0._wp
+      p_patch%edges%dual_normal(:,:)%v1 = 0._wp
+      p_patch%edges%dual_normal(:,:)%v2 = 0._wp
+      p_patch%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
+      p_patch%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
+      p_patch%edges%dual_normal_cell(:,:,:)%v1 = 0._wp
+      p_patch%edges%dual_normal_cell(:,:,:)%v2 = 0._wp
+      p_patch%edges%primal_normal_vert(:,:,:)%v1 = 0._wp
+      p_patch%edges%primal_normal_vert(:,:,:)%v2 = 0._wp
+      p_patch%edges%dual_normal_vert(:,:,:)%v1 = 0._wp
+      p_patch%edges%dual_normal_vert(:,:,:)%v2 = 0._wp
+      p_patch%edges%primal_edge_length = 0._wp
+      p_patch%edges%inv_primal_edge_length = 0._wp
+      p_patch%edges%dual_edge_length = 0._wp
+      p_patch%edges%inv_dual_edge_length = 0._wp
+      p_patch%edges%edge_vert_length = 0._wp
+      p_patch%edges%inv_vert_vert_length = 0._wp
+      p_patch%edges%edge_cell_length = 0._wp
+      p_patch%edges%area_edge = 0._wp
+      p_patch%edges%quad_area = 0._wp
+      p_patch%edges%f_e = 0._wp
     
-    p_patch%verts%phys_id = 0
-    p_patch%verts%neighbor_idx = 0
-    p_patch%verts%neighbor_blk = 0
-    p_patch%verts%cell_idx = 0
-    p_patch%verts%cell_blk = 0
-    p_patch%verts%edge_idx = 0
-    p_patch%verts%edge_blk = 0
-    p_patch%verts%edge_orientation = 0._wp
-    p_patch%verts%num_edges = 0
-    p_patch%verts%dual_area = 0._wp
-    p_patch%verts%f_v = 0._wp
-    
+      p_patch%verts%phys_id = 0
+      p_patch%verts%neighbor_idx = 0
+      p_patch%verts%neighbor_blk = 0
+      p_patch%verts%cell_idx = 0
+      p_patch%verts%cell_blk = 0
+      p_patch%verts%edge_idx = 0
+      p_patch%verts%edge_blk = 0
+      p_patch%verts%edge_orientation = 0._wp
+      p_patch%verts%num_edges = 0
+      p_patch%verts%dual_area = 0._wp
+      p_patch%verts%f_v = 0._wp
+    ENDIF
+
     ! Set values which are needed for parallel runs
     ! to the correct values for a single patch owner
     ! decomp_domain/owner mask:
     ! Everywhere 0 or .true. with the exception of unused entries
     
-    p_patch%cells%decomp_domain = 0
-    p_patch%edges%decomp_domain = 0
-    p_patch%verts%decomp_domain = 0
-    p_patch%cells%owner_mask = .TRUE.
-    p_patch%edges%owner_mask = .TRUE.
-    p_patch%verts%owner_mask = .TRUE.
+    IF (iopmode /= 3) THEN
+      p_patch%cells%decomp_domain = 0
+      p_patch%edges%decomp_domain = 0
+      p_patch%verts%decomp_domain = 0
+      p_patch%cells%owner_mask = .TRUE.
+      p_patch%edges%owner_mask = .TRUE.
+      p_patch%verts%owner_mask = .TRUE.
     
-    p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = -1
-    p_patch%edges%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
-    p_patch%verts%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
+      p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = -1
+      p_patch%edges%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
+      p_patch%verts%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
     
-    p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = .FALSE.
-    p_patch%edges%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
-    p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
+      p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = .FALSE.
+      p_patch%edges%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
+      p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
     
-    ! The following arrays are currently never needed for non parallel runs,
-    ! we set them nontheless.
+      ! The following arrays are currently never needed for non parallel runs,
+      ! we set them nontheless.
     
-    DO jc = 1, p_patch%n_patch_cells
-      p_patch%cells%glb_index(jc) = jc
-      p_patch%cells%loc_index(jc) = jc
-      p_patch%cells%owner_g(jc) = 0
-      p_patch%cells%owner_local(jc) = 0
-    ENDDO
+      DO jc = 1, p_patch%n_patch_cells
+        p_patch%cells%glb_index(jc) = jc
+        p_patch%cells%loc_index(jc) = jc
+        p_patch%cells%owner_g(jc) = 0
+        p_patch%cells%owner_local(jc) = 0
+      ENDDO
     
-    DO je = 1, p_patch%n_patch_edges
-      p_patch%edges%glb_index(je) = je
-      p_patch%edges%loc_index(je) = je
-      p_patch%edges%owner_g(je) = 0
-      p_patch%edges%owner_local(je) = 0
-    ENDDO
+      DO je = 1, p_patch%n_patch_edges
+        p_patch%edges%glb_index(je) = je
+        p_patch%edges%loc_index(je) = je
+        p_patch%edges%owner_g(je) = 0
+        p_patch%edges%owner_local(je) = 0
+      ENDDO
     
-    DO jv = 1, p_patch%n_patch_verts
-      p_patch%verts%glb_index(jv) = jv
-      p_patch%verts%loc_index(jv) = jv
-      p_patch%verts%owner_g(jv) = 0
-      p_patch%verts%owner_local(jv) = 0
-    ENDDO
+      DO jv = 1, p_patch%n_patch_verts
+        p_patch%verts%glb_index(jv) = jv
+        p_patch%verts%loc_index(jv) = jv
+        p_patch%verts%owner_g(jv) = 0
+        p_patch%verts%owner_local(jv) = 0
+      ENDDO
+    ENDIF
 
-    CALL allocate_patch_cartestian( p_patch )
+    IF (iopmode /= 2) CALL allocate_patch_cartestian( p_patch )
     
   END SUBROUTINE allocate_remaining_patch
   !-------------------------------------------------------------------------
@@ -1082,11 +968,12 @@ CONTAINS
     TYPE(t_patch), INTENT(inout) :: p_patch
     
     CALL allocate_basic_patch(p_patch)
-    CALL allocate_remaining_patch(p_patch)
+    CALL allocate_remaining_patch(p_patch,1)
     
   END SUBROUTINE allocate_patch  
   !-------------------------------------------------------------------------
       
     
 END MODULE mo_alloc_patches
+
 

@@ -183,7 +183,7 @@ MODULE mo_dump_restore
     &                              num_work_procs, p_barrier, get_my_mpi_work_id, p_max, p_pe
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
-  USE mo_alloc_patches,      ONLY: allocate_patch
+  USE mo_alloc_patches,      ONLY: allocate_patch, allocate_basic_patch, allocate_remaining_patch
   USE mo_intp_state,         ONLY: allocate_int_state, allocate_int_state_lonlat_grid
   USE mo_lonlat_grid,        ONLY: compute_lonlat_blocking,      &
     &                              compute_lonlat_specs
@@ -2836,7 +2836,12 @@ CONTAINS
 
     ! Allocate patch
 
-    CALL allocate_patch(p)
+    IF (lfull) THEN
+      CALL allocate_patch(p)
+    ELSE
+      CALL allocate_basic_patch(p)
+      CALL allocate_remaining_patch(p,2)
+    ENDIF
 
     CALL patch_io(p, lfull)
 

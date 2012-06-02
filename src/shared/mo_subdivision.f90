@@ -86,7 +86,8 @@ MODULE mo_subdivision
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, n_phys_dom
-  USE mo_alloc_patches,ONLY: allocate_patch, deallocate_basic_patch, deallocate_patch
+  USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
+                             deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 
   IMPLICIT NONE
@@ -105,7 +106,6 @@ MODULE mo_subdivision
   PUBLIC :: complete_parallel_setup
 
   ! pointers to the work patches
-  TYPE(t_patch), POINTER :: wrk_p_patch
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
   TYPE(t_patch), POINTER :: wrk_divide_patch
 
@@ -449,25 +449,33 @@ CONTAINS
         ! a way to output them before all are calculated.
 
         ! Do all domain decompositions
+
+        wrk_p_patch_g => p_patch_global(jg)
+
+!$OMP PARALLEL DO PRIVATE(n)
         DO n = 1, opt_n_procs
 
           WRITE(0,'(2(a,i0))') 'Dividing patch ',jg,' for proc ',n-1
           p_patch_out(n)%n_proc = p_patch(jg)%n_proc
           p_patch_out(n)%proc0  = p_patch(jg)%proc0
-          wrk_p_patch_g => p_patch_global(jg)
-          wrk_p_patch   => p_patch_out(n)
-          CALL divide_patch(cell_owner, n_ghost_rows, .TRUE., n-1)
+          CALL divide_patch(p_patch_out(n), cell_owner, n_ghost_rows, .TRUE., n-1)
           CALL discard_large_arrays(p_patch_out(n), n)
 
-          IF(jg > n_dom_start) THEN
-            ! Divide local parent
-            wrk_p_patch_g => p_patch_global(jgp)
-            wrk_p_patch   => p_patch_lp_out(n)
-            CALL divide_patch(cell_owner_p, 1, .FALSE., n-1)
-            CALL discard_large_arrays(p_patch_lp_out(n), n)
-          ENDIF
-
         ENDDO
+!$OMP END PARALLEL DO 
+
+        IF(jg > n_dom_start) THEN
+          wrk_p_patch_g => p_patch_global(jgp)
+!$OMP PARALLEL DO PRIVATE(n)
+          DO n = 1, opt_n_procs
+
+            ! Divide local parent
+            CALL divide_patch(p_patch_lp_out(n), cell_owner_p, 1, .FALSE., n-1)
+            CALL discard_large_arrays(p_patch_lp_out(n), n)
+
+          ENDDO
+!$OMP END PARALLEL DO 
+        ENDIF
 
         ! Dump domain decompositions to NetCDF
         IF(jg > n_dom_start) THEN
@@ -478,20 +486,18 @@ CONTAINS
 
         ! Deallocate patch arrays
         DO n = 1, opt_n_procs
-          CALL deallocate_patch(p_patch_out(n))
-          IF(jg > n_dom_start) CALL deallocate_patch(p_patch_lp_out(n))
+          CALL deallocate_patch(p_patch_out(n),lddmode=.TRUE.)
+          IF(jg > n_dom_start) CALL deallocate_patch(p_patch_lp_out(n),lddmode=.TRUE.)
         ENDDO
 
       ELSE
 
         wrk_p_patch_g => p_patch_global(jg)
-        wrk_p_patch   => p_patch(jg)
-        CALL divide_patch(cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        CALL divide_patch(p_patch(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
 
         IF(jg > n_dom_start) THEN
           wrk_p_patch_g => p_patch_global(jgp)
-          wrk_p_patch   => p_patch_local_parent(jg)
-          CALL divide_patch(cell_owner_p, 1, .FALSE., p_pe_work)
+          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
         ENDIF
 
       ENDIF
@@ -1014,7 +1020,10 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch(cell_owner, n_boundary_rows, l_compute_grid, my_proc)
+  SUBROUTINE divide_patch(wrk_p_patch, cell_owner, n_boundary_rows, l_compute_grid, my_proc)
+
+    TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
+                                                ! a few attributes are already set
 
     INTEGER, INTENT(IN) :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
@@ -1044,6 +1053,9 @@ CONTAINS
     flag_e(:) = -1
     flag_v(:) = -1
 
+    ! flag inner cells
+    WHERE(cell_owner(:)==my_proc) flag_c(:) = 0
+
     !-----------------------------------------------------------------------------------------------
     ! The purpose of the second set of flags is to control moving the halo points
     ! to the end of the index vector for nearly all cells even if l_compute_grid = true
@@ -1059,22 +1071,9 @@ CONTAINS
     ALLOCATE(flag2_e(wrk_p_patch_g%n_patch_edges))
     ALLOCATE(flag2_v(wrk_p_patch_g%n_patch_verts))
 
-    ALLOCATE(lcount_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(lcount_e(wrk_p_patch_g%n_patch_edges))
-    ALLOCATE(lcount_v(wrk_p_patch_g%n_patch_verts))
-
-    flag2_c(:) = -1
+    flag2_c(:) = flag_c(:)
     flag2_e(:) = -1
     flag2_v(:) = -1
-
-    lcount_c(:) = .FALSE.
-    lcount_e(:) = .FALSE.
-    lcount_v(:) = .FALSE.
-
-    ! flag inner cells
-
-    WHERE(cell_owner(:)==my_proc) flag_c(:) = 0
-    WHERE(cell_owner(:)==my_proc) flag2_c(:) = 0
 
     jg = wrk_p_patch_g%id
     i_nchdom = MAX(1,wrk_p_patch_g%n_childdom)
@@ -1090,12 +1089,34 @@ CONTAINS
 
       IF(ilev>0) THEN
 
+#ifdef __SX__
+        DO i = 1, wrk_p_patch_g%cell_type
+          DO j = 1, wrk_p_patch_g%n_patch_cells
+
+            IF(flag_c(j)<0) THEN
+
+              jb = blk_no(j) ! block index
+              jl = idx_no(j) ! line index
+
+              IF (i > wrk_p_patch_g%cells%num_edges(jl,jb)) CYCLE
+
+              ! Check if any vertex of this cell is already flagged.
+              ! If this is the case, this cell goes to level ilev
+
+              jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
+              jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
+              jv = idx_1d(jl_v, jb_v)
+              IF(flag_v(jv)>=0) flag_c(j) = ilev
+            ENDIF
+          ENDDO
+        ENDDO
+#else
         DO j = 1, wrk_p_patch_g%n_patch_cells
 
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-
           IF(flag_c(j)<0) THEN
+
+            jb = blk_no(j) ! block index
+            jl = idx_no(j) ! line index
 
             ! Check if any vertex of this cell is already flagged.
             ! If this is the case, this cell goes to level ilev
@@ -1105,12 +1126,10 @@ CONTAINS
               jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
               jv = idx_1d(jl_v, jb_v)
               IF(flag_v(jv)>=0) flag_c(j) = ilev
-              ! TEST only, must never be triggered!
-              ! IF(flag_v(jv)>=0 .and. flag_v(jv) /= ilev-1) &
-              !  & PRINT *,'ERR: lev=',ilev,'flag_v=',flag_v(jv)
             ENDDO
           ENDIF
         ENDDO
+#endif
 
       ENDIF
 
@@ -1120,10 +1139,11 @@ CONTAINS
 
       DO j = 1, wrk_p_patch_g%n_patch_cells
 
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-
         IF(flag_c(j)==ilev) THEN
+
+          jb = blk_no(j) ! block index
+          jl = idx_no(j) ! line index
+
           DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
             jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
             jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
@@ -1144,10 +1164,10 @@ CONTAINS
 
       DO j = 1, wrk_p_patch_g%n_patch_cells
 
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-
         IF (flag_c(j) == ilev) THEN
+
+          jb = blk_no(j) ! block index
+          jl = idx_no(j) ! line index
 
           flag2_c(j) = 2*flag_c(j)
 
@@ -1169,10 +1189,11 @@ CONTAINS
     ! Preset edges and vertices bordering to interior cells with 0
     DO j = 1, wrk_p_patch_g%n_patch_cells
 
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-
       IF (flag_c(j)==0) THEN
+
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+
         DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
           jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
           jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
@@ -1191,10 +1212,11 @@ CONTAINS
     DO ilev = 1, n_boundary_rows
       DO j = 1, wrk_p_patch_g%n_patch_cells
 
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-
         IF (flag_c(j)==ilev) THEN
+
+          jb = blk_no(j) ! block index
+          jl = idx_no(j) ! line index
+
           DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
             jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
             jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
@@ -1226,6 +1248,8 @@ CONTAINS
     wrk_p_patch%n_patch_cells = COUNT(flag_c(:)>=0)
     wrk_p_patch%n_patch_edges = COUNT(flag_e(:)>=0)
     wrk_p_patch%n_patch_verts = COUNT(flag_v(:)>=0)
+
+    DEALLOCATE(flag_c, flag_e, flag_v)
 
     ! save the number of cells/edges/verts of the global patch
     wrk_p_patch%n_patch_cells_g = wrk_p_patch_g%n_patch_cells
@@ -1274,10 +1298,11 @@ CONTAINS
     wrk_p_patch%nshift_child = wrk_p_patch_g%nshift_child
 
     !-----------------------------------------------------------------------------------------------
-    ! Allocate all data arrays in patch
+    ! Allocate the required data arrays in patch
     !-----------------------------------------------------------------------------------------------
 
-    CALL allocate_patch(wrk_p_patch)
+    CALL allocate_basic_patch(wrk_p_patch)
+    CALL allocate_remaining_patch(wrk_p_patch,2) ! 2 = only those needed for parallelization control
 
     !-----------------------------------------------------------------------------------------------
     ! Set the global ownership for cells, edges and verts (needed for boundary exchange).
@@ -1327,7 +1352,7 @@ CONTAINS
 
     ! Reset flag2_e/v to 0 at boundary points owned by the current PE
     DO j = 1, wrk_p_patch_g%n_patch_cells
-      IF (flag_c(j) == 0) THEN
+      IF (flag2_c(j) == 0) THEN
         jb = blk_no(j) ! block index
         jl = idx_no(j) ! line index
         DO i = 1,wrk_p_patch_g%cells%num_edges(jl,jb)
@@ -1350,12 +1375,19 @@ CONTAINS
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
     !-----------------------------------------------------------------------------------------------
 
+    ALLOCATE(lcount_c(wrk_p_patch_g%n_patch_cells))
+    ALLOCATE(lcount_e(wrk_p_patch_g%n_patch_edges))
+    ALLOCATE(lcount_v(wrk_p_patch_g%n_patch_verts))
+
+    lcount_c(:) = .FALSE.
+    lcount_e(:) = .FALSE.
+    lcount_v(:) = .FALSE.
+
+
     n = 0
     IF (.NOT. l_compute_grid) THEN
       DO j = 1, wrk_p_patch_g%n_patch_cells
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        IF (flag_c(j)==0) THEN
+        IF (flag2_c(j)==0) THEN
           n = n + 1
           wrk_p_patch%cells%glb_index(n) = j
           wrk_p_patch%cells%loc_index(j) = n
@@ -1443,8 +1475,6 @@ CONTAINS
       DO ilev = 1, 2*n_boundary_rows
         irlev = MAX(min_rlcell, min_rlcell_int - ilev)  ! index section into which the halo points are put
         DO j = 1, wrk_p_patch_g%n_patch_cells
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
           IF (flag2_c(j)==ilev .AND. .NOT. lcount_c(j)) THEN
             n = n + 1
             wrk_p_patch%cells%glb_index(n) = j
@@ -1522,8 +1552,6 @@ CONTAINS
     n = 0
     IF (.NOT. l_compute_grid) THEN
       DO j = 1, wrk_p_patch_g%n_patch_edges
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
         IF (flag2_e(j)==0) THEN
           n = n + 1
           wrk_p_patch%edges%glb_index(n) = j
@@ -1611,8 +1639,6 @@ CONTAINS
       DO ilev = 1, 2*n_boundary_rows+1
         irlev = MAX(min_rledge, min_rledge_int - ilev)  ! index section into which the halo points are put
         DO j = 1, wrk_p_patch_g%n_patch_edges
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
           IF (flag2_e(j)==ilev .AND. .NOT. lcount_e(j)) THEN
             n = n + 1
             wrk_p_patch%edges%glb_index(n) = j
@@ -1688,8 +1714,6 @@ CONTAINS
     n = 0
     IF (.NOT. l_compute_grid) THEN
       DO j = 1, wrk_p_patch_g%n_patch_verts
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
         IF (flag2_v(j)==0 ) THEN
           n = n + 1
           wrk_p_patch%verts%glb_index(n) = j
@@ -1777,8 +1801,6 @@ CONTAINS
       DO ilev = 1, n_boundary_rows+1
         irlev = MAX(min_rlvert, min_rlvert_int - ilev)  ! index section into which the halo points are put
         DO j = 1, wrk_p_patch_g%n_patch_verts
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
           IF (flag2_v(j)==ilev .AND. .NOT. lcount_v(j)) THEN
             n = n + 1
             wrk_p_patch%verts%glb_index(n) = j
@@ -1972,8 +1994,8 @@ CONTAINS
       wrk_p_patch%edges%parent_idx(jl,jb)    = wrk_p_patch_g%edges%parent_idx(jl_g,jb_g)
       wrk_p_patch%edges%parent_blk(jl,jb)    = wrk_p_patch_g%edges%parent_blk(jl_g,jb_g)
       wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_g%edges%pc_idx(jl_g,jb_g)
-      wrk_p_patch%edges%child_idx(jl,jb,:)   = wrk_p_patch_g%edges%child_idx(jl_g,jb_g,:)
-      wrk_p_patch%edges%child_blk(jl,jb,:)   = wrk_p_patch_g%edges%child_blk(jl_g,jb_g,:)
+      wrk_p_patch%edges%child_idx(jl,jb,1:4) = wrk_p_patch_g%edges%child_idx(jl_g,jb_g,1:4)
+      wrk_p_patch%edges%child_blk(jl,jb,1:4) = wrk_p_patch_g%edges%child_blk(jl_g,jb_g,1:4)
       wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_g%edges%child_id(jl_g,jb_g)
 
       wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_g%edges%refin_ctrl(jl_g,jb_g)
@@ -1997,7 +2019,7 @@ CONTAINS
 
     ENDDO
             
-    DEALLOCATE(flag_c, flag_e, flag_v, flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
+    DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
 
   END SUBROUTINE divide_patch
   !-------------------------------------------------------------------------------------------------
@@ -3261,7 +3283,7 @@ CONTAINS
 
     ALLOCATE(cell_desc(4,wrk_divide_patch%n_patch_cells))
 
-    cell_desc(1:2,:) = 1.d99 ! for fining min lat/lon
+    cell_desc(1:2,:) = 1.d99 ! for finding min lat/lon
 
     nc = 0
     DO j = 1, wrk_divide_patch%n_patch_cells
@@ -3344,7 +3366,7 @@ CONTAINS
 
     ALLOCATE(workspace(4,nc))
 
-    CALL divide_cells_by_location(nc, cell_desc, workspace, 0, n_proc-1)
+    CALL divide_cells_by_location(nc, cell_desc(:,1:nc), workspace, 0, n_proc-1)
 
     ! After divide_cells_by_location the cells are sorted by owner,
     ! order them by original cell numbers again
@@ -3478,6 +3500,45 @@ CONTAINS
     p = x(row,ipiv)
     ix = 0
     iy = 1
+
+#ifdef __SX__
+    IF (n >= 12) THEN ! Use vectorized version
+      DO i=1,n
+        IF(i==ipiv) CYCLE
+        IF(x(row,i) < p) THEN
+          ix = ix+1
+          y(1:4,ix) = x(1:4,i)
+        ENDIF
+      ENDDO
+
+      y(1:4,ix+1) = x(1:4,ipiv) ! Store pivot
+
+      DO i=1,n
+        IF(i==ipiv) CYCLE
+        IF(x(row,i) >= p) THEN
+          iy = iy+1
+          y(1:4,ix+iy) = x(1:4,i)
+        ENDIF
+      ENDDO
+!CDIR COLLAPSE
+      x(:,:) = y(:,:)
+    ELSE  ! use non-vectorized version
+      y(1:4,1) = x(1:4,ipiv) ! Store pivot
+
+      DO i=1,n
+        IF(i==ipiv) CYCLE
+        IF(x(row,i) < p) THEN
+          ix = ix+1
+          x(1:4,ix) = x(1:4,i)
+        ELSE
+          iy = iy+1
+          y(1:4,iy) = x(1:4,i)
+        ENDIF
+      ENDDO
+
+      x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
+    ENDIF
+#else
     y(1:4,1) = x(1:4,ipiv) ! Store pivot
 
     DO i=1,n
@@ -3492,6 +3553,7 @@ CONTAINS
     ENDDO
 
     x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
+#endif
 
     ipiv = ix+1 ! New pivot location
 
@@ -3628,6 +3690,5 @@ CONTAINS
 #endif
 
 END MODULE mo_subdivision
-
 
 

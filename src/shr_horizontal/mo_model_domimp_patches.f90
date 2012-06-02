@@ -483,10 +483,16 @@ CONTAINS
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     
     DO jg = n_dom_start, n_dom
+      ! Allocate and preset remaining arrays in patch
+      IF(my_process_is_mpi_parallel()) THEN
+        CALL allocate_remaining_patch(p_patch(jg),3)
+        IF (jg > n_dom_start) CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
+      ELSE
+        CALL allocate_remaining_patch(p_patch(jg),1)
+      ENDIF
+    ENDDO
       
-      ! For non parallel runs: Allocate and preset remaining arrays in patch
-      IF(.NOT.my_process_is_mpi_parallel()) CALL allocate_remaining_patch(p_patch(jg))
-      
+    DO jg = n_dom_start, n_dom
       n_lp = 0 ! Number of local parents on the same level
       IF(my_process_is_mpi_parallel()) THEN
         ! Assemble a list of local parents living on the same level as the current patch
@@ -692,7 +698,7 @@ CONTAINS
             & p_patch(jgp)%cells%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 3
           IF(p_patch(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
             & p_patch(jgp)%cells%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 4
-          IF(p_patch(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+!          IF(p_patch(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
           
         ENDDO
         
@@ -719,7 +725,7 @@ CONTAINS
             & p_patch(jgp)%edges%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 3
           IF(p_patch(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
             & p_patch(jgp)%edges%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 4
-          IF(p_patch(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
+!          IF(p_patch(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
           
         ENDDO
         
