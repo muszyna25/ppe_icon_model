@@ -1,26 +1,63 @@
+!>
+!! Provide an implementation of the sea-ice model.
+!!
+!! Provide an implementation of the parameters of the surface module (sea ice)
+!! used between the atmopshere and the hydrostatic ocean model.
+!!
+!! @author 
+!! 
+!! @par Revision History
+!!
+!! @par Copyright
+!! 2002-2007 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
 MODULE mo_sea_ice_types
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime
+!  USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
-    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
-    &                               cpd, zemiss_def,rd, stbo,tmelt   
-  USE mo_math_constants,      ONLY: rad2deg
+!!$  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
+!!$    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
+!!$    &                               cpd, zemiss_def,rd, stbo,tmelt   
+!!$  USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
   USE mo_oce_index,           ONLY: print_mxmn, ipl_src
-  USE mo_var_list,            ONLY: add_var
+!  USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_cf_convention
-  USE mo_grib2
-  USE mo_cdi_constants
+!  USE mo_cf_convention
+!  USE mo_grib2
+!  USE mo_cdi_constants
 
   IMPLICIT NONE
   PRIVATE
@@ -169,6 +206,8 @@ MODULE mo_sea_ice_types
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits 
 
   END TYPE t_sea_ice
+
+
 
   ! global type variables
   TYPE(t_sea_ice),PUBLIC, SAVE, TARGET :: v_sea_ice

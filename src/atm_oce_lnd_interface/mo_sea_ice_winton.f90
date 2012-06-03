@@ -1,13 +1,51 @@
+!>
+!! Provide an implementation of the sea-ice model.
+!!
+!! Provide an implementation of the parameters of the surface module (sea ice)
+!! used between the atmopshere and the hydrostatic ocean model.
+!!
+!! @author 
+!! 
+!! @par Revision History
+!!
+!! @par Copyright
+!! 2002-2007 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
 MODULE mo_sea_ice_winton
+
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
-  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
-  USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
+!  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
+!  USE mo_loopindices,         ONLY: get_indices_c
+!  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
@@ -18,13 +56,12 @@ MODULE mo_sea_ice_winton
   USE mo_oce_index,           ONLY: print_mxmn, ipl_src
   USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_cf_convention
-  USE mo_grib2
-  USE mo_cdi_constants
-  ! # achim
+!!$  USE mo_cf_convention
+!!$  USE mo_grib2
+!!$  USE mo_cdi_constants
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
-  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
+  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx, print_maxmin_si
 
   IMPLICIT NONE
 
@@ -59,14 +96,15 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_temp_winton(ppatch,ice, Tfw, Qatm) 
-    TYPE(t_patch),        INTENT(IN)    :: ppatch 
+
+  SUBROUTINE set_ice_temp_winton(p_patch,ice, Tfw, Qatm) 
+    TYPE(t_patch),        INTENT(IN)    :: p_patch 
     TYPE(t_sea_ice),      INTENT(INOUT) :: ice
     REAL(wp),             INTENT(IN)    :: Tfw(:,:,:)
     TYPE(t_atmos_fluxes), INTENT(IN)    :: Qatm
 
     !!Local variables
-    REAL(wp), DIMENSION (nproma,ice%kice, ppatch%nblks_c) ::           &
+    REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::           &
       & A,           & ! Eq. 7
       & A1,          & ! Eq. 16
       & A1a,         & ! First two terms of Eq. 16 and 19
@@ -90,7 +128,7 @@ CONTAINS
 
     ! Create array of shortwave radiation split up into ice categories
     ! (purely for computational reasons)
-    FORALL(i=1:nproma, j=1:ppatch%nblks_c, k=1:ice%kice, ice % isice (i,k,j)) &
+    FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice, ice % isice (i,k,j)) &
       & SWin3d(i,k,j) = Qatm% SWin(i,j)
 
     ! Calculate new ice temperature wherever there is ice 
@@ -150,9 +188,6 @@ CONTAINS
         &                     - 4.0_wp*Ki*(Tfw(:,:,:)-ice%T2(:,:,:))/ice%hi(:,:,:)         ! Eq. 23
     END WHERE
 
-    ipl_src=1  ! output print level (1-5, fix)
-    CALL print_mxmn('ice%Tsurf',1,ice%Tsurf(:,1,:),1,ppatch%nblks_c,'ice',ipl_src)
-
   END SUBROUTINE set_ice_temp_winton
 
 
@@ -161,7 +196,7 @@ CONTAINS
   !
   !  
   !>
-  !! ! set_ice_temp_winton:: ice_growth_winton - change ice and snow thickness (Winton 2000, section 2b)
+  !! ! ice_growth_winton - change ice and snow thickness (Winton 2000, section 2b)
   !! This function changes:
   !! ice % hs       new snow thickness for each ice category                [m]
   !! ice % hi       new ice  thickness for each ice category                [m]
@@ -178,8 +213,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_growth_winton(ppatch, p_os, ice, rpreci)!, lat)
-    TYPE(t_patch),             INTENT(IN)    :: ppatch 
+
+  SUBROUTINE ice_growth_winton(p_patch, p_os, ice, rpreci)!, lat)
+    TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice
     REAL(wp),                  INTENT(IN)    :: rpreci(:,:) 
@@ -188,7 +224,7 @@ CONTAINS
                                    !! lat. heat flux  [W/m�] DIMENSION (ie,je,kice)
 
     !!Local variables
-    REAL(wp), DIMENSION (nproma,ice%kice, ppatch%nblks_c) ::         &
+    REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::         &
       & below_water, & ! Thickness of snow layer below water line           [m]
       & C1,          & ! L  * rhos * hs                                     [J/m�]
       & C2,          & ! E1 * rhoi * h1                                     [J/m�]
@@ -238,8 +274,8 @@ CONTAINS
     ice%Qbot(:,:,:) = ice%Qbot(:,:,:) + zHeatOceI(:,:,:)
    
     ! Do the following wherever there is ice
-    !isice: &  
-    WHERE (ice% isice(:,:,:))
+    !
+    WHERE (ice% isice(:,:,:)) !isice
      
       ! Save ice thickness at previous time step for calculation of heat and salt
       ! flux into ocean in subroutine upper_ocean_TS
@@ -336,7 +372,7 @@ CONTAINS
               ice% heatOceI(:,:,:) = ice% heatocei(:,:,:) + ice%Qbot(:,:,:) &
                 &                     + (-C1 + C2 + C3)/dtime                           ! Eq. 34
               ! Flux - not heat
-              !ice% heatOceI(:,:,:) = ice% heatocei(:,:,:) + ice%Qbot(:,:,:) * dtime - C1 + C2 + C3    ! Eq. 34
+              !ice% heatOceI(:,:,:) = ice% heatocei(:,:,:) + ice%Qbot(:,:,:) * dtime - C1 + C2 + C3 ! Eq. 34
             END WHERE
           END WHERE
         END WHERE
@@ -402,10 +438,11 @@ CONTAINS
       END WHERE
     
     END WHERE !isice
-
-    ipl_src=1  ! output print level (1-5, fix)
-    CALL print_mxmn('ice%hi',1,ice%hi(:,1,:),1,ppatch%nblks_c,'ice',ipl_src)
-     
+    
+!!$    ipl_src=1  ! output print level (1-5, fix)
+!!$    ! CALL print_mxmn('ice%hi',1,ice%hi(:,1,:),1,p_patch%nblks_c,'ice',ipl_src)
+!!$    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'ice%hi'  )
+    
   END SUBROUTINE ice_growth_winton
 
 END MODULE mo_sea_ice_winton

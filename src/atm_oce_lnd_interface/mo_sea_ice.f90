@@ -72,6 +72,7 @@ MODULE mo_sea_ice
     &                               t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
+  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx, print_maxmin_si, print_cells
 
   IMPLICIT NONE
 
@@ -79,12 +80,9 @@ MODULE mo_sea_ice
 
   ! Public interface
 
-!!$  ! Definition of forcing types
-!!$  ! public types
-!!$  PUBLIC  :: t_sea_ice
-!!$  PUBLIC  :: t_sfc_flx
-!!$  PUBLIC  :: t_atmos_fluxes
-!!$  PUBLIC  :: t_atmos_for_ocean
+  ! Definition of forcing types
+  ! public types
+  ! contained in mo_sea_ice_types
 
   ! public subroutines
   PUBLIC :: construct_sea_ice 
@@ -97,10 +95,6 @@ MODULE mo_sea_ice
   PUBLIC :: destruct_atmos_fluxes
 
   PUBLIC :: ice_init
-!!$  ! #achim
-!!$  PUBLIC :: ice_growth_winton
-!!$  PUBLIC :: set_ice_temp_winton
-!!$  ! #
   PUBLIC :: set_ice_albedo
   PUBLIC :: sum_fluxes
   PUBLIC :: ave_fluxes
@@ -110,13 +104,6 @@ MODULE mo_sea_ice
   PUBLIC :: new_ice_growth
   PUBLIC :: calc_atm_fluxes_from_bulk
   PUBLIC :: prepareAfterRestart
-
-!!$  ! #achim: semtner 0 layer subroutines
-!!$  PUBLIC :: set_ice_temp_zerolayer
-!!$  PUBLIC :: ice_growth_zerolayer
-!!$  ! #
-!!$  PUBLIC :: oce_ice_heatflx
-
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -135,8 +122,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !
-  SUBROUTINE construct_sea_ice(ppatch, p_ice, i_no_ice_thick_class)
-    TYPE(t_patch),     INTENT(IN)    :: ppatch
+  SUBROUTINE construct_sea_ice(p_patch, p_ice, i_no_ice_thick_class)
+    TYPE(t_patch),     INTENT(IN)    :: p_patch
     TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
     INTEGER,           INTENT(IN)    :: i_no_ice_thick_class
 
@@ -148,7 +135,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = ppatch%nblks_c
+    nblks_c = p_patch%nblks_c
 
     p_ice%kice = i_no_ice_thick_class
 
@@ -335,9 +322,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE construct_sfcflx(ppatch, p_sfc_flx)
+  SUBROUTINE construct_sfcflx(p_patch, p_sfc_flx)
     !
-    TYPE(t_patch),   INTENT(IN)    :: ppatch
+    TYPE(t_patch),   INTENT(IN)    :: p_patch
     TYPE(t_sfc_flx), INTENT(INOUT) :: p_sfc_flx
 
     ! Local variables
@@ -353,11 +340,11 @@ CONTAINS
     rl_start_c = 1
     rl_end_c = min_rlcell
 
-    i_startblk_c = ppatch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
+    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
 
-    nblks_c = ppatch%nblks_c
+    nblks_c = p_patch%nblks_c
 
     ALLOCATE(p_sfc_flx%forc_wind_u(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -420,7 +407,7 @@ CONTAINS
     p_sfc_flx%forc_wind_v(:,:)   = 0.0_wp
    
     DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
         p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
@@ -523,9 +510,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-07)
   !
-  SUBROUTINE construct_atmos_for_ocean(ppatch, p_as)
+  SUBROUTINE construct_atmos_for_ocean(p_patch, p_as)
     !
-    TYPE(t_patch),                INTENT(IN):: ppatch
+    TYPE(t_patch),                INTENT(IN):: p_patch
     TYPE(t_atmos_for_ocean ), INTENT(INOUT) :: p_as
 
     ! Local variables
@@ -535,7 +522,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = ppatch%nblks_c
+    nblks_c = p_patch%nblks_c
    
     ALLOCATE(p_as%tafo(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -655,9 +642,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011)
   !
-  SUBROUTINE construct_atmos_fluxes(ppatch, p_atm_f, i_no_ice_thick_class)
+  SUBROUTINE construct_atmos_fluxes(p_patch, p_atm_f, i_no_ice_thick_class)
     !
-    TYPE(t_patch),         INTENT(IN)    :: ppatch
+    TYPE(t_patch),         INTENT(IN)    :: p_patch
     TYPE(t_atmos_fluxes ), INTENT(INOUT) :: p_atm_f
     INTEGER,               INTENT(IN)    :: i_no_ice_thick_class
     ! Local variables
@@ -668,7 +655,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = ppatch%nblks_c
+    nblks_c = p_patch%nblks_c
    
     ALLOCATE(p_atm_f%sens(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -884,15 +871,15 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
-    TYPE(t_patch), INTENT(in)             :: ppatch 
+  SUBROUTINE ice_init( p_patch, p_os, ice) !, Qatm, QatmAve)
+    TYPE(t_patch), INTENT(in)             :: p_patch 
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
     !local variables
-    REAL(wp), DIMENSION(nproma,ice%kice, ppatch%nblks_c) :: &
+    REAL(wp), DIMENSION(nproma,ice%kice, p_patch%nblks_c) :: &
       & Tinterface, & ! temperature at snow-ice interface
       & draft,      & ! position of ice-ocean interface below sea level
       & Tfw           ! Ocean freezing temperature [°C]
@@ -907,7 +894,7 @@ CONTAINS
     !   CALL alloc_mem_commo_ice (ice, Qatm, QatmAve)
     !   CALL ice_zero            (ice, Qatm, QatmAve)
 
-    ! FORALL(i=1:nproma, j=1:ppatch%nblks_c, k=1:ice%kice) 
+    ! FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice) 
     !    ice% hi    (i,j,k) = sictho (i,j)
     !    ice% hs    (i,j,k) = sicsno (i,j)
     ! END FORALL
@@ -972,9 +959,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(ppatch, ice,Tfw,Qatm,QatmAve)
+  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,QatmAve)
 
-    TYPE(t_patch),            INTENT(IN)     :: ppatch 
+    TYPE(t_patch),            INTENT(IN)     :: p_patch 
     !TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
     !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     REAL(wp),                 INTENT(IN)     :: Tfw(:,:,:)
@@ -985,14 +972,14 @@ CONTAINS
     !------------------------------------------------------------------------- 
     CALL prepareAfterRestart(ice)
 
-    !CALL get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
-    CALL set_ice_albedo(ppatch,ice)
-
-    ! #achim: testing zerolayer stuff
+    !CALL get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
+    CALL set_ice_albedo(p_patch,ice)
+    
+    ! #achim
     IF      ( i_sea_ice == 1 ) THEN
-      CALL set_ice_temp_winton  (ppatch,ice, Tfw, Qatm)
+      CALL set_ice_temp_winton  (p_patch,ice, Tfw, Qatm)
     ELSE IF ( i_sea_ice == 2 ) THEN
-      CALL set_ice_temp_zerolayer  (ppatch,ice, Tfw, Qatm)
+      CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm)
     END IF
 
     CALL sum_fluxes    (Qatm, QatmAve)
@@ -1002,15 +989,15 @@ CONTAINS
   !
   !
   !>
-  !! !  ice_slow: Ice routines for oceand time step. Calculates average of atmospheric
+  !! !  ice_slow: Ice routines for ocean time step. Calculates average of atmospheric
   ! !           time steps, ice velocity, ice growth rates and updates ice structure
   ! !           accordingly
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(ppatch, p_os,ice, QatmAve, p_sfc_flx)  
-    TYPE(t_patch),            INTENT(IN)     :: ppatch 
+  SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)  
+    TYPE(t_patch),            INTENT(IN)     :: p_patch 
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
@@ -1022,15 +1009,15 @@ CONTAINS
     CALL ave_fluxes     (ice, QatmAve)
     !CALL ice_dynamics   (ice, QatmAve)
     
-    ! #achim: testing zerolayer stuff
+    ! #achim
     IF      ( i_sea_ice == 1 ) THEN
-      CALL ice_growth_winton    (ppatch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
+      CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
     ELSE IF ( i_sea_ice == 2 ) THEN
-      CALL ice_growth_zerolayer (ppatch,p_os,ice, QatmAve%rpreci)
+      CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
     END IF
 
-    CALL upper_ocean_TS (ppatch,p_os,ice, QatmAve, p_sfc_flx)
-    CALL new_ice_growth (ppatch,ice, p_os,p_sfc_flx)
+    CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
+    CALL new_ice_growth (p_patch,ice, p_os,p_sfc_flx)
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,QatmAve,1,ie,je)
     CALL ice_zero       (ice, QatmAve)
@@ -1050,8 +1037,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
-    TYPE(t_patch),            INTENT(IN)    :: ppatch 
+  SUBROUTINE get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
+    TYPE(t_patch),            INTENT(IN)    :: p_patch 
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE (t_sea_ice),         INTENT(INOUT) :: ice
@@ -1068,7 +1055,7 @@ CONTAINS
 !#elif defined CORE
     !CALL budget_core   (ice, Qatm)
 !#else
-    CALL calc_atm_fluxes_from_bulk(ppatch, p_as, p_os, ice, Qatm)
+    CALL calc_atm_fluxes_from_bulk(p_patch, p_as, p_os, ice, Qatm)
 !#endif
 
   END SUBROUTINE get_atmos_fluxes 
@@ -1204,13 +1191,13 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_albedo(ppatch, ice) 
-    TYPE(t_patch),    INTENT(IN)    :: ppatch 
+  SUBROUTINE set_ice_albedo(p_patch, ice) 
+    TYPE(t_patch),    INTENT(IN)    :: p_patch 
     TYPE (t_sea_ice), INTENT(INOUT) :: ice
     !
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
-    REAL(wp)            :: albflag(nproma,ice%kice, ppatch%nblks_c)
+    REAL(wp)            :: albflag(nproma,ice%kice, p_patch%nblks_c)
     !-------------------------------------------------------------------------------
 
     ! This is Uwe's albedo expression from the old budget function
@@ -1242,8 +1229,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
-    TYPE(t_patch),             INTENT(IN)    :: ppatch 
+  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, QatmAve, p_sfc_flx)
+    TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
@@ -1252,9 +1239,9 @@ CONTAINS
 
     !Local Variables
     ! position of ice-ocean interface below sea level                       [m] 
-    REAL(wp) :: draft(nproma,ice%kice, ppatch%nblks_c)
+    REAL(wp) :: draft(nproma,ice%kice, p_patch%nblks_c)
     
-    REAL(wp), DIMENSION (nproma, ppatch%nblks_c) ::   & 
+    REAL(wp), DIMENSION (nproma, p_patch%nblks_c) ::   & 
       & draftAve,      &! average draft of sea ice within a grid cell             [m]
       & zUnderIceOld,  &! water in upper ocean grid cell below ice (prev. time)   [m]
       & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
@@ -1339,7 +1326,7 @@ CONTAINS
     !  &                                    MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
-    CALL print_mxmn('SST',1,p_os%p_prog(nold(1))%tracer(:,1,:,1),1,ppatch%nblks_c,'ice',ipl_src)
+    !    CALL print_mxmn('SST',1,p_os%p_prog(nold(1))%tracer(:,1,:,1),1,p_patch%nblks_c,'ice',ipl_src)
 
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
@@ -1355,15 +1342,15 @@ CONTAINS
   !!
   ! TODO: This needs to be rewritten to take in to account cases where the ice concentration can vary
   ! between 0 and 1
-  SUBROUTINE new_ice_growth(ppatch,ice, p_os,p_sfc_flx)
-    TYPE(t_patch),             INTENT(IN)    :: ppatch 
+  SUBROUTINE new_ice_growth(p_patch,ice, p_os,p_sfc_flx)
+    TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
-    REAL(wp) :: sst(nproma,ppatch%nblks_c)
-    REAL(wp) :: Tfw(nproma,ppatch%nblks_c) ! Ocean freezing temperature [°C]
+    REAL(wp) :: sst(nproma,p_patch%nblks_c)
+    REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [°C]
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1414,8 +1401,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2011-07). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !
-  SUBROUTINE calc_atm_fluxes_from_bulk(ppatch, p_as, p_os, p_ice, Qatm)
-    TYPE(t_patch),            INTENT(IN)    :: ppatch
+  SUBROUTINE calc_atm_fluxes_from_bulk(p_patch, p_as, p_os, p_ice, Qatm)
+    TYPE(t_patch),            INTENT(IN)    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
@@ -1423,7 +1410,7 @@ CONTAINS
 
 
     !Local variables
-    REAL(wp), DIMENSION (nproma,ppatch%nblks_c) ::           &
+    REAL(wp), DIMENSION (nproma,p_patch%nblks_c) ::           &
       & Tsurf,          &  ! Surface temperature                             [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
@@ -1496,7 +1483,7 @@ CONTAINS
 
     humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
     fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
-      &         *MIN(ABS(rad2deg*ppatch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
+      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
     Qatm%LWin(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4
 
     Qatm%LWoutw(:,:) = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
