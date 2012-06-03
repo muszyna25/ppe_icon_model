@@ -77,7 +77,8 @@ MODULE mo_ocean_model
 !  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
 !    & setup_transport         ! control parameters
 
-  USE mo_subdivision,         ONLY: decompose_domain,         &
+  USE mo_setup_subdivision,     ONLY: decompose_domain
+  USE mo_complete_subdivision,  ONLY:  &
     & complete_parallel_setup,       &
     & finalize_decomposition,        &
     & copy_processor_splitting,      &

@@ -57,7 +57,8 @@ USE mo_impl_constants, ONLY:  inh_atmosphere
 
 ! Memory
 !
-USE mo_subdivision,           ONLY: decompose_domain,     &
+USE mo_setup_subdivision,     ONLY: decompose_domain
+USE mo_complete_subdivision,  ONLY:                            &
   &                                 complete_parallel_setup,   &
   &                                 copy_processor_splitting,  &
   &                                 set_patch_communicators,   &

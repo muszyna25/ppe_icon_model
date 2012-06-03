@@ -76,7 +76,8 @@ USE mo_alloc_patches,       ONLY : destruct_patches
 
 ! Memory
 !
-USE mo_subdivision,         ONLY: decompose_domain,         &
+USE mo_setup_subdivision,    ONLY: decompose_domain
+USE mo_complete_subdivision, ONLY: &
 & complete_parallel_setup, &
 & finalize_decomposition,  &
 & copy_processor_splitting

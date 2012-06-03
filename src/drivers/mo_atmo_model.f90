@@ -100,7 +100,8 @@ USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
 ! Memory
 !
-USE mo_subdivision,         ONLY: decompose_domain,         &
+USE mo_setup_subdivision,    ONLY: decompose_domain
+USE mo_complete_subdivision, ONLY: &
   & complete_parallel_setup,       &
   & finalize_decomposition,        &
   & copy_processor_splitting,      &
@@ -108,7 +109,7 @@ USE mo_subdivision,         ONLY: decompose_domain,         &
   & setup_phys_patches
 
 #ifndef NOMPI
-USE mo_subdivision,         ONLY:  npts_local
+USE mo_setup_subdivision,   ONLY:  npts_local
 #endif
 
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &

@@ -1275,6 +1275,7 @@ src/shared/m_gmres.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_cf_convention.f90 -text
 src/shared/mo_communication.f90 -text
+src/shared/mo_complete_subdivision.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dump_restore.f90 -text
 src/shared/mo_exception.f90 -text
@@ -1305,7 +1306,7 @@ src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
 src/shared/mo_read_netcdf_parallel.f90 -text
 src/shared/mo_real_timer.f90 -text
-src/shared/mo_subdivision.f90 -text
+src/shared/mo_setup_subdivision.f90 -text
 src/shared/mo_sync.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
