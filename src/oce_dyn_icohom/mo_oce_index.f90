@@ -97,6 +97,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-11)
   !!
+  !! TODO: parallelization
   !! TODO: cleanup and move to shared
   !
   !
