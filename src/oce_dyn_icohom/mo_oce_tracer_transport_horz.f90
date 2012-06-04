@@ -46,41 +46,33 @@ MODULE mo_oce_tracer_transport_horz
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gc2cc
+USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary, sea,&
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
-USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
-  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
-  &                                     iswm_oce, UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA  
-USE mo_physical_constants,        ONLY: tf
+USE mo_ocean_nml,                 ONLY: n_zlev, &
+  &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA  
 USE mo_parallel_config,           ONLY: nproma, p_test_run
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
   &                                     timer_dif_horz
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
+USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
+!USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
-USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
-USE mo_oce_physics
-USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
-USE mo_oce_math_operators,        ONLY:&! div_oce,grad_fd_norm_oce,&
-                                       &div_oce_3D, grad_fd_norm_oce_3D!, grad_fd_norm_oce_2d
+USE mo_oce_math_operators,        ONLY: div_oce_3D, grad_fd_norm_oce_3D ! &
+! &                                     div_oce,grad_fd_norm_oce, grad_fd_norm_oce_2d
 USE mo_advection_utils,           ONLY: laxfr_upflux
-USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
-                                      & tracer_diffusion_vert_impl_hom
-USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
-USE mo_intp_data_strc,             ONLY: p_int_state
+USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz
+!USE mo_intp_data_strc,            ONLY: p_int_state
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array, sync_idx, &
-    &                               global_max, sync_patch_array_mult
-USE mo_mpi,                   ONLY: global_mpi_barrier, my_process_is_mpi_parallel
+  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
+    &                               sync_patch_array_mult
+USE mo_mpi,                   ONLY: my_process_is_mpi_parallel
 
 IMPLICIT NONE
 
@@ -134,19 +126,18 @@ SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
   INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
   !
   !Local variables
-  REAL(wp) :: delta_z, delta_z2, delta_frac
-  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-  INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+  REAL(wp) :: delta_z, delta_z2
+  !INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
+  !INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+  INTEGER  :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
   INTEGER  :: jc, jk, jb, je
-  INTEGER  :: ilc1, ibc1,ilc2, ibc2
-  REAL(wp) ::trac_content_1,trac_content_2
+  !REAL(wp) ::trac_content_1,trac_content_2
   !INTEGER  :: z_dolic
   REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective tracer flux
   REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
   REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
   REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
-  REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
-  REAL(wp) :: dummy_h_c2(nproma,n_zlev,p_patch%nblks_c)
+  !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
   TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
   !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
@@ -799,7 +790,7 @@ END SUBROUTINE elad
 
     ! local variables
     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
+    INTEGER  :: i_startidx, i_endidx
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
@@ -864,9 +855,8 @@ END SUBROUTINE elad
 
     ! local variables
     INTEGER  :: slev, elev
-    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start, rl_end
+    INTEGER  :: i_startidx_e, i_endidx_e
     INTEGER  :: je, jk, jb
-    INTEGER  :: il_v1, il_v2, ib_v1, ib_v2
     INTEGER  :: il_c, ib_c
     REAL(wp)                      :: z_gradC(nproma,n_zlev,ppatch%nblks_e)
     TYPE(t_cartesian_coordinates) :: z_gradC_cc(nproma,n_zlev,ppatch%nblks_c)
@@ -1048,7 +1038,7 @@ END SUBROUTINE elad
 
     INTEGER  :: slev, elev             !< vertical start and end level
     INTEGER  :: i_startidx, i_endidx
-    INTEGER  :: i_rlstart_c, i_rlend_c
+!    INTEGER  :: i_rlstart_c, i_rlend_c
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
