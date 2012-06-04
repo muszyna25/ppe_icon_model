@@ -70,7 +70,7 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_oce_linear_solver,         ONLY: gmres_oce, gmres_e2e
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src, tst_mxmn
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
@@ -418,19 +418,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
          &             p_os%p_diag,                &
          &             p_os%p_diag%veloc_adv_vert )
 
-!    DO jk=1, n_zlev
-!      WRITE(*,*)'MAX/MIN horz adv:',jk, &
-!         &        MAXVAL(p_os%p_diag%veloc_adv_horz(:,jk,:)),&
-!         &        MINVAL(p_os%p_diag%veloc_adv_horz(:,jk,:)) 
-!     END DO
-!    DO jk=1, n_zlev
-!      WRITE(*,*)'MAX/MIN vert adv:',jk, &
-!         &        MAXVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)),&
-!         &        MINVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)) 
-!     END DO
-
-
-
     IF (expl_vertical_velocity_diff==0) THEN
     !For the alternative choice "expl_vertical_velocity_diff==1" see couples of
     !lines below below
@@ -450,10 +437,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
 
     DO jk=1, n_zlev
       CALL print_mxmn('density',jk,p_os%p_diag%rho(:,:,:),n_zlev,p_patch%nblks_c,'abt',ipl_src)
-   !  WRITE(987,*)'MAX/MIN density:',       jk, &
-   !    &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
-   !    &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
     END DO
+
+    ! test new debug printou routine
+    CALL tst_mxmn('tdensity',p_os%p_diag%rho(:,:,:),'abt',ipl_src)
 
     DO jk=1, n_zlev
       CALL print_mxmn('internal pressure',jk,p_os%p_diag%press_hyd(:,:,:),n_zlev, &

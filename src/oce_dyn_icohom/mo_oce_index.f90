@@ -79,6 +79,7 @@ LOGICAL :: ldbg
 PUBLIC :: init_index_test
 PUBLIC :: search_latlonindex
 PUBLIC :: print_mxmn
+PUBLIC :: tst_mxmn
 
 ! Public variables:
 PUBLIC :: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, nv_b, nv_i
@@ -95,6 +96,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-11)
+  !!
+  !! TODO: cleanup and move to shared
   !
   !
   SUBROUTINE init_index_test (ppatch, pstate_oce, p_ext_data)
@@ -528,7 +531,7 @@ CONTAINS
       WRITE(iout,982) '   VALUE ',strout,klev, &
     &                 (' E',i,':',p_array(ne_i(i),klev,ne_b(i)),i=1,3)
     ELSE IF (loc_nblks_v == ndimblk) THEN
-      WRITE(iout,983) '   VALUE ',strout,klev, &
+      WRITE(iout,982) '   VALUE ',strout,klev, &
     &                 (' V',i,':',p_array(nv_i(i),klev,nv_b(i)),i=1,3)
     END IF
     END IF
@@ -560,6 +563,116 @@ CONTAINS
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
   END SUBROUTINE print_mxmn
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Print out min and max or a single value of a 2- or 3-dimensional array.
+  !!
+  !! Print out min and max or a single value of a 2- or 3-dimensional array.
+  !! Reduce writing effort for a simple print.
+  !! The amount of prints is controlled by comparison of a fixed detail level of output (ipl_proc_src)
+  !! with variable i_dbg_oce/i_dbg_inx that is set via namelist octst_nml
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2012-06)
+  !!
+  !! TODO: interface for 2-dim/3-dim
+  !! TODO: move to shared
+  !
+  SUBROUTINE tst_mxmn ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
+
+  CHARACTER(len=*),      INTENT(IN) :: str_prntdes        ! description of array
+  REAL(wp),              INTENT(IN) :: p_array(:,:,:)     ! 3-dim array
+  CHARACTER(len=3),      INTENT(IN) :: str_proc_src       ! defined string for source of current process
+  INTEGER,               INTENT(IN) :: ipl_proc_src       ! source process level for print output 
+
+  ! local variables
+  CHARACTER(len=25) ::  strout
+  INTEGER           ::  iout, icheck_str_proc, jstr, iper, i, jk, klev, nlev, ndimblk
+
+  iout = nerr
+
+  nlev    = SIZE(p_array,2)
+  ndimblk = SIZE(p_array,3)
+
+  ! compare defined source string with namelist-given output string ('per' for permanent output)
+  icheck_str_proc = 0
+  iper = 0
+  DO jstr = 1, 10
+    IF (str_proc_src == str_proc_tst(jstr) .OR. str_proc_src == 'per'        &
+      &                                    .OR. str_proc_tst(jstr) == 'all') &
+      &  icheck_str_proc = 1
+  END DO
+
+  ! if str_proc_src not found in str_proc_tst - no output
+  !IF (icheck_str_proc .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  IF (icheck_str_proc == 0 ) RETURN
+
+  ! valid g-format without offset of decimal point
+  981 FORMAT(a,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  983 FORMAT(a,a25,':  ',i3, 4i4)
+  991 FORMAT(a,a25,':  ',i3, 2g26.18)
+
+  strout=TRIM(str_prntdes)
+
+  ! check print output detail level ipl_proc_src (1-5) with namelist given values for output at
+  ! a namelist given index
+
+  ! check print output level ipl_proc_src (1-5) with namelist given value (i_dbg_inx) for output at index
+  IF (i_dbg_inx >= ipl_proc_src) THEN
+    IF (my_process_is_stdio()) THEN
+
+      ! i_dbg_inx<4: surface level output only
+      klev = nlev
+      IF (i_dbg_inx < 4) klev = 1
+
+      DO jk = 1, klev
+
+        ! write value at index
+        IF (ndimblk == loc_nblks_c) THEN
+          WRITE(iout,981) '   VALUE ', strout, jk, p_array(c_i,jk,c_b), &
+        &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
+        ELSE IF (ndimblk == loc_nblks_e) THEN
+          WRITE(iout,982) '   VALUE ', strout, jk, &
+        &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
+        ELSE IF (ndimblk == loc_nblks_v) THEN
+          WRITE(iout,982) '   VALUE ', strout, jk, &
+        &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
+        END IF
+
+      END DO
+
+    END IF
+  END IF
+
+  ! check print output level ipl_proc_src (1-5) with namelist given value (i_dbg_oce) for MIN/MAX output:
+  !IF (i_dbg_oce < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  IF (i_dbg_oce < ipl_proc_src ) RETURN
+
+  IF (my_process_is_stdio()) THEN
+
+    ! i_dbg_oce<4: surface level output only
+    klev = nlev
+    IF (i_dbg_oce < 4) klev = 1
+
+    DO jk = 1, klev
+
+      WRITE(iout,991) ' MAX/MIN ',strout,jk, &
+        &              maxval(p_array(1:nproma,jk,1:ndimblk)),     &
+        &              minval(p_array(1:nproma,jk,1:ndimblk))
+
+!!$    WRITE(iout,983) ' LOC ',strout,klev, &
+!!$      &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
+!!$      &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
+
+    END DO
+
+  END IF
+
+  !IF (ltimer) CALL timer_stop(timer_print_mxmn)
+
+  END SUBROUTINE tst_mxmn
 
 END MODULE mo_oce_index
 
