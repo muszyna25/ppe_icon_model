@@ -1,3 +1,6 @@
+#ifdef __xlC__
+@PROCESS SPILL(4096)
+#endif
 !OPTION! -cont -msg o
 !! this command should fix the problem of copying arrays in a subroutine call
 !>
