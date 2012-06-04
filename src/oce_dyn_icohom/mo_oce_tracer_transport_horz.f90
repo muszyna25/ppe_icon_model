@@ -158,11 +158,11 @@ SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
   edges_in_domain => p_patch%edges%in_domain
   cells_in_domain => p_patch%cells%in_domain
 
-  z_adv_flux_h  = 0.0_wp
-  z_div_adv_h   = 0.0_wp
-  z_div_diff_h  = 0.0_wp
-  z_diff_flux_h = 0.0_wp
-!  z_trac_c      = 0.0_wp
+  z_adv_flux_h (:,:,:) = 0.0_wp
+  z_div_adv_h  (:,:,:) = 0.0_wp
+  z_div_diff_h (:,:,:) = 0.0_wp
+  z_diff_flux_h(:,:,:) = 0.0_wp
+  trac_new     (:,:,:) = 0.0_wp
 
 ! !   !calculate (dummy) height consistent with divergence of mass fluxx (UPPERMOST LEVEL)
   jk = 1
