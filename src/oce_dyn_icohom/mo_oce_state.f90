@@ -1886,7 +1886,7 @@ CONTAINS
       
       lsm_c(:,:) =  v_base%lsm_oce_c(:,jk,:)
 
-      DO jb = all_cells%start_block, all_cells%end_block
+      DO jb = owned_cells%start_block, owned_cells%end_block
         CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
 
@@ -1952,8 +1952,8 @@ CONTAINS
       rl_end = min_rledge
 
       ! values for the blocking
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,1)
+    ! i_startblk = p_patch%edges%start_blk(rl_start,1)
+    ! i_endblk   = p_patch%edges%end_blk(rl_end,1)
       !
       ! loop through owned patch edges
       DO jb = owned_edges%start_block, owned_edges%end_block
@@ -2044,8 +2044,8 @@ CONTAINS
       rl_end = min_rlcell
 
       ! values for the blocking
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,1)
+    ! i_startblk = p_patch%cells%start_blk(rl_start,1)
+    ! i_endblk   = p_patch%cells%end_blk(rl_end,1)
       !
       ! loop through all patch cells
       DO jb = all_cells%start_block, all_cells%end_block

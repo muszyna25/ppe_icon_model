@@ -515,6 +515,7 @@ CONTAINS
 
   ! check print output level ipl_proc_src (1-5) with namelist given value (i_dbg_inx) for output at index
   IF (i_dbg_inx >= ipl_proc_src) THEN
+    IF (my_process_is_stdio()) THEN
     IF (loc_nblks_c == ndimblk) THEN
       ! write value at index
       WRITE(iout,981) '   VALUE ',strout,klev, p_array(c_i,klev,c_b), &
@@ -525,6 +526,7 @@ CONTAINS
     ELSE IF (loc_nblks_v == ndimblk) THEN
       WRITE(iout,982) '   VALUE ',strout,klev, &
     &                 (' V',i,':',p_array(nv_i(i),klev,nv_b(i)),i=1,3)
+    END IF
     END IF
   END IF
 
