@@ -863,7 +863,7 @@ CONTAINS
         END DO
       END DO
     END DO
-p_os%p_prog(nold(1))%tracer=16.0_wp
+!p_os%p_prog(nold(1))%tracer=16.0_wp
    CASE (34)
    ! Adjusting density front in a basin: vertical wall at basin_center_lon
       CALL message(TRIM(routine), 'Initialization of testcases (34)')
