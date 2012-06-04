@@ -79,7 +79,7 @@ void util_os_system(char *name, int *actual_len)
     strcat(name, "Power5");
   else if (imp == POWER_6)
     strcat(name, "Power6");
-#ifndef _ECMWF
+#ifdef _AIX61
   else if (imp == POWER_7)
     strcat(name, "Power7");
 #endif
