@@ -37,7 +37,7 @@ export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 # Global setup:
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
 REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
-WEEKDAY=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE% -s 2`
+WEEKDAY=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00 -s 2`
 
 # display starting date of simulation:
 smslabel date "${REQUEST_DATE}"
