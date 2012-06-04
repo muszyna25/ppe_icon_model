@@ -476,7 +476,7 @@ END SUBROUTINE message
 !option! -pvctl _on_adb
 
 
-  SUBROUTINE terra_multlay (                &   
+  SUBROUTINE terra_multlay (         &   
                   ie               , & ! array dimensions
                   istartpar        , & ! start index for computations in the parallel program
                   iendpar          , & ! end index for computations in the parallel program
@@ -500,9 +500,9 @@ END SUBROUTINE message
                   v                , & ! meridional wind speed                         ( m/s )
                   t                , & ! temperature                                   (  k  )
                   qv               , & ! specific water vapor content                  (kg/kg)
-                  p0               , & !!!! base state pressure                           (Pa) 
-!                 pp               , & ! deviation from the reference pressure         ( pa  )
-                  ps               , & ! surface pressure                              ( pa  )
+                  p0               , & !!!! base state pressure                        ( Pa  ) 
+!                 pp               , & ! deviation from the reference pressure         ( Pa  )
+                  ps               , & ! surface pressure                              ( Pa  )
 !                                  
                   t_snow_now       , & ! temperature of the snow-surface               (  K  )
                   t_snow_new       , & ! temperature of the snow-surface               (  K  )
@@ -567,12 +567,18 @@ END SUBROUTINE message
 !                                  
                   sobs             , & ! solar radiation at the ground                 ( W/m2)
                   thbs             , & ! thermal radiation at the ground               ( W/m2)
-                  pabs             , & !!!! photosynthetic active radiation               ( W/m2)
+                  pabs             , & !!!! photosynthetic active radiation            ( W/m2)
 !                                  
-                  runoff_s         , & ! surface water runoff; sum over forecast      (kg/m2)
-                  runoff_g         , & ! soil water runoff; sum over forecast         (kg/m2)
+                  runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
+                  runoff_g         , & ! soil water runoff; sum over forecast          (kg/m2)
 !                 ntstep             & ! actual time step
-                  pt_tiles           & ! tiles structure
+                  pt_tiles         , & ! tiles structure
+!
+                  zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
+                  zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
+                  zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
+                  zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2) 
+                  zf_snow            & ! snow fraction as used for TERRA fluxes        ( -- )
                                      )
 
 
@@ -688,17 +694,23 @@ IMPLICIT NONE
                   tch              , & ! turbulent transfer coefficient for heat       ( -- )
                   tcm              , & ! turbulent transfer coefficient for momentum   ( -- )
                   tfv                  ! laminar reduction factor for evaporation      ( -- )
-!
+
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                   sobs             , & ! solar radiation at the ground                 ( W/m2)
                   thbs             , & ! thermal radiation at the ground               ( W/m2)
                   pabs                 !!!! photosynthetic active radiation            ( W/m2)
-!
+
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
                   runoff_g             ! soil water runoff; sum over forecast          (kg/m2)
   TYPE(t_tiles), TARGET,                  INTENT(IN) :: &
                   pt_tiles(nsubs1)
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
+                  zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
+                  zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
+                  zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2) 
+                  zf_snow              ! snow fraction as used for TERRA fluxes        ( -- )
 
 !!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
 !!$                  rstom            ! stomata resistance                           ( s/m )
@@ -877,18 +889,12 @@ IMPLICIT NONE
 !
 !    ztgt0          , & ! Indicator T_g > T_0
     zgstr          , & ! downward longwave radiation
-!em    zrnet_s        , & ! net radiation
-!em    zshfl_s        , & ! sensible heatflux at soil surface
-!em    zlhfl_s        , & ! latent heatflux at soil surface
-!em    zsprs          , & ! utility variable
     zalas          , & ! heat conductivity of snow
     zrnet_snow     , & ! net radiation at snow surface
     zfak           , & ! utility variable for implicit snow temperature forecast
     ztsnow_im      , & ! utility variable for implicit snow temperature forecast
     ztsnew         , & ! preliminary value of snow surface temperature
     ztsnownew      , & ! preliminary value of snow surface temperature
-    zshfl_snow     , & ! sensible heatflux at snow surface
-    zlhfl_snow     , & ! latent heatflux at snow surface
     zfor_snow      , & ! total forcing at snow surface
     zfr_melt       , & ! melting snow fraction
 !    zdwsnm         , & ! utility variable for snow melt determination
@@ -1095,7 +1101,6 @@ IMPLICIT NONE
     zrs      (ie)      , & ! total snow rate including formation of rime
     zesoil   (ie)      , & ! evaporation from bare soil
     zrhoch   (ie)      , & ! transfer coefficient*rho*g
-    zf_snow  (ie)      , & ! surface fraction covered by snow
     zth_low  (ie)      , & ! potential temperature of lowest layer
     zf_wi    (ie)      , & ! surface fraction covered by interception water
     ztmch    (ie)      , & ! heat transfer coefficient*density*velocity
@@ -1107,12 +1112,8 @@ IMPLICIT NONE
     zthsnw   (ie)      , & ! thermal flux at snow surface
     zfor_s   (ie)      , & ! total forcing at soil surface
     zgsb     (ie)      , & ! heat-flux through snow
-!<em
     zrnet_s  (ie)      , & ! net radiation
-    zshfl_s  (ie)      , & ! sensible heatflux at soil surface
-    zlhfl_s  (ie)      , & ! latent heatflux at soil surface
     zsprs    (ie)      , & ! utility variable
-!em>
 !
 ! Tendencies
 !
@@ -2916,10 +2917,10 @@ IMPLICIT NONE
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
 
-        zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i)+zthsoi(i))
-        zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
-                                                      (zth_low(i) - zts(i))
-        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i)
+        zrnet_s(i) = sobs(i) + zthsoi(i)
+        zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
+        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
+                     / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3133,9 +3134,9 @@ IMPLICIT NONE
         END IF
 
         ! total forcing for uppermost soil layer
-        zfor_s(i) = zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i)* &
-                           (1._ireals - zf_snow(i))       &
-                         + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i) ) &
+                         * (1._ireals - zf_snow(i)) &
+                    + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
 
         IF(zwsnew(i) .GT. zepsi) THEN
           zrnet_snow = sobs(i) * (1.0_ireals - EXP(-zextinct(i,1)*zdzm_snow(i,1))) &
@@ -3143,9 +3144,9 @@ IMPLICIT NONE
         ELSE
           zrnet_snow = sobs(i) + zthsnw(i)
         END IF
-        zshfl_snow = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
-        zlhfl_snow = lh_s*zversn(i)   
-        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow + zlhfl_snow + zsprs(i))*zf_snow(i)
+        zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
+        zlhfl_snow(i) = lh_s*zversn(i)   
+        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + zsprs(i))*zf_snow(i)
 
 !      END IF          ! land-points only
     END DO
@@ -3170,10 +3171,10 @@ IMPLICIT NONE
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
 
-        zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i)+zthsoi(i))
-        zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
-                                                      (zth_low(i) - zts(i))
-        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i)
+        zrnet_s(i) = sobs(i) + zthsoi(i)
+        zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
+        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
+                     / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3222,8 +3223,10 @@ IMPLICIT NONE
         END IF
 
         ! total forcing for uppermost soil layer
-        zfor_s(i) = zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i)       &
-                         + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) ) &
+                         * (1._ireals - zf_snow(i)) + zsprs(i) &
+                    + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+
 !      END IF          ! land-points only
     END DO
 
@@ -3580,10 +3583,10 @@ IMPLICIT NONE
 
         IF(.NOT. lmulti_snow) THEN
 
-          zrnet_snow = sobs(i) + zthsnw(i)
-          zshfl_snow = zrhoch(i)*cp_d*(zth_low(i) - ztsnow(i))
-          zlhfl_snow = lh_s*zversn(i)
-          zfor_snow  = zrnet_snow + zshfl_snow + zlhfl_snow
+          zrnet_snow    = sobs(i) + zthsnw(i)
+          zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow(i))
+          zlhfl_snow(i) = lh_s*zversn(i)
+          zfor_snow     = zrnet_snow + zshfl_snow(i) + zlhfl_snow(i)
 
           ! forecast of snow temperature Tsnow
           IF (ztsnow(i) < t0_melt .AND. zwsnew(i) > zepsi) THEN

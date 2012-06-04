@@ -432,6 +432,9 @@ REAL(KIND=JPRB) :: ZFRMAX(KLON)   , ZFRLMAX(KLON)  , ZALB(KLON)     , &
                  & ZQL(KLON)      , ZASL(KLON)     , ZBSL(KLON)     , &
                  & ZAQL(KLON)     , ZBQL(KLON)     , ZRHO(KLON)
 
+REAL(KIND=JPRB) :: shfl_s_t   (KLON,KTILES), lhfl_s_t   (KLON,KTILES), &
+                 & shfl_snow_t(KLON,KTILES), lhfl_snow_t(KLON,KTILES), &
+                 & zf_snow_t  (KLON,KTILES)
 
 INTEGER(KIND=JPIM) :: JL, JTILE, IITT
 LOGICAL :: LLINIT
@@ -731,8 +734,26 @@ CALL nwp_surface_edmf (&
    runoff_g_ex      = runoff_g_ex     , & ! soil water runoff; sum over forecast          (kg/m2)
 !                                   
    t_g              = t_g             , & ! surface temperature (grid mean)               ( K )
-   qv_s             = qv_s            )   ! surface specific humidity (grid mean)         (kg/kg)
+   qv_s             = qv_s            , & ! surface specific humidity (grid mean)         (kg/kg)
+!
+   shfl_s_t         = shfl_s_t        , & ! sensible heat flux soil/air interface         (W/m2)
+   lhfl_s_t         = lhfl_s_t        , & ! latent   heat flux soil/air interface         (W/m2)
+   shfl_snow_t      = shfl_snow_t     , & ! sensible heat flux snow/air interface         (W/m2)
+   lhfl_snow_t      = lhfl_snow_t     , & ! latent   heat flux snow/air interface         (W/m2)
+   zf_snow_t        = zf_snow_t       )   ! snow fraction as used for TERRA fluxes        ( -- )
 
+
+DO JTILE=1,KTILES
+  DO JL=KIDIA,KFDIA
+    IF ( ABS( shfl_s_t   (jl,jtile) * (1-zf_snow_t(jl,jtile)))  >  400.0_JPRB  .OR. & 
+         ABS( shfl_snow_t(jl,jtile) *    zf_snow_t(jl,jtile) )  >  400.0_JPRB  .OR. & 
+         ABS( lhfl_s_t   (jl,jtile) * (1-zf_snow_t(jl,jtile)))  > 2000.0_JPRB  .OR. & 
+         ABS( lhfl_snow_t(jl,jtile) *    zf_snow_t(jl,jtile) )  > 2000.0_JPRB  ) THEN
+      write(*,*) 'TERRA: SHF-soil, SHF-snow, LHF-soil, LHF-snow ', &
+         shfl_s_t(jl,jtile), shfl_snow_t(jl,jtile), lhfl_s_t(jl,jtile), lhfl_snow_t(jl,jtile)
+    ENDIF
+  ENDDO
+ENDDO
 
 !-------------------------------------------------------------------------
 

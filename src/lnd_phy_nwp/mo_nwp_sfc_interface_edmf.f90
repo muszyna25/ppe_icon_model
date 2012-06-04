@@ -135,7 +135,13 @@ CONTAINS
                   runoff_g_ex      , & ! soil water runoff; sum over forecast          (kg/m2)
 
                   t_g              , & ! surface temperature (grid mean)               ( K )
-                  qv_s               & ! surface specific humidity (grid mean)         (kg/kg)
+                  qv_s             , & ! surface specific humidity (grid mean)         (kg/kg)
+
+                  shfl_s_t         , & ! sensible heat flux soil/air interface         (W/m2)
+                  lhfl_s_t         , & ! latent   heat flux soil/air interface         (W/m2)
+                  shfl_snow_t      , & ! sensible heat flux snow/air interface         (W/m2)
+                  lhfl_snow_t      , & ! latent   heat flux snow/air interface         (W/m2)
+                  zf_snow_t          & ! snow fraction as used for TERRA fluxes        ( -- )
                                      )
 
 
@@ -206,6 +212,12 @@ CONTAINS
   REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
                   t_g              , &
                   qv_s
+  REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(OUT) :: &
+                  shfl_s_t         , & ! sensible heat flux soil/air interface         (W/m2)
+                  lhfl_s_t         , & ! latent   heat flux soil/air interface         (W/m2)
+                  shfl_snow_t      , & ! sensible heat flux snow/air interface         (W/m2)
+                  lhfl_snow_t      , & ! latent   heat flux snow/air interface         (W/m2)
+                  zf_snow_t            ! snow fraction as used for TERRA fluxes        ( -- )
 
   TYPE(t_external_data), INTENT(in) :: ext_data        !< external data
 
@@ -306,45 +318,53 @@ CONTAINS
     REAL(wp) :: qv_2m_t     (nproma, nsfc_subs)
     REAL(wp) :: td_2m_t     (nproma, nsfc_subs)
     REAL(wp) :: rh_2m_t     (nproma, nsfc_subs)
-    REAL(wp) :: shfl_s_t    (nproma, nsfc_subs)
-    REAL(wp) :: lhfl_s_t    (nproma, nsfc_subs)
 
     REAL(wp) :: dummy1(nproma)
 
 !--------------------------------------------------------------
 
 
-      ! initialize dummy variable
-      dummy_prg_gsp(1:nproma) = 0._wp
+    ! initialize dummy variable
+    dummy_prg_gsp(1:nproma) = 0._wp
   
-      ! local variables related to the blocking
-      
-      IF (msg_level >= 15) THEN
-        CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
-      ENDIF
+    ! local variables related to the blocking
+    
+    IF (msg_level >= 15) THEN
+      CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
+    ENDIF
 
 
-      IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
-        ! check dry case
-        IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
-          DO jc = i_startidx, i_endidx
-            qv_s (jc) = 0._wp
-          ENDDO
-        ELSE
-          ! 
-          !> adjust  humidity at water surface because of changed surface pressure
-          !
-          DO jc = i_startidx, i_endidx
-            qv_s (jc) = spec_humi( sat_pres_water(t_g(jc)) , ps_ex(jc) )
-          ENDDO
-        ENDIF
+    IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
+      ! check dry case
+      IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
+        DO jc = i_startidx, i_endidx
+          qv_s (jc) = 0._wp
+        ENDDO
+      ELSE
+        ! 
+        !> adjust  humidity at water surface because of changed surface pressure
+        !
+        DO jc = i_startidx, i_endidx
+          qv_s (jc) = spec_humi( sat_pres_water(t_g(jc)) , ps_ex(jc) )
+        ENDDO
       ENDIF
+    ENDIF
  
-      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+    DO isubs = 1,nsfc_subs
+      DO jc = i_startidx, i_endidx
+        shfl_s_t   (jc,isubs) = 0.0_wp
+        lhfl_s_t   (jc,isubs) = 0.0_wp
+        shfl_snow_t(jc,isubs) = 0.0_wp
+        lhfl_snow_t(jc,isubs) = 0.0_wp
+        zf_snow_t  (jc,isubs) = 0.0_wp
+      ENDDO
+    ENDDO
+
+    IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
 !---- Copy input fields for each tile
 !----------------------------------
-       DO isubs = 1,nsfc_subs
+      DO isubs = 1,nsfc_subs
 !----------------------------------
 
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
@@ -532,7 +552,13 @@ CONTAINS
 !
         &  runoff_s      = runoff_s_t(:,isubs)               , & ! surface water runoff; sum over forecast      (kg/m2)
         &  runoff_g      = runoff_g_t(:,isubs)               , & ! soil water runoff; sum over forecast         (kg/m2)
-        &  pt_tiles      = p_tiles(:)                          & ! tiles structure
+        &  pt_tiles      = p_tiles(:)                        , & ! tiles structure
+!
+        &  zshfl_s       = shfl_s_t   (:,isubs)              , & ! sensible heat flux soil/air interface         (W/m2) 
+        &  zlhfl_s       = lhfl_s_t   (:,isubs)              , & ! latent   heat flux soil/air interface         (W/m2) 
+        &  zshfl_snow    = shfl_snow_t(:,isubs)              , & ! sensible heat flux snow/air interface         (W/m2) 
+        &  zlhfl_snow    = lhfl_snow_t(:,isubs)              , & ! latent   heat flux snow/air interface         (W/m2) 
+        &  zf_snow       = zf_snow_t  (:,isubs)                & ! snow fraction as used for TERRA fluxes        ( -- )
         &                                                    )
 
         IF (lmulti_snow) THEN

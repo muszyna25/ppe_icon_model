@@ -221,6 +221,9 @@ CONTAINS
     REAL(wp) ::          rh_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          shfl_s_t    (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          lhfl_s_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          shfl_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          lhfl_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          zf_snow_t   (nproma, p_patch%nblks_c, nsfc_subs)
 !--------------------------------------------------------------
 
 
@@ -473,7 +476,13 @@ CONTAINS
 !
         &  runoff_s      = runoff_s_t(:,jb,isubs)            , & ! surface water runoff; sum over forecast       (kg/m2)
         &  runoff_g      = runoff_g_t(:,jb,isubs)            , & ! soil water runoff; sum over forecast          (kg/m2)
-        &  pt_tiles      = p_tiles(:)                          & ! tiles structure
+        &  pt_tiles      = p_tiles(:)                        , & ! tiles structure
+!
+        &  zshfl_s       = shfl_s_t   (:,jb,isubs)           , & ! sensible heat flux soil/air interface         (W/m2) 
+        &  zlhfl_s       = lhfl_s_t   (:,jb,isubs)           , & ! latent   heat flux soil/air interface         (W/m2) 
+        &  zshfl_snow    = shfl_snow_t(:,jb,isubs)           , & ! sensible heat flux snow/air interface         (W/m2) 
+        &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)           , & ! latent   heat flux snow/air interface         (W/m2) 
+        &  zf_snow       = zf_snow_t  (:,jb,isubs)             & ! snow fraction as used for TERRA fluxes        ( -- )
         &                                                    )
 
         IF (lmulti_snow) THEN
