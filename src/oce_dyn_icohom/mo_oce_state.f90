@@ -57,8 +57,7 @@ MODULE mo_oce_state
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
-    &                               success, max_char_length, min_rledge, min_rlcell,  &
-    &                               min_rlvert, min_rlcell_int,                        &
+    &                               success, max_char_length,                          &
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer,                        &
@@ -72,7 +71,6 @@ MODULE mo_oce_state
     &                               arc_length
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: rho_ref
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array, global_sum_array
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
@@ -597,8 +595,6 @@ CONTAINS
 
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
-  ! INTEGER ::  jc,jb,jk, rl_start, rl_end
-  ! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_base'
 
@@ -830,8 +826,8 @@ CONTAINS
 
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER :: jb, jc, je, jv, jk, rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+ !  INTEGER :: jb, jc, je, jv, jk, rl_start, rl_end
+ !  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
@@ -1075,6 +1071,7 @@ CONTAINS
 
     ! with following two loops the complete halo is set to zero, except for the unused last block
     !  - when checking for min/max values with nag-compiler "Floating invalid operation" occurs
+    !  - set completely to zero, see below
  !  DO jk=1,n_zlev
  !    DO jb = all_cells%start_block, all_cells%end_block
  !      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -1185,8 +1182,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER ::  ist, jc,jb, rl_start, rl_end, jtrc
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER ::  ist, jtrc
     INTEGER ::  nblks_c, nblks_e, nblks_v
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1410,19 +1406,13 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    rl_start = 1
-    rl_end = min_rlcell
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,1)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-                       & i_startidx, i_endidx, rl_start, rl_end)
-      DO jc = i_startidx, i_endidx
-        p_os_aux%bc_top_veloc_cc(jc,jb)%x = 0.0_wp
-        p_os_aux%bc_bot_veloc_cc(jc,jb)%x = 0.0_wp
-      END DO
-   END DO
+    p_os_aux%bc_top_veloc_cc(:,:)%x(1) = 0.0_wp
+    p_os_aux%bc_top_veloc_cc(:,:)%x(2) = 0.0_wp
+    p_os_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
+    p_os_aux%bc_bot_veloc_cc(:,:)%x(1) = 0.0_wp
+    p_os_aux%bc_bot_veloc_cc(:,:)%x(2) = 0.0_wp
+    p_os_aux%bc_bot_veloc_cc(:,:)%x(3) = 0.0_wp
 
     ! allocation of 3-dim tracer relaxation:
     IF (no_tracer >= 1) THEN
@@ -1501,8 +1491,8 @@ CONTAINS
 
     ! local variables
     INTEGER :: jb, je, jk !, il_v, ib_v, ie, iv_ctr, il_e, ib_e
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_e, rl_end_e
+    INTEGER :: i_startidx_e, i_endidx_e
+ !  INTEGER :: rl_start_e, rl_end_e
     INTEGER :: slev,elev 
     TYPE(t_subset_range), POINTER :: all_edges
 !!$    CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1581,7 +1571,7 @@ CONTAINS
     &        routine = 'mo_oce_state:init_ho_base'
 
     INTEGER :: jb, jc, je, jk, ji, nblks_c, nblks_e, npromz_c, npromz_e
-    INTEGER :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: noct1_c, noct1_e, inolsm, nowet_c
     INTEGER :: nolnd_c(n_zlev), nosea_c(n_zlev), nogllnd_c, noglsea_c
     INTEGER :: nolnd_e(n_zlev), nosea_e(n_zlev), nogllnd_e, noglsea_e
@@ -1755,11 +1745,6 @@ CONTAINS
     ! Correction loop for cells in all levels, similar to surface done in grid generator
     !  - through all levels each wet cell has at most one dry cell as neighbour
     !  - otherwise it is set to dry grid cell
-
-    rl_start = 1           
-    rl_end = min_rlcell_int   !  same as if not owner_mask?
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
     niter=30
 
@@ -1948,13 +1933,6 @@ CONTAINS
       nosea_e(jk)=0
       nobnd_e(jk)=0
 
-      rl_start = 1           !  #slo# - cannot run with holes on land in grid
-      rl_end = min_rledge
-
-      ! values for the blocking
-    ! i_startblk = p_patch%edges%start_blk(rl_start,1)
-    ! i_endblk   = p_patch%edges%end_blk(rl_end,1)
-      !
       ! loop through owned patch edges
       DO jb = owned_edges%start_block, owned_edges%end_block
         CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
@@ -2040,19 +2018,10 @@ CONTAINS
       nosbd_c(jk)=0
       nolbd_c(jk)=0
 
-      rl_start = 1           !  #slo# - cannot run with holes on land in grid
-      rl_end = min_rlcell
-
-      ! values for the blocking
-    ! i_startblk = p_patch%cells%start_blk(rl_start,1)
-    ! i_endblk   = p_patch%cells%end_blk(rl_end,1)
-      !
-      ! loop through all patch cells
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      ! loop through owned patch cells since we count changes globally
+      DO jb = owned_cells%start_block, owned_cells%end_block
+        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
         DO jc =  i_startidx, i_endidx
-
-!           IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
 
           ! sea points
           IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
@@ -2105,12 +2074,16 @@ CONTAINS
       nogllbd_c = nogllbd_c + all_nolbd_c
 
       ! synchronize lsm on cells
-      ! LL: not necessary since we go throu all cells
-!       z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-!       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-!       v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
     END DO ZLEVEL_LOOP
+
+    ctr     = global_sum_array( noct1_c )
+    noct1_c = ctr
+    ctr     = global_sum_array( noct1_e )
+    noct1_e = ctr
 
 !---------------------------------------------------------------------------------------------
     ! Output the levels
@@ -2215,7 +2188,7 @@ CONTAINS
     INTEGER  :: iarea   (nproma,p_patch%nblks_c)
 
     INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c, i
+    INTEGER  :: jb, jc, jk, nblks_c, npromz_c, i
     INTEGER  :: no_cor, g_cor, no_glb, jiter, iter
     INTEGER  :: n_idx(3), n_blk(3)
     REAL(wp) :: z60n, z30n, z30s, z85s, z10n, z100w
