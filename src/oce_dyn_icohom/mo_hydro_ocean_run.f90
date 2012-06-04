@@ -454,7 +454,7 @@ CONTAINS
     CALL init_ho_relaxation(ppatch(jg), pstate_oce(jg), p_sfc_flx)
 
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
-    IF (i_sea_ice == 1) &
+    IF (i_sea_ice >= 1) &
       &   CALL ice_init(ppatch(jg), pstate_oce(jg), p_ice)
 
 

@@ -439,10 +439,6 @@ CONTAINS
     
     END WHERE !isice
     
-!!$    ipl_src=1  ! output print level (1-5, fix)
-!!$    ! CALL print_mxmn('ice%hi',1,ice%hi(:,1,:),1,p_patch%nblks_c,'ice',ipl_src)
-!!$    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'ice%hi'  )
-    
   END SUBROUTINE ice_growth_winton
 
 END MODULE mo_sea_ice_winton

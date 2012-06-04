@@ -2,16 +2,17 @@
 !! Provide an implementation of the sea-ice model.
 !!
 !! Provide an implementation of the parameters of the surface module (sea ice)
-!! used between the atmopshere and the hydrostatic ocean model.
+!! used between the atmopshere and the hydrostatic ocean model, according to 
+!! Semtner's Zero-Layer Model (1976)
 !!
 !! @author Achim Randelhoff
 !! 
 !! @par Revision History
 !!
 !! @par Copyright
-!! 2002-2007 by DWD and MPI-M
-!! This software is provided for non-commercial use only.
-!! See the LICENSE and the WARRANTY conditions.
+!! ! 2002-2007 by DWD and MPI-M
+!! ! This software is provided for non-commercial use only.
+!! ! See the LICENSE and the WARRANTY conditions.
 !!
 !! @par License
 !! The use of ICON is hereby granted free of charge for an unlimited time,
@@ -56,8 +57,8 @@ MODULE mo_sea_ice_zerolayer
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
-  USE mo_oce_index,           ONLY: print_mxmn, ipl_src
-!  USE mo_var_list,            ONLY: add_var
+!  USE mo_oce_index,           ONLY: print_mxmn, ipl_src
+  USE mo_var_list,            ONLY: add_var
 !  USE mo_master_control,      ONLY: is_restart_run
 !  USE mo_cf_convention
 !  USE mo_grib2
@@ -65,7 +66,6 @@ MODULE mo_sea_ice_zerolayer
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx, print_maxmin_si, print_cells
-  USE mo_io_units,            ONLY: nerr
 
   IMPLICIT NONE
 
@@ -76,16 +76,26 @@ MODULE mo_sea_ice_zerolayer
 
 CONTAINS
 
-  !
-  ! Achim: Implementing Semtner's 0-Layer Model (1976)
-  !
 
-
+  !-------------------------------------------------------------------------------
+  !
+  !  
+  !>
+  !! ! set_ice_temp_zerolayer:: calculate new ice + snow temperatures based on:
   !!    Semtner, Albert J., 1976: A Model for the Thermodynamic Growth of Sea
   !!    Ice in Numerical Investigations of Climate. J. Phys. Oceanogr., 6,
   !!    379–389.  doi:
   !!    http://dx.doi.org/10.1175/1520-0485(1976)006<0379:AMFTTG>2.0.CO;2
-  ! (Appendix)
+  !!   (Appendix)
+  !!
+  !! This function changes:
+  !! ice % Ts       the new surface temperature   for each ice category     [deg C]
+  !! ice % Qbot     Heat flux available for freezing/melting at ice bottom  [W/m^2]
+  !! ice % Qtop     Heat flux available for melting at ice surface          [W/m^2]
+  !!
+  !!           all "dtime" in this function are atmospheric time step
+  !! @par Revision History
+  !! Initial release by Achim Randelhoff
 
   SUBROUTINE set_ice_temp_zerolayer(p_patch,ice, Tfw, Qatm) 
     TYPE(t_patch),        INTENT(IN),TARGET    :: p_patch 
@@ -96,17 +106,16 @@ CONTAINS
     ! Local variables
     REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::          &
       & k_effective ,  &  ! total heat conductivity of ice/snow
-      & deltaT      ,  &  ! Temperature increment 
-      & F_A         ,  &  ! atmospheric net flux
-      & F_S             ! conductive flux
+      & deltaT      ,  &  ! temperature increment 
+      & F_A         ,  &  ! atmospheric net flux, positive=upward
+      & F_S             ! conductive flux, positive=upward
     
-
     TYPE(t_subset_range), POINTER :: all_cells
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
+
+    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c     ! loop indices
     
-
+    ! initialization
     all_cells => p_patch%cells%all 
-
     k_effective(:,:,:) = 0.0_wp
     deltaT     (:,:,:) = 0.0_wp
     F_A        (:,:,:) = 0.0_wp
@@ -117,6 +126,8 @@ CONTAINS
       DO k=1,ice%kice
         DO jc = i_startidx_c,i_endidx_c
           IF (ice%isice(jc,k,jb)) THEN
+            
+            ! total heat conductivity for the ice-snow system
             k_effective(jc,k,jb) = ki*ks/(ks*ice%hi(jc,k,jb) + ki*ice%hs(jc,k,jb))
                     
             ! F_A, F_S : pos=upward flux
@@ -150,7 +161,7 @@ CONTAINS
             ! pos. flux into uppermost ice layer
             ice%Qtop(jc,k,jb) = - F_A(jc,k,jb) + F_S(jc,k,jb) 
             ! pos. flux into lowest ice layer
-            ice%Qbot(jc,k,jb) = - F_S(jc,k,jb) ! flux from ocean to ice still missing, this is done in
+            ice%Qbot(jc,k,jb) = - F_S(jc,k,jb) ! NB: flux from ocean to ice still missing, this is done in
             !                       ice_growth_zerolayer
             
           END IF
@@ -161,79 +172,36 @@ CONTAINS
 !!$ -------------------------
 
 
-    CALL print_cells(deltaT(:,1,:),ice,p_patch,'deltaT')
-    CALL print_cells(ice%Tsurf(:,1,:),ice,p_patch,'Tsurf')
-    CALL print_cells( k_effective(:,1,:) + 4.0_wp*  StBo * (ice%Tsurf(:,1,:)+tmelt)** 3&
-      &                ,ice,p_patch,'k_eff+dLWoutdT')
-    CALL print_cells(F_S(:,1,:),ice,p_patch,'F_S, pos=upw')
-    CALL print_cells(F_A(:,1,:),ice,p_patch,'F_A, pos=upw')
-    CALL print_cells((F_S(:,1,:) - F_A(:,1,:)) / (k_effective(:,1,:) + 4.0_wp*  StBo * &
-      &                (ice%Tsurf(:,1,:)+tmelt)** 3),ice,p_patch,'deltaT expl.')
-    CALL print_cells(ice%Qtop(:,1,:),ice,p_patch,'Qtop, pos=into layer')
-    CALL print_cells(ice%Tsurf(:,1,:),ice,p_patch,'ice%Tsurf'  )    
-    CALL print_cells(ice%hs(:,1,:),ice,p_patch,'hs')
-    CALL print_cells(ice%hi(:,1,:),ice,p_patch,'hi')
-!!$
-    CALL print_maxmin_si(deltaT(:,1,:),ice,p_patch,'deltaT')
-    CALL print_maxmin_si(ice%Tsurf(:,1,:),ice,p_patch,'Tsurf')
-    CALL print_maxmin_si( k_effective(:,1,:) + 4.0_wp*  StBo * (ice%Tsurf(:,1,:)+tmelt)** 3&
-      &                   ,ice,p_patch,'k_eff+dLWoutdT')
-    CALL print_maxmin_si(F_S(:,1,:),ice,p_patch,'F_S, pos=upw')
-    CALL print_maxmin_si(F_A(:,1,:),ice,p_patch,'F_A, pos=upw')
-    CALL print_maxmin_si((F_S(:,1,:) - F_A(:,1,:)) / (k_effective(:,1,:) + 4.0_wp*  StBo * &
-      &                   (ice%Tsurf(:,1,:)+tmelt)** 3),ice,p_patch,'deltaT expl.')
-    CALL print_maxmin_si(ice%Qtop(:,1,:),ice,p_patch,'Qtop, pos=into layer')
-    CALL print_maxmin_si(ice%Tsurf(:,1,:),ice,p_patch,'ice%Tsurf'  )    
-    CALL print_maxmin_si(ice%hs(:,1,:),ice,p_patch,'hs')
-    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'hi')
+!!$    CALL print_cells(deltaT(:,1,:),ice,p_patch,'deltaT')
+!!$    CALL print_cells(ice%Tsurf(:,1,:),ice,p_patch,'Tsurf')
+!!$    CALL print_cells( k_effective(:,1,:) + 4.0_wp*  StBo * (ice%Tsurf(:,1,:)+tmelt)** 3&
+!!$      &                ,ice,p_patch,'k_eff+dLWoutdT')
+!!$    CALL print_cells(F_S(:,1,:),ice,p_patch,'F_S, pos=upw')
+!!$    CALL print_cells(F_A(:,1,:),ice,p_patch,'F_A, pos=upw')
+!!$    CALL print_cells((F_S(:,1,:) - F_A(:,1,:)) / (k_effective(:,1,:) + 4.0_wp*  StBo * &
+!!$      &                (ice%Tsurf(:,1,:)+tmelt)** 3),ice,p_patch,'deltaT expl.')
+!!$    CALL print_cells(ice%Qtop(:,1,:),ice,p_patch,'Qtop, pos=into layer')
+!!$    CALL print_cells(ice%Tsurf(:,1,:),ice,p_patch,'ice%Tsurf'  )    
+!!$    CALL print_cells(ice%hs(:,1,:),ice,p_patch,'hs')
+!!$    CALL print_cells(ice%hi(:,1,:),ice,p_patch,'hi')
+
+!!$    CALL print_maxmin_si(deltaT(:,1,:),ice,p_patch,'deltaT')
+!!$    CALL print_maxmin_si(ice%Tsurf(:,1,:),ice,p_patch,'Tsurf')
+!!$    CALL print_maxmin_si( k_effective(:,1,:) + 4.0_wp*  StBo * (ice%Tsurf(:,1,:)+tmelt)** 3&
+!!$      &                   ,ice,p_patch,'k_eff+dLWoutdT')
+!!$    CALL print_maxmin_si(F_S(:,1,:),ice,p_patch,'F_S, pos=upw')
+!!$    CALL print_maxmin_si(F_A(:,1,:),ice,p_patch,'F_A, pos=upw')
+!!$    CALL print_maxmin_si((F_S(:,1,:) - F_A(:,1,:)) / (k_effective(:,1,:) + 4.0_wp*  StBo * &
+!!$      &                   (ice%Tsurf(:,1,:)+tmelt)** 3),ice,p_patch,'deltaT expl.')
+!!$    CALL print_maxmin_si(ice%Qtop(:,1,:),ice,p_patch,'Qtop, pos=into layer')
+!!$    CALL print_maxmin_si(ice%Tsurf(:,1,:),ice,p_patch,'ice%Tsurf'  )    
+!!$    CALL print_maxmin_si(ice%hs(:,1,:),ice,p_patch,'hs')
+!!$    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'hi')
 
 
 
 ! ----------------------------------------
 
-!!$          SWin3d(jc,k,jb) = Qatm % SWin (jc,jb)
-!!$          LWin3d(jc,k,jb) = Qatm % LWin (jc,jb)              
-!!$          
-!!$          IF ( ice%isice(jc,k,jb) ) THEN
-!!$            ! combined heat conductivity for snow and ice
-!!$            k_effective(jc,k,jb) = ki * ks / (ks * ice%hi(jc,k,jb) + ki * ice%hs(jc,k,jb))
-!!$            
-!!$            !
-!!$            ! ! calculate temperature increment
-!!$            !
-!!$            
-!!$            ! calculate net upwelling het flux and conductive heat flux through the ice
-!!$            
-!!$            ! F_A and F_S based on previous Tsurf
-!!$            !
-!!$            CALL ice_flux_balance_zerolayer (p_patch,ice%hs(jc,k,jb),ice%Tsurf(jc,k,jb),&
-!!$              &                                    Qatm%sens(jc,k,jb),Qatm%lat(jc,k,jb),&
-!!$              &                                    SWin3d(jc,k,jb),LWin3d(jc,k,jb),&
-!!$              &                                    k_effective(jc,k,jb),&
-!!$              &                                    ice%alb(jc,k,jb),&
-!!$              &                                    F_A(jc,k,jb),F_S(jc,k,jb),&
-!!$              &                                    jc,k,jb)
-!!$            
-!!$            
-!!$            deltaT(jc,k,jb) = (F_S(jc,k,jb) - F_A(jc,k,jb))&
-!!$              & / (k_effective(jc,k,jb) + 4.0_wp*  StBo * (ice%Tsurf(jc,k,jb)+tmelt)** 3)
-!!$            
-!!$            ! update surface temperature
-!!$            ice%Tsurf(jc,k,jb) = ice%Tsurf(jc,k,jb) + deltaT(jc,k,jb)
-!!$            ! in case of positive surface temperature, reset to zero
-!!$            IF ( ice%Tsurf(jc,k,jb) > 0.0_wp ) THEN
-!!$              ice%Tsurf(jc,k,jb) = 0.0_wp
-!!$            END IF
-            
-            
-!!$            ! F_A and F_S based on new Tsurf
-!!$            !
-!!$            CALL ice_flux_balance_zerolayer (p_patch,ice,Qatm,&
-!!$              &                                    SWin3d(jc,k,jb),LWin3d(jc,k,jb),&
-!!$              &                                    k_effective(jc,k,jb),&
-!!$              &                                    F_A(jc,k,jb),F_S(jc,k,jb),&
-!!$              &                                    jc,k,jb)
-  
   END SUBROUTINE set_ice_temp_zerolayer
 
 
@@ -241,6 +209,24 @@ CONTAINS
  !
  ! The counterpart to the  ice_growth subroutine
  !
+
+
+ !-------------------------------------------------------------------------------
+  !
+  !  
+  !>
+  !! ! ice_growth_zerolayer - change ice and snow thickness (Semtner 1976, Appendix)
+  !! This function changes:
+  !! --- not currently --- ice % hs       new snow thickness for each ice category                [m]
+  !! ice % hi       new ice  thickness for each ice category                [m]
+  !! --- not currently --- ice % evapwi   amount of evaporated water from the mixed layer
+  !!                in previously ice covered areas if all ice is gone      [kg/m�]
+  !! ice % heatOceI to contain the energy that is available to the mixed layer
+  !!                in previously ice covered areas if all ice is gone      [J]
+  !!
+  !! @par Revision History
+  !! Initial release by Achim Randelhoff
+  !!
  
  SUBROUTINE ice_growth_zerolayer(p_patch, p_os, ice, rpreci)
    TYPE(t_patch),             INTENT(IN), TARGET    :: p_patch 

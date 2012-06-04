@@ -237,7 +237,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
-  INTEGER  :: i_sea_ice             = 1          ! 0=no sea ice; 1=sea ice
+  INTEGER  :: i_sea_ice             = 1          ! 0=no sea ice; 1=sea ice (Winton) !, 2=sea ice (Zero-Layer)
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &

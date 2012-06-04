@@ -505,6 +505,10 @@ CONTAINS
   982 FORMAT(a,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
   991 FORMAT(a,a25,':  ',i3, 2g26.18)
 
+  ! #achim
+  983 FORMAT(a,a25,':  ',i3, 4i4)
+  !
+
   strout=TRIM(str_prntdes)
 
   ! check print output detail level ipl_proc_src (1-5) with namelist given values for output at
@@ -524,7 +528,7 @@ CONTAINS
       WRITE(iout,982) '   VALUE ',strout,klev, &
     &                 (' E',i,':',p_array(ne_i(i),klev,ne_b(i)),i=1,3)
     ELSE IF (loc_nblks_v == ndimblk) THEN
-      WRITE(iout,982) '   VALUE ',strout,klev, &
+      WRITE(iout,983) '   VALUE ',strout,klev, &
     &                 (' V',i,':',p_array(nv_i(i),klev,nv_b(i)),i=1,3)
     END IF
     END IF
@@ -547,6 +551,10 @@ CONTAINS
     WRITE(iout,991) ' MAX/MIN ',strout,klev, &
       &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
       &              minval(p_array(1:nproma,klev,1:ndimblk))
+
+!!$    WRITE(iout,983) ' LOC ',strout,klev, &
+!!$      &              MAXLOC(p_array(1:nproma,klev,1:ndimblk)),     &
+!!$      &              MINLOC(p_array(1:nproma,klev,1:ndimblk))
   END IF
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
