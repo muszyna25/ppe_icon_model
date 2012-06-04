@@ -276,6 +276,11 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: EULER_FORWARD = 1
   INTEGER,PARAMETER :: AB2           = 2
 
+  ! Rayleigh damping identifiers
+  INTEGER,PARAMETER :: RAYLEIGH_CLASSIC = 1  ! classical Rayleigh damping, which makes use of 
+                                             ! a reference state.
+  INTEGER,PARAMETER :: RAYLEIGH_KLEMP   = 2  ! Klemp (2008) type Rayleigh damping
+
   ! identifiers for NWP time control variables lcall_phy, dt_phy, t_elapsed_phy
   INTEGER, PARAMETER :: itconv   =  1
   INTEGER, PARAMETER :: itccov   =  2

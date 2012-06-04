@@ -51,15 +51,16 @@ MODULE mo_vertical_grid
   USE mo_model_domain,          ONLY: t_patch
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_grid_config,           ONLY: n_dom
-  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
-    &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
+  USE mo_nonhydrostatic_config, ONLY: rayleigh_type, rayleigh_coeff, damp_height, &
+    &                                 igradp_method, ivctype, vwind_offctr,       &
+    &                                 exner_expol, l_zdiffu_t, thslp_zdiffu,      &
     &                                 thhgtd_zdiffu
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
   USE mo_vertical_coord_table,  ONLY: vct_a
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, &
-    &                                 min_rlcell_int, min_rlcell
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
+    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
@@ -122,7 +123,8 @@ MODULE mo_vertical_grid
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, i_nchdom, icount_total
     INTEGER :: ica(max_dom)
 
-    REAL(wp) :: z_diff, z1, z2, z3, z_help(nproma),                 &
+!DR    REAL(wp) :: z_diff, z1, z2, z3, z_help(nproma),                 &
+    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff, z1, z2, z3, z_help(nproma), &
       &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),     &
       &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
@@ -471,22 +473,67 @@ MODULE mo_vertical_grid
         IF (vct_a(jk1) >= damp_height(jg))  nrdmax(jg) = jk
       ENDDO
 
-      ! Rayleigh damping coefficient for w
+
+
+!DR Test
+!!$      ! Rayleigh damping coefficient for w
+!!$      DO jk = 1, nrdmax(jg)
+!!$        jk1 = jk + p_patch(jg)%nshift_total
+!!$!        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
+!!$        z_diff = vct_a(1) - vct_a(jk1)
+!!$        IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
+!!$!          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
+!!$!            MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
+!!$          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
+!!$          (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
+!!$
+!!$        ELSE
+!!$          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
+!!$            MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
+!!$        ENDIF
+!!$      ENDDO
+
+      ! Rayleigh damping coefficient for vn and/or w
       DO jk = 1, nrdmax(jg)
         jk1 = jk + p_patch(jg)%nshift_total
-!        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
-        z_diff = vct_a(1) - vct_a(jk1)
-        IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
-!          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-!            MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
-          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
-          (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
 
-        ELSE
-          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-            MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
+        ! z - z_h  with z at half levels
+        z_sin_diff  = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
+
+        ! z_top - z    
+        z_tanh_diff = vct_a(1) - vct_a(jk1)
+
+        ! z - z_h  with z at full levels
+        z_sin_diff_full = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
+
+        IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
+          ! classical Rayleigh damping as known from idealized limited area test cases.
+          ! Requires knowledge of a velocity reference state!
+          !
+          p_nh(jg)%metrics%rayleigh_vn(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_sin_diff_full/ &
+              MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
+
+          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_sin_diff/ &
+              MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
+
+        ELSE IF ( rayleigh_type == RAYLEIGH_KLEMP ) THEN
+          ! Rayleigh damping based on Klemp et al. (2008), MRW 136, pp 3987-4004
+          ! No reference state needed, thus applicable to real cases!
+          !
+          IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
+!            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
+!              MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
+            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
+            (1._wp-TANH(3.8_wp*z_tanh_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
+
+          ELSE
+            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_sin_diff/ &
+              MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
+          ENDIF
+            p_nh(jg)%metrics%rayleigh_vn(jk)= 0._wp
         ENDIF
       ENDDO
+!DR End test
 
 
       ! Enhancement coefficient for nabla4 background diffusion near model top

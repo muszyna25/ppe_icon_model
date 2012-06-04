@@ -54,7 +54,8 @@ MODULE mo_nml_crosscheck
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
-    &                              ifluxl_sm, ifluxl_m, ihs_ocean 
+    &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
+    &                              RAYLEIGH_CLASSIC 
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -82,7 +83,7 @@ MODULE mo_nml_crosscheck
   USE mo_advection_config,   ONLY: advection_config, configure_advection
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf, &
-                                      lhdiff_rcf
+                                      lhdiff_rcf, rayleigh_type
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config, configure_diffusion
 
@@ -401,6 +402,11 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Testcases (nonhydrostatic)
     !--------------------------------------------------------------------
+    IF (.NOT. ltestcase .AND. rayleigh_type == RAYLEIGH_CLASSIC) THEN
+      CALL finish(TRIM(routine), &
+        & 'rayleigh_type = RAYLEIGH_CLASSIC not applicable to real case runs.')
+    ENDIF
+
     IF ((TRIM(nh_test_name)=='APE_nh') .AND.                    &
       & ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) )) THEN
       CALL finish(TRIM(routine), &

@@ -57,6 +57,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_htop_qvadv       => htop_qvadv       , &
                                     & config_hbot_qvsubstep   => hbot_qvsubstep   , &
                                     & config_damp_height      => damp_height      , &
+                                    & config_rayleigh_type    => rayleigh_type    , &
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
                                     & config_vwind_offctr     => vwind_offctr     , &
                                     & config_iadv_rhotheta    => iadv_rhotheta    , &
@@ -110,6 +111,7 @@ MODULE mo_nonhydrostatic_nml
                                      ! instability in the stratopause region).
 
   ! Parameters active with cell_type=3 only
+  REAL(wp):: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
   REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
@@ -137,12 +139,12 @@ MODULE mo_nonhydrostatic_nml
 
 
   NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
-                              & htop_qvadv, hbot_qvsubstep, damp_height, rayleigh_coeff,   &
-                              & vwind_offctr, iadv_rhotheta, lhdiff_rcf, divdamp_fac,      &
-                              & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
-                              & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
-                              & gmres_rtol_nh, ltheta_up_hori, upstr_beta, ltheta_up_vert, &
-                              & k2_updamp_coeff, divdamp_order
+                              & htop_qvadv, hbot_qvsubstep, damp_height, rayleigh_type,    &
+                              & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,   &
+                              & divdamp_fac, igradp_method, exner_expol, l_open_ubc,       &
+                              & l_nest_rcf, l_masscorr_nest, l_zdiffu_t, thslp_zdiffu,     &
+                              & thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, upstr_beta,  &
+                              & ltheta_up_vert, k2_updamp_coeff, divdamp_order
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -201,6 +203,8 @@ CONTAINS
     !     (requires choosing ihadv_tracer(1) = 22 or 32!)
     hbot_qvsubstep  = 24000._wp
 
+    ! type of Rayleigh damping
+    rayleigh_type     = 2           ! Klemp-type Rayleigh damping
     ! Rayleigh damping of w above 45 km
     damp_height(1)    = 45000.0_wp
     ! Corresponding damping coefficient
@@ -311,6 +315,7 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
+       config_rayleigh_type     = rayleigh_type
        config_rayleigh_coeff(:) = rayleigh_coeff(:)
        config_damp_height   (:) = damp_height   (:)
        config_iadv_rhotheta     = iadv_rhotheta

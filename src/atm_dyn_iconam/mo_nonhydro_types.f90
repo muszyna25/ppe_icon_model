@@ -57,6 +57,7 @@ MODULE mo_nonhydro_types
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)
                                   ! on p- and/or z-levels
+  PUBLIC :: t_nh_ref              ! state vector of reference state (type)
   PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
   PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
 
@@ -212,6 +213,13 @@ MODULE mo_nonhydro_types
   END TYPE t_nh_diag
 
 
+  TYPE t_nh_ref
+    REAL(wp), POINTER ::    &
+      vn_ref(:,:,:),        & !! orthogonal normal wind (nproma,nlev,nblks_e)         [m/s]
+      w_ref(:,:,:)             !> orthogonal vertical wind (nproma,nlevp1,nblks_c)    [m/s]
+  END TYPE t_nh_ref
+
+
   TYPE t_nh_metrics
 
    ! a) Variables needed for triangles and hexagons
@@ -249,6 +257,8 @@ MODULE mo_nonhydro_types
 
    ! Rayleigh damping on the vertical velocity
    REAL(wp), POINTER :: rayleigh_w(:)
+   ! Rayleigh damping on the normal velocity
+   REAL(wp), POINTER :: rayleigh_vn(:)
    ! Enhancement factor for nabla4 background diffusion
    REAL(wp), POINTER :: enhfac_diffu(:)
 
@@ -385,6 +395,9 @@ MODULE mo_nonhydro_types
 
     TYPE(t_nh_diag)    :: diag
     TYPE(t_var_list)   :: diag_list
+
+    TYPE(t_nh_ref)     :: ref
+    TYPE(t_var_list)   :: ref_list
 
     TYPE(t_nh_metrics) :: metrics
     TYPE(t_var_list)   :: metrics_list

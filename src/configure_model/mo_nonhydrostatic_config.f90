@@ -88,6 +88,7 @@ MODULE mo_nonhydrostatic_config
   
     ! Parameters active with cell_type=3 only
 
+    REAL(wp):: rayleigh_type    ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
     REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
     REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
     REAL(wp):: vwind_offctr     ! Off-centering in vertical wind solver

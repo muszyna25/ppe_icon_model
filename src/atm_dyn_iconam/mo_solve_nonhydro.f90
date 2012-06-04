@@ -47,7 +47,8 @@ MODULE mo_solve_nonhydro
 
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
-                                     kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order
+                                     kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
+                                     rayleigh_type
   USE mo_dynamics_config,      ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,         ONLY: ltimer, lvert_nest
@@ -65,7 +66,8 @@ MODULE mo_solve_nonhydro
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
-  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
+  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, &
+    &                             min_rlcell, RAYLEIGH_CLASSIC, RAYLEIGH_KLEMP
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
   USE mo_advection_traj,    ONLY: btraj
@@ -1288,6 +1290,18 @@ MODULE mo_solve_nonhydro
         ENDIF
       ENDIF
 
+      ! Classic Rayleigh damping mechanism for vn (requires reference state !!)
+      !
+      IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
+        DO jk = 1, nrdmax(p_patch%id)
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%vn(jc,jk,jb) = p_nh%prog(nnew)%vn(jc,jk,jb)       &
+              &                          - dtime*p_nh%metrics%rayleigh_vn(jk) &
+              &                          * (p_nh%prog(nnew)%vn(jc,jk,jb)      &
+              &                          - p_nh%ref%vn_ref(jc,jk,jb))
+          ENDDO
+        ENDDO
+      ENDIF
     ENDDO
 !$OMP END DO
 
@@ -1840,13 +1854,27 @@ MODULE mo_solve_nonhydro
       ENDIF
 
       ! Rayleigh damping mechanism (Klemp,Dudhia,Hassiotis:MWR136,pp.3987-4004)
-      DO jk = 2, nrdmax(p_patch%id)
-        z_raylfac = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
-        DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%w(jc,jk,jb) = z_raylfac*p_nh%prog(nnew)%w(jc,jk,jb) +    &
-                                        (1._wp-z_raylfac)*p_nh%prog(nnew)%w(jc,1,jb)
+      !
+      IF ( rayleigh_type == RAYLEIGH_KLEMP ) THEN
+        DO jk = 2, nrdmax(p_patch%id)
+          z_raylfac = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,jk,jb) = z_raylfac*p_nh%prog(nnew)%w(jc,jk,jb) +    &
+                                          (1._wp-z_raylfac)*p_nh%prog(nnew)%w(jc,1,jb)
+          ENDDO
         ENDDO
-      ENDDO
+      ! Classic Rayleigh damping mechanism for w (requires reference state !!)
+      !
+      ELSE IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
+        DO jk = 2, nrdmax(p_patch%id)
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnew)%w(jc,jk,jb)       &
+              &                         - dtime*p_nh%metrics%rayleigh_w(jk) &
+              &                         * ( p_nh%prog(nnew)%w(jc,jk,jb)     &
+              &                         - p_nh%ref%w_ref(jc,jk,jb) )
+          ENDDO
+        ENDDO
+      ENDIF
 
       ! Results
       DO jk = 1, nlev
@@ -1980,6 +2008,7 @@ MODULE mo_solve_nonhydro
 !OMP END DO
 
     ENDIF
+
 
     IF (itype_comm == 2) THEN
       ! use OpenMP-parallelized communication using global memory for buffers

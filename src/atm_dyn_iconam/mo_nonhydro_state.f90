@@ -59,7 +59,7 @@ MODULE mo_nonhydro_state
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
-    &                                t_nh_metrics, t_ptr_nh,            &
+    &                                t_nh_ref, t_nh_metrics, t_ptr_nh,  &
     &                                t_buffer_memory
   USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
   USE mo_grid_config,          ONLY: n_dom, l_limited_area
@@ -68,7 +68,7 @@ MODULE mo_nonhydro_state
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
-    &                                nqtendphy 
+    &                                nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
@@ -259,6 +259,16 @@ MODULE mo_nonhydro_state
       CALL new_nh_metrics_list(p_patch(jg), p_nh_state(jg)%metrics, &
         &  p_nh_state(jg)%metrics_list, listname )
 
+      !
+      ! Build ref state list (not needed so far for real case applications)
+      ! includes memory allocation
+      !
+      IF ( ltestcase ) THEN
+        WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
+        CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
+          &  p_nh_state(jg)%ref_list, listname)
+      ENDIF
+
     ENDDO ! jg
 
     CALL message (TRIM(routine), 'NH state construction completed')
@@ -306,6 +316,11 @@ MODULE mo_nonhydro_state
       ntl_tra = SIZE(p_nh_state(jg)%tracer_list(:))
       IF(ntl_tra==0)THEN
         CALL finish(TRIM(routine), 'tracer list has no timelevels')
+      ENDIF
+
+      ! delete reference state list elements
+      IF ( ltestcase ) THEN
+        CALL delete_var_list( p_nh_state(jg)%ref_list )
       ENDIF
 
       ! delete diagnostic state list elements
@@ -1675,6 +1690,88 @@ MODULE mo_nonhydro_state
   END SUBROUTINE new_nh_state_diag_list
 
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Allocation of components of reference state.
+  !!
+  !! Initialization of components with zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert, DWD (2012-06-04)
+  !!
+  !!
+  SUBROUTINE new_nh_state_ref_list ( p_patch, p_ref, p_ref_list,  &
+    &                                 listname )
+!
+    TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
+      &  p_patch
+
+    TYPE(t_nh_ref),  INTENT(INOUT)   :: &  !< reference state
+      &  p_ref 
+
+    TYPE(t_var_list), INTENT(INOUT)   :: &  !< reference state list
+      &  p_ref_list
+    CHARACTER(len=*), INTENT(IN)      :: &  !< list name
+      &  listname
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: nblks_c       !< number of cell blocks to allocate
+
+    INTEGER :: nlev, nlevp1  !< number of vertical full/half levels
+
+    INTEGER :: shape3d_c(3), shape3d_chalf(3)
+ 
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+
+    CHARACTER(len=4) suffix
+    !--------------------------------------------------------------
+
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
+
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape3d_c     = (/nproma, nlev   , nblks_c    /)
+    shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
+
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_ref_list, TRIM(listname), patch_id=p_patch%id )
+    CALL default_var_list_settings( p_ref_list,                &
+                                  & lrestart=.FALSE.,          &
+                                  & restart_type=FILETYPE_NC2  )
+
+    ! vn_ref     p_ref%vn_ref(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge')
+    grib2_desc = t_grib2_var(0, 2, 34, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ref_list, 'vn_ref', p_ref%vn_ref,                           &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+
+
+    ! w_ref      p_ref%w_ref(nproma,nlev+1,nblks_c)
+    !
+    cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity')
+    grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ref_list, 'w_ref', p_ref%w_ref,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
+                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+
+  END SUBROUTINE new_nh_state_ref_list
+
+
   !---------------------------------------------------------------------------
   !>
   !! Allocates all metric coefficients defined in type metrics_3d of the patch.
@@ -1887,6 +1984,13 @@ MODULE mo_nonhydro_state
       IF (ist/=SUCCESS)THEN
         CALL finish('mo_nonhydro_state:construct_nh_metrics', &
                     'allocation for rayleigh_w failed')
+      ENDIF
+
+      ! Rayleigh damping coefficient for vn
+      ALLOCATE(p_metrics%rayleigh_vn(nlev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
+                    'allocation for rayleigh_vn failed')
       ENDIF
 
       ! Background nabla2 diffusion coefficient for upper sponge layer
