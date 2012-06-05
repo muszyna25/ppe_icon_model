@@ -55,11 +55,13 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
 dtime=60
-nsteps=14400
+ndays=10               # number of days to run
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+ninc_mtgrm=24         # output interval 3600s
 
 # model parameters
 atmo_namelist=NAMELIST_${EXP}
-model_equations=3  #  3=non-hydrost. atm.,
+model_equations=3     #  3=non-hydrost. atm.,
 
 # grid parameters
 atmo_dyn_grids="iconR2B06_DOM01.nc"
@@ -112,8 +114,23 @@ done
 # ---
 
 
-ml_varlist="'u', 'v', 'w', 'temp', 'pres'"
+ml_varlist="'temp','u','v','w','pres','pres_sfc', \
+    'qv','qc','qi','qr','qs','o3', \
+    'tot_cc','tot_qv','tot_qc','tot_qi', \
+    'TCC','TQV','TQC','TQI', \
+    'qtvar',\
+    'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', \   
+    'U_10M','V_10M',\
+    'ACCSHFL_S','ACCLHFL_S', \
+    'ACCTHB_S','ACCTHB_T','ACCSOB_S','ACCSOB_T', \
+    'ddt_temp_radsw', 'ddt_temp_radlw', \
+    'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv', \ 
+    'ddt_u_turb',  'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', \
+    'ddt_v_turb',  'ddt_v_sso', 'ddt_v_gwd', 'ddt_v_pconv', \
+    'ddt_qv_turb', 'ddt_qv_conv'"
 
+pl_varlist ="'v','temp','z','qv','qc','qi'"      
+hl_varlist ="'v','temp','pres','qv','qc','qi'"   
 
 # ---
 
@@ -137,38 +154,13 @@ cat > ${atmo_namelist} << EOF
  ifeedback_type               = 2
 /
 &prepicon_nml
-  i_oper_mode                 = 3           ! operation mode
-  nlev_in                     = 91          ! number of levels of input data
-  zpbl1                       = 500. 
-  zpbl2                       = 1000. 
-  l_zp_out                    = .TRUE.
-  l_w_in                      = .TRUE.
-  l_sfc_in                    = .TRUE.
-/
-&nh_testcase_nml
-/
-&io_nml
- out_expname                  = '${EXP}'    ! file name base
- dt_data                      = 3600.       ! output interval
- dt_file                      = 28800.
- dt_diag                      = 1728000.
- lwrite_tend_phy              = .TRUE.
- lwrite_radiation             = .TRUE.
- lwrite_precip                = .TRUE.
- lwrite_cloud                 = .TRUE.
- lwrite_tke                   = .TRUE.
- lwrite_surface               = .TRUE.
-/
-! OUTPUT: Triangular grid, model levels, all domains
-&output_nml
- dom                          =  -1                        ! write all domains
- output_time_unit             =   1                        ! 1: seconds
- output_bounds                =  0., 10000000., 10800.     ! start, end, increment
- steps_per_file               =   1
- include_last                 =  .TRUE.
- output_filename              =  '${EXP}'                  ! file name base
- ml_varlist                   =  ${ml_varlist}
- output_grid                  =  .TRUE.
+ i_oper_mode                 = 3           ! operation mode
+ nlev_in                     = 91          ! number of levels of input data
+ zpbl1                       = 500. 
+ zpbl2                       = 1000. 
+ l_zp_out                    = .TRUE.
+ l_w_in                      = .TRUE.
+ l_sfc_in                    = .TRUE.
 /
 &run_nml
  num_lev                      = 90
@@ -187,6 +179,40 @@ cat > ${atmo_namelist} << EOF
  timers_level                 = 4
  activate_sync_timers         = .FALSE.
  output                       = "nml"
+/
+! OUTPUT: Triangular grid, model levels, all domains
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = -1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 10800.    ! start, end, increment
+ steps_per_file               =  1
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}'                  ! file name base
+ ml_varlist                   = ${ml_varlist}
+ pl_varlist                   = ${pl_varlist}
+ hl_varlist                   = ${hl_varlist}
+ output_grid                  = .TRUE.
+ remap                        = 1
+ reg_lon_def                  = 0.,1.,360.
+ reg_lat_def                  = 90.,-1., -90.
+!namespace                    = "DWD"  ! may give problems with metview - leave default ecmwf
+/
+&meteogram_output_nml
+ lmeteogram_enabled= .TRUE.
+ n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = ${ninc_mtgrm}  ! meteogram output interval
+ ldistributed      = .false.
+ stationlist_tot   =  52.17,  14.12, 'Lindenberg',                        ! Lat,Lon
+                      51.97,   4.93, 'Cabauw',
+                     -10.08, -61.93, 'LBA_Rondonia',
+                      13.50,   2.5 , 'Niamey',
+                      36.61, -97.49, 'ARM_Southern_Great_Plains',
+                     -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
+                      -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
+                     -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
+                      60.00,  80.00, 'Snow Test Russia',
 /
 &nwp_phy_nml
  inwp_gscp                    = 1
