@@ -242,7 +242,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_pp_scheduler:pp_scheduler_init")
     INTEGER                               :: &
-      &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, nlev, &
+      &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, &
       &  nblks_lonlat, ilev_type, max_var, ilev
     LOGICAL                               :: &
       &  l_jg_active, found, l_horintp
@@ -404,7 +404,6 @@ CONTAINS
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_z
           END SELECT
 
-          nlev   = info%used_dimensions(2)
           ! set local values for "nblks" and "npromz"
           ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
@@ -998,7 +997,7 @@ CONTAINS
         dim1 = p_info%used_dimensions(1)
         dim2 = p_info%used_dimensions(2)
         ALLOCATE(tmp_var(dim1, 1, dim2), STAT=ierrstat)
-        tmp_var(:,1,:) = in_var%r_ptr(:,:,1,1,1)
+        tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
 
         ! for cell-based variables: interpolate gradients (finite
         ! differences) and reconstruct
@@ -1030,7 +1029,7 @@ CONTAINS
         dim1 = p_info%used_dimensions(1)
         dim2 = p_info%used_dimensions(2)
         ALLOCATE(tmp_var(dim1, 1, dim2), STAT=ierrstat)
-        tmp_var(:,1,:) = in_var%r_ptr(:,:,1,1,1)
+        tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
 
         ! for edge-based variables: simple interpolation
         CALL rbf_vec_interpol_lonlat_nl(              &
