@@ -43,8 +43,11 @@ USE mo_parallel_config,        ONLY: nproma
 USE mo_grid_config,            ONLY: n_dom
 USE mo_run_config,             ONLY: nsteps!, ltimer
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
+USE mo_sync,                   ONLY: global_max, global_min
+USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst,no_tracer, &
-  &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
+  &                                  i_oct_ilv, rlon_in, rlat_in
+! &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_run_config,             ONLY: dtime
@@ -385,8 +388,9 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
 
   INTEGER  :: jb, jc, jg
-  INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER  :: i_startidx, i_endidx
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp
+  TYPE(t_subset_range), POINTER :: all_cells
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_oce_index:search_latlonindex'
@@ -395,19 +399,14 @@ CONTAINS
 
   jg = n_dom
 
+  all_cells => ppatch(jg)%cells%all
+
   ! initial distance to compare
   zdist_cmp = 100000.0_wp
 
-  !  loop over cells
-  rl_start = 1
-  rl_end = min_rlcell
-  i_startblk = ppatch(jg)%cells%start_blk(rl_start,1)
-  i_endblk   = ppatch(jg)%cells%end_blk(rl_end,1)
-
-  DO jb = i_startblk, i_endblk
-
-  CALL get_indices_c(ppatch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
+  !  loop over all cells including halo
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx
 
       zlat    = ppatch(jg)%cells%center(jc,jb)%lat * 180.0_wp / pi
@@ -429,8 +428,10 @@ CONTAINS
 
   99 FORMAT(3a,i4,a,i4,3(a,f9.2))
   98 FORMAT(2a,3(a,f9.2))
-  WRITE(0,98) ' ',TRIM(routine), ' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
-  WRITE(0,99) ' ',TRIM(routine), ' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
+  IF (my_process_is_stdio()) THEN
+    WRITE(0,98) ' ',TRIM(routine),' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
+    WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
+  END IF
 
   END SUBROUTINE search_latlonindex
 
@@ -525,17 +526,17 @@ CONTAINS
   ! check print output level ipl_proc_src (1-5) with namelist given value (i_dbg_inx) for output at index
   IF (i_dbg_inx >= ipl_proc_src) THEN
     IF (my_process_is_stdio()) THEN
-    IF (loc_nblks_c == ndimblk) THEN
-      ! write value at index
-      WRITE(iout,981) '   VALUE ',strout,klev, p_array(c_i,klev,c_b), &
-    &                 (' C',i,':',p_array(nc_i(i),klev,nc_b(i)),i=1,3)
-    ELSE IF (loc_nblks_e == ndimblk) THEN
-      WRITE(iout,982) '   VALUE ',strout,klev, &
-    &                 (' E',i,':',p_array(ne_i(i),klev,ne_b(i)),i=1,3)
-    ELSE IF (loc_nblks_v == ndimblk) THEN
-      WRITE(iout,982) '   VALUE ',strout,klev, &
-    &                 (' V',i,':',p_array(nv_i(i),klev,nv_b(i)),i=1,3)
-    END IF
+      IF (loc_nblks_c == ndimblk) THEN
+        ! write value at index
+        WRITE(iout,981) '   VALUE ',strout,klev, p_array(c_i,klev,c_b), &
+      &                 (' C',i,':',p_array(nc_i(i),klev,nc_b(i)),i=1,3)
+      ELSE IF (loc_nblks_e == ndimblk) THEN
+        WRITE(iout,982) '   VALUE ',strout,klev, &
+      &                 (' E',i,':',p_array(ne_i(i),klev,ne_b(i)),i=1,3)
+      ELSE IF (loc_nblks_v == ndimblk) THEN
+        WRITE(iout,982) '   VALUE ',strout,klev, &
+      &                 (' V',i,':',p_array(nv_i(i),klev,nv_b(i)),i=1,3)
+      END IF
     END IF
   END IF
 
@@ -591,11 +592,14 @@ CONTAINS
   ! local variables
   CHARACTER(len=25) ::  strout
   INTEGER           ::  iout, icheck_str_proc, jstr, iper, i, jk, klev, nlev, ndimblk
+  REAL(wp)          ::  ctr, glbmx, glbmn
 
-  iout = nerr
-
+  ! dimensions - first dimension is nproma
   nlev    = SIZE(p_array,2)
   ndimblk = SIZE(p_array,3)
+
+  ! output channel: stderr
+  iout = nerr
 
   ! compare defined source string with namelist-given output string ('per' for permanent output)
   icheck_str_proc = 0
@@ -652,31 +656,28 @@ CONTAINS
   !IF (i_dbg_oce < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
   IF (i_dbg_oce < ipl_proc_src ) RETURN
 
-  ! parallelize:
-  ! maxv=maxval(p_array(1:nproma,jk,1:ndimblk)
-  ! minv=minval(p_array(1:nproma,jk,1:ndimblk)
-  ! glbmx=global_max(maxv)
-  ! glbmn=global_min(minv)
+  ! i_dbg_oce<4: surface level output only
+  klev = nlev
+  IF (i_dbg_oce < 4) klev = 1
 
-  IF (my_process_is_stdio()) THEN
+  ! print out maximum and minimum value
+  DO jk = 1, klev
 
-    ! i_dbg_oce<4: surface level output only
-    klev = nlev
-    IF (i_dbg_oce < 4) klev = 1
+    ! parallelize:
+    ctr=maxval(p_array(1:nproma,jk,1:ndimblk))
+    glbmx=global_max(ctr)
+    ctr=minval(p_array(1:nproma,jk,1:ndimblk))
+    glbmn=global_min(ctr)
 
-    DO jk = 1, klev
+    IF (my_process_is_stdio()) &
+      & WRITE(iout,991) ' MAX/MIN ',strout,jk, glbmx, glbmn
 
-      WRITE(iout,991) ' MAX/MIN ',strout,jk, &
-        &              maxval(p_array(1:nproma,jk,1:ndimblk)),     &
-        &              minval(p_array(1:nproma,jk,1:ndimblk))
-
+    ! location of max/min - parallelize!
 !!$    WRITE(iout,983) ' LOC ',strout,klev, &
 !!$      &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
 !!$      &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
 
-    END DO
-
-  END IF
+  END DO
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
