@@ -1717,11 +1717,11 @@ MODULE mo_nonhydro_state
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: nblks_c       !< number of cell blocks to allocate
+    INTEGER :: nblks_c, nblks_e    !< number of cell/edge blocks to allocate
 
     INTEGER :: nlev, nlevp1  !< number of vertical full/half levels
 
-    INTEGER :: shape3d_c(3), shape3d_chalf(3)
+    INTEGER :: shape3d_e(3), shape3d_chalf(3)
  
     INTEGER :: ientr         !< "entropy" of horizontal slice
 
@@ -1730,6 +1730,7 @@ MODULE mo_nonhydro_state
 
     !determine size of arrays
     nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -1738,7 +1739,7 @@ MODULE mo_nonhydro_state
     ientr = 16   ! "entropy" of horizontal slice
 
     ! predefined array shapes
-    shape3d_c     = (/nproma, nlev   , nblks_c    /)
+    shape3d_e     = (/nproma, nlev   , nblks_e    /)
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
 
 
@@ -1753,10 +1754,10 @@ MODULE mo_nonhydro_state
     ! vn_ref     p_ref%vn_ref(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge')
-    grib2_desc = t_grib2_var(0, 2, 34, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 2, 34, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ref_list, 'vn_ref', p_ref%vn_ref,                           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=shape3d_e, lrestart=.FALSE.,                            &
                 & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
 
 
