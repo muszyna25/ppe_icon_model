@@ -1383,7 +1383,7 @@ CONTAINS
          ELSE
            min_lay_spacing = 0.5_wp*dvct2*(dvct/dvct2)**(1._wp/3._wp)
          ENDIF
-         min_lay_spacing = MAX(min_lay_spacing,min_lay_thckn)
+         min_lay_spacing = MAX(min_lay_spacing,MIN(50._wp,min_lay_thckn))
          DO jc = 1, nlen
            z3d_i(jc,jk,jb) = MAX(z3d_i(jc,jk,jb),z3d_i(jc,jk+1,jb)+min_lay_spacing)
          ENDDO
