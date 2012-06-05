@@ -701,17 +701,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     ALLOCATE( diag%tci_ptr(kcloud))
     vname_prefix='T'
        
-    !CC
-    CALL add_ref( diag_list, 'tot_cld_vi',            &
-      & TRIM(vname_prefix)//'CC', diag%tci_ptr(1)%p_2d,                  &
-      & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                           &
-      & t_cf_var(TRIM(vname_prefix)//'CC', '%','total_column_integrated_cloud_cover'), &
-      & t_grib2_var(0, 6, 1, ientr, GRID_REFERENCE, GRID_CELL), &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars") )
-
     !QV
     CALL add_ref( diag_list, 'tot_cld_vi',                        &
-      & TRIM(vname_prefix)//'QV', diag%tci_ptr(2)%p_2d,           &
+      & TRIM(vname_prefix)//'QV', diag%tci_ptr(1)%p_2d,           &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                    &
       & t_cf_var(TRIM(vname_prefix)//'QV', 'kg m**-2','column_integrated_water_vapour'),&
       & t_grib2_var( 0, 1, 64, ientr, GRID_REFERENCE, GRID_CELL), &
@@ -719,7 +711,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     !qc
     CALL add_ref( diag_list, 'tot_cld_vi',                         &
-      & TRIM(vname_prefix)//'QC', diag%tci_ptr(3)%p_2d,            &
+      & TRIM(vname_prefix)//'QC', diag%tci_ptr(2)%p_2d,            &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
       & t_cf_var(TRIM(vname_prefix)//'QC', 'kg m**-2',             &
       & 'total_column-integrated_cloud_water'),                    &
@@ -728,13 +720,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     !qi
     CALL add_ref( diag_list, 'tot_cld_vi',&
-      & TRIM(vname_prefix)//'QI', diag%tci_ptr(4)%p_2d,            &
+      & TRIM(vname_prefix)//'QI', diag%tci_ptr(3)%p_2d,            &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
       & t_cf_var(TRIM(vname_prefix)//'qi', 'kg m**-2',             &
       & 'total_column-integrated_cloud_water'),                    &
       & t_grib2_var(0, 1, 70, ientr, GRID_REFERENCE, GRID_CELL),   &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
     
+    !CC
+    CALL add_ref( diag_list, 'tot_cld_vi',            &
+      & TRIM(vname_prefix)//'CC', diag%tci_ptr(4)%p_2d,                  &
+      & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                           &
+      & t_cf_var(TRIM(vname_prefix)//'CC', '%','total_column_integrated_cloud_cover'), &
+      & t_grib2_var(0, 6, 1, ientr, GRID_REFERENCE, GRID_CELL), &
+      & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars") )
+
 
    ! &      diag%tot_cld_vi_avg(nproma,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld_vi_avg', 'unit ','vertical integr total cloud variables')
