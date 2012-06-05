@@ -520,16 +520,16 @@ MODULE mo_vertical_grid
           ! Rayleigh damping based on Klemp et al. (2008), MRW 136, pp 3987-4004
           ! No reference state needed, thus applicable to real cases!
           !
-          IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
+ !         IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
 !            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
 !              MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
-            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
-            (1._wp-TANH(3.8_wp*z_tanh_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
+          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
+          (1._wp-TANH(3.8_wp*z_tanh_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
 
-          ELSE
-            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_sin_diff/ &
-              MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
-          ENDIF
+!          ELSE
+!            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_sin_diff/ &
+!              MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
+!          ENDIF
             p_nh(jg)%metrics%rayleigh_vn(jk)= 0._wp
         ENDIF
       ENDDO
