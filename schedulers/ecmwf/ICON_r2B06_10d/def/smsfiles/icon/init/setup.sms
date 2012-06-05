@@ -16,7 +16,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_job.h> 
+%include <head.h> 
 
 # -------------------------------------------------
 
@@ -43,5 +43,5 @@ smsevent enable_dumpstate
 # -------------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <end_job.h>
+%include <tail.h>
 
