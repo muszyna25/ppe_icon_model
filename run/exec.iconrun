@@ -506,7 +506,7 @@ if [ x$test_restart = "xtrue" ] ; then
 fi
 
 #-----------------------------------------------------------------------------
-if [ x$restart_atmo_from = x && x$restart_ocean_from = x ] ; then
+if [[ x$restart_atmo_from = x && x$restart_ocean_from = x ]] ; then
   exit
 fi
 
