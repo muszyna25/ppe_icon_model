@@ -2650,7 +2650,8 @@ CONTAINS
 
                  ! root depth
 !!$                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
-                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
+                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = &
+                   &    ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
 !!$                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  =    &
 !!$                   &         ptr_ndvi_mrat(jc,jb) * zplcmxc_lu(lu_subs)
@@ -2660,7 +2661,8 @@ CONTAINS
 !!$                 ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  =    &
 !!$                   &  ptr_ndvi_mrat(jc,jb)**2 * zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
                  ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  =    &
-                   &  ptr_ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)*ext_data(jg)%atm%laimax_lcc(lu_subs)
+                   &  ptr_ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)  &
+                   &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
                  ! max leaf area index
 !!$                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
@@ -2673,7 +2675,8 @@ CONTAINS
 
                  ! minimal stomata resistence
 !!$                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = zrs_min_lu(lu_subs)
-                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
+                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = &
+                   &   ext_data(jg)%atm%stomresmin_lcc(lu_subs)
     
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
