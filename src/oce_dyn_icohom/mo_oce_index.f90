@@ -387,9 +387,9 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iidx          ! index of nearest cell
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
 
-  INTEGER  :: jb, jc, jg
-  INTEGER  :: i_startidx, i_endidx
-  REAL(wp) :: zlon, zlat, zdist, zdist_cmp
+  INTEGER  :: jb, jc, jg, i_startidx, i_endidx, proc_id
+  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
+  REAL(wp) :: zdst(nproma,ppatch(1)%nblks_c)
   TYPE(t_subset_range), POINTER :: all_cells
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -403,6 +403,8 @@ CONTAINS
 
   ! initial distance to compare
   zdist_cmp = 100000.0_wp
+  zdst(:,:) = 100000.0_wp
+  proc_id   = -1
 
   !  loop over all cells including halo
   DO jb = all_cells%start_block, all_cells%end_block
@@ -412,7 +414,8 @@ CONTAINS
       zlat    = ppatch(jg)%cells%center(jc,jb)%lat * 180.0_wp / pi
       zlon    = ppatch(jg)%cells%center(jc,jb)%lon * 180.0_wp / pi
 
-      zdist   = (zlat-plat_in)*(zlat-plat_in) + (zlon-plon_in)*(zlon-plon_in)
+      zdist       = sqrt((zlat-plat_in)*(zlat-plat_in) + (zlon-plon_in)*(zlon-plon_in))
+      zdst(jc,jb) = zdist
       IF (zdist < zdist_cmp) THEN
         iblk = jb
         iidx = jc
@@ -420,8 +423,10 @@ CONTAINS
       END IF
 
     END DO
-
   END DO
+
+  ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
+  ctr = global_max(-zdist,proc_id)
 
   zlat    = ppatch(jg)%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
   zlon    = ppatch(jg)%cells%center          (iidx,iblk)%lon * 180.0_wp / pi
@@ -431,6 +436,9 @@ CONTAINS
   IF (my_process_is_stdio()) THEN
     WRITE(0,98) ' ',TRIM(routine),' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
+    WRITE(0,'(2a,i3)') TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
+    WRITE(0,'(2a,2i3,a,f9.2)') TRIM(routine),' FOUND: Min dist is at idx/blk=', &
+      &                  MINLOC(zdst(:,:)),' distance in deg =',MINVAL(zdst(:,:))
   END IF
 
   END SUBROUTINE search_latlonindex
