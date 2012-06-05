@@ -83,7 +83,6 @@ SUBROUTINE SURFEXCDRIVER    ( &
  & , PZ0MW, PZ0HW, PZ0QW, PBLENDPP, PCPTSPP, PQSAPP, PBUOMPP, PZDLPP &
 ! output data, diagnostics                 <<< deleted DDH outputs and
 !dmk & , PDHTLS, PDHTSS, PDHTTS, PDHTIS &  <<< associated compute_ddh 
-
  & ) 
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB

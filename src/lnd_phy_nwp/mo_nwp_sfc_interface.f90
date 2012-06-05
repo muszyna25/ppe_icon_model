@@ -223,7 +223,6 @@ CONTAINS
     REAL(wp) ::          lhfl_s_t    (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          shfl_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          lhfl_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          zf_snow_t   (nproma, p_patch%nblks_c, nsfc_subs)
 !--------------------------------------------------------------
 
 
@@ -443,11 +442,11 @@ CONTAINS
         &  w_so_ice_now  = w_so_ice_now_t(:,:,jb,isubs)      , & ! ice content   (m H20)
         &  w_so_ice_new  = w_so_ice_new_t(:,:,jb,isubs)      , & ! ice content   (m H20)
 !
-        &  t_2m          =  t_2m_t(:,jb,isubs)               , & ! ,nsfc_subs, temperature in 2m                  (  K  )
-        &  u_10m         =  u_10m_t(:,jb,isubs)              , & ! ,nsfc_subs, zonal wind in 10m                  ( m/s )
-        &  v_10m         =  v_10m_t(:,jb,isubs)              , & ! ,nsfc_subs,  meridional wind in 10m            ( m/s )
+        &  t_2m          =  t_2m_t(:,jb,isubs)               , & ! temperature in 2m                  (  K  )
+        &  u_10m         =  u_10m_t(:,jb,isubs)              , & ! zonal wind in 10m                  ( m/s )
+        &  v_10m         =  v_10m_t(:,jb,isubs)              , & ! meridional wind in 10m            ( m/s )
         &  freshsnow     =  freshsnow_t(:,jb,isubs)          , & ! indicator for age of snow in top of snow layer (  -  )
-        &  snowfrac      =  snowfrac_t(:,jb,isubs)           , & ! snow-cover fraction                            (  -  )
+        &  zf_snow       =  snowfrac_t(:,jb,isubs)           , & ! snow-cover fraction                            (  -  )
 !
         &  wliq_snow_now = wliq_snow_now_t(:,:,jb,isubs)     , & ! liquid water content in the snow       (m H2O)
         &  wliq_snow_new = wliq_snow_new_t(:,:,jb,isubs)     , & ! liquid water content in the snow       (m H2O)
@@ -481,8 +480,7 @@ CONTAINS
         &  zshfl_s       = shfl_s_t   (:,jb,isubs)           , & ! sensible heat flux soil/air interface         (W/m2) 
         &  zlhfl_s       = lhfl_s_t   (:,jb,isubs)           , & ! latent   heat flux soil/air interface         (W/m2) 
         &  zshfl_snow    = shfl_snow_t(:,jb,isubs)           , & ! sensible heat flux snow/air interface         (W/m2) 
-        &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)           , & ! latent   heat flux snow/air interface         (W/m2) 
-        &  zf_snow       = zf_snow_t  (:,jb,isubs)             & ! snow fraction as used for TERRA fluxes        ( -- )
+        &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)             & ! latent   heat flux snow/air interface         (W/m2) 
         &                                                    )
 
         IF (lmulti_snow) THEN

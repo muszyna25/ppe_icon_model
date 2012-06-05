@@ -140,8 +140,7 @@ CONTAINS
                   shfl_s_t         , & ! sensible heat flux soil/air interface         (W/m2)
                   lhfl_s_t         , & ! latent   heat flux soil/air interface         (W/m2)
                   shfl_snow_t      , & ! sensible heat flux snow/air interface         (W/m2)
-                  lhfl_snow_t      , & ! latent   heat flux snow/air interface         (W/m2)
-                  zf_snow_t          & ! snow fraction as used for TERRA fluxes        ( -- )
+                  lhfl_snow_t        & ! latent   heat flux snow/air interface         (W/m2)
                                      )
 
 
@@ -216,8 +215,7 @@ CONTAINS
                   shfl_s_t         , & ! sensible heat flux soil/air interface         (W/m2)
                   lhfl_s_t         , & ! latent   heat flux soil/air interface         (W/m2)
                   shfl_snow_t      , & ! sensible heat flux snow/air interface         (W/m2)
-                  lhfl_snow_t      , & ! latent   heat flux snow/air interface         (W/m2)
-                  zf_snow_t            ! snow fraction as used for TERRA fluxes        ( -- )
+                  lhfl_snow_t          ! latent   heat flux snow/air interface         (W/m2)
 
   TYPE(t_external_data), INTENT(in) :: ext_data        !< external data
 
@@ -356,7 +354,6 @@ CONTAINS
         lhfl_s_t   (jc,isubs) = 0.0_wp
         shfl_snow_t(jc,isubs) = 0.0_wp
         lhfl_snow_t(jc,isubs) = 0.0_wp
-        zf_snow_t  (jc,isubs) = 0.0_wp
       ENDDO
     ENDDO
 
@@ -519,11 +516,11 @@ CONTAINS
         &  w_so_ice_now  = w_so_ice_now_t(:,:,isubs)         , & ! ice content                       (m H20)
         &  w_so_ice_new  = w_so_ice_new_t(:,:,isubs)         , & ! ice content                       (m H20)
 !
-        &  t_2m          = t_2m_t(:,isubs)                   , & ! ,nsfc_subs, temperature in 2m                  (  K  )
-        &  u_10m         = u_10m_t(:,isubs)                  , & ! ,nsfc_subs, zonal wind in 10m                  ( m/s )
-        &  v_10m         = v_10m_t(:,isubs)                  , & ! ,nsfc_subs,  meridional wind in 10m            ( m/s )
+        &  t_2m          = t_2m_t(:,isubs)                   , & ! temperature in 2m                  (  K  )
+        &  u_10m         = u_10m_t(:,isubs)                  , & ! zonal wind in 10m                  ( m/s )
+        &  v_10m         = v_10m_t(:,isubs)                  , & ! meridional wind in 10m            ( m/s )
         &  freshsnow     = freshsnow_t(:,isubs)              , & ! indicator for age of snow in top of snow layer (  -  )
-        &  snowfrac      = snowfrac_t(:,isubs)               , & ! snow-cover fraction                            (  -  )
+        &  zf_snow       = snowfrac_t(:,isubs)               , & ! snow-cover fraction                            (  -  )
 !                                                            
         &  wliq_snow_now = wliq_snow_now_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
         &  wliq_snow_new = wliq_snow_new_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
@@ -557,9 +554,18 @@ CONTAINS
         &  zshfl_s       = shfl_s_t   (:,isubs)              , & ! sensible heat flux soil/air interface         (W/m2) 
         &  zlhfl_s       = lhfl_s_t   (:,isubs)              , & ! latent   heat flux soil/air interface         (W/m2) 
         &  zshfl_snow    = shfl_snow_t(:,isubs)              , & ! sensible heat flux snow/air interface         (W/m2) 
-        &  zlhfl_snow    = lhfl_snow_t(:,isubs)              , & ! latent   heat flux snow/air interface         (W/m2) 
-        &  zf_snow       = zf_snow_t  (:,isubs)                & ! snow fraction as used for TERRA fluxes        ( -- )
+        &  zlhfl_snow    = lhfl_snow_t(:,isubs)                & ! latent   heat flux snow/air interface         (W/m2) 
         &                                                    )
+
+!DO ic = 1, i_count
+!  jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+!  if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
+!       abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
+!    write(*,*) 'hello4 ', isubs, snowfrac_t(jc,isubs), &
+!      shfl_s_t(jc,isubs), shfl_snow_t(jc,isubs), &
+!      lhfl_s_t(jc,isubs), lhfl_snow_t(jc,isubs)
+!  endif
+!ENDDO
 
         IF (lmulti_snow) THEN
           CALL diag_snowfrac_tg(                        &
