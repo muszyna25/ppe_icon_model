@@ -129,8 +129,8 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', \
     'ddt_v_turb',  'ddt_v_sso', 'ddt_v_gwd', 'ddt_v_pconv', \
     'ddt_qv_turb', 'ddt_qv_conv'"
 
-pl_varlist ="'v','temp','z','qv','qc','qi'"      
-hl_varlist ="'v','temp','pres','qv','qc','qi'"   
+pl_varlist="'v','temp','z','qv','qc','qi'"      
+hl_varlist="'v','temp','pres','qv','qc','qi'"   
 
 # ---
 
