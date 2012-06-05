@@ -79,7 +79,7 @@ LOGICAL :: ldbg
 PUBLIC :: init_index_test
 PUBLIC :: search_latlonindex
 PUBLIC :: print_mxmn
-PUBLIC :: tst_mxmn
+PUBLIC :: dbg_print
 
 ! Public variables:
 PUBLIC :: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, nv_b, nv_i
@@ -97,7 +97,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-11)
   !!
-  !! TODO: parallelization
+  !! TODO: parallelize
   !! TODO: cleanup and move to shared
   !
   !
@@ -366,13 +366,14 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Search for a cell center at given longitude and latitude
-  !!
-  !! Search for a cell center at given longitude and latitude, provided in
-  !! namelist octst_ctl
+  !! provided in namelist octst_nml
   !! 
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-12)
+  !!
+  !! TODO: parallelize
+  !! TODO: cleanup and move to shared
   !
   !
   SUBROUTINE search_latlonindex (ppatch, plat_in, plon_in, iidx, iblk)
@@ -567,20 +568,20 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Print out min and max or a single value of a 2- or 3-dimensional array.
+  !! Print out min and max or a specific cell value and neighbors of an array.
   !!
-  !! Print out min and max or a single value of a 2- or 3-dimensional array.
+  !! Print out min and max or a specific cell value and neighbors of an array.
   !! Reduce writing effort for a simple print.
-  !! The amount of prints is controlled by comparison of a fixed detail level of output (ipl_proc_src)
-  !! with variable i_dbg_oce/i_dbg_inx that is set via namelist octst_nml
+  !! The amount of prints is controlled by comparison of a fixed detail level of output
+  !! (ipl_proc_src) with variable i_dbg_oce/i_dbg_inx that is set via namelist octst_nml
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-06)
   !!
   !! TODO: interface for 2-dim/3-dim
-  !! TODO: move to shared
+  !! TODO: move to shared / rename for general purpose
   !
-  SUBROUTINE tst_mxmn ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
+  SUBROUTINE dbg_print ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes        ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:)     ! 3-dim array
@@ -651,6 +652,12 @@ CONTAINS
   !IF (i_dbg_oce < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
   IF (i_dbg_oce < ipl_proc_src ) RETURN
 
+  ! parallelize:
+  ! maxv=maxval(p_array(1:nproma,jk,1:ndimblk)
+  ! minv=minval(p_array(1:nproma,jk,1:ndimblk)
+  ! glbmx=global_max(maxv)
+  ! glbmn=global_min(minv)
+
   IF (my_process_is_stdio()) THEN
 
     ! i_dbg_oce<4: surface level output only
@@ -673,7 +680,7 @@ CONTAINS
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
-  END SUBROUTINE tst_mxmn
+  END SUBROUTINE dbg_print
 
 END MODULE mo_oce_index
 
