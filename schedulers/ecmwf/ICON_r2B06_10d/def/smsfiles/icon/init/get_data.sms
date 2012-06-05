@@ -39,9 +39,6 @@ export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 WEEKDAY=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00 -s 2`
 
-# display starting date of simulation:
-smslabel date "${REQUEST_DATE}"
-
 # Build a new binary every MONDAY:
 if [ "${WEEKDAY}" -eq "1" ]
 then
