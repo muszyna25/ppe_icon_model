@@ -51,17 +51,14 @@ MODULE mo_sea_ice
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
-  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
-  USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
-    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
-    &                               cpd, zemiss_def,rd, stbo,tmelt   
+  USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, mus, &
+    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
-  USE mo_oce_index,           ONLY: print_mxmn, ipl_src
+  !USE mo_oce_index,           ONLY: print_mxmn, ipl_src
   USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
@@ -328,21 +325,12 @@ CONTAINS
     TYPE(t_sfc_flx), INTENT(INOUT) :: p_sfc_flx
 
     ! Local variables
-    INTEGER :: nblks_c, ist, jc, jb
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: rl_start_c, rl_end_c
+    INTEGER :: nblks_c, ist
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_sfcflx'
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
-
-    rl_start_c = 1
-    rl_end_c = min_rlcell
-
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-
 
     nblks_c = p_patch%nblks_c
 
@@ -403,16 +391,14 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
     END IF
 
-    p_sfc_flx%forc_wind_u(:,:)   = 0.0_wp
-    p_sfc_flx%forc_wind_v(:,:)   = 0.0_wp
-   
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
-        p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-      ENDDO
-    END DO
+    p_sfc_flx%forc_wind_u(:,:)       = 0.0_wp
+    p_sfc_flx%forc_wind_v(:,:)       = 0.0_wp
+    
+    ! init of cartesian coordinates:
+    p_sfc_flx%forc_wind_cc(:,:)%x(1) = 0.0_wp
+    p_sfc_flx%forc_wind_cc(:,:)%x(2) = 0.0_wp
+    p_sfc_flx%forc_wind_cc(:,:)%x(3) = 0.0_wp
+
     IF(no_tracer>=1)THEN
       p_sfc_flx%forc_hflx        (:,:)    = 0.0_wp
       p_sfc_flx%forc_fwfx        (:,:)    = 0.0_wp
