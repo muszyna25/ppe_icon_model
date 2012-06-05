@@ -138,8 +138,20 @@ suite icon
     family init
         complete ($ENABLE_INIT == 0)
 
-        task get_data
+        task setup
             trigger (/icon/ifs_fct/fct_ifs == complete)
+            #
+            on_ecgate
+            if ($ENABLE_INIT == 0) then
+                label status "skipped"
+            endif
+            #
+            label date "???"
+            event enable_build
+            event enable_dumpstate
+
+        task get_data
+            trigger (/icon/init/setup == complete)
             #
             complete ($ENABLE_GET_DATA == 0)
             #
@@ -148,10 +160,7 @@ suite icon
             if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
                 label status "skipped"
             endif
-            label date "???"
             #
-            event enable_build
-            event enable_dumpstate
             event change_dir
             event clear_directory
             event mars4icon
@@ -172,7 +181,7 @@ suite icon
             event ifs2icon
 
         family build
-            trigger (/icon/ifs_fct/fct_ifs == complete)
+            trigger (/icon/init/setup == complete)
             #
             task init_svn 
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) 
@@ -221,7 +230,7 @@ suite icon
 
         family prepare
             task pre_clean
-                trigger (/icon/ifs_fct/fct_ifs == complete)
+                trigger (/icon/init/setup == complete)
                 #
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:20:00
