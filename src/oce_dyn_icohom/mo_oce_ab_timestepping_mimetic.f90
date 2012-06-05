@@ -70,7 +70,8 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_oce_linear_solver,         ONLY: gmres_oce, gmres_e2e
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src, dbg_print
+USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src, dbg_prnt
+!USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
@@ -439,8 +440,9 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
       CALL print_mxmn('density',jk,p_os%p_diag%rho(:,:,:),n_zlev,p_patch%nblks_c,'abt',ipl_src)
     END DO
 
-    ! test new debug printou routine
-    CALL dbg_print('tdensity',p_os%p_diag%rho(:,:,:),'abt',ipl_src)
+    ! test new debug printout routine
+    !CALL dbg_prnt('tdensity',p_os%p_diag%rho(:,:,:),'abt',ipl_src)
+    !CALL dbg_print('ndensity',p_os%p_diag%rho(:,:,:),'abt',ipl_src)
 
     DO jk=1, n_zlev
       CALL print_mxmn('internal pressure',jk,p_os%p_diag%press_hyd(:,:,:),n_zlev, &

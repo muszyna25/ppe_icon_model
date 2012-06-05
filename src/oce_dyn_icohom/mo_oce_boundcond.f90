@@ -119,6 +119,10 @@ CONTAINS
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !& routine = ('mo_oce_boundcond:top_bound_cond_veloc')
     !-----------------------------------------------------------------------
+
+    z_c(:,1,:) = 0.0_wp
+    z_e(:,1,:) = 0.0_wp
+
     all_cells => p_patch%cells%all
     
     ! Modification of surface wind forcing according to surface boundary condition

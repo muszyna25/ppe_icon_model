@@ -1,0 +1,372 @@
+!>
+!!
+!! The module <i>mo_util_dbg_prnt</i> prints out max and min as well as single
+!! cell and neighbouring values of 2- and 3-dim arrays of the icon core for
+!! debug purposes
+!!
+!! @par Revision History
+!! Initial version by Stephan Lorenz,  MPI-M, Hamburg (2010-11)
+!!
+!! @par Revision History
+!! Modified for general purpose by Stephan Lorenz, MPI-M, 2012-06
+!!
+!! @par Copyright
+!! 2002-2010 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+MODULE mo_util_dbg_prnt
+!-------------------------------------------------------------------------
+!
+USE mo_kind,                   ONLY: wp
+USE mo_mpi,                    ONLY: my_process_is_stdio
+USE mo_io_units,               ONLY: nerr
+USE mo_parallel_config,        ONLY: nproma
+USE mo_impl_constants,         ONLY: max_char_length
+!USE mo_run_config,             ONLY: ltimer
+!USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
+USE mo_sync,                   ONLY: global_max, global_min
+USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
+USE mo_ocean_nml,              ONLY: str_proc_tst, rlon_in, rlat_in
+USE mo_math_constants,         ONLY: pi
+USE mo_exception,              ONLY: message, message_text
+USE mo_model_domain,           ONLY: t_patch
+
+
+IMPLICIT NONE
+
+PRIVATE
+
+CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+! indices of cells and neighbours for debug output set by namelist octst_ctl
+INTEGER :: c_b, c_i, c_k, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
+INTEGER :: jkc, jkdim, ipl_src
+INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
+
+PUBLIC :: init_dbg_index
+PUBLIC :: dbg_print
+
+! Public variables:
+PUBLIC :: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, nv_b, nv_i
+PUBLIC :: jkc, jkdim, ipl_src
+
+
+CONTAINS
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization of indices
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2010-11)
+  !!
+  !
+  ! TODO: parallelize
+  !
+  SUBROUTINE init_dbg_index (ppatch)
+
+
+  TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
+
+  INTEGER :: i
+  REAL(wp) :: zlon, zlat
+
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    &      routine = 'mo_util_dbg_prnt:init_dbg_index'
+
+  CALL message(TRIM(routine), 'Start' )
+
+  ! module variables for check of cells/edges/verts
+  loc_nblks_c =ppatch%nblks_c
+  loc_nblks_e =ppatch%nblks_e
+  loc_nblks_v =ppatch%nblks_v
+
+  ! search for block/index of debug output cell at lat/lon
+  ! given by namelist dbg_index_nml - not yet parallelized
+  CALL search_latlonindex (ppatch, rlat_in, rlon_in, c_i, c_b)
+
+  zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
+  zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
+
+  !------------------------------------------------------------------
+  ! print test cell
+  !------------------------------------------------------------------
+
+  ! output format
+  99 FORMAT(     2(a,i4),2(a,f9.2))
+  97 FORMAT(a,i1,2(a,i4),2(a,f9.2))
+
+  CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
+  WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
+               &         '  lat=',zlat,'  lon=',zlon
+  CALL message (' ', message_text)
+
+  !------------------------------------------------------------------
+  ! find and print corresponding edges/verts/neighbors of test cell
+  !------------------------------------------------------------------
+
+  DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
+    ne_b(i) = ppatch%cells%edge_blk(c_i,c_b,i)
+    ne_i(i) = ppatch%cells%edge_idx(c_i,c_b,i)
+    zlat    = ppatch%edges%center(ne_i(i),ne_b(i))%lat * 180.0_wp / pi
+    zlon    = ppatch%edges%center(ne_i(i),ne_b(i))%lon * 180.0_wp / pi
+    ! output
+    WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i), &
+      &                    '  lat=',zlat,'  lon=',zlon
+    CALL message (' ', message_text)
+  END DO
+
+  DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
+    nv_b(i) = ppatch%cells%vertex_blk(c_i,c_b,i)
+    nv_i(i) = ppatch%cells%vertex_idx(c_i,c_b,i)
+    zlat    = ppatch%edges%center(nv_i(i),nv_b(i))%lat * 180.0_wp / pi
+    zlon    = ppatch%edges%center(nv_i(i),nv_b(i))%lon * 180.0_wp / pi
+    ! output
+    WRITE(message_text,97) ' Vert V',i,' block=',nv_b(i),'  index=',nv_i(i), &
+      &                    '  lat=',zlat,'  lon=',zlon
+    CALL message (' ', message_text)
+  END DO
+
+  DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
+    nc_b(i)=ppatch%cells%neighbor_blk(c_i,c_b,i)
+    nc_i(i)=ppatch%cells%neighbor_idx(c_i,c_b,i)
+    IF ( nc_i(i) == 0 .OR. nc_b(i) == 0) THEN
+      nc_i(i) = c_i
+      nc_b(i) = c_b
+      WRITE(message_text,'(a)') ' Neighbor Cell is NOT DEFINED'
+    ELSE
+      zlat = ppatch%cells%center(nc_i(i),nc_b(i))%lat * 180.0_wp / pi
+      zlon = ppatch%cells%center(nc_i(i),nc_b(i))%lon * 180.0_wp / pi
+      WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
+        &                    '  lat=',zlat,'  lon=',zlon
+    END IF
+    ! output
+    CALL message (' ', message_text)
+  END DO
+
+  END SUBROUTINE init_dbg_index
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Search for a cell center at given longitude and latitude
+  !! provided in namelist dbg_index_nml
+  !! 
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2010-12)
+  !!
+  !! TODO: parallelize
+  !
+  !
+  SUBROUTINE search_latlonindex (ppatch, plat_in, plon_in, iidx, iblk)
+
+  TYPE(t_patch), TARGET, INTENT(IN)     :: ppatch
+  REAL(wp),              INTENT(IN)     :: plat_in       ! cell latitude to search for
+  REAL(wp),              INTENT(IN)     :: plon_in       ! cell longitude to search for
+  INTEGER,               INTENT(OUT)    :: iidx          ! index of nearest cell
+  INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
+
+  INTEGER  :: jb, jc, i_startidx, i_endidx, proc_id
+  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
+  REAL(wp) :: zdst(nproma,ppatch%nblks_c)
+  TYPE(t_subset_range), POINTER :: all_cells
+
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    &      routine = 'mo_oce_index:search_latlonindex'
+
+  CALL message(TRIM(routine), 'Start' )
+
+  all_cells => ppatch%cells%all
+
+  ! initial distance to compare
+  zdist_cmp = 100000.0_wp
+  zdst(:,:) = 100000.0_wp
+  proc_id   = -1
+
+  !  loop over all cells including halo
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+    DO jc = i_startidx, i_endidx
+
+      zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
+      zlon    = ppatch%cells%center(jc,jb)%lon * 180.0_wp / pi
+
+      zdist       = sqrt((zlat-plat_in)*(zlat-plat_in) + (zlon-plon_in)*(zlon-plon_in))
+      zdst(jc,jb) = zdist
+      IF (zdist < zdist_cmp) THEN
+        iblk = jb
+        iidx = jc
+        zdist_cmp = zdist
+      END IF
+
+    END DO
+  END DO
+
+  ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
+  ctr = global_max(-zdist,proc_id)
+
+  zlat    = ppatch%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
+  zlon    = ppatch%cells%center          (iidx,iblk)%lon * 180.0_wp / pi
+
+  99 FORMAT(3a,i4,a,i4,3(a,f9.2))
+  98 FORMAT(2a,3(a,f9.2))
+  IF (my_process_is_stdio()) THEN
+    WRITE(0,98) ' ',TRIM(routine),' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
+    WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
+    WRITE(0,'(2a,i3)') TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
+    WRITE(0,'(2a,2i3,a,f9.2)') TRIM(routine),' FOUND: Min dist is at idx/blk=', &
+      &                  MINLOC(zdst(:,:)),' distance in deg =',MINVAL(zdst(:,:))
+  END IF
+
+  END SUBROUTINE search_latlonindex
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Print out min and max or a specific cell value and neighbors of an array.
+  !!
+  !! Print out min and max or a specific cell value and neighbors of an array.
+  !! Reduce writing effort for a simple print.
+  !! The amount of prints is controlled by comparison of a fixed level of detail
+  !! for the output (ipl_proc_src) with variables idbg_mxmn/idbg_indx that is
+  !! given via namelist dbg_index_nml
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2012-06)
+  !!
+  !! TODO: interface for 2-dim/3-dim
+  !
+  SUBROUTINE dbg_print ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
+
+  CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
+  REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
+  CHARACTER(len=3),      INTENT(IN) :: str_proc_src   ! defined string for source of current array
+  INTEGER,               INTENT(IN) :: ipl_proc_src   ! source process level for print output 
+
+  ! local variables
+  CHARACTER(len=25) ::  strout
+  INTEGER           ::  iout, icheck_str_proc, jstr, iper, i, jk, klev, nlev, ndimblk
+  REAL(wp)          ::  ctr, glbmx, glbmn
+
+  ! local / test
+  INTEGER           ::  idbg_indx = 4
+  INTEGER           ::  idbg_mxmn = 4
+
+  !IF (ltimer) CALL timer_start(timer_print_mxmn)
+
+  ! dimensions - first dimension is nproma
+  nlev    = SIZE(p_array,2)
+  ndimblk = SIZE(p_array,3)
+
+  ! output channel: stderr
+  iout = nerr
+
+  ! compare defined source string with namelist-given output string ('per' for permanent output)
+  icheck_str_proc = 0
+  iper = 0
+  DO jstr = 1, 10
+    IF (str_proc_src == str_proc_tst(jstr) .OR. str_proc_src == 'per'        &
+      &                                    .OR. str_proc_tst(jstr) == 'all') &
+      &  icheck_str_proc = 1
+  END DO
+
+  !IF (icheck_str_proc == 0 .and. ltimer) CALL timer_stop(timer_print_mxmn)
+
+  ! if str_proc_src not found in str_proc_tst - no output
+  IF (icheck_str_proc == 0 ) RETURN
+
+  ! valid g-format without offset of decimal point
+  981 FORMAT(a,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  983 FORMAT(a,a25,':  ',i3, 4i4)
+  991 FORMAT(a,a25,':  ',i3, 2g26.18)
+
+  strout=TRIM(str_prntdes)
+
+
+  ! check print output level ipl_proc_src (1-5) with namelist given value (idbg_indx)
+  ! for output at given index
+
+  IF (idbg_indx >= ipl_proc_src) THEN
+    IF (my_process_is_stdio()) THEN
+
+      ! idbg_indx<4: surface level output only
+      klev = nlev
+      IF (idbg_indx < 4) klev = 1
+
+      DO jk = 1, klev
+
+        ! write value at index
+        IF (ndimblk == loc_nblks_c) THEN
+          WRITE(iout,981) '   VALUE ', strout, jk, p_array(c_i,jk,c_b), &
+        &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
+        ELSE IF (ndimblk == loc_nblks_e) THEN
+          WRITE(iout,982) '   VALUE ', strout, jk, &
+        &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
+        ELSE IF (ndimblk == loc_nblks_v) THEN
+          WRITE(iout,982) '   VALUE ', strout, jk, &
+        &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
+        END IF
+
+      END DO
+
+    END IF
+  END IF
+
+  ! check print output level ipl_proc_src (1-5) with namelist given value (idbg_mxmn)
+  ! for MIN/MAX output:
+
+  !IF (idbg_mxmn < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  IF (idbg_mxmn < ipl_proc_src ) RETURN
+
+  ! idbg_mxmn<4: surface level output only
+  klev = nlev
+  IF (idbg_mxmn < 4) klev = 1
+
+  ! print out maximum and minimum value
+  DO jk = 1, klev
+
+    ! parallelize:
+    ctr=maxval(p_array(1:nproma,jk,1:ndimblk))
+    glbmx=global_max(ctr)
+    ctr=minval(p_array(1:nproma,jk,1:ndimblk))
+    glbmn=global_min(ctr)
+
+    IF (my_process_is_stdio()) &
+      & WRITE(iout,991) ' MAX/MIN ',strout,jk, glbmx, glbmn
+
+    ! location of max/min - parallelize!
+!!$    WRITE(iout,983) ' LOC ',strout,klev, &
+!!$      &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
+!!$      &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
+
+  END DO
+
+  !IF (ltimer) CALL timer_stop(timer_print_mxmn)
+
+  END SUBROUTINE dbg_print
+
+END MODULE mo_util_dbg_prnt
+

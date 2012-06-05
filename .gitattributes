@@ -1313,6 +1313,7 @@ src/shared/mo_sync.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
+src/shared/mo_util_dbg_prnt.f90 -text
 src/shared/mo_util_debug.f90 -text
 src/shared/mo_util_file.f90 -text
 src/shared/mo_util_hash.f90 -text

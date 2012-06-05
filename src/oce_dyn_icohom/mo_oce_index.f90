@@ -82,7 +82,7 @@ LOGICAL :: ldbg
 PUBLIC :: init_index_test
 PUBLIC :: search_latlonindex
 PUBLIC :: print_mxmn
-PUBLIC :: dbg_print
+PUBLIC :: dbg_prnt
 
 ! Public variables:
 PUBLIC :: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, nv_b, nv_i
@@ -299,8 +299,9 @@ CONTAINS
         &      '  Test level (jk) at cell C = ',REAL(c_k,wp)
       CALL message (' ', message_text)
     ENDIF
+
     !------------------------------------------------------------------
-    ! find and print correspondig edges of test cell
+    ! find and print corresponding edges/verts of test cell
     !------------------------------------------------------------------
 
     DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
@@ -590,7 +591,7 @@ CONTAINS
   !! TODO: interface for 2-dim/3-dim
   !! TODO: move to shared / rename for general purpose
   !
-  SUBROUTINE dbg_print ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
+  SUBROUTINE dbg_prnt ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes        ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:)     ! 3-dim array
@@ -689,7 +690,7 @@ CONTAINS
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
-  END SUBROUTINE dbg_print
+  END SUBROUTINE dbg_prnt
 
 END MODULE mo_oce_index
 
