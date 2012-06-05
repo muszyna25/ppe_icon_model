@@ -92,8 +92,7 @@ MODULE mo_ext_data_state
   USE mo_util_netcdf,        ONLY: read_netcdf_data, read_netcdf_lu, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, zplcmxc_lu, zlaimxc_lu, &
-    &                              zrd_lu, zrs_min_lu ! soil and vegetation parameters for TILES
+  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil
   USE mo_datetime,           ONLY: t_datetime,  month2hour
   USE mo_cdi_constants
 
@@ -1728,7 +1727,8 @@ CONTAINS
                END IF
             end do
           ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
-            i_lctype(jg) = 2
+             IF (i_lctype(jg) /= 1) THEN
+             i_lctype(jg) = 2
             ilu=0
             do i = 0, num_lcc*n_param_lcc -1
                IF(MOD(i,n_param_lcc).eq.0) THEN
@@ -1740,8 +1740,9 @@ CONTAINS
              ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+5)  ! Minimum stomata resistance for each land-cover class
              ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+6)  ! Albedo in case of snow cover for each land-cover class
              ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_gcv2009(i+7)  ! Specification of snow tiles for land-cover class
-               END IF
+            END IF
             end do
+         END IF
           ELSE
             CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
           ENDIF
@@ -2648,26 +2649,32 @@ CONTAINS
                  IF (lu_subs < 0) CYCLE
 
                  ! root depth
-                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
-
+!!$                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
+                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  =    &
-                   &         ptr_ndvi_mrat(jc,jb) * zplcmxc_lu(lu_subs)
-
+!!$                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  =    &
+!!$                   &         ptr_ndvi_mrat(jc,jb) * zplcmxc_lu(lu_subs)
+                ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  =    &
+                   &         ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
                  ! max leaf area index
+!!$                 ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  =    &
+!!$                   &  ptr_ndvi_mrat(jc,jb)**2 * zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
                  ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  =    &
-                   &  ptr_ndvi_mrat(jc,jb)**2 * zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
+                   &  ptr_ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)*ext_data(jg)%atm%laimax_lcc(lu_subs)
 
                  ! max leaf area index
-                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
+!!$                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
+!!$                   c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
+                ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
                    c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
 
                  ! max leaf area index
                  ext_data(jg)%atm%eai_t    (it_count(i_lu),jb,i_lu)  = c_soil
 
                  ! minimal stomata resistence
-                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = zrs_min_lu(lu_subs)
-
+!!$                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = zrs_min_lu(lu_subs)
+                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
+    
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
                    ext_data(jg)%atm%soiltyp(jc,jb)
