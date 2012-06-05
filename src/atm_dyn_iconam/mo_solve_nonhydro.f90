@@ -1294,11 +1294,11 @@ MODULE mo_solve_nonhydro
       !
       IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
         DO jk = 1, nrdmax(p_patch%id)
-          DO jc = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(jc,jk,jb) = p_nh%prog(nnew)%vn(jc,jk,jb)       &
+          DO je = i_startidx, i_endidx
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)       &
               &                          - dtime*p_nh%metrics%rayleigh_vn(jk) &
-              &                          * (p_nh%prog(nnew)%vn(jc,jk,jb)      &
-              &                          - p_nh%ref%vn_ref(jc,jk,jb))
+              &                          * (p_nh%prog(nnew)%vn(je,jk,jb)      &
+              &                          - p_nh%ref%vn_ref(je,jk,jb))
           ENDDO
         ENDDO
       ENDIF

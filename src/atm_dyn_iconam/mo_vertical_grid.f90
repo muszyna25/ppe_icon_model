@@ -123,9 +123,9 @@ MODULE mo_vertical_grid
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, i_nchdom, icount_total
     INTEGER :: ica(max_dom)
 
-!DR    REAL(wp) :: z_diff, z1, z2, z3, z_help(nproma),                 &
-    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff, z1, z2, z3, z_help(nproma), &
-      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),     &
+    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,    &
+      &         z1, z2, z3, z_help(nproma),                          &
+      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
       &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:), z_mfv(:,:,:)
@@ -475,23 +475,6 @@ MODULE mo_vertical_grid
 
 
 
-!DR Test
-!!$      ! Rayleigh damping coefficient for w
-!!$      DO jk = 1, nrdmax(jg)
-!!$        jk1 = jk + p_patch(jg)%nshift_total
-!!$!        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
-!!$        z_diff = vct_a(1) - vct_a(jk1)
-!!$        IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
-!!$!          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-!!$!            MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
-!!$          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
-!!$          (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
-!!$
-!!$        ELSE
-!!$          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-!!$            MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
-!!$        ENDIF
-!!$      ENDDO
 
       ! Rayleigh damping coefficient for vn and/or w
       DO jk = 1, nrdmax(jg)
@@ -520,20 +503,12 @@ MODULE mo_vertical_grid
           ! Rayleigh damping based on Klemp et al. (2008), MRW 136, pp 3987-4004
           ! No reference state needed, thus applicable to real cases!
           !
- !         IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
-!            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-!              MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
           p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
           (1._wp-TANH(3.8_wp*z_tanh_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
 
-!          ELSE
-!            p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_sin_diff/ &
-!              MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
-!          ENDIF
-            p_nh(jg)%metrics%rayleigh_vn(jk)= 0._wp
+          p_nh(jg)%metrics%rayleigh_vn(jk)= 0._wp
         ENDIF
       ENDDO
-!DR End test
 
 
       ! Enhancement coefficient for nabla4 background diffusion near model top
