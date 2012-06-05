@@ -542,7 +542,7 @@ END SUBROUTINE message
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
                   v_10m            , & ! meridional wind in 10m                        ( m/s )
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
-                  snowfrac         , & ! snow-cover fraction                           (  -  )
+                  zf_snow          , & ! snow-cover fraction                           (  -  )
 !
                   wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
                   wliq_snow_new    , & ! liquid water content in the snow              (m H2O)
@@ -577,8 +577,7 @@ END SUBROUTINE message
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
-                  zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2) 
-                  zf_snow            & ! snow fraction as used for TERRA fluxes        ( -- )
+                  zlhfl_snow         & ! latent   heat flux snow/air interface         (W/m2) 
                                      )
 
 
@@ -669,7 +668,7 @@ IMPLICIT NONE
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
                   v_10m            , & ! meridional wind in 10m                        ( m/s )
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
-                  snowfrac             ! snow-cover fraction
+                  zf_snow              ! snow-cover fraction
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
                   wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
                   wtot_snow_now        ! total (liquid + solid) water content of snow  (m H2O)
@@ -709,8 +708,7 @@ IMPLICIT NONE
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
-                  zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2) 
-                  zf_snow              ! snow fraction as used for TERRA fluxes        ( -- )
+                  zlhfl_snow           ! latent   heat flux snow/air interface         (W/m2) 
 
 !!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
 !!$                  rstom            ! stomata resistance                           ( s/m )
@@ -1513,16 +1511,16 @@ IMPLICIT NONE
 
 !<em subs  
 !w_snow per fraction -> w_snow per unit
-  DO i = istarts, iends
+!  DO i = istarts, iends
 !    IF (llandmask(i)) THEN   ! for land-points only
 !      zf_snow  (i, 1) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_now(i, 1)/cf_snow) )* &
 !                        zsf_heav(w_snow_now(i, 1) - zepsi)                               !true snow fraction
-      zf_snow(i) = MAX(0.01_ireals, snowfrac(i))*zsf_heav(w_snow_now(i) - zepsi)
+!     zf_snow(i) = MAX(0.01_ireals, snowfrac(i))*zsf_heav(w_snow_now(i) - zepsi)
 !      IF(pt_tiles(ns)%snow_tile .OR. pt_tiles(ns)%snowfree_tile) THEN
 !        w_snow_now(i) = w_snow_now(i)*zf_snow(i, 1)
 !      END IF
 !    END IF
-  END DO
+!  END DO
 !em>
 
   IF (itype_heatcond == 2) THEN
@@ -1747,36 +1745,36 @@ IMPLICIT NONE
 
 ! Update indicator for age of snow in top of snow layer
 
-    DO i = istarts, iends
-!      IF(llandmask(i)) THEN        ! for land-points only
-        IF (w_snow_now(i) <=0.0_ireals) THEN
-          ! if no snow exists, reinitialize age indicator
-          freshsnow(i) = 1.0_ireals
+  DO i = istarts, iends
+!    IF(llandmask(i)) THEN        ! for land-points only
+      IF (w_snow_now(i) <=0.0_ireals) THEN
+        ! if no snow exists, reinitialize age indicator
+        freshsnow(i) = 1.0_ireals
+      ELSE
+        IF ( itype_gscp == 4 ) THEN
+          zsnow_rate = prs_gsp(i)+prs_con(i)+prg_gsp(i) ! [kg/m**2 s]
         ELSE
-          IF ( itype_gscp == 4 ) THEN
-            zsnow_rate = prs_gsp(i)+prs_con(i)+prg_gsp(i) ! [kg/m**2 s]
-          ELSE
-            zsnow_rate = prs_gsp(i)+prs_con(i)              ! [kg/m**2 s]
-          ENDIF
+          zsnow_rate = prs_gsp(i)+prs_con(i)              ! [kg/m**2 s]
+        ENDIF
 
-          ! linear decay equals 1.0 in 28 days
-          zdsn_old   = zdt/86400._ireals/28._ireals
+        ! linear decay equals 1.0 in 28 days
+        zdsn_old   = zdt/86400._ireals/28._ireals
 
-          ! linear growth rate equals 1.0 in 1 day for a constant
-          ! snow rate of 5 mmH2O (kg/m**2) per day
-          zdsn_new   = zdt*zsnow_rate*0.2_ireals   !
+        ! linear growth rate equals 1.0 in 1 day for a constant
+        ! snow rate of 5 mmH2O (kg/m**2) per day
+        zdsn_new   = zdt*zsnow_rate*0.2_ireals   !
 
-          ! reduce decay rate, if new snow is falling and as function of snow
-          ! age itself
-          zdsn_old   = (zdsn_old - zdsn_new)*freshsnow(i)
-          zdsn_old   = MAX(zdsn_old,0._ireals)
+        ! reduce decay rate, if new snow is falling and as function of snow
+        ! age itself
+        zdsn_old   = (zdsn_old - zdsn_new)*freshsnow(i)
+        zdsn_old   = MAX(zdsn_old,0._ireals)
 
-          freshsnow(i) = freshsnow(i) + zdsn_new-zdsn_old
+        freshsnow(i) = freshsnow(i) + zdsn_new-zdsn_old
 
-          freshsnow(i) = MIN(1._ireals,MAX(0._ireals,freshsnow(i)))
-       END IF
-!     END IF
-    ENDDO
+        freshsnow(i) = MIN(1._ireals,MAX(0._ireals,freshsnow(i)))
+     END IF
+!   END IF
+  ENDDO
 
 
 !------------------------------------------------------------------------------
@@ -1803,78 +1801,78 @@ IMPLICIT NONE
         ENDDO
     ENDDO
 
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN     ! for land-points only
-          IF (w_snow_now(i) > 0.0_ireals) THEN
-            ! existence of snow
-            ! --> no water in interception store and t_snow < t0_melt
-            w_snow_now(i) = w_snow_now(i) + w_i_now(i)
-            wtot_snow_now(i,1) = wtot_snow_now(i,1) + w_i_now(i)
-            dzh_snow_now(i,1)  = dzh_snow_now(i,1)  + w_i_now(i) &
-              &                      /rho_snow_mult_now(i,1)*rho_w
-            w_i_now(i) = 0.0_ireals
-            h_snow_now(i) = h_snow(i)
-          ELSE IF (t_snow_mult_now(i,ke_snow) >= t0_melt) THEN
-            ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
-            t_s_now   (i) = t_snow_mult_now(i,ke_snow) 
-            h_snow_now(i) = 0.0_ireals
-          ELSE
-            ! no snow and  t_snow < t0_melt
-            ! --> t_snow = t_s and no water w_i in interception store
-            t_s_now   (i) = t_snow_mult_now(i,ke_snow)
-            w_i_now(i) = 0.0_ireals
-            h_snow_now(i) = 0.0_ireals
-          END IF
-!        END IF
-      ENDDO
+    DO i = istarts, iends
+!      IF (llandmask(i)) THEN     ! for land-points only
+        IF (w_snow_now(i) > 0.0_ireals) THEN
+          ! existence of snow
+          ! --> no water in interception store and t_snow < t0_melt
+          w_snow_now(i) = w_snow_now(i) + w_i_now(i)
+          wtot_snow_now(i,1) = wtot_snow_now(i,1) + w_i_now(i)
+          dzh_snow_now(i,1)  = dzh_snow_now(i,1)  + w_i_now(i) &
+            &                      /rho_snow_mult_now(i,1)*rho_w
+          w_i_now(i) = 0.0_ireals
+          h_snow_now(i) = h_snow(i)
+        ELSE IF (t_snow_mult_now(i,ke_snow) >= t0_melt) THEN
+          ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
+          t_s_now   (i) = t_snow_mult_now(i,ke_snow) 
+          h_snow_now(i) = 0.0_ireals
+        ELSE
+          ! no snow and  t_snow < t0_melt
+          ! --> t_snow = t_s and no water w_i in interception store
+          t_s_now   (i) = t_snow_mult_now(i,ke_snow)
+          w_i_now(i) = 0.0_ireals
+          h_snow_now(i) = 0.0_ireals
+        END IF
+!      END IF
+    ENDDO
   ELSE ! no multi-layer snow
 
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN     ! for land-points only
-          IF (w_snow_now(i) > 0.0_ireals) THEN
-            ! existence of snow
-            ! --> no water in interception store and t_snow < t0_melt
-            w_snow_now(i) = w_snow_now(i) + w_i_now(i)
-            w_i_now(i) = 0.0_ireals
-            t_snow_now(i) = MIN (t0_melt - zepsi, t_snow_now(i) )
-          ELSE IF (t_snow_now(i) >= t0_melt) THEN
-            ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
-            t_s_now   (i) = MAX (t0_melt + zepsi, t_s_now(i) )
-            t_snow_now(i) = t_s_now(i)
-          ELSE
-            ! no snow and  t_snow < t0_melt
-            ! --> t_snow = t_s and no water w_i in interception store
-            t_s_now   (i) = MIN (t0_melt - zepsi, t_s_now(i) )
-            t_snow_now(i) = t_s_now(i)
-            w_i_now(i) = 0.0_ireals
-          END IF
-!        END IF
-      ENDDO
+    DO i = istarts, iends
+!      IF (llandmask(i)) THEN     ! for land-points only
+        IF (w_snow_now(i) > 0.0_ireals) THEN
+          ! existence of snow
+          ! --> no water in interception store and t_snow < t0_melt
+          w_snow_now(i) = w_snow_now(i) + w_i_now(i)
+          w_i_now(i) = 0.0_ireals
+          t_snow_now(i) = MIN (t0_melt - zepsi, t_snow_now(i) )
+        ELSE IF (t_snow_now(i) >= t0_melt) THEN
+          ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
+          t_s_now   (i) = MAX (t0_melt + zepsi, t_s_now(i) )
+          t_snow_now(i) = t_s_now(i)
+        ELSE
+          ! no snow and  t_snow < t0_melt
+          ! --> t_snow = t_s and no water w_i in interception store
+          t_s_now   (i) = MIN (t0_melt - zepsi, t_s_now(i) )
+          t_snow_now(i) = t_s_now(i)
+          w_i_now(i) = 0.0_ireals
+        END IF
+!      END IF
+    ENDDO
 
   ENDIF
 
   !Inizializations for the next sections
   IF (lmulti_snow) THEN
     ! some preparations for ksn==0 and ksn==1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN   ! for land-points only
-          ztsnow_mult   (i,0) = t_snow_mult_now(i,0)
-          ztsnow_mult   (i,1) = t_snow_mult_now(i,1)
+    DO i = istarts, iends
+!      IF (llandmask(i)) THEN   ! for land-points only
+        ztsnow_mult   (i,0) = t_snow_mult_now(i,0)
+        ztsnow_mult   (i,1) = t_snow_mult_now(i,1)
 
-          zhh_snow(i,1) =  -h_snow_now(i) + dzh_snow_now(i,1)
-          zhm_snow(i,1) = (-h_snow_now(i) + zhh_snow(i,1))/2._ireals
+        zhh_snow(i,1) =  -h_snow_now(i) + dzh_snow_now(i,1)
+        zhm_snow(i,1) = (-h_snow_now(i) + zhh_snow(i,1))/2._ireals
 
-          zdzh_snow(i,1) = dzh_snow_now(i,1)
-          zextinct (i,1) = 0.13_ireals*rho_snow_mult_now(i,1)+3.4_ireals
+        zdzh_snow(i,1) = dzh_snow_now(i,1)
+        zextinct (i,1) = 0.13_ireals*rho_snow_mult_now(i,1)+3.4_ireals
 
-          ! set ztsnow to ztsnow_mult(ksn=1)
-          ztsnow   (i) = t_snow_mult_now(i,1)
+        ! set ztsnow to ztsnow_mult(ksn=1)
+        ztsnow   (i) = t_snow_mult_now(i,1)
 
-          ! initialize zdz_snow (from Section I.3) to zdzh_snow(i,1)
-          zdz_snow (i) = dzh_snow_now(i,1) ! zdzh_snow
-          zwsnow   (i) = w_snow_now(i)
-!        END IF
-      ENDDO
+        ! initialize zdz_snow (from Section I.3) to zdzh_snow(i,1)
+        zdz_snow (i) = dzh_snow_now(i,1) ! zdzh_snow
+        zwsnow   (i) = w_snow_now(i)
+!      END IF
+    ENDDO
 
     DO  ksn = 2,ke_snow
         DO i = istarts, iends
@@ -1895,55 +1893,55 @@ IMPLICIT NONE
   ELSE
 
     ! set ztsnow to t_snow
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN   ! for land-points only
-          ztsnow   (i) = t_snow_now(i)
-          zwsnow   (i) = w_snow_now(i)
-          zdz_snow (i) = zwsnow(i)*rho_w/rho_snow_now(i)
-!        END IF
-      ENDDO
-  ENDIF
-
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN   ! for land-points only
-
-        ! ztsnow is now set according to lmulti_snow (see above);
-        ! therefore we need not take care of it in this loop
-        ! ztsnow   (i) = t_snow(i,nx)
-        zts      (i) = t_s_now   (i)
-        zts_pm   (i) = zsf_heav(zts   (i) - t0_melt)
-        ztsnow_pm(i) = zsf_heav(ztsnow(i) - t0_melt)
-        zwin     (i) = w_i_now(i)
-
-        ! moisture and potential temperature of lowest atmospheric layer
-        zplow          = p0(i) ! + pp(i)
-        zqvlow         = qv(i)
-        zth_low (i)  =  t(i) *( (ps(i)/zplow)**rdocp )
-
-        ! density*transfer coefficient*wind velocity
-        zrhoch(i)    = ztmch(i)*(1._ireals/g) + zepsi
-
-        ! saturation specific humidity for t_s and t_snow and first derivative
-        z2iw        = zts_pm(i)*b2w + (1._ireals - zts_pm(i))*b2i
-        z4iw        = zts_pm(i)*b4w + (1._ireals - zts_pm(i))*b4i
-        z234iw      = z2iw*(b3 - z4iw)
-        zqs         = zsf_qsat( zsf_psat_iw(zts(i), z2iw,z4iw), ps(i) )
-        zdqs        = zqvlow - zqs
-        IF (ABS(zdqs).LT.zepsi) zdqs = 0._ireals
-        z2iw        = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
-        z4iw        = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
-        z234iw      = z2iw*(b3 - z4iw)
-        zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i),z2iw,z4iw), ps(i))
-        zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
-        zdqsnow     = zqvlow - zqsnow
-        IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
-
-        ! potential evaporation at T_snow and Ts
-        zep_snow(i) = (1._ireals-ztsnow_pm(i))*                       &
-                                          tfv(i)*zrhoch(i)*zdqsnow
-        zep_s   (i) =                   tfv(i)*zrhoch(i)*zdqs
+        ztsnow   (i) = t_snow_now(i)
+        zwsnow   (i) = w_snow_now(i)
+        zdz_snow (i) = zwsnow(i)*rho_w/rho_snow_now(i)
 !      END IF
     ENDDO
+  ENDIF
+
+  DO i = istarts, iends
+!    IF (llandmask(i)) THEN   ! for land-points only
+
+    ! ztsnow is now set according to lmulti_snow (see above);
+    ! therefore we need not take care of it in this loop
+    ! ztsnow   (i) = t_snow(i,nx)
+    zts      (i) = t_s_now   (i)
+    zts_pm   (i) = zsf_heav(zts   (i) - t0_melt)
+    ztsnow_pm(i) = zsf_heav(ztsnow(i) - t0_melt)
+    zwin     (i) = w_i_now(i)
+
+    ! moisture and potential temperature of lowest atmospheric layer
+    zplow          = p0(i) ! + pp(i)
+    zqvlow         = qv(i)
+    zth_low (i)  =  t(i) *( (ps(i)/zplow)**rdocp )
+
+    ! density*transfer coefficient*wind velocity
+    zrhoch(i)    = ztmch(i)*(1._ireals/g) + zepsi
+
+    ! saturation specific humidity for t_s and t_snow and first derivative
+    z2iw        = zts_pm(i)*b2w + (1._ireals - zts_pm(i))*b2i
+    z4iw        = zts_pm(i)*b4w + (1._ireals - zts_pm(i))*b4i
+    z234iw      = z2iw*(b3 - z4iw)
+    zqs         = zsf_qsat( zsf_psat_iw(zts(i), z2iw,z4iw), ps(i) )
+    zdqs        = zqvlow - zqs
+    IF (ABS(zdqs).LT.zepsi) zdqs = 0._ireals
+    z2iw        = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
+    z4iw        = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
+    z234iw      = z2iw*(b3 - z4iw)
+    zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i),z2iw,z4iw), ps(i))
+    zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
+    zdqsnow     = zqvlow - zqsnow
+    IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
+
+    ! potential evaporation at T_snow and Ts
+    zep_snow(i) = (1._ireals-ztsnow_pm(i))*                       &
+                                      tfv(i)*zrhoch(i)*zdqsnow
+    zep_s   (i) =                   tfv(i)*zrhoch(i)*zdqs
+!    END IF
+  ENDDO
 
 
 
@@ -4287,11 +4285,11 @@ IMPLICIT NONE
     IF (ldiag_tg) THEN
       IF(lmulti_snow) THEN
         CALL tgcom ( t_g(:), t_snow_mult_new(:,1), t_s_new(:), &
-                     w_snow_new(:), snowfrac(:), ie, cf_snow,  &
+                     w_snow_new(:), zf_snow(:), ie, cf_snow,  &
                      istarts, iends )
       ELSE
         CALL tgcom ( t_g(:), t_snow_new(:), t_s_new(:),       &
-                     w_snow_new(:), snowfrac(:), ie, cf_snow, &
+                     w_snow_new(:), zf_snow(:), ie, cf_snow, &
                      istarts, iends )
       ENDIF
     ENDIF
