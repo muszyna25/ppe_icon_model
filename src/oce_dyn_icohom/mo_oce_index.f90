@@ -39,7 +39,7 @@ MODULE mo_oce_index
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_io_units,               ONLY: nerr
-USE mo_parallel_config,        ONLY: nproma
+USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_grid_config,            ONLY: n_dom
 USE mo_run_config,             ONLY: nsteps!, ltimer
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
@@ -392,6 +392,7 @@ CONTAINS
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
   REAL(wp) :: zdst(nproma,ppatch(1)%nblks_c)
   TYPE(t_subset_range), POINTER :: all_cells
+  LOGICAL  :: p_test_run_bac
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_oce_index:search_latlonindex'
@@ -427,7 +428,12 @@ CONTAINS
   END DO
 
   ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
+
+  ! disable p_test_run since global_max will be different
+  p_test_run_bac = p_test_run
+  p_test_run = .false.
   ctr = global_max(-zdist,proc_id)
+  p_test_run = p_test_run_bac
 
   zlat    = ppatch(jg)%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
   zlon    = ppatch(jg)%cells%center          (iidx,iblk)%lon * 180.0_wp / pi
@@ -437,8 +443,8 @@ CONTAINS
   IF (my_process_is_stdio()) THEN
     WRITE(0,98) ' ',TRIM(routine),' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
-    WRITE(0,'(2a,i3)') TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
-    WRITE(0,'(2a,2i3,a,f9.2)') TRIM(routine),' FOUND: Min dist is at idx/blk=', &
+    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
+    WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
       &                  MINLOC(zdst(:,:)),' distance in deg =',MINVAL(zdst(:,:))
   END IF
 

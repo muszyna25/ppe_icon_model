@@ -47,7 +47,7 @@ USE mo_parallel_config,        ONLY: nproma
 USE mo_impl_constants,         ONLY: max_char_length
 !USE mo_run_config,             ONLY: ltimer
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
-USE mo_sync,                   ONLY: global_max, global_min
+USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_ocean_nml,              ONLY: str_proc_tst, rlon_in, rlat_in
 USE mo_math_constants,         ONLY: pi
@@ -191,31 +191,33 @@ CONTAINS
 
   INTEGER  :: jb, jc, i_startidx, i_endidx, proc_id
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
-  REAL(wp) :: zdst(nproma,ppatch%nblks_c)
-  TYPE(t_subset_range), POINTER :: all_cells
+  REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
+  TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
+  LOGICAL  :: p_test_run_bac
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_oce_index:search_latlonindex'
 
   CALL message(TRIM(routine), 'Start' )
 
-  all_cells => ppatch%cells%all
+  !all_cells       => ppatch%cells%all
+  cells_in_domain => ppatch%cells%in_domain
 
   ! initial distance to compare
   zdist_cmp = 100000.0_wp
-  zdst(:,:) = 100000.0_wp
+  zdst_c(:,:) = 100000.0_wp
   proc_id   = -1
 
   !  loop over all cells including halo
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx
 
       zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
       zlon    = ppatch%cells%center(jc,jb)%lon * 180.0_wp / pi
 
       zdist       = sqrt((zlat-plat_in)*(zlat-plat_in) + (zlon-plon_in)*(zlon-plon_in))
-      zdst(jc,jb) = zdist
+      zdst_c(jc,jb) = zdist
       IF (zdist < zdist_cmp) THEN
         iblk = jb
         iidx = jc
@@ -225,8 +227,14 @@ CONTAINS
     END DO
   END DO
 
+  CALL sync_patch_array(SYNC_C, ppatch, zdst_c(:,:))
+
   ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
+  ! disable p_test_run since global_max will be different
+  p_test_run_bac = p_test_run
+  p_test_run = .false.
   ctr = global_max(-zdist,proc_id)
+  p_test_run = p_test_run_bac
 
   zlat    = ppatch%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
   zlon    = ppatch%cells%center          (iidx,iblk)%lon * 180.0_wp / pi
@@ -238,7 +246,7 @@ CONTAINS
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
     WRITE(0,'(2a,i3)') TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
     WRITE(0,'(2a,2i3,a,f9.2)') TRIM(routine),' FOUND: Min dist is at idx/blk=', &
-      &                  MINLOC(zdst(:,:)),' distance in deg =',MINVAL(zdst(:,:))
+      &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
   END IF
 
   END SUBROUTINE search_latlonindex
