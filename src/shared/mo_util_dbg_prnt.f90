@@ -43,7 +43,7 @@ MODULE mo_util_dbg_prnt
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_io_units,               ONLY: nerr
-USE mo_parallel_config,        ONLY: nproma
+USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
 !USE mo_run_config,             ONLY: ltimer
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
