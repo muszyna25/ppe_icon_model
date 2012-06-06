@@ -482,6 +482,7 @@ CONTAINS
 
   CHARACTER(len=25)  strout
   INTEGER            iout, icheck_str_proc, jstr, iper, i
+  REAL(wp)       ::  ctr, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_print_mxmn)
 
@@ -568,15 +569,25 @@ CONTAINS
  !  ipl_indx = 0
  !END IF
 
-  IF (my_process_is_stdio()) THEN
-    WRITE(iout,991) ' MAX/MIN ',strout,klev, &
-      &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
-      &              minval(p_array(1:nproma,klev,1:ndimblk))
+  ! print out maximum and minimum value
+  ! parallelize:
+  ctr=maxval(p_array(1:nproma,klev,1:ndimblk))
+  glbmx=global_max(ctr)
+  ctr=minval(p_array(1:nproma,klev,1:ndimblk))
+  glbmn=global_min(ctr)
+
+  IF (my_process_is_stdio()) &
+    & WRITE(iout,991) ' MAX/MIN ',strout,klev, glbmx, glbmn
+
+! IF (my_process_is_stdio()) THEN
+!   WRITE(iout,991) ' MAX/MIN ',strout,klev, &
+!     &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
+!     &              minval(p_array(1:nproma,klev,1:ndimblk))
 
 !!$    WRITE(iout,983) ' LOC ',strout,klev, &
 !!$      &              MAXLOC(p_array(1:nproma,klev,1:ndimblk)),     &
 !!$      &              MINLOC(p_array(1:nproma,klev,1:ndimblk))
-  END IF
+! END IF
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 

@@ -949,7 +949,7 @@ IF (l_EDGE_BASED) THEN
   !CALL div_oce_3d(z_e, p_patch,p_op_coeff%div_coeff, div_z_depth_int_c,&
   !               & level=1,subset_range=cells_in_domain )
 
-  CALL div_oce_3d(z_vn_ab, p_patch,p_op_coeff%div_coeff, div_z_c, &
+  CALL div_oce_3d(z_vn_ab, p_patch, p_op_coeff%div_coeff, div_z_c, &
     &             subset_range=cells_in_domain )
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1137,7 +1137,7 @@ ENDIF!EDGE-BASED
  CALL print_mxmn('RHS z_e',1,z_e(:,:),&
    &             jkdim, p_patch%nblks_e,'abt',ipl_src)
  CALL print_mxmn('div_z_c',1,div_z_c(:,:,:),&
-   &             jkdim, p_patch%nblks_c,'abt',ipl_src)
+   &             n_zlev, p_patch%nblks_c,'abt',ipl_src)
  ipl_src=2  ! output print level (1-5, fix)
  z_c1(:,:) = p_os%p_aux%p_rhs_sfc_eq(:,:)
  CALL print_mxmn('RHS final',1,z_c1(:,:),&

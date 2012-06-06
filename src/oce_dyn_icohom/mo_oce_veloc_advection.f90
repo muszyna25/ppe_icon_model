@@ -250,7 +250,7 @@ CONTAINS
 
     z_e             (:,:,:) = 0.0_wp
     z_vort_flx      (:,:,:) = 0.0_wp
-    !veloc_adv_horz_e(:,:,:) = 0.0_wp
+    veloc_adv_horz_e(:,:,:) = 0.0_wp
 
     slev = 1
     elev = n_zlev
@@ -728,23 +728,15 @@ CONTAINS
     !-----------------------------------------------------------------------
     all_cells => p_patch%cells%all
 
+    z_adv_u_m(:,:,:)%x(1) = 0.0_wp
+    z_adv_u_m(:,:,:)%x(2) = 0.0_wp
+    z_adv_u_m(:,:,:)%x(3) = 0.0_wp
+    z_adv_u_i(:,:,:)%x(1) = 0.0_wp
+    z_adv_u_i(:,:,:)%x(2) = 0.0_wp
+    z_adv_u_i(:,:,:)%x(3) = 0.0_wp
+
     slev = 1
     elev = n_zlev
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      DO jk = slev, elev
-        DO jc = i_startidx, i_endidx
-          z_adv_u_i(jc,jk,jb)%x = 0.0_wp
-          z_adv_u_m(jc,jk,jb)%x = 0.0_wp
-        END DO
-      END DO
-    END DO
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      DO jc = i_startidx, i_endidx
-        z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
-      END DO
-    END DO
 
     ! CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
     ! CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
