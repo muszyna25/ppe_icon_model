@@ -4854,7 +4854,7 @@ IMPLICIT NONE
         END DO
 !The "old" snow density
         DO i = istarts, iends
-          zrho_snow_old(i) = zw_snow_old(i) / MAX(zrho_snow_old(i),1.E-09) *rho_w
+          zrho_snow_old(i) = zw_snow_old(i) / MAX(zrho_snow_old(i),1.0E-09_ireals) *rho_w
         END DO 
         DO i = istarts, iends
           zicount1(i) = COUNT(wtot_snow_now(i,:).gt.zepsi)
