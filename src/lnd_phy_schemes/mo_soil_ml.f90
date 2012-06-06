@@ -4553,7 +4553,9 @@ IMPLICIT NONE
     zw_m     (ie)          ! maximum of liquid water content  (m)
 
    INTEGER  (KIND=iintegers ) ::  &
-    m_styp   (ie)          ! soil type
+    m_styp   (ie)      , & ! soil type
+    zicount1 (ie)      , &
+    zicount2 (ie)       
 
    REAL    (KIND=ireals   ) ::  & ! Soil and plant parameters
 !
@@ -4574,9 +4576,10 @@ IMPLICIT NONE
       zbedi    (ie)          ! surface type dependent parameter
 
      REAL    (KIND=ireals   ) ::  &
-       zrocg    (ie)        ,&! volumetric heat capacity of bare soil
+       zrocg    (ie)        ,& ! volumetric heat capacity of bare soil
        zalam    (ie,ke_soil),& ! heat conductivity
-       zw_snow_old(ie)     !
+       zw_snow_old(ie)      ,& !
+       zrho_snow_old(ie)
 
 !- End of header
 !==============================================================================
@@ -4840,34 +4843,38 @@ IMPLICIT NONE
         ENDDO
     ELSE
       IF(lmulti_snow) THEN
-        zw_snow_old(:) = 0.0_ireals
+!The sum of wtot_snow, i.e. the "old" total water equivalent depth
+        zw_snow_old  (:) = 0.0_ireals
+        zrho_snow_old(:) = 0.0_ireals
         DO ksn = 1, ke_snow
-            DO i = istarts, iends
-!              IF (llandmask(i)) THEN             ! for land-points only
-                zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)
-!              END IF
-            END DO
+          DO i = istarts, iends
+            zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)
+            zrho_snow_old(i) = zrho_snow_old(i) + dzh_snow_now(i,ksn)
+          END DO
+        END DO
+!The "old" snow density
+        DO i = istarts, iends
+          zrho_snow_old(i) = zw_snow_old(i) / MAX(zrho_snow_old(i),1.E-09) *rho_w
+        END DO 
+        DO i = istarts, iends
+          zicount1(i) = COUNT(wtot_snow_now(i,:).gt.zepsi)
+          zicount2(i) = COUNT(dzh_snow_now(i,:).gt.zepsi)
         END DO
         DO ksn = 1, ke_snow
-            DO i = istarts, iends
-!               IF (llandmask(i)) THEN             ! for land-points only
-                IF(dzh_snow_now(i,ksn) .LT. zepsi  &
-                  & .OR. ABS(zw_snow_old(i)-w_snow_now(i)).GE.zepsi) THEN
-                  IF(rho_snow_now(i) .EQ. 0._ireals) rho_snow_now(i) = 250._ireals
-                  rho_snow_mult_now(i,ksn) = rho_snow_now(i)
-                  t_snow_mult_now  (i,ksn) = t_snow_now(i)
-                  wtot_snow_now    (i,ksn) = w_snow_now(i)/REAL(ke_snow,ireals)
-                  dzh_snow_now     (i,ksn) = w_snow_now(i)/REAL(ke_snow,ireals) &
-                    &                            *rho_w/rho_snow_mult_now(i,ksn)
-                  wliq_snow_now    (i,ksn) = 0.0_ireals
-                ELSE
-                  rho_snow_mult_now(i,ksn) = wtot_snow_now(i,ksn)                 &
-                                               & /MAX(dzh_snow_now(i,ksn),0.0_ireals) &
-                                               & *rho_w  ! initial density
-                  t_snow_mult_now  (i,ksn) = t_snow_now(i)
-                END IF
-!             END IF
-            END DO
+          DO i = istarts, iends
+            IF(zicount1(i).EQ.ke_snow .AND. zicount2(i).EQ.ke_snow) THEN
+              rho_snow_mult_now(i,ksn) = wtot_snow_now(i,ksn)/dzh_snow_now(i,ksn)*rho_w
+              wtot_snow_now(i,ksn) = wtot_snow_now(i,ksn)*w_snow_now(i)/zw_snow_old(i)
+              dzh_snow_now (i,ksn) = dzh_snow_now (i,ksn)*w_snow_now(i)/zw_snow_old(i)
+              wliq_snow_now(i,ksn) = wliq_snow_now(i,ksn)*w_snow_now(i)/zw_snow_old(i)
+            ELSE
+              IF(rho_snow_now(i) .EQ. 0._ireals) rho_snow_now(i) = 250._ireals
+              rho_snow_mult_now(i,ksn) = rho_snow_now(i)
+              wtot_snow_now    (i,ksn) = w_snow_now(i)/ke_snow
+              dzh_snow_now     (i,ksn) = w_snow_now(i)*rho_w/rho_snow_mult_now(i,ksn)/ke_snow
+              wliq_snow_now    (i,ksn) = 0.0_ireals
+            END IF
+          END DO
         END DO
       ELSE
           DO i = istarts, iends
