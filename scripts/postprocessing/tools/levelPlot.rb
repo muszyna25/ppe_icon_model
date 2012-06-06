@@ -17,19 +17,25 @@ createPlot = (not ARGV[3].nil?)
 
 #_plotfile  = "plot_#{varname}-#{Time.new.strftime("%Y%m%d-%H%M%S")}"
 
+Cdo.debug = true
 
 # Temporal file for text output
 dataFile = MyTempfile.path
 
 IO.popen("echo 'date|time|depth|#{varname}|' > #{dataFile}")
 Cdo.outputkey('date,time,level,value', 
-              :in => "-#{operation} -selname,#{varname} #{ifile} | sed -e 's/ 0 / 00:00:00 /' | sed -e 's/ \\+/|/g' >>#{dataFile}")
+              :in => "-#{operation} -selname,#{varname} #{ifile} | sed -e 's/ 0 / 00:00:00 /' " +
+                                                                "| sed -e 's/ 180000 / 18:00:00 /' " +
+                                                                "| sed -e 's/ 120000 / 12:00:00 /' " +
+                                                                "| sed -e 's/ 60000 / 06:00:00 /' | sed -e 's/ \\+/|/g' >>#{dataFile}")
 
 icon = ExtCsv.new("file","psv",dataFile)
 
 # Create datetime column for timeseries plot
 icon.datetime = []
 icon.date.each_with_index{|date,i| icon.datetime << [date,icon.time[i]].join(' ') }
+
+pp icon.datetime
 
 # Plot data with automatic splitting by depth
 ExtCsvDiagram.plot_xy(icon,"datetime",varname.downcase,
@@ -42,4 +48,4 @@ ExtCsvDiagram.plot_xy(icon,"datetime",varname.downcase,
                       :ylabel => "#{varname} [degC]",     # Correct the label if necessary
                       :input_time_format => "'%Y%m%d %H:%M:%S'",
                       :filename => plotfile,
-                      :output_time_format => "'%m.%y'",:size => "800,600")
+                      :output_time_format => "'%d.%m.%y'",:size => "1600,600")
