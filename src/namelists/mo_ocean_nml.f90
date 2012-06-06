@@ -78,7 +78,7 @@ MODULE mo_ocean_nml
 
   ! ------------------------------------------------------------------------
   ! 2.0 Namelist variables and auxiliary parameters for ocean_nml
-  !      - contain all default values to minimize ocean namelist (SLO, 2012/03)
+  !      - contains all default values to minimize ocean namelist (SLO, 2012/03)
   ! ------------------------------------------------------------------------
 
   INTEGER  :: n_zlev        ! number of ocean levels
@@ -439,7 +439,6 @@ MODULE mo_ocean_nml
 
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
-
 
 END SUBROUTINE setup_ocean_nml
 

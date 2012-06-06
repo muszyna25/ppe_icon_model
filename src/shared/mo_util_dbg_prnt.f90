@@ -49,7 +49,7 @@ USE mo_impl_constants,         ONLY: max_char_length
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
-USE mo_ocean_nml,              ONLY: str_proc_tst, rlon_in, rlat_in
+USE mo_dbg_nml,                ONLY: str_mod_tst, dbg_lon_in, dbg_lat_in, idbg_mxmn, idbg_val
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
@@ -106,7 +106,7 @@ CONTAINS
 
   ! search for block/index of debug output cell at lat/lon
   ! given by namelist dbg_index_nml - not yet parallelized
-  CALL search_latlonindex (ppatch, rlat_in, rlon_in, c_i, c_b)
+  CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b)
 
   zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
   zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
@@ -181,7 +181,7 @@ CONTAINS
   !! TODO: parallelize
   !
   !
-  SUBROUTINE search_latlonindex (ppatch, plat_in, plon_in, iidx, iblk)
+  SUBROUTINE find_latlonindex (ppatch, plat_in, plon_in, iidx, iblk)
 
   TYPE(t_patch), TARGET, INTENT(IN)     :: ppatch
   REAL(wp),              INTENT(IN)     :: plat_in       ! cell latitude to search for
@@ -196,7 +196,7 @@ CONTAINS
   LOGICAL  :: p_test_run_bac
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &      routine = 'mo_oce_index:search_latlonindex'
+    &      routine = 'mo_util_dbg_prnt:find_latlonindex'
 
   CALL message(TRIM(routine), 'Start' )
 
@@ -244,12 +244,12 @@ CONTAINS
   IF (my_process_is_stdio()) THEN
     WRITE(0,98) ' ',TRIM(routine),' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
-    WRITE(0,'(2a,i3)') TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
-    WRITE(0,'(2a,2i3,a,f9.2)') TRIM(routine),' FOUND: Min dist is at idx/blk=', &
+    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
+    WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
       &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
   END IF
 
-  END SUBROUTINE search_latlonindex
+  END SUBROUTINE find_latlonindex
 
   !-------------------------------------------------------------------------
   !>
@@ -258,7 +258,7 @@ CONTAINS
   !! Print out min and max or a specific cell value and neighbors of an array.
   !! Reduce writing effort for a simple print.
   !! The amount of prints is controlled by comparison of a fixed level of detail
-  !! for the output (ipl_proc_src) with variables idbg_mxmn/idbg_indx that is
+  !! for the output (ipl_mod_src) with variables idbg_mxmn/idbg_val  that is
   !! given via namelist dbg_index_nml
   !!
   !! @par Revision History
@@ -266,21 +266,17 @@ CONTAINS
   !!
   !! TODO: interface for 2-dim/3-dim
   !
-  SUBROUTINE dbg_print ( str_prntdes, p_array, str_proc_src, ipl_proc_src )
+  SUBROUTINE dbg_print ( str_prntdes, p_array, str_mod_src, ipl_mod_src )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
-  CHARACTER(len=3),      INTENT(IN) :: str_proc_src   ! defined string for source of current array
-  INTEGER,               INTENT(IN) :: ipl_proc_src   ! source process level for print output 
+  CHARACTER(len=3),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
+  INTEGER,               INTENT(IN) :: ipl_mod_src    ! source level from module for print output 
 
   ! local variables
   CHARACTER(len=25) ::  strout
-  INTEGER           ::  iout, icheck_str_proc, jstr, iper, i, jk, klev, nlev, ndimblk
+  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, klev, nlev, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
-
-  ! local / test
-  INTEGER           ::  idbg_indx = 4
-  INTEGER           ::  idbg_mxmn = 4
 
   !IF (ltimer) CALL timer_start(timer_print_mxmn)
 
@@ -292,18 +288,18 @@ CONTAINS
   iout = nerr
 
   ! compare defined source string with namelist-given output string ('per' for permanent output)
-  icheck_str_proc = 0
+  icheck_str_mod = 0
   iper = 0
   DO jstr = 1, 10
-    IF (str_proc_src == str_proc_tst(jstr) .OR. str_proc_src == 'per'        &
-      &                                    .OR. str_proc_tst(jstr) == 'all') &
-      &  icheck_str_proc = 1
+    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_src == 'per'        &
+      &                                   .OR. str_mod_tst(jstr) == 'all') &
+      &  icheck_str_mod = 1
   END DO
 
-  !IF (icheck_str_proc == 0 .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_print_mxmn)
 
-  ! if str_proc_src not found in str_proc_tst - no output
-  IF (icheck_str_proc == 0 ) RETURN
+  ! if str_mod_src not found in str_mod_tst - no output
+  IF (icheck_str_mod == 0 ) RETURN
 
   ! valid g-format without offset of decimal point
   981 FORMAT(a,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
@@ -314,15 +310,15 @@ CONTAINS
   strout=TRIM(str_prntdes)
 
 
-  ! check print output level ipl_proc_src (1-5) with namelist given value (idbg_indx)
+  ! check print output level ipl_mod_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
 
-  IF (idbg_indx >= ipl_proc_src) THEN
+  IF (idbg_val >= ipl_mod_src) THEN
     IF (my_process_is_stdio()) THEN
 
-      ! idbg_indx<4: surface level output only
+      ! idbg_val<4: surface level output only
       klev = nlev
-      IF (idbg_indx < 4) klev = 1
+      IF (idbg_val < 4) klev = 1
 
       DO jk = 1, klev
 
@@ -343,11 +339,11 @@ CONTAINS
     END IF
   END IF
 
-  ! check print output level ipl_proc_src (1-5) with namelist given value (idbg_mxmn)
+  ! check print output level ipl_mod_src (1-5) with namelist given value (idbg_mxmn)
   ! for MIN/MAX output:
 
-  !IF (idbg_mxmn < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
-  IF (idbg_mxmn < ipl_proc_src ) RETURN
+  !IF (idbg_mxmn < ipl_mod_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  IF (idbg_mxmn < ipl_mod_src ) RETURN
 
   ! idbg_mxmn<4: surface level output only
   klev = nlev

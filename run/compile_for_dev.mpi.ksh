@@ -27,7 +27,7 @@
 # Further work:
 #  - compiler options should be read from Makefile (not yet)
 
-set -ex
+set -e
 # you must start this script from below the trunk/branch - e.g. from icon-dev/run
 # in case of multiple builds start below the specific dir - e.g. icon-dev/nag_nMnO/run
 dir=$(pwd -P)

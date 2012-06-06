@@ -1224,6 +1224,7 @@ src/lnd_phy_schemes/mo_soil_ml.f90 -text
 src/namelists/mo_advection_nml.f90 -text
 src/namelists/mo_art_nml.f90 -text
 src/namelists/mo_coupling_nml.f90 -text
+src/namelists/mo_dbg_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text

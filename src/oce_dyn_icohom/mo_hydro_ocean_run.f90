@@ -72,7 +72,7 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation
 USE mo_oce_index,              ONLY: init_index_test
-!USE mo_util_dbg_prnt,          ONLY: init_dbg_index
+USE mo_util_dbg_prnt,          ONLY: init_dbg_index
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
@@ -431,7 +431,7 @@ CONTAINS
 
     ! initialize ocean indices for debug output
     CALL init_index_test( ppatch, pstate_oce, p_ext_data )
-    !CALL init_dbg_index(ppatch(1))
+    CALL init_dbg_index(ppatch(1))
 
     CALL construct_ho_params(ppatch(jg), p_phys_param)
     CALL init_ho_params(ppatch(jg), p_phys_param)

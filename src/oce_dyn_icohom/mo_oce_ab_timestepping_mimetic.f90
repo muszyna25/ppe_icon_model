@@ -70,8 +70,8 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_oce_linear_solver,         ONLY: gmres_oce, gmres_e2e
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src, dbg_prnt
-!USE mo_util_dbg_prnt,             ONLY: dbg_print
+USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params

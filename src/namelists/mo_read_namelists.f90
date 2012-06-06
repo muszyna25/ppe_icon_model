@@ -44,6 +44,7 @@ MODULE mo_read_namelists
   USE mo_parallel_nml        ,ONLY: read_parallel_namelist
   USE mo_run_nml             ,ONLY: read_run_namelist
   USE mo_io_nml              ,ONLY: read_io_namelist
+  USE mo_dbg_nml             ,ONLY: read_dbg_namelist
 
   USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
 
@@ -128,6 +129,7 @@ CONTAINS
     CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
     CALL read_meteogram_namelist      (TRIM(atm_namelist_filename))
     CALL read_name_list_output_namelists (TRIM(atm_namelist_filename))
+    CALL read_dbg_namelist            (TRIM(atm_namelist_filename))
 
     ! Grid
     !
@@ -219,6 +221,7 @@ CONTAINS
     CALL read_parallel_namelist       (TRIM(oce_namelist_filename))
     CALL read_run_namelist            (TRIM(oce_namelist_filename))
     CALL read_io_namelist             (TRIM(oce_namelist_filename))
+    CALL read_dbg_namelist            (TRIM(oce_namelist_filename))
 
     ! Grid
     !
@@ -288,6 +291,7 @@ CONTAINS
     CALL read_parallel_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_run_namelist            (TRIM(cpl_dummy_namelist))
     CALL read_io_namelist             (TRIM(cpl_dummy_namelist))
+    CALL read_dbg_namelist            (TRIM(cpl_dummy_namelist))
 
     ! Grid
     !
