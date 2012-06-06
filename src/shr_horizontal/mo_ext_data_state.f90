@@ -1713,36 +1713,8 @@ CONTAINS
 
           IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
             i_lctype(jg) = 1
-            ilu=0
-            do i = 0, num_lcc*n_param_lcc -1
-               IF(MOD(i,n_param_lcc).eq.0) THEN
-                  ilu=ilu+1
-             ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i+1)  ! Land-cover related roughness length
-             ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_glc2000(i+2)  ! Maximum plant cover fraction for each land-cover class
-             ext_data(jg)%atm%laimax_lcc(ilu)      = lu_glc2000(i+3)  ! Maximum leaf area index for each land-cover class
-             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_glc2000(i+4)  ! Maximum root depth for each land-cover class
-             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_glc2000(i+5)  ! Minimum stomata resistance for each land-cover class
-             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+6)  ! Albedo in case of snow cover for each land-cover class
-             ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_glc2000(i+7)  ! Specification of snow tiles for land-cover class
-               END IF
-            end do
           ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
-             IF (i_lctype(jg) /= 1) THEN
-             i_lctype(jg) = 2
-            ilu=0
-            do i = 0, num_lcc*n_param_lcc -1
-               IF(MOD(i,n_param_lcc).eq.0) THEN
-                  ilu=ilu+1
-             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i+1)  ! Land-cover related roughness length
-             ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009(i+2)  ! Maximum plant cover fraction for each land-cover class
-             ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009(i+3)  ! Maximum leaf area index for each land-cover class
-             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009(i+4)  ! Maximum root depth for each land-cover class
-             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+5)  ! Minimum stomata resistance for each land-cover class
-             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+6)  ! Albedo in case of snow cover for each land-cover class
-             ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_gcv2009(i+7)  ! Specification of snow tiles for land-cover class
-            END IF
-            end do
-         END IF
+            i_lctype(jg) = 2
           ELSE
             CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
           ENDIF
@@ -1751,6 +1723,33 @@ CONTAINS
 
         ! Broadcast i_lctype from IO-PE to others
         CALL p_bcast(i_lctype(jg), p_io, mpi_comm)
+
+        ! Preset parameter fields with the correct table values
+        ilu = 0
+        IF (i_lctype(jg) == 1) THEN
+          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
+            ilu=ilu+1
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_glc2000(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_glc2000(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_glc2000(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_glc2000(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_glc2000(i+6)  ! Specification of snow tiles for land-cover class
+          ENDDO
+        ELSE IF (i_lctype(jg) == 2) THEN
+          i_lctype(jg) = 2
+          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
+            ilu=ilu+1
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_gcv2009(i+6)  ! Specification of snow tiles for land-cover class
+          ENDDO
+        ENDIF
 
         !-------------------------------------------------------
         !
@@ -2665,9 +2664,7 @@ CONTAINS
                    &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
                  ! max leaf area index
-!!$                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
-!!$                   c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
-                ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
+                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
                    c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
 
                  ! max leaf area index
@@ -2681,7 +2678,6 @@ CONTAINS
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
                    ext_data(jg)%atm%soiltyp(jc,jb)
-
                END DO
              END IF ! nfc_subs
            ELSE  !IF (fr_land(jc,jb) <= frlnd_thrhld) THEN  searching for sea-points
