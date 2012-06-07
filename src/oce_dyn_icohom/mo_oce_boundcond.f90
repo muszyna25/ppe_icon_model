@@ -51,6 +51,7 @@ MODULE mo_oce_boundcond
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
   USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2d,&
@@ -82,6 +83,9 @@ MODULE mo_oce_boundcond
   !PUBLIC :: update_ocean_surface_fluxes
   
   INTEGER, PARAMETER :: top=1
+  CHARACTER(len=10)  :: str_module = 'oceBC   '  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 1           ! Level of detail for 1 line debug
+
 CONTAINS
   
   !-------------------------------------------------------------------------
@@ -616,9 +620,13 @@ CONTAINS
         top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%forc_tracer(jc,jb, tracer_id)
       END DO
     END DO
+
+    !---------Debug Diagnostics-------------------------------------------
+    ipl_src=3  ! output print level (1-5, fix)
+    z_c(:,1,:)=top_bc_tracer(:,:,tracer_id)
+    CALL dbg_print('top bound.cond.tracer'       ,z_c                      ,str_module,idt_src)
     
     ipl_src=2  ! output print level (1-5, fix)
-    z_c(:,1,:)=top_bc_tracer(:,:,tracer_id)
     CALL print_mxmn('top.bound.cond trc',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
     
   END SUBROUTINE top_bound_cond_tracer
