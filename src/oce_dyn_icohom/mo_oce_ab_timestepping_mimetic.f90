@@ -71,7 +71,6 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_oce_linear_solver,         ONLY: gmres_oce, gmres_e2e
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
@@ -157,7 +156,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
   REAL(wp) :: z_h_c(nproma,p_patch%nblks_c)
   REAL(wp) :: z_h_e(nproma,p_patch%nblks_e)
-  REAL(wp) :: z_c1(nproma,1,p_patch%nblks_c)
 
   REAL(wp) :: z_implcoeff
   REAL(wp) :: zresidual(nmax_iter)        ! norms of the residual (convergence history)
@@ -209,20 +207,14 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   ENDIF
 
 
-  ipl_src=2  ! output print level (1-5, fix)
-  z_c1(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
-  CALL print_mxmn('AB: on entry h-old',1,z_c1(:,:,:),1, p_patch%nblks_c,'abt',ipl_src)
-  ipl_src=1  ! output print level (1-5, fix)
-  z_c1(:,1,:) = p_os%p_prog(nnew(1))%h(:,:)
-  CALL print_mxmn('AB: on entry h-new',1,z_c1(:,:,:),1, p_patch%nblks_c,'abt',ipl_src)
-  ipl_src=2  ! output print level (1-5, fix)
-  CALL print_mxmn('AB: on entry vn-old',1, p_os%p_prog(nold(1))%vn(:,:,:),n_zlev, &
-    & p_patch%nblks_e,'abt',ipl_src)
-  ipl_src=1  ! output print level (1-5, fix)
-  CALL print_mxmn('AB: on entry vn-new',1, p_os%p_prog(nnew(1))%vn(:,:,:),n_zlev, &
-    & p_patch%nblks_e,'abt',ipl_src)
-
-
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=2  ! output print level (1-5, fix)
+  CALL dbg_print('on entry: h-old'                ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
+  CALL dbg_print('on entry: h-new'                ,p_os%p_prog(nnew(1))%h ,str_module,idt_src)
+  CALL dbg_print('on entry: vn-old'               ,p_os%p_prog(nold(1))%vn,str_module,idt_src)
+  idt_src=1  ! output print level (1-5, fix)
+  CALL dbg_print('on entry: vn-new'               ,p_os%p_prog(nnew(1))%vn,str_module,idt_src)
+  !---------------------------------------------------------------------
 
   ! abort condition for elevation and vn:
   IF ( (maxval(p_os%p_prog(nnew(1))%h)  >  1.e20_wp) .or. &
@@ -269,8 +261,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%thick_c)
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_prog(nold(1))%h)
 
-  !z_c1(:,1,:)=p_os%p_diag%cons_thick_c(:,1,:)-p_os%p_diag%thick_c(:,:)
-
   CALL gmres_oce( z_h_c(:,:),             &  ! arg 1 of lhs. x input is the first guess.
       &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
       &        p_os%p_diag%thick_e,       &  ! z_h_e, &  !arg 5 of lhs  !not used
@@ -292,9 +282,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     IF (l_maxiter) THEN
       CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
     ELSE
-      ! output print level ipl_src used for GMRES output with call message:
-      ipl_src=0
-      IF (idbg_mxmn >= ipl_src) THEN
+      ! output print level idt_src used for GMRES output with call message:
+      idt_src=0
+      IF (idbg_mxmn >= idt_src) THEN
         WRITE(string,'(a,i4,a,e20.10)') &
           'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
         CALL message('GMRES surface height',TRIM(string))
@@ -313,14 +303,15 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
     CALL sync_patch_array(SYNC_C, p_patch, p_os%p_prog(nnew(1))%h)
 
-    ipl_src=2  ! output print level (1-5, fix)
-    z_c1(:,1,:) = z_h_c(:,:)
-    CALL print_mxmn('h-residual',1,z_c1(:,:,:),1, p_patch%nblks_c,'abt',ipl_src)
-    ipl_src=1  ! output print level (1-5, fix)
-    z_c1(:,1,:) = p_os%p_prog(nnew(1))%h(:,:)
-    CALL print_mxmn('after gmres: h-new',1,z_c1(:,:,:),1, p_patch%nblks_c,'abt',ipl_src)
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('h-residual'                     ,z_h_c                  ,str_module,idt_src)
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('after GMRES: h-new'             ,p_os%p_prog(nnew(1))%h ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
-  ENDIF
+  ENDIF  ! l_rigid_lid
+
 END SUBROUTINE solve_free_sfc_ab_mimetic
 !-------------------------------------------------------------------------  
 !
@@ -433,34 +424,20 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         &                             p_os%p_diag%laplacian_vert)
     ENDIF
 
-    ! debug printout
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src = 3  ! output print level (1-5, fix)
-    CALL dbg_print('old height gradient'       ,z_gradh_e(:,:,:),str_module,idt_src)
-    CALL dbg_print('density'                   ,p_os%p_diag%rho(:,:,:),str_module,idt_src)
-    CALL dbg_print('internal pressure'         ,p_os%p_diag%press_hyd(:,:,:),str_module,idt_src)
-    CALL dbg_print('internal press grad'       ,p_os%p_diag%press_grad(:,:,:),str_module,idt_src)
+    CALL dbg_print('old height gradient'       ,z_gradh_e                 ,str_module,idt_src)
+    CALL dbg_print('density'                   ,p_os%p_diag%rho           ,str_module,idt_src)
+    CALL dbg_print('internal pressure'         ,p_os%p_diag%press_hyd     ,str_module,idt_src)
+    CALL dbg_print('internal press grad'       ,p_os%p_diag%press_grad    ,str_module,idt_src)
+    idt_src = 4  ! output print level (1-5, fix)
+    CALL dbg_print('kinetic energy'            ,p_os%p_diag%kin           ,str_module,idt_src)
+    CALL dbg_print('vertical advection'        ,p_os%p_diag%veloc_adv_vert,str_module,idt_src)
+    IF (expl_vertical_velocity_diff == 0) &
+      & CALL dbg_print('vertical diffusion'    ,p_os%p_diag%laplacian_vert,str_module,idt_src)
 
-  ! DO jk=1, n_zlev
-  !   CALL print_mxmn('density',jk,p_os%p_diag%rho(:,:,:),n_zlev,p_patch%nblks_c,'abt',ipl_src)
-  ! END DO
+    !---------------------------------------------------------------------
 
-    jkc     = 1  ! current level - may not be zero
-    jkdim   = 1  ! vertical dimension
-    ipl_src=4  ! output print level (1-5, fix)
-    DO jk=1, n_zlev
-      CALL print_mxmn('kinetic energy',jk,p_os%p_diag%kin(:,:,:),n_zlev, &
-        &              p_patch%nblks_c,'abt',ipl_src)
-      CALL print_mxmn('vertical advection',jk,p_os%p_diag%veloc_adv_vert(:,:,:),n_zlev, &
-        &              p_patch%nblks_e,'abt',ipl_src)
-    END DO
-
-    IF(expl_vertical_velocity_diff==0)THEN
-      ipl_src=5  ! output print level (1-5, fix)
-      DO jk=1, n_zlev
-        CALL print_mxmn('vertical diffusion',jk,p_os%p_diag%laplacian_vert(:,:,:),n_zlev, &
-          &              p_patch%nblks_e,'abt',ipl_src)
-      END DO
-    ENDIF
   ELSEIF( iswm_oce == 1 ) THEN
     p_os%p_diag%press_grad     = 0.0_wp
     p_os%p_diag%veloc_adv_vert = 0.0_wp
@@ -479,22 +456,13 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%laplacian_horz)
 
 
-  ipl_src=4  ! output print level (1-5, fix)
-  DO jk=1, n_zlev
-!   write(*,*)'LAPLACIAN',jk,&
-!   &maxval(p_os%p_diag%laplacian_horz(:,jk,:)),minval(p_os%p_diag%laplacian_horz(:,jk,:))
-    CALL print_mxmn('horizontal diffusion',jk,p_os%p_diag%laplacian_horz(:,:,:),n_zlev, &
-      &              p_patch%nblks_e,'abt',ipl_src)
-  END DO
-
+  idt_src = 4  ! output print level (1-5, fix)
+  CALL dbg_print('horizontal diffusion'      ,p_os%p_diag%laplacian_horz,str_module,idt_src)
 
   IF (L_INVERSE_FLIP_FLOP) THEN
 
-    ipl_src=5  ! output print level (1-5, fix)
-    DO jk = 1, n_zlev
-      CALL print_mxmn('before dual-flip-flop: horz adv',jk,p_os%p_diag%veloc_adv_horz(:,:,:),&
-        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
-    END DO
+    idt_src = 4  ! output print level (1-5, fix)
+    CALL dbg_print('bef.dual-flip-flop: horzAdv',p_os%p_diag%laplacian_horz,str_module,idt_src)
 
     IF ( iswm_oce /= 1 ) THEN
       z_e = inverse_primal_flip_flop(p_patch, p_os%p_diag%veloc_adv_horz, p_os%p_diag%h_e)
@@ -735,17 +703,14 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     ENDIF
   ENDIF
 
-  !---------Debug Diagnostics-------------------------------------------
-
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
   z_e1(:,1,:) = dtime*grav*z_gradh_e(:,1,:)
   CALL dbg_print('dtime*g*grad_h_e'          ,              z_e1(:,:,:),str_module,idt_src)
-
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('vn_pred'                   ,p_os%p_diag%vn_pred(:,:,:),str_module,idt_src)
   IF (expl_vertical_velocity_diff == 1 .AND. iswm_oce /= 1) &
     & CALL dbg_print('vn_impl_vert_diff',p_os%p_diag%vn_impl_vert_diff(:,:,:),str_module,idt_src)
-
   idt_src=4  ! output print level (1-5, fix)
   CALL dbg_print('vn_old'                    ,p_os%p_prog(nold(1))%vn(:,:,:),str_module,idt_src)
   CALL dbg_print('vn_pred Term1 G_n+1/2'     ,p_os%p_aux%g_nimd (:,:,:),str_module,idt_src)
@@ -758,6 +723,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     & CALL dbg_print('Advect horizontal',p_os%p_diag%veloc_adv_horz(:,:,:),str_module,idt_src)
   IF (l_inverse_flip_flop) &
     & CALL dbg_print('dual-flip-flop AdvHorz',z_e(:,:,:),str_module,idt_src)
+  !---------------------------------------------------------------------
 
   !-------------------------------------------
   !CALL message (TRIM(routine), 'end')        
@@ -1055,8 +1021,7 @@ ENDIF!EDGE-BASED
 
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq )
 
-  !---------Debug Diagnostics-------------------------------------------
-
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('RHS thick_e'               ,p_os%p_diag%thick_e      ,str_module,idt_src)
   CALL dbg_print('RHS z_vn_ab'               ,z_vn_ab                  ,str_module,idt_src)
@@ -1067,6 +1032,7 @@ ENDIF!EDGE-BASED
   CALL dbg_print('RHS div_z_c'               ,div_z_c                  ,str_module,idt_src)
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('RHS final'                 ,p_os%p_aux%p_rhs_sfc_eq  ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
   !CALL message (TRIM(routine), 'end')        
 
@@ -1318,8 +1284,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nnew(1))%vn)
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_time_weighted)
 
-  !---------Debug Diagnostics-------------------------------------------
-
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
   IF (.NOT.l_rigid_lid) THEN
     CALL dbg_print('new height gradient'       ,z_grad_h                 ,str_module,idt_src)
@@ -1330,6 +1295,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   CALL dbg_print('vn change'                   ,p_os%p_prog(nnew(1))%vn  ,str_module,idt_src)
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('vn new'                      ,p_os%p_prog(nnew(1))%vn  ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
   !CALL height_related_quantities(p_patch, p_os, p_ext_data)
   ! Update of scalar product quantities
@@ -1610,12 +1576,13 @@ ENDIF
 
 CALL sync_patch_array(SYNC_C, p_patch, pw_c)
 
-!---------Debug Diagnostics-------------------------------------------
-ipl_src=3  ! output print level (1-5, fix)
+!---------DEBUG DIAGNOSTICS-------------------------------------------
+idt_src=3  ! output print level (1-5, fix)
 CALL dbg_print('vertical velocity'           ,pw_c                     ,str_module,idt_src)
-ipl_src=4  ! output print level (1-5, fix)
+idt_src=4  ! output print level (1-5, fix)
 CALL dbg_print('vn_time_weighted'            ,p_diag%vn_time_weighted  ,str_module,idt_src)
 CALL dbg_print('div velocity'                ,z_div_c                  ,str_module,idt_src)
+!---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mimetic
 !-------------------------------------------------------------------------
@@ -1731,11 +1698,12 @@ IF(l_RIGID_LID)THEN
   pw_c(:,1,:) = 0.0_wp
 ENDIF
 
-!---------Debug Diagnostics-------------------------------------------
-ipl_src=3  ! output print level (1-5, fix)
+!---------DEBUG DIAGNOSTICS-------------------------------------------
+idt_src=3  ! output print level (1-5, fix)
 CALL dbg_print('vertical velocity'           ,pw_c                     ,str_module,idt_src)
-ipl_src=4  ! output print level (1-5, fix)
+idt_src=4  ! output print level (1-5, fix)
 CALL dbg_print('div velocity'                ,z_div_c                  ,str_module,idt_src)
+!---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mim_topdown
 !-------------------------------------------------------------------------

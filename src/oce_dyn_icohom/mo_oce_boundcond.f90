@@ -616,6 +616,10 @@ CONTAINS
         top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%forc_tracer(jc,jb, tracer_id)
       END DO
     END DO
+
+    !---------Debug Diagnostics-------------------------------------------
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('vertical velocity'           ,pw_c                     ,str_module,idt_src)
     
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:)=top_bc_tracer(:,:,tracer_id)
