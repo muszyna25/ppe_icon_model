@@ -62,17 +62,17 @@ PRIVATE
 
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-! indices of cells and neighbours for debug output set by namelist octst_ctl
-INTEGER :: c_b, c_i, c_k, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
-INTEGER :: jkc, jkdim, ipl_src
+! indices of cells and neighbours for debug output at single cell
+INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
 INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
 
 PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
 
-! Public variables:
-PUBLIC :: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, nv_b, nv_i
-PUBLIC :: jkc, jkdim, ipl_src
+INTERFACE dbg_print
+  MODULE PROCEDURE dbg_print_2d
+  MODULE PROCEDURE dbg_print_3d
+END INTERFACE
 
 
 CONTAINS
@@ -254,36 +254,35 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Print out min and max or a specific cell value and neighbors of an array.
+  !! Print out min and max or a specific cell value and neighbors of a 3-dim array.
   !!
-  !! Print out min and max or a specific cell value and neighbors of an array.
   !! Reduce writing effort for a simple print.
   !! The amount of prints is controlled by comparison of a fixed level of detail
-  !! for the output (ipl_mod_src) with variables idbg_mxmn/idbg_val  that is
+  !! for output (idetail_src) with variables idbg_mxmn/idbg_val  that are
   !! given via namelist dbg_index_nml
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-06)
   !!
-  !! TODO: interface for 2-dim/3-dim
   !
-  SUBROUTINE dbg_print ( str_prntdes, p_array, str_mod_src, ipl_mod_src )
+  SUBROUTINE dbg_print_3d( str_prntdes, p_array, str_mod_src, idetail_src )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
-  INTEGER,               INTENT(IN) :: ipl_mod_src    ! source level from module for print output 
+  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
 
   ! local variables
-  CHARACTER(len=25) ::  strout
+  CHARACTER(len=27) ::  strout
   INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, klev, nlev, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_print_mxmn)
 
-  ! dimensions - first dimension is nproma
-  nlev    = SIZE(p_array,2)
-  ndimblk = SIZE(p_array,3)
+  ! dimensions
+  !                           !  index 1:nproma
+  nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
+  ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
 
   ! output channel: stderr
   iout = nerr
@@ -305,27 +304,27 @@ CONTAINS
 ! ! valid e-format with first digit gt zero
 ! 981 FORMAT(a,a10,a25,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
 ! 982 FORMAT(a,a10,a25,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
-! 991 FORMAT(a,a10,a25,'  :',i3,1p2e26.18)
+! 991 FORMAT(a,a10,a27,  ':',i3,1p2e26.18)
 
 ! ! g-format with offset for decimal point not valid for NAG compiler
 ! 981 FORMAT(a,a10,a25,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
 ! 982 FORMAT(a,a10,a25,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
-! 991 FORMAT(a,a10,a25,'  :',i3,1p2g26.18)
+! 991 FORMAT(a,a10,a27,  ':',i3,1p2g26.18)
 
   ! valid g-format without offset of decimal point
   981 FORMAT(a,a10,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
   982 FORMAT(a,a10,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
-  991 FORMAT(a,a10,a25,'  :',i3, 2g26.18)
+  991 FORMAT(a,a10,a27,  ':',i3, 2g26.18)
 
   983 FORMAT(a,a10,a25,'  :',i3, 4i4)
 
   strout=TRIM(str_prntdes)
 
 
-  ! check print output level ipl_mod_src (1-5) with namelist given value (idbg_val)
+  ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
 
-  IF (idbg_val >= ipl_mod_src) THEN
+  IF (idbg_val >= idetail_src) THEN
     IF (my_process_is_stdio()) THEN
 
       ! idbg_val<4: surface level output only
@@ -351,11 +350,11 @@ CONTAINS
     END IF
   END IF
 
-  ! check print output level ipl_mod_src (1-5) with namelist given value (idbg_mxmn)
+  ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
   ! for MIN/MAX output:
 
-  !IF (idbg_mxmn < ipl_mod_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
-  IF (idbg_mxmn < ipl_mod_src ) RETURN
+  !IF (idbg_mxmn < idetail_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  IF (idbg_mxmn < idetail_src ) RETURN
 
   ! idbg_mxmn<4: surface level output only
   klev = nlev
@@ -382,7 +381,114 @@ CONTAINS
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
-  END SUBROUTINE dbg_print
+  END SUBROUTINE dbg_print_3d
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Print out min and max or a specific cell value and neighbors of a 2-dim array.
+  !!
+
+  SUBROUTINE dbg_print_2d( str_prntdes, p_array, str_mod_src, idetail_src )
+
+  CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
+  REAL(wp),              INTENT(IN) :: p_array(:,:)   ! 2-dim array for debugging
+  CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
+  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+
+  ! local variables
+  CHARACTER(len=27) ::  strout
+  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, klev, ndimblk
+  REAL(wp)          ::  ctr, glbmx, glbmn
+
+  !IF (ltimer) CALL timer_start(timer_print_mxmn)
+
+  ! dimensions - first dimension is nproma
+  ndimblk = SIZE(p_array,2)
+
+  ! output channel: stderr
+  iout = nerr
+
+  ! compare defined source string with namelist-given output string ('per' for permanent output)
+  icheck_str_mod = 0
+  iper = 0
+  DO jstr = 1, dim_mod_tst
+    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_src       == 'per'  &
+      &                                  .OR. str_mod_tst(jstr) == 'all') &
+      &  icheck_str_mod = 1
+  END DO
+
+  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_print_mxmn)
+
+  ! if str_mod_src not found in str_mod_tst - no output
+  IF (icheck_str_mod == 0 ) RETURN
+
+! ! valid e-format with first digit gt zero
+! 981 FORMAT(a,a10,a25,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
+! 982 FORMAT(a,a10,a25,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 991 FORMAT(a,a10,a27,  ':',i3,1p2e26.18)
+
+! ! g-format with offset for decimal point not valid for NAG compiler
+! 981 FORMAT(a,a10,a25,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
+! 982 FORMAT(a,a10,a25,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 991 FORMAT(a,a10,a27,  ':',i3,1p2g26.18)
+
+  ! valid g-format without offset of decimal point
+  981 FORMAT(a,a10,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a10,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  991 FORMAT(a,a10,a27,  ':',i3, 2g26.18)
+
+  983 FORMAT(a,a10,a25,'  :',i3, 4i4)
+
+  strout=TRIM(str_prntdes)
+
+
+  ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
+  ! for output at given index
+
+  IF (idbg_val >= idetail_src) THEN
+    IF (my_process_is_stdio()) THEN
+
+      ! surface level output only
+      jk = 1
+
+      ! write value at index
+      IF (ndimblk == loc_nblks_c) THEN
+        WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,c_b), &
+      &                 (' C',i,':',p_array(nc_i(i),nc_b(i)),i=1,3)
+      ELSE IF (ndimblk == loc_nblks_e) THEN
+        WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+      &                 (' E',i,':',p_array(ne_i(i),ne_b(i)),i=1,3)
+      ELSE IF (ndimblk == loc_nblks_v) THEN
+        WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+      &                 (' V',i,':',p_array(nv_i(i),nv_b(i)),i=1,3)
+      END IF
+
+    END IF
+  END IF
+
+  ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
+  ! for MIN/MAX output:
+
+  !IF (idbg_mxmn < idetail_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  IF (idbg_mxmn < idetail_src ) RETURN
+
+  ! surface level output only
+  klev = 1
+
+  ! print out maximum and minimum value
+
+  ! parallelize:
+  ctr=maxval(p_array(1:nproma,1:ndimblk))
+  glbmx=global_max(ctr)
+  ctr=minval(p_array(1:nproma,1:ndimblk))
+  glbmn=global_min(ctr)
+
+  IF (my_process_is_stdio()) &
+    & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
+
+  !IF (ltimer) CALL timer_stop(timer_print_mxmn)
+
+  END SUBROUTINE dbg_print_2d
 
 END MODULE mo_util_dbg_prnt
 

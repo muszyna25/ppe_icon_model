@@ -140,7 +140,8 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(in)      :: vn_e_old(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
-    REAL(wp), INTENT(in)      :: h_e(:,:)           ! SW-case: h_e is thicknerss at edges ! 3D case: h_e is surface elevation at edges
+    REAL(wp), INTENT(in)      :: h_e(:,:)           ! SW-case: h_e is thickness at edges
+                                                    ! 3D case: h_e is surface elevation at edges
     TYPE(t_hydro_ocean_diag)  :: p_diag
     TYPE(t_operator_coeff)    :: p_op_coeff
     !Local variables

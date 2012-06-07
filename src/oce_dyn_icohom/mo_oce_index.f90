@@ -570,10 +570,12 @@ CONTAINS
 
   ! print out maximum and minimum value
   ! parallelize:
-  ctr=maxval(p_array(1:nproma,klev,1:ndimblk))
-  glbmx=global_max(ctr)
-  ctr=minval(p_array(1:nproma,klev,1:ndimblk))
-  glbmn=global_min(ctr)
+  !ctr=maxval(p_array(1:nproma,klev,1:ndimblk))
+  !glbmx=global_max(ctr)
+  !ctr=minval(p_array(1:nproma,klev,1:ndimblk))
+  !glbmn=global_min(ctr)
+  glbmx=maxval(p_array(1:nproma,klev,1:ndimblk))
+  glbmn=minval(p_array(1:nproma,klev,1:ndimblk))
 
   IF (my_process_is_stdio()) &
     & WRITE(iout,991) ' MAX/MIN ',strout,klev, glbmx, glbmn
