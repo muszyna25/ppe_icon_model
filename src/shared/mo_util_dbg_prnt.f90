@@ -49,7 +49,8 @@ USE mo_impl_constants,         ONLY: max_char_length
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
-USE mo_dbg_nml,                ONLY: str_mod_tst, dbg_lon_in, dbg_lat_in, idbg_mxmn, idbg_val
+USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
+  &                                  idbg_mxmn, idbg_val
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
@@ -270,7 +271,7 @@ CONTAINS
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
-  CHARACTER(len=3),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
+  CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
   INTEGER,               INTENT(IN) :: ipl_mod_src    ! source level from module for print output 
 
   ! local variables
@@ -290,9 +291,9 @@ CONTAINS
   ! compare defined source string with namelist-given output string ('per' for permanent output)
   icheck_str_mod = 0
   iper = 0
-  DO jstr = 1, 10
-    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_src == 'per'        &
-      &                                   .OR. str_mod_tst(jstr) == 'all') &
+  DO jstr = 1, dim_mod_tst
+    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_src       == 'per'  &
+      &                                  .OR. str_mod_tst(jstr) == 'all') &
       &  icheck_str_mod = 1
   END DO
 
@@ -301,11 +302,22 @@ CONTAINS
   ! if str_mod_src not found in str_mod_tst - no output
   IF (icheck_str_mod == 0 ) RETURN
 
+! ! valid e-format with first digit gt zero
+! 981 FORMAT(a,a10,a25,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
+! 982 FORMAT(a,a10,a25,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 991 FORMAT(a,a10,a25,'  :',i3,1p2e26.18)
+
+! ! g-format with offset for decimal point not valid for NAG compiler
+! 981 FORMAT(a,a10,a25,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
+! 982 FORMAT(a,a10,a25,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 991 FORMAT(a,a10,a25,'  :',i3,1p2g26.18)
+
   ! valid g-format without offset of decimal point
-  981 FORMAT(a,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
-  982 FORMAT(a,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
-  983 FORMAT(a,a25,':  ',i3, 4i4)
-  991 FORMAT(a,a25,':  ',i3, 2g26.18)
+  981 FORMAT(a,a10,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a10,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  991 FORMAT(a,a10,a25,'  :',i3, 2g26.18)
+
+  983 FORMAT(a,a10,a25,'  :',i3, 4i4)
 
   strout=TRIM(str_prntdes)
 
@@ -324,13 +336,13 @@ CONTAINS
 
         ! write value at index
         IF (ndimblk == loc_nblks_c) THEN
-          WRITE(iout,981) '   VALUE ', strout, jk, p_array(c_i,jk,c_b), &
+          WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,jk,c_b), &
         &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
         ELSE IF (ndimblk == loc_nblks_e) THEN
-          WRITE(iout,982) '   VALUE ', strout, jk, &
+          WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
         &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
         ELSE IF (ndimblk == loc_nblks_v) THEN
-          WRITE(iout,982) '   VALUE ', strout, jk, &
+          WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
         &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
         END IF
 
@@ -359,7 +371,7 @@ CONTAINS
     glbmn=global_min(ctr)
 
     IF (my_process_is_stdio()) &
-      & WRITE(iout,991) ' MAX/MIN ',strout,jk, glbmx, glbmn
+      & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
 
     ! location of max/min - parallelize!
 !!$    WRITE(iout,983) ' LOC ',strout,klev, &

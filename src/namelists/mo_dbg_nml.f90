@@ -70,7 +70,9 @@ MODULE mo_dbg_nml
   INTEGER  :: idbg_idx = 1       ! output test index
   INTEGER  :: idbg_lev = 1       ! output test level
 
-  CHARACTER(len=20) :: str_mod_tst(50)   ! namelist string of source processes to print
+  INTEGER, PARAMETER         :: dim_mod_tst = 20         ! array dimension of test strings
+  INTEGER, PARAMETER         :: len_mod_tst = 10         ! string length of test strings
+  CHARACTER(len=len_mod_tst) :: str_mod_tst(dim_mod_tst) ! namelist string of source processes to print
 
   NAMELIST/dbg_index_nml/  idbg_mxmn, idbg_val, dbg_lat_in, dbg_lon_in, &
     &                      idbg_blk,  idbg_idx, idbg_lev, str_mod_tst
@@ -108,7 +110,7 @@ CONTAINS
     ! strings for marked modules to be printed out for debug purposes, exclusively
     ! default is 'all' to print out max/min and/or values in all modules
 
-    DO i=2,SIZE(str_mod_tst)
+    DO i=2, dim_mod_tst
       str_mod_tst(i) = '                    '
     END DO
     str_mod_tst(1) = 'all                 '

@@ -104,6 +104,7 @@ PUBLIC :: solve_free_sfc_ab_mimetic
 PUBLIC :: calc_normal_velocity_ab_mimetic
 PUBLIC :: calc_vert_velocity_mimetic
 PUBLIC :: calc_vert_velocity_mim_topdown
+!
 ! Private implemenation
 !
 PRIVATE :: fill_rhs4surface_eq_ab
@@ -111,8 +112,9 @@ PRIVATE :: calculate_explicit_term_ab   ! calc_velocity_predictor
 PRIVATE :: lhs_surface_height_ab_mim
 PRIVATE :: inverse_primal_flip_flop
 PRIVATE :: update_column_thickness
-INTEGER, PARAMETER  :: top=1
-LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
+INTEGER, PARAMETER :: top=1
+LOGICAL, PARAMETER :: l_forc_freshw = .FALSE.
+CHARACTER(len=10)  :: str_module = 'ocSTPmim'  ! Output of module for 1 line debug
 
 ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
 ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
@@ -441,8 +443,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     END DO
 
     ! test new debug printout routine
-    !CALL dbg_prnt('tdensity',p_os%p_diag%rho(:,:,:),'abt',ipl_src)
-    !CALL dbg_print('ndensity',p_os%p_diag%rho(:,:,:),'abt',ipl_src)
+    CALL dbg_print('ndensity',p_os%p_diag%rho(:,:,:),str_module,ipl_src)
 
     DO jk=1, n_zlev
       CALL print_mxmn('internal pressure',jk,p_os%p_diag%press_hyd(:,:,:),n_zlev, &
