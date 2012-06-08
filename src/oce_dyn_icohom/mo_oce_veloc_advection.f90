@@ -72,7 +72,7 @@ MODULE mo_oce_veloc_advection
   PRIVATE
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  CHARACTER(len=*)   :: str_module = 'oceVelocAdv '  ! Output of module for 1 line debug
+  CHARACTER(len=12)  :: str_module = 'oceVelocAdv '  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
 ! CHARACTER(len=12)  :: str_module = '__FILE__'
 
@@ -310,18 +310,6 @@ CONTAINS
     CALL dbg_print('Coriolis: grad kin en'       ,p_diag%grad              ,str_module,idt_src)
     !---------------------------------------------------------------------
 
-    DO jk = slev, elev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('kinetic energy',jk,p_diag%kin(:,:,:),n_zlev, &
-        & p_patch%nblks_c,'vel',ipl_src)
-      ipl_src=4  ! output print level (1-5, fix)
-      CALL print_mxmn('grad kin energy',jk,p_diag%grad(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      ! write(*,*)'max/min kin energy:            ',jk, MAXVAL(p_diag%kin(:,jk,:)),&
-      !                                            &MINVAL(p_diag%kin(:,jk,:))
-      ! write(*,*)'max/min grad kin energy:       ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
-      !                                             &MINVAL(p_diag%grad(:,jk,:))
-    END DO
     ! IF(L_INVERSE_FLIP_FLOP)THEN
     !   CALL map_edges2edges( p_patch,    &
     !                       & p_diag%grad,&
@@ -334,6 +322,7 @@ CONTAINS
     !---------------------------for testing and comparison with RBF--------------------------
     !----------nonlinear coriolis and grad of kinetic energy computed with RBFs--------------
     !----------needs interpolation state
+
     IF (l_debug) THEN
       z_vort_flx_rbf  (:,:,:) = 0.0_wp
       z_kin_rbf_c     (:,:,:) = 0.0_wp
