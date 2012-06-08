@@ -1,4 +1,3 @@
-#=============================================================================
 EXP="test_oce_parallel"
 varNames="ELEV T S"
 maskName="wet_c"
@@ -8,7 +7,7 @@ oType="png"
 basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/${EXP}/"
 scriptPath="${basePath}/scripts/postprocessing/tools"
-nclCaller="${scriptPath}/contrib/nclsh"
+nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 # set the CDO path for the dwd to a local installation
 case "$(hostname -d)" in
