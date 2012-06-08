@@ -43,27 +43,25 @@ MODULE mo_oce_boundcond
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: rho_ref
-  USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea,&
-    & min_rlcell, min_rledge, min_dolic !, min_rlvert
+  USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea, min_rlcell, min_dolic
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ocean_nml,          ONLY: idisc_scheme, iswm_oce, i_bc_veloc_top, i_bc_veloc_bot
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message
-  USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+  USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
   USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2d,&
                                  & map_cell2edges
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce_3D
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec,cvec2gvec
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec!, cvec2gvec
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_sync,               ONLY: SYNC_E, sync_patch_array
   
   IMPLICIT NONE
   
@@ -83,8 +81,8 @@ MODULE mo_oce_boundcond
   !PUBLIC :: update_ocean_surface_fluxes
   
   INTEGER, PARAMETER :: top=1
-  CHARACTER(len=10)  :: str_module = 'oceBC   '  ! Output of module for 1 line debug
-  INTEGER            :: idt_src    = 1           ! Level of detail for 1 line debug
+  CHARACTER(len=12)  :: str_module = 'oceBoundCond'  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
 
 CONTAINS
   
@@ -115,7 +113,6 @@ CONTAINS
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp):: z_scale
-    REAL(wp):: z_c(nproma,1,p_patch%nblks_c)
     REAL(wp):: z_e(nproma,1,p_patch%nblks_e)
     
     TYPE(t_subset_range), POINTER :: all_cells
@@ -124,7 +121,6 @@ CONTAINS
     !& routine = ('mo_oce_boundcond:top_bound_cond_veloc')
     !-----------------------------------------------------------------------
 
-    z_c(:,1,:) = 0.0_wp
     z_e(:,1,:) = 0.0_wp
 
     all_cells => p_patch%cells%all
@@ -195,19 +191,13 @@ CONTAINS
     CALL map_cell2edges( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn, level=1)
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_top_vn)
 
-  !  write(*,*)'BC: MAX/MIN: wind:u/v',maxval(p_os%p_aux%bc_top_vn),&
-  !                              & minval(p_os%p_aux%bc_top_vn)&
-  !                              &,maxval(p_sfc_flx%forc_wind_v), &
-  !                              &minval(p_sfc_flx%forc_wind_v)
-
-    ipl_src=2  ! output print level (1-5, fix)
-    z_c(:,1,:)=top_bc_u_c(:,:)
-    CALL print_mxmn('top.bound.cond u',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
-    z_c(:,1,:)=top_bc_v_c(:,:)
-    CALL print_mxmn('top.bound.cond v',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
-    ipl_src=3  ! output print level (1-5, fix)
-    z_e(:,1,:)=p_os%p_aux%bc_top_vn(:,:)
-    CALL print_mxmn('top.bound.cond vn',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('top bound.cond. u_c'         ,top_bc_u_c               ,str_module,idt_src)
+    CALL dbg_print('top bound.cond. v_c'         ,top_bc_v_c               ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('top bound.cond. vn'          ,p_os%p_aux%bc_top_vn     ,str_module,idt_src)
+    !---------------------------------------------------------------------
     
   END SUBROUTINE top_bound_cond_horz_veloc
   !-------------------------------------------------------------------------
@@ -241,9 +231,7 @@ CONTAINS
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: z_dolic, z_dolic_c1,z_dolic_c2
     REAL(wp) :: z_norm
-    REAL(wp) :: z_c(nproma,1,p_patch%nblks_c)
     REAL(wp) :: z_e(nproma,1,p_patch%nblks_e)
-    REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_depth(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_div_depth(nproma,1,p_patch%nblks_c)
     TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,1,p_patch%nblks_e)
@@ -362,16 +350,13 @@ CONTAINS
     CASE default
       CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions')
     END SELECT
-    
-    ipl_src=2  ! output print level (1-5, fix)
-    !z_c(:,1,:)=p_os%p_aux%bc_bot_u(:,:)
-    !CALL print_mxmn('bot.bound.cond u',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
-    !z_c(:,1,:)=p_os%p_aux%bc_bot_v(:,:)
-    !CALL print_mxmn('bot.bound.cond v',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
-    !ipl_src=3  ! output print level (1-5, fix)
-    z_e1(:,1,:)=p_os%p_aux%bc_bot_vn(:,:)
-    CALL print_mxmn('bot.bound.cond vn', 1,z_e1(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
-    !CALL print_mxmn('bot.bound.cond z_e',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('bot bound.cond. u_c'         ,p_os%p_aux%bc_bot_u      ,str_module,idt_src)
+    CALL dbg_print('bot bound.cond. v_c'         ,p_os%p_aux%bc_bot_v      ,str_module,idt_src)
+    CALL dbg_print('bot bound.cond. vn'          ,p_os%p_aux%bc_bot_vn     ,str_module,idt_src)
+    !---------------------------------------------------------------------
     
   END SUBROUTINE bot_bound_cond_horz_veloc
   !-------------------------------------------------------------------------
@@ -496,6 +481,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,1)
     
     top_bc_w(:,:) = 0.0_wp
+ !  z_grad_h_cc_vec(nproma,1,p_patch%nblks_c)%x(:) = 0.0_wp
     
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
@@ -605,7 +591,7 @@ CONTAINS
     !Local variables
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_c(nproma,1,p_patch%nblks_c)
+    REAL(wp):: z_c(nproma,p_patch%nblks_c)
 
     TYPE(t_subset_range), POINTER :: all_cells
     
@@ -622,12 +608,10 @@ CONTAINS
     END DO
 
     !---------Debug Diagnostics-------------------------------------------
-    ipl_src=3  ! output print level (1-5, fix)
-    z_c(:,1,:)=top_bc_tracer(:,:,tracer_id)
+    idt_src=3  ! output print level (1-5, fix)
+    z_c(:,:)=top_bc_tracer(:,:,tracer_id)
     CALL dbg_print('top bound.cond.tracer'       ,z_c                      ,str_module,idt_src)
-    
-    ipl_src=2  ! output print level (1-5, fix)
-    CALL print_mxmn('top.bound.cond trc',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
+    !---------------------------------------------------------------------
     
   END SUBROUTINE top_bound_cond_tracer
   !-------------------------------------------------------------------------

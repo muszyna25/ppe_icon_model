@@ -75,7 +75,7 @@ MODULE mo_dbg_nml
   INTEGER  :: idbg_elev =  1000  ! elev=ndim_vert in sbrt dbg_mxmn
 
   INTEGER, PARAMETER         :: dim_mod_tst = 20         ! array dimension of test strings
-  INTEGER, PARAMETER         :: len_mod_tst = 10         ! string length of test strings
+  INTEGER, PARAMETER         :: len_mod_tst = 12         ! string length of test strings
   CHARACTER(len=len_mod_tst) :: str_mod_tst(dim_mod_tst) ! namelist string of source processes to print
 
   NAMELIST/dbg_index_nml/  idbg_mxmn, idbg_val, dbg_lat_in, dbg_lon_in, &
