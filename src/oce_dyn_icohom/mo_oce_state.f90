@@ -1828,10 +1828,10 @@ CONTAINS
       IF (is_p_test_run) THEN
         ! check if we have the correct slm
         p_test_run = is_p_test_run
+      ENDIF
         z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
         CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
         lsm_c(:,:) = INT(z_sync_c(:,:))               
-      ENDIF
 
     END DO  ! jk=1,n_zlev
 
@@ -2403,11 +2403,9 @@ CONTAINS
     
     p_test_run = p_test_run_bac
     !chekc if iarea is the same
-    IF (p_test_run) THEN
        z_sync_c(:,:) =  REAL(iarea(:,:),wp)
        CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
        iarea(:,:) = INT(z_sync_c(:,:))
-    ENDIF
     !-----------------------------
 
     !-----------------------------

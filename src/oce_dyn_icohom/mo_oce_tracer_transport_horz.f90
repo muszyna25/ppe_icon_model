@@ -908,7 +908,7 @@ END SUBROUTINE elad
     !    cell center to upwind point C_i from step 2
     !3a:
 
-    IF (p_test_run) z_gradC = 0.0_wp
+    z_gradC = 0.0_wp
     CALL grad_fd_norm_oce_3D( pvar_c,                 &
            &                  ppatch,                 &
            &                  p_op_coeff%grad_coeff,  &
@@ -1084,13 +1084,11 @@ END SUBROUTINE elad
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
 
-    IF (p_test_run) THEN
       z_tracer_new_low = 0.0_wp
       z_tracer_max     = 0.0_wp
       z_tracer_min     = 0.0_wp
       r_m              = 0.0_wp
       r_p              = 0.0_wp
-   ENDIF
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block

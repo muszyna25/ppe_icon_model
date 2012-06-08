@@ -213,11 +213,9 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
    maxiterex = .FALSE.
  
-   IF ( p_test_run) THEN   
      z(:,:) = 0._wp
      v(:,:,:) = 0.0_wp
      r(:,:)  = 0.0_wp
-   ENDIF
    ! 1) compute the preconditioned residual
 
 !    w(:,:) = 0._wp
