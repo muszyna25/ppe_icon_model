@@ -65,6 +65,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 ! indices of cells and neighbours for debug output at single cell
 INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
 INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
+LOGICAL :: p_test_run_bac
 
 PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
@@ -194,7 +195,6 @@ CONTAINS
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
   REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
   TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  LOGICAL  :: p_test_run_bac
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_util_dbg_prnt:find_latlonindex'
@@ -371,10 +371,13 @@ CONTAINS
     DO jk = slev, elev
     
       ! parallelize:
+      p_test_run_bac = p_test_run
+      p_test_run = .false.
       ctr=maxval(p_array(1:nproma,jk,1:ndimblk))
       glbmx=global_max(ctr)
       ctr=minval(p_array(1:nproma,jk,1:ndimblk))
       glbmn=global_min(ctr)
+      p_test_run = p_test_run_bac
     
       IF (my_process_is_stdio()) &
         & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
@@ -484,10 +487,13 @@ CONTAINS
   ! print out maximum and minimum value
 
   ! parallelize:
+  p_test_run_bac = p_test_run
+  p_test_run = .false.
   ctr=maxval(p_array(1:nproma,1:ndimblk))
   glbmx=global_max(ctr)
   ctr=minval(p_array(1:nproma,1:ndimblk))
   glbmn=global_min(ctr)
+  p_test_run = p_test_run_bac
 
   IF (my_process_is_stdio()) &
     & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn

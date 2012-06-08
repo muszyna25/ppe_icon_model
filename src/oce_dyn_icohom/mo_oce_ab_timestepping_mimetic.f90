@@ -114,7 +114,7 @@ PRIVATE :: inverse_primal_flip_flop
 PRIVATE :: update_column_thickness
 INTEGER, PARAMETER :: top=1
 LOGICAL, PARAMETER :: l_forc_freshw = .FALSE.
-CHARACTER(len=12)  :: str_module = 'oceSTEPmim'    ! Output of module for 1 line debug
+CHARACTER(len=12)  :: str_module = 'oceSTEPmimet'  ! Output of module for 1 line debug
 INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
 
 ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
@@ -1283,6 +1283,9 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
 
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nnew(1))%vn)
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_time_weighted)
+
+  ! slo: z_grad_h not out of sync, but sync error with global_max in dbg_print?
+  !CALL sync_patch_array(SYNC_E, p_patch, z_grad_h)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
