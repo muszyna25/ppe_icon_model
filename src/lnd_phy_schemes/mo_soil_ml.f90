@@ -4846,20 +4846,20 @@ IMPLICIT NONE
 !The sum of wtot_snow, i.e. the "old" total water equivalent depth
         zw_snow_old  (:) = 0.0_ireals
         zrho_snow_old(:) = 0.0_ireals
+        zicount1(:)      = 0.0_ireals
+        zicount2(:)      = 0.0_ireals
         DO ksn = 1, ke_snow
           DO i = istarts, iends
             zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)
             zrho_snow_old(i) = zrho_snow_old(i) + dzh_snow_now(i,ksn)
+            IF (wtot_snow_now(i,ksn) > zepsi) zicount1(i) = zicount1(i)+1
+            IF (dzh_snow_now(i,ksn) > zepsi)  zicount2(i) = zicount2(i)+1
           END DO
         END DO
 !The "old" snow density
         DO i = istarts, iends
           zrho_snow_old(i) = zw_snow_old(i) / MAX(zrho_snow_old(i),1.0E-09_ireals) *rho_w
         END DO 
-        DO i = istarts, iends
-          zicount1(i) = COUNT(wtot_snow_now(i,:).gt.zepsi)
-          zicount2(i) = COUNT(dzh_snow_now(i,:).gt.zepsi)
-        END DO
         DO ksn = 1, ke_snow
           DO i = istarts, iends
             IF(zicount1(i).EQ.ke_snow .AND. zicount2(i).EQ.ke_snow) THEN
@@ -4874,6 +4874,7 @@ IMPLICIT NONE
               dzh_snow_now     (i,ksn) = w_snow_now(i)*rho_w/rho_snow_mult_now(i,ksn)/ke_snow
               wliq_snow_now    (i,ksn) = 0.0_ireals
             END IF
+            t_snow_mult_now(i,ksn) = t_snow_now(i)
           END DO
         END DO
       ELSE
