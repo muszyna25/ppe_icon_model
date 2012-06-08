@@ -462,8 +462,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
 
   !---------Debug Diagnostics-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('After AdvDiffHorz: trac_old',trac_old                 ,str_module,idt_src)
-  CALL dbg_print('After AdvDiffHorz: trac_new',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffHorz: trac_old',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffHorz: trac_new',trac_old                 ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   ! #slo# without tracer advection/diffusion - should be controlled by namelist
@@ -492,8 +492,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
 
   !---------Debug Diagnostics-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('After AdvDiffVert: trac_old',trac_old                 ,str_module,idt_src)
-  CALL dbg_print('After AdvDiffVert: trac_new',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffVert: trac_old',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffVert: trac_new',trac_old                 ,str_module,idt_src)
   !---------------------------------------------------------------------
 
 

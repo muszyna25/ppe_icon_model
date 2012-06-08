@@ -453,15 +453,15 @@ CONTAINS
 
   strout=TRIM(str_prntdes)
 
+  ! surface level output only
+  jk = 1
+
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
 
   IF (idbg_val >= idetail_src) THEN
     IF (my_process_is_stdio()) THEN
-
-      ! surface level output only
-      jk = 1
 
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
