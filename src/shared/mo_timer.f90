@@ -260,7 +260,7 @@ CONTAINS
     timer_global_sum = new_timer("global_sum")
     timer_omp_global_sum = new_timer("omp_global_sum")
     timer_ordglb_sum = new_timer("ordglb_sum")
-    timer_omp_ordglb_sum = new_timer("omp_ordglb_sum")
+!     timer_omp_ordglb_sum = new_timer("omp_ordglb_sum")
     timer_icon_comm_sync = new_timer("icon_comm_sync")
     timer_barrier  = new_timer("barrier")
       

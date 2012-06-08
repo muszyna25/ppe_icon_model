@@ -1719,7 +1719,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
 #endif
 
 !-----------------------------------------------------------------------
-   IF (activate_sync_timers) CALL timer_start(timer_omp_ordglb_sum)
+!    IF (activate_sync_timers) CALL timer_start(timer_omp_ordglb_sum)
 
    ! Set shared variables in a MASTER region
 
@@ -1824,7 +1824,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
     ENDIF
    
-   IF (activate_sync_timers) CALL timer_stop(timer_omp_ordglb_sum)
+!    IF (activate_sync_timers) CALL timer_stop(timer_omp_ordglb_sum)
 
 END FUNCTION omp_order_insensit_ieee64_sum
 !-------------------------------------------------------------------------------
