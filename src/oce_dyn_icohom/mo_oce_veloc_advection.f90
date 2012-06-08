@@ -385,10 +385,10 @@ CONTAINS
         END DO
       END DO
 
-     CALL grad_fd_norm_oce_3d( p_diag%kin, &
-      & p_patch,    &
-      & p_op_coeff%grad_coeff,&
-      & z_grad_ekin_rbf)
+      CALL grad_fd_norm_oce_3d( p_diag%kin, &
+        & p_patch,    &
+        & p_op_coeff%grad_coeff,&
+        & z_grad_ekin_rbf)
 
       CALL sync_patch_array(SYNC_E, p_patch, z_grad_ekin_rbf)      
 
