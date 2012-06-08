@@ -499,7 +499,7 @@ CONTAINS
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
-    REAL(wp), INTENT(inout)                   :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(out)                     :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
     !TYPE(t_operator_coeff)                    :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev        ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev        ! optional vertical end level
@@ -522,8 +522,7 @@ CONTAINS
     
     edges_in_domain   => p_patch%edges%in_domain
 
-    ! slo: not necessary, should be done in calling routines
-    !IF (p_test_run) ptp_vn(:,:,:) = 0.0_wp
+    ptp_vn(:,:,:) = 0.0_wp
     
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -605,7 +604,7 @@ CONTAINS
     !CALL message (TRIM(routine), 'start')
     
     edges_in_domain   => p_patch%edges%in_domain
-    IF (p_test_run) ptp_vn(:,:) = 0.0_wp
+    ptp_vn(:,:) = 0.0_wp
     
     
     ! calculation of transposed P^TPv from Pv (incart coord)

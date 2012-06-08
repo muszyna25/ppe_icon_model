@@ -132,19 +132,26 @@ CONTAINS
       z_scale = rho_ref
     ENDIF
 
+    ! set to zero (NAG)
+    top_bc_u_c (:,:)      = 0.0_wp
+    top_bc_v_c (:,:)      = 0.0_wp
+    top_bc_u_cc(:,:)%x(1) = 0.0_wp
+    top_bc_u_cc(:,:)%x(2) = 0.0_wp
+    top_bc_u_cc(:,:)%x(3) = 0.0_wp
+
     SELECT CASE (i_bc_veloc_top)
 
-    CASE (0)
+   !CASE (0)
 
-      ! CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          top_bc_u_c(jc,jb)    =0.0_wp
-          top_bc_v_c(jc,jb)    =0.0_wp
-          top_bc_u_cc(jc,jb)%x =0.0_wp
-        END DO
-      END DO
+   !  ! CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
+   !  DO jb = all_cells%start_block, all_cells%end_block
+   !    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+   !    DO jc = i_startidx_c, i_endidx_c
+   !      top_bc_u_c(jc,jb)    =0.0_wp
+   !      top_bc_v_c(jc,jb)    =0.0_wp
+   !      top_bc_u_cc(jc,jb)%x =0.0_wp
+   !    END DO
+   !  END DO
 
     CASE (1) ! Forced by wind stress stored in p_sfc_flx
 
@@ -153,13 +160,13 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-          top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)/z_scale
-          top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)/z_scale
-          top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x/z_scale
+            top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)/z_scale
+            top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)/z_scale
+            top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x/z_scale
           !ELSE
-          ! top_bc_u_c(jc,jb)    =0.0_wp
-          ! top_bc_v_c(jc,jb)    =0.0_wp
-          ! top_bc_u_cc(jc,jb)%x =0.0_wp
+          !  top_bc_u_c(jc,jb)    =0.0_wp
+          !  top_bc_v_c(jc,jb)    =0.0_wp
+          !  top_bc_u_cc(jc,jb)%x =0.0_wp
           ENDIF
         END DO
       END DO
@@ -586,7 +593,7 @@ CONTAINS
     TYPE(t_hydro_ocean_state), INTENT(in) :: pstate_oce          ! ocean state variable
     INTEGER, INTENT(in)                   :: tracer_id
     TYPE(t_sfc_flx), INTENT(in)           :: p_sfc_flx
-    REAL(wp), INTENT(out)                 :: top_bc_tracer(:,:,:) !Top boundary condition at cells for all tracers
+    REAL(wp), INTENT(inout)               :: top_bc_tracer(:,:,:) !Top boundary condition at cells for all tracers
     !
     !Local variables
     INTEGER :: jc, jb
