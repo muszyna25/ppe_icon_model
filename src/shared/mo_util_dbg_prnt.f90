@@ -50,7 +50,7 @@ USE mo_impl_constants,         ONLY: max_char_length
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
-  &                                  idbg_mxmn, idbg_val
+  &                                  idbg_mxmn, idbg_val, idbg_slev, idbg_elev
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
@@ -274,7 +274,8 @@ CONTAINS
 
   ! local variables
   CHARACTER(len=27) ::  strout
-  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, klev, nlev, ndimblk
+  INTEGER           ::  slev, elev
+  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_print_mxmn)
@@ -320,6 +321,15 @@ CONTAINS
 
   strout=TRIM(str_prntdes)
 
+  ! check start and end index for output of vertical levels via namelist
+
+  slev = 1
+  IF (idbg_slev > 1) slev = idbg_slev
+  elev = nlev
+  IF (idbg_elev < nlev) elev = idbg_elev
+
+  !IF (slev > nlev) slev = nlev
+  !IF (elev < slev) elev = slev
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
@@ -327,11 +337,10 @@ CONTAINS
   IF (idbg_val >= idetail_src) THEN
     IF (my_process_is_stdio()) THEN
 
-      ! idbg_val<4: surface level output only
-      klev = nlev
-      IF (idbg_val < 4) klev = 1
+      ! idbg_val<4: one level output only (slev)
+      IF (idbg_val < 4) elev = slev
 
-      DO jk = 1, klev
+      DO jk = slev, elev
 
         ! write value at index
         IF (ndimblk == loc_nblks_c) THEN
@@ -353,31 +362,31 @@ CONTAINS
   ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
   ! for MIN/MAX output:
 
-  !IF (idbg_mxmn < idetail_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
-  IF (idbg_mxmn < idetail_src ) RETURN
+  IF (idbg_mxmn > idetail_src ) THEN
+    
+    ! idbg_val<4: one level output only (slev)
+    IF (idbg_mxmn < 4) elev = slev
+    
+    ! print out maximum and minimum value
+    DO jk = slev, elev
+    
+      ! parallelize:
+      ctr=maxval(p_array(1:nproma,jk,1:ndimblk))
+      glbmx=global_max(ctr)
+      ctr=minval(p_array(1:nproma,jk,1:ndimblk))
+      glbmn=global_min(ctr)
+    
+      IF (my_process_is_stdio()) &
+        & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
+    
+      ! location of max/min - parallelize!
+      ! WRITE(iout,983) ' LOC ',strout,jk, &
+      !   &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
+      !   &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
+    
+    END DO
 
-  ! idbg_mxmn<4: surface level output only
-  klev = nlev
-  IF (idbg_mxmn < 4) klev = 1
-
-  ! print out maximum and minimum value
-  DO jk = 1, klev
-
-    ! parallelize:
-    ctr=maxval(p_array(1:nproma,jk,1:ndimblk))
-    glbmx=global_max(ctr)
-    ctr=minval(p_array(1:nproma,jk,1:ndimblk))
-    glbmn=global_min(ctr)
-
-    IF (my_process_is_stdio()) &
-      & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
-
-    ! location of max/min - parallelize!
-!!$    WRITE(iout,983) ' LOC ',strout,klev, &
-!!$      &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
-!!$      &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
-
-  END DO
+  END IF
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
@@ -397,7 +406,7 @@ CONTAINS
 
   ! local variables
   CHARACTER(len=27) ::  strout
-  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, klev, ndimblk
+  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_print_mxmn)
@@ -471,9 +480,6 @@ CONTAINS
 
   !IF (idbg_mxmn < idetail_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
   IF (idbg_mxmn < idetail_src ) RETURN
-
-  ! surface level output only
-  klev = 1
 
   ! print out maximum and minimum value
 
