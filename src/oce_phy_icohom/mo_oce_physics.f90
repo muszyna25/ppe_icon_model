@@ -54,21 +54,18 @@ USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
-  &                               CWA, CWT, HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order
+  &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
-USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
-  &                               min_rlvert, BOUNDARY, MIN_DOLIC, SEA
+USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
-USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, oce_config
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
-USE mo_loopindices,         ONLY: get_indices_c,get_indices_e, get_indices_v
 USE mo_math_constants,      ONLY: dbl_eps
-USE mo_dynamics_config,     ONLY: nold, nnew
-! USE mo_oce_forcing,         ONLY: t_sfc_flx
+USE mo_dynamics_config,     ONLY: nold!, nnew
 USE mo_sea_ice_types,       ONLY: t_sfc_flx
-USE mo_run_config,          ONLY: dtime
+! USE mo_run_config,          ONLY: dtime
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
@@ -79,8 +76,7 @@ USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, &
-  &                               sync_patch_array, sync_idx, global_max, global_min
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, global_max
 
 IMPLICIT NONE
 
@@ -90,6 +86,8 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_oce_physics'
+CHARACTER(len=12)           :: str_module    = 'ocePhysics  '  ! Output of module for 1 line debug
+INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
 ! Public interface
 PUBLIC  :: t_ptr3d, t_ho_params
@@ -289,8 +287,6 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
     ! Local variables
     REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
-    INTEGER             :: je,jb
-    INTEGER             :: i_startidx_e, i_endidx_e
     REAL(wp)            :: z_largest_edge_length
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain
@@ -381,8 +377,10 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       ENDDO
     END DO
 
-    ipl_src=1  ! output print level (1-5, fix)
-    CALL print_mxmn('smoothed PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=0  ! output print level - 0: print in any case
+    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE smooth_lapl_diff
   !
@@ -578,27 +576,23 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     ! Local variables
     INTEGER  :: jc, jb, je,jk, itracer
    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
-    INTEGER  :: ilc1,ibc1,ilc2,ibc2,jj, ible,idxe
-    INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+    INTEGER  :: ilc1, ibc1, ilc2,ibc2!, jj, ible,idxe
+    INTEGER  :: i_startidx_c, i_endidx_c
+    INTEGER  :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_stabio(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: buoyance_frequence
-    REAL(wp) :: z_shear_e
-    REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch%nblks_c)  !TODO: comments
-    REAL(wp) :: z_shear2_c(nproma,n_zlev,p_patch%nblks_c) !TODO: comments
+!   REAL(wp) :: buoyance_frequence
+    REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_rho_up(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_rho_down(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_Ri_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_Ri_e(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: dz_inv
-    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
-    REAL(wp) :: z_lambda_frac 
-    REAL(wp) :: z_A_veloc_v_old, z_A_tracer_v_old
-    INTEGER  ::  z_dolic
-    INTEGER  :: idx_c1,ibk_c1, idx_c2,ibk_c2, idx_c3,ibk_c3
-    INTEGER  :: idx_e1,ibk_e1, idx_e2,ibk_e2, idx_e3,ibk_e3,idx_e4,ibk_e4
+!    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
+!   REAL(wp) :: z_lambda_frac 
+    REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
+    INTEGER  :: z_dolic
 
     !Below is a set of variables and parameters for tracer and velocity
     REAL(wp), PARAMETER :: z_beta            = 0.6_wp
@@ -613,7 +607,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE. !TODO: in namelist
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
     REAL(wp) :: z_press!, z_frac
-    REAL(wp) :: A_v_tmp, A_T_tmp
+    REAL(wp) :: A_T_tmp!, A_v_tmp
     REAL(wp) :: z_s1, z_s2, density_grad_e, mean_z_r
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
@@ -809,21 +803,18 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     END DO
     CALL sync_patch_array(SYNC_E,p_patch,params_oce%A_veloc_v(:,:,:))
 
-    ! debug output
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
+    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('UpdPar: z_shear_c'         ,z_shear_c                ,str_module,idt_src)
+    idt_src=2  ! output print level (1-5, fix)
     DO itracer = 1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,itracer)
-      DO jk=1,n_zlev
-        ipl_src=3  ! output print level (1-5, fix)
-        CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
-        CALL print_mxmn('p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
-        CALL print_mxmn('p_vn%x(2)',jk,p_os%p_diag%p_vn%x(2),n_zlev,p_patch%nblks_c,'phy',ipl_src)
-        CALL print_mxmn('z_shear_c',jk,z_shear_c,n_zlev,p_patch%nblks_c,'phy',ipl_src)
-      END DO
-    END DO
-    DO jk=1,n_zlev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev+1, &
-       & p_patch%nblks_e,'phy',ipl_src)
-    END DO
+      CALL dbg_print('UpdPar FinalTracerMixing'  ,z_c                    ,str_module,idt_src)
+    ENDDO
+    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%A_veloc_v     ,str_module,idt_src)
+    !---------------------------------------------------------------------
   END SUBROUTINE update_ho_params
 END MODULE mo_oce_physics
