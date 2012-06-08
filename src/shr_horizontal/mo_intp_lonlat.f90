@@ -400,7 +400,7 @@
       ! Local parameters
       CHARACTER(*), PARAMETER :: routine = TRIM("mo_interpolation:rbf_vec_compute_coeff_lonlat")
       REAL(wp)                         :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
-      TYPE(t_cartesian_coordinates)    :: cc_center                  ! coordinates of cell centers
+      TYPE(t_cartesian_coordinates)    :: cc_center                  ! cartes. coordinates of lon-lat points
       REAL(wp), DIMENSION (nproma,3)   :: z_nx1, z_nx2, z_nx3        ! 3d  normal velocity vectors at edge midpoints
       REAL(wp)                         :: z_lon, z_lat,            & ! longitude and latitude
         &                                 z_norm,                  & ! norm of velocity vectors
@@ -512,7 +512,7 @@
           !
           ! Solve immediately for coefficients
           !
-          ! convert coordinates of cell center to cartesian vector
+          ! convert coordinates to cartesian vector
           !
           grid_point%lon = REAL( lon_lat_points(jc, jb,1), wp)
           grid_point%lat = REAL( lon_lat_points(jc, jb,2), wp)
@@ -646,11 +646,12 @@
     !! developed and tested by Guenther Zaengl, DWD (2009-12-15)
     !! Restructuring F. Prill, DWD (2011-08-18)
     !!
-    SUBROUTINE rbf_compute_coeff_c2grad_lonlat (ptr_patch,                   &
+    SUBROUTINE rbf_compute_coeff_c2grad_lonlat (ptr_patch, ptr_int,          &
       &                                         nblks_lonlat, npromz_lonlat, &
       &                                         ptr_int_lonlat)
 
       TYPE(t_patch),     INTENT(in)    :: ptr_patch                   ! patch on which computation is performed
+      TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
       INTEGER,           INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! lon-lat grid blocking info
       TYPE (t_lon_lat_intp), TARGET, INTENT(inout) :: ptr_int_lonlat  ! interpolation state
 
@@ -658,14 +659,14 @@
       INTEGER  :: je, jcc,                                   &
         &         jc, jb,                                    &  ! integer over lon-lat points
         &         i_startidx, i_endidx,                      &
-        &         ile, ibe, ilc, ibc, ilcc, ibcc
+        &         ile, ibe, ilc, ibc, ilcc, ibcc, jc_c, jb_c
       REAL(wp) :: inv_length, coeff(2),                      &
         &         aux_coeff(nproma,rbf_c2grad_dim,2)
       REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff
 
       !--------------------------------------------------------------------
 
-      ptr_coeff => ptr_int_lonlat%rbf_vec_coeff
+      ptr_coeff => ptr_int%rbf_vec_coeff_c
 
       ! loop through all patch cells (and blocks)
 
@@ -692,7 +693,10 @@
               ibcc = ptr_int_lonlat%rbf_c2grad_blk(jcc,jc,jb)
 
               inv_length = ptr_patch%edges%inv_dual_edge_length(ile,ibe)
-              coeff(1:2) = ptr_coeff(je,1:2,jc,jb) * inv_length
+
+              jc_c = ptr_int_lonlat%tri_idx(1,jc, jb)
+              jb_c = ptr_int_lonlat%tri_idx(2,jc, jb)
+              coeff(1:2) = ptr_coeff(je,1:2,jc_c,jb_c) * inv_length
 
               ! every edge (ile,ibe) of the stencil for cell (jc,jb)
               ! contributes to two entries of the combined coeff/finite
@@ -916,7 +920,7 @@
         END DO
       END DO
 
-      CALL rbf_compute_coeff_c2grad_lonlat (ptr_patch, nblks_lonlat, &
+      CALL rbf_compute_coeff_c2grad_lonlat (ptr_patch, ptr_int, nblks_lonlat, &
         &                                   npromz_lonlat, ptr_int_lonlat)
 
       IF ( l_cutoff_local_domains ) THEN
