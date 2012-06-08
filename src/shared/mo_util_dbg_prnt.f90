@@ -362,7 +362,7 @@ CONTAINS
   ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
   ! for MIN/MAX output:
 
-  IF (idbg_mxmn > idetail_src ) THEN
+  IF (idbg_mxmn >= idetail_src ) THEN
     
     ! idbg_val<4: one level output only (slev)
     IF (idbg_mxmn < 4) elev = slev
@@ -481,22 +481,22 @@ CONTAINS
   ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
   ! for MIN/MAX output:
 
-  !IF (idbg_mxmn < idetail_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
-  IF (idbg_mxmn < idetail_src ) RETURN
+  IF (idbg_mxmn >= idetail_src ) THEN
 
-  ! print out maximum and minimum value
+    ! print out maximum and minimum value
+    ! parallelize:
+    p_test_run_bac = p_test_run
+    p_test_run = .false.
+    ctr=maxval(p_array(1:nproma,1:ndimblk))
+    glbmx=global_max(ctr)
+    ctr=minval(p_array(1:nproma,1:ndimblk))
+    glbmn=global_min(ctr)
+    p_test_run = p_test_run_bac
+   
+    IF (my_process_is_stdio()) &
+      & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
 
-  ! parallelize:
-  p_test_run_bac = p_test_run
-  p_test_run = .false.
-  ctr=maxval(p_array(1:nproma,1:ndimblk))
-  glbmx=global_max(ctr)
-  ctr=minval(p_array(1:nproma,1:ndimblk))
-  glbmn=global_min(ctr)
-  p_test_run = p_test_run_bac
-
-  IF (my_process_is_stdio()) &
-    & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
+  END IF
 
   !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 

@@ -44,11 +44,12 @@ MODULE mo_oce_veloc_advection
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &
-    & sea_boundary, sea, boundary, min_dolic
-  USE mo_math_constants,  ONLY: pi
+    &                               sea_boundary, sea, boundary, min_dolic
+  USE mo_math_constants,      ONLY: pi
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, l_inverse_flip_flop !, ab_beta, ab_gam
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
   USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
   USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_rbf, &
@@ -71,6 +72,9 @@ MODULE mo_oce_veloc_advection
   PRIVATE
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*)   :: str_module = 'oceVelocAdv '  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
+! CHARACTER(len=12)  :: str_module = '__FILE__'
 
   PUBLIC :: veloc_adv_horz_mimetic
   PRIVATE :: veloc_adv_horz_mimetic_div
@@ -275,22 +279,14 @@ CONTAINS
     ! ENDIF
     !-------------------------------------------------------------------------------
 
-    DO jk = slev, elev
-      ipl_src=3  ! output print level (1-5, fix)
-! write(*,*)'vort',jk, maxval(p_diag%vort(:,jk,:)),&
-! &minval(p_diag%vort(:,jk,:))
-      CALL print_mxmn('vorticity',jk,p_diag%vort(:,:,:),n_zlev, &
-        & p_patch%nblks_v,'vel',ipl_src)
-      ipl_src=4  ! output print level (1-5, fix)
-      CALL print_mxmn('vort flux',jk,z_vort_flx(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      CALL print_mxmn('Corio: p_vn%x(1)',jk,p_diag%p_vn%x(1),n_zlev, &
-        & p_patch%nblks_c,'vel',ipl_src)
-      !CALL print_mxmn('p_vn_dual%x(1)',jk,p_diag%p_vn_dual%x(1),n_zlev, &
-      !  &              p_patch%nblks_v,'vel',ipl_src)
-      ! write(0,*)' XXX max/min p_vn_dual%x(1): ',MAXVAL(p_diag%p_vn_dual(:,jk,:)%x(1)),&
-      !   &                                       MINVAL(p_diag%p_vn_dual(:,jk,:)%x(1))
-    END DO
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('Coriolis: vorticity'         ,p_diag%vort              ,str_module,idt_src)
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('Coriolis: vorticity flux'    ,z_vort_flx               ,str_module,idt_src)
+    CALL dbg_print('Coriolis: p_vn%x(1)'         ,p_diag%p_vn%x(1)         ,str_module,idt_src)
+    CALL dbg_print('Coriolis: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)         ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
     !calculate gradient of kinetic energy
     !The kinetic energy is already calculated at beginning
@@ -306,6 +302,13 @@ CONTAINS
       & p_diag%grad)
 
     CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))    
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('Coriolis: kin energy'        ,p_diag%kin               ,str_module,idt_src)
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('Coriolis: grad kin en'       ,p_diag%grad              ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
     DO jk = slev, elev
       ipl_src=3  ! output print level (1-5, fix)
@@ -371,7 +374,6 @@ CONTAINS
         & p_diag%v, opt_slev=slev, opt_elev=elev)
       CALL sync_patch_array(SYNC_C, p_patch, p_diag%v)
 
-      !write(*,*)'max/min vort flux:', MAXVAL(z_vort_flx_RBF(:,1,:)),MINVAL(z_vort_flx_RBF(:,1,:))
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO jk = slev, elev
@@ -426,6 +428,13 @@ CONTAINS
       & z_grad_ekin_rbf)
 
       CALL sync_patch_array(SYNC_E, p_patch, z_grad_ekin_rbf)      
+
+      !---------Debug Diagnostics-------------------------------------------
+      idt_src=4  ! output print level (1-5, fix)
+      CALL dbg_print('L_DEBUG: vort flux RBF'      ,z_vort_flx_rbf           ,str_module,idt_src)
+      !CALL dbg_print('Coriolis: p_vn%x(1)'         ,p_diag%p_vn%x(1)         ,str_module,idt_src)
+      !CALL dbg_print('Coriolis: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)         ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     END IF ! L_DEBUG
     !--------------END OF TESTING----------------------------------------------------------
