@@ -43,27 +43,22 @@ MODULE mo_oce_veloc_advection
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &
-    &                               sea_boundary, sea, boundary, min_dolic
-  USE mo_math_constants,      ONLY: pi
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, l_inverse_flip_flop !, ab_beta, ab_gam
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+  USE mo_impl_constants,      ONLY: sea_boundary, sea, boundary, min_dolic!, &
+  !  &                               min_rlcell, min_rledge, min_rlvert
+  USE mo_ocean_nml,           ONLY: n_zlev!, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
-  USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
-  USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_rbf, &
-    &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, &
-    &                               div_oce_3d, rot_vertex_ocean_3d
-  USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates, gc2cc,&
-                                    & vector_product!,cc2gc
-  USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
-    & primal_map_c2e, map_edges2edges, map_edges2cell,   &
-    & nonlinear_coriolis_3d
+  USE mo_oce_state,           ONLY: t_hydro_ocean_diag, v_base
+  USE mo_oce_math_operators,  ONLY: rot_vertex_ocean_rbf, &
+    &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
+    &                               rot_vertex_ocean_3d!, rot_vertex_ocean
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product!,cc2gc, gvec2cvec, gc2cc
+  USE mo_scalar_product,      ONLY: map_cell2edges, primal_map_c2e,   &
+    &                               nonlinear_coriolis_3d!, map_edges2edges, map_edges2cell
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp,                ONLY: verts2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
-  USE mo_intp_data_strc,      ONLY: p_int_state
+  !USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -218,30 +213,14 @@ CONTAINS
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
-    !REAL(wp) :: z_u_c(nproma,n_zlev,p_patch%nblks_c)
-    !REAL(wp) :: z_v_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_vort_flx(nproma,n_zlev,p_patch%nblks_e)
-    !REAL(wp) :: z_vort_flx2(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_kin_rbf_e(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_kin_rbf_c(nproma,n_zlev,p_patch%nblks_c)
-    !REAL(wp) :: z_tmp
-    !REAL(wp) :: z_beta_plane_vort
-    !REAL(wp) :: z_f_plane_vort
-    !REAL(wp) :: z_lat_basin_center
-    !REAL(wp) :: z_y
-    !INTEGER :: i_v1_ctr, i_v2_ctr
-    !INTEGER :: i_ctr
-    !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-    !INTEGER :: il_e1, ib_e1,il_e2, ib_e2, il_e3, ib_e3
     INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
-    REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3!, z_weight
-    !ARRAYS FOR TESTING
-    !REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
+    REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3
     REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_vort_flx_rbf(nproma,n_zlev,p_patch%nblks_e)
-    !REAL(wp) :: z_vort2(nproma,n_zlev,p_patch%nblks_v)
-    !REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
     LOGICAL, PARAMETER :: l_debug = .FALSE.
     !LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
 
@@ -279,15 +258,6 @@ CONTAINS
     ! ENDIF
     !-------------------------------------------------------------------------------
 
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('Coriolis: vorticity'         ,p_diag%vort              ,str_module,idt_src)
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('Coriolis: vorticity flux'    ,z_vort_flx               ,str_module,idt_src)
-    CALL dbg_print('Coriolis: p_vn%x(1)'         ,p_diag%p_vn%x(1)         ,str_module,idt_src)
-    CALL dbg_print('Coriolis: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)         ,str_module,idt_src)
-    !---------------------------------------------------------------------
-
     !calculate gradient of kinetic energy
     !The kinetic energy is already calculated at beginning
     !of actual timestep in sbr "calc_scalar_product_for_veloc"
@@ -305,9 +275,13 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('Coriolis: kin energy'        ,p_diag%kin               ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src)
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('Coriolis: grad kin en'       ,p_diag%grad              ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: vorticity flux'    ,z_vort_flx              ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: p_vn%x(1)'         ,p_diag%p_vn%x(1)        ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)        ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src)
     !---------------------------------------------------------------------
 
     ! IF(L_INVERSE_FLIP_FLOP)THEN
@@ -420,9 +394,9 @@ CONTAINS
 
       !---------Debug Diagnostics-------------------------------------------
       idt_src=4  ! output print level (1-5, fix)
-      CALL dbg_print('L_DEBUG: vort flux RBF'      ,z_vort_flx_rbf           ,str_module,idt_src)
-      !CALL dbg_print('Coriolis: p_vn%x(1)'         ,p_diag%p_vn%x(1)         ,str_module,idt_src)
-      !CALL dbg_print('Coriolis: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)         ,str_module,idt_src)
+      CALL dbg_print('L_DEBUG: vort flux RBF'     ,z_vort_flx_rbf           ,str_module,idt_src)
+      !CALL dbg_print('L_DEBUG: p_vn%x(1)'         ,p_diag%p_vn%x(1)         ,str_module,idt_src)
+      !CALL dbg_print('L_DEBUG: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)         ,str_module,idt_src)
       !---------------------------------------------------------------------
 
     END IF ! L_DEBUG
@@ -455,6 +429,12 @@ CONTAINS
         END DO
       END DO
     END DO
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('HorzMimRot: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src)
+    !---------------------------------------------------------------------
+
   END SUBROUTINE veloc_adv_horz_mimetic_rot
   !-------------------------------------------------------------------------  
 
@@ -566,6 +546,12 @@ CONTAINS
                               & p_op_coeff,          &
                               & p_diag%vort)
     CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('HorzMimDiv: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src)
+    CALL dbg_print('HorzMimDiv: vorticity'         ,p_diag%vort             ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_horz_mimetic_div
   !-------------------------------------------------------------------------
@@ -736,16 +722,6 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-    ! CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_vn',3,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_vn',4,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_diag%w',1,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_diag%w',2,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_diag%w',3,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_diag%w',4,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('ck (vadv) p_diag%w',5,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
     !This requires appropriate boundary conditions
     DO jb = all_cells%start_block, all_cells%end_block
@@ -774,11 +750,7 @@ CONTAINS
       END DO
 
     END DO
-    ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
-    ! CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ! CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+
     ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
     ! ! This mapping is the transposed of the vertical differencing.!
     DO jb = all_cells%start_block, all_cells%end_block
@@ -802,25 +774,18 @@ CONTAINS
           z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
         ENDIF
       END DO
-      ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
-      ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
     END DO
-    DO jk=1,4
-      CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ENDDO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
-    DO jk=1,n_zlev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      !WRITE(987,*) 'max/min vert adv FINAL',jk, &
-      !  &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-    END DO
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('VertMimRot: z_adv_u_m%x(1)'  ,z_adv_u_m%x(1)           ,str_module,idt_src)
+    CALL dbg_print('VertMimRot: V.Adv. Final'    ,veloc_adv_vert_e         ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mimetic_rot
   !-------------------------------------------------------------------------
@@ -942,23 +907,16 @@ CONTAINS
       ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
     END DO
 
-    DO jk=1,4
-      CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ENDDO
-
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
-
-    DO jk=1,n_zlev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      !     WRITE(9876,*) 'max/min vert adv FINAL',jk, &
-      !       &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-    END DO
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('VertMimRot2: z_adv_u_m%x(1)' ,z_adv_u_m%x(1)           ,str_module,idt_src)
+    CALL dbg_print('VertMimRot2: VelAdv Final'   ,veloc_adv_vert_e         ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mimetic_rot2
   !-------------------------------------------------------------------------
@@ -1059,23 +1017,19 @@ CONTAINS
       ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
       ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
     END DO
-    DO jk=1,4
-      CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-    ENDDO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
-    veloc_adv_vert_e=0.0_wp
-    DO jk=1,n_zlev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
-      !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-    END DO
+    veloc_adv_vert_e=0.0_wp  ! #slo# ???
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('VertMimDiv: z_adv_u_m%x(1)'  ,z_adv_u_m%x(1)           ,str_module,idt_src)
+    CALL dbg_print('VertMimDiv: VelAdv Final'    ,veloc_adv_vert_e         ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mimetic_div
   !-------------------------------------------------------------------------
@@ -1133,18 +1087,13 @@ CONTAINS
     INTEGER :: jev, ile,ibe, i_v1_ctr, i_v2_ctr
     REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_vort_glb(nproma,n_zlev,p_patch%nblks_v)
-    !REAL(wp) :: z_y
     REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_kin_rbf_e(nproma,n_zlev,p_patch%nblks_e)
     INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
-    !ARRAYS FOR TESTING
     REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_vort_flx_rbf(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_kin_e_rbf(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_weight_e1,z_weight_e2, z_weight_e3!, z_weight
-    !REAL(wp) :: z_beta_plane_vort
-    !REAL(wp) :: z_f_plane_vort
-    !REAL(wp) :: z_lat_basin_center
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges, all_cells
     !-----------------------------------------------------------------------
     all_edges => p_patch%edges%all
@@ -1290,8 +1239,7 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-    !  write(*,*)'max/min kin energy edges:', MAXVAL(z_kin_RBF_e(:,1,:)),&
-    !                                          &MINVAL(z_kin_RBF_e(:,1,:))
+
     !!$OMP END DO
     !!$OMP END PARALLEL
     ! Bilinear interpolation of kinetic energy from the edges to the cells
@@ -1365,38 +1313,16 @@ CONTAINS
       END DO
     END DO
 
-    DO jk = slev, elev
-      ipl_src=3  ! output print level (1-5, fix)
-      CALL print_mxmn('kinetic energy',jk,p_diag%kin(:,:,:),n_zlev, &
-        & p_patch%nblks_c,'vel',ipl_src)
-      ipl_src=4  ! output print level (1-5, fix)
-      CALL print_mxmn('grad kin energy',jk,z_grad_ekin_rbf(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      CALL print_mxmn('vorticity',jk,p_diag%vort(:,:,:),n_zlev, &
-        & p_patch%nblks_v,'vel',ipl_src)
-      ipl_src=5  ! output print level (1-5, fix)
-      CALL print_mxmn('vorticity edges',jk,z_vort_e(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      !write(876,*)'max/min kin energy:           ', jk,MAXVAL(p_diag%kin(:,jk,:)),&
-      !                                                &MINVAL(p_diag%kin(:,jk,:))
-      !write(876,*)'max/min grad kin energy:      ', jk,MAXVAL(z_grad_ekin_RBF(:,jk,:)),&
-      !                                                &MINVAL(z_grad_ekin_RBF(:,jk,:))
-      !write(876,*)'max/min vorticity:            ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
-      !                                                &MINVAL(p_diag%vort(:,jk,:))
-      !write(876,*)'max/min vorticity edges:', jk,MAXVAL(z_vort_e(:,jk,:)),MINVAL(z_vort_e(:,jk,:))
-    END DO
-
-    DO jk = slev, elev
-      ipl_src=4  ! output print level (1-5, fix)
-      CALL print_mxmn('vort flux',jk,z_vort_flx_rbf(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-      CALL print_mxmn('vort advection',jk,veloc_adv_horz_e(:,:,:),n_zlev, &
-        & p_patch%nblks_e,'vel',ipl_src)
-
-      !write(876,*)'max/min vort flux:  advection:', jk,&
-      !& MAXVAL(z_vort_flx_RBF(:,jk,:)),MINVAL(z_vort_flx_RBF(:,jk,:)),&
-      !& MAXVAL(veloc_adv_horz_e(:,jk,:)),MINVAL(veloc_adv_horz_e(:,jk,:))
-    END DO
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('HorzRBF: kin. energy'        ,p_diag%kin               ,str_module,idt_src)
+    CALL dbg_print('HorzRBF: vorticity'          ,p_diag%vort              ,str_module,idt_src)
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('HorzRBF: grad. kin. en.'     ,z_grad_ekin_rbf          ,str_module,idt_src)
+    CALL dbg_print('HorzRBF: vorticity_e'        ,z_vort_e                 ,str_module,idt_src)
+    CALL dbg_print('HorzRBF: vorticity flux'     ,z_vort_flx_rbf           ,str_module,idt_src)
+    CALL dbg_print('HorzRBF: vorticity adv.'     ,veloc_adv_horz_e         ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_horz_rbf
   !-------------------------------------------------------------------------
@@ -1451,7 +1377,6 @@ CONTAINS
     ! variable in which horizontally advected velocity is stored
     REAL(wp), INTENT(out) :: veloc_adv_vert_e(:,:,:)
 
-    !INTEGER, PARAMETER :: top=1
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb, i_dolic
     INTEGER :: i_startidx, i_endidx
@@ -1570,10 +1495,17 @@ CONTAINS
       & veloc_adv_vert_e )
     ! result is synced in the called funtion
 
-    ! DO jk=1,n_zlev
-    !   WRITE(*,*) 'max/min vert adv FINAL',jk, &
-    !     &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-    ! END DO
+  ! !---------Debug Diagnostics-------------------------------------------
+  !  NOT YET
+  ! idt_src=3  ! output print level (1-5, fix)
+  ! CALL dbg_print('VertRBF: kin. energy'        ,p_diag%kin               ,str_module,idt_src)
+  ! CALL dbg_print('VertRBF: vorticity'          ,p_diag%vort              ,str_module,idt_src)
+  ! idt_src=4  ! output print level (1-5, fix)
+  ! CALL dbg_print('VertRBF: grad. kin. en.'     ,z_grad_ekin_rbf          ,str_module,idt_src)
+  ! CALL dbg_print('VertRBF: vorticity_e'        ,z_vort_e                 ,str_module,idt_src)
+  ! CALL dbg_print('VertRBF: vorticity flux'     ,z_vort_flx_rbf           ,str_module,idt_src)
+  ! CALL dbg_print('VertRBF: vorticity adv.'     ,veloc_adv_horz_e         ,str_module,idt_src)
+  ! !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_rbf
   !-------------------------------------------------------------------------
