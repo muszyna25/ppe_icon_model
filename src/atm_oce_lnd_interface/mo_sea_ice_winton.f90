@@ -85,7 +85,7 @@ CONTAINS
   !!           doi: 10.1175/1520-0426(2000)017<0525:ARTLSI> (put into google)
   !!
   !! This function changes:
-  !! ice % Ts       the new surface temperature   for each ice category     [�C]
+  !! ice % Tsurf    the new surface temperature   for each ice category     [�C]
   !! ice % T1       the new upper ice+snow temp.  for each ice category     [�C]
   !! ice % T2       the new lower ice temperature for each ice category     [�C]
   !! ice % Qbot     Heat flux available for freezing/melting at ice bottom  [W/m�]

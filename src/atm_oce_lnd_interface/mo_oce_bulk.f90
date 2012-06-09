@@ -380,7 +380,7 @@ CONTAINS
         ENDIF
 
       END IF
-
+      
       ! this is used for "intermediate complexity flux forcing"
       IF (iforc_type == 4) THEN
 
@@ -461,7 +461,7 @@ CONTAINS
            &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)-tmelt) + &
            &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)-tmelt)
 
-      END IF
+       END IF
 
       IF (irelax_2d_S == 2 .AND. no_tracer >1) THEN
 
@@ -497,7 +497,7 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
         IF (iforc_type == 2 .OR. iforc_type == 5) &
           & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
-
+        
         IF ( no_tracer >= 2 ) THEN
           DO k=1,p_ice%kice
             Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)

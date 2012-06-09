@@ -129,21 +129,22 @@ CONTAINS
     TYPE(t_sea_ice), INTENT(IN)  :: ice
     TYPE(t_patch), INTENT(IN), TARGET :: p_patch
     CHARACTER(len=*), INTENT(IN) :: description
-
+    
     !local
     REAL(wp),ALLOCATABLE :: values(:)
     INTEGER :: ctr, jb, k, jc, i_startidx_c, i_endidx_c
-
+    
     TYPE(t_subset_range), POINTER :: all_cells
-
+    
     all_cells => p_patch%cells%all
     ALLOCATE(values(p_patch%nblks_c * nproma))
-
+    
     ctr = 0
+    values(:) = 1.0_wp
     DO jb = 1,p_patch%nblks_c
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
       DO jc = i_startidx_c,i_endidx_c
-!        IF (ice%isice(jc,1,jb)) THEN
+        !        IF (ice%isice(jc,1,jb)) THEN
         DO k=1,ice%kice
           IF (ice%isice(jc,k,jb)) THEN
             ctr = ctr+1
@@ -153,37 +154,44 @@ CONTAINS
       END DO
     END DO
     
-991 FORMAT(a10,a25,':     ', 2g26.18) 
-983 FORMAT(a10,a25,':     ', 4i4)
-    WRITE(nerr,991) ' MAX/MIN ',description, &
+101 FORMAT(a10,a25,':     ', 3g26.18) 
+102 FORMAT(a10,a25,':     ', 4i4)
+    
+    WRITE(nerr,101) ' MAX/MIN ',description, &
       &              MAXVAL(A(:,:),MASK=ice%isice(:,1,:)),     &
-      &              MINVAL(A(:,:),MASK=ice%isice(:,1,:))
-    WRITE(nerr,983) ' LOC ',description, &
+      &              MINVAL(A(:,:),MASK=ice%isice(:,1,:)),     &
+!!$      &              MAXVAL(values(1:ctr-1)), &
+!!$      &              MINVAL(values(1:ctr-1)), &
+      &              SUM(values(1:ctr-1))/SIZE(values(1:ctr-1))
+    
+    WRITE(nerr,102) ' LOC ',description, &
       &              MAXLOC(A(:,:),MASK=ice%isice(:,1,:)),     &
       &              MINLOC(A(:,:),MASK=ice%isice(:,1,:))
-  
-
+!!$      &              MAXLOC(values(1:ctr-1)), &
+!!$      &              MINLOC(values(1:ctr-1)) 
+      
   END SUBROUTINE print_maxmin_si
-
+    
 
   !--- check output in a single grid cell
   
-  SUBROUTINE print_cells (A,ice,p_patch,description)
+  SUBROUTINE print_cells (A,description)
     REAL(wp), INTENT(IN)         :: A(:,:)
-    TYPE(t_sea_ice), INTENT(IN)  :: ice
-    TYPE(t_patch), INTENT(IN)    :: p_patch
+!    TYPE(t_sea_ice), INTENT(IN)  :: ice
+!    TYPE(t_patch), INTENT(IN)    :: p_patch
     CHARACTER(len=*), INTENT(IN) :: description
 
     !local
     !REAL(wp),ALLOCATABLE :: values(:)
-    INTEGER :: ctr, jb, k, jc, i_startidx_c, i_endidx_c
+!    INTEGER :: ctr, jb, k, jc, i_startidx_c, i_endidx_c
 
 
 
-991 FORMAT(a15,a25,':  ', 2g26.18) 
-   WRITE(nerr,991) ' at single cell(s) ',description, &
-     &            A(7,17), &
-     &            A(3,100)
+103 FORMAT(a18,a25,':     ', 3g26.18)
+   WRITE(nerr,103) ' at single cell(s) ',description, &
+     &            A(26,295), &
+     &            A(21,289), &
+     &            A(23,38)
   END SUBROUTINE print_cells
 
 

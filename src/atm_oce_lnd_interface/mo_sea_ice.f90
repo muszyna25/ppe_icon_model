@@ -1509,6 +1509,7 @@ CONTAINS
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
         drags(:,:)    = 0.95_wp * dragl(:,:)
 
+        ! #achim: ?!
         Qatm%LWout (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) &
           &                    - p_as%tafo(:,:))
         Qatm%LWnet (:,i,:)  = Qatm%LWin(:,:) - Qatm%LWout(:,i,:)
@@ -1535,6 +1536,12 @@ CONTAINS
     !Dirk: why zero ?
     Qatm%rpreci(:,:) = 0.0_wp
     Qatm%rprecw(:,:) = 0.0_wp
+
+!!$    !#achim: check stuff
+!!$    CALL print_cells(p_as%tafo(:,:),'p_as%tafo')
+!!$    CALL print_cells(Qatm%sens(:,1,:),'Qatm%sens')
+!!$    CALL print_cells(Qatm%dsensdT(:,1,:),'Qatm%dsensdT')
+!!$    CALL print_cells(Qatm%dLWdT(:,1,:),'Qatm%dLWdT')
 
   END SUBROUTINE calc_atm_fluxes_from_bulk
  
