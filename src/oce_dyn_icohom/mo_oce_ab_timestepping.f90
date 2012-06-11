@@ -52,8 +52,7 @@ MODULE mo_oce_ab_timestepping
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
-USE mo_oce_index,                      ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_sea_ice_types,                        ONLY: t_sfc_flx
+USE mo_sea_ice_types,                  ONLY: t_sfc_flx
 USE mo_intp_data_strc,                 ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data
@@ -62,8 +61,8 @@ USE mo_ext_data_types,                 ONLY: t_external_data
 !USE mo_oce_index,                      ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
                                            & calc_normal_velocity_ab_mimetic, &
-                                           & calc_vert_velocity_mimetic,      &
-                                           & calc_vert_velocity_mim_topdown
+                                           & calc_vert_velocity_mimetic!,      &
+!                                           & calc_vert_velocity_mim_topdown
 USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
                                            & calc_normal_velocity_ab_RBF,     &
                                            & calc_vert_velocity_RBF

@@ -66,12 +66,13 @@ USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ext_data_state,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
-  &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg,      &
-  &                               basin_height_deg, relaxation_param, wstress_coeff,       &
+  &                               no_tracer, n_zlev, basin_center_lat,                     &
+  &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
+  &                               relaxation_param, wstress_coeff,                         &
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_dbg_oce, i_sea_ice
+  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -87,7 +88,6 @@ USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_
 USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, ice_slow, ice_fast, prepareAfterRestart !&,
 !  &                               set_ice_albedo
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
-USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
@@ -215,8 +215,8 @@ CONTAINS
           offset = 0
           no_set = offset + curyear-iniyear + 1 
 
-          ipl_src=2  ! output print level (1-5, fix)
-       !  IF (i_dbg_oce >= ipl_src) THEN
+          idt_src=2  ! output print level (1-5, fix)
+       !  IF (idbg_mxmn >= idt_src) THEN
        !    WRITE(message_text,'(a,i2,a,i2,a,e15.5))') 'Read NCEP data: month=', &
        !      &  jmon,' day=',jdmon,' seconds=',dsec
        !    CALL message(TRIM(routine), message_text) 
@@ -1550,8 +1550,8 @@ CONTAINS
       i_count(1) = jcells                ! length of pointer, dim 1 of z_dummy_array
       i_count(2) = jtime                 ! length of pointer, dim 2 of z_dummy_array
 
-      ipl_src=2  ! output print level (1-5, fix)
-   !  IF (i_dbg_oce >= ipl_src) THEN
+      idt_src=2  ! output print level (1-5, fix)
+      IF (idbg_mxmn >= idt_src) THEN
         !
         WRITE(message_text,'(A,I6,A)')  'Ocean NCEP flux file contains',no_tst,' data sets'
         CALL message( TRIM(routine), TRIM(message_text) )
@@ -1560,17 +1560,15 @@ CONTAINS
           &   '; no. of set =',no_set,                                     &
           &   '; pos. of ptr =', i_start(2)
         CALL message( TRIM(routine), TRIM(message_text) )
-   !  END IF
+      END IF
 
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
 
-      ipl_src=3  ! output print level (1-5, fix)
+
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,1) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: stress-x',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! meridional wind stress
@@ -1579,8 +1577,6 @@ CONTAINS
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,2) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: stress-y',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! SST
@@ -1589,8 +1585,6 @@ CONTAINS
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: SST',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
  !    ! Read complete NCEP data sets for focing ocean model (iforc_type=5)
@@ -1601,15 +1595,12 @@ CONTAINS
  !    ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
  !    ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
-      ipl_src=4  ! output print level (1-5, fix)
       ! 2m-temperature
       CALL read_netcdf_data (ncid, 'temp_2m', p_patch%n_patch_cells_g,       &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,4) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! 2m dewpoint temperature
@@ -1618,8 +1609,6 @@ CONTAINS
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,5) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: dpt_temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! Scalar wind
@@ -1628,8 +1617,6 @@ CONTAINS
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,6) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: scalar_wind',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! cloud cover
@@ -1638,8 +1625,6 @@ CONTAINS
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,7) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: cloud',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! sea level pressure
@@ -1647,9 +1632,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: pressure',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,8) = z_flux(:,:,jt)
       END DO
 
       ! total solar radiation
@@ -1658,8 +1641,6 @@ CONTAINS
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,9) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: tot_solar',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
       ! precipitation
@@ -1668,8 +1649,6 @@ CONTAINS
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,10) = z_flux(:,:,jt)
-  !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
-  !     CALL print_mxmn('NCEP: precip',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
   !   END DO
 
       ! evaporation or downward surface LW flux
@@ -1692,8 +1671,6 @@ CONTAINS
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,12) = z_flux(:,:,jt)
-  !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
-  !     CALL print_mxmn('NCEP: runoff',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
   !   END DO
 
 
@@ -1704,8 +1681,37 @@ CONTAINS
 
     !ENDDO
 
-      ipl_src=2  ! output print level (1-5, fix)
-      IF (i_dbg_oce >= ipl_src) &
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,1)
+      CALL dbg_print('ReadFc: NCEP: stress-x'    ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,2)
+      CALL dbg_print('ReadFc: NCEP: stress-y'    ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3)
+      CALL dbg_print('ReadFc: NCEP: SST'         ,z_c                     ,str_module,idt_src)
+      idt_src=4  ! output print level (1-5, fix)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4)
+      CALL dbg_print('ReadFc: NCEP: temp_2m'     ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5)
+      CALL dbg_print('ReadFc: NCEP: dpt_temp_2m' ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6)
+      CALL dbg_print('ReadFc: NCEP: scalar_wind' ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7)
+      CALL dbg_print('ReadFc: NCEP: cloudiness'  ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8)
+      CALL dbg_print('ReadFc: NCEP: pressure'    ,z_c                     ,str_module,idt_src)
+      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9)
+      CALL dbg_print('ReadFc: NCEP: total solar' ,z_c                     ,str_module,idt_src)
+    ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,10)
+    ! CALL dbg_print('ReadFc: NCEP: precip.'     ,z_c                     ,str_module,idt_src)
+    ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11)
+    ! CALL dbg_print('ReadFc: NCEP: evaporation' ,z_c                     ,str_module,idt_src)
+    ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12)
+    ! CALL dbg_print('ReadFc: NCEP: runoff'      ,z_c                     ,str_module,idt_src)
+      !---------------------------------------------------------------------
+
+      idt_src=2  ! output print level (1-5, fix)
+      IF (idbg_mxmn >= idt_src) &
         & CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
 
     END IF ! iforc_oce=12

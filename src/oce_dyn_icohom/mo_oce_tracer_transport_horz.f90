@@ -52,7 +52,7 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea,&
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
 USE mo_ocean_nml,                 ONLY: n_zlev, &
   &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA  
-USE mo_parallel_config,           ONLY: nproma, p_test_run
+USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
@@ -60,19 +60,17 @@ USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz,
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
-!USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
 USE mo_oce_math_operators,        ONLY: div_oce_3D, grad_fd_norm_oce_3D ! &
 ! &                                     div_oce,grad_fd_norm_oce, grad_fd_norm_oce_2d
 USE mo_advection_utils,           ONLY: laxfr_upflux
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz
-!USE mo_intp_data_strc,            ONLY: p_int_state
-USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
-    &                               sync_patch_array_mult
-USE mo_mpi,                   ONLY: my_process_is_mpi_parallel
+USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
+USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
+USE mo_sync,                      ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
+  &                                     sync_patch_array_mult
+USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
 
 IMPLICIT NONE
 
