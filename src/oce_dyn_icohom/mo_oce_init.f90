@@ -73,6 +73,7 @@ USE mo_coupling_config,    ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
+USE mo_util_dbg_prnt,      ONLY: dbg_print
 USE mo_oce_index,          ONLY: print_mxmn, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data_types,     ONLY: t_external_data
@@ -98,6 +99,8 @@ PRIVATE
 
 !VERSION CONTROL:
 CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=12)           :: str_module    = 'oceInit     '  ! Output of module for 1 line debug
+INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
 ! public interface
 !
@@ -287,17 +290,15 @@ CONTAINS
       END DO
     END DO
 
-    ipl_src    = 0  ! output print level (0-5, fix)
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=0  ! output print level - 0: print in any case
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-    DO jk = 1, n_zlev
-      CALL print_mxmn('init_prog - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-    END DO
+    CALL dbg_print('init prognostic - T'       ,z_c                     ,str_module,idt_src)
     IF (no_tracer > 1) THEN
       z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-      DO jk = 1, n_zlev
-        CALL print_mxmn('init_prog - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-      END DO
+      CALL dbg_print('init prognostic - S'       ,z_c                   ,str_module,idt_src)
     END IF
+    !---------------------------------------------------------------------
 
     CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
 
@@ -476,20 +477,19 @@ CONTAINS
       END IF
     END IF
 
-    !
-    !  Diagnose relaxation
+    !---------Debug Diagnostics-------------------------------------------
     IF (temperature_relaxation > 0) THEN
-      ipl_src=0  ! output print level (0-5, fix)
+      idt_src=0  ! output print level - 0: print in any case
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL print_mxmn('init-relax - T',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
-      IF (no_tracer > 1) THEN
+      CALL dbg_print('init relaxation - T'       ,z_c                     ,str_module,idt_src)
+      IF (irelax_2d_S > 0) THEN
         z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-        CALL print_mxmn('init-relax - S',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
+        CALL dbg_print('init relaxation - S'       ,z_c                   ,str_module,idt_src)
       END IF
     END IF
+    !---------------------------------------------------------------------
 
     CALL message( TRIM(routine),'end' )
-
 
   END SUBROUTINE init_ho_relaxation
 
@@ -537,10 +537,11 @@ CONTAINS
       !add calculation of kinetic energy
 
     ENDIF
-    DO jk=1,n_zlev
-      CALL print_mxmn('(init) p_vn%x(1)', &
-        &  jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
-    ENDDO
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('recon_fields: p_vn%x(1)'        ,p_os%p_diag%p_vn%x(1)  ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
 !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( p_patch, p_os, p_op_coeff)
 

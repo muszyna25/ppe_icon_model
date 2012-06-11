@@ -50,34 +50,29 @@ MODULE mo_oce_forcing
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                ONLY: wp
-USE mo_parallel_config,     ONLY: nproma
-USE mo_ocean_nml,           ONLY: no_tracer, itestcase_oce, iforc_oce, analyt_forc, &
+USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc, &
   &                               wstress_coeff, iforc_stat_oce, basin_height_deg
-USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch
-USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
-USE mo_exception,           ONLY: finish, message !, message_text
-USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary!,    &
-! &                               land, sea, boundary,                  &
-! &                               min_rlcell, min_rledge, min_rlvert
-USE mo_loopindices,         ONLY: get_indices_c
-USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
+USE mo_util_dbg_prnt,       ONLY: dbg_print
+USE mo_oce_state,           ONLY: v_base
+USE mo_exception,           ONLY: finish, message
+USE mo_math_constants,      ONLY: pi, deg2rad
+USE mo_impl_constants,      ONLY: max_char_length, sea_boundary
+USE mo_math_utilities,      ONLY: gvec2cvec!, cvec2gvec
 !USE mo_param_ice !,           ONLY: kice
-USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_sea_ice_types,       ONLY: t_sfc_flx
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-IMPLICIT NONE
 
+IMPLICIT NONE
 PRIVATE
 
-
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=12)           :: str_module    = 'oceForcing  '  ! Output of module for 1 line debug
+INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+
 ! Public interface
 
-! public subroutines
 PUBLIC  :: init_sfcflx
-
 
 CONTAINS
 
@@ -103,7 +98,6 @@ CONTAINS
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre
                                      !=n.0: n-gyre
-  REAL(wp) :: z_c(nproma,1,ppatch%nblks_c)
 
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_forcing:init_ho_sfcflx'
 
@@ -239,11 +233,11 @@ CONTAINS
 
     END SELECT
 
-    ipl_src    = 0  ! output print level (1-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_wind_u(:,:)
-    CALL print_mxmn('analytical forcing u',1,z_c(:,:,:),1,ppatch%nblks_c,'per',ipl_src)
-    z_c(:,1,:) = p_sfc_flx%forc_wind_v(:,:)
-    CALL print_mxmn('analytical forcing v',1,z_c(:,:,:),1,ppatch%nblks_c,'per',ipl_src)
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=0  ! output print level - 0: print in any case
+    CALL dbg_print('analytical forcing u'      ,p_sfc_flx%forc_wind_u   ,str_module,idt_src)
+    CALL dbg_print('analytical forcing v'      ,p_sfc_flx%forc_wind_u   ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END IF
 
