@@ -58,7 +58,6 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
-  !USE mo_oce_index,           ONLY: print_mxmn, ipl_src
   USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
@@ -1312,7 +1311,6 @@ CONTAINS
     !  &                                    MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
-    !    CALL print_mxmn('SST',1,p_os%p_prog(nold(1))%tracer(:,1,:,1),1,p_patch%nblks_c,'ice',ipl_src)
 
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------

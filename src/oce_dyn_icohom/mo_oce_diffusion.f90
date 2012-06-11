@@ -44,26 +44,23 @@ MODULE mo_oce_diffusion
 !   
 ! 
 USE mo_kind,                ONLY: wp
-USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec!, gc2cc
-USE mo_impl_constants,      ONLY: boundary, sea,sea_boundary ,max_char_length, &
-  &                               min_rlcell, min_rledge, min_rlcell, MIN_DOLIC
+USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec !, gc2cc
+USE mo_impl_constants,      ONLY: boundary, sea_boundary, MIN_DOLIC ! ,max_char_length
 USE mo_parallel_config,     ONLY: nproma
 USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form
 USE mo_run_config,          ONLY: dtime
-USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
   &                               t_hydro_ocean_aux, v_base
 USE mo_model_domain,        ONLY: t_patch
 !USE mo_exception,           ONLY: message, finish!, message_text
-USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_oce_physics,         ONLY: t_ho_params
-USE mo_scalar_product,      ONLY: map_cell2edges, primal_map_c2e
+USE mo_scalar_product,      ONLY: map_cell2edges !, primal_map_c2e
 USE mo_oce_math_operators,  ONLY: div_oce_3D, rot_vertex_ocean_3d,&
  &                                map_edges2vert_3D
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-USE mo_intp_data_strc,      ONLY: p_int_state
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
 
 IMPLICIT NONE
 
@@ -71,6 +68,8 @@ PRIVATE
 
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=12)           :: str_module    = 'oceDiffusion'  ! Output of module for 1 line debug
+INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
 !
 ! PUBLIC INTERFACE
@@ -195,9 +194,8 @@ SUBROUTINE veloc_diff_harmonic_div_grad(p_patch, vn_in, p_param, p_diag,&
   INTEGER :: slev, elev
   INTEGER :: jk, jb, je,jc
   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
+  INTEGER :: i_startidx_c, i_endidx_c
+  INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: idx_cartesian
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
   TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
@@ -293,11 +291,11 @@ SUBROUTINE veloc_diff_harmonic_div_grad(p_patch, vn_in, p_param, p_diag,&
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
             z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x&
-            & * p_op_coeff%div_coeff(jc,jk,jb,1)+&       !p_int_state(1)%geofac_div(jc,1,jb) + &
+            & * p_op_coeff%div_coeff(jc,jk,jb,1)+&
             z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x&
-            & * p_op_coeff%div_coeff(jc,jk,jb,2)+&         !p_int_state(1)%geofac_div(jc,2,jb) + &
+            & * p_op_coeff%div_coeff(jc,jk,jb,2)+&
             z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x&
-            & * p_op_coeff%div_coeff(jc,jk,jb,3)         !p_int_state(1)%geofac_div(jc,3,jb)
+            & * p_op_coeff%div_coeff(jc,jk,jb,3)
         ENDIF
 
       END DO
@@ -342,9 +340,8 @@ SUBROUTINE veloc_diff_biharmonic_div_grad(p_patch, vn_in, p_param, p_diag,&
   INTEGER :: slev, elev
   INTEGER :: jk, jb, je,jc
   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
+  INTEGER :: i_startidx_c, i_endidx_c
+  INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: idx_cartesian
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
   TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
@@ -441,11 +438,11 @@ SUBROUTINE veloc_diff_biharmonic_div_grad(p_patch, vn_in, p_param, p_diag,&
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
             z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x&
-            & * p_op_coeff%div_coeff(jc,jk,jb,1)+&       !p_int_state(1)%geofac_div(jc,1,jb) + &
+            & * p_op_coeff%div_coeff(jc,jk,jb,1)+&
             z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x&
-            & * p_op_coeff%div_coeff(jc,jk,jb,2)+&         !p_int_state(1)%geofac_div(jc,2,jb) + &
+            & * p_op_coeff%div_coeff(jc,jk,jb,2)+&
             z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x&
-            & * p_op_coeff%div_coeff(jc,jk,jb,3)         !p_int_state(1)%geofac_div(jc,3,jb)
+            & * p_op_coeff%div_coeff(jc,jk,jb,3)
         ENDIF
       END DO
     END DO
@@ -548,11 +545,8 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !Local variables
     INTEGER :: slev, elev     ! vertical start and end level
-    INTEGER :: nblks_c
     INTEGER :: je, jk, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: rl_start_c, rl_end_c, rl_start_v, rl_end_v
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startidx, i_endidx
     REAL(wp) ::  z_div_c(nproma,n_zlev,ptr_patch%nblks_c)!, &
     REAL(wp) ::  z_vn_e(nproma,n_zlev,ptr_patch%nblks_e)
     REAL(wp) ::  z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
@@ -635,9 +629,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: nblks_c
     INTEGER :: je, jk, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: rl_start_c, rl_end_c, rl_start_v, rl_end_v
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startidx, i_endidx
     REAL(wp) ::  z_div_c(nproma,n_zlev,ptr_patch%nblks_c)
     REAL(wp) ::  z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
     REAL(wp) ::  z_nabla2_e(nproma,n_zlev,ptr_patch%nblks_e)
@@ -818,7 +810,7 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
   INTEGER                       :: jc, jk, jb, z_dolic
   INTEGER                       :: i_startidx, i_endidx
   TYPE(t_cartesian_coordinates) :: z_u(nproma,n_zlev+1,p_patch%nblks_c)!,  &
-  TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
+  TYPE(t_subset_range), POINTER :: cells_in_domain! , all_cells
   !  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_oce_diffusion:veloc diffusion vert mimetic')
@@ -885,11 +877,10 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
   CALL map_cell2edges( p_patch, z_u, laplacian_vn_out)
   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
-   DO jk=slev, elev
-     ipl_src=4  ! output print level (1-5, fix)
-     CALL print_mxmn('vert diffusion',jk,laplacian_vn_out(:,:,:),n_zlev, &
-       &              p_patch%nblks_e,'dif',ipl_src)
-   END DO
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=4  ! output print level (1-5, fix)
+  CALL dbg_print('VelDiffMim: Laplacian'     ,laplacian_vn_out         ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
 END SUBROUTINE velocity_diffusion_vert_mimetic
 !-------------------------------------------------------------------------  
@@ -929,7 +920,7 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
 
   INTEGER :: slev, elev     ! vertical start and end level
   INTEGER :: jc, jk, jb
-  INTEGER :: i_startblk, i_endblk, i_startidx_c, i_endidx_c
+  INTEGER :: i_startidx_c, i_endidx_c
   TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch%nblks_c)
   TYPE(t_subset_range), POINTER :: all_cells
   REAL(wp) :: z_u(nproma,n_zlev+1,p_patch%nblks_c),  &
@@ -1022,11 +1013,11 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
   ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
   CALL map_cell2edges( p_patch, zu_cc, laplacian_vn_out)
   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
-   DO jk=slev, elev
-     ipl_src=4  ! output print level (1-5, fix)
-     CALL print_mxmn('vert diffusion',jk,laplacian_vn_out(:,:,:),n_zlev, &
-       &              p_patch%nblks_e,'dif',ipl_src)
-   END DO
+
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=4  ! output print level (1-5, fix)
+  CALL dbg_print('VelDiffRbf: Laplacian'     ,laplacian_vn_out         ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
 END SUBROUTINE velocity_diffusion_vert_rbf
 
@@ -1205,13 +1196,12 @@ SUBROUTINE tracer_diffusion_vert_expl( p_patch,        &
       ENDIF
     END DO
   END DO
-   DO jk=slev, elev
-     ipl_src=4  ! output print level (1-5, fix)
-     CALL print_mxmn('vert diffusion expl',jk,div_diff_flx(:,:,:),n_zlev, &
-       &              p_patch%nblks_c,'dif',ipl_src)
-     CALL print_mxmn('vrt.dif.expl.diff-flx',jk,z_diff_flx(:,:,:),n_zlev+1, &
-       &              p_patch%nblks_c,'dif',ipl_src)
-   END DO
+
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('TrcDiffExpl: z_diff_flx'   ,z_diff_flx               ,str_module,idt_src)
+  CALL dbg_print('TrcDiffExpl: div_diff_flx' ,div_diff_flx             ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
 END SUBROUTINE tracer_diffusion_vert_expl
 !-------------------------------------------------------------------------  
@@ -1253,7 +1243,6 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
   !-----------------------------------------------------------------------
   slev    = 1
   !A_v    = 0.0001_wp
-  ipl_src = 5  ! output print level (1-5, fix)
 
   diff_column(:,:,:)      = field_column(:,:,:)
   a(slev:n_zlev)          = 0.0_wp
@@ -1461,11 +1450,11 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
     END DO
   END DO
 
-  DO jk=slev, n_zlev
-    ipl_src=5  ! output print level (1-5, fix)
-    CALL print_mxmn('IMPL VEL: aft.vvel.dif',jk,diff_column(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'dif',ipl_src)
-  END DO
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src)
+  !---------------------------------------------------------------------
+
 END SUBROUTINE veloc_diffusion_vert_impl_hom
 !------------------------------------------------------------------------
 END MODULE mo_oce_diffusion

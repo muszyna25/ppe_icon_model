@@ -59,7 +59,6 @@ MODULE mo_sea_ice_shared_sr
 !  USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
 !    &                               FORCING_FROM_FILE_FLUX
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
-!  USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 !  USE mo_var_list,            ONLY: add_var
 !  USE mo_master_control,      ONLY: is_restart_run
 !  USE mo_cf_convention

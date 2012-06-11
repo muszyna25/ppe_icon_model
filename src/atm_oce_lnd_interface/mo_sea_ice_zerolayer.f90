@@ -56,8 +56,8 @@ MODULE mo_sea_ice_zerolayer
 !  USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+!  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
-  USE mo_oce_index,           ONLY: print_mxmn, ipl_src
   USE mo_var_list,            ONLY: add_var
 !  USE mo_master_control,      ONLY: is_restart_run
 !  USE mo_cf_convention
@@ -70,6 +70,9 @@ MODULE mo_sea_ice_zerolayer
   IMPLICIT NONE
 
   PRIVATE
+
+  CHARACTER(len=12)           :: str_module    = 'SeaIceZeroLy'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: set_ice_temp_zerolayer
   PUBLIC :: ice_growth_zerolayer
@@ -369,12 +372,14 @@ CONTAINS
 !!$    CALL print_cells(ice%Qbot(:,1,:),'ice%Qbot')
 !!$    CALL print_cells(ice%hi(:,1,:)-ice%hiold(:,1,:),'new ice')
 !!$    CALL print_cells(zHeatOceI(:,1,:),'zHeatOceI')
-!!$    
-!!$    ipl_src = 1
-!!$    CALL print_mxmn('Q_surplus',1,Q_surplus(:,1,:),1,p_patch%nblks_c,'Q_surplus',ipl_src)
-!!$    CALL print_mxmn('ice%hi',1,ice%hi(:,1,:),1,p_patch%nblks_c,'ice%hi',ipl_src)
-!!$    CALL print_mxmn('ice%Qtop',1,ice%Qtop(:,1,:),1,p_patch%nblks_c,'Qtop',ipl_src)
-!!$    CALL print_mxmn('ice%Qbot',1,ice%Qbot(:,1,:),1,p_patch%nblks_c,'Qbot',ipl_src)
+
+!#slo# !---------DEBUG DIAGNOSTICS-------------------------------------------
+!#slo# idt_src=1  ! output print level (1-5, fix)
+!#slo# CALL dbg_print('GrowZero: Q_surplus'       ,Q_surplus                ,str_module,idt_src)
+!#slo# CALL dbg_print('GrowZero: ice%hi'          ,ice%hi                   ,str_module,idt_src)
+!#slo# CALL dbg_print('GrowZero: ice%Qtop'        ,ice%Qtop                 ,str_module,idt_src)
+!#slo# CALL dbg_print('GrowZero: ice%Qbot'        ,ice%Qbot                 ,str_module,idt_src)
+!#slo# !---------------------------------------------------------------------
 
   END SUBROUTINE ice_growth_zerolayer
   
