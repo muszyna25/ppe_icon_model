@@ -374,7 +374,7 @@ CONTAINS
 !!$    CALL print_cells(zHeatOceI(:,1,:),'zHeatOceI')
 
 !#slo# !---------DEBUG DIAGNOSTICS-------------------------------------------
-!#slo# idt_src=1  ! output print level (1-5, fix)
+!#slo# idt_src=3  ! output print level (1-5, fix)
 !#slo# CALL dbg_print('GrowZero: Q_surplus'       ,Q_surplus                ,str_module,idt_src)
 !#slo# CALL dbg_print('GrowZero: ice%hi'          ,ice%hi                   ,str_module,idt_src)
 !#slo# CALL dbg_print('GrowZero: ice%Qtop'        ,ice%Qtop                 ,str_module,idt_src)
