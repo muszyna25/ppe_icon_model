@@ -46,7 +46,7 @@ USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
 !USE mo_run_config,             ONLY: ltimer
-!USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
+!USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_mxmn
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
@@ -278,7 +278,7 @@ CONTAINS
   INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
 
-  !IF (ltimer) CALL timer_start(timer_print_mxmn)
+  !IF (ltimer) CALL timer_start(timer_dbg_mxmn)
 
   ! dimensions
   !                           !  index 1:nproma
@@ -297,9 +297,8 @@ CONTAINS
       &  icheck_str_mod = 1
   END DO
 
-  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_print_mxmn)
-
   ! if str_mod_src not found in str_mod_tst - no output
+  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_mxmn)
   IF (icheck_str_mod == 0 ) RETURN
 
 ! ! valid e-format with first digit gt zero
@@ -391,7 +390,7 @@ CONTAINS
 
   END IF
 
-  !IF (ltimer) CALL timer_stop(timer_print_mxmn)
+  !IF (ltimer) CALL timer_stop(timer_dbg_mxmn)
 
   END SUBROUTINE dbg_print_3d
 
@@ -412,7 +411,7 @@ CONTAINS
   INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
 
-  !IF (ltimer) CALL timer_start(timer_print_mxmn)
+  !IF (ltimer) CALL timer_start(timer_dbg_mxmn)
 
   ! dimensions - first dimension is nproma
   ndimblk = SIZE(p_array,2)
@@ -429,9 +428,8 @@ CONTAINS
       &  icheck_str_mod = 1
   END DO
 
-  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_print_mxmn)
-
   ! if str_mod_src not found in str_mod_tst - no output
+  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_mxmn)
   IF (icheck_str_mod == 0 ) RETURN
 
 ! ! valid e-format with first digit gt zero
@@ -498,7 +496,7 @@ CONTAINS
 
   END IF
 
-  !IF (ltimer) CALL timer_stop(timer_print_mxmn)
+  !IF (ltimer) CALL timer_stop(timer_dbg_mxmn)
 
   END SUBROUTINE dbg_print_2d
 

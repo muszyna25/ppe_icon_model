@@ -1340,12 +1340,6 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
     END DO
   END DO
 
-  DO jk=slev, n_zlev
-    ipl_src=5  ! output print level (1-5, fix)
-    CALL print_mxmn('IMPL TRC: aft.vtrc.dif',jk,diff_column(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'dif',ipl_src)
-  END DO
-
 END SUBROUTINE tracer_diffusion_vert_impl_hom
 !-------------------------------------------------------------------------  
 !
