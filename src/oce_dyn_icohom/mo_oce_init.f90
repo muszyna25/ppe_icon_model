@@ -53,42 +53,32 @@ USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
 USE mo_grid_config,        ONLY: nroot, grid_sphere_radius, grid_angular_velocity
-USE mo_physical_constants, ONLY: rgrav, rho_ref, &
-  & sal_ref, grav, SItodBar,  &
-  & sfc_press_bar, tmelt, Tf
-USE mo_math_constants
+USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, Tf! , SItodBar, rho_ref
+USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
 USE mo_parallel_config,    ONLY: nproma
-USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer,                               &
-  &                              init_oce_prog, init_oce_relax, itestcase_oce,              &
-  &                              i_sea_ice, iforc_oce,                                      &
-  &                              irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T,  &
-  &                              irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T,  &
+USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
+  &                              irelax_3d_S, irelax_3d_T, irelax_2d_S,                     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
-  &                              min_rlcell, min_rledge, MIN_DOLIC,                         &
-  &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file
+  &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
 USE mo_dynamics_config,    ONLY: nold,nnew
-USE mo_coupling_config,    ONLY: is_coupled_run
+!USE mo_coupling_config,    ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
-USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+!USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_util_dbg_prnt,      ONLY: dbg_print
-USE mo_oce_index,          ONLY: print_mxmn, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
-USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                              calc_scalar_product_veloc_3D
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_3D,&
-  &                              height_related_quantities
+USE mo_scalar_product,     ONLY: map_edges2cell, calc_scalar_product_veloc_3D
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_3D !,&
+!  &                              height_related_quantities
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
-USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity,update_time_indices
-USE mo_oce_linear_solver,  ONLY: gmres_e2e
-!rr USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put_init
-!rr USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+USE mo_oce_ab_timestepping,ONLY: update_time_indices! , calc_vert_velocity
+!USE mo_oce_linear_solver,  ONLY: gmres_e2e
 USE mo_master_control,     ONLY: is_restart_run
 USE mo_ape_params,         ONLY: ape_sst
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -141,7 +131,8 @@ CONTAINS
     LOGICAL :: l_exist
     INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
     INTEGER :: ncid, dimid
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
+    !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
+    INTEGER :: i_startidx_c, i_endidx_c
 
     REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
     ! files ts_phc_season-iconR2B04-L11.nc have 11 levels
@@ -328,7 +319,7 @@ CONTAINS
     LOGICAL :: l_exist
     INTEGER :: i_lev, no_cells, no_levels, jb, jc
     INTEGER :: ncid, dimid
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
+    INTEGER :: i_startidx_c, i_endidx_c
 
     REAL(wp):: z_c(nproma,1,ppatch%nblks_c)
     REAL(wp):: z_relax(nproma,ppatch%nblks_c)
@@ -344,107 +335,102 @@ CONTAINS
 
     i_lev        = ppatch%level
 
-    IF (init_oce_relax == 1 ) THEN
-
-      IF (my_process_is_stdio()) THEN
-        !
-        ! Relaxation variables are read from relax_init_file
-        WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
-
-        INQUIRE (FILE=relax_init_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file),' not found!'
-          CALL message(TRIM(routine),TRIM(message_text))
-          CALL finish(TRIM(routine),'netcdf file for reading T/S relax. input not found - ABORT')
-        ENDIF
-
-        WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
-          &   ' opened for reading'
-        CALL message(TRIM(routine),TRIM(message_text))
-
-        !
-        ! open file
-        !
-        CALL nf(nf_open(TRIM(relax_init_file), NF_NOWRITE, ncid))
-
-        !
-        ! get number of cells
-        !
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-
-        !
-        ! check the number of cells
-        !
-        WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
-        CALL message(TRIM(routine),TRIM(message_text))
-        IF (ppatch%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in T/S relaxation input file do not match - ABORT')
-        ENDIF
-        !
-        ! get number of levels
-        !
-        CALL nf(nf_inq_dimid(ncid, 'level', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
-
-        !
-        ! check the number of cells
-        !
-        WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
-        CALL message(TRIM(routine),TRIM(message_text))
-        IF (no_levels /= 1) THEN
-          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 - ABORT')
-        ENDIF
-
-      ENDIF  !  stdio
-
-
-      !-------------------------------------------------------
+    IF (my_process_is_stdio()) THEN
       !
-      ! Read ocean relaxation data at cells
+      ! Relaxation variables are read from relax_init_file
+      WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
+
+      INQUIRE (FILE=relax_init_file, EXIST=l_exist)
+      IF (.NOT.l_exist) THEN
+        WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file),' not found!'
+        CALL message(TRIM(routine),TRIM(message_text))
+        CALL finish(TRIM(routine),'netcdf file for reading T/S relax. input not found - ABORT')
+      ENDIF
+
+      WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
+        &   ' opened for reading'
+      CALL message(TRIM(routine),TRIM(message_text))
+
       !
-      !-------------------------------------------------------
+      ! open file
+      !
+      CALL nf(nf_open(TRIM(relax_init_file), NF_NOWRITE, ncid))
 
-      ! triangle center and edges
+      !
+      ! get number of cells
+      !
+      CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
 
-      ! read temperature
-      !  - read one data set, annual mean only
-      !  - "T": annual mean temperature
-      CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+      !
+      ! check the number of cells
+      !
+      WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
+      CALL message(TRIM(routine),TRIM(message_text))
+      IF (ppatch%n_patch_cells_g /= no_cells) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'Number of patch cells and cells in T/S relaxation input file do not match - ABORT')
+      ENDIF
+      !
+      ! get number of levels
+      !
+      CALL nf(nf_inq_dimid(ncid, 'level', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+
+      !
+      ! check the number of cells
+      !
+      WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
+      CALL message(TRIM(routine),TRIM(message_text))
+      IF (no_levels /= 1) THEN
+        CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 - ABORT')
+      ENDIF
+
+    ENDIF  !  stdio
+
+
+    !-------------------------------------------------------
+    !
+    ! Read ocean relaxation data at cells
+    !
+    !-------------------------------------------------------
+
+    ! triangle center and edges
+
+    ! read temperature
+    !  - read one data set, annual mean only
+    !  - "T": annual mean temperature
+    CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+      &                    ppatch%cells%glb_index, z_relax)
+
+    IF (no_tracer>=1) THEN
+      p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
+    ELSE
+      CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
+    END IF
+
+    ! read salinity
+    !  - "S": annual mean salinity
+    IF (no_tracer > 1) THEN
+      CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
         &                    ppatch%cells%glb_index, z_relax)
+      p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
+    END IF
 
-      IF (no_tracer>=1) THEN
-        p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
-      ELSE
-        CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
-      END IF
+    ! close file
+    IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
-      ! read salinity
-      !  - "S": annual mean salinity
-      IF (no_tracer > 1) THEN
-        CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
-          &                    ppatch%cells%glb_index, z_relax)
-        p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
-      END IF
-
-      ! close file
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
-
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF ( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
-            IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
-          ENDIF
-        END DO
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF ( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+          p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+          IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
+        ENDIF
       END DO
+    END DO
 
-      CALL message( TRIM(routine),'Ocean T/S relaxation reading finished' )
-
-    END IF  !  init_oce_relax=1, read T/S relaxation
-
+    CALL message( TRIM(routine),'Ocean T/S relaxation reading finished' )
 
     !-------------------------------------------------------
     !
@@ -643,9 +629,8 @@ CONTAINS
   TYPE(t_sfc_flx)                   :: p_sfc_flx
   ! Local Variables
   INTEGER :: jb, jc, je, jk
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: rl_start, rl_end_e,rl_end_c
+  INTEGER :: i_startidx_c, i_endidx_c
+  INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: z_dolic
   REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
   REAL(wp):: z_lat, z_lon
@@ -1710,21 +1695,17 @@ CONTAINS
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
   END SELECT
 
+  !---------Debug Diagnostics-------------------------------------------
   IF (no_tracer >=1) THEN
-    ipl_src=1  ! output print level (0-5, fix)
+    idt_src=1  ! output print level (0-5, fix)
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-    DO jk=1, n_zlev
-      CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-    END DO
+    CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src)
   ELSE IF (no_tracer == 2) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-    DO jk=1, n_zlev
-      CALL print_mxmn('S-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-    END DO
+    CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src)
   END IF
-
-  z_c(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
-  CALL print_mxmn('Elevation-init',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+  CALL dbg_print('init testcases  - H'       ,p_os%p_prog(nold(1))%h    ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
 ! Shallow water testcases:
 ELSEIF( iswm_oce == 1 )THEN

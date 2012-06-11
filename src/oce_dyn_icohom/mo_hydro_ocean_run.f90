@@ -52,8 +52,8 @@ USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_config,            ONLY: n_dom
 USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, &
-  &                                  i_sea_ice, l_staggered_timestep
+  &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
+  &                                  EOS_type, i_sea_ice, l_staggered_timestep
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
   &                                  is_checkpoint_time, n_checkpoints
@@ -453,7 +453,9 @@ CONTAINS
       CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_sfc_flx)
     END IF
 
-    CALL init_ho_relaxation(ppatch(jg), pstate_oce(jg), p_sfc_flx)
+    IF (init_oce_relax == 1) THEN
+      CALL init_ho_relaxation(ppatch(jg), pstate_oce(jg), p_sfc_flx)
+    END IF
 
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
     IF (i_sea_ice >= 1) &
