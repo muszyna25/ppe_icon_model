@@ -74,21 +74,19 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               FORCING_FROM_COUPLED_FIELD, i_dbg_oce, i_sea_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch
+USE mo_util_dbg_prnt,       ONLY: dbg_print
+USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, tmelt, tf, &
   &                               mu, clw, rho_ref
-USE mo_impl_constants,      ONLY: max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
-USE mo_loopindices,         ONLY: get_indices_c
+USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
-! #achim
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, set_ice_albedo, &
-                                  ice_slow, ice_fast, &
-                                  prepareAfterRestart
+USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, ice_slow, ice_fast, prepareAfterRestart !&,
+!  &                               set_ice_albedo
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
-! #
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
@@ -100,15 +98,17 @@ IMPLICIT NONE
 ! required for reading netcdf files
 INCLUDE 'netcdf.inc'
 
+PRIVATE
+
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=12)           :: str_module    = 'oceBulk     '  ! Output of module for 1 line debug
+INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+
 ! Public interface
 PUBLIC  :: update_sfcflx
-!PUBLIC  :: calc_atm_fluxes_from_bulk
 
 ! private implementation
 PRIVATE :: update_sfcflx_analytical
-
-PRIVATE
 
 
 CONTAINS
@@ -141,6 +141,7 @@ CONTAINS
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
     REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+    REAL(wp) :: z_c2(nproma,p_patch%nblks_c)
     REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
 
     ! Local declarations for coupling:
@@ -336,12 +337,14 @@ CONTAINS
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-      CALL print_mxmn('Ext  tafo mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-      CALL print_mxmn('Ext  tafo mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=p_as%tafo(:,:)
-      CALL print_mxmn('p_as%tafo',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=3  ! output print level (1-5, fix)
+        z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
+        CALL dbg_print('UpdSfc: Ext mon1'          ,z_c2                     ,str_module,idt_src)
+        z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
+        CALL dbg_print('UpdSfc: Ext mon2'          ,z_c2                     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
+        !---------------------------------------------------------------------
 
       END IF
 
@@ -411,23 +414,17 @@ CONTAINS
           &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
         p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
 
-        ipl_src=2  ! output print level (1-5, fix)
-        z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
-        CALL print_mxmn('OMIP: SW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_lwflx(:,:)
-        CALL print_mxmn('OMIP: LW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_ssflx(:,:)
-        CALL print_mxmn('OMIP: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
-        CALL print_mxmn('OMIP: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_hflx(:,:)
-        CALL print_mxmn('OMIP: total heat',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
-        CALL print_mxmn('OMIP: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
-        CALL print_mxmn('OMIP: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_fwfx(:,:)
-        CALL print_mxmn('OMIP: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=2  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: OMIP SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP Precip.'      ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP Evaporation'  ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: OMIP Freshw. Flux' ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
+        !---------------------------------------------------------------------
 
         ! call of sea ice model
         IF (i_sea_ice >= 1) THEN
@@ -475,24 +472,26 @@ CONTAINS
 
       END IF
 
-      ipl_src=3  ! output print level (1-5, fix)
-      IF (i_dbg_oce >= ipl_src) THEN
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      IF (idbg_mxmn >= idt_src) THEN
         WRITE(message_text,'(a,i6,2(a,i2),2(a,f12.8))') 'FLUX time interpolation: jt=',jstep, &
           &  ' mon1=',jmon1,' mon2=',jmon2,' day1=',rday1,' day2=',rday2
         CALL message (' ', message_text)
       END IF
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1)
-      CALL print_mxmn('Ext data1 (u) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
-      CALL print_mxmn('Ext data1 (u) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2)
-      CALL print_mxmn('Ext data2 (v) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
-      CALL print_mxmn('Ext data2 (v) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)
-      CALL print_mxmn('Ext data3 (t) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)
-      CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1)
+      CALL dbg_print('UpdSfc: Ext data1-u/mon1'  ,z_c2                     ,str_module,idt_src)
+      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
+      CALL dbg_print('UpdSfc: Ext data1-u/mon2'  ,z_c2                     ,str_module,idt_src)
+      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2)
+      CALL dbg_print('UpdSfc: Ext data2-v/mon1'  ,z_c2                     ,str_module,idt_src)
+      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
+      CALL dbg_print('UpdSfc: Ext data2-v/mon2'  ,z_c2                     ,str_module,idt_src)
+      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)
+      CALL dbg_print('UpdSfc: Ext data3-t/mon1'  ,z_c2                     ,str_module,idt_src)
+      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)
+      CALL dbg_print('UpdSfc: Ext data3-t/mon2'  ,z_c2                     ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
       IF (i_sea_ice >= 1) THEN
         IF (iforc_type == 2 .OR. iforc_type == 5) &
@@ -648,23 +647,17 @@ CONTAINS
       &                            + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
         END IF
 
-        ipl_src=1  ! output print level (1-5, fix)
-        z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
-        CALL print_mxmn('CPL: SW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_lwflx(:,:)
-        CALL print_mxmn('CPL: LW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_ssflx(:,:)
-        CALL print_mxmn('CPL: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
-        CALL print_mxmn('CPL: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_hflx(:,:)
-        CALL print_mxmn('CPL: total heat',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
-        CALL print_mxmn('CPL: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
-        CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-        z_c(:,1,:)=p_sfc_flx%forc_fwfx(:,:)
-        CALL print_mxmn('CPL: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=1  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: CPL: SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Precip.'      ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Evaporation'  ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Freshw. Flux' ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
+        !---------------------------------------------------------------------
 
         DEALLOCATE(buffer)
         DEALLOCATE(field_id)      
@@ -723,7 +716,7 @@ CONTAINS
 
     !
     ! After final updating of zonal and merdional components (from file, bulk formula, or coupling)
-    ! cartesian coordinates are calculated here
+    ! cartesian coordinates are calculated
     !
     IF (iforc_oce > NO_FORCING) THEN
       DO jb = all_cells%start_block, all_cells%end_block
@@ -745,16 +738,14 @@ CONTAINS
         END DO
       END DO
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
-      CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
-      CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      ipl_src=2  ! output print level (1-5, fix)
-      z_c(:,1,:)=p_sfc_flx%forc_wind_cc(:,:)%x(1)
-      CALL print_mxmn('update forc-cc1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=p_sfc_flx%forc_wind_cc(:,:)%x(2)
-      CALL print_mxmn('update forc-cc2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: forcing u'       ,p_sfc_flx%forc_wind_u      ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src)
+      idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: forcing cc%x(1)' ,p_sfc_flx%forc_wind_cc%x(1),str_module,idt_src)
+      CALL dbg_print('UpdSfc: forcing cc%x(2)' ,p_sfc_flx%forc_wind_cc%x(2),str_module,idt_src)
+      !---------------------------------------------------------------------
 
     END IF
 
@@ -818,14 +809,16 @@ CONTAINS
         END DO
       END DO
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL print_mxmn('update temp-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      ipl_src=2  ! output print level (0-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
-      CALL print_mxmn('Temp-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL print_mxmn('T-forc-tracer [Km/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
+      CALL dbg_print('UpdSfc: Temp-relax'        ,z_c2                    ,str_module,idt_src)
+      idt_src=2  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
+      CALL dbg_print('UpdSfc: Temp-difference'   ,z_c2                    ,str_module,idt_src)
+      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
+      CALL dbg_print('UpdSfc: T-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     ENDIF
 
@@ -869,14 +862,16 @@ CONTAINS
         END DO
       END DO
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,2)
-      CALL print_mxmn('update sal.-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      ipl_src=2  ! output print level (0-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      CALL print_mxmn('Sal.-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL print_mxmn('S-forc-tracer [psu*m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
+      CALL dbg_print('UpdSfc: Sal.-relax'        ,z_c2                    ,str_module,idt_src)
+      idt_src=2  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      CALL dbg_print('UpdSfc: Sal.-difference'   ,z_c2                    ,str_module,idt_src)
+      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
+      CALL dbg_print('UpdSfc: S-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     ENDIF
 
@@ -890,9 +885,10 @@ CONTAINS
 
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * clw
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-      CALL print_mxmn('T-relax-hflx [W/m2]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',p_sfc_flx%forc_hflx     ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     END IF
 
@@ -910,9 +906,10 @@ CONTAINS
       ! now in m/month for diagnosis
         p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref * 2.592e6_wp
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
-      CALL print_mxmn('S-relax-fwfx [m/mon]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc:S-relax-fwfx[m/mon]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     END IF
 
@@ -935,12 +932,13 @@ CONTAINS
 
       p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*clw)
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-      CALL print_mxmn('T-forc-hflx [W/m2]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      ipl_src=2  ! output print level (1-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL print_mxmn('T-forc-tracer [K*m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%forc_hflx     ,str_module,idt_src)
+      idt_src=3  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
+      CALL dbg_print('UpdSfc:T-forc-trac[K*m/s]' ,z_c2                    ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     END IF
 
@@ -953,12 +951,13 @@ CONTAINS
 
       p_sfc_flx%forc_tracer(:,:,2) = -p_sfc_flx%forc_fwfx(:,:) * sal_ref
 
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
-      CALL print_mxmn('S-forc-frwflx [m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      ipl_src=2  ! output print level (1-5, fix)
-      z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL print_mxmn('S-forc-tracer [psu*m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: S-forc-fwfx[m/s]'  ,p_sfc_flx%forc_fwfx     ,str_module,idt_src)
+      idt_src=3  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
+      CALL dbg_print('UpdSfc:S-forc-trac[psu*m/s]',z_c2                    ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     END IF
 
@@ -1095,8 +1094,9 @@ CONTAINS
   !
   ! local variables
   INTEGER :: jc, jb
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: rl_start_c, rl_end_c
+  INTEGER :: i_startidx_c, i_endidx_c
+  !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+  !INTEGER :: rl_start_c, rl_end_c
 
   REAL(wp) :: zonal_str
   REAL(wp) :: z_lat, z_lon, z_lat_deg
