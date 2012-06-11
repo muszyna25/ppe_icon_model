@@ -42,35 +42,34 @@
 MODULE mo_oce_math_operators
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_parallel_config,    ONLY: nproma, p_test_run
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: ltimer
   USE mo_math_constants
   USE mo_physical_constants
-  USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!land, sea,
-    & min_rlcell, min_rledge, min_rlvert ,max_char_length, &
-    & min_rledge_int
+  USE mo_impl_constants,     ONLY: boundary, sea, sea_boundary !,land, land_boundary, sea, max_char_length, &
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
+  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce
   USE mo_dynamics_config,    ONLY: nold
-  USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_exception,          ONLY: finish, message
 #ifndef __SX__
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
 #endif
-  USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base
+  USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
   USE mo_intp_data_strc,     ONLY: p_int_state
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
 
   IMPLICIT NONE
 
   PRIVATE
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=12)           :: str_module    = 'oceMathOps  '  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
 
   PUBLIC :: grad_fd_norm_oce_3d
@@ -106,14 +105,14 @@ CONTAINS
     !Local variables
     !
 
-    REAL(wp) :: zarea_fraction
-    REAL(wp) :: z_area_scaled
+    !REAL(wp) :: zarea_fraction
+    !REAL(wp) :: z_area_scaled
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb,jev
     INTEGER :: ile, ibe
     INTEGER :: i_startidx_v, i_endidx_v
-    INTEGER :: icell_idx_1, icell_blk_1
-    INTEGER :: icell_idx_2, icell_blk_2
+    !INTEGER :: icell_idx_1, icell_blk_1
+    !INTEGER :: icell_idx_2, icell_blk_2
 
     INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
     INTEGER,PARAMETER :: ino_dual_edges = 6
@@ -124,13 +123,6 @@ CONTAINS
     i_v_ctr(:,:,:) = 0
     slev         = 1
     elev         = n_zlev
- 
- !  slo: not necessary, should be done in calling routines
- !  IF (p_test_run) THEN
- !    p_vn_dual(:,:,:)%x(1) = 0.0_wp
- !    p_vn_dual(:,:,:)%x(2) = 0.0_wp
- !    p_vn_dual(:,:,:)%x(3) = 0.0_wp
- !  ENDIF
 
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
@@ -335,9 +327,9 @@ CONTAINS
     !
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-    !INTEGER :: nlen, nblks_e, npromz_e
+    !INTEGER :: rl_start, rl_end
+    !INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: edges_in_domain
 
@@ -453,8 +445,7 @@ CONTAINS
 
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
-    INTEGER ::i_startidx, i_endidx, i_nchdom
-    !INTEGER :: nlen, npromz_c, nblks_c
+    INTEGER ::i_startidx, i_endidx
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
@@ -661,7 +652,6 @@ CONTAINS
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jb
     INTEGER :: i_startidx, i_endidx
-    INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
@@ -743,9 +733,9 @@ CONTAINS
 
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: nlen, nblks_e, npromz_e
+    !INTEGER :: rl_start, rl_end
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !
     TYPE(t_subset_range), POINTER :: edges_in_domain
@@ -1250,9 +1240,8 @@ CONTAINS
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb, jev
     INTEGER :: ile, ibe
-    INTEGER :: rl_start_e, rl_end_e
-    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
-    INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
+    !INTEGER :: rl_start_e, rl_end_e
+    INTEGER :: i_startidx_v, i_endidx_v
 
     !INTEGER :: i_bdr_ctr
     !INTEGER :: icell_idx_1, icell_blk_1
@@ -1266,8 +1255,8 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: vertex_cc! cell1_cc, cell2_cc
     !INTEGER,PARAMETER :: ino_dual_edges = 6
 
-    INTEGER,PARAMETER :: rl_start_v = 2
-    INTEGER,PARAMETER :: rl_end_v   = min_rlvert
+    !INTEGER,PARAMETER :: rl_start_v = 2
+    !INTEGER,PARAMETER :: rl_end_v   = min_rlvert
     TYPE(t_subset_range), POINTER :: verts_in_domain
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
@@ -1701,7 +1690,6 @@ CONTAINS
       SELECT CASE(averaging)
 
       CASE(distance_weight)
-        CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
 
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
@@ -1747,7 +1735,6 @@ CONTAINS
         END DO
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
-        CALL print_mxmn('(hrw,new) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
 
       CASE(upwind)
 
@@ -1803,6 +1790,15 @@ CONTAINS
 !     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
 !     CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
 !     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
+    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
+    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
 
   END SUBROUTINE height_related_quantities

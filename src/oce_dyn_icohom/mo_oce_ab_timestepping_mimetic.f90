@@ -462,7 +462,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   IF (L_INVERSE_FLIP_FLOP) THEN
 
     idt_src = 4  ! output print level (1-5, fix)
-    CALL dbg_print('bef.dual-flip-flop: horzAdv',p_os%p_diag%laplacian_horz,str_module,idt_src)
+    CALL dbg_print('bef.dual-flip-fl: LaPlaHorz',p_os%p_diag%laplacian_horz,str_module,idt_src)
 
     IF ( iswm_oce /= 1 ) THEN
       z_e = inverse_primal_flip_flop(p_patch, p_os%p_diag%veloc_adv_horz, p_os%p_diag%h_e)
