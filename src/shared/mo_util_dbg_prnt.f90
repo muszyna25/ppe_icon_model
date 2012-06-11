@@ -303,21 +303,21 @@ CONTAINS
   IF (icheck_str_mod == 0 ) RETURN
 
 ! ! valid e-format with first digit gt zero
-! 981 FORMAT(a,a12,':',a25,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
-! 982 FORMAT(a,a12,':',a25,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
 ! 991 FORMAT(a,a12,':',a27,  ':',i3,1p2e26.18)
 
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a25,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
-! 982 FORMAT(a,a12,':',a25,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
 ! 991 FORMAT(a,a12,':',a27,  ':',i3,1p2g26.18)
 
   ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
-  982 FORMAT(a,a12,':',a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g16.8))
   991 FORMAT(a,a12,':',a27,  ':',i3, 2g26.18)
 
-  983 FORMAT(a,a12,':',a25,'  :',i3, 4i4)
+  983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
 
   strout=TRIM(str_prntdes)
 
@@ -344,13 +344,13 @@ CONTAINS
 
         ! write value at index
         IF (ndimblk == loc_nblks_c) THEN
-          WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,jk,c_b), &
+          WRITE(iout,981) ' VALUE ', str_mod_src, strout, jk, p_array(c_i,jk,c_b), &
         &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
         ELSE IF (ndimblk == loc_nblks_e) THEN
-          WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+          WRITE(iout,982) ' VALUE ', str_mod_src, strout, jk, &
         &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
         ELSE IF (ndimblk == loc_nblks_v) THEN
-          WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+          WRITE(iout,982) ' VALUE ', str_mod_src, strout, jk, &
         &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
         END IF
 
@@ -435,21 +435,21 @@ CONTAINS
   IF (icheck_str_mod == 0 ) RETURN
 
 ! ! valid e-format with first digit gt zero
-! 981 FORMAT(a,a12,':',a25,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
-! 982 FORMAT(a,a12,':',a25,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
 ! 991 FORMAT(a,a12,':',a27,  ':',i3,1p2e26.18)
 
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a25,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
-! 982 FORMAT(a,a12,':',a25,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
 ! 991 FORMAT(a,a12,':',a27,  ':',i3,1p2g26.18)
 
   ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
-  982 FORMAT(a,a12,':',a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g16.8))
   991 FORMAT(a,a12,':',a27,  ':',i3, 2g26.18)
 
-  983 FORMAT(a,a12,':',a25,'  :',i3, 4i4)
+  983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
 
   strout=TRIM(str_prntdes)
 
@@ -465,13 +465,13 @@ CONTAINS
 
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
-        WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,c_b), &
+        WRITE(iout,981) ' VALUE ', str_mod_src, strout, jk, p_array(c_i,c_b), &
       &                 (' C',i,':',p_array(nc_i(i),nc_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_e) THEN
-        WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+        WRITE(iout,982) ' VALUE ', str_mod_src, strout, jk, &
       &                 (' E',i,':',p_array(ne_i(i),ne_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_v) THEN
-        WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+        WRITE(iout,982) ' VALUE ', str_mod_src, strout, jk, &
       &                 (' V',i,':',p_array(nv_i(i),nv_b(i)),i=1,3)
       END IF
 
