@@ -323,12 +323,10 @@ CONTAINS
   ! check start and end index for output of vertical levels via namelist
 
   slev = 1
-  IF (idbg_slev > 1) slev = idbg_slev
+  IF (idbg_slev > 1)    slev = idbg_slev
+  IF (slev      > nlev) slev = nlev
   elev = nlev
   IF (idbg_elev < nlev) elev = idbg_elev
-
-  !IF (slev > nlev) slev = nlev
-  !IF (elev < slev) elev = slev
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
