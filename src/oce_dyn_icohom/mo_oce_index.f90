@@ -38,17 +38,13 @@ MODULE mo_oce_index
 !
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: my_process_is_stdio
-USE mo_io_units,               ONLY: nerr
-USE mo_parallel_config,        ONLY: nproma, p_test_run
+USE mo_parallel_config,        ONLY: nproma
 USE mo_grid_config,            ONLY: n_dom
 USE mo_run_config,             ONLY: nsteps!, ltimer
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
-USE mo_sync,                   ONLY: global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
-USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst,no_tracer, &
-  &                                  i_oct_ilv, rlon_in, rlat_in
-! &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
-! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
+USE mo_ocean_nml,              ONLY: n_zlev, no_tracer, &
+  &                                  rlon_in, rlat_in
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_run_config,             ONLY: dtime
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -137,7 +133,7 @@ CONTAINS
   !END IF
 
   ! set zlevel of test point
-  c_k = i_oct_ilv
+  c_k = 1
 
   ! set level of debug output
   ldbg = .FALSE.
@@ -386,10 +382,9 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
 
   INTEGER  :: jb, jc, jg, i_startidx, i_endidx, proc_id
-  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
+  REAL(wp) :: zlon, zlat, zdist, zdist_cmp
   REAL(wp) :: zdst(nproma,ppatch(1)%nblks_c)
   TYPE(t_subset_range), POINTER :: all_cells
-  LOGICAL  :: p_test_run_bac
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_oce_index:search_latlonindex'
@@ -425,12 +420,6 @@ CONTAINS
   END DO
 
   ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
-
-  ! disable p_test_run since global_max will be different
-  p_test_run_bac = p_test_run
-  p_test_run = .false.
-  ctr = global_max(-zdist,proc_id)
-  p_test_run = p_test_run_bac
 
   zlat    = ppatch(jg)%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
   zlon    = ppatch(jg)%cells%center          (iidx,iblk)%lon * 180.0_wp / pi

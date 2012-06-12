@@ -281,25 +281,13 @@ MODULE mo_ocean_nml
   REAL(wp) :: t_val     = 0.0_wp  ! input test value for temperature
   !REAL(wp) :: s_val     = 0.0_wp  ! input  test value for salinity
 
-  ! switches for level of debugging the ocean core
-  INTEGER  :: i_dbg_oce = 1       ! different levels of debug output (1-5, 0: no output)
-  INTEGER  :: i_dbg_inx = 0       ! different levels of debug output of values at lat/lon given below
-
   ! latitude/longitude location of single cell output for debugging
   REAL(wp) :: rlat_in   = 0.0_wp  ! latitude of cell for debug output
   REAL(wp) :: rlon_in   = 0.0_wp  ! longitude of cell for debug output
 
-  ! block/index location of cell output for debugging (alternative to rlat_in/rlon_in)
-  INTEGER  :: i_oct_blk = 1       ! output test block
-  INTEGER  :: i_oct_idx = 1       ! output test index
-  INTEGER  :: i_oct_ilv = 1       ! output test level
-
   CHARACTER(len=3) :: str_proc_tst(10)   ! namelist string of source processes to print
 
-  NAMELIST/octst_nml/   i_oct_blk, i_oct_idx, i_oct_ilv,     &
-    &                   i_ocv_blk, i_ocv_idx, i_ocv_ilv,     &
-    &                   i_dbg_oce, i_dbg_inx, str_proc_tst,  &
-    &                   h_val, t_val, rlat_in, rlon_in
+  NAMELIST/octst_nml/  h_val, t_val, rlat_in, rlon_in
 
   CONTAINS
 
