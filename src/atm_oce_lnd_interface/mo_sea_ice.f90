@@ -1535,11 +1535,11 @@ CONTAINS
     Qatm%rpreci(:,:) = 0.0_wp
     Qatm%rprecw(:,:) = 0.0_wp
 
-    !#achim: check stuff
-    CALL print_cells(p_as%tafo(:,:),'p_as%tafo')
-    CALL print_cells(Qatm%sens(:,1,:),'Qatm%sens')
-    CALL print_cells(Qatm%dsensdT(:,1,:),'Qatm%dsensdT')
-    CALL print_cells(Qatm%dLWdT(:,1,:),'Qatm%dLWdT')
+!!$    !#achim: check stuff
+!!$    CALL print_cells(p_as%tafo(:,:),'p_as%tafo')
+!!$    CALL print_cells(Qatm%sens(:,1,:),'Qatm%sens')
+!!$    CALL print_cells(Qatm%dsensdT(:,1,:),'Qatm%dsensdT')
+!!$    CALL print_cells(Qatm%dLWdT(:,1,:),'Qatm%dLWdT')
 
   END SUBROUTINE calc_atm_fluxes_from_bulk
  
