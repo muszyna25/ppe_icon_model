@@ -148,10 +148,6 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all', 'module'     ! define modules to print out in debug mode
 /
 &octst_nml
-  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
-  i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
-  str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
-                                 ! define strings for processes to be printed out in debug mode
   rlat_in = 50.0 rlon_in = -30.0 ! lat/lon-location of one cell debug output
 /
 &ocean_dynamics_nml

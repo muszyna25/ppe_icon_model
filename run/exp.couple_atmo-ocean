@@ -418,14 +418,16 @@ cat > ${ocean_namelist} << EOF
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltimer      = .true. 
 /
+&dbg_index_nml
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
+  str_mod_tst='all', 'module'     ! define modules to print out in debug mode
+  idbg_slev=1                     ! initialize MIN/MAX  debug output
+  idbg_elev=5                     ! initialize MIN/MAX  debug output
+/
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere
-/
-&octst_nml
-  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
-  i_dbg_inx=1                    ! initialize one cell debug output via mo_index_oce
-  str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
-                                 ! define strings for processes to be printed out in debug mode
 /
 &ocean_dynamics_nml
   n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
