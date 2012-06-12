@@ -50,7 +50,8 @@ USE mo_impl_constants,         ONLY: max_char_length
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
-  &                                  idbg_mxmn, idbg_val, idbg_slev, idbg_elev
+  &                                  idbg_mxmn, idbg_val, idbg_slev, idbg_elev, &
+  &                                  idbg_idx, idbg_blk
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
@@ -93,7 +94,7 @@ CONTAINS
 
   TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
 
-  INTEGER :: i
+  INTEGER  :: i
   REAL(wp) :: zlon, zlat
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -106,9 +107,15 @@ CONTAINS
   loc_nblks_e =ppatch%nblks_e
   loc_nblks_v =ppatch%nblks_v
 
-  ! search for block/index of debug output cell at lat/lon
-  ! given by namelist dbg_index_nml - not yet parallelized
-  CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b)
+  ! module index/block for one cell output
+  IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
+    c_i = idbg_idx
+    c_b = idbg_blk
+  ELSE
+    ! search for block/index of debug output cell at lat/lon
+    ! given by namelist dbg_index_nml - not yet parallelized
+    CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b)
+  END IF
 
   zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
   zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
