@@ -431,7 +431,7 @@ CONTAINS
     END DO
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
+    idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('HorzMimRot: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src)
     !---------------------------------------------------------------------
 
@@ -548,8 +548,9 @@ CONTAINS
     CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
+    idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('HorzMimDiv: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('HorzMimDiv: vorticity'         ,p_diag%vort             ,str_module,idt_src)
     !---------------------------------------------------------------------
 
@@ -1314,6 +1315,8 @@ CONTAINS
     END DO
 
     !---------Debug Diagnostics-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('HorzRBF: vorticity adv.'     ,veloc_adv_horz_e         ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('HorzRBF: kin. energy'        ,p_diag%kin               ,str_module,idt_src)
     CALL dbg_print('HorzRBF: vorticity'          ,p_diag%vort              ,str_module,idt_src)
@@ -1321,7 +1324,6 @@ CONTAINS
     CALL dbg_print('HorzRBF: grad. kin. en.'     ,z_grad_ekin_rbf          ,str_module,idt_src)
     CALL dbg_print('HorzRBF: vorticity_e'        ,z_vort_e                 ,str_module,idt_src)
     CALL dbg_print('HorzRBF: vorticity flux'     ,z_vort_flx_rbf           ,str_module,idt_src)
-    CALL dbg_print('HorzRBF: vorticity adv.'     ,veloc_adv_horz_e         ,str_module,idt_src)
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_horz_rbf
