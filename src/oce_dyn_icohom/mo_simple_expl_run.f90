@@ -55,7 +55,6 @@ USE mo_io_units,               ONLY: filename_max
 USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &
   &                                  min_rlcell, min_rledge, toplev
 USE mo_model_domain,           ONLY: t_patch
-!USE mo_model_domain_import,    ONLY: n_dom
 USE mo_grid_config,            ONLY: n_dom
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce
 USE mo_dynamics_config,        ONLY: nold
@@ -71,7 +70,6 @@ USE mo_advection_utils,        ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_physical_constants,     ONLY: grav
 USE mo_io_vlist,               ONLY: destruct_vlist
 USE mo_output  ,               ONLY: init_output_files, write_output, close_output_files
-USE mo_oce_index,              ONLY: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
 USE mo_oce_physics,            ONLY: t_ho_params
 
 IMPLICIT NONE
@@ -180,22 +178,22 @@ CONTAINS
       !WRITE(message_text,'(a,i10)') ' - begin of jstep =', jstep
       !CALL message (TRIM(routine), message_text)
 
-      IF (my_process_is_stdio() .AND. ldbg) THEN
+  !   IF (my_process_is_stdio() .AND. ldbg) THEN
 
-        jkp=c_k+1
-        IF ( iswm_oce == 1 ) jkp=c_k
-        WRITE(message_text,form4ar) &
-          &   'Elevation h  =', pstate_oce(jg)%p_prog(jt)%h     (c_i,    c_b),   &
-          &  '    Tracer 1  =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
-          &  '  Tracer(k+1) =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,jkp,c_b,1)
-        CALL message (' ', message_text)
-        WRITE(message_text,form4ar) &
-          &  ' NormalVel.E1 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(1),c_k,ne_b(1)), &
-          &  '  Ver.Vel(k)C =', pstate_oce(jg)%p_diag%w(c_i,c_k,c_b),            &
-          &  '  Ver.Vel(k+1)=', pstate_oce(jg)%p_diag%w(c_i,jkp,c_b)
-        CALL message (' ', message_text)
+  !     jkp=c_k+1
+  !     IF ( iswm_oce == 1 ) jkp=c_k
+  !     WRITE(message_text,form4ar) &
+  !       &   'Elevation h  =', pstate_oce(jg)%p_prog(jt)%h     (c_i,    c_b),   &
+  !       &  '    Tracer 1  =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+  !       &  '  Tracer(k+1) =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,jkp,c_b,1)
+  !     CALL message (' ', message_text)
+  !     WRITE(message_text,form4ar) &
+  !       &  ' NormalVel.E1 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(1),c_k,ne_b(1)), &
+  !       &  '  Ver.Vel(k)C =', pstate_oce(jg)%p_diag%w(c_i,c_k,c_b),            &
+  !       &  '  Ver.Vel(k+1)=', pstate_oce(jg)%p_diag%w(c_i,jkp,c_b)
+  !     CALL message (' ', message_text)
 
-      END IF
+  !   END IF
 
       !*******************************************************************************
       ! Steps to be performed:
@@ -230,13 +228,13 @@ CONTAINS
           &                 pstate_oce(jg)%p_prog(jt)%tracer(:,:,:,1:2), &
           &                 pstate_oce(jg)%p_diag%rho(:,:,:) )
 
-        IF (my_process_is_stdio() .AND. ldbg) THEN
-          WRITE(message_text,form4ar) &
-            &   'Density    C =', pstate_oce(jg)%p_diag%rho(c_i,c_k,c_b),   &
-            &  '  Dens(k+1) C =', pstate_oce(jg)%p_diag%rho(c_i,c_k+1,c_b), &
-            &  '  Dens(k+2) C =', pstate_oce(jg)%p_diag%rho(c_i,c_k+2,c_b)
-          CALL message (' ', message_text)
-        END IF
+    !   IF (my_process_is_stdio() .AND. ldbg) THEN
+    !     WRITE(message_text,form4ar) &
+    !       &   'Density    C =', pstate_oce(jg)%p_diag%rho(c_i,c_k,c_b),   &
+    !       &  '  Dens(k+1) C =', pstate_oce(jg)%p_diag%rho(c_i,c_k+1,c_b), &
+    !       &  '  Dens(k+2) C =', pstate_oce(jg)%p_diag%rho(c_i,c_k+2,c_b)
+    !     CALL message (' ', message_text)
+    !   END IF
 
         !------------------------------------------------------------------
         ! calculate hydrostatic pressure from density
@@ -246,18 +244,18 @@ CONTAINS
           &                        pstate_oce(jg)%p_diag%rho(:,:,:),       &
           &                        pstate_oce(jg)%p_prog(jt)%h(:,:),       &
           &                        pstate_oce(jg)%p_diag%press_hyd(:,:,:) )
-        IF (my_process_is_stdio() .AND. ldbg) THEN
-          WRITE(message_text,form4ar) &
-            &   'Hyd.Press. C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k,c_b),   &
-            &  '  Pres(k+1) C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k+1,c_b), &
-            &  '  Pres(k+2) C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k+2,c_b)
-          CALL message (' ', message_text)
-          WRITE(message_text,form4ar) &
-            &   'Hyd.Press.C1 =', pstate_oce(jg)%p_diag%press_hyd(nc_i(1),c_k,nc_b(1)), &
-            &  '  Pressure C2 =', pstate_oce(jg)%p_diag%press_hyd(nc_i(2),c_k,nc_b(2)), &
-            &  '  Pressure C3 =', pstate_oce(jg)%p_diag%press_hyd(nc_i(3),c_k,nc_b(3))
-          CALL message (' ', message_text)
-        END IF
+     !  IF (my_process_is_stdio() .AND. ldbg) THEN
+     !    WRITE(message_text,form4ar) &
+     !      &   'Hyd.Press. C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k,c_b),   &
+     !      &  '  Pres(k+1) C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k+1,c_b), &
+     !      &  '  Pres(k+2) C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k+2,c_b)
+     !    CALL message (' ', message_text)
+     !    WRITE(message_text,form4ar) &
+     !      &   'Hyd.Press.C1 =', pstate_oce(jg)%p_diag%press_hyd(nc_i(1),c_k,nc_b(1)), &
+     !      &  '  Pressure C2 =', pstate_oce(jg)%p_diag%press_hyd(nc_i(2),c_k,nc_b(2)), &
+     !      &  '  Pressure C3 =', pstate_oce(jg)%p_diag%press_hyd(nc_i(3),c_k,nc_b(3))
+     !    CALL message (' ', message_text)
+     !  END IF
 
 
       !*******************************************************************************
@@ -285,18 +283,18 @@ CONTAINS
       ! #slo# use 3-d version!
       !CALL grad_fd_norm_oce_3D( pstate_oce(jg)%p_prog(jt)%h, ppatch(jg), z_gradh_e)
 
-      IF (my_process_is_stdio() .AND. ldbg) THEN
-        WRITE(message_text,form4ar) &
-          &   'Elev. at C1  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(1),nc_b(1)), &
-          &  '  Elevat. C2  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(2),nc_b(2)), &
-          &  '  Elevat. C3  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(3),nc_b(3))
-        CALL message (' ', message_text)
-        WRITE(message_text,form4ar) &
-          &   'Grad(Elv) E1 =', z_gradh_e(ne_i(1),ne_b(1)), &
-          &  '   grad(h) E2 =', z_gradh_e(ne_i(2),ne_b(2)), &
-          &  '   grad(h) E3 =', z_gradh_e(ne_i(3),ne_b(3))
-        CALL message (' ', message_text)
-      END IF
+   !  IF (my_process_is_stdio() .AND. ldbg) THEN
+   !    WRITE(message_text,form4ar) &
+   !      &   'Elev. at C1  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(1),nc_b(1)), &
+   !      &  '  Elevat. C2  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(2),nc_b(2)), &
+   !      &  '  Elevat. C3  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(3),nc_b(3))
+   !    CALL message (' ', message_text)
+   !    WRITE(message_text,form4ar) &
+   !      &   'Grad(Elv) E1 =', z_gradh_e(ne_i(1),ne_b(1)), &
+   !      &  '   grad(h) E2 =', z_gradh_e(ne_i(2),ne_b(2)), &
+   !      &  '   grad(h) E3 =', z_gradh_e(ne_i(3),ne_b(3))
+   !    CALL message (' ', message_text)
+   !  END IF
 
 
       !*******************************************************************************
@@ -345,23 +343,23 @@ CONTAINS
         END DO
       END DO
 
-      IF (my_process_is_stdio() .AND. ldbg) THEN
-        WRITE(message_text,form4ar) &
-          &   'Press.gradE1 =', pstate_oce(jg)%p_diag%press_grad(ne_i(1),c_k,ne_b(1)), &
-          &  '   P_grad  E2 =', pstate_oce(jg)%p_diag%press_grad(ne_i(2),c_k,ne_b(2)), &
-          &  '   P_grad  E3 =', pstate_oce(jg)%p_diag%press_grad(ne_i(3),c_k,ne_b(3))
-        CALL message (' ', message_text)
-        WRITE(message_text,form4ar) &
-          &   'NormVeloc E1 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(1),c_k,ne_b(1)), &
-          &  '  NorVeloc E2 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(2),c_k,ne_b(2)), &
-          &  '  NorVeloc E3 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(3),c_k,ne_b(3))
-        CALL message (' ', message_text)
-        WRITE(message_text,form4ar) &
-          &   'NorV_pred E1 =', z_vn_pred_e(ne_i(1),c_k,ne_b(1)), &
-          &  '  NorV_pre E2 =', z_vn_pred_e(ne_i(2),c_k,ne_b(2)), &
-          &  '  NorV_pre E3 =', z_vn_pred_e(ne_i(3),c_k,ne_b(3))
-        CALL message (' ', message_text)
-      END IF
+    ! IF (my_process_is_stdio() .AND. ldbg) THEN
+    !   WRITE(message_text,form4ar) &
+    !     &   'Press.gradE1 =', pstate_oce(jg)%p_diag%press_grad(ne_i(1),c_k,ne_b(1)), &
+    !     &  '   P_grad  E2 =', pstate_oce(jg)%p_diag%press_grad(ne_i(2),c_k,ne_b(2)), &
+    !     &  '   P_grad  E3 =', pstate_oce(jg)%p_diag%press_grad(ne_i(3),c_k,ne_b(3))
+    !   CALL message (' ', message_text)
+    !   WRITE(message_text,form4ar) &
+    !     &   'NormVeloc E1 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(1),c_k,ne_b(1)), &
+    !     &  '  NorVeloc E2 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(2),c_k,ne_b(2)), &
+    !     &  '  NorVeloc E3 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(3),c_k,ne_b(3))
+    !   CALL message (' ', message_text)
+    !   WRITE(message_text,form4ar) &
+    !     &   'NorV_pred E1 =', z_vn_pred_e(ne_i(1),c_k,ne_b(1)), &
+    !     &  '  NorV_pre E2 =', z_vn_pred_e(ne_i(2),c_k,ne_b(2)), &
+    !     &  '  NorV_pre E3 =', z_vn_pred_e(ne_i(3),c_k,ne_b(3))
+    !   CALL message (' ', message_text)
+    ! END IF
 
 
       !*******************************************************************************
@@ -382,23 +380,23 @@ CONTAINS
       ! #slo# - change sequence in mo_math: call calc_vert_veloc(vn_e,ppatch,h_c,w_c)
       !PKCALL calc_vert_velocity(ppatch(jg), z_vn_pred_e, pstate_oce(jg)%p_prog(jt)%h, z_w_pred_c )
 
-      IF (my_process_is_stdio() .AND. ldbg) THEN
+    ! IF (my_process_is_stdio() .AND. ldbg) THEN
 
-        ! test call of divergence of hor.vel. as in calc_vert_velocity:
-        !CALL div_oce( z_vn_pred_e, ppatch(jg), z_divhor_c)
-        jkp=c_k+1
-        if ( iswm_oce == 1 ) jkp=1
-        WRITE(message_text,form4ar) &
-          &          'Div(NorV) C1 =', z_divhor_c(nc_i(1),c_k,nc_b(1)), &
-          &         ' Div(NorV) C2 =', z_divhor_c(nc_i(2),c_k,nc_b(2)), &
-          &         ' Div(NorV) C3 =', z_divhor_c(nc_i(3),c_k,nc_b(3))
-        WRITE(message_text,form4ar) &
-          &          'Div(NorV)  C =', z_divhor_c(c_i,c_k,c_b), &
-          &         ' Div(NV)*dz C =', z_divhor_c(c_i,c_k,c_b)* &
-          &   (pstate_oce(jg)%p_prog(jt)%h(c_i,c_b)+v_base%del_zlev_m(c_k)), &
-          &         ' Div(NV)lv2 C =', z_divhor_c(c_i,jkp,c_b)
-        CALL message (' ', message_text)
-      END IF
+    !   ! test call of divergence of hor.vel. as in calc_vert_velocity:
+    !   !CALL div_oce( z_vn_pred_e, ppatch(jg), z_divhor_c)
+    !   jkp=c_k+1
+    !   if ( iswm_oce == 1 ) jkp=1
+    !   WRITE(message_text,form4ar) &
+    !     &          'Div(NorV) C1 =', z_divhor_c(nc_i(1),c_k,nc_b(1)), &
+    !     &         ' Div(NorV) C2 =', z_divhor_c(nc_i(2),c_k,nc_b(2)), &
+    !     &         ' Div(NorV) C3 =', z_divhor_c(nc_i(3),c_k,nc_b(3))
+    !   WRITE(message_text,form4ar) &
+    !     &          'Div(NorV)  C =', z_divhor_c(c_i,c_k,c_b), &
+    !     &         ' Div(NV)*dz C =', z_divhor_c(c_i,c_k,c_b)* &
+    !     &   (pstate_oce(jg)%p_prog(jt)%h(c_i,c_b)+v_base%del_zlev_m(c_k)), &
+    !     &         ' Div(NV)lv2 C =', z_divhor_c(c_i,jkp,c_b)
+    !   CALL message (' ', message_text)
+    ! END IF
 
 
       !*******************************************************************************
@@ -415,25 +413,25 @@ CONTAINS
 
       z_h_pred_c(:,1,:) = pstate_oce(jg)%p_prog(jt)%h(:,:) + dtime * z_w_pred_c(:,1,:)
 
-      IF (my_process_is_stdio() .AND. ldbg) THEN
-        jkp=3
-        if ( iswm_oce == 1 ) jkp=2
-        WRITE(message_text,form4ar) &
-          &     'w_pred(lv=1) =', z_w_pred_c(c_i,1,c_b), &
-          &    '  w_pred(k=2) =', z_w_pred_c(c_i,2,c_b), &
-          &    '  w_pred(k=3) =', z_w_pred_c(c_i,jkp,c_b)
-        CALL message (' ', message_text)
-        WRITE(message_text,form4ar) &
-          &     'w_pred  C1   =', z_w_pred_c(ne_i(1),c_k,ne_b(1)), &
-          &    ' w_pred  C2   =', z_w_pred_c(ne_i(2),c_k,ne_b(2)), &
-          &    ' w_pred  C3   =', z_w_pred_c(ne_i(3),c_k,ne_b(3))
-        CALL message (' ', message_text)
-        WRITE(message_text,form4ar) &
-          &     'h_pred  C    =', z_h_pred_c(c_i,    c_k,c_b),     &
-          &    ' h_pred  C2   =', z_h_pred_c(nc_i(2),c_k,nc_b(2)), &
-          &    ' h_pred  C3   =', z_h_pred_c(nc_i(3),c_k,nc_b(3))
-        CALL message (' ', message_text)
-      END IF
+    ! IF (my_process_is_stdio() .AND. ldbg) THEN
+    !   jkp=3
+    !   if ( iswm_oce == 1 ) jkp=2
+    !   WRITE(message_text,form4ar) &
+    !     &     'w_pred(lv=1) =', z_w_pred_c(c_i,1,c_b), &
+    !     &    '  w_pred(k=2) =', z_w_pred_c(c_i,2,c_b), &
+    !     &    '  w_pred(k=3) =', z_w_pred_c(c_i,jkp,c_b)
+    !   CALL message (' ', message_text)
+    !   WRITE(message_text,form4ar) &
+    !     &     'w_pred  C1   =', z_w_pred_c(ne_i(1),c_k,ne_b(1)), &
+    !     &    ' w_pred  C2   =', z_w_pred_c(ne_i(2),c_k,ne_b(2)), &
+    !     &    ' w_pred  C3   =', z_w_pred_c(ne_i(3),c_k,ne_b(3))
+    !   CALL message (' ', message_text)
+    !   WRITE(message_text,form4ar) &
+    !     &     'h_pred  C    =', z_h_pred_c(c_i,    c_k,c_b),     &
+    !     &    ' h_pred  C2   =', z_h_pred_c(nc_i(2),c_k,nc_b(2)), &
+    !     &    ' h_pred  C3   =', z_h_pred_c(nc_i(3),c_k,nc_b(3))
+    !   CALL message (' ', message_text)
+    ! END IF
 
 
       !*******************************************************************************
@@ -463,18 +461,18 @@ CONTAINS
         z_tracer_c(:,:,:) = pstate_oce(jg)%p_prog(jt)%tracer(:,:,:,1)
         CALL upwind_hflux_oce( ppatch(jg), z_tracer_c, z_vn_pred_e, z_h_e(:,1,:), z_upflux_e )
 
-        IF (my_process_is_stdio() .AND. ldbg) THEN
-          WRITE(message_text,form4ar) &
-            &     'Mapped H  E1 =', z_h_e(ne_i(1),c_k,ne_b(1)), &
-            &    '  Mapped H E2 =', z_h_e(ne_i(2),c_k,ne_b(2)), &
-            &    '  Mapped H E3 =', z_h_e(ne_i(3),c_k,ne_b(3))
-          CALL message (' ', message_text)
-          WRITE(message_text,form4ar) &
-            &     'Tracer at C1 =', z_tracer_c(ne_i(1),c_k,ne_b(1)), &
-            &    '  Tracer   C2 =', z_tracer_c(ne_i(2),c_k,ne_b(2)), &
-            &    '  Tracer   C3 =', z_tracer_c(ne_i(3),c_k,ne_b(3))
-          CALL message (' ', message_text)
-        END IF
+     !  IF (my_process_is_stdio() .AND. ldbg) THEN
+     !    WRITE(message_text,form4ar) &
+     !      &     'Mapped H  E1 =', z_h_e(ne_i(1),c_k,ne_b(1)), &
+     !      &    '  Mapped H E2 =', z_h_e(ne_i(2),c_k,ne_b(2)), &
+     !      &    '  Mapped H E3 =', z_h_e(ne_i(3),c_k,ne_b(3))
+     !    CALL message (' ', message_text)
+     !    WRITE(message_text,form4ar) &
+     !      &     'Tracer at C1 =', z_tracer_c(ne_i(1),c_k,ne_b(1)), &
+     !      &    '  Tracer   C2 =', z_tracer_c(ne_i(2),c_k,ne_b(2)), &
+     !      &    '  Tracer   C3 =', z_tracer_c(ne_i(3),c_k,ne_b(3))
+     !    CALL message (' ', message_text)
+     !  END IF
 
         !------------------------------------------------------------------
         !  divergence of horizontal upwind fluxes of tracers calculates tracer tendencies
@@ -533,25 +531,25 @@ CONTAINS
         z_tracer_c(:,:,:) = z_tracer_c(:,:,:)*v_base%wet_c(:,:,:) + &
           &                 z_trtend_c(:,:,:)
 
-        IF (my_process_is_stdio() .AND. ldbg) THEN
-          WRITE(message_text,form4ar) &
-            &     'Horflx    E1 =', z_upflux_e(ne_i(1),c_k,ne_b(1)), &
-            &    '  Horflx   E2 =', z_upflux_e(ne_i(2),c_k,ne_b(2)), &
-           !&    '  Horflx   E3 =', z_upflux_e(ne_i(3),c_k,ne_b(3)), &
-            &    '  Div(Hflx) C =', z_divhor_c(c_i,c_k,c_b)
-          CALL message (' ', message_text)
-          jkp=c_k+1
-          WRITE(message_text,form4ar) &
-            &     'Verflx(k)  C =', z_upflux_i(c_i,c_k,c_b), &
-            &    '  Vflx(k+1) C =', z_upflux_i(c_i,jkp,c_b), &
-            &    '  Div(Vflx) C =', z_divver_c(c_i,c_k,c_b)
-          CALL message (' ', message_text)
-          WRITE(message_text,form4ar) &
-            &     'TrTend Hor C =',-z_divhor_c(c_i,c_k,c_b)*dtime, &
-            &    ' TrTend Ver C =',-z_divver_c(c_i,c_k,c_b)*dtime, &
-            &    ' TrTendency C =', z_trtend_c(c_i,c_k,c_b)
-          CALL message (' ', message_text)
-        END IF
+     !  IF (my_process_is_stdio() .AND. ldbg) THEN
+     !    WRITE(message_text,form4ar) &
+     !      &     'Horflx    E1 =', z_upflux_e(ne_i(1),c_k,ne_b(1)), &
+     !      &    '  Horflx   E2 =', z_upflux_e(ne_i(2),c_k,ne_b(2)), &
+     !     !&    '  Horflx   E3 =', z_upflux_e(ne_i(3),c_k,ne_b(3)), &
+     !      &    '  Div(Hflx) C =', z_divhor_c(c_i,c_k,c_b)
+     !    CALL message (' ', message_text)
+     !    jkp=c_k+1
+     !    WRITE(message_text,form4ar) &
+     !      &     'Verflx(k)  C =', z_upflux_i(c_i,c_k,c_b), &
+     !      &    '  Vflx(k+1) C =', z_upflux_i(c_i,jkp,c_b), &
+     !      &    '  Div(Vflx) C =', z_divver_c(c_i,c_k,c_b)
+     !    CALL message (' ', message_text)
+     !    WRITE(message_text,form4ar) &
+     !      &     'TrTend Hor C =',-z_divhor_c(c_i,c_k,c_b)*dtime, &
+     !      &    ' TrTend Ver C =',-z_divver_c(c_i,c_k,c_b)*dtime, &
+     !      &    ' TrTendency C =', z_trtend_c(c_i,c_k,c_b)
+     !    CALL message (' ', message_text)
+     !  END IF
 
       END IF
 
@@ -617,14 +615,14 @@ CONTAINS
     ENDDO TIME_LOOP
 
 
-    IF (my_process_is_stdio() .AND. ldbg) THEN
-      CALL message (TRIM(routine),' - after completion of time loop at cell C:')
-      WRITE(message_text,form4ar) &
-        &   'Elevation h  =', pstate_oce(jg)%p_prog(jt)%h (c_i,c_b), &
-        &  '    Tracer 1  =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
-        &  '   Nor.Vel.E1 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(1),c_k,ne_b(1))
-      CALL message (' ', message_text)
-    END IF
+ !  IF (my_process_is_stdio() .AND. ldbg) THEN
+ !    CALL message (TRIM(routine),' - after completion of time loop at cell C:')
+ !    WRITE(message_text,form4ar) &
+ !      &   'Elevation h  =', pstate_oce(jg)%p_prog(jt)%h (c_i,c_b), &
+ !      &  '    Tracer 1  =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+ !      &  '   Nor.Vel.E1 =', pstate_oce(jg)%p_prog(jt)%vn(ne_i(1),c_k,ne_b(1))
+ !    CALL message (' ', message_text)
+ !  END IF
 
   END SUBROUTINE perform_expl_step_oce
 
@@ -753,24 +751,24 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    IF (my_process_is_stdio() .AND. ldbg) THEN
-      WRITE(*,form4ar) &
-        &  '  zhorflx  E1 =', zhorflx_e(ne_i(1),c_k,ne_b(1)), &
-        & '         ph_e  =', ph_e(ne_i(1),ne_b(1))
+  ! IF (my_process_is_stdio() .AND. ldbg) THEN
+  !   WRITE(*,form4ar) &
+  !     &  '  zhorflx  E1 =', zhorflx_e(ne_i(1),c_k,ne_b(1)), &
+  !     & '         ph_e  =', ph_e(ne_i(1),ne_b(1))
 
-      WRITE(*,form4ar) &
-        &  '  zhorflx  E2 =', zhorflx_e(ne_i(2),c_k,ne_b(2)), &
-        & '         ph_e  =', ph_e(ne_i(2),ne_b(2))
+  !   WRITE(*,form4ar) &
+  !     &  '  zhorflx  E2 =', zhorflx_e(ne_i(2),c_k,ne_b(2)), &
+  !     & '         ph_e  =', ph_e(ne_i(2),ne_b(2))
 
-      WRITE(*,form4ar) &
-        &  '  zhorflx  E3 =', zhorflx_e(ne_i(3),c_k,ne_b(3)), &
-        & '         ph_e  =', ph_e(ne_i(3),ne_b(3))
+  !   WRITE(*,form4ar) &
+  !     &  '  zhorflx  E3 =', zhorflx_e(ne_i(3),c_k,ne_b(3)), &
+  !     & '         ph_e  =', ph_e(ne_i(3),ne_b(3))
 
-      WRITE(*,form4ar) &
-        &  '  pupflx_h E1 =', pupflux_e(ne_i(1),c_k,ne_b(1)), &
-        &  '    pvar_c(1) =', pvar_c   (nc_i(1),c_k,nc_i(1)), &
-        &  '    pvar_c(2) =', pvar_c   (nc_i(2),c_k,nc_i(2))
-    END IF
+  !   WRITE(*,form4ar) &
+  !     &  '  pupflx_h E1 =', pupflux_e(ne_i(1),c_k,ne_b(1)), &
+  !     &  '    pvar_c(1) =', pvar_c   (nc_i(1),c_k,nc_i(1)), &
+  !     &  '    pvar_c(2) =', pvar_c   (nc_i(2),c_k,nc_i(2))
+  ! END IF
 
   END SUBROUTINE upwind_hflux_oce
 
@@ -846,14 +844,14 @@ CONTAINS
               &  laxfr_upflux_v( pw_c(jc,jk,jb),  &
               &                  pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb), zcoeff_grid )
 
-            IF (my_process_is_stdio() .AND. ldbg) THEN
-              IF ((jb==110).and.(jc==14).and.(jk==2)) THEN
-                WRITE(*,form4ar) &
-                  &  '  pupflux_v C =', pupflux_i(jc,jk,jb), &
-                  &  '    pvar_c(1) =', pvar_c(jc,1,jb),     &
-                  &  '    pvar_c(2) =', pvar_c(jc,2,jb)
-              END IF
-            END IF
+      !     IF (my_process_is_stdio() .AND. ldbg) THEN
+      !       IF ((jb==110).and.(jc==14).and.(jk==2)) THEN
+      !         WRITE(*,form4ar) &
+      !           &  '  pupflux_v C =', pupflux_i(jc,jk,jb), &
+      !           &  '    pvar_c(1) =', pvar_c(jc,1,jb),     &
+      !           &  '    pvar_c(2) =', pvar_c(jc,2,jb)
+      !       END IF
+      !     END IF
 
           END DO ! end loop over cells
       END DO ! end loop over vertical levels

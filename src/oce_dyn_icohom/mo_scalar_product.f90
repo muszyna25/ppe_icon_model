@@ -60,8 +60,7 @@ MODULE mo_scalar_product
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce !, ab_gam
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product,&
     & gvec2cvec, cvec2gvec
-  !USE mo_oce_index,          ONLY: ne_b, ne_i, nv_b, nv_i, form4ar, ldbg, c_k!, c_b, c_i
-  USE mo_exception,                 ONLY: message, finish
+  USE mo_exception,          ONLY: message, finish
   USE mo_physical_constants, ONLY: earth_radius
   USE mo_math_constants,     ONLY: pi
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff

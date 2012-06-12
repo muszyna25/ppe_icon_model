@@ -68,8 +68,16 @@ INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
 INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
 LOGICAL :: p_test_run_bac
 
+!
+! PUBLIC INTERFACE
+!
+
+! Public subroutines:
 PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
+
+! Public variables:
+PUBLIC :: c_i, c_b
 
 INTERFACE dbg_print
   MODULE PROCEDURE dbg_print_2d
@@ -81,7 +89,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Initialization of indices
+  !! Initialization of indices for debug output
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-11)
@@ -91,90 +99,89 @@ CONTAINS
   !
   SUBROUTINE init_dbg_index (ppatch)
 
-
-  TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
-
-  INTEGER  :: i
-  REAL(wp) :: zlon, zlat
-
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &      routine = 'mo_util_dbg_prnt:init_dbg_index'
-
-  CALL message(TRIM(routine), 'Start' )
-
-  ! module variables for check of cells/edges/verts
-  loc_nblks_c =ppatch%nblks_c
-  loc_nblks_e =ppatch%nblks_e
-  loc_nblks_v =ppatch%nblks_v
-
-  ! module index/block for one cell output
-  IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
-    c_i = idbg_idx
-    c_b = idbg_blk
-  ELSE
-    ! search for block/index of debug output cell at lat/lon
-    ! given by namelist dbg_index_nml - not yet parallelized
-    CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b)
-  END IF
-
-  zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
-  zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
-
-  !------------------------------------------------------------------
-  ! print test cell
-  !------------------------------------------------------------------
-
-  ! output format
-  99 FORMAT(     2(a,i4),2(a,f9.2))
-  97 FORMAT(a,i1,2(a,i4),2(a,f9.2))
-
-  CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
-  WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
-               &         '  lat=',zlat,'  lon=',zlon
-  CALL message (' ', message_text)
-
-  !------------------------------------------------------------------
-  ! find and print corresponding edges/verts/neighbors of test cell
-  !------------------------------------------------------------------
-
-  DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
-    ne_b(i) = ppatch%cells%edge_blk(c_i,c_b,i)
-    ne_i(i) = ppatch%cells%edge_idx(c_i,c_b,i)
-    zlat    = ppatch%edges%center(ne_i(i),ne_b(i))%lat * 180.0_wp / pi
-    zlon    = ppatch%edges%center(ne_i(i),ne_b(i))%lon * 180.0_wp / pi
-    ! output
-    WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i), &
-      &                    '  lat=',zlat,'  lon=',zlon
-    CALL message (' ', message_text)
-  END DO
-
-  DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
-    nv_b(i) = ppatch%cells%vertex_blk(c_i,c_b,i)
-    nv_i(i) = ppatch%cells%vertex_idx(c_i,c_b,i)
-    zlat    = ppatch%edges%center(nv_i(i),nv_b(i))%lat * 180.0_wp / pi
-    zlon    = ppatch%edges%center(nv_i(i),nv_b(i))%lon * 180.0_wp / pi
-    ! output
-    WRITE(message_text,97) ' Vert V',i,' block=',nv_b(i),'  index=',nv_i(i), &
-      &                    '  lat=',zlat,'  lon=',zlon
-    CALL message (' ', message_text)
-  END DO
-
-  DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
-    nc_b(i)=ppatch%cells%neighbor_blk(c_i,c_b,i)
-    nc_i(i)=ppatch%cells%neighbor_idx(c_i,c_b,i)
-    IF ( nc_i(i) == 0 .OR. nc_b(i) == 0) THEN
-      nc_i(i) = c_i
-      nc_b(i) = c_b
-      WRITE(message_text,'(a)') ' Neighbor Cell is NOT DEFINED'
+    TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
+   
+    INTEGER  :: i
+    REAL(wp) :: zlon, zlat
+   
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      &      routine = 'mo_util_dbg_prnt:init_dbg_index'
+   
+    CALL message(TRIM(routine), 'Start' )
+   
+    ! module variables for check of cells/edges/verts
+    loc_nblks_c =ppatch%nblks_c
+    loc_nblks_e =ppatch%nblks_e
+    loc_nblks_v =ppatch%nblks_v
+   
+    ! module index/block for one cell output
+    IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
+      c_i = idbg_idx
+      c_b = idbg_blk
     ELSE
-      zlat = ppatch%cells%center(nc_i(i),nc_b(i))%lat * 180.0_wp / pi
-      zlon = ppatch%cells%center(nc_i(i),nc_b(i))%lon * 180.0_wp / pi
-      WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
-        &                    '  lat=',zlat,'  lon=',zlon
+      ! search for block/index of debug output cell at lat/lon
+      ! given by namelist dbg_index_nml - not yet parallelized
+      CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b)
     END IF
-    ! output
+   
+    zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
+    zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
+   
+    !------------------------------------------------------------------
+    ! print test cell
+    !------------------------------------------------------------------
+   
+    ! output format
+    99 FORMAT(     2(a,i4),2(a,f9.2))
+    97 FORMAT(a,i1,2(a,i4),2(a,f9.2))
+   
+    CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
+    WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
+                 &         '  lat=',zlat,'  lon=',zlon
     CALL message (' ', message_text)
-  END DO
+   
+    !------------------------------------------------------------------
+    ! find and print corresponding edges/verts/neighbors of test cell
+    !------------------------------------------------------------------
+   
+    DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
+      ne_b(i) = ppatch%cells%edge_blk(c_i,c_b,i)
+      ne_i(i) = ppatch%cells%edge_idx(c_i,c_b,i)
+      zlat    = ppatch%edges%center(ne_i(i),ne_b(i))%lat * 180.0_wp / pi
+      zlon    = ppatch%edges%center(ne_i(i),ne_b(i))%lon * 180.0_wp / pi
+      ! output
+      WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i), &
+        &                    '  lat=',zlat,'  lon=',zlon
+      CALL message (' ', message_text)
+    END DO
+   
+    DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
+      nv_b(i) = ppatch%cells%vertex_blk(c_i,c_b,i)
+      nv_i(i) = ppatch%cells%vertex_idx(c_i,c_b,i)
+      zlat    = ppatch%edges%center(nv_i(i),nv_b(i))%lat * 180.0_wp / pi
+      zlon    = ppatch%edges%center(nv_i(i),nv_b(i))%lon * 180.0_wp / pi
+      ! output
+      WRITE(message_text,97) ' Vert V',i,' block=',nv_b(i),'  index=',nv_i(i), &
+        &                    '  lat=',zlat,'  lon=',zlon
+      CALL message (' ', message_text)
+    END DO
+   
+    DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
+      nc_b(i)=ppatch%cells%neighbor_blk(c_i,c_b,i)
+      nc_i(i)=ppatch%cells%neighbor_idx(c_i,c_b,i)
+      IF ( nc_i(i) == 0 .OR. nc_b(i) == 0) THEN
+        nc_i(i) = c_i
+        nc_b(i) = c_b
+        WRITE(message_text,'(a)') ' Neighbor Cell is NOT DEFINED'
+      ELSE
+        zlat = ppatch%cells%center(nc_i(i),nc_b(i))%lat * 180.0_wp / pi
+        zlon = ppatch%cells%center(nc_i(i),nc_b(i))%lon * 180.0_wp / pi
+        WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
+          &                    '  lat=',zlat,'  lon=',zlon
+      END IF
+      ! output
+      CALL message (' ', message_text)
+    END DO
 
   END SUBROUTINE init_dbg_index
 
@@ -250,7 +257,7 @@ CONTAINS
   99 FORMAT(3a,i4,a,i4,3(a,f9.2))
   98 FORMAT(2a,3(a,f9.2))
   IF (my_process_is_stdio()) THEN
-    WRITE(0,98) ' ',TRIM(routine),' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
+    WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         lat=', plat_in,'  lon=',plon_in
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
     WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
     WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &

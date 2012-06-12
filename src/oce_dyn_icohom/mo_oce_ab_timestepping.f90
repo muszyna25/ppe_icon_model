@@ -46,9 +46,6 @@ MODULE mo_oce_ab_timestepping
 !
 !
 !
-!USE mo_kind,                           ONLY: wp
-!USE mo_impl_constants,                 ONLY: max_char_length, sea_boundary, &
-!  &                                          min_rlcell, min_rledge, min_rlcell, &
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
@@ -56,18 +53,15 @@ USE mo_sea_ice_types,                  ONLY: t_sfc_flx
 USE mo_intp_data_strc,                 ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data
-!USE mo_exception,                      ONLY: message, finish!, message_text
-!USE mo_loopindices,                    ONLY: get_indices_c, get_indices_e !, get_indices_v
-!USE mo_oce_index,                      ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
-                                           & calc_normal_velocity_ab_mimetic, &
-                                           & calc_vert_velocity_mimetic!,      &
-!                                           & calc_vert_velocity_mim_topdown
+  &                                          calc_normal_velocity_ab_mimetic, &
+  &                                          calc_vert_velocity_mimetic
 USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
-                                           & calc_normal_velocity_ab_RBF,     &
-                                           & calc_vert_velocity_RBF
+  &                                          calc_normal_velocity_ab_RBF,     &
+  &                                          calc_vert_velocity_RBF
 USE mo_oce_physics,                    ONLY: t_ho_params
-USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d,        ONLY: t_operator_coeff
+
 IMPLICIT NONE
 
 PRIVATE

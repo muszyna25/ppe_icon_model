@@ -52,7 +52,8 @@ MODULE mo_oce_init
 USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
-USE mo_grid_config,        ONLY: nroot, grid_sphere_radius, grid_angular_velocity
+USE mo_grid_config,        ONLY: nroot, n_dom, grid_sphere_radius, grid_angular_velocity
+USE mo_run_config,         ONLY: dtime, nsteps
 USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, Tf! , SItodBar, rho_ref
 USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
 USE mo_parallel_config,    ONLY: nproma
@@ -60,14 +61,15 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_s
   &                              irelax_3d_S, irelax_3d_T, irelax_2d_S,                     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
-USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
+USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
+  &                              land_boundary,                                             &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
 USE mo_dynamics_config,    ONLY: nold,nnew
 !USE mo_coupling_config,    ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 !USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
-USE mo_util_dbg_prnt,      ONLY: dbg_print
+USE mo_util_dbg_prnt,      ONLY: dbg_print, c_i, c_b
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
@@ -99,6 +101,7 @@ PUBLIC :: init_ho_prog
 PUBLIC :: init_ho_relaxation
 PUBLIC :: init_ho_coupled
 PUBLIC :: init_ho_recon_fields
+PUBLIC :: init_oce_index
 
 REAL(wp) :: sphere_radius, u0
 
@@ -494,8 +497,6 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
     TYPE(t_operator_coeff)                        :: p_op_coeff
 
-    INTEGER :: jk
-
     sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     
@@ -532,6 +533,222 @@ CONTAINS
 !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( p_patch, p_os, p_op_coeff)
 
   END SUBROUTINE init_ho_recon_fields
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization of indices for some output on ocean variables
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2010-11)
+  !! Modified        by Stephan Lorenz, MPI-M (2012-06)
+  !!
+  !
+  SUBROUTINE init_oce_index (ppatch, pstate_oce, p_ext_data)
+
+    TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch(n_dom)
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
+    TYPE(t_external_data),     TARGET, INTENT(IN)     :: p_ext_data(n_dom)
+   
+    INTEGER  :: jg, jt, i, islmval, idolic
+    INTEGER  :: c_k, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
+    REAL(wp) :: zlon, zlat, bathy
+    CHARACTER(len=90) :: form4ar
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      &      routine = 'mo_oce_init:init_oce_index'
+   
+    !CALL message(TRIM(routine), 'Start' )
+   
+    IF (n_dom > 1 ) THEN
+      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+    END IF
+    jg = n_dom
+   
+    ! set time level to old level (nold(1)=3)
+    jt = nold(jg)
+   
+    c_k = 1
+   
+    WRITE(message_text,'(a)') 'Output diverse variables:'
+    CALL message (TRIM(routine), message_text)
+   
+    WRITE(message_text,'(3(a,i8))')          &
+      &   '  nzlev   =', n_zlev,             &
+      &   ', n_dom   =', n_dom,              &
+      &   ', nproma  =', nproma
+    CALL message ('', message_text)
+    WRITE(message_text,'(3(a,i8))')          &
+      &   '  nblks_c =', ppatch(jg)%nblks_c, &
+      &   ', nblks_e =', ppatch(jg)%nblks_e, &
+      &   ', nblks_v =', ppatch(jg)%nblks_v
+    CALL message ('', message_text)
+    WRITE(message_text,'(3(a,i8))')          &
+      &   '  nold(jg)=', nold(jg),           &
+      &   ', nnew(jg)=', nnew(jg),           &
+      &   ', Nsteps  =', nsteps
+    CALL message ('', message_text)
+    WRITE(message_text,'(5(a,i8))')          &
+      &   '  SEA=',     sea,                 &
+      &   ', SEA_BOUNDARY=',sea_boundary,    &
+      &   ', BOUNDARY=',boundary,            &
+      &   ', LAND_BOUNDARY=',land_boundary,  &
+      &   ', LAND=,',   land!,                &
+    CALL message ('', message_text)
+    WRITE(message_text,'(4(a,g18.6))')       &
+      &   '  Time Step=',dtime
+    CALL message ('', message_text)
+   
+    !------------------------------------------------------------------
+    ! Test output of indices
+    !------------------------------------------------------------------
+   
+    ! ! values for the blocking: cells
+    ! rl_start = 1
+    ! rl_end = min_rlcell
+    ! i_startblk = ppatch(jg)%cells%start_blk(rl_start,1)
+    ! i_endblk   = ppatch(jg)%cells%end_blk(rl_end,1)
+    ! ! first block
+    ! CALL get_indices_c(ppatch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
+    !   &                            rl_start, rl_end)
+    ! ! last block
+    ! CALL get_indices_c(ppatch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
+    !   &                            rl_start, rl_end)
+    ! WRITE(message_text,'(8(a,i5))')                         &
+    !   &   ' Cells: rl_start=',rl_start,' rl_end=',rl_end,   &
+    !   &   ' stblk=',i_startblk,' endblk=',i_endblk,         &
+    !   &   ' fst blk: sidx=',i_startidxf,' eidx=',i_endidxf, &
+    !   &   ' lst blk: sidx=',i_startidxl,' eidx=',i_endidxl
+    ! CALL message ('', message_text)
+   
+    ! ! values for the blocking: edges
+    ! rl_end = min_rledge
+    ! i_startblk = ppatch(jg)%edges%start_blk(rl_start,1)
+    ! i_endblk   = ppatch(jg)%edges%end_blk(rl_end,1)
+    ! ! first block
+    ! CALL get_indices_e(ppatch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
+    !   &                            rl_start, rl_end)
+    ! ! last block
+    ! CALL get_indices_e(ppatch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
+    !   &                            rl_start, rl_end)
+    ! WRITE(message_text,'(8(a,i5))')                         &
+    !   &   ' Edges: rl_start=',rl_start,' rl_end=',rl_end,   &
+    !   &   ' stblk=',i_startblk,' endblk=',i_endblk,         &
+    !   &   ' fst blk: sidx=',i_startidxf,' eidx=',i_endidxf, &
+    !   &   ' lst blk: sidx=',i_startidxl,' eidx=',i_endidxl
+    ! CALL message ('', message_text)
+   
+    ! ! values for the blocking: verts
+    ! rl_end = min_rlvert
+    ! i_startblk = ppatch(jg)%verts%start_blk(rl_start,1)
+    ! i_endblk   = ppatch(jg)%verts%end_blk(rl_end,1)
+    ! ! first block
+    ! CALL get_indices_v(ppatch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
+    !   &                            rl_start, rl_end)
+    ! ! last block
+    ! CALL get_indices_v(ppatch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
+    !   &                            rl_start, rl_end)
+    ! WRITE(message_text,'(8(a,i5))')                         &
+    !   &   ' Verts: rl_start=',rl_start,' rl_end=',rl_end,   &
+    !   &   ' stblk=',i_startblk,' endblk=',i_endblk,         &
+    !   &   ' fst blk: sidx=',i_startidxf,' eidx=',i_endidxf, &
+    !   &   ' lst blk: sidx=',i_startidxl,' eidx=',i_endidxl
+    ! CALL message ('', message_text)
+   
+    !------------------------------------------------------------------
+    ! Check parameters
+    !------------------------------------------------------------------
+   
+    ! slm and coordinates of this point:
+    islmval = v_base%lsm_oce_c(c_i,c_k,c_b)
+    idolic  = v_base%dolic_c  (c_i,    c_b)
+    bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
+    zlat = ppatch(jg)%cells%center(c_i,c_b)%lat * 180.0_wp / pi
+    zlon = ppatch(jg)%cells%center(c_i,c_b)%lon * 180.0_wp / pi
+   
+    ! output format
+    99 FORMAT(a,i4,a,i4,a,i3,a,i3,3(a,f9.2))
+    97 FORMAT(a,i1,a,i4,a,i4,a,i3,a,i3,3(a,f9.2))
+    form4ar = '(4(a,g20.9))'
+   
+    CALL message (TRIM(routine), 'Conditions at test cell (C), including bathymetry:')
+    WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,             &
+      &         '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
+      &         '  lat=',zlat,'  lon=',zlon
+    CALL message (' ', message_text)
+    IF(no_tracer>=1)THEN
+      WRITE(message_text,form4ar)  &
+                ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
+        &                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+        &      '  Test level at cell C = ',REAL(c_k,wp)
+      CALL message (' ', message_text)
+    ELSEIF(no_tracer==0)THEN
+      WRITE(message_text,form4ar)  &
+                ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
+        !&                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+        &      '  Test level (jk) at cell C = ',REAL(c_k,wp)
+      CALL message (' ', message_text)
+    ENDIF
+   
+    !------------------------------------------------------------------
+    ! find and print corresponding edges/verts of test cell
+    !------------------------------------------------------------------
+   
+    DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
+      ! slm and coordinates of edges
+      ne_b(i)=ppatch(jg)%cells%edge_blk(c_i,c_b,i)
+      ne_i(i)=ppatch(jg)%cells%edge_idx(c_i,c_b,i)
+      islmval = v_base%lsm_oce_e  (ne_i(i),c_k,ne_b(i))
+      idolic  = v_base%dolic_e    (ne_i(i),ne_b(i))
+      bathy   = p_ext_data(jg)%oce%bathymetry_e (ne_i(i),ne_b(i))
+      zlat    = ppatch(jg)%edges%center         (ne_i(i),ne_b(i))%lat * 180.0_wp / pi
+      zlon    = ppatch(jg)%edges%center         (ne_i(i),ne_b(i))%lon * 180.0_wp / pi
+      ! output
+      WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i),              &
+        &                    '  lsm_e=', islmval,'  dolic_e=',idolic,'  bathy_e=', bathy, &
+        &                    '  lat=',zlat,'  lon=',zlon
+      CALL message (' ', message_text)
+    END DO
+   
+    DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
+      ! slm and coordinates of vertices
+      nv_b(i)=ppatch(jg)%cells%vertex_blk(c_i,c_b,i)
+      nv_i(i)=ppatch(jg)%cells%vertex_idx(c_i,c_b,i)
+      islmval = v_base%lsm_oce_c(c_i,c_k,c_b)
+      idolic  = v_base%dolic_c  (c_i,    c_b)
+      bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
+      zlat    = ppatch(jg)%edges%center         (nv_i(i),nv_b(i))%lat * 180.0_wp / pi
+      zlon    = ppatch(jg)%edges%center         (nv_i(i),nv_b(i))%lon * 180.0_wp / pi
+      ! output
+      WRITE(message_text,97) ' Vert V',i,' block=',nv_b(i),'  index=',nv_i(i),              &
+        &                    '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
+        &                    '  lat=',zlat,'  lon=',zlon
+      CALL message (' ', message_text)
+    END DO
+   
+    DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
+      ! slm and coordinates of neighbouring cells
+      ! #slo# - careful at index-boundaries: in ocean grid exist cells without neighbours !!
+      nc_b(i)=ppatch(jg)%cells%neighbor_blk(c_i,c_b,i)
+      nc_i(i)=ppatch(jg)%cells%neighbor_idx(c_i,c_b,i)
+      IF ( nc_i(i) == 0 .OR. nc_b(i) == 0) THEN
+        nc_i(i) = c_i
+        nc_b(i) = c_b
+        WRITE(message_text,'(a)') ' Neighbor Cell is on LAND - NOT DEFINED'
+      ELSE
+        islmval = v_base%lsm_oce_c  (nc_i(i),c_k,nc_b(i))
+        idolic  = v_base%dolic_c    (nc_i(i),    nc_b(i))
+        bathy   = p_ext_data(jg)%oce%bathymetry_c (nc_i(i),nc_b(i))
+        zlat    = ppatch(jg)%cells%center         (nc_i(i),nc_b(i))%lat * 180.0_wp / pi
+        zlon    = ppatch(jg)%cells%center         (nc_i(i),nc_b(i))%lon * 180.0_wp / pi
+        WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
+          &                    '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
+          &                    '  lat=',zlat,'  lon=',zlon
+      END IF
+      ! output
+      CALL message (' ', message_text)
+    END DO
+
+  END SUBROUTINE init_oce_index
 
   !-------------------------------------------------------------------------
   !>
@@ -2024,8 +2241,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
      REAL(wp)                        :: llhs(SIZE(x,1), SIZE(x,2))
 
      !locl variables
-     INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-     INTEGER :: rl_start_c, rl_end_c
+     INTEGER :: i_startidx_c, i_endidx_c
      INTEGER :: jc,jb
      REAL(wp) :: z_x_e(SIZE(x,1),1,SIZE(x,2))!(nproma,p_patch%nblks_e)
      REAL(wp) :: z_x_vort(nproma,1,p_patch%nblks_v)
