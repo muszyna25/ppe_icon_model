@@ -85,8 +85,8 @@ USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, 
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, ice_slow, ice_fast, prepareAfterRestart !&,
-!  &                               set_ice_albedo
+USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, ice_slow, ice_fast,           &
+   &                              prepareAfterRestart ! ,set_ice_albedo
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
