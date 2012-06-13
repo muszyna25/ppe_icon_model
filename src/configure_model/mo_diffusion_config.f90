@@ -122,14 +122,12 @@ CONTAINS
   !>
   !!
   SUBROUTINE configure_diffusion( n_dom, dynamics_parent_grid_id,  &
-    &                             nlev, vct_a, vct_b, apzero,      &
-    &                             grid_rescale_factor )
+    &                             nlev, vct_a, vct_b, apzero       )
 
     INTEGER, INTENT(IN) :: n_dom
     INTEGER, INTENT(IN) :: dynamics_parent_grid_id(max_dom)
     INTEGER, INTENT(IN) :: nlev
     REAL(WP),INTENT(IN) :: vct_a(nlev+1), vct_b(nlev+1), apzero
-    REAL(wp),INTENT(IN) :: grid_rescale_factor  !< reduced-size earth scaling factor
 
     INTEGER  :: jg, jk, jgp
     REAL(wp) :: zpres(nlev+1)
@@ -248,19 +246,10 @@ CONTAINS
                                  'switched off in all domains')
 
     ELSE
-      !
-      ! Comment from DCMIP Test case document:
-      ! The diffusion coefficient K_2k is divided by the factor X**2k-1, with 
-      ! X=1/grid_rescale_factor. This accounts for a reduction of the e-folding 
-      ! time tau and the horizontal grid spacing \Delta x according to the relationship
-      ! ((\Delta x)**2k/X**2k)/(\tau / X)
-      !
-      diffusion_config(1)%k2 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*8._wp)  &
-        &                    * grid_rescale_factor
-      diffusion_config(1)%k4 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*64._wp) &
-        &                    * grid_rescale_factor**3
-      diffusion_config(1)%k6 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*512._wp)&
-        &                    * grid_rescale_factor**5
+
+      diffusion_config(1)%k2 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*8._wp)
+      diffusion_config(1)%k4 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*64._wp)
+      diffusion_config(1)%k6 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*512._wp)
   
       DO jg = 2, n_dom
 
