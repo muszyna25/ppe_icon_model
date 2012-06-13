@@ -558,9 +558,11 @@ LOGICAL           ,INTENT(IN)    :: LLDIAG
 INTEGER          ,INTENT(IN)                                              :: &
   jb             ,jg                 
 REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
-  t_snow_mult_ex ,rho_snow_mult_ex  
+  t_snow_mult_ex 
+REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+  rho_snow_mult_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          , & 
+  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,         & 
   w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
 REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
   t_so_ex             
@@ -683,10 +685,10 @@ REAL(KIND=JPRB) ::    ZCFNC1
 
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
-INTERFACE
+!INTERFACE
 ! #include "surfexcdriver.h"
 ! #include "surfpp.h"
-END INTERFACE
+!END INTERFACE
 
 ! #include "vdfdifh_c.intfb.h"
 ! #include "vdfdifh.intfb.h"

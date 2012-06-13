@@ -162,7 +162,8 @@ CONTAINS
                   p0_ex            , & !!!! base state pressure                        ( Pa ) 
                   ps_ex                ! surface pressure                              ( pa  )
   REAL(wp), DIMENSION(nproma,nlev_snow+1,nsfc_subs), INTENT(INOUT) :: &
-                  t_snow_mult_ex   , & ! temperature of the snow-surface               (  K  )
+                  t_snow_mult_ex       ! temperature of the snow-surface               (  K  )
+  REAL(wp), DIMENSION(nproma,nlev_snow,nsfc_subs), INTENT(INOUT) :: &
                   rho_snow_mult_ex     ! snow density                                  (kg/m**3)
   REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(INOUT) :: &
                   t_snow_ex        , & ! temperature of the snow-surface (K)
