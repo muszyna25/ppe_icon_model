@@ -288,8 +288,9 @@ CONTAINS
 
   ! local variables
   CHARACTER(len=27) ::  strout
+  CHARACTER(len=12) ::  strmod
   INTEGER           ::  slev, elev
-  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, nlev, ndimblk
+  INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_dbg_mxmn)
@@ -302,12 +303,10 @@ CONTAINS
   ! output channel: stderr
   iout = nerr
 
-  ! compare defined source string with namelist-given output string ('per' for permanent output)
+  ! compare defined source string with namelist-given output string
   icheck_str_mod = 0
-  iper = 0
   DO jstr = 1, dim_mod_tst
-    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_src       == 'per'  &
-      &                                  .OR. str_mod_tst(jstr) == 'all') &
+    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
       &  icheck_str_mod = 1
   END DO
 
@@ -333,6 +332,7 @@ CONTAINS
   983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
 
   strout=TRIM(str_prntdes)
+  strmod=TRIM(str_mod_src)
 
   ! check start and end index for output of vertical levels via namelist
 
@@ -355,15 +355,15 @@ CONTAINS
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,jk,c_b), &
+          & WRITE(iout,981) '   VALUE ', strmod, strout, jk, p_array(c_i,jk,c_b), &
           &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_e) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+          & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
           &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_v) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+          & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
           &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
       END IF
 
@@ -392,7 +392,7 @@ CONTAINS
       p_test_run = p_test_run_bac
     
       IF (my_process_is_stdio()) &
-        & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
+        & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
     
       ! location of max/min - parallelize!
       ! WRITE(iout,983) ' LOC ',strout,jk, &
@@ -421,7 +421,8 @@ CONTAINS
 
   ! local variables
   CHARACTER(len=27) ::  strout
-  INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, ndimblk
+  CHARACTER(len=12) ::  strmod
+  INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
   REAL(wp)          ::  ctr, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_dbg_mxmn)
@@ -432,12 +433,10 @@ CONTAINS
   ! output channel: stderr
   iout = nerr
 
-  ! compare defined source string with namelist-given output string ('per' for permanent output)
+  ! compare defined source string with namelist-given output string
   icheck_str_mod = 0
-  iper = 0
   DO jstr = 1, dim_mod_tst
-    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_src       == 'per'  &
-      &                                  .OR. str_mod_tst(jstr) == 'all') &
+    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
       &  icheck_str_mod = 1
   END DO
 
@@ -463,6 +462,7 @@ CONTAINS
   983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
 
   strout=TRIM(str_prntdes)
+  strmod=TRIM(str_mod_src)
 
   ! surface level output only
   jk = 1
@@ -476,15 +476,15 @@ CONTAINS
     ! write value at index
     IF (ndimblk == loc_nblks_c) THEN
       IF (my_process_is_stdio()) &
-        & WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,c_b), &
+        & WRITE(iout,981) '   VALUE ', strmod, strout, jk, p_array(c_i,c_b), &
         &                 (' C',i,':',p_array(nc_i(i),nc_b(i)),i=1,3)
     ELSE IF (ndimblk == loc_nblks_e) THEN
       IF (my_process_is_stdio()) &
-        & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+        & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
         &                 (' E',i,':',p_array(ne_i(i),ne_b(i)),i=1,3)
     ELSE IF (ndimblk == loc_nblks_v) THEN
       IF (my_process_is_stdio()) &
-        & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+        & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
         &                 (' V',i,':',p_array(nv_i(i),nv_b(i)),i=1,3)
     END IF
 
@@ -506,7 +506,7 @@ CONTAINS
     p_test_run = p_test_run_bac
    
     IF (my_process_is_stdio()) &
-      & WRITE(iout,991) ' MAX/MIN ', str_mod_src, strout, jk, glbmx, glbmn
+      & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
 
   END IF
 
