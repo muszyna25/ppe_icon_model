@@ -290,7 +290,7 @@ CONTAINS
   CHARACTER(len=27) ::  strout
   INTEGER           ::  slev, elev
   INTEGER           ::  iout, icheck_str_mod, jstr, iper, i, jk, nlev, ndimblk
-  REAL(wp)          ::  ctr, glbmx, glbmn
+  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
 
   !IF (ltimer) CALL timer_start(timer_dbg_mxmn)
 
@@ -346,28 +346,29 @@ CONTAINS
   ! for output at given index
 
   IF (idbg_val >= idetail_src) THEN
-    IF (my_process_is_stdio()) THEN
 
-      ! idbg_val<4: one level output only (slev)
-      IF (idbg_val < 4) elev = slev
+    ! idbg_val<4: one level output only (slev)
+    IF (idbg_val < 4) elev = slev
 
-      DO jk = slev, elev
+    DO jk = slev, elev
 
-        ! write value at index
-        IF (ndimblk == loc_nblks_c) THEN
-          WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,jk,c_b), &
-        &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
-        ELSE IF (ndimblk == loc_nblks_e) THEN
-          WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
-        &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
-        ELSE IF (ndimblk == loc_nblks_v) THEN
-          WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
-        &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
-        END IF
+      ! write value at index
+      IF (ndimblk == loc_nblks_c) THEN
+        IF (my_process_is_stdio()) &
+          & WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,jk,c_b), &
+          &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
+      ELSE IF (ndimblk == loc_nblks_e) THEN
+        IF (my_process_is_stdio()) &
+          & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+          &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
+      ELSE IF (ndimblk == loc_nblks_v) THEN
+        IF (my_process_is_stdio()) &
+          & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+          &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
+      END IF
 
-      END DO
+    END DO
 
-    END IF
   END IF
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
@@ -384,10 +385,10 @@ CONTAINS
       ! parallelize:
       p_test_run_bac = p_test_run
       p_test_run = .false.
-      ctr=maxval(p_array(1:nproma,jk,1:ndimblk))
-      glbmx=global_max(ctr)
-      ctr=minval(p_array(1:nproma,jk,1:ndimblk))
-      glbmn=global_min(ctr)
+      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
+      glbmx=global_max(ctrx)
+      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
+      glbmn=global_min(ctrn)
       p_test_run = p_test_run_bac
     
       IF (my_process_is_stdio()) &
@@ -471,21 +472,22 @@ CONTAINS
   ! for output at given index
 
   IF (idbg_val >= idetail_src) THEN
-    IF (my_process_is_stdio()) THEN
 
-      ! write value at index
-      IF (ndimblk == loc_nblks_c) THEN
-        WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,c_b), &
-      &                 (' C',i,':',p_array(nc_i(i),nc_b(i)),i=1,3)
-      ELSE IF (ndimblk == loc_nblks_e) THEN
-        WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
-      &                 (' E',i,':',p_array(ne_i(i),ne_b(i)),i=1,3)
-      ELSE IF (ndimblk == loc_nblks_v) THEN
-        WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
-      &                 (' V',i,':',p_array(nv_i(i),nv_b(i)),i=1,3)
-      END IF
-
+    ! write value at index
+    IF (ndimblk == loc_nblks_c) THEN
+      IF (my_process_is_stdio()) &
+        & WRITE(iout,981) '   VALUE ', str_mod_src, strout, jk, p_array(c_i,c_b), &
+        &                 (' C',i,':',p_array(nc_i(i),nc_b(i)),i=1,3)
+    ELSE IF (ndimblk == loc_nblks_e) THEN
+      IF (my_process_is_stdio()) &
+        & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+        &                 (' E',i,':',p_array(ne_i(i),ne_b(i)),i=1,3)
+    ELSE IF (ndimblk == loc_nblks_v) THEN
+      IF (my_process_is_stdio()) &
+        & WRITE(iout,982) '   VALUE ', str_mod_src, strout, jk, &
+        &                 (' V',i,':',p_array(nv_i(i),nv_b(i)),i=1,3)
     END IF
+
   END IF
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
