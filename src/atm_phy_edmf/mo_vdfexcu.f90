@@ -436,11 +436,6 @@ DO JK = KLEV-1, 1, -1
   ENDIF
 
   DO JL=KIDIA,KFDIA
-    if (ZRI(JL)*(1.0_JPRB/DRITBL) > 1000000000.0) then
-write(*,*) 'hello6', JL, JK, ZRI(JL), DRITBL
-    endif
-  ENDDO
-  DO JL=KIDIA,KFDIA
    ITEMP(JL)=INT(ZRI(JL)*(1.0_JPRB/DRITBL))
   ENDDO
 

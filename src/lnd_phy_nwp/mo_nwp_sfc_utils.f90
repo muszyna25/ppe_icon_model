@@ -169,12 +169,12 @@ CONTAINS
 
 
 
-       IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+      IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
 !---------- Copy input fields for each tile
 
 !----------------------------------
-       DO isubs = 1,nsfc_subs
+      DO isubs = 1,nsfc_subs
 !----------------------------------
 
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
@@ -195,28 +195,28 @@ CONTAINS
         ENDDO
 
 
-       IMSNOWI: IF(lmulti_snow) THEN
+        IMSNOWI: IF(lmulti_snow) THEN
 
 !CDIR UNROLL=nlsnow+1
-        DO jk=1,nlev_snow+1
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            t_snow_mult_now_t(ic,jk,jb,isubs)   =  p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) 
+          DO jk=1,nlev_snow+1
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              t_snow_mult_now_t(ic,jk,jb,isubs)   =  p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) 
+            ENDDO
           ENDDO
-        ENDDO
 
 !CDIR UNROLL=nlsnow
-        DO jk=1,nlev_snow
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            rho_snow_mult_now_t(ic,jk,jb,isubs) =  p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs)
-            wliq_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wliq_snow_t    (jc,jk,jb,isubs) 
-            wtot_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wtot_snow_t    (jc,jk,jb,isubs) 
-            dzh_snow_now_t(ic,jk,jb,isubs)      =  p_prog_lnd_now%dzh_snow_t     (jc,jk,jb,isubs) 
+          DO jk=1,nlev_snow
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              rho_snow_mult_now_t(ic,jk,jb,isubs) =  p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs)
+              wliq_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wliq_snow_t    (jc,jk,jb,isubs) 
+              wtot_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wtot_snow_t    (jc,jk,jb,isubs) 
+              dzh_snow_now_t(ic,jk,jb,isubs)      =  p_prog_lnd_now%dzh_snow_t     (jc,jk,jb,isubs) 
+            ENDDO
           ENDDO
-        ENDDO
 
-     END IF  IMSNOWI
+        END IF  IMSNOWI
 
 !CDIR UNROLL=nlsoil+2
         DO jk=1,nlev_soil+2
@@ -239,30 +239,30 @@ CONTAINS
         ENDDO
 
          
-        CALL terra_multlay_init(                            &
-        &  ie=nproma,                                  & ! array dimensions
-        &  istartpar=1, iendpar= i_count, & ! optional start/end indicies
-!        &  ke=nlev, &! nsubs0=1, nsubs1=nsfc_subs       , & ! nsfc_subs
-        &  ke_soil=nlev_soil, ke_snow=nlev_snow      , &
-        &  czmls=zml_soil                            , & ! processing soil level structure 
+        CALL terra_multlay_init(                                  &
+        &  ie=nproma,                                             & ! array dimensions
+        &  istartpar=1, iendpar= i_count,                         & ! optional start/end indicies
+!       &  ke=nlev, &! nsubs0=1, nsubs1=nsfc_subs               , & ! nsfc_subs
+        &  ke_soil=nlev_soil, ke_snow=nlev_snow                 , &
+        &  czmls=zml_soil                                       , & ! processing soil level structure 
         &  soiltyp_subs  =  ext_data%atm%soiltyp_t(:,jb,isubs)  , & ! type of the soil (keys 0-9)  --
-        &  rootdp        =  ext_data%atm%rootdp_t(:,jb,isubs)   , & ! depth of the roots         ( m  )
-        &  t_snow_now    =  t_snow_now_t(:,jb,isubs)   , & ! temperature of the snow-surface   (  K  )
-        &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs) ,& ! temperature of the snow-surface (  K  )
-        &  t_s_now           = t_s_now_t(:,jb,isubs)    , & ! temperature of the ground surface            (  K  )
-        &  t_s_new           = t_s_new_t(:,jb,isubs)    , & ! temperature of the ground surface            (  K  )
-        &  w_snow_now        = w_snow_now_t(:,jb,isubs)    , & ! water content of snow                        (m H2O)
-        &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)    , & ! snow density            (kg/m**3)
-        &  rho_snow_mult_now = rho_snow_mult_now_t(:,:,jb,isubs)    , & ! snow density       (kg/m**3)
-        &  t_so_now          = t_so_now_t(:,:,jb,isubs)    , & ! soil temperature (main level)    (  K  )
-        &  t_so_new          = t_so_new_t(:,:,jb,isubs)    , & ! soil temperature (main level)    (  K  )
-        &  w_so_now          = w_so_now_t(:,:,jb,isubs)    , & ! total water content (ice + liquid water) (m H20)
-        &  w_so_new          = w_so_new_t(:,:,jb,isubs)    , & ! total water content (ice + liquid water) (m H20)
-        &  w_so_ice_now      = w_so_ice_now_t(:,:,jb,isubs)    , & ! ice content   (m H20)
-        &  w_so_ice_new      = w_so_ice_new_t(:,:,jb,isubs)    , & ! ice content   (m H20)
-        &  wliq_snow_now     = wliq_snow_now_t(:,:,jb,isubs)    , & ! liquid water content in the snow       (m H2O)
-        &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow  (m H2O)
-        &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       & ! layer thickness between half levels in snow   (  m  )
+        &  rootdp        =  ext_data%atm%rootdp_t(:,jb,isubs)   , & ! depth of the roots                ( m  )
+        &  t_snow_now    =  t_snow_now_t(:,jb,isubs)            , & ! temperature of the snow-surface   (  K  )
+        &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
+        &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
+        &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
+        &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
+        &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)       , & ! snow density                      (kg/m**3)
+        &  rho_snow_mult_now = rho_snow_mult_now_t(:,:,jb,isubs), & ! snow density                      (kg/m**3)
+        &  t_so_now          = t_so_now_t(:,:,jb,isubs)         , & ! soil temperature (main level)     (  K  )
+        &  t_so_new          = t_so_new_t(:,:,jb,isubs)         , & ! soil temperature (main level)     (  K  )
+        &  w_so_now          = w_so_now_t(:,:,jb,isubs)         , & ! total water content (ice + liquid water)     (m H20)
+        &  w_so_new          = w_so_new_t(:,:,jb,isubs)         , & ! total water content (ice + liquid water)     (m H20)
+        &  w_so_ice_now      = w_so_ice_now_t(:,:,jb,isubs)     , & ! ice content                       (m H20)
+        &  w_so_ice_new      = w_so_ice_new_t(:,:,jb,isubs)     , & ! ice content                       (m H20)
+        &  wliq_snow_now     = wliq_snow_now_t(:,:,jb,isubs)    , & ! liquid water content in the snow  (m H2O)
+        &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow (m H2O)
+        &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       & ! layer thickness between half levels in snow  (  m  )
                                                       )
 
 
@@ -311,28 +311,28 @@ CONTAINS
           p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
         ENDDO
 
-         IMSNOWO: IF(lmulti_snow) THEN
+        IMSNOWO: IF(lmulti_snow) THEN
 
 !CDIR UNROLL=nlsnow+1
-        DO jk=1,nlev_snow+1
+          DO jk=1,nlev_snow+1
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) =  t_snow_mult_now_t(ic,jk,jb,isubs)   
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) =  t_snow_mult_now_t(ic,jk,jb,isubs)   
+            ENDDO
           ENDDO
-        ENDDO
 
 !CDIR UNROLL=nlsnow
-        DO jk=1,nlev_snow
+          DO jk=1,nlev_snow
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs) 
-            p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)   
-            p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
-            p_prog_lnd_now%dzh_snow_t(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)    
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs) 
+              p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)   
+              p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
+              p_prog_lnd_now%dzh_snow_t(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)    
+            ENDDO
           ENDDO
-        ENDDO
 
         END IF  IMSNOWO
 
@@ -365,6 +365,7 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE nwp_surface_init
+
 
 !-------------------------------------------------------------------------
 

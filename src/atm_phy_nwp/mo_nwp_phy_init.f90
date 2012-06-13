@@ -183,16 +183,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
+  i_nchdom  = MAX(1,p_patch%n_childdom)
 
-    ! number of vertical levels
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
-    jg     = p_patch%id
+  ! number of vertical levels
+  nlev   = p_patch%nlev
+  nlevp1 = p_patch%nlevp1
+  jg     = p_patch%id
 
-    nshift = p_patch%nshift_total
+  nshift = p_patch%nshift_total
 
-    IF (.NOT. is_restart_run())THEN
+  IF (.NOT. is_restart_run())THEN
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -200,7 +200,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
@@ -261,10 +261,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           ENDDO
         ENDIF
         
-      END DO
-        CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
+    END DO
+    CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
 
-    ELSE  ! if is_restart_run()
+  ELSE  ! if is_restart_run()
       !
       ! necessary, because only t_g(nnow_rcf) is written to the restart file
       ! with the following copy statement the ocean points of t_g(nnew_rcf) are 
@@ -285,48 +285,51 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ENDDO
       ENDDO
 
-    END IF
+  END IF
 
 
-    !--------------------------------------------------------------
-    !< characteristic gridlength needed by convection and turbulence
-    !--------------------------------------------------------------
-    CALL mean_domain_values (p_patch%level, nroot, &
-      & phy_params%mean_charlen)
+  !--------------------------------------------------------------
+  !< characteristic gridlength needed by convection and turbulence
+  !--------------------------------------------------------------
+  CALL mean_domain_values (p_patch%level, nroot, &
+    & phy_params%mean_charlen)
 
 
-    !--------------------------------------------------------------
-    !>reference pressure according to U.S. standard atmosphere
-    ! (with the caveat that the stratosphere is assumed isothermal, which does not hurt
-    !  because pref is used for determining model level indices referring to pressures
-    !  >= 60 hPa)
-    !--------------------------------------------------------------
-    ttropo = t00 + dtdz_tropo*htropo
-    ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_tropo))
-    DO jk = nlev, 1, -1
-      jk1 = jk + nshift
-      zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
-      IF (zfull < htropo) THEN
-        temp = t00 + dtdz_tropo*zfull
-        pref(jk) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_tropo))
-      ELSE
-        pref(jk) = ptropo*EXP(-grav*(zfull-htropo)/(rd*ttropo))
-      ENDIF
-    ENDDO
-
-    !------------------------------------------
-    !< call for cloud microphysics
-    !------------------------------------------
-    IF (  atm_phy_nwp_config(jg)%inwp_gscp ==  1   .OR. &
-      &   atm_phy_nwp_config(jg)%inwp_gscp == 10)  THEN
-      
-      IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-      CALL hydci_pp_init
-
+  !--------------------------------------------------------------
+  !>reference pressure according to U.S. standard atmosphere
+  ! (with the caveat that the stratosphere is assumed isothermal, which does not hurt
+  !  because pref is used for determining model level indices referring to pressures
+  !  >= 60 hPa)
+  !--------------------------------------------------------------
+  ttropo = t00 + dtdz_tropo*htropo
+  ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_tropo))
+  DO jk = nlev, 1, -1
+    jk1 = jk + nshift
+    zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
+    IF (zfull < htropo) THEN
+      temp = t00 + dtdz_tropo*zfull
+      pref(jk) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_tropo))
+    ELSE
+      pref(jk) = ptropo*EXP(-grav*(zfull-htropo)/(rd*ttropo))
     ENDIF
-    !------------------------------------------
-    !< radiation
-    !------------------------------------------
+  ENDDO
+
+
+  !------------------------------------------
+  !< call for cloud microphysics
+  !------------------------------------------
+  IF (  atm_phy_nwp_config(jg)%inwp_gscp ==  1   .OR. &
+    &   atm_phy_nwp_config(jg)%inwp_gscp == 10)  THEN
+    
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
+    CALL hydci_pp_init
+
+  ENDIF
+
+
+  !------------------------------------------
+  !< radiation
+  !------------------------------------------
   IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
@@ -402,6 +405,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         END DO !jc
       END DO   !jk
 
+
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
@@ -469,10 +473,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
         &      'Wrong irad_aero. For Ritter-Geleyn radiation, this irad_aero is not implemented.')
     END SELECT
-
     
     ssi(:) = ssi_amip(:)
     tsi    = SUM(ssi(:))
+
 
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
@@ -510,6 +514,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     ENDIF 
 
+
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
@@ -542,7 +547,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL
 
     ENDIF ! (irad_o3 == io3_ape)
- 
 
     DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
@@ -574,6 +578,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ENDIF
 
+
   !------------------------------------------
   !< call for convection
   !------------------------------------------
@@ -600,6 +605,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL message('mo_nwp_phy_init:', 'convection initialized')
   ENDIF
 
+
+  !------------------------------------------
+  !< call for surface initialization
+  !------------------------------------------
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
@@ -775,8 +784,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 !$OMP END PARALLEL
 
-
     CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
+
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN  !ECHAM vdiff
 

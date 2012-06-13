@@ -522,7 +522,6 @@ CONTAINS
     ENDIF
 
     IF (  lcall_phy_jg(itturb)) THEN
-
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
       CALL nwp_turbulence (  dt_phy_jg(itfastphy),              & !>input
                             & pt_patch, p_metrics,              & !>input

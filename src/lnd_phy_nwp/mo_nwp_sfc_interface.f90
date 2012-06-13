@@ -435,7 +435,7 @@ CONTAINS
 !
         &  t_so_now      = t_so_now_t(:,:,jb,isubs)          , & ! soil temperature (main level)      (  K  )
         &  t_so_new      = t_so_new_t(:,:,jb,isubs)          , & ! soil temperature (main level)      (  K  )
-!                                                            
+!
         &  w_so_now      = w_so_now_t(:,:,jb,isubs)          , & ! total water content (ice + liquid water) (m H20)
         &  w_so_new      = w_so_new_t(:,:,jb,isubs)          , & ! total water content (ice + liquid water) (m H20)
 !
