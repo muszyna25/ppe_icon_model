@@ -342,7 +342,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !REAL(wp) :: z_ptp_gradh(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: z_gradh_e(nproma,1,p_patch%nblks_e)
   REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
-  REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
   !REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
   !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
@@ -359,12 +358,13 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   z_gradh_e(:,:,:) = 0.0_wp
   gdt              = grav*dtime
 
-  ! #slo# 2011-07-13: call sync inserted
+  !---------------------------------------------------------------------
+  ! STEP 1: calculate gradient of surface height at previous timestep
+  !---------------------------------------------------------------------
 
-  !STEP 1: calculate gradient of surface height at previous timestep
   !IF ( iswm_oce == 1 ) THEN
   ! LL: already synced
-!   CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+  !CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
 
   CALL grad_fd_norm_oce_2d_3D( p_os%p_prog(nold(1))%h, &
          &                  p_patch,                &
@@ -372,24 +372,32 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
          &                  z_gradh_e(:,1,:))
   CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
 
-  !STEP 2: horizontal advection
+  !---------------------------------------------------------------------
+  ! STEP 2: horizontal advection
+  !---------------------------------------------------------------------
+
   IF(l_initial_timestep)THEN
     CALL veloc_adv_horz_mimetic( p_patch,            &
            &             p_os%p_prog(nold(1))%vn,    &
            &             p_os%p_prog(nold(1))%vn,    &
            &             p_os%p_diag,                &
-           &             p_os%p_diag%veloc_adv_horz, & !contains nonlinear Coriolis term, gradient kinetic energy is calculated seperately
-           &             p_op_coeff, p_int                      )
+           !contains nonlinear Coriolis term, gradient kinetic energy is calculated seperately
+           &             p_os%p_diag%veloc_adv_horz, &
+           &             p_op_coeff, p_int )
   ELSE
     CALL veloc_adv_horz_mimetic( p_patch,            &
            &             p_os%p_prog(nold(1))%vn,    &
            &             p_os%p_prog(nnew(1))%vn,    &
            &             p_os%p_diag,                &
-           &             p_os%p_diag%veloc_adv_horz, & !contains nonlinear Coriolis term, gradient kinetic energy is calculated seperately
-           &             p_op_coeff, p_int                      )
+           !contains nonlinear Coriolis term, gradient kinetic energy is calculated seperately
+           &             p_os%p_diag%veloc_adv_horz, &
+           &             p_op_coeff, p_int )
   ENDIF
 
+  !---------------------------------------------------------------------
   ! STEP 3: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
+  !---------------------------------------------------------------------
+
   IF ( iswm_oce /= 1 ) THEN
     ! calculate density from EOS using temperature and salinity at timelevel n
      CALL calc_density( p_patch,                                 &
@@ -409,13 +417,15 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
            &                  p_os%p_diag%press_grad)
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%press_grad)
 
+    ! calculate vertical velocity advection
     CALL veloc_adv_vert_mimetic( p_patch,          &
          &             p_os%p_diag,                &
          &             p_os%p_diag%veloc_adv_vert )
 
+    ! calculate vertical velocity diffusion
+    !   For the alternative choice "expl_vertical_velocity_diff==1" see couples of
+    !   lines below below
     IF (expl_vertical_velocity_diff==0) THEN
-    !For the alternative choice "expl_vertical_velocity_diff==1" see couples of
-    !lines below below
         CALL velocity_diffusion_vert_mimetic( p_patch,        &
         &                             p_os%p_diag,            &
         &                             p_os%p_aux,             &
@@ -424,29 +434,30 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         &                             p_os%p_diag%laplacian_vert)
     ENDIF
 
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src = 3  ! output print level (1-5, fix)
-    CALL dbg_print('old height gradient'       ,z_gradh_e                 ,str_module,idt_src)
-    CALL dbg_print('density'                   ,p_os%p_diag%rho           ,str_module,idt_src)
-    CALL dbg_print('internal pressure'         ,p_os%p_diag%press_hyd     ,str_module,idt_src)
-    CALL dbg_print('internal press grad'       ,p_os%p_diag%press_grad    ,str_module,idt_src)
-    idt_src = 4  ! output print level (1-5, fix)
-    CALL dbg_print('kinetic energy'            ,p_os%p_diag%kin           ,str_module,idt_src)
-    CALL dbg_print('vertical advection'        ,p_os%p_diag%veloc_adv_vert,str_module,idt_src)
-    IF (expl_vertical_velocity_diff == 0) &
-      & CALL dbg_print('vertical diffusion'    ,p_os%p_diag%laplacian_vert,str_module,idt_src)
-
-    !---------------------------------------------------------------------
-
   ELSEIF( iswm_oce == 1 ) THEN
     p_os%p_diag%press_grad     = 0.0_wp
     p_os%p_diag%veloc_adv_vert = 0.0_wp
     p_os%p_diag%laplacian_vert = 0.0_wp
   ENDIF
 
-  ! STEP 3: compute harmonic or biharmoic laplacian diffusion of velocity.
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src = 3  ! output print level (1-5, fix)
+  CALL dbg_print('old height gradient'       ,z_gradh_e                 ,str_module,idt_src)
+  CALL dbg_print('horizontal advection'      ,p_os%p_diag%veloc_adv_horz,str_module,idt_src)
+  CALL dbg_print('density'                   ,p_os%p_diag%rho           ,str_module,idt_src)
+  CALL dbg_print('internal pressure'         ,p_os%p_diag%press_hyd     ,str_module,idt_src)
+  CALL dbg_print('internal press grad'       ,p_os%p_diag%press_grad    ,str_module,idt_src)
+  idt_src = 4  ! output print level (1-5, fix)
+  CALL dbg_print('kinetic energy'            ,p_os%p_diag%kin           ,str_module,idt_src)
+  CALL dbg_print('vertical advection'        ,p_os%p_diag%veloc_adv_vert,str_module,idt_src)
+  !---------------------------------------------------------------------
+
+  !---------------------------------------------------------------------
+  ! STEP 4: compute harmonic or biharmoic laplacian diffusion of velocity.
   !         This term is discretized explicitly. Order and form of the laplacian
-  !         are determined in mo_oce_fdiffusion according to namelist settings
+  !         are determined in mo_oce_diffusion according to namelist settings
+  !---------------------------------------------------------------------
+
   CALL velocity_diffusion(p_patch, &
                         & p_os%p_prog(nold(1))%vn, &
                         & p_phys_param,            &
@@ -455,20 +466,18 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
 
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%laplacian_horz)
 
-
-  idt_src = 4  ! output print level (1-5, fix)
-  CALL dbg_print('horizontal diffusion'      ,p_os%p_diag%laplacian_horz,str_module,idt_src)
-
   IF (L_INVERSE_FLIP_FLOP) THEN
-
-    idt_src = 4  ! output print level (1-5, fix)
-    CALL dbg_print('bef.dual-flip-fl: LaPlaHorz',p_os%p_diag%laplacian_horz,str_module,idt_src)
 
     IF ( iswm_oce /= 1 ) THEN
       z_e = inverse_primal_flip_flop(p_patch, p_os%p_diag%veloc_adv_horz, p_os%p_diag%h_e)
     ELSE
       z_e = inverse_primal_flip_flop(p_patch, p_os%p_diag%veloc_adv_horz, p_os%p_diag%thick_e)
     ENDIF
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src = 5  ! output print level (1-5, fix)
+    CALL dbg_print('bef.dual-flip-fl: LaPlaHorz',p_os%p_diag%laplacian_horz,str_module,idt_src)
+    !---------------------------------------------------------------------
 
     IF(l_STAGGERED_TIMESTEP)THEN
 
@@ -499,7 +508,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     ENDIF
 
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%g_n)
-
 
   ELSEIF(.NOT.(L_INVERSE_FLIP_FLOP))THEN
 
@@ -597,9 +605,9 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
             DO je = i_startidx_e, i_endidx_e
 
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
-                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)     &
-                &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)      &
-                &                                   -p_os%p_diag%press_grad(je,jk,jb))
+                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)  &
+                &                             + dtime*(p_os%p_aux%g_nimd(je,jk,jb) &
+                &                             - p_os%p_diag%press_grad(je,jk,jb))
               ELSE
                 p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
               ENDIF
@@ -688,7 +696,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     ENDIF 
   ENDIF
 
-  !In 3D case and if impliit vertical velocity diffusion is chosen
+  !In 3D case and if implicit vertical velocity diffusion is chosen
   IF(iswm_oce /= 1.AND.expl_vertical_velocity_diff==1)THEN
 
     !Surface forcing implemente as volume forcing in top layer.
@@ -704,25 +712,21 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   ENDIF
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=2  ! output print level (1-5, fix)
-  z_e1(:,1,:) = dtime*grav*z_gradh_e(:,1,:)
-  CALL dbg_print('dtime*g*grad_h_e'          ,              z_e1(:,:,:),str_module,idt_src)
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('vn_pred'                   ,p_os%p_diag%vn_pred(:,:,:),str_module,idt_src)
+  CALL dbg_print('vn_old'                    ,p_os%p_prog(nold(1))%vn       ,str_module,idt_src)
+  CALL dbg_print('Advect horizontal'         ,p_os%p_diag%veloc_adv_horz    ,str_module,idt_src)
+  CALL dbg_print('LaPlac Diff horizontal'    ,p_os%p_diag%laplacian_horz    ,str_module,idt_src)
+  CALL dbg_print('LaPlac Diff vertical'      ,p_os%p_diag%laplacian_vert    ,str_module,idt_src)
   IF (expl_vertical_velocity_diff == 1 .AND. iswm_oce /= 1) &
-    & CALL dbg_print('vn_impl_vert_diff',p_os%p_diag%vn_impl_vert_diff(:,:,:),str_module,idt_src)
-  idt_src=4  ! output print level (1-5, fix)
-  CALL dbg_print('vn_old'                    ,p_os%p_prog(nold(1))%vn(:,:,:),str_module,idt_src)
-  CALL dbg_print('vn_pred Term1 G_n+1/2'     ,p_os%p_aux%g_nimd (:,:,:),str_module,idt_src)
-  z_e1(:,1,:) = (1.0_wp-ab_beta)*grav * z_gradh_e(:,1,:)
-  CALL dbg_print('vn_pr T2 = (1-b)*g*gradh_e',              z_e1(:,:,:),str_module,idt_src)
-  CALL dbg_print('G_n'                       ,p_os%p_aux%g_n    (:,:,:),str_module,idt_src)
-  CALL dbg_print('G_n-1'                     ,p_os%p_aux%g_nm1  (:,:,:),str_module,idt_src)
-  CALL dbg_print('Laplace Hor'      ,p_os%p_diag%laplacian_horz (:,:,:),str_module,idt_src)
-  IF (.NOT. l_inverse_flip_flop) &
-    & CALL dbg_print('Advect horizontal',p_os%p_diag%veloc_adv_horz(:,:,:),str_module,idt_src)
+& CALL dbg_print('Impl. vertical Diffusion'  ,p_os%p_diag%vn_impl_vert_diff ,str_module,idt_src)
   IF (l_inverse_flip_flop) &
-    & CALL dbg_print('dual-flip-flop AdvHorz',z_e(:,:,:),str_module,idt_src)
+& CALL dbg_print('dual-flip-flop Adv. horz'  ,z_e                           ,str_module,idt_src)
+  idt_src=4  ! output print level (1-5, fix)
+  CALL dbg_print('G_n+1/2 - g_nimd'          ,p_os%p_aux%g_nimd             ,str_module,idt_src)
+  CALL dbg_print('G_n'                       ,p_os%p_aux%g_n                ,str_module,idt_src)
+  CALL dbg_print('G_n-1'                     ,p_os%p_aux%g_nm1              ,str_module,idt_src)
+  idt_src=2  ! output print level (1-5, fix)
+  CALL dbg_print('vn_pred'                   ,p_os%p_diag%vn_pred           ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   !-------------------------------------------
