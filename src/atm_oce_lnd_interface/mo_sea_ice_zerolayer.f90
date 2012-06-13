@@ -38,34 +38,57 @@
 !!
 MODULE mo_sea_ice_zerolayer
 
+!!$  USE mo_kind,                ONLY: wp
+!!$  USE mo_parallel_config,     ONLY: nproma
+!!$  USE mo_run_config,          ONLY: dtime
+!!$  USE mo_dynamics_config,     ONLY: nold
+!!$  USE mo_model_domain,        ONLY: t_patch
+!!$  !
+!!$  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+!!$
+!!$!  USE mo_exception,           ONLY: finish, message
+!!$!  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
+!!$  USE mo_loopindices,         ONLY: get_indices_c
+!!$!  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
+!!$  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
+!!$    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
+!!$    &                               cpd, zemiss_def,rd, stbo,tmelt   
+!!$!  USE mo_math_constants,      ONLY: rad2deg
+!!$  USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
+!!$    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+!!$  USE mo_util_dbg_prnt,       ONLY: dbg_print
+!!$  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
+!!$  USE mo_var_list,            ONLY: add_var
+!!$!  USE mo_master_control,      ONLY: is_restart_run
+!!$!  USE mo_cf_convention
+!!$!  USE mo_grib2
+!!$!  USE mo_cdi_constants
+!!$  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
+!!$    &                               t_atmos_for_ocean
+!!$  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
+
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
-  !
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
-
 !  USE mo_exception,           ONLY: finish, message
-!  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
-  USE mo_loopindices,         ONLY: get_indices_c
-!  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
 !  USE mo_math_constants,      ONLY: rad2deg
-  USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
-    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
-!  USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
-  USE mo_var_list,            ONLY: add_var
+  USE mo_ocean_nml,           ONLY: no_tracer !, &
+!    &                               init_oce_prog, iforc_oce, &
+!    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state !, v_base, ocean_var_list
+!  USE mo_var_list,            ONLY: add_var
 !  USE mo_master_control,      ONLY: is_restart_run
-!  USE mo_cf_convention
-!  USE mo_grib2
-!  USE mo_cdi_constants
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
-  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx, print_maxmin_si, print_cells
+  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+
 
   IMPLICIT NONE
 
@@ -191,50 +214,6 @@ CONTAINS
       END DO
     END DO
 
-!!$ -------------------------
-
-!!$    CALL print_cells(ice%Tsurf(:,1,:),'ice%Tsurf')
-!!$    CALL print_cells(F_S(:,1,:),'F_S')
-!!$    CALL print_cells(F_A(:,1,:),'F_A')
-!!$    CALL print_cells(zemiss_def * StBo * (ice%Tsurf(:,1,:) + tmelt)**4,&
-!!$      &              'LWout')
-!!$    CALL print_cells(-Qatm%SWin(:,:),'-SWin')
-!!$    CALL print_cells(- (1.0_wp - ice%alb(:,1,:)) * Qatm%LWin(:,:),'-LWin')
-!!$    CALL print_cells(-Qatm%sens(:,1,:),'-sens')
-!!$    CALL print_cells(-Qatm%lat(:,1,:),'-lat')
-!!$    CALL print_cells(deltaT(:,1,:),'deltaT')
-
-!!$    CALL print_cells(k_effective(:,1,:) ,ice,p_patch,'k_effective')
-!!$    CALL print_cells( 4.0_wp *zemiss_def *StBo * (ice%Tsurf(:,1,:) + tmelt)**3 ,&
-!!$      &               ice,p_patch,'dLW/dT')
-
-!!$    CALL print_cells(deltaT(:,1,:),ice,p_patch,'deltaT')
-!!$    CALL print_cells(ice%Tsurf(:,1,:),ice,p_patch,'Tsurf')
-!!$    CALL print_cells( k_effective(:,1,:) + 4.0_wp*  StBo * (ice%Tsurf(:,1,:)+tmelt)** 3&
-!!$      &                ,ice,p_patch,'k_eff+dLWoutdT')
-!!$    CALL print_cells(F_S(:,1,:),ice,p_patch,'F_S, pos=upw')
-!!$    CALL print_cells(F_A(:,1,:),ice,p_patch,'F_A, pos=upw')
-!!$    CALL print_cells((F_S(:,1,:) - F_A(:,1,:)) / (k_effective(:,1,:) + 4.0_wp*  StBo * &
-!!$      &                (ice%Tsurf(:,1,:)+tmelt)** 3),ice,p_patch,'deltaT expl.')
-!!$    CALL print_cells(ice%Qtop(:,1,:),ice,p_patch,'Qtop, pos=into layer')
-!!$    CALL print_cells(ice%Tsurf(:,1,:),ice,p_patch,'ice%Tsurf'  )    
-!!$    CALL print_cells(ice%hs(:,1,:),ice,p_patch,'hs')
-!!$    CALL print_cells(ice%hi(:,1,:),ice,p_patch,'hi')
-
-!!$    CALL print_maxmin_si(deltaT(:,1,:),ice,p_patch,'deltaT')
-!!$    CALL print_maxmin_si(ice%Tsurf(:,1,:),ice,p_patch,'Tsurf')
-!!$    CALL print_maxmin_si( k_effective(:,1,:) + 4.0_wp*  StBo * (ice%Tsurf(:,1,:)+tmelt)** 3&
-!!$      &                   ,ice,p_patch,'k_eff+dLWoutdT')
-!!$    CALL print_maxmin_si(F_S(:,1,:),ice,p_patch,'F_S, pos=upw')
-!!$    CALL print_maxmin_si(F_A(:,1,:),ice,p_patch,'F_A, pos=upw')
-!!$    CALL print_maxmin_si((F_S(:,1,:) - F_A(:,1,:)) / (k_effective(:,1,:) + 4.0_wp*  StBo * &
-!!$      &                   (ice%Tsurf(:,1,:)+tmelt)** 3),ice,p_patch,'deltaT expl.')
-!!$    CALL print_maxmin_si(ice%Qtop(:,1,:),ice,p_patch,'Qtop, pos=into layer')
-!!$    CALL print_maxmin_si(ice%Tsurf(:,1,:),ice,p_patch,'ice%Tsurf'  )    
-!!$    CALL print_maxmin_si(ice%hs(:,1,:),ice,p_patch,'hs')
-!!$    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'hi')
-
-
 
 ! ----------------------------------------
 
@@ -283,7 +262,7 @@ CONTAINS
     all_cells => p_patch%cells%all 
     Tfw(:,:,:) = 0.0_wp
     zHeatOceI(:,:,:) = 0.0_wp
-    Q_surplus(:,:,:) = 1.0_wp
+    Q_surplus(:,:,:) = 0.0_wp
 
     
     ! Save ice thickness at previous time step for calculation of heat and salt
@@ -373,14 +352,15 @@ CONTAINS
 !!$    CALL print_cells(ice%hi(:,1,:)-ice%hiold(:,1,:),'new ice')
 !!$    CALL print_cells(zHeatOceI(:,1,:),'zHeatOceI')
 
-!#slo# !---------DEBUG DIAGNOSTICS-------------------------------------------
-!#slo# idt_src=3  ! output print level (1-5, fix)
-!#slo# CALL dbg_print('GrowZero: Q_surplus'       ,Q_surplus                ,str_module,idt_src)
-!#slo# CALL dbg_print('GrowZero: ice%hi'          ,ice%hi                   ,str_module,idt_src)
-!#slo# CALL dbg_print('GrowZero: ice%Qtop'        ,ice%Qtop                 ,str_module,idt_src)
-!#slo# CALL dbg_print('GrowZero: ice%Qbot'        ,ice%Qbot                 ,str_module,idt_src)
-!#slo# !---------------------------------------------------------------------
-
+!!$!#slo# !---------DEBUG DIAGNOSTICS-------------------------------------------
+!!$    idt_src=1 !3  ! output print level (1-5, fix)
+!!$    CALL dbg_print('GrowZero: Q_surplus'       ,Q_surplus                ,str_module,idt_src)
+!!$    CALL dbg_print('GrowZero: ice%hi'          ,ice%hi                   ,str_module,idt_src)
+!!$    CALL dbg_print('GrowZero: ice%Qtop'        ,ice%Qtop                 ,str_module,idt_src)
+!!$    CALL dbg_print('GrowZero: ice%Qbot'        ,ice%Qbot                 ,str_module,idt_src)
+!!$    CALL dbg_print('GrowZero: ice%Tsurf'       ,ice%Tsurf                ,str_module,idt_src)
+!!$!#slo# !---------------------------------------------------------------------
+ 
   END SUBROUTINE ice_growth_zerolayer
   
 END MODULE mo_sea_ice_zerolayer

@@ -63,12 +63,11 @@ MODULE mo_sea_ice
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
-  ! # achim
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
-  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx, print_maxmin_si, print_cells
+  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
 
   IMPLICIT NONE
 
@@ -1535,11 +1534,6 @@ CONTAINS
     Qatm%rpreci(:,:) = 0.0_wp
     Qatm%rprecw(:,:) = 0.0_wp
 
-!!$    !#achim: check stuff
-!!$    CALL print_cells(p_as%tafo(:,:),'p_as%tafo')
-!!$    CALL print_cells(Qatm%sens(:,1,:),'Qatm%sens')
-!!$    CALL print_cells(Qatm%dsensdT(:,1,:),'Qatm%dsensdT')
-!!$    CALL print_cells(Qatm%dLWdT(:,1,:),'Qatm%dLWdT')
 
   END SUBROUTINE calc_atm_fluxes_from_bulk
  
