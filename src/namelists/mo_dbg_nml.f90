@@ -68,7 +68,6 @@ MODULE mo_dbg_nml
   ! block/index location of cell output for debugging (alternative to rlat_in/rlon_in)
   INTEGER  :: idbg_blk = 0       ! output test block
   INTEGER  :: idbg_idx = 0       ! output test index
-  INTEGER  :: idbg_lev = 0       ! output test level
 
   ! start/end vertical level for output of 3-dim variable for idbg_mxmn/val >3
   INTEGER  :: idbg_slev = -1000  ! slev=1 in sbrt dbg_mxmn
@@ -79,7 +78,7 @@ MODULE mo_dbg_nml
   CHARACTER(len=len_mod_tst) :: str_mod_tst(dim_mod_tst) ! namelist string of source processes to print
 
   NAMELIST/dbg_index_nml/  idbg_mxmn, idbg_val, dbg_lat_in, dbg_lon_in, &
-    &                      idbg_blk,  idbg_idx, idbg_lev, str_mod_tst, idbg_slev, idbg_elev
+    &                      idbg_blk,  idbg_idx, str_mod_tst, idbg_slev, idbg_elev
 
 CONTAINS
 
