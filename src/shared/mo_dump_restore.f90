@@ -184,7 +184,8 @@ MODULE mo_dump_restore
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_alloc_patches,      ONLY: allocate_patch, allocate_basic_patch, allocate_remaining_patch
-  USE mo_intp_state,         ONLY: allocate_int_state, allocate_int_state_lonlat_grid
+  USE mo_intp_state,         ONLY: allocate_int_state
+  USE mo_intp_lonlat,        ONLY: allocate_int_state_lonlat_grid
   USE mo_lonlat_grid,        ONLY: compute_lonlat_blocking,      &
     &                              compute_lonlat_specs
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
@@ -527,8 +528,9 @@ CONTAINS
     ! Check if ndims is ok
 
     CALL nf(nf_inq_varndims(ncid, varid, ndims_inq))
-    if(ndims_inq /= ndims .AND. ndims_inq /= ndims+1) &
+    IF(ndims_inq /= ndims .AND. ndims_inq /= ndims+1) THEN
       CALL finish(modname, TRIM(prefix)//var_name//': stored ndims not like expected')
+    END IF
 
     ! Get dimensions
 
@@ -3082,13 +3084,10 @@ CONTAINS
       ELSE
         CALL set_dd_filename(p_patch(jg)%grid_filename, model_base_dir)
       ENDIF
-!       write(0,*) "patch grid_filename:", TRIM( p_patch(jg)%grid_filename)
-!       write(0,*) "dump_restore_filename:", TRIM(filename)
 
       prefix = ' '
 
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
-!       write(0,*) TRIM(filename), " is open."
 
       ! First check if members in patch and variables from input
       ! conform with what is stored in NetCDF file
@@ -3308,7 +3307,7 @@ CONTAINS
     ! local variables:
     TYPE (t_lon_lat_data), POINTER :: lonlat_data
     TYPE (t_lon_lat_grid), POINTER :: grid
-    INTEGER :: dim_lonlat
+    INTEGER :: dim_lonlat, dim_rbf_c2l_dim, dim_ncells
 
     lonlat_data => lonlat_grid_list(grid_id)
     grid => lonlat_data%grid
@@ -3320,6 +3319,10 @@ CONTAINS
     CALL def_dim('n_dim_2', 2, dim_2)
     CALL def_dim('rbf_c2grad_dim', rbf_c2grad_dim, dim_rbf_c2grad_dim)
     CALL def_dim('rbf_vec_dim_c',  rbf_vec_dim_c,  dim_rbf_vec_dim_c)
+    IF (l_intp_c2l) THEN
+      CALL def_dim('max_patch_cells', max_patch_cells, dim_ncells)
+      CALL def_dim('dim_rbf_c2l_dim', rbf_dim_c2l, dim_rbf_c2l_dim)
+    END IF
 
     CALL nf(nf_put_att_int(ncid, nf_global,    'int.lonlat.grid_id',        &
       &     nf_int, 1, grid_id))
@@ -3359,6 +3362,12 @@ CONTAINS
     CALL def_var('int.lonlat.tri_idx', nf_int, dim_lonlat, dim_2)
     ! global_idx (unblocked variable)
     CALL def_var('int.lonlat.global_idx', nf_int, dim_lonlat)
+    ! coefficients and indices used for direct interpolation:
+    IF (l_intp_c2l) THEN
+      CALL def_var('int.lonlat.rbf_c2l_coeff', nf_double, dim_lonlat, dim_rbf_c2l_dim)
+      CALL def_var('int.lonlat.rbf_c2l_idx', nf_int, dim_ncells, dim_rbf_c2l_dim)
+      CALL def_var('int.lonlat.rbf_c2l_stencil', nf_int, dim_ncells)
+    END IF
   
   END SUBROUTINE def_lonlat_data
 
@@ -3395,6 +3404,12 @@ CONTAINS
     ! global_idx (unblocked variable)
     CALL uvar_io_i1('int.lonlat.global_idx', intp%global_idx )
 
+    IF (l_intp_c2l) THEN
+      CALL bvar_io(2,3, 'int.lonlat.rbf_c2l_coeff', intp%rbf_c2l_coeff)
+      CALL bidx_io(2,3, 'int.lonlat.rbf_c2l_idx', intp%rbf_c2l_idx, intp%rbf_c2l_blk)
+      CALL bvar_io(1,2, 'int.lonlat.rbf_c2l_stencil', intp%rbf_c2l_stencil)
+    END IF
+
     ! read/write corresponding communication pattern (for GATHER)
     CALL comm_pat_io('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
 
@@ -3412,7 +3427,7 @@ CONTAINS
   !
   SUBROUTINE dump_lonlat_data_netcdf(p_patch)
 
-    TYPE(t_patch), INTENT(IN) :: p_patch(n_dom_start:)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
 
     !---local variables
     CHARACTER(*), PARAMETER :: routine = &
@@ -3461,6 +3476,8 @@ CONTAINS
         
         WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(ll_filename)
         CALL message (routine, TRIM(message_text))
+
+        CALL set_max_patch_dims(p_patch(dom_id))
 
         ! Open new output file
         IF (output_defines) THEN
@@ -3521,7 +3538,7 @@ CONTAINS
   !
   SUBROUTINE restore_lonlat_data_netcdf(p_patch)
 
-    TYPE(t_patch), INTENT(IN) :: p_patch(n_dom_start:)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
 
     !---local variables
     CHARACTER(*), PARAMETER :: routine = &
@@ -3566,6 +3583,8 @@ CONTAINS
           &                                    p_patch(dom_id)%grid_filename, &
           &                                    model_base_dir)
 
+        CALL set_max_patch_dims(p_patch(dom_id))
+
         WRITE(message_text,'(a,a)') 'Read NetCDF file: ', TRIM(ll_filename)
         CALL message (routine, TRIM(message_text))
 
@@ -3587,7 +3606,7 @@ CONTAINS
 
         ! Allocate interpolation state
         nblks_lonlat = (nmax_local_pts - 1)/nproma + 1
-        CALL allocate_int_state_lonlat_grid(nblks_lonlat, intp)
+        CALL allocate_int_state_lonlat_grid( p_patch(dom_id)%nblks_c, nblks_lonlat, intp)
         ALLOCATE(intp%tri_idx(2, nproma, nblks_lonlat),   &
           &      intp%global_idx(nmax_local_pts), STAT=errstat )
         IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')

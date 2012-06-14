@@ -58,6 +58,7 @@ MODULE mo_interpol_config
   PUBLIC :: nudge_max_coeff, nudge_efold_width, nudge_zone_width         !< variables
   PUBLIC :: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim  !< variables
   PUBLIC :: lsq_lin_set, lsq_high_set                                    !< variables
+  PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                          !< variables
   PUBLIC :: configure_interpolation                                      !< subroutine
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -122,7 +123,19 @@ MODULE mo_interpol_config
        &         rbf_vec_dim_v,    & ! of vector rbf stencil                     
        &         rbf_vec_dim_e,    & !                                           
        &         rbf_c2grad_dim      ! ... and for cell-to-gradient reconstruction
-                                                                                 
+
+    ! Flag. If .TRUE. we directly interpolate from cell centers to
+    ! lon-lat points, otherwise we do gradient interpolation and
+    ! reconstruction:
+    LOGICAL :: l_intp_c2l
+
+    ! monotonicity can be enforced by demanding that the interpolated 
+    ! value is not higher or lower than the stencil point values.
+    LOGICAL :: l_mono_c2l
+
+    ! dimension of stencil for interpolation from cell
+    ! centers to lon-lat points:
+    INTEGER ::   rbf_dim_c2l
                                                                                  
     TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
       &                lsq_high_set  ! least squares

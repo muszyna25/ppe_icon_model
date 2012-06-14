@@ -55,7 +55,10 @@ MODULE mo_interpol_nml
                                   & config_nudge_max_coeff   => nudge_max_coeff   , &
                                   & config_nudge_efold_width => nudge_efold_width , &
                                   & config_nudge_zone_width  => nudge_zone_width  , &
-                                  & config_l_corner_vort     => l_corner_vort
+                                  & config_l_corner_vort     => l_corner_vort     , &
+                                  & config_l_intp_c2l        => l_intp_c2l        , &
+                                  & config_rbf_dim_c2l       => rbf_dim_c2l       , &
+                                  & config_l_mono_c2l        => l_mono_c2l
 
   IMPLICIT NONE
   PRIVATE
@@ -119,13 +122,17 @@ MODULE mo_interpol_nml
                                   ! After the writing of the paper to be published in JCP 
                                   ! it seems that l_corner_vort=.TRUE. should be the right way.
 
+  LOGICAL :: l_intp_c2l, l_mono_c2l
+  INTEGER :: rbf_dim_c2l
+
   NAMELIST/interpol_nml/ llsq_lin_consv,    llsq_high_consv,     &
                        & lsq_high_ord,      rbf_vec_kern_c,      &
                        & rbf_vec_scale_c,   rbf_vec_kern_v,      &
                        & rbf_vec_scale_v,   rbf_vec_kern_e,      &
                        & rbf_vec_scale_e,   i_cori_method,       &
                        & nudge_max_coeff,   nudge_efold_width,   &
-                       & nudge_zone_width,  l_corner_vort
+                       & nudge_zone_width,  l_corner_vort,       &
+                       & l_intp_c2l, rbf_dim_c2l, l_mono_c2l
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -180,6 +187,15 @@ CONTAINS
     nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
     nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
     nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
+
+    ! direct interpolation from cell centers to lon-lat points:
+    l_intp_c2l   = .FALSE.
+    ! stencil size: 4  = nearest neighbor, 
+    !               13 = vertex stencil,
+    !               rbf_c2grad_dim = edge stencil
+    rbf_dim_c2l  = 9
+    ! no monotonicity cutoff by default:
+    l_mono_c2l   = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -240,6 +256,9 @@ CONTAINS
     config_nudge_efold_width  = nudge_efold_width
     config_nudge_zone_width   = nudge_zone_width
     config_l_corner_vort      = l_corner_vort
+    config_l_intp_c2l         = l_intp_c2l
+    config_rbf_dim_c2l        = rbf_dim_c2l
+    config_l_mono_c2l         = l_mono_c2l
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

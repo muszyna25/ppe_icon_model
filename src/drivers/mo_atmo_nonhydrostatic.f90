@@ -355,7 +355,7 @@ CONTAINS
     
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights(p_patch(1:), p_int_state(1:))
+    CALL compute_lonlat_area_weights()
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation

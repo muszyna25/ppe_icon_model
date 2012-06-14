@@ -555,6 +555,11 @@ TYPE t_lon_lat_intp
                                                       ! at lon-lat grid points
                                                       ! (rbf_c2grad_dim,2,nproma,nblks_lonlat)
 
+  REAL(wp), ALLOCATABLE :: rbf_c2l_coeff(:,:,:)       ! array containing the coefficients used
+                                                      ! for direct interpolation from cell centers
+                                                      ! to lon-lat points. Uses the same stencil as
+                                                      ! the rbf_c2grad algorithm
+
   INTEGER, ALLOCATABLE  :: rbf_vec_idx(:,:,:)         ! index array defining the
                                                       ! stencil of surrounding edges for
                                                       ! vector rbf interpolation at each
@@ -576,6 +581,11 @@ TYPE t_lon_lat_intp
                                                       ! (rbf_c2grad_dim,nproma,nblks_lonlat)
 
   INTEGER, ALLOCATABLE  :: rbf_c2grad_blk(:,:,:)      ! ... dito for the blocks
+
+  ! direct interpolation from cell centers to lon-lat points:
+  INTEGER, ALLOCATABLE  :: rbf_c2l_idx(:,:,:)         ! (rbf_dim_c2lnproma, nblks_c)
+  INTEGER, ALLOCATABLE  :: rbf_c2l_blk(:,:,:)         ! (rbf_dim_c2lnproma, nblks_c)
+  INTEGER, ALLOCATABLE  :: rbf_c2l_stencil(:,:)       ! (nproma, nblks_c)
 
   ! distances from cell center to lon-lat grid point
   REAL(wp), ALLOCATABLE :: rdist(:,:,:)   ! 2, nproma, nblks_lonlat

@@ -202,8 +202,6 @@ PRIVATE
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: transfer_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
-PUBLIC :: allocate_int_state_lonlat_grid
-PUBLIC :: deallocate_int_state_lonlat
 
 INTERFACE xfer_var
   MODULE PROCEDURE xfer_var_r2
@@ -1425,54 +1423,6 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   CALL message ('mo_intp_state:allocate_int_state','memory allocation finished')
 
 END SUBROUTINE allocate_int_state
-
-
-!-------------------------------------------------------------------------
-!
-!
-!> Allocation of components of interpolation state using an arbitrary grid.
-!!
-!! @par Revision History
-!! Initial implementation: F. Prill, DWD, 2011
-!! Introduced arbitrary grid, Rainer Johanni (2010-11-25)
-!!
-SUBROUTINE allocate_int_state_lonlat_grid( nblks_lonlat, ptr_int_lonlat )
-!
-  INTEGER,                       intent(IN)    :: nblks_lonlat
-  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
-
-  CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:allocate_int_state_lonlat")
-  INTEGER :: ist
-
-  ! ----------------------------------------------------------------------
-
-  ! allocate memory only when needed.
-   ALLOCATE ( &
-    &  ptr_int_lonlat%rbf_vec_coeff(rbf_vec_dim_c, 2, nproma, nblks_lonlat),     &
-    &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
-    &  ptr_int_lonlat%rbf_vec_idx(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
-    &  ptr_int_lonlat%rbf_vec_blk(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
-    &  ptr_int_lonlat%rbf_vec_stencil(nproma, nblks_lonlat),                            &
-    &  ptr_int_lonlat%rbf_c2grad_idx(rbf_c2grad_dim, nproma, nblks_lonlat),             &
-    &  ptr_int_lonlat%rbf_c2grad_blk(rbf_c2grad_dim, nproma, nblks_lonlat),             &
-    &  STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
-  ENDIF
-  
-  ALLOCATE(ptr_int_lonlat%rdist(2, nproma, nblks_lonlat), stat=ist)
-  IF (ist /= SUCCESS)  CALL finish (routine, 'allocation for working arrays failed')
-  
-  ptr_int_lonlat%rdist             = 0._wp
-  ptr_int_lonlat%rbf_vec_idx       = 0
-  ptr_int_lonlat%rbf_vec_blk       = 0
-  ptr_int_lonlat%rbf_c2grad_idx    = 0
-  ptr_int_lonlat%rbf_c2grad_blk    = 0
-  ptr_int_lonlat%rbf_vec_stencil   = 0
-  ptr_int_lonlat%rbf_vec_coeff     = 0._wp
-  ptr_int_lonlat%rbf_c2grad_coeff  = 0._wp
-
-END SUBROUTINE allocate_int_state_lonlat_grid
 
 
 !-------------------------------------------------------------------------
@@ -2793,37 +2743,6 @@ INTEGER :: ist
   ENDIF
 
 END SUBROUTINE deallocate_int_state
-
-
-!-------------------------------------------------------------------------
-!
-!>
-!! Deallocation of components of a single 2d lon-lat interpolation state.
-!!
-SUBROUTINE deallocate_int_state_lonlat( ptr_int_lonlat )
-
-  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
-  CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:deallocate_int_state_lonlat")
-  INTEGER :: ist
-
-  !-----------------------------------------------------------------------
-
-  DEALLOCATE (ptr_int_lonlat%rbf_vec_coeff,           &
-    &         ptr_int_lonlat%rbf_c2grad_coeff,        &
-    &         ptr_int_lonlat%rbf_vec_idx,             &
-    &         ptr_int_lonlat%rbf_vec_blk,             &
-    &         ptr_int_lonlat%rbf_vec_stencil,         &
-    &         ptr_int_lonlat%rbf_c2grad_idx,          &
-    &         ptr_int_lonlat%rbf_c2grad_blk,          &
-    &         ptr_int_lonlat%rdist,                   &
-    &         ptr_int_lonlat%tri_idx,                 &
-    &         ptr_int_lonlat%global_idx,              &
-    &         STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish (routine, 'deallocation for lon-lat coefficients failed')
-  ENDIF
-  
-END SUBROUTINE deallocate_int_state_lonlat
 
 
 !-------------------------------------------------------------------------
