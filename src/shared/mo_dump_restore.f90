@@ -659,7 +659,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_start
 
     INTEGER :: var_start, varid, dimlen(1)
-    INTEGER :: nblks, start(2), count(2)
+    INTEGER :: nblks, start(2), COUNT(2), ntot
     REAL(wp), ALLOCATABLE :: buf(:)
 
     IF(PRESENT(opt_start)) THEN
@@ -674,16 +674,17 @@ CONTAINS
     CALL pos_check(pos_nproma, pos_nblks, var_name, UBOUND(var), var_start, dimlen)
 
     nblks = UBOUND(var,pos_nblks)
-    ALLOCATE(buf(nproma*nblks))
+    ntot = nproma*nblks
+    ALLOCATE(buf(dimlen(1)))
     buf(:) = 0._wp
 
     start = (/ 1, my_record /)
     count = (/ dimlen(1), 1 /)
     IF(netcdf_read) THEN
       CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
-      var(:,:) = RESHAPE(buf, (/ nproma, nblks /))
+      var(:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
     ELSE
-      buf(:) = RESHAPE(var(:,:), (/ nproma*nblks /))
+      buf(1:ntot) = RESHAPE(var(:,:), (/ nproma*nblks /))
       CALL nf(nf_put_vara_double(ncid, varid, start, count, buf(var_start)))
     ENDIF
 
@@ -700,7 +701,7 @@ CONTAINS
 
     INTEGER :: var_start, varid, dimlen(2)
     INTEGER :: start(3), count(3), pos_dim2
-    INTEGER :: nblks, i
+    INTEGER :: nblks, i, ntot
     REAL(wp), ALLOCATABLE :: buf(:)
 
     IF(PRESENT(opt_start)) THEN
@@ -715,7 +716,8 @@ CONTAINS
     CALL pos_check(pos_nproma, pos_nblks, var_name, UBOUND(var), var_start, dimlen, pos_dim2)
 
     nblks = UBOUND(var,pos_nblks)
-    ALLOCATE(buf(nproma*nblks))
+    ntot = nproma*nblks
+    ALLOCATE(buf(dimlen(1)))
     buf(:) = 0._wp
 
     DO i=1,UBOUND(var,pos_dim2)
@@ -723,13 +725,13 @@ CONTAINS
       count = (/ dimlen(1), 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
-        IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==2) var(:,i,:) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==3) var(:,:,i) = RESHAPE(buf, (/ nproma, nblks /))
+        IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2) var(:,i,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==3) var(:,:,i) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
       ELSE
-        IF(pos_dim2==1) buf(:) = RESHAPE(var(i,:,:), (/ nproma*nblks /))
-        IF(pos_dim2==2) buf(:) = RESHAPE(var(:,i,:), (/ nproma*nblks /))
-        IF(pos_dim2==3) buf(:) = RESHAPE(var(:,:,i), (/ nproma*nblks /))
+        IF(pos_dim2==1) buf(1:ntot) = RESHAPE(var(i,:,:), (/ nproma*nblks /))
+        IF(pos_dim2==2) buf(1:ntot) = RESHAPE(var(:,i,:), (/ nproma*nblks /))
+        IF(pos_dim2==3) buf(1:ntot) = RESHAPE(var(:,:,i), (/ nproma*nblks /))
         CALL nf(nf_put_vara_double(ncid, varid, start, count, buf(var_start)))
       ENDIF
     ENDDO
@@ -747,7 +749,7 @@ CONTAINS
 
     INTEGER :: var_start, varid, dimlen(3)
     INTEGER :: start(4), count(4), pos_dim2, pos_dim3
-    INTEGER :: nblks, i, j
+    INTEGER :: nblks, i, j, ntot
     REAL(wp), ALLOCATABLE :: buf(:)
 
     IF(PRESENT(opt_start)) THEN
@@ -764,7 +766,8 @@ CONTAINS
 
     nblks = UBOUND(var,pos_nblks)
 
-    ALLOCATE(buf(nproma*nblks))
+    ntot = nproma*nblks
+    ALLOCATE(buf(dimlen(1)))
     buf(:) = 0._wp
     DO j=1,UBOUND(var,pos_dim3)
     DO i=1,UBOUND(var,pos_dim2)
@@ -772,15 +775,15 @@ CONTAINS
       count = (/ dimlen(1), 1, 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
-        IF(pos_dim2==3 .AND. pos_dim3==4) var(:,:,i,j) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==4) var(:,i,:,j) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==3) var(:,i,j,:) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==1 .AND. pos_dim3==2) var(i,j,:,:) = RESHAPE(buf, (/ nproma, nblks /))
+        IF(pos_dim2==3 .AND. pos_dim3==4) var(:,:,i,j) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==4) var(:,i,:,j) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==3) var(:,i,j,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==1 .AND. pos_dim3==2) var(i,j,:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
       ELSE
-        IF(pos_dim2==3 .AND. pos_dim3==4) buf(:) = RESHAPE(var(:,:,i,j), (/ nproma*nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==4) buf(:) = RESHAPE(var(:,i,:,j), (/ nproma*nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==3) buf(:) = RESHAPE(var(:,i,j,:), (/ nproma*nblks /))
-        IF(pos_dim2==1 .AND. pos_dim3==2) buf(:) = RESHAPE(var(i,j,:,:), (/ nproma*nblks /))
+        IF(pos_dim2==3 .AND. pos_dim3==4) buf(1:ntot) = RESHAPE(var(:,:,i,j), (/ nproma*nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==4) buf(1:ntot) = RESHAPE(var(:,i,:,j), (/ nproma*nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==3) buf(1:ntot) = RESHAPE(var(:,i,j,:), (/ nproma*nblks /))
+        IF(pos_dim2==1 .AND. pos_dim3==2) buf(1:ntot) = RESHAPE(var(i,j,:,:), (/ nproma*nblks /))
         CALL nf(nf_put_vara_double(ncid, varid, start, count, buf(var_start)))
       ENDIF
     ENDDO
@@ -798,7 +801,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_start
 
     INTEGER :: var_start, varid, dimlen(1)
-    INTEGER :: nblks, start(2), count(2)
+    INTEGER :: nblks, start(2), COUNT(2), ntot
     INTEGER, ALLOCATABLE :: buf(:)
 
     IF(PRESENT(opt_start)) THEN
@@ -813,16 +816,17 @@ CONTAINS
     CALL pos_check(pos_nproma, pos_nblks, var_name, UBOUND(var), var_start, dimlen)
 
     nblks = UBOUND(var,pos_nblks)
-    ALLOCATE(buf(nproma*nblks))
+    ntot = nproma*nblks
+    ALLOCATE(buf(dimlen(1)))
     buf(:) = 0
 
     start = (/ 1, my_record /)
     count = (/ dimlen(1), 1 /)
     IF(netcdf_read) THEN
       CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
-      var(:,:) = RESHAPE(buf, (/ nproma, nblks /))
+      var(:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
     ELSE
-      buf(:) = RESHAPE(var(:,:), (/ nproma*nblks /))
+      buf(1:ntot) = RESHAPE(var(:,:), (/ nproma*nblks /))
       CALL nf(nf_put_vara_int(ncid, varid, start, count, buf(var_start)))
     ENDIF
 
@@ -839,7 +843,7 @@ CONTAINS
 
     INTEGER :: var_start, varid, dimlen(2)
     INTEGER :: start(3), count(3), pos_dim2
-    INTEGER :: nblks, i
+    INTEGER :: nblks, i, ntot
     INTEGER, ALLOCATABLE :: buf(:)
 
     IF(PRESENT(opt_start)) THEN
@@ -854,7 +858,8 @@ CONTAINS
     CALL pos_check(pos_nproma, pos_nblks, var_name, UBOUND(var), var_start, dimlen, pos_dim2)
 
     nblks = UBOUND(var,pos_nblks)
-    ALLOCATE(buf(nproma*nblks))
+    ntot = nproma*nblks
+    ALLOCATE(buf(dimlen(1)))
     buf(:) = 0
 
     DO i=1,UBOUND(var,pos_dim2)
@@ -862,17 +867,16 @@ CONTAINS
       count = (/ dimlen(1), 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
-        IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==2) var(:,i,:) = RESHAPE(buf, (/ nproma, nblks /))
-        IF(pos_dim2==3) var(:,:,i) = RESHAPE(buf, (/ nproma, nblks /))
+        IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2) var(:,i,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==3) var(:,:,i) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
       ELSE
-        IF(pos_dim2==1) buf(:) = RESHAPE(var(i,:,:), (/ nproma*nblks /))
-        IF(pos_dim2==2) buf(:) = RESHAPE(var(:,i,:), (/ nproma*nblks /))
-        IF(pos_dim2==3) buf(:) = RESHAPE(var(:,:,i), (/ nproma*nblks /))
+        IF(pos_dim2==1) buf(1:ntot) = RESHAPE(var(i,:,:), (/ nproma*nblks /))
+        IF(pos_dim2==2) buf(1:ntot) = RESHAPE(var(:,i,:), (/ nproma*nblks /))
+        IF(pos_dim2==3) buf(1:ntot) = RESHAPE(var(:,:,i), (/ nproma*nblks /))
         CALL nf(nf_put_vara_int(ncid, varid, start, count, buf(var_start)))
       ENDIF
     ENDDO
-
     DEALLOCATE(buf)
 
   END SUBROUTINE bvar_io_i2
@@ -885,7 +889,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_start
 
     INTEGER :: var_start, varid, dimlen(1)
-    INTEGER :: nblks, start(2), count(2)
+    INTEGER :: nblks, start(2), COUNT(2), ntot
     INTEGER, ALLOCATABLE :: buf(:)
 
     IF(PRESENT(opt_start)) THEN
@@ -900,16 +904,17 @@ CONTAINS
     CALL pos_check(pos_nproma, pos_nblks, var_name, UBOUND(var), var_start, dimlen)
 
     nblks = UBOUND(var,pos_nblks)
-    ALLOCATE(buf(nproma*nblks))
+    ntot  = nproma*nblks
+    ALLOCATE(buf(dimlen(1)))
     buf(:) = 0
 
     start = (/ 1, my_record /)
     count = (/ dimlen(1), 1 /)
     IF(netcdf_read) THEN
       CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
-      var(:,:) = RESHAPE((buf(:)/=0), (/ nproma, nblks /))
+      var(:,:) = RESHAPE((buf(1:ntot)/=0), (/ nproma, nblks /))
     ELSE
-      buf(:) = l2i(RESHAPE(var(:,:), (/ nproma*nblks /)))
+      buf(1:ntot) = l2i(RESHAPE(var(:,:), (/ nproma*nblks /)))
       CALL nf(nf_put_vara_int(ncid, varid, start, count, buf(var_start)))
     ENDIF
 
@@ -1260,14 +1265,12 @@ CONTAINS
       pat%pelist_send(:)   = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%send_startidx(:) = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%send_count(:)    = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
-
       pat%pelist_recv(:)   = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
       pat%recv_startidx(:) = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
       pat%recv_count(:)    = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
 
       ALLOCATE(pat%send_src_blk(pat%n_send))
       ALLOCATE(pat%send_src_idx(pat%n_send))
-
       pat%send_src_idx(:)  = idx_no(pat_data(n+1:n+pat%n_send))
       pat%send_src_blk(:)  = blk_no(pat_data(n+1:n+pat%n_send))
       n = n + pat%n_send
