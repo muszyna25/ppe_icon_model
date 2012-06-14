@@ -1778,6 +1778,30 @@ to the hexagon (.TRUE.) or the rhombi are directly averaged to the hexagon (.FAL
 i\_cori\_method=3
 \tabularnewline
 
+\hline 
+l\_intp\_c2l&
+L& .FALSE.& &
+If .TRUE. directly interpolate from cell centers to
+lon-lat points, otherwise do gradient interpolation and
+reconstruction.&
+\tabularnewline
+
+\hline 
+rbf\_dim\_c2l&
+I& 9& &
+stencil size for direct lon-lat interpolation:
+ 4 = nearest neighbor, 
+13 = vertex stencil, 
+10 = edge stencil.&
+\tabularnewline
+
+\hline 
+l\_mono\_c2l&
+L& .FALSE.& &
+Monotonicity can be enforced by demanding that the interpolated 
+value is not higher or lower than the stencil point values.&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_interpol\_nml.f90
