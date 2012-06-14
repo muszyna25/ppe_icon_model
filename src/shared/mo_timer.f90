@@ -116,7 +116,7 @@ MODULE mo_timer
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
-  PUBLIC :: timer_dbg_mxmn
+  PUBLIC :: timer_dbg_prnt
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
   PUBLIC :: timer_coupling
@@ -221,7 +221,7 @@ MODULE mo_timer
   INTEGER :: timer_oce_phy
   INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
-  INTEGER :: timer_dbg_mxmn
+  INTEGER :: timer_dbg_prnt
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
   INTEGER :: timer_coupling
@@ -372,7 +372,7 @@ CONTAINS
     timer_ppm_slim      = new_timer("ppm_slim")
     timer_vert_veloc    = new_timer("vert_veloc")
     timer_normal_veloc  = new_timer("normal_veloc")
-    timer_dbg_mxmn      = new_timer("dbg_mxmn")
+    timer_dbg_prnt      = new_timer("dbg_prnt")
   
     timer_cube_root = new_timer("cube_root")          
     timer_lonlat_setup = new_timer("lonlat_setup")
