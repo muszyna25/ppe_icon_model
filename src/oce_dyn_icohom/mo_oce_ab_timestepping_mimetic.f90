@@ -338,12 +338,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !INTEGER  :: i_startidx, i_endidx
   INTEGER  :: je, jk, jb
   REAL(wp) :: gdt
-  !REAL(wp) :: z_flip_flop_e(nproma,n_zlev,p_patch%nblks_e)
-  !REAL(wp) :: z_ptp_gradh(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: z_gradh_e(nproma,1,p_patch%nblks_e)
   REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
-  !REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
-  !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
   TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
   INTEGER  :: i_startidx_e, i_endidx_e
@@ -572,18 +568,22 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
 
       ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src = 5  ! output print level (1-5, fix)
+      CALL dbg_print('Bef fin term: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src)
+      CALL dbg_print('Bef fin term: g_nimd'       ,p_os%p_aux%g_nimd         ,str_module,idt_src)
+      CALL dbg_print('Bef fin term: gradh_e'      ,z_gradh_e                 ,str_module,idt_src)
+      !---------------------------------------------------------------------
+
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO jk = 1, n_zlev
             DO je = i_startidx_e, i_endidx_e
-!IF(p_os%p_diag%laplacian_horz(je,jk,jb)/=0.0_wp)THEN
-!write(123456,*)'nabla2:',jk,je,jb,p_os%p_diag%laplacian_horz(je,jk,jb), z_e(je,jk,jb)
-!ENDIF
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
               !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)    &
-                &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)     &
-                &                           - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
+                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)  &
+                &                             + dtime*(p_os%p_aux%g_nimd(je,jk,jb) &
+                &                             - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
               ELSE
                 p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
               ENDIF
@@ -591,10 +591,12 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
           END DO
         END DO
       ENDIF!Staggered
-!DO jk = 1, n_zlev
-!   write(*,*)'min/max vn_pred before:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
-!     &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
-!END DO
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src = 5  ! output print level (1-5, fix)
+      CALL dbg_print('Aft fin term: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src)
+      !---------------------------------------------------------------------
+
     ELSEIF(l_RIGID_LID)THEN
 
       IF(l_STAGGERED_TIMESTEP)THEN
@@ -636,6 +638,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
 
       ENDIF!Staggered
     ENDIF!Rigid lid
+
     !IF surface forcing applied as top boundary condition to vertical diffusion
     !The surface forcing is applied as volume forcing at rhs, 
     !i.e. if it part of explicit term in momentum and tracer eqs.
@@ -660,7 +663,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         END DO
       END DO
     ENDIF 
-  !write(*,*)'max/min wind', maxval(p_os%p_aux%bc_top_vn), minval(p_os%p_aux%bc_top_vn)
+
   !In the SW-case the external forcing is applied as volume force.
   !This force is stored in data type top-boundary-condition. 
   ELSEIF ( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
@@ -677,7 +680,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         END DO
       END DO
     END DO
-   !In case of Shallow-water with forcing and or damping
+
+    !In case of Shallow-water with forcing and or damping
     IF ( iforc_oce/=10) THEN
 
       DO jb = all_edges%start_block, all_edges%end_block
@@ -699,9 +703,9 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !In 3D case and if implicit vertical velocity diffusion is chosen
   IF(iswm_oce /= 1.AND.expl_vertical_velocity_diff==1)THEN
 
-    !Surface forcing implemente as volume forcing in top layer.
-    !In this case homogeneousboundary conditions for vertical Laplacian
-      CALL veloc_diffusion_vert_impl_hom( p_patch,              &
+    !Surface forcing is implemented as volume forcing in top layer.
+    !In this case homogeneous boundary conditions for vertical Laplacian
+    CALL veloc_diffusion_vert_impl_hom( p_patch,                &
                                     & p_os%p_diag%vn_pred,      &
                                     & p_os%p_diag%h_e,          &
                                     & p_phys_param%A_veloc_v,   &
@@ -709,11 +713,12 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     IF(l_RIGID_LID)THEN
       p_os%p_diag%vn_pred = p_os%p_diag%vn_impl_vert_diff
     ENDIF
+
   ENDIF
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('vn_old'                    ,p_os%p_prog(nold(1))%vn       ,str_module,idt_src)
+  CALL dbg_print('vn(nold)'                  ,p_os%p_prog(nold(1))%vn       ,str_module,idt_src)
   CALL dbg_print('Advect horizontal'         ,p_os%p_diag%veloc_adv_horz    ,str_module,idt_src)
   CALL dbg_print('LaPlac Diff horizontal'    ,p_os%p_diag%laplacian_horz    ,str_module,idt_src)
   CALL dbg_print('LaPlac Diff vertical'      ,p_os%p_diag%laplacian_vert    ,str_module,idt_src)
@@ -1256,7 +1261,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
     ELSE
 
       CALL finish(method_name,"l_RIGID_LID case has a bug")
-      p_os%p_prog(nnew(1))%vn = p_os%p_diag%vn_pred*v_base%wet_e(je,jk,jb)
+      !p_os%p_prog(nnew(1))%vn(:,:,:) = p_os%p_diag%vn_pred*v_base%wet_e(:,:,:)
     ENDIF
   ENDIF
 

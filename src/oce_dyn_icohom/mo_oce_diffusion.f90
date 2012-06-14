@@ -108,9 +108,8 @@ SUBROUTINE velocity_diffusion(p_patch, vn_in, p_param, p_diag,p_op_coeff, laplac
   REAL(wp), INTENT(INOUT)             :: laplacian_vn_out(nproma,n_zlev,p_patch%nblks_e)
 
   !Local variables
-  REAL(wp) :: z_lapl(nproma,n_zlev,p_patch%nblks_e)
-  INTEGER  :: jk
-  !TYPE(t_subset_range), POINTER :: all_cells, all_edges, edges_in_domain
+  !REAL(wp) :: z_lapl(nproma,n_zlev,p_patch%nblks_e)
+  !INTEGER  :: jk
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:velocity_diffusion_horz')
 !-------------------------------------------------------------------------------
@@ -627,7 +626,6 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !Local variables
     INTEGER :: slev, elev     ! vertical start and end level
-    INTEGER :: nblks_c
     INTEGER :: je, jk, jb
     INTEGER :: i_startidx, i_endidx
     REAL(wp) ::  z_div_c(nproma,n_zlev,ptr_patch%nblks_c)
@@ -1347,7 +1345,8 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
                                     & diff_column)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   REAL(wp), INTENT(inout)           :: field_column(:,:,:)
-  REAL(wp), INTENT(IN)              :: h_e(:,:)           !surface height at edges, relevant for thickness of first cell 
+  !surface height at edges, relevant for thickness of first cell 
+  REAL(wp), INTENT(IN)              :: h_e(:,:)
   REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
   REAL(wp), INTENT(out)             :: diff_column(:,:,:)
   !
@@ -1368,6 +1367,12 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
   !-----------------------------------------------------------------------
   slev = 1
+
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('VelDifImplHomIn:field_col' ,field_column             ,str_module,idt_src)
+  CALL dbg_print('VelDifImplHomIn: diff_col' ,diff_column              ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
   !gam(1:n_zlev)          = 0.0_wp
   a(slev:n_zlev)          = 0.0_wp
@@ -1452,6 +1457,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('VelDifImplHom: field_col'  ,field_column             ,str_module,idt_src)
   CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src)
   !---------------------------------------------------------------------
 
