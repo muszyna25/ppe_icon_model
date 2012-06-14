@@ -558,15 +558,15 @@ CONTAINS
         &  zlhfl_snow    = lhfl_snow_t(:,isubs)                & ! latent   heat flux snow/air interface         (W/m2) 
         &                                                    )
 
-!DO ic = 1, i_count
-!  jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-!  if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
-!       abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
-!    write(*,*) 'hello4 ', isubs, snowfrac_t(jc,isubs), &
-!      shfl_s_t(jc,isubs), shfl_snow_t(jc,isubs), &
-!      lhfl_s_t(jc,isubs), lhfl_snow_t(jc,isubs)
-!  endif
-!ENDDO
+DO ic = 1, i_count
+  jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+  if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
+       abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
+    write(*,*) 'mo_nwp_sfc_interface_edmf ', isubs, snowfrac_t(jc,isubs), &
+      shfl_s_t(jc,isubs), shfl_snow_t(jc,isubs), &
+      lhfl_s_t(jc,isubs), lhfl_snow_t(jc,isubs)
+  endif
+ENDDO
 
         IF (lmulti_snow) THEN
           CALL diag_snowfrac_tg(                        &

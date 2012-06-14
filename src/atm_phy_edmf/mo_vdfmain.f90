@@ -679,6 +679,9 @@ LOGICAL ::            LMPBLEQU
 !xxx
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
+REAL(KIND=JPRB), DIMENSION(KLON,nsfc_subs) :: &
+                    & shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t   
+
 !amk testing only!!!
 REAL(KIND=JPRB) ::    ZCFNC1  
 !xxx
@@ -823,7 +826,8 @@ CALL SURFEXCDRIVER( &
    & , tch_ex, tcm_ex, tfv_ex                                             & !inout
    & , sobs_ex, thbs_ex, pabs_ex                                          & !in
    & , runoff_s_ex, runoff_g_ex                                           & !inout
-   & , t_g, qv_s,                                                         & ! -
+   & , t_g, qv_s                                                          & ! -
+   & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t,                      & !out
   ! standard input
    & CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
@@ -1317,9 +1321,9 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
 !XMK??
 
 DO JL=KIDIA,KFDIA
-  IF ( ABS(PDIFTS(JL,KLEV))          >  400.0_JPRB  .OR. & 
+  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
        ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
-    write(*,*) 'SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
+    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
   ENDIF
 ENDDO
 

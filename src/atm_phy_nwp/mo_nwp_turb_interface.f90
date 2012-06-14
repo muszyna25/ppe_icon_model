@@ -64,7 +64,7 @@ MODULE mo_nwp_turb_interface
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, t0_melt, zt_ice
   USE src_turbdiff,            ONLY: turbtran, turbdiff
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
@@ -224,7 +224,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
     &         zsigflt(nproma)               , zfrti(nproma,nsfc_subs)
-  LOGICAL  :: l_land(nproma), ldummy_vdf_a(nproma)
+  LOGICAL  :: ldummy_vdf_a(nproma)
 
 
 !--------------------------------------------------------------
@@ -295,7 +295,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP ztice,     ztske1, &
 !$OMP ztskm1m,   ztskrad, &
 !$OMP zsigflt,   zfrti, &
-!$OMP l_land,    ldummy_vdf_a &
+!$OMP ldummy_vdf_a &
 !$OMP ) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -735,7 +735,15 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ENDDO
 
       DO jc = i_startidx, i_endidx
-        zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
+       !zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
+        IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
+          zfrti(jc,8) = 1.0_wp                         ! bare ground (???)
+        ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
+          zfrti(jc,1) = 1.0_wp                         ! open ocean
+        ELSE
+          zfrti(jc,2) = 1.0_wp                         ! sea ice
+        END IF
+       !ext_data%atm%lc_frac_t(:,jb,:) 
       ENDDO
 
       DO jk = 1,nlev_soil
@@ -743,14 +751,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
           zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
         ENDDO
-      ENDDO
-
-      DO jc = i_startidx, i_endidx
-        IF ( ext_data%atm%fr_land(jc,jb) > 0.5_wp ) THEN
-          l_land(jc) = .true.
-        ELSE
-          l_land(jc) = .false.
-        ENDIF
       ENDDO
 
       DO jc = i_startidx, i_endidx
@@ -904,7 +904,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & PSTRSOU = zdummy_vdf_3k                              ,&! (OUT)  optional out: SSO U flux 
         & PSTRSOV = zdummy_vdf_3l                              ,&! (OUT)  optional out: SSO V flux
         & PKH     = prm_diag%tkvh(:,:,jb)                      ,&! (OUT)
-        & LDLAND  = l_land                                      &! (IN)   logical for land
+        & LDLAND  = ext_data%atm%llsm_atm_c(:,jb)               &! (IN)   logical for land
 !       & PDHTLS  = ...                                        ,&! (OUT)  optional out: DDH
 !       & PDHTSS  = ...                                        ,&! (OUT)  optional out: DDH
 !       & PDHTTS  = ...                                        ,&! (OUT)  optional out: DDH

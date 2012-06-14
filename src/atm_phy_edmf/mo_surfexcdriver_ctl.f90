@@ -81,7 +81,7 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & )
+ & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t)                        !out
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -375,38 +375,39 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PZDLPP(:)
 
 ! TERRA data
 
-INTEGER          ,INTENT(IN)                                              :: &
+INTEGER          ,INTENT(IN)                                               :: &
   jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
   rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,         & 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
+  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,          & 
   w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
   t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
   w_so_ex        ,w_so_ice_ex          
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_2m_ex        ,u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
   freshsnow_ex   ,snowfrac_ex          
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,nsfc_subs)                :: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
   runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
-TYPE(t_external_data), INTENT(IN)                                         :: &
+REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,nsfc_subs)                :: &
+  shfl_s_t       ,lhfl_s_t       ,shfl_snow_t    ,lhfl_snow_t   
+TYPE(t_external_data), INTENT(IN)                                          :: &
   ext_data
-  
 
 ! Local variables
 
@@ -434,8 +435,6 @@ REAL(KIND=JPRB) :: ZFRMAX(KLON)   , ZFRLMAX(KLON)  , ZALB(KLON)     , &
                  & ZQL(KLON)      , ZASL(KLON)     , ZBSL(KLON)     , &
                  & ZAQL(KLON)     , ZBQL(KLON)     , ZRHO(KLON)
 
-REAL(KIND=JPRB) :: shfl_s_t   (KLON,KTILES), lhfl_s_t   (KLON,KTILES), &
-                 & shfl_snow_t(KLON,KTILES), lhfl_snow_t(KLON,KTILES)
 
 INTEGER(KIND=JPIM) :: JL, JTILE, IITT
 LOGICAL :: LLINIT
@@ -743,17 +742,17 @@ CALL nwp_surface_edmf (&
    lhfl_snow_t      = lhfl_snow_t     )   ! latent   heat flux snow/air interface         (W/m2)
 
 
-! DO JTILE=1,KTILES
-!   DO JL=KIDIA,KFDIA
-!     IF ( ABS( shfl_s_t   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
-!          ABS( shfl_snow_t(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
-!          ABS( lhfl_s_t   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
-!          ABS( lhfl_snow_t(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
-!       write(*,*) 'TERRA: SHF-soil, SHF-snow, LHF-soil, LHF-snow ', &
-!          shfl_s_t(jl,jtile), shfl_snow_t(jl,jtile), lhfl_s_t(jl,jtile), lhfl_snow_t(jl,jtile)
-!     ENDIF
-!   ENDDO
-! ENDDO
+ DO JTILE=1,KTILES
+   DO JL=KIDIA,KFDIA
+     IF ( ABS( shfl_s_t   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
+          ABS( shfl_snow_t(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
+          ABS( lhfl_s_t   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
+          ABS( lhfl_snow_t(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
+       write(*,*) 'TERRA: SHF-soil, SHF-snow, LHF-soil, LHF-snow ', snowfrac_ex(jl,jtile), &
+          shfl_s_t(jl,jtile), shfl_snow_t(jl,jtile), lhfl_s_t(jl,jtile), lhfl_snow_t(jl,jtile)
+     ENDIF
+   ENDDO
+ ENDDO
 
 !-------------------------------------------------------------------------
 
