@@ -305,9 +305,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('h-residual'                     ,z_h_c                  ,str_module,idt_src)
+    CALL dbg_print('SolvSfc: h-res'             ,z_h_c                  ,str_module,idt_src)
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('after GMRES: h-new'             ,p_os%p_prog(nnew(1))%h ,str_module,idt_src)
+    CALL dbg_print('SolvSfc: after GMRES: h-new',p_os%p_prog(nnew(1))%h ,str_module,idt_src)
     !---------------------------------------------------------------------
 
   ENDIF  ! l_rigid_lid
@@ -789,22 +789,17 @@ TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges
 
   gdt2 = grav*(dtime)**2
 
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      z_u_pred_depth_int_cc(jc,jb)%x(:) = 0.0_wp
-      z_u_pred_cc(jc,1,jb)%x(:)         = 0.0_wp
-    END DO
-  END DO
-  z_e(:,:)               = 0.0_wp
+  z_e              (:,:) = 0.0_wp
   div_z_depth_int_c(:,:) = 0.0_wp
-  div_z_c_2D             = 0.0_wp
+  div_z_c_2D       (:,:) = 0.0_wp
   div_z_c        (:,:,:) = 0.0_wp
   
-  z_e(:,:)    =0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(1) = 0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(2) = 0.0_wp
   z_u_pred_depth_int_cc(:,:)%x(3) = 0.0_wp
+  z_u_pred_cc        (:,1,:)%x(1) = 0.0_wp
+  z_u_pred_cc        (:,1,:)%x(2) = 0.0_wp
+  z_u_pred_cc        (:,1,:)%x(3) = 0.0_wp
 
   ! LL: this should not be required
   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_pred)
@@ -959,7 +954,8 @@ ELSE ! NOT EDGE-BASED
                          & p_op_coeff, z_u_pred_cc)
 
   IF( iswm_oce /= 1 ) THEN !the 3D case
-  !calculate depth-integrated velocity 
+
+    !calculate depth-integrated velocity 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -1037,8 +1033,8 @@ ENDIF!EDGE-BASED
   IF (l_edge_based) &
     & CALL dbg_print('RHS div_z_depth_int_c' ,div_z_depth_int_c        ,str_module,idt_src)
   IF (.NOT. l_edge_based) &
-    & CALL dbg_print('RHS z_e'               ,z_e                      ,str_module,idt_src)
-  CALL dbg_print('RHS div_z_c'               ,div_z_c                  ,str_module,idt_src)
+    & CALL dbg_print('RHS div_z_c_2d'        ,div_z_c_2d               ,str_module,idt_src)
+ !CALL dbg_print('RHS div_z_c'               ,div_z_c                  ,str_module,idt_src)
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('RHS final'                 ,p_os%p_aux%p_rhs_sfc_eq  ,str_module,idt_src)
   !---------------------------------------------------------------------
@@ -1197,7 +1193,6 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   !INTEGER :: i_startidx_c, i_endidx_c
   INTEGER :: je, jk, jb!, jc
   REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
-  REAL(wp) :: z_en(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: gdt!, delta_z
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
   !TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
@@ -1212,7 +1207,6 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   cells_in_domain => p_patch%cells%in_domain
 
   z_grad_h(:,:) = 0.0_wp
-  z_en  (:,:,:) = 0.0_wp
 
   gdt=grav*dtime
 
@@ -1251,9 +1245,9 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
         DO jk = 1, n_zlev
           DO je = i_startidx_e, i_endidx_e
 
-            p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb)&
-                    &                         - gdt*ab_beta*z_grad_h(je,jb))  &
-                    &                         *v_base%wet_e(je,jk,jb)
+            p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb)   &
+                    &                             - gdt*ab_beta*z_grad_h(je,jb)) &
+                    &                           *v_base%wet_e(je,jk,jb)
           END DO
         END DO
       END DO
@@ -1265,8 +1259,8 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
     ENDIF
   ENDIF
 
-   p_os%p_diag%vn_time_weighted=ab_gam*p_os%p_prog(nnew(1))%vn&
-   &+(1.0_wp -ab_gam)*p_os%p_prog(nold(1))%vn
+  p_os%p_diag%vn_time_weighted = ab_gam*p_os%p_prog(nnew(1))%vn &
+    &                          + (1.0_wp -ab_gam)*p_os%p_prog(nold(1))%vn
 
 !   CALL map_edges2cell_3d( p_patch,&
 !     & p_os%p_prog(nnew(1))%vn, &
@@ -1298,32 +1292,40 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  IF (.NOT.l_rigid_lid) THEN
-    CALL dbg_print('new height gradient'       ,z_grad_h                 ,str_module,idt_src)
-    CALL dbg_print('h-contrib=-ab_b*gdt*gradh' ,-ab_beta*gdt*z_grad_h    ,str_module,idt_src)
-  END IF
-  CALL dbg_print('vn old'                      ,p_os%p_prog(nold(1))%vn  ,str_module,idt_src)
-  z_en(:,:,:) = p_os%p_prog(nnew(1))%vn(:,:,:)-p_os%p_prog(nold(1))%vn(:,:,:)
-  CALL dbg_print('vn change'                   ,p_os%p_prog(nnew(1))%vn  ,str_module,idt_src)
+  CALL dbg_print('NorVel: vn_old'             ,p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
+  CALL dbg_print('NorVel: vn_pred'            ,p_os%p_diag%vn_pred         ,str_module,idt_src)
+  IF (.NOT.l_rigid_lid) THEN                 
+    CALL dbg_print('NorVel: grad h-new'       ,z_grad_h                    ,str_module,idt_src)
+  END IF                                     
+  CALL dbg_print('NorVel: vn_time_weighted'   ,p_os%p_diag%vn_time_weighted,str_module,idt_src)
+  CALL dbg_print('NorVel: vn_change'          ,p_os%p_prog(nnew(1))%vn - &
+    &                                          p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
   idt_src=2  ! output print level (1-5, fix)
-  CALL dbg_print('vn new'                      ,p_os%p_prog(nnew(1))%vn  ,str_module,idt_src)
+  CALL dbg_print('NorVel: vn_new'             ,p_os%p_prog(nnew(1))%vn     ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   !CALL height_related_quantities(p_patch, p_os, p_ext_data)
   ! Update of scalar product quantities
   IF(l_STAGGERED_TIMESTEP)THEN
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
+
+    ! #slo# vn-new is already multiplied with wet_c - not necessary?
     Call set_lateral_boundary_values( p_patch, &
                                     & p_os%p_prog(nnew(1))%vn)
 
-    CALL calc_scalar_product_veloc_3D( p_patch,             &
+    CALL calc_scalar_product_veloc_3D( p_patch,                &
                                      & p_os%p_prog(nnew(1))%vn,&
                                      & p_os%p_prog(nnew(1))%vn,&
                                      & p_os%p_diag%h_e,        &
                                      & p_os%p_diag,            &
                                      & p_op_coeff)
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('p_diag%kin'                  ,p_os%p_diag%kin        ,str_module,idt_src)
+    CALL dbg_print('NorVel: Staggered, kin'    ,p_os%p_diag%kin        ,str_module,idt_src)
+    CALL dbg_print('NorVel: Staggered, ptp_vn' ,p_os%p_diag%ptp_vn     ,str_module,idt_src)
+    !---------------------------------------------------------------------
+
   ENDIF
 
   !CALL message (TRIM(routine), 'end')
@@ -1589,11 +1591,11 @@ ENDIF
 CALL sync_patch_array(SYNC_C, p_patch, pw_c)
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
-idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('vertical velocity'           ,pw_c                     ,str_module,idt_src)
 idt_src=4  ! output print level (1-5, fix)
-CALL dbg_print('vn_time_weighted'            ,p_diag%vn_time_weighted  ,str_module,idt_src)
-CALL dbg_print('div velocity'                ,z_div_c                  ,str_module,idt_src)
+CALL dbg_print('CalcVertVel: z_vn'           ,z_vn                     ,str_module,idt_src)
+CALL dbg_print('CalcVertVel: div(v)'         ,z_div_c                  ,str_module,idt_src)
+idt_src=3  ! output print level (1-5, fix)
+CALL dbg_print('CalcVertVel: pw_c'           ,pw_c                     ,str_module,idt_src)
 !---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mimetic
