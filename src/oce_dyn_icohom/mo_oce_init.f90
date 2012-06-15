@@ -1913,8 +1913,8 @@ CONTAINS
   END SELECT
 
   !---------Debug Diagnostics-------------------------------------------
+  idt_src=0  ! output print level - 0: print in any case
   IF (no_tracer >=1) THEN
-    idt_src=1  ! output print level (0-5, fix)
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src)
   ELSE IF (no_tracer == 2) THEN

@@ -289,7 +289,7 @@ CONTAINS
   ! local variables
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
-  INTEGER           ::  slev, elev
+  INTEGER           ::  slev, elev, elev_val, elev_mxmn
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
 
@@ -314,43 +314,49 @@ CONTAINS
   IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
   IF (icheck_str_mod == 0 ) RETURN
 
+#ifdef __SX__
+  ! valid g-format without offset of decimal point
+  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
+  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
+  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+#else
+
 ! ! valid e-format with first digit gt zero
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
 
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2g26.18)
 
   ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
-  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
+  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
-
-  983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
+#endif
 
   strout=TRIM(str_prntdes)
   strmod=TRIM(str_mod_src)
-
-  ! check start and end index for output of vertical levels via namelist
-
-  slev = 1
-  IF (idbg_slev > 1)    slev = idbg_slev
-  IF (slev      > nlev) slev = nlev
-  elev = nlev
-  IF (idbg_elev < nlev) elev = idbg_elev
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
 
   IF (idbg_val >= idetail_src) THEN
 
-    ! idbg_val<4: one level output only (slev)
-    IF (idbg_val < 4) elev = slev
+    ! check start and end index for output of vertical levels via namelist
+    slev = 1
+    IF (idbg_slev > 1)    slev = idbg_slev
+    IF (slev      > nlev) slev = nlev
+    elev = nlev
+    IF (idbg_elev < nlev) elev = idbg_elev
 
-    DO jk = slev, elev
+    ! idbg_val<4: one level output only (slev), apart from permanent output (init)
+    elev_val = elev
+    IF (idbg_val < 4 .AND. idetail_src > 0) elev_val = slev
+
+    DO jk = slev, elev_val
 
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
@@ -375,12 +381,20 @@ CONTAINS
   ! for MIN/MAX output:
 
   IF (idbg_mxmn >= idetail_src ) THEN
+
+    ! check start and end index for output of vertical levels via namelist
+    slev = 1
+    IF (idbg_slev > 1)    slev = idbg_slev
+    IF (slev      > nlev) slev = nlev
+    elev = nlev
+    IF (idbg_elev < nlev) elev = idbg_elev
     
-    ! idbg_val<4: one level output only (slev)
-    IF (idbg_mxmn < 4) elev = slev
+    ! idbg_mxmn<4: one level output only (slev), independent of elev_val
+    elev_mxmn = elev
+    IF (idbg_mxmn < 4 .AND. idetail_src > 0) elev_mxmn = slev
     
     ! print out maximum and minimum value
-    DO jk = slev, elev
+    DO jk = slev, elev_mxmn
     
       ! parallelize:
       p_test_run_bac = p_test_run
@@ -393,11 +407,13 @@ CONTAINS
     
       IF (my_process_is_stdio()) &
         & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
+
     
       ! location of max/min - parallelize!
       ! WRITE(iout,983) ' LOC ',strout,jk, &
       !   &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
       !   &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
+! 983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
     
     END DO
 
@@ -444,22 +460,28 @@ CONTAINS
   !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_mxmn)
   IF (icheck_str_mod == 0 ) RETURN
 
+#ifdef __SX__
+  ! valid g-format without offset of decimal point
+  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
+  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
+  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+#else
+
 ! ! valid e-format with first digit gt zero
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
 
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2g26.18)
 
   ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
-  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
+  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
-
-  983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
+#endif
 
   strout=TRIM(str_prntdes)
   strmod=TRIM(str_mod_src)
