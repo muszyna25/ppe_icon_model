@@ -72,6 +72,7 @@ USE mo_sync,                ONLY: omp_global_sum_array
 USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+USE mo_util_dbg_prnt,       ONLY: dbg_print
 
 IMPLICIT NONE
 
@@ -217,6 +218,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    ! 1) compute the preconditioned residual
 
    w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff)
+    CALL dbg_print('w' ,w ,'GM1.0',5)
    
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
@@ -240,7 +242,6 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !$OMP END DO
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
-!    CALL sync_patch_array(SYNC_C, curr_patch, r)
 
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
@@ -265,12 +266,14 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
        ELSE
          z(1:mnpromz,jb) = r(1:mnpromz,jb)*r(1:mnpromz,jb) 
        ENDIF
-       ! WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
     rn2_aux = SQRT(omp_global_sum_array(z(:,1:mnblks)))
   ENDIF
 #endif
+  CALL dbg_print('z',z,'GM1.0',5)
+  IF( 0 == curr_patch%rank) write(0,*)'rn2_aux: ',rn2_aux
       
    IF (myThreadNo == 0) rn2(1) = rn2_aux
 
@@ -309,9 +312,10 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
    ! 4) Arnoldi loop
    arnoldi: DO i = 1, m-1
-
+   IF ( 0 == curr_patch%rank) write(0,*)'arnoldi loop: ',i
      ! 4.1) compute the next (i.e. i+1) Krylov vector
      w(:,:) = lhs( v(:,:,i),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff )
+    CALL dbg_print('w' ,w ,'GM4.1',5)
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -336,7 +340,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 #ifdef NOMPI
      h_aux = SUM(sum_aux)
 #else
-  IF ( .NOT. p_test_run) THEN   
+  IF ( .NOT. p_test_run) THEN
     h_aux = omp_global_sum_array(sum_aux)
   ELSE
 !$OMP DO PRIVATE(jb)
@@ -346,11 +350,15 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
        ELSE
          z(1:mnpromz,jb) = w(1:mnpromz,jb) * v(1:mnpromz,jb,k) 
        ENDIF
+       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
     h_aux = omp_global_sum_array(z)
   ENDIF
 #endif
+
+  CALL dbg_print('z',z,'GM4.2',5)
+  IF( 0 == curr_patch%rank) write(0,*)'h_aux: ',h_aux
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
@@ -367,6 +375,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !$OMP END DO
 
    ENDDO gs_orth
+   CALL dbg_print('w' ,w ,'GM4.2',5)
 
      ! 4.3) new element for h
 
@@ -384,7 +393,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 #ifdef NOMPI
      h_aux = SQRT(SUM(sum_aux))
 #else
-  IF ( .NOT. p_test_run) THEN   
+  IF ( .NOT. p_test_run) THEN
     h_aux = SQRT(omp_global_sum_array(sum_aux))
   ELSE
 !$OMP DO PRIVATE(jb)
@@ -399,7 +408,8 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      h_aux = SQRT(omp_global_sum_array(z))
   ENDIF
 #endif
-     
+   CALL dbg_print('z' ,z ,'GMe4.3',5)
+
      IF (myThreadNo == 0) h(i+1,i) = h_aux
 
      IF (h_aux < tol2) THEN
