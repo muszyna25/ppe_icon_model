@@ -305,7 +305,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('SolvSfc: h-res'             ,z_h_c                  ,str_module,idt_src)
+    CALL dbg_print('SolvSfc: residual h-res'    ,z_h_c                  ,str_module,idt_src)
     idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('SolvSfc: after GMRES: h-new',p_os%p_prog(nnew(1))%h ,str_module,idt_src)
     !---------------------------------------------------------------------
@@ -768,7 +768,6 @@ INTEGER :: jc, jb, jk!, je
 INTEGER :: i_dolic_c !, i_dolic_e
 REAL(wp) :: z_e(nproma,p_patch%nblks_e)
 REAL(wp) :: div_z_depth_int_c(nproma,p_patch%nblks_e)
-REAL(wp) :: z_e1(nproma,p_patch%nblks_e)
 REAL(wp) :: gdt2, delta_z
 REAL(wp) :: div_z_c_2D(nproma,p_patch%nblks_c)
 REAL(wp) :: div_z_c(nproma,n_zlev,p_patch%nblks_c)
@@ -967,8 +966,9 @@ ELSE ! NOT EDGE-BASED
                                            &* v_base%del_zlev_m(jk)
           ENDIF
         END DO
-       !Add surface elevation
-       !For a linear surface this can be eleminated
+
+        !Add surface elevation
+        !For a linear surface this can be eleminated
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
           z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
                                          &+ z_u_pred_cc(jc,1,jb)%x       &
@@ -1292,16 +1292,16 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('NorVel: vn_old'             ,p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
-  CALL dbg_print('NorVel: vn_pred'            ,p_os%p_diag%vn_pred         ,str_module,idt_src)
-  IF (.NOT.l_rigid_lid) THEN                 
-    CALL dbg_print('NorVel: grad h-new'       ,z_grad_h                    ,str_module,idt_src)
-  END IF                                     
-  CALL dbg_print('NorVel: vn_time_weighted'   ,p_os%p_diag%vn_time_weighted,str_module,idt_src)
-  CALL dbg_print('NorVel: vn_change'          ,p_os%p_prog(nnew(1))%vn - &
+  CALL dbg_print('NormVel: vn_old'            ,p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
+  CALL dbg_print('NormVel: vn_pred'           ,p_os%p_diag%vn_pred         ,str_module,idt_src)
+  IF (.NOT.l_rigid_lid) THEN                
+    CALL dbg_print('NormVel: grad h-new'      ,z_grad_h                    ,str_module,idt_src)
+  END IF
+  CALL dbg_print('NormVel: vn_time_weighted'  ,p_os%p_diag%vn_time_weighted,str_module,idt_src)
+  CALL dbg_print('NormVel: vn_change'         ,p_os%p_prog(nnew(1))%vn - &
     &                                          p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
-  idt_src=2  ! output print level (1-5, fix)
-  CALL dbg_print('NorVel: vn_new'             ,p_os%p_prog(nnew(1))%vn     ,str_module,idt_src)
+  idt_src=2  ! outputm print level (1-5, fix)
+  CALL dbg_print('NormVel: vn_new'            ,p_os%p_prog(nnew(1))%vn     ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   !CALL height_related_quantities(p_patch, p_os, p_ext_data)
