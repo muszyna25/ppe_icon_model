@@ -285,7 +285,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
       ! output print level idt_src used for GMRES output with call message:
       idt_src=0
       IF (idbg_mxmn >= idt_src) THEN
-        WRITE(string,'(a,i4,a,e20.10)') &
+        WRITE(string,'(a,i4,a,e28.20)') &
           'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
         CALL message('GMRES surface height',TRIM(string))
       ENDIF
