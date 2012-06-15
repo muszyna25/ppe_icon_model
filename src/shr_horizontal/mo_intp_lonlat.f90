@@ -422,6 +422,11 @@
           STAT=ist )
         IF (ist /= SUCCESS) &
           CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
+
+        ptr_int_lonlat%rbf_c2l_coeff   = 0._wp
+        ptr_int_lonlat%rbf_c2l_idx     = 0
+        ptr_int_lonlat%rbf_c2l_blk     = 0
+        ptr_int_lonlat%rbf_c2l_stencil = 0
       END IF
 
       ALLOCATE(ptr_int_lonlat%rdist(2, nproma, nblks_lonlat), stat=ist)
@@ -619,12 +624,12 @@
         CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
         ptr_int_lonlat%rbf_c2l_stencil(:,:) = z_stencil(:,:)
 
-      ELSE IF (rbf_dim_c2l == rbf_dim_c2l) THEN
+      ELSE IF (rbf_dim_c2l == rbf_c2grad_dim) THEN
 
         ! copy stencil info from "ptr_int%rbf_c2grad_idx":
         ptr_int_lonlat%rbf_c2l_idx(:,:,:)   = ptr_int%rbf_c2grad_idx
         ptr_int_lonlat%rbf_c2l_blk(:,:,:)   = ptr_int%rbf_c2grad_blk
-        ptr_int_lonlat%rbf_c2l_stencil(:,:) = ptr_int%rbf_vec_stencil_c
+        ptr_int_lonlat%rbf_c2l_stencil(:,:) = rbf_dim_c2l
 
       ELSE
 
@@ -1672,46 +1677,135 @@
         i_endidx   = nproma
         IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 
+        ! we have to duplicate code here for different stencil sizes,
+        ! otherwise we would break vectorization...
+        SELECT CASE(rbf_dim_c2l)
+
+        CASE(4)
+
 #ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx, i_endidx
-          DO jk = slev, elev
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
 #else
 !CDIR UNROLL=2
-        DO jk = slev, elev
-          DO jc = i_startidx, i_endidx
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
 #endif
+              jc_cell = ptr_int%tri_idx(1,jc, jb)
+              jb_cell = ptr_int%tri_idx(2,jc, jb)
+!CDIR EXPAND=4              
+              vmin =  MINVAL( &
+                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
+!CDIR EXPAND=4
+              vmax =  MAXVAL( &
+                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
+!CDIR EXPAND=4
+              p_out(jc,jk,jb) =  SUM( &
+                & (/ ( ptr_coeff(i, jc, jb) * &
+                &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
 
-!CDIR EXPAND=13
-            jc_cell = ptr_int%tri_idx(1,jc, jb)
-            jb_cell = ptr_int%tri_idx(2,jc, jb)
-            nstencil = ptr_int%rbf_c2l_stencil(jc_cell,jb_cell)
-
-            vintp =  SUM( &
-              & (/ ( ptr_coeff(i, jc, jb) * &
-              &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-              &                iblk(i,jc_cell,jb_cell)) , i=1,nstencil ) /) )
-            
-            IF (l_mono_c2l) THEN
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
-              
+
               ! Cf. the "lmono" implementation in the GME:
               ! D. Majewski, "Documentation of the new global model (GME)
               !               of the DWD" (1996)
+              IF (l_mono_c2l) THEN
+                p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
+              ELSE
+                p_out(jc,jk,jb) = vintp
+              END IF
+
+            ENDDO
+          ENDDO
+
+        CASE(10)
+
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=2
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+              jc_cell = ptr_int%tri_idx(1,jc, jb)
+              jb_cell = ptr_int%tri_idx(2,jc, jb)
+!CDIR EXPAND=10              
               vmin =  MINVAL( &
                 & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,nstencil ) /) )
+                &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
+!CDIR EXPAND=10
               vmax =  MAXVAL( &
                 & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,nstencil ) /) )
-              p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
-            ELSE
-              p_out(jc,jk,jb) = vintp
-            END IF
-           
+                &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
+!CDIR EXPAND=10
+              p_out(jc,jk,jb) =  SUM( &
+                & (/ ( ptr_coeff(i, jc, jb) * &
+                &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
+
+              ! monotonicity can be enforced by demanding that the interpolated 
+              ! value is not higher or lower than the stencil point values.
+
+              ! Cf. the "lmono" implementation in the GME:
+              ! D. Majewski, "Documentation of the new global model (GME)
+              !               of the DWD" (1996)
+              IF (l_mono_c2l) THEN
+                p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
+              ELSE
+                p_out(jc,jk,jb) = vintp
+              END IF
+
+            ENDDO
           ENDDO
-        ENDDO
-        
+
+        CASE(13)
+
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=2
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+              jc_cell = ptr_int%tri_idx(1,jc, jb)
+              jb_cell = ptr_int%tri_idx(2,jc, jb)
+!CDIR EXPAND=13              
+              vmin =  MINVAL( &
+                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
+!CDIR EXPAND=13
+              vmax =  MAXVAL( &
+                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
+!CDIR EXPAND=13
+              p_out(jc,jk,jb) =  SUM( &
+                & (/ ( ptr_coeff(i, jc, jb) * &
+                &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
+                &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
+
+              ! monotonicity can be enforced by demanding that the interpolated 
+              ! value is not higher or lower than the stencil point values.
+
+              ! Cf. the "lmono" implementation in the GME:
+              ! D. Majewski, "Documentation of the new global model (GME)
+              !               of the DWD" (1996)
+              IF (l_mono_c2l) THEN
+                p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
+              ELSE
+                p_out(jc,jk,jb) = vintp
+              END IF
+
+            ENDDO
+          ENDDO
+
+        END SELECT
+     
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL

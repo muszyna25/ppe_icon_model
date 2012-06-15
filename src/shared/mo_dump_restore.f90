@@ -47,6 +47,10 @@
 !!         because lon-lat interpolation is strictly speaking a mere
 !!         post-processing task.
 !!
+!! @todo : The current implementation does not make use of the "var_start"
+!!         argument in the dump/restore I/O. However, the implementation
+!!         will probably throw a segmentation fault for var_start/=1!
+!!
 !-------------------------------------------------------------------------------
 !
 ! Conventions for NetCDF output
@@ -675,7 +679,7 @@ CONTAINS
 
     nblks = UBOUND(var,pos_nblks)
     ntot = nproma*nblks
-    ALLOCATE(buf(dimlen(1)))
+    ALLOCATE(buf(MAX(ntot, dimlen(1))))
     buf(:) = 0._wp
 
     start = (/ 1, my_record /)
@@ -717,7 +721,7 @@ CONTAINS
 
     nblks = UBOUND(var,pos_nblks)
     ntot = nproma*nblks
-    ALLOCATE(buf(dimlen(1)))
+    ALLOCATE(buf(MAX(ntot, dimlen(1))))
     buf(:) = 0._wp
 
     DO i=1,UBOUND(var,pos_dim2)
@@ -767,7 +771,7 @@ CONTAINS
     nblks = UBOUND(var,pos_nblks)
 
     ntot = nproma*nblks
-    ALLOCATE(buf(dimlen(1)))
+    ALLOCATE(buf(MAX(ntot, dimlen(1))))
     buf(:) = 0._wp
     DO j=1,UBOUND(var,pos_dim3)
     DO i=1,UBOUND(var,pos_dim2)
@@ -817,7 +821,7 @@ CONTAINS
 
     nblks = UBOUND(var,pos_nblks)
     ntot = nproma*nblks
-    ALLOCATE(buf(dimlen(1)))
+    ALLOCATE(buf(MAX(ntot,dimlen(1))))
     buf(:) = 0
 
     start = (/ 1, my_record /)
@@ -859,7 +863,7 @@ CONTAINS
 
     nblks = UBOUND(var,pos_nblks)
     ntot = nproma*nblks
-    ALLOCATE(buf(dimlen(1)))
+    ALLOCATE(buf(MAX(ntot, dimlen(1))))
     buf(:) = 0
 
     DO i=1,UBOUND(var,pos_dim2)
@@ -905,7 +909,7 @@ CONTAINS
 
     nblks = UBOUND(var,pos_nblks)
     ntot  = nproma*nblks
-    ALLOCATE(buf(dimlen(1)))
+    ALLOCATE(buf(MAX(ntot,dimlen(1))))
     buf(:) = 0
 
     start = (/ 1, my_record /)
@@ -3314,10 +3318,12 @@ CONTAINS
 
     lonlat_data => lonlat_grid_list(grid_id)
     grid => lonlat_data%grid
-    
+   
     ! total number of lon-lat grid points (local to this PE)
     CALL def_dim('unlimited', NF_UNLIMITED, dim_unlimited)
-    CALL def_dim('dim_lonlat', nthis_local_pts, dim_lonlat)
+    IF (nthis_local_pts > 0) THEN
+      CALL def_dim('dim_lonlat', nthis_local_pts, dim_lonlat)
+    END IF
     CALL def_dim('n_dim_1', 1, dim_1)
     CALL def_dim('n_dim_2', 2, dim_2)
     CALL def_dim('rbf_c2grad_dim', rbf_c2grad_dim, dim_rbf_c2grad_dim)
@@ -3349,29 +3355,32 @@ CONTAINS
     ! nlocal_pts (unblocked variable)
     CALL def_var('int.lonlat.nthis_local_pts', nf_int, dim_1)
     CALL def_var('int.lonlat.nmax_local_pts',  nf_int, dim_1)
-    ! rbf_vec_dim_c,2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_vec_coeff', nf_double, dim_lonlat, dim_rbf_vec_dim_c, dim_2)
-    ! rbf_c2grad_dim,2,nproma,nblks_lonlat,idom
-    CALL def_var('int.lonlat.rbf_c2grad_coeff', nf_double, dim_lonlat, dim_rbf_c2grad_dim, dim_2)
-    ! rbf_vec_dim_c,nproma,nblks_lonlat,idom
-    CALL def_var('int.lonlat.rbf_vec_index', nf_int, dim_lonlat, dim_rbf_vec_dim_c)
-    ! nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_vec_stencil', nf_int, dim_lonlat)
-    ! rbf_c2grad_dim,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_c2grad_index', nf_int, dim_lonlat, dim_rbf_c2grad_dim)
-    ! 2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rdist', nf_double, dim_lonlat, dim_2)
-    ! 2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.tri_idx', nf_int, dim_lonlat, dim_2)
-    ! global_idx (unblocked variable)
-    CALL def_var('int.lonlat.global_idx', nf_int, dim_lonlat)
-    ! coefficients and indices used for direct interpolation:
-    IF (l_intp_c2l) THEN
-      CALL def_var('int.lonlat.rbf_c2l_coeff', nf_double, dim_lonlat, dim_rbf_c2l_dim)
-      CALL def_var('int.lonlat.rbf_c2l_idx', nf_int, dim_ncells, dim_rbf_c2l_dim)
-      CALL def_var('int.lonlat.rbf_c2l_stencil', nf_int, dim_ncells)
+
+    IF (nthis_local_pts > 0) THEN
+      ! rbf_vec_dim_c,2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_vec_coeff', nf_double, dim_lonlat, dim_rbf_vec_dim_c, dim_2)
+      ! rbf_c2grad_dim,2,nproma,nblks_lonlat,idom
+      CALL def_var('int.lonlat.rbf_c2grad_coeff', nf_double, dim_lonlat, dim_rbf_c2grad_dim, dim_2)
+      ! rbf_vec_dim_c,nproma,nblks_lonlat,idom
+      CALL def_var('int.lonlat.rbf_vec_index', nf_int, dim_lonlat, dim_rbf_vec_dim_c)
+      ! nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_vec_stencil', nf_int, dim_lonlat)
+      ! rbf_c2grad_dim,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_c2grad_index', nf_int, dim_lonlat, dim_rbf_c2grad_dim)
+      ! 2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rdist', nf_double, dim_lonlat, dim_2)
+      ! 2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.tri_idx', nf_int, dim_lonlat, dim_2)
+      ! global_idx (unblocked variable)
+      CALL def_var('int.lonlat.global_idx', nf_int, dim_lonlat)
+      ! coefficients and indices used for direct interpolation:
+      IF (l_intp_c2l) THEN
+        CALL def_var('int.lonlat.rbf_c2l_coeff', nf_double, dim_lonlat, dim_rbf_c2l_dim)
+        CALL def_var('int.lonlat.rbf_c2l_idx', nf_int, dim_ncells, dim_rbf_c2l_dim)
+        CALL def_var('int.lonlat.rbf_c2l_stencil', nf_int, dim_ncells)
+      END IF
     END IF
-  
+
   END SUBROUTINE def_lonlat_data
 
 
@@ -3493,7 +3502,8 @@ CONTAINS
 
         ! collective call: define corresponding communication
         ! pattern (for GATHER)
-        CALL def_comm_pat('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
+        IF (intp%nthis_local_pts > 0) &
+          CALL def_comm_pat('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
 
         ! Open new output file
         IF (output_defines) THEN
@@ -3512,9 +3522,6 @@ CONTAINS
 
           CALL nf(nf_open(TRIM(ll_filename), NF_WRITE, ncid))
         
-          lonlat_data => lonlat_grid_list(grid_id)
-          intp        => lonlat_data%intp(dom_id)
-
           ! store no. of nlocal_pts (unblocked variable)
           CALL uvar_io_i0('int.lonlat.nthis_local_pts', intp%nthis_local_pts)
           CALL uvar_io_i0('int.lonlat.nmax_local_pts',  nthis_local_pts)
@@ -3608,10 +3615,10 @@ CONTAINS
         CALL uvar_io_i0('int.lonlat.nmax_local_pts',  nmax_local_pts)
 
         ! Allocate interpolation state
-        nblks_lonlat = (nmax_local_pts - 1)/nproma + 1
+        nblks_lonlat = (intp%nthis_local_pts - 1)/nproma + 1
         CALL allocate_int_state_lonlat_grid( p_patch(dom_id)%nblks_c, nblks_lonlat, intp)
         ALLOCATE(intp%tri_idx(2, nproma, nblks_lonlat),   &
-          &      intp%global_idx(nmax_local_pts), STAT=errstat )
+          &      intp%global_idx(intp%nthis_local_pts), STAT=errstat )
         IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
         
         ! restore lon-lat interpolation coefficients:
