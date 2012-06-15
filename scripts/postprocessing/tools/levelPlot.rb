@@ -29,12 +29,10 @@ Cdo.outputkey('date,time,level,value',
 
 # Postprocessing for correct time values
 data = []
-f = File.new("tstNew","w")
 File.open(dataFile).each_with_index {|line,lineIndex|
   _t = line.chomp.gsub(/ +/,'|').split('|')
   if 0 == lineIndex then
-    data << _t.map(&:downcase)
-    f << _t.join('|') << "|\n"
+    data << _t
     next
   end
   if "0" == _t[1] then
@@ -50,14 +48,9 @@ File.open(dataFile).each_with_index {|line,lineIndex|
     _t[1] = timeStr.reverse
   end
   data << _t
-  f << _t.join('|') << "|\n"
 }
-f.close
+
 icon = ExtCsv.new("array","plain",data.transpose)
-pp icon.depth.uniq
-pp icon.vn[0,10]
-#exit
-icon = ExtCsv.new("file","psv","tstNew")
 
 # Create datetime column for timeseries plot
 icon.datetime = []
@@ -65,7 +58,11 @@ icon.date.each_with_index{|date,i| icon.datetime << [date,icon.time[i]].join(' '
 icon.datacolumns << "datetime"
 
 # Plot data with automatic splitting by depth
-ExtCsvDiagram.plot_xy(icon,"datetime",varname.downcase,
+unless icon.datacolumns.include?(varname)
+  warn "Variable cannot be found!"
+  exit -1
+end
+ExtCsvDiagram.plot_xy(icon,"datetime",varname,
                       "ICON: #{operation} on #{varname}", # Change title here
                       :label_position => 'below',:skipColumnCheck => true,
                       :type => 'lines',:groupBy => ["depth"], :onlyGroupTitle => true,
