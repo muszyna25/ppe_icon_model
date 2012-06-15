@@ -104,9 +104,9 @@ CONTAINS
 !! @par
 !! inital guess, overwritten with the solution
 !!
-SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch, & ! cells_in_domain, owner_mask
-                    &coeff, p_op_coeff, b,  &
-                    & tolerance,abstol,m,maxiterex,niter,res, &
+SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch, &
+                    & coeff, p_op_coeff, b,                      &
+                    & tolerance,abstol,m,maxiterex,niter,res,    &
                     & preconditioner)
 !
 ! !DESCRIPTION
@@ -121,12 +121,9 @@ REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
 TYPE(t_patch), INTENT(IN) :: curr_patch
 ! index defining the "active" region of the arrays
-!INTEGER, INTENT(IN) :: nblks, npromz
-!     TYPE(t_subset_range), INTENT(in) :: cells_in_domain
 ! parameter used in calculating the lhs
 REAL(wp), INTENT(IN) :: coeff  
 TYPE(t_operator_coeff), INTENT(IN):: p_op_coeff
-!INTEGER, INTENT(IN) :: lev
 ! right-hand side: same shape as x
 REAL(wp), INTENT(IN) :: b(:,:) ! same size as x
 REAL(wp), INTENT(IN) :: tolerance ! (relative or absolute) tolerance
@@ -156,7 +153,6 @@ INTERFACE   ! left-hand-side: A*x
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
-!    INTEGER, INTENT(IN) :: lev
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
   ENDFUNCTION lhs
 END INTERFACE
@@ -194,8 +190,11 @@ INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
-REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
-REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
+#ifndef NOMPI
+  REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
+#else
+  REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
+#endif
 
   INTEGER :: myThreadNo
 !$ INTEGER OMP_GET_THREAD_NUM
@@ -229,7 +228,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !$ myThreadNo = OMP_GET_THREAD_NUM()
 
 
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1, mnblks
      IF (jb /= mnblks) THEN
        nlen = nproma
@@ -243,7 +242,8 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
 
-!$OMP DO PRIVATE(jb)
+#ifdef NOMPI
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          sum_aux(jb) = SUM(r(:,jb)*r(:,jb))
@@ -253,13 +253,9 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      ENDDO
 !$OMP END DO
 
-#ifdef NOMPI
    rn2_aux = SQRT(SUM(sum_aux))
 #else
-  IF ( .NOT. p_test_run) THEN   
-    rn2_aux = SQRT(omp_global_sum_array(sum_aux))
-  ELSE
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          z(:,jb) = r(:,jb)*r(:,jb)
@@ -269,9 +265,10 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
+
     rn2_aux = SQRT(omp_global_sum_array(z(:,1:mnblks)))
-  ENDIF
 #endif
+
   CALL dbg_print('z',z,'GM1.0',5)
   IF( 0 == curr_patch%rank) write(0,*)'rn2_aux: ',rn2_aux
       
@@ -281,7 +278,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    ! 2) compute the first vector of the Krylov space
    IF (rn2_aux /= 0.0_wp) THEN
       rrn2 = 1.0_wp/rn2_aux
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, mnblks
         v(:,jb,1) = r(:,jb)*rrn2
       ENDDO
@@ -293,8 +290,8 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    IF (rn2(1) == 0.0_wp) THEN ! already done
 !    print*,' gmres: rn2(1)=0.0 '
 ! #slo# 2010-06-15 trying to exit with niter=1 and residual=0.0
-!    niter = 0
-     niter = 1
+    niter = 0
+!     niter = 1
      res(1) = ABS(rn2(1))
 #ifndef __SX__
      IF (ltimer) CALL timer_stop(timer_gmres)
@@ -326,8 +323,8 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
      gs_orth: DO k = 1, i
 
-!TODO #ifdef NOMPI
-!$OMP DO PRIVATE(jb)
+#ifdef NOMPI
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          sum_aux(jb) = SUM(w(:,jb)*v(:,jb,k))
@@ -337,13 +334,9 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      ENDDO
 !$OMP END DO
 
-#ifdef NOMPI
      h_aux = SUM(sum_aux)
 #else
-  IF ( .NOT. p_test_run) THEN
-    h_aux = omp_global_sum_array(sum_aux)
-  ELSE
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          z(:,jb) = w(:,jb)*v(:,jb,k)
@@ -354,7 +347,6 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      ENDDO
 !$OMP END DO
     h_aux = omp_global_sum_array(z)
-  ENDIF
 #endif
 
   CALL dbg_print('z',z,'GM4.2',5)
@@ -362,7 +354,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
@@ -379,8 +371,8 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
      ! 4.3) new element for h
 
-!TODO #ifdef NOMPI
-!$OMP DO PRIVATE(jb)
+#ifdef NOMPI
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          sum_aux(jb) = SUM(w(:,jb)*w(:,jb))
@@ -390,23 +382,20 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      ENDDO
 !$OMP END DO
 
-#ifdef NOMPI
      h_aux = SQRT(SUM(sum_aux))
 #else
-  IF ( .NOT. p_test_run) THEN
-    h_aux = SQRT(omp_global_sum_array(sum_aux))
-  ELSE
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          z(:,jb) = w(:,jb) * w(:,jb)
        ELSE
          z(1:mnpromz,jb) = w(1:mnpromz,jb)*w(1:mnpromz,jb) 
        ENDIF
+       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
+
      h_aux = SQRT(omp_global_sum_array(z))
-  ENDIF
 #endif
    CALL dbg_print('z' ,z ,'GMe4.3',5)
 
@@ -421,7 +410,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      ! 4.4) if w is independent from v, add v(:,:,:,i+1)
      IF (.NOT. done) THEN
        rh = 1.0_wp/h_aux
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
        DO jb = 1, mnblks
          v(:,jb,i+1) = w(:,jb)*rh
       ENDDO
@@ -480,15 +469,14 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    ENDDO krylov
 
    ! 7) evaluate the Krylov expansion
-!$OMP PARALLEL PRIVATE(i)
-   DO i = 1, nkry
-!$OMP DO PRIVATE(jb)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, i) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
+     DO i = 1, nkry
        x(:,jb) = x(:,jb) + c(i)*v(:,jb,i)
     ENDDO
-!$OMP END DO
    ENDDO
-! write(*,*)'max/min matrix', maxval(x),minval(x)  
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #ifndef __SX__
    IF (ltimer) CALL timer_stop(timer_gmres)
@@ -497,7 +485,6 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    res(1:niter) = ABS(rn2(1:niter))
 
 END SUBROUTINE gmres_oce
-
 !-------------------------------------------------------------------------
 !
 !
