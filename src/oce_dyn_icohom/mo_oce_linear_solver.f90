@@ -193,11 +193,8 @@ INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
-!TODO #ifndef NOMPI
 REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
-!TODO #else
 REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
-!TODO #endif
 
   INTEGER :: myThreadNo
 !$ INTEGER OMP_GET_THREAD_NUM
@@ -208,19 +205,18 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 
    !>
    !!
-   mnblks =  curr_patch%cells%in_domain%end_block
-   mnpromz = curr_patch%cells%in_domain%end_index
+   mnblks    = curr_patch%cells%in_domain%end_block
+   mnpromz   = curr_patch%cells%in_domain%end_index
 
    maxiterex = .FALSE.
- 
-     z(:,:) = 0._wp
-     v(:,:,:) = 0.0_wp
-     r(:,:)  = 0.0_wp
+
+   z(:,:)    = 0.0_wp
+   v(:,:,:)  = 0.0_wp
+   r(:,:)    = 0.0_wp
+
    ! 1) compute the preconditioned residual
 
-!    w(:,:) = 0._wp
    w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff)
-!    CALL sync_patch_array(SYNC_C, curr_patch, w)
    
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
