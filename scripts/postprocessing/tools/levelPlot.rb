@@ -18,9 +18,9 @@ createPlot = (not ARGV[3].nil?)
 
 #_plotfile  = "plot_#{varname}-#{Time.new.strftime("%Y%m%d-%H%M%S")}"
 
-Cdo.debug = true
+#Cdo.debug = true
 Cdo.setCdo('/home/ram/src/cdo/trunk/cdo/build/bin/cdo')
-Cdo.checkCdo
+#Cdo.checkCdo
 
 # Temporal file for text output
 dataFile = MyTempfile.path
@@ -34,6 +34,7 @@ unit = Cdo.showunit(:in => "-selname,#{varname} #{ifile}").first
 # postprocessing for correct time values
 data = []
 File.open(dataFile).each_with_index {|line,lineIndex|
+  next if line.chomp.empty?
   _t = line.chomp.gsub(/ +/,'|').split('|')
   if 0 == lineIndex then
     data << _t
@@ -66,7 +67,7 @@ unless icon.datacolumns.include?(varname)
   exit -1
 end
 ExtCsvDiagram.plot_xy(icon,"datetime",varname,
-                      "ICON: #{operation} on #{varname}", # Change title here
+                      "ICON: #{operation} on #{varname} (file:#{ifile})", # Change title here
                       :label_position => 'below',:skipColumnCheck => true,
                       :type => 'lines',:groupBy => ["depth"], :onlyGroupTitle => true,
 #                     :addSettings => ["logscale y"],     # Commend theses out for large scale values like Vert_Mixing_V
