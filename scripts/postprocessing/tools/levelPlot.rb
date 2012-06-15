@@ -24,18 +24,45 @@ dataFile = MyTempfile.path
 
 IO.popen("echo 'date|time|depth|#{varname}|' > #{dataFile}")
 Cdo.outputkey('date,time,level,value', 
-              :in => "-#{operation} -selname,#{varname} #{ifile} | sed -e 's/ 0 / 00:00:00 /' " +
-                                                                "| sed -e 's/ 180000 / 18:00:00 /' " +
-                                                                "| sed -e 's/ 120000 / 12:00:00 /' " +
-                                                                "| sed -e 's/ 60000 / 06:00:00 /' | sed -e 's/ \\+/|/g' >>#{dataFile}")
+              :in => "-#{operation} -selname,#{varname} #{ifile} >>#{dataFile}")
 
-icon = ExtCsv.new("file","psv",dataFile)
+
+# Postprocessing for correct time values
+data = []
+f = File.new("tstNew","w")
+File.open(dataFile).each_with_index {|line,lineIndex|
+  _t = line.chomp.gsub(/ +/,'|').split('|')
+  if 0 == lineIndex then
+    data << _t.map(&:downcase)
+    f << _t.join('|') << "|\n"
+    next
+  end
+  if "0" == _t[1] then
+    _t[1] = '00:00:00'
+  else
+    time = _t[1].reverse
+    timeStr = ''
+    while time.size > 2 do
+      timeStr << time[0,2] << ':'
+      time = time[2..-1]
+    end
+    timeStr << time.ljust(2,'0') unless time.size == 0
+    _t[1] = timeStr.reverse
+  end
+  data << _t
+  f << _t.join('|') << "|\n"
+}
+f.close
+icon = ExtCsv.new("array","plain",data.transpose)
+pp icon.depth.uniq
+pp icon.vn[0,10]
+#exit
+icon = ExtCsv.new("file","psv","tstNew")
 
 # Create datetime column for timeseries plot
 icon.datetime = []
 icon.date.each_with_index{|date,i| icon.datetime << [date,icon.time[i]].join(' ') }
-
-pp icon.datetime
+icon.datacolumns << "datetime"
 
 # Plot data with automatic splitting by depth
 ExtCsvDiagram.plot_xy(icon,"datetime",varname.downcase,
