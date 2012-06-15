@@ -22,7 +22,7 @@ Cdo.debug = true
 # Temporal file for text output
 dataFile = MyTempfile.path
 
-IO.popen("echo 'date|time|depth|#{varname}|' > #{dataFile}")
+IO.popen("echo 'date|time|depth|#{varname}' > #{dataFile}")
 Cdo.outputkey('date,time,level,value', 
               :in => "-#{operation} -selname,#{varname} #{ifile} >>#{dataFile}")
 
@@ -72,4 +72,4 @@ ExtCsvDiagram.plot_xy(icon,"datetime",varname,
                       :ylabel => "#{varname} [degC]",     # Correct the label if necessary
                       :input_time_format => "'%Y%m%d %H:%M:%S'",
                       :filename => plotfile,
-                      :output_time_format => "'%d.%m.%y'",:size => "1600,600")
+                      :output_time_format => '"%d.%m.%y \n %H:%M"',:size => "1600,600")
