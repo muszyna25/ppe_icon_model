@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'extcsv'
 require 'cdo'
+require 'shellwords'
 
 # Usage
 #
@@ -18,16 +19,19 @@ createPlot = (not ARGV[3].nil?)
 #_plotfile  = "plot_#{varname}-#{Time.new.strftime("%Y%m%d-%H%M%S")}"
 
 Cdo.debug = true
+Cdo.setCdo('/home/ram/src/cdo/trunk/cdo/build/bin/cdo')
+Cdo.checkCdo
 
 # Temporal file for text output
 dataFile = MyTempfile.path
 
+# read the date
 IO.popen("echo 'date|time|depth|#{varname}' > #{dataFile}")
 Cdo.outputkey('date,time,level,value', 
               :in => "-#{operation} -selname,#{varname} #{ifile} >>#{dataFile}")
+unit = Cdo.showunit(:in => "-selname,#{varname} #{ifile}").first
 
-
-# Postprocessing for correct time values
+# postprocessing for correct time values
 data = []
 File.open(dataFile).each_with_index {|line,lineIndex|
   _t = line.chomp.gsub(/ +/,'|').split('|')
@@ -49,7 +53,6 @@ File.open(dataFile).each_with_index {|line,lineIndex|
   end
   data << _t
 }
-
 icon = ExtCsv.new("array","plain",data.transpose)
 
 # Create datetime column for timeseries plot
@@ -69,7 +72,7 @@ ExtCsvDiagram.plot_xy(icon,"datetime",varname,
 #                     :addSettings => ["logscale y"],     # Commend theses out for large scale values like Vert_Mixing_V
 #                     :yrange => '[0.0001:10]',           # Otherwise you'll see nothing reasonable
                       :terminal => createPlot ? 'png' : 'x11',
-                      :ylabel => "#{varname} [degC]",     # Correct the label if necessary
+                      :ylabel => "#{varname} [#{Shellwords.escape(unit)}]",     # Correct the label if necessary
                       :input_time_format => "'%Y%m%d %H:%M:%S'",
                       :filename => plotfile,
                       :output_time_format => '"%d.%m.%y \n %H:%M"',:size => "1600,600")
