@@ -292,6 +292,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     ENDIF 
 
     p_os%p_prog(nnew(1))%h = z_h_c
+    CALL dbg_print('h-residual (bef. lhs_surf.)' ,z_h_c ,str_module,5)
     z_h_c = lhs_surface_height_ab_mim( p_os%p_prog(nnew(1))%h, &
       & p_os%p_prog(nold(1))%h, &
       & p_patch,                &
