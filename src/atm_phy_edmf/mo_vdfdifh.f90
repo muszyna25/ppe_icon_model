@@ -45,7 +45,7 @@ CONTAINS
 
 SUBROUTINE VDFDIFH(&
  & KIDIA  , KFDIA  , KLON   , KLEV   , KDRAFT , KTOP   , KTILES, &
- & PTMST  , PEXTSHF, PEXTLHF, LDSFCFLX, &
+ & PTMST  , PEXTSHF, PEXTLHF, LDSFCFLX,LDTERRA, LDLAND , &
  & PFRTI  , PSSRFLTI,PSLRFL , PEMIS  , PEVAPSNW, &
  & PHLICE , PTLICE , PTLWML , &
  & PSLM1  , PTM1   , PQM1   , PQTM1  , PAPHM1 , &
@@ -154,6 +154,8 @@ SUBROUTINE VDFDIFH(&
 !     Additional parameters for flux boundary condtion (in SCM model):
 
 !     *LDSFCFLX*     If .TRUE. flux boundary condtion is used 
+!     *LDTERRA*      If .TRUE. flux boundary condition with TERRA fluxes is used 
+!     *LDLAND*       Land mask
 !     *PEXTSHF*      Specified sensible heat flux (W/m2)
 !     *PEXTLHF*      Specified latent heat flux (W/m2)
 
@@ -211,6 +213,8 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PTMST
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PEXTSHF(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PEXTLHF(KLON) 
 LOGICAL           ,INTENT(IN)    :: LDSFCFLX 
+LOGICAL           ,INTENT(IN)    :: LDTERRA 
+LOGICAL           ,INTENT(IN)    :: LDLAND(KLON)  
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PFRTI(KLON,KTILES) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSSRFLTI(KLON,KTILES) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSLRFL(KLON) 
@@ -505,25 +509,29 @@ CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
 !*         1.10   Flux boundary condition for 1D model (fluxes in W/m2)
 !                 (Over-write output of SURFSEB)
 
-IF (LDSFCFLX) THEN
+IF (LDSFCFLX .OR. LDTERRA) THEN
   DO JT=1,KTILES
     DO JL=KIDIA,KFDIA
-!xmk  ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
-      ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
-!xxx
-      PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
-
-      ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
-      ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
-      PSSH(JL,JT)=PEXTSHF(JL)
-      PSLH(JL,JT)=PEXTLHF(JL)
-      PSTR(JL,JT)=PSLRFL(JL)
-      PG0 (JL,JT)=PEXTSHF(JL)+PEXTLHF(JL)+PSLRFL(JL)+PSSRFLTI(JL,JT)
+      IF ( LDSFCFLX .OR. LDLAND(JL) ) THEN
+!xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
+        ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
+!xxx    
+        PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
+        
+        ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
+        ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+        PSSH(JL,JT)=PEXTSHF(JL)
+        PSLH(JL,JT)=PEXTLHF(JL)
+        PSTR(JL,JT)=PSLRFL(JL)
+        PG0 (JL,JT)=PEXTSHF(JL)+PEXTLHF(JL)+PSLRFL(JL)+PSSRFLTI(JL,JT)
+      ENDIF
     ENDDO
   ENDDO
   DO JL=KIDIA,KFDIA
-    ZSL(JL)=ZJS(JL,1)*ZASL(JL)+ZBSL(JL)
-    ZQL(JL)=PJQ(JL,1)*ZAQL(JL)+ZBQL(JL)
+    IF ( LDSFCFLX .OR. LDLAND(JL) ) THEN
+      ZSL(JL)=ZJS(JL,1)*ZASL(JL)+ZBSL(JL)
+      ZQL(JL)=PJQ(JL,1)*ZAQL(JL)+ZBQL(JL)
+    ENDIF
   ENDDO
 ENDIF
 

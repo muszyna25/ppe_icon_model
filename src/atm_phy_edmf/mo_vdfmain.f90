@@ -664,7 +664,7 @@ LOGICAL ::            LLRUNDRY(KLON), LLPBL(KLON,KLEV)
 INTEGER(KIND=JPIM) :: ITOP, JD, JK, JL, JT, KCAP
 
 REAL(KIND=JPRB) ::    ZGDPH, ZRHO, ZTMST, ZRG, ZRTMST
-LOGICAL ::            LLSFCFLX
+LOGICAL ::            LLSFCFLX, LLTERRA
 REAL(KIND=JPRB) ::    ZHU1
 REAL(KIND=JPRB) ::    ZALFAW(KLON,KLEV)
 
@@ -733,6 +733,7 @@ ELSE
   ZEXTSHF(:) = 0.0_JPRB
   ZEXTLHF(:) = 0.0_JPRB
 ENDIF
+LLTERRA = .TRUE.
 
 !amk  turn on specified surface fluxes everywhere globally
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
@@ -865,11 +866,20 @@ CALL SURFEXCDRIVER( &
 
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
-!DO JL=KIDIA,KFDIA
-!  ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
-!  ZEXTSHF(JL) = ZKHFL(JL) * ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) * ZRHO
-!  ZEXTLHF(JL) = ZKQFL(JL) * RLVTT * ZRHO
-!ENDDO
+DO JL=KIDIA,KFDIA
+ !ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+ !ZEXTSHF(JL) = ZKHFL(JL) * ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) * ZRHO
+ !ZEXTLHF(JL) = ZKQFL(JL) * RLVTT * ZRHO
+ !should really be handed over for each tile not mean ???????
+  DO JT=1,KTILES
+    ZEXTSHF(JL) = PFRTI(JL,JT) * ( &
+      SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
+      SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
+    ZEXTLHF(JL) = PFRTI(JL,JT) * ( &
+      LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
+      LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
+  ENDDO
+ENDDO
 !xxx
 
 !amk ATTENTION: needs to specify surface layer diffusion coefficients
@@ -1192,7 +1202,7 @@ CALL VDFDIFM (KIDIA, KFDIA, KLON , KLEV  , IDRAFT , ITOP  , &
 
 !...fully upstream M (phi_up - phi_bar) term
 CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
-            & ZTMST  , ZEXTSHF, ZEXTLHF, LLSFCFLX, &
+            & ZTMST  , ZEXTSHF, ZEXTLHF, LLSFCFLX,LLTERRA, LDLAND , &
             & PFRTI  , PSSRFLTI,PSLRFL , PEMIS  , PEVAPSNW, &
             & PHLICE , PTLICE , PTLWML , &
             & ZSLGM1 , PTM1   , PQM1   , ZQTM1  , PAPHM1 , &
