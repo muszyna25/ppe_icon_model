@@ -324,7 +324,12 @@
         &                     i_lat, idx_glb, jc, jb, j
       TYPE (t_lon_lat_grid), POINTER :: grid
       TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
-      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
+!DR      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
+!DR !!! Using the POINTER attribute for area_weights(:) mysteriously leads
+!DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However, 
+!DR !!! using the ALLOCATABLE attribute, instead, works.
+      REAL(wp), ALLOCATABLE          :: area_weights(:)
+      REAL(wp),              POINTER :: p_dummy(:,:,:)
       TYPE(t_list_element),  POINTER :: new_element
 
       ! Add area weights
