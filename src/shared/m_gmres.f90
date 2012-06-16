@@ -198,10 +198,10 @@ CONTAINS
 
   INTEGER :: mnblks, mnpromz
 
-#ifndef NOMPI
-  REAL(wp) :: z(SIZE(x,1),SIZE(x,3)) ! needed for global sums
-#else
+#ifdef NOMPI
   REAL(wp) :: sum_aux(nblks)
+#else
+  REAL(wp) :: z(SIZE(x,1),SIZE(x,3)) ! needed for global sums
 #endif
 
   INTEGER :: myThreadNo
