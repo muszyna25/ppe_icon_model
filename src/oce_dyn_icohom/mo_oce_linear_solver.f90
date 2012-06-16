@@ -208,8 +208,9 @@ INTEGER :: mnblks, mnpromz
    mnpromz   = curr_patch%cells%in_domain%end_index
 
    maxiterex = .FALSE.
-
+#ifndef NOMPI
    z(:,:)    = 0.0_wp
+#endif
    v(:,:,:)  = 0.0_wp
    r(:,:)    = 0.0_wp
 
@@ -250,8 +251,7 @@ INTEGER :: mnblks, mnpromz
        ENDIF
      ENDDO
 !$OMP END DO
-
-   rn2_aux = SQRT(SUM(sum_aux))
+     rn2_aux = SQRT(SUM(sum_aux))
 #else
 !$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
@@ -263,11 +263,10 @@ INTEGER :: mnblks, mnpromz
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-
-    rn2_aux = SQRT(omp_global_sum_array(z(:,1:mnblks)))
+     rn2_aux = SQRT(omp_global_sum_array(z(:,1:mnblks)))
 #endif
 
-      
+
    IF (myThreadNo == 0) rn2(1) = rn2_aux
 
 
@@ -327,7 +326,6 @@ INTEGER :: mnblks, mnpromz
        ENDIF
      ENDDO
 !$OMP END DO
-
      h_aux = SUM(sum_aux)
 #else
 !$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
@@ -340,7 +338,7 @@ INTEGER :: mnblks, mnpromz
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-    h_aux = omp_global_sum_array(z)
+     h_aux = omp_global_sum_array(z)
 #endif
 
      IF (myThreadNo == 0) h(k,i) = h_aux
@@ -371,7 +369,6 @@ INTEGER :: mnblks, mnpromz
        ENDIF
      ENDDO
 !$OMP END DO
-
      h_aux = SQRT(SUM(sum_aux))
 #else
 !$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
@@ -384,7 +381,6 @@ INTEGER :: mnblks, mnpromz
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-
      h_aux = SQRT(omp_global_sum_array(z))
 #endif
 
@@ -630,8 +626,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        ENDIF
      ENDDO
 !$OMP END DO
-
-   rn2_aux = SQRT(SUM(sum_aux))
+     rn2_aux = SQRT(SUM(sum_aux))
 #else
 !$OMP DO PRIVATE(jb, jk, nlen)
      DO jb = 1, mnblks
@@ -647,8 +642,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 !$OMP END DO
 ! #slo# - 2011-03-02 - to be checked lsm_oce vs. owner_mask in this module
 !     WHERE(v_base%lsm_oce_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
-
-   rn2_aux = SQRT(omp_global_sum_array(z))
+     rn2_aux = SQRT(omp_global_sum_array(z))
 #endif
 
    IF (myThreadNo == 0) rn2(1) = rn2_aux
@@ -711,7 +705,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        ENDIF
      ENDDO
 !$OMP END DO
-
      h_aux = SUM(sum_aux)
 #else
 !$OMP DO PRIVATE(jb, jk, nlen)
@@ -726,7 +719,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
      ENDDO
 !$OMP END DO
      !WHERE(v_base%lsm_oce_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
-
      h_aux = omp_global_sum_array(z)
 #endif
 
@@ -758,7 +750,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        ENDIF
      ENDDO
 !$OMP END DO
-
      h_aux = SQRT(SUM(sum_aux))
 #else
 !$OMP DO PRIVATE(jb, jk, nlen)
@@ -773,7 +764,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
      ENDDO
 !$OMP END DO
      !WHERE(v_base%lsm_oce_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
-
      h_aux = SQRT(omp_global_sum_array(z))
 #endif
 
@@ -1020,8 +1010,7 @@ REAL(wp) :: sum_aux(nblks)
        ENDIF
      ENDDO
 !$OMP END DO
-
-   rn2_aux = SQRT(SUM(sum_aux))
+     rn2_aux = SQRT(SUM(sum_aux))
 #else
 !$OMP DO PRIVATE(jb, jk, nlen)
      DO jb = 1, mnblks
@@ -1035,8 +1024,7 @@ REAL(wp) :: sum_aux(nblks)
 !      WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-
-   rn2_aux = SQRT(omp_global_sum_array(z))
+     rn2_aux = SQRT(omp_global_sum_array(z))
 #endif
 
    IF (myThreadNo == 0) rn2(1) = rn2_aux
@@ -1099,7 +1087,6 @@ REAL(wp) :: sum_aux(nblks)
        ENDIF
      ENDDO
 !$OMP END DO
-
      h_aux = SUM(sum_aux)
 #else
 !$OMP DO PRIVATE(jb, jk, nlen)
@@ -1113,7 +1100,6 @@ REAL(wp) :: sum_aux(nblks)
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-
      h_aux = omp_global_sum_array(z)
 #endif
 
@@ -1145,7 +1131,6 @@ REAL(wp) :: sum_aux(nblks)
        ENDIF
      ENDDO
 !$OMP END DO
-
      h_aux = SQRT(SUM(sum_aux))
 #else
 !$OMP DO PRIVATE(jb, jk, nlen)
@@ -1159,7 +1144,6 @@ REAL(wp) :: sum_aux(nblks)
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-
      h_aux = SQRT(omp_global_sum_array(z))
 #endif
 
