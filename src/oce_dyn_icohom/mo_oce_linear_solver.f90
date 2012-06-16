@@ -49,6 +49,9 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_oce_linear_solver
 !-------------------------------------------------------------------------
 !
