@@ -66,7 +66,7 @@ init_relax=0   # 1: use relaxation initialization file
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=11
+iforc=10
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
@@ -140,6 +140,9 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  veloc_diffusion_order = 1
+  veloc_diffusion_form  = 1
+  i_bc_veloc_bot        = 0
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
