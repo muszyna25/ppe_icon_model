@@ -516,7 +516,7 @@ CONTAINS
       WRITE(listname,'(a)')  'ocean_default_list'
       CALL new_var_list(ocean_default_list, listname, patch_id=p_patch(jg)%id)
       CALL default_var_list_settings( ocean_default_list,            &
-                                    & lrestart=.FALSE.)
+                                    & lrestart=.FALSE.,model_type='oce' )
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO
@@ -561,6 +561,7 @@ CONTAINS
     END IF
 
     CALL delete_var_list(ocean_restart_list)
+    CALL delete_var_list(ocean_default_list)
 
     DO jg = 1, n_dom
 
