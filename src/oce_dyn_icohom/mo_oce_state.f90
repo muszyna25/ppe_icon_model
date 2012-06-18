@@ -848,7 +848,7 @@ CONTAINS
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
 
-    CALL add_var(ocean_restart_list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED_CELL,&
+    CALL add_var(ocean_default_list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED_CELL,&
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('rho', 'kg/m^3', 'density'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
