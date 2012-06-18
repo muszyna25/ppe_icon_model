@@ -867,12 +867,12 @@ CONTAINS
     &            ldims=(/nproma,nblks_e/))
 
     ! thicknesses
-    CALL add_var(ocean_restart_list, 'thick_c', p_os_diag%thick_c,  &
+    CALL add_var(ocean_default_list, 'thick_c', p_os_diag%thick_c,  &
     &            GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
     &            t_cf_var('thick_c','m','fluid column thickness at cells'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))
-    CALL add_var(ocean_restart_list, 'thick_e', p_os_diag%thick_e, &
+    CALL add_var(ocean_default_list, 'thick_e', p_os_diag%thick_e, &
     &            GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
     &            t_cf_var('thick_e','m','fluid column thickness at edges'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE),&
