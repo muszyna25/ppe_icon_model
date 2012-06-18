@@ -12,7 +12,7 @@
     Florian Prill, DWD, mailto:florian.prill@dwd.de
 
   Task objectives:
-  - create/check for dump state 
+  - Clear directory with model run and output directory.
 %end
 
 # include the header file for remote jobs
@@ -32,10 +32,6 @@ ls -lrt
 smsevent clear_directory
 
 # Clear directory with model run --------------
-rm -rf tmp_output
-mkdir tmp_output
-
-# Clear output directory ----------------------
 rm -rf %SCTEMP%/output/%SUITE_NAME%/*
 
 

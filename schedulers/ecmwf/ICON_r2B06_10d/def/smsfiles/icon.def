@@ -90,14 +90,14 @@ suite icon
 
     # init local variables:
     set ENABLE_INIT               1
-    set     ENABLE_GET_DATA       0
-    set     ENABLE_INIT_DATA      0
-    set     ENABLE_BUILD          0
+    set     ENABLE_GET_DATA       1
+    set     ENABLE_INIT_DATA      1
+    set     ENABLE_BUILD          1
     set         ENABLE_INIT_SVN   1
     set ENABLE_FORECAST           1
     set     ENABLE_DUMPSTATE      1
     set     ENABLE_MODEL          1
-    set ENABLE_POST               0
+    set ENABLE_POST               1
 
     # enable this flag, if we do not perform a complete "svn export"
     # but simply an "svn update" and "gmake distclean":
