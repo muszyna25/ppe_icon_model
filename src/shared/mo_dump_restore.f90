@@ -686,9 +686,9 @@ CONTAINS
     count = (/ dimlen(1), 1 /)
     IF(netcdf_read) THEN
       CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
-      var(:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+      var(1:nproma,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
     ELSE
-      buf(1:ntot) = RESHAPE(var(:,:), (/ nproma*nblks /))
+      buf(1:ntot) = RESHAPE(var(1:nproma,1:nblks), (/ nproma*nblks /))
       CALL nf(nf_put_vara_double(ncid, varid, start, count, buf(var_start)))
     ENDIF
 
@@ -729,13 +729,13 @@ CONTAINS
       count = (/ dimlen(1), 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
-        IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==2) var(:,i,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==3) var(:,:,i) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==1) var(i,1:nproma,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2) var(1:nproma,i,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==3) var(1:nproma,1:nblks,i) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
       ELSE
-        IF(pos_dim2==1) buf(1:ntot) = RESHAPE(var(i,:,:), (/ nproma*nblks /))
-        IF(pos_dim2==2) buf(1:ntot) = RESHAPE(var(:,i,:), (/ nproma*nblks /))
-        IF(pos_dim2==3) buf(1:ntot) = RESHAPE(var(:,:,i), (/ nproma*nblks /))
+        IF(pos_dim2==1) buf(1:ntot) = RESHAPE(var(i,1:nproma,1:nblks), (/ nproma*nblks /))
+        IF(pos_dim2==2) buf(1:ntot) = RESHAPE(var(1:nproma,i,1:nblks), (/ nproma*nblks /))
+        IF(pos_dim2==3) buf(1:ntot) = RESHAPE(var(1:nproma,1:nblks,i), (/ nproma*nblks /))
         CALL nf(nf_put_vara_double(ncid, varid, start, count, buf(var_start)))
       ENDIF
     ENDDO
@@ -779,15 +779,23 @@ CONTAINS
       count = (/ dimlen(1), 1, 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
-        IF(pos_dim2==3 .AND. pos_dim3==4) var(:,:,i,j) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==4) var(:,i,:,j) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==3) var(:,i,j,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==1 .AND. pos_dim3==2) var(i,j,:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==3 .AND. pos_dim3==4) &
+          & var(1:nproma,1:nblks,i,j) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==4) &
+          & var(1:nproma,i,1:nblks,j) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==3) &
+          & var(1:nproma,i,j,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==1 .AND. pos_dim3==2) &
+          & var(i,j,1:nproma,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
       ELSE
-        IF(pos_dim2==3 .AND. pos_dim3==4) buf(1:ntot) = RESHAPE(var(:,:,i,j), (/ nproma*nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==4) buf(1:ntot) = RESHAPE(var(:,i,:,j), (/ nproma*nblks /))
-        IF(pos_dim2==2 .AND. pos_dim3==3) buf(1:ntot) = RESHAPE(var(:,i,j,:), (/ nproma*nblks /))
-        IF(pos_dim2==1 .AND. pos_dim3==2) buf(1:ntot) = RESHAPE(var(i,j,:,:), (/ nproma*nblks /))
+        IF(pos_dim2==3 .AND. pos_dim3==4) &
+          & buf(1:ntot) = RESHAPE(var(1:nproma,1:nblks,i,j), (/ nproma*nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==4) &
+          & buf(1:ntot) = RESHAPE(var(1:nproma,i,1:nblks,j), (/ nproma*nblks /))
+        IF(pos_dim2==2 .AND. pos_dim3==3) &
+          & buf(1:ntot) = RESHAPE(var(1:nproma,i,j,1:nblks), (/ nproma*nblks /))
+        IF(pos_dim2==1 .AND. pos_dim3==2) &
+          & buf(1:ntot) = RESHAPE(var(i,j,1:nproma,1:nblks), (/ nproma*nblks /))
         CALL nf(nf_put_vara_double(ncid, varid, start, count, buf(var_start)))
       ENDIF
     ENDDO
@@ -828,9 +836,9 @@ CONTAINS
     count = (/ dimlen(1), 1 /)
     IF(netcdf_read) THEN
       CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
-      var(:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+      var(1:nproma,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
     ELSE
-      buf(1:ntot) = RESHAPE(var(:,:), (/ nproma*nblks /))
+      buf(1:ntot) = RESHAPE(var(1:nproma,1:nblks), (/ nproma*nblks /))
       CALL nf(nf_put_vara_int(ncid, varid, start, count, buf(var_start)))
     ENDIF
 
@@ -871,13 +879,13 @@ CONTAINS
       count = (/ dimlen(1), 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
-        IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==2) var(:,i,:) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
-        IF(pos_dim2==3) var(:,:,i) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==1) var(i,1:nproma,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==2) var(1:nproma,i,1:nblks) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
+        IF(pos_dim2==3) var(1:nproma,1:nblks,i) = RESHAPE(buf(1:ntot), (/ nproma, nblks /))
       ELSE
-        IF(pos_dim2==1) buf(1:ntot) = RESHAPE(var(i,:,:), (/ nproma*nblks /))
-        IF(pos_dim2==2) buf(1:ntot) = RESHAPE(var(:,i,:), (/ nproma*nblks /))
-        IF(pos_dim2==3) buf(1:ntot) = RESHAPE(var(:,:,i), (/ nproma*nblks /))
+        IF(pos_dim2==1) buf(1:ntot) = RESHAPE(var(i,1:nproma,1:nblks), (/ nproma*nblks /))
+        IF(pos_dim2==2) buf(1:ntot) = RESHAPE(var(1:nproma,i,1:nblks), (/ nproma*nblks /))
+        IF(pos_dim2==3) buf(1:ntot) = RESHAPE(var(1:nproma,1:nblks,i), (/ nproma*nblks /))
         CALL nf(nf_put_vara_int(ncid, varid, start, count, buf(var_start)))
       ENDIF
     ENDDO
@@ -916,9 +924,9 @@ CONTAINS
     count = (/ dimlen(1), 1 /)
     IF(netcdf_read) THEN
       CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
-      var(:,:) = RESHAPE((buf(1:ntot)/=0), (/ nproma, nblks /))
+      var(1:nproma,1:nblks) = RESHAPE((buf(1:ntot)/=0), (/ nproma, nblks /))
     ELSE
-      buf(1:ntot) = l2i(RESHAPE(var(:,:), (/ nproma*nblks /)))
+      buf(1:ntot) = l2i(RESHAPE(var(1:nproma,1:nblks), (/ nproma*nblks /)))
       CALL nf(nf_put_vara_int(ncid, varid, start, count, buf(var_start)))
     ENDIF
 
@@ -1265,14 +1273,14 @@ CONTAINS
       ALLOCATE (pat%pelist_send(pat%np_send),   pat%pelist_recv(pat%np_recv),   &
                 pat%send_startidx(pat%np_send), pat%recv_startidx(pat%np_recv), &
                 pat%send_count(pat%np_send),    pat%recv_count(pat%np_recv)     )
-
+      
       pat%pelist_send(:)   = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%send_startidx(:) = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%send_count(:)    = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%pelist_recv(:)   = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
       pat%recv_startidx(:) = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
       pat%recv_count(:)    = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
-
+      
       ALLOCATE(pat%send_src_blk(pat%n_send))
       ALLOCATE(pat%send_src_idx(pat%n_send))
       pat%send_src_idx(:)  = idx_no(pat_data(n+1:n+pat%n_send))
@@ -3397,6 +3405,9 @@ CONTAINS
     lonlat_data => lonlat_grid_list(grid_id)
     intp => lonlat_data%intp(dom_id)
 
+    ! read/write corresponding communication pattern (for GATHER)
+    CALL comm_pat_io('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
+
     IF (intp%nthis_local_pts == 0) RETURN
 
     ! rbf_vec_dim_c,2,nproma,nblks_lonlat
@@ -3421,9 +3432,6 @@ CONTAINS
       CALL bidx_io(2,3, 'int.lonlat.rbf_c2l_idx', intp%rbf_c2l_idx, intp%rbf_c2l_blk)
       CALL bvar_io(1,2, 'int.lonlat.rbf_c2l_stencil', intp%rbf_c2l_stencil)
     END IF
-
-    ! read/write corresponding communication pattern (for GATHER)
-    CALL comm_pat_io('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
 
   END SUBROUTINE lonlat_data_io
 
@@ -3502,8 +3510,7 @@ CONTAINS
 
         ! collective call: define corresponding communication
         ! pattern (for GATHER)
-        IF (intp%nthis_local_pts > 0) &
-          CALL def_comm_pat('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
+        CALL def_comm_pat('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
 
         ! Open new output file
         IF (output_defines) THEN
