@@ -929,13 +929,13 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/),lrestart=.FALSE.)
     ! reconstructed u velocity component
-    CALL add_var(ocean_restart_list, 'u', p_os_diag%u, GRID_UNSTRUCTURED_CELL, &
+    CALL add_var(ocean_default_list, 'u', p_os_diag%u, GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('u','m/s','u velocity component'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/))
     ! reconstructed v velocity component
-    CALL add_var(ocean_restart_list, 'v', p_os_diag%v, GRID_UNSTRUCTURED_CELL, &
+    CALL add_var(ocean_default_list, 'v', p_os_diag%v, GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('v','m/s','v velocity component'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
@@ -994,7 +994,7 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! kinetic energy component
-    CALL add_var(ocean_restart_list, 'kin', p_os_diag%kin, GRID_UNSTRUCTURED_CELL, &
+    CALL add_var(ocean_default_list, 'kin', p_os_diag%kin, GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('kin','J','kinetic energy'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
