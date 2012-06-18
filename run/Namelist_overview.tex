@@ -1416,6 +1416,20 @@ I & 1& &
 \tabularnewline
 
 \hline 
+start\_time &
+R(n\_dom) & 0.   & s &
+Time when a nested domain starts to be active (namelist entry is ignored for the global domain)
+& n\_dom>1
+\tabularnewline
+
+\hline 
+end\_time &
+R(n\_dom) & 1.E30  & s &
+Time when a nested domain terminates (namelist entry is ignored for the global domain)
+& n\_dom>1
+\tabularnewline
+
+\hline 
 patch\_weight &
 R(n\_dom) & 0.& &
 If patch\_weight is set to a value > 0 for any of the first level child patches,

@@ -146,6 +146,8 @@ MODULE mo_name_list_output_config
     INTEGER                     :: output_type   ! CDI format
     INTEGER                     :: phys_patch_id ! ID of physical output patch
     INTEGER                     :: log_patch_id  ! ID of logical output patch
+    REAL(wp)                    :: start_time    ! start time of model domain
+    REAL(wp)                    :: end_time      ! end time of model domain
 
     INTEGER                     :: max_vars      ! maximum number of variables allocated
     INTEGER                     :: num_vars      ! number of variables in use
@@ -266,6 +268,8 @@ CONTAINS
         retval = (TRIM(info%name) == TRIM(var_name))
       END DO ! iv
     END IF
+
+!    IF (sim_time < of%start_time .OR. sim_time > of%end_time) retval = .FALSE.
   END FUNCTION is_output_file_active
 
 

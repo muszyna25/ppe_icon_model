@@ -628,7 +628,10 @@ MODULE mo_model_domain
     !
     ! domain ID of current domain
     INTEGER :: id
-    
+    !
+    ! indicator if current model domain is active
+    LOGICAL :: ldom_active 
+    !
     ! cell type =3 or 6
     INTEGER :: cell_type
     !

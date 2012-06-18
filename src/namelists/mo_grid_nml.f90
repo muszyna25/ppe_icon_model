@@ -56,6 +56,8 @@ MODULE mo_grid_nml
     & config_global_cell_type             => global_cell_type,             &
     & config_lfeedback                    => lfeedback,                    &
     & config_ifeedback_type               => ifeedback_type,               &
+    & config_start_time                   => start_time,                   &
+    & config_end_time                     => end_time,                     &
     & config_lplane                       => lplane,                       &
     & config_corio_lat                    => corio_lat,                    &
     & config_l_limited_area               => l_limited_area,               &
@@ -104,6 +106,8 @@ MODULE mo_grid_nml
 
     LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
     INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
+    REAL(wp)   :: start_time(max_dom)      ! time at which execution of a (nested) model domain starts
+    REAL(wp)   :: end_time(max_dom)        ! time at which execution of a (nested) model domain terminates
     LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
     LOGICAL    :: l_limited_area            
 
@@ -124,7 +128,7 @@ MODULE mo_grid_nml
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
       &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
-      &  patch_weight, lredgrid_phys,                &
+      &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,    &
       &  radiation_grid_filename, dynamics_radiation_grid_link
 
@@ -153,6 +157,8 @@ MODULE mo_grid_nml
       
     lfeedback   = .TRUE.
     ifeedback_type = 1
+    start_time(:) = 0._wp
+    end_time(:)   = 1.e30_wp
     lplane      = .FALSE.
     l_limited_area = .FALSE.
     corio_lat   = 0.0_wp
@@ -204,6 +210,8 @@ MODULE mo_grid_nml
     config_global_cell_type  = cell_type
     config_lfeedback         = lfeedback
     config_ifeedback_type    = ifeedback_type
+    config_start_time        = start_time
+    config_end_time          = end_time
     config_lplane            = lplane
     config_corio_lat         = corio_lat
     config_l_limited_area    = l_limited_area

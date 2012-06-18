@@ -33,7 +33,7 @@ MODULE mo_name_list_output
     &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT, &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
-    &                                 grid_rescale_factor
+    &                                 grid_rescale_factor, start_time, end_time
   USE mo_grid_levels,           ONLY: check_orientation
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
@@ -972,6 +972,9 @@ CONTAINS
           p_of%output_type   = p_onl%filetype
           p_of%name_list     => p_onl
           p_of%remap         = p_onl%remap
+
+          p_of%start_time    = start_time(p_of%log_patch_id)
+          p_of%end_time      = end_time(p_of%log_patch_id)
 
           ! Select all var_lists which belong to current logical domain and i_typ
 

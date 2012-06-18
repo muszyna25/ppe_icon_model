@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
-    &                               n_dom_start, lredgrid_phys
+    &                               n_dom_start, lredgrid_phys, start_time, end_time
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
     &                               rotate_axis_deg
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
@@ -142,6 +142,7 @@ MODULE mo_nh_stepping
   USE mo_art_emission_interface, ONLY: art_emission_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
+  USE mo_nh_init_nest_utils,  ONLY: initialize_nest
 
   IMPLICIT NONE
 
@@ -297,6 +298,7 @@ MODULE mo_nh_stepping
 
   IF (iforcing == inwp .AND. is_restart_run()) THEN
     DO jg=1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       CALL init_nwp_phy( dtime                     ,&
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
@@ -313,6 +315,7 @@ MODULE mo_nh_stepping
     ENDDO
   ELSE IF (iforcing == inwp) THEN ! for cold start, use atmospheric fields at time level nnow only
     DO jg=1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       CALL init_nwp_phy( dtime                     ,&
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
@@ -328,6 +331,15 @@ MODULE mo_nh_stepping
            & phy_params(jg)                         )
     ENDDO
   ENDIF
+
+  ! initialize ldom_active flag
+  DO jg=1, n_dom
+    IF (jg > 1 .AND. start_time(jg) > 0._wp) THEN
+      p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
+    ELSE
+      p_patch(jg)%ldom_active = .TRUE.
+    ENDIF
+  ENDDO
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -625,6 +637,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_checkpoint) .AND. .NOT. output_mode%l_none) THEN
       DO jg = 1, n_dom
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   & 
                                 & jfile                      = jfile,                      &
                                 & l_have_output              = l_have_output,              &
@@ -708,6 +721,7 @@ MODULE mo_nh_stepping
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
     LOGICAL :: lcall_hdiff
+    LOGICAL :: lnest_active
 
     ! Switch to determine manner of OpenMP parallelization in interpol_scal_grf
 !     LOGICAL :: lpar_fields=.FALSE.
@@ -1280,6 +1294,16 @@ MODULE mo_nh_stepping
         l_call_nests = .FALSE.
       ENDIF
 
+      ! Check if at least one of the nested domains is active
+      IF (l_call_nests .AND. p_patch(jg)%n_childdom > 0) THEN
+        lnest_active = .FALSE.
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+          IF (p_patch(jgc)%ldom_active) lnest_active = .TRUE.
+        ENDDO
+        IF (.NOT. lnest_active) l_call_nests = .FALSE.
+      ENDIF
+
       IF (l_call_nests .AND. p_patch(jg)%n_childdom > 0) THEN
 
         dt_sub     = dt_loc/2._wp    ! dyn. time step on next refinement level
@@ -1299,8 +1323,10 @@ MODULE mo_nh_stepping
           jgc = p_patch(jg)%child_id(jn)
 
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
-          CALL boundary_interpolation(jg, jgc,                         &
-            &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
+          IF (p_patch(jgc)%ldom_active) THEN
+            CALL boundary_interpolation(jg, jgc,                         &
+              &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
+          ENDIF
 
         ENDDO
         IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
@@ -1310,6 +1336,7 @@ MODULE mo_nh_stepping
         DO jn = 1, p_patch(jg)%n_childdom
 
           jgc = p_patch(jg)%child_id(jn)
+          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
           ! If feedback is turned off for child domain, compute parent-child
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
@@ -1325,6 +1352,7 @@ MODULE mo_nh_stepping
         DO jn = 1, p_patch(jg)%n_childdom
 
           jgc = p_patch(jg)%child_id(jn)
+          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
@@ -1342,8 +1370,9 @@ MODULE mo_nh_stepping
 
           ! Call feedback to copy averaged prognostic variables from refined mesh back
           ! to the coarse mesh (i.e. from jgc to jg)
-
           jgc = p_patch(jg)%child_id(jn)
+          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+
           IF (lfeedback(jgc)) THEN
             IF (ifeedback_type == 1) THEN
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
@@ -1374,6 +1403,53 @@ MODULE mo_nh_stepping
         n_temp       = nnow_rcf(jg)
         nnow_rcf(jg) = nnew_rcf(jg)
         nnew_rcf(jg) = n_temp
+      ENDIF
+
+      ! Check if nested domains have to activated or deactivated
+      IF (lstep_adv(jg) .AND. p_patch(jg)%n_childdom > 0) THEN
+
+        ! Loop over nested domains
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+
+          IF (p_patch(jgc)%ldom_active .AND. sim_time(jg) >= end_time(jgc)) THEN
+            p_patch(jgc)%ldom_active = .FALSE.
+            WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' stopped at time ',sim_time(jg)
+            CALL message('integrate_nh', TRIM(message_text))
+          ENDIF
+
+          IF (.NOT. p_patch(jgc)%ldom_active .AND. sim_time(jg) >= start_time(jgc) .AND. &
+              sim_time(jg) < end_time(jgc)) THEN
+            p_patch(jgc)%ldom_active = .TRUE.
+
+            IF (  atm_phy_nwp_config(jgc)%inwp_surface == 1 ) THEN
+              CALL aggregate_landvars(p_patch(jg), ext_data(jg),                &
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
+            ENDIF
+
+            CALL initialize_nest(jg, jgc)
+
+            CALL init_nwp_phy( dtime                    ,&
+              & p_patch(jgc)                            ,&
+              & p_nh_state(jgc)%metrics                 ,&
+              & p_nh_state(jgc)%prog(nnow(jgc))         ,&
+              & p_nh_state(jgc)%prog(nnow(jgc))         ,&
+              & p_nh_state(jgc)%diag                    ,&
+              & prm_diag(jgc)                           ,&
+              & prm_nwp_tend(jgc)                       ,&
+              & p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),&
+              & p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),&
+              & p_lnd_state(jgc)%diag_lnd               ,&
+              & ext_data(jgc)                           ,&
+              & phy_params(jgc)                          )
+
+            sim_time(jgc) = sim_time(jg)
+
+            WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',sim_time(jg)
+            CALL message('integrate_nh', TRIM(message_text))
+
+          ENDIF
+        ENDDO
       ENDIF
 
     ENDDO
@@ -1409,6 +1485,7 @@ MODULE mo_nh_stepping
     DO jg = 1, n_dom
 
       IF(p_patch(jg)%n_patch_cells == 0) CYCLE
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       p_vn  => p_nh_state(jg)%prog(nnow(jg))%vn
       SELECT CASE (p_patch(jg)%cell_type)
@@ -1453,6 +1530,7 @@ MODULE mo_nh_stepping
     DO jg = n_dom, 1, -1
 
       IF(p_patch(jg)%n_patch_cells == 0 .OR. p_patch(jg)%n_childdom == 0) CYCLE
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
         p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
@@ -1463,6 +1541,7 @@ MODULE mo_nh_stepping
 
       DO jn = 1, p_patch(jg)%n_childdom
         jgc = p_patch(jg)%child_id(jn)
+        IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
         CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
              p_grf_state(jg)%p_dom(jn), jn, 2, p_nh_state(jg)%diag%u,             &

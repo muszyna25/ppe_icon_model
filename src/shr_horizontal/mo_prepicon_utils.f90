@@ -73,8 +73,9 @@ MODULE mo_prepicon_utils
     &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
   USE mo_datetime,            ONLY: t_datetime
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
-                                    topography_blending, topography_feedback, hydro_adjust, &
-                                    interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
+                                    hydro_adjust, interp_uv_2_vn, init_w, convert_thdvars, &
+                                    virtual_temp
+  USE mo_nh_init_nest_utils,  ONLY: topography_blending, topography_feedback
   USE mo_grid_config,         ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs

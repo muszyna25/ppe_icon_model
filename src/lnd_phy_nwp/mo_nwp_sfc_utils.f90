@@ -406,7 +406,7 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-      i_count = ext_data%atm%lp_count(jb) ! it is sufficient to process land points only
+      i_count = ext_data%atm%lp_count(jb) ! for aggregation process land points only
 
       IF (nsfc_subs == 1) THEN  ! just copy prognostic variables from tile 1 to diagnostic aggregated variable
 !CDIR NODEP,VOVERTAKE,VOB
@@ -548,6 +548,52 @@ CONTAINS
             ENDDO
           ENDIF
 
+        ENDDO
+      ENDIF
+
+     i_count = ext_data%atm%sp_count(jb) ! second step: just copy variables for sea points 
+
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, i_count
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        lnd_diag%t_snow(jc,jb)       = lnd_prog%t_snow_t(jc,jb,1)
+        lnd_diag%t_s(jc,jb)          = lnd_prog%t_s_t(jc,jb,1)
+        lnd_diag%w_snow(jc,jb)       = lnd_prog%w_snow_t(jc,jb,1)
+        lnd_diag%rho_snow(jc,jb)     = lnd_prog%rho_snow_t(jc,jb,1)
+        lnd_diag%w_i(jc,jb)          = lnd_prog%w_i_t(jc,jb,1)
+        lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow_t(jc,jb,1)
+        lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow_t(jc,jb,1)
+        lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
+        lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
+        lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
+        lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_prog%t_so_t(jc,nlev_soil+2,jb,1)
+
+        IF(lmulti_snow) THEN
+          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(ic,nlev_snow+1,jb,1)
+        ENDIF
+      ENDDO
+
+      DO jk=1,nlev_soil+1
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_sp(ic,jb)
+          lnd_diag%t_so(jc,jk,jb)      = lnd_prog%t_so_t(jc,jk,jb,1)
+          lnd_diag%w_so(jc,jk,jb)      = lnd_prog%w_so_t(jc,jk,jb,1)
+          lnd_diag%w_so_ice(jc,jk,jb)  = lnd_prog%w_so_ice_t(jc,jk,jb,1)
+        ENDDO
+      ENDDO
+
+      IF (lmulti_snow) THEN
+        DO jk=1,nlev_snow
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_sp(ic,jb)
+            lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
+            lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
+            lnd_diag%wliq_snow(jc,jk,jb)     = lnd_prog%wliq_snow_t(jc,jk,jb,1)
+            lnd_diag%wtot_snow(jc,jk,jb)     = lnd_prog%wtot_snow_t(jc,jk,jb,1)
+            lnd_diag%dzh_snow(jc,jk,jb)      = lnd_prog%dzh_snow_t(jc,jk,jb,1)
+          ENDDO
         ENDDO
       ENDIF
 

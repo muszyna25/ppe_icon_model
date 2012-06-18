@@ -63,7 +63,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
-    &       lredgrid_phys, ifeedback_type
+    &       lredgrid_phys, ifeedback_type, start_time, end_time
 
    PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
      & grid_area_rescale_factor, grid_sphere_radius, grid_angular_velocity
@@ -94,6 +94,8 @@ INCLUDE 'netcdf.inc'
   INTEGER  :: n_dom_start=1 
   INTEGER  :: max_childdom             ! type of feedback (incremental or relaxation)
   INTEGER  :: ifeedback_type
+  REAL(wp) :: start_time(max_dom)      ! Time at which execution of a (nested) model domain starts
+  REAL(wp) :: end_time(max_dom)        ! Time at which execution of a (nested) model domain terminates
   INTEGER  :: n_phys_dom               ! Number of physical domains, computed when reading the patches
 
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
