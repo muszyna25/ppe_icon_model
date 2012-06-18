@@ -270,7 +270,6 @@ MODULE mo_oce_state
                                   ! dimension: (nproma, n_zlev+1, nblks_c)
       &  w_e(:,:,:)            ,& ! vertical velocity at edges. Unit [m/s]
                                   ! dimension: (nproma, n_zlev+1, nblks_e)
-      &  wtemp(:,:,:)              ,& ! vertical velocity. Unit [m/s].
       &  w_prev(:,:,:)         ,& ! vertical velocity at cells, from previous timestep. Unit [m/s]
                                   ! dimension: (nproma, n_zlev+1, nblks_c)
       &  u(:,:,:)              ,& ! reconstructed zonal velocity component. Unit [m/s]
@@ -906,11 +905,6 @@ CONTAINS
     CALL add_var(ocean_restart_list, 'w', p_os_diag%w, GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('w','m/s','vertical velocity at cells'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,n_zlev+1,nblks_c/))
-    CALL add_var(ocean_restart_list, 'wtemp', p_os_diag%wtemp, GRID_UNSTRUCTURED_CELL, &
-    &            ZAXIS_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wtemp','m/s','vertical velocity at cells'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/))
     CALL add_var(ocean_restart_list, 'w_old', p_os_diag%w_old, GRID_UNSTRUCTURED_CELL, &
