@@ -138,7 +138,7 @@ MODULE mo_ocean_nml
   INTEGER            :: i_bc_veloc_lateral = 0   
 
   INTEGER            :: i_bc_veloc_top = 1  !Top boundary condition for velocity: 
-                                            ! i_bc_veloc_top =0 :zero value at top boundary,no wind
+                                            ! i_bc_veloc_top =0 : zero value at top boundary,no wind
                                             ! i_bc_veloc_top =1 : forced by wind field that is
                                             !                     stored in p_os%p_aux%bc_top_veloc
                                             ! i_bc_veloc_top =2 : forced by difference between wind
