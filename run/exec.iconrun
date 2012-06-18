@@ -184,6 +184,7 @@ if [[ $run_ocean = 'true' ]]; then
      if [ $? -eq 0 ]; then
        rm ${HGRIDDIR}/$ocean_grids
        cp -p $OCEGRID ${HGRIDDIR}/$ocean_grids
+       chmod u+w ${HGRIDDIR}/$ocean_grids
      else
        echo "WARNING: $OCEGRID does not exist - proceed from local disk"
      fi
