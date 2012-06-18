@@ -51,7 +51,7 @@ MODULE mo_sea_ice_winton
 !    &                               init_oce_prog, iforc_oce, &
 !    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state !, v_base, ocean_var_list
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state !, v_base, ocean_restart_list
 !  USE mo_var_list,            ONLY: add_var
 !  USE mo_master_control,      ONLY: is_restart_run
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &

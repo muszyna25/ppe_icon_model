@@ -637,6 +637,7 @@ run/exp.nh3_tri_tracer_solid_body -text
 run/exp.oce_aqpl -text
 run/exp.oce_base -text
 run/exp.oce_channel -text
+run/exp.oce_density_front -text
 run/exp.oce_densityfront -text
 run/exp.oce_omip -text
 run/exp.oce_parallel_output -text
@@ -653,7 +654,6 @@ run/exp.test_nah_jww -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
 run/exp.test_nh3_tri_tracer_solid_body -text
-run/exp.test_oce_density_front -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_parallel -text
 run/exp.tracer_solid_body -text
