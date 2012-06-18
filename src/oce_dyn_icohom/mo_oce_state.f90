@@ -437,6 +437,7 @@ MODULE mo_oce_state
 
   ! variables
   TYPE(t_var_list)         , PUBLIC                      :: ocean_restart_list
+  TYPE(t_var_list)         , PUBLIC                      :: ocean_default_list
   TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
   TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
   TYPE(t_oce_config)       , PUBLIC                      :: oce_config
@@ -506,12 +507,16 @@ CONTAINS
 
       ! construction loop: create components of state array
       ! !TODO organize var_lists for the multiple timesteps of prog. state
-      WRITE(listname,'(a)')  'ocean_restart_var_list'
+      WRITE(listname,'(a)')  'ocean_restart_list'
       CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch(jg)%id)
       CALL default_var_list_settings( ocean_restart_list,            &
                                     & lrestart=.TRUE.,           &
                                     & restart_type=FILETYPE_NC2, &
                                     & model_type='oce' )
+      WRITE(listname,'(a)')  'ocean_default_list'
+      CALL new_var_list(ocean_default_list, listname, patch_id=p_patch(jg)%id)
+      CALL default_var_list_settings( ocean_default_list,            &
+                                    & lrestart=.FALSE.)
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO
