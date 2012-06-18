@@ -854,13 +854,13 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/))
 
-    CALL add_var(ocean_restart_list, 'vt', p_os_diag%vt, GRID_UNSTRUCTURED_EDGE, &
+    CALL add_var(ocean_default_list, 'vt', p_os_diag%vt, GRID_UNSTRUCTURED_EDGE, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('vt','m/s','tangential velocity at edges'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
-    CALL add_var(ocean_restart_list, 'h_e', p_os_diag%h_e, GRID_UNSTRUCTURED_EDGE,&
+    CALL add_var(ocean_default_list, 'h_e', p_os_diag%h_e, GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_SURFACE, &
     &            t_cf_var('h_e','m','surface height ar edges'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE),&
