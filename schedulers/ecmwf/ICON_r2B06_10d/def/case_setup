@@ -166,7 +166,7 @@ cat > ${atmo_namelist} << EOF
  activate_sync_timers         = .FALSE.
  output                       = "nml"
 /
-! OUTPUT: Triangular grid, model levels, all domains
+! OUTPUT: Reggular grid, model levels, all domains
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          = -1                        ! write all domains
@@ -184,6 +184,7 @@ cat > ${atmo_namelist} << EOF
  reg_lon_def                  = 0.,1.,360.
  reg_lat_def                  = 90.,-1., -90.
 !namespace                    = "DWD"  ! may give problems with metview - leave default ecmwf
+ map_file                     = "${basedir}/def/mapfile_vlist.txt"
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
