@@ -69,6 +69,7 @@ MODULE mo_ext_data_state
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -218,7 +219,7 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! do not read external data  (except land-sea mask)
+    CASE(0) ! do not read external data  (except land-sea mask for JSBACH)
             ! topography from analytical functions
 
     !-------------------------------------------------------------------------
@@ -251,8 +252,8 @@ CONTAINS
 
       CALL message( TRIM(routine),'Running with analytical topography' )
 
-      ! call read_ext_data_atm to read land-sea mask
-      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
+      ! call read_ext_data_atm to read land-sea mask for JSBACH
+      IF (echam_phy_config%ljsbach) CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -447,12 +448,14 @@ CONTAINS
     ! atmosphere land-sea-mask at surface on cell centers
     !
     ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
+    IF (echam_phy_config%ljsbach) THEN
     cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
       &                   'Atmosphere model land-sea-mask')
     grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
                   grib2_desc, ldims=shape2d_c )
+    END IF
 
     ! ozone mixing ratio
     !
@@ -1707,10 +1710,11 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    ! Read land-sea mask in any case
+    ! Read land-sea mask if JSBACH is used
 
+    IF (echam_phy_config%ljsbach) THEN
     DO jg = 1,n_dom
-
+      CALL finish(TRIM(ROUTINE),'land sea mask should not be read here')
       i_lev = p_patch(jg)%level
 
       IF(my_process_is_stdio()) THEN
@@ -1739,6 +1743,7 @@ CONTAINS
       IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
 
     END DO
+    END IF
 
     IF(itopo == 1 ) THEN
       DO jg = 1,n_dom
