@@ -1211,7 +1211,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! time stepping tracers go into the restart file. 4d has to be handles as 3D-references
-    CALL add_var(ocean_restart_list, 'g_n_c_h', p_os_aux%g_n_c_h , &
+    CALL add_var(ocean_default_list, 'g_n_c_h', p_os_aux%g_n_c_h , &
     &            GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('g_n_c_h', '', ''),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
@@ -1219,7 +1219,7 @@ CONTAINS
     &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_n_c_h_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
-      CALL add_ref(ocean_restart_list,'g_n_c_h',&
+      CALL add_ref(ocean_default_list,'g_n_c_h',&
         &          'g_n_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
         &           p_os_aux%g_n_c_h_tracer_ptr(jtrc)%p, &
         &           GRID_UNSTRUCTURED_CELL,&
@@ -1229,7 +1229,7 @@ CONTAINS
         &           ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
     END DO
     !-------------------------------------------------------------------------
-    CALL add_var(ocean_restart_list,'g_nm1_c_h',p_os_aux%g_nm1_c_h,&
+    CALL add_var(ocean_default_list,'g_nm1_c_h',p_os_aux%g_nm1_c_h,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
       &          t_cf_var('g_nm1_c_h','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
@@ -1237,7 +1237,7 @@ CONTAINS
       &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_nm1_c_h_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
-      CALL add_ref(ocean_restart_list,'g_nm1_c_h',&
+      CALL add_ref(ocean_default_list,'g_nm1_c_h',&
         &          'g_nm1_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
         &          p_os_aux%g_nm1_c_h_tracer_ptr(jtrc)%p, &
         &          GRID_UNSTRUCTURED_CELL,&
@@ -1247,7 +1247,7 @@ CONTAINS
         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
     END DO
     !-------------------------------------------------------------------------
-    CALL add_var(ocean_restart_list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, &
+    CALL add_var(ocean_default_list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, &
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
       &          t_cf_var('g_nimd_c_h','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
@@ -1255,7 +1255,7 @@ CONTAINS
       &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_nimd_c_h_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
-      CALL add_ref(ocean_restart_list,'g_nimd_c_h',&
+      CALL add_ref(ocean_default_list,'g_nimd_c_h',&
         &          'g_nimd_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
         &          p_os_aux%g_nimd_c_h_tracer_ptr(jtrc)%p, &
         &          GRID_UNSTRUCTURED_CELL,&
@@ -1265,7 +1265,7 @@ CONTAINS
         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
     END DO
     !-------------------------------------------------------------------------
-    CALL add_var(ocean_restart_list,'g_n_c_v',p_os_aux%g_n_c_v,&
+    CALL add_var(ocean_default_list,'g_n_c_v',p_os_aux%g_n_c_v,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
       &          t_cf_var('g_n_c_v','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
@@ -1273,7 +1273,7 @@ CONTAINS
       &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_n_c_v_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
-      CALL add_ref(ocean_restart_list,'g_n_c_v',&
+      CALL add_ref(ocean_default_list,'g_n_c_v',&
         &          'g_n_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
         &          p_os_aux%g_n_c_v_tracer_ptr(jtrc)%p, &
         &          GRID_UNSTRUCTURED_CELL,&
@@ -1283,7 +1283,7 @@ CONTAINS
         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
     END DO
     !-------------------------------------------------------------------------
-    CALL add_var(ocean_restart_list,'g_nm1_c_v', p_os_aux%g_nm1_c_v,&
+    CALL add_var(ocean_default_list,'g_nm1_c_v', p_os_aux%g_nm1_c_v,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
       &          t_cf_var('g_nm1_c_v','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
@@ -1291,7 +1291,7 @@ CONTAINS
       &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_nm1_c_v_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
-      CALL add_ref(ocean_restart_list,'g_nm1_c_v',&
+      CALL add_ref(ocean_default_list,'g_nm1_c_v',&
         &          'g_nm1_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
         &          p_os_aux%g_nm1_c_v_tracer_ptr(jtrc)%p, &
         &          GRID_UNSTRUCTURED_CELL,&
@@ -1301,7 +1301,7 @@ CONTAINS
         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
     END DO
     !-------------------------------------------------------------------------
-    CALL add_var(ocean_restart_list,'g_nimd_c_v',&
+    CALL add_var(ocean_default_list,'g_nimd_c_v',&
       &          p_os_aux%g_nimd_c_v, GRID_UNSTRUCTURED_CELL,&
       &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('g_nimd_c_v','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
@@ -1309,7 +1309,7 @@ CONTAINS
       &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_nimd_c_v_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
-      CALL add_ref(ocean_restart_list,'g_nimd_c_v',&
+      CALL add_ref(ocean_default_list,'g_nimd_c_v',&
         &          'g_nimd_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
         &          p_os_aux%g_nimd_c_v_tracer_ptr(jtrc)%p, &
         &          GRID_UNSTRUCTURED_CELL,&
