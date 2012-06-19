@@ -34,6 +34,8 @@ smsevent change_dir
 
 # NOT YET IMPLEMENTED!
 
+i=%VALUE%
+
 # build the name string of the i'th output file:
 DOM=1
 PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%SUITE_NAME%/${REQUEST_DATE}"
