@@ -2,6 +2,6 @@
 #
 #  Start SMS log server.
 #
-TEMP=/c1a/tmp/ms/de/dfi0/sms
+TEMP=$TEMP/sms
 
 /usr/local/bin/start_logserver -d ${TEMP}
