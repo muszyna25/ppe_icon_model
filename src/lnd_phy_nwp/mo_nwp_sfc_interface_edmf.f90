@@ -137,10 +137,10 @@ CONTAINS
                   t_g              , & ! surface temperature (grid mean)               ( K )
                   qv_s             , & ! surface specific humidity (grid mean)         (kg/kg)
 
-                  shfl_s_t         , & ! sensible heat flux soil/air interface         (W/m2)
-                  lhfl_s_t         , & ! latent   heat flux soil/air interface         (W/m2)
-                  shfl_snow_t      , & ! sensible heat flux snow/air interface         (W/m2)
-                  lhfl_snow_t        & ! latent   heat flux snow/air interface         (W/m2)
+                  shfl_s_ex        , & ! sensible heat flux soil/air interface         (W/m2)
+                  lhfl_s_ex        , & ! latent   heat flux soil/air interface         (W/m2)
+                  shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
+                  lhfl_snow_ex       & ! latent   heat flux snow/air interface         (W/m2)
                                      )
 
 
@@ -198,7 +198,7 @@ CONTAINS
                   prr_gsp_ex       , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp_ex           ! precipitation rate of snow, grid-scale        (kg/m2*s)
 
-  REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
+  REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(INOUT) :: &
                   tch_ex           , & ! turbulent transfer coefficient for heat       ( -- )
                   tcm_ex           , & ! turbulent transfer coefficient for momentum   ( -- )
                   tfv_ex               ! laminar reduction factor for evaporation      ( -- )
@@ -213,10 +213,10 @@ CONTAINS
                   t_g              , &
                   qv_s
   REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(OUT) :: &
-                  shfl_s_t         , & ! sensible heat flux soil/air interface         (W/m2)
-                  lhfl_s_t         , & ! latent   heat flux soil/air interface         (W/m2)
-                  shfl_snow_t      , & ! sensible heat flux snow/air interface         (W/m2)
-                  lhfl_snow_t          ! latent   heat flux snow/air interface         (W/m2)
+                  shfl_s_ex        , & ! sensible heat flux soil/air interface         (W/m2)
+                  lhfl_s_ex        , & ! latent   heat flux soil/air interface         (W/m2)
+                  shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
+                  lhfl_snow_ex         ! latent   heat flux snow/air interface         (W/m2)
 
   TYPE(t_external_data), INTENT(in) :: ext_data        !< external data
 
@@ -318,6 +318,11 @@ CONTAINS
     REAL(wp) :: td_2m_t     (nproma, nsfc_subs)
     REAL(wp) :: rh_2m_t     (nproma, nsfc_subs)
 
+    REAL(wp) :: shfl_s_t    (nproma, nsfc_subs)
+    REAL(wp) :: lhfl_s_t    (nproma, nsfc_subs)
+    REAL(wp) :: shfl_snow_t (nproma, nsfc_subs)
+    REAL(wp) :: lhfl_snow_t (nproma, nsfc_subs)
+
     REAL(wp) :: dummy1(nproma)
 
 !--------------------------------------------------------------
@@ -351,10 +356,15 @@ CONTAINS
  
     DO isubs = 1,nsfc_subs
       DO jc = i_startidx, i_endidx
-        shfl_s_t   (jc,isubs) = 0.0_wp
-        lhfl_s_t   (jc,isubs) = 0.0_wp
-        shfl_snow_t(jc,isubs) = 0.0_wp
-        lhfl_snow_t(jc,isubs) = 0.0_wp
+        shfl_s_ex   (jc,isubs) = 0.0_wp
+        lhfl_s_ex   (jc,isubs) = 0.0_wp
+        shfl_snow_ex(jc,isubs) = 0.0_wp
+        lhfl_snow_ex(jc,isubs) = 0.0_wp
+        shfl_s_t    (jc,isubs) = 0.0_wp
+        lhfl_s_t    (jc,isubs) = 0.0_wp
+        shfl_snow_t (jc,isubs) = 0.0_wp
+        lhfl_snow_t (jc,isubs) = 0.0_wp
+        snowfrac_t  (jc,isubs) = 0.0_wp
       ENDDO
     ENDDO
 
@@ -403,9 +413,9 @@ CONTAINS
           t_2m_t (ic,isubs) = t_2m_ex (jc) 
           u_10m_t(ic,isubs) = u_10m_ex(jc)
           v_10m_t(ic,isubs) = v_10m_ex(jc)  
-          tch_t  (ic,isubs) = tch_ex  (jc)
-          tcm_t  (ic,isubs) = tcm_ex  (jc)
-          tfv_t  (ic,isubs) = tfv_ex  (jc)
+          tch_t  (ic,isubs) = tch_ex  (jc,isubs)
+          tcm_t  (ic,isubs) = tcm_ex  (jc,isubs)
+          tfv_t  (ic,isubs) = tfv_ex  (jc,isubs)
           sobs_t (ic,isubs) = sobs_ex (jc,isubs) 
           thbs_t (ic,isubs) = thbs_ex (jc,isubs) 
           pabs_t (ic,isubs) = pabs_ex (jc,isubs) 
@@ -562,10 +572,10 @@ DO ic = 1, i_count
   jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
   if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
        abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
-    write(*,*) 'mo_nwp_sfc_interface_edmf ', isubs, snowfrac_t(jc,isubs), &
-      shfl_s_t(jc,isubs), shfl_snow_t(jc,isubs), &
-      lhfl_s_t(jc,isubs), lhfl_snow_t(jc,isubs)
-  endif
+    write(*,*) 'mo_nwp_sfc_interface_edmf ', ic, jc, isubs, snowfrac_t(ic,isubs), &
+      shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
+      lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
+   endif
 ENDDO
 
         IF (lmulti_snow) THEN
@@ -615,6 +625,10 @@ ENDDO
           subsfrac_ex (jc,isubs)  = subsfrac_t    (ic,isubs)
           runoff_s_ex (jc,isubs)  = runoff_s_t    (ic,isubs)  
           runoff_g_ex (jc,isubs)  = runoff_g_t    (ic,isubs)  
+          shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
+          shfl_snow_ex(jc,isubs)  = shfl_snow_t   (ic,isubs)
+          lhfl_s_ex   (jc,isubs)  = lhfl_s_t      (ic,isubs)   
+          lhfl_snow_ex(jc,isubs)  = lhfl_snow_t   (ic,isubs)
 
           t_so_ex(jc,nlev_soil+2,isubs) = t_so_new_t(ic,nlev_soil+2,isubs)
 

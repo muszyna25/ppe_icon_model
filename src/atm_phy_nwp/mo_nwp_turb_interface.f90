@@ -223,7 +223,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
-    &         zsigflt(nproma)               , zfrti(nproma,nsfc_subs)
+    &         zsigflt(nproma)               , zfrti(nproma,nsfc_subs),          &
+    &         tch_ex(nproma,nsfc_subs)      , tcm_ex(nproma,nsfc_subs),         &
+    &         tfv_ex(nproma,nsfc_subs)
   LOGICAL  :: ldummy_vdf_a(nproma)
 
 
@@ -295,6 +297,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP ztice,     ztske1, &
 !$OMP ztskm1m,   ztskrad, &
 !$OMP zsigflt,   zfrti, &
+!$OMP tch_ex,    tcm_ex,  tfv_ex, &
 !$OMP ldummy_vdf_a &
 !$OMP ) ICON_OMP_GUIDED_SCHEDULE
 
@@ -707,7 +710,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         zvcurr (jc) = 0.0_wp
         ztice  (jc) = 273.0_wp ! top level ice temperature ???????
         ztske1 (jc) = 0.0_wp   ! skin temperature tendency
-        ztskm1m(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature
+        ztskm1m(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature (prognostic ???)
         ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
         zsigflt(jc) = 0.0_wp   ! just for testing (standard dev. of filtered orogrphy)
       ENDDO
@@ -726,7 +729,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         DO jc = i_startidx, i_endidx
           shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
-          tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific
+          tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific, and prognostic !!!
           ustr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress U  !!!
           vstr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress V  !!!
           zfrti   (jc,jt) = 0.0_wp                     ! all zero but tile1=1.0 ... all ocean ???
@@ -737,7 +740,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       DO jc = i_startidx, i_endidx
        !zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
         IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
-          zfrti(jc,8) = 1.0_wp                         ! bare ground (???)
+          zfrti(jc,3) = 1.0_wp                         ! interception reservoir (???)
         ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
           zfrti(jc,1) = 1.0_wp                         ! open ocean
         ELSE
@@ -930,6 +933,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & , v_10m_ex        = prm_diag%v_10m           (:,jb)     & ! -
         & , freshsnow_ex    = lnd_diag%freshsnow_t     (:,jb,:)   & ! -
         & , snowfrac_ex     = lnd_diag%snowfrac_t      (:,jb,:)   & ! -
+        & , subsfrac_ex     = ext_data%atm%lc_frac_t   (:,jb,:)   & ! -
         & , wliq_snow_ex    = lnd_prog_new%wliq_snow_t (:,:,jb,:) & ! -
         & , wtot_snow_ex    = lnd_prog_new%wtot_snow_t (:,:,jb,:) & ! -
         & , dzh_snow_ex     = lnd_prog_new%dzh_snow_t  (:,:,jb,:) & ! -
@@ -937,9 +941,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         & , prs_con_ex      = prm_diag%tracer_rate     (:,jb,4)   & ! -
         & , prr_gsp_ex      = prm_diag%tracer_rate     (:,jb,1)   & ! -
         & , prs_gsp_ex      = prm_diag%tracer_rate     (:,jb,2)   & ! -
-        & , tch_ex          = prm_diag%tch             (:,jb)     & !inout
-        & , tcm_ex          = prm_diag%tcm             (:,jb)     & ! -
-        & , tfv_ex          = prm_diag%tfv             (:,jb)     & ! -
+        & , tch_ex          = tch_ex                   (:,:)      & !inout
+        & , tcm_ex          = tcm_ex                   (:,:)      & ! -
+        & , tfv_ex          = tfv_ex                   (:,:)      & ! -
         & , sobs_ex         = prm_diag%swflxsfc_t      (:,jb,:)   & !in
         & , thbs_ex         = prm_diag%lwflxsfc_t      (:,jb,:)   & ! -
         & , pabs_ex         = prm_diag%swflxsfc_t      (:,jb,:)   & ! -
@@ -971,6 +975,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         prm_diag%rh_2m(jc,jb)  = 0.0_wp
         prm_diag%shfl_s(jc,jb) = shfl_s_t(jc,1)           ! should be tile mean !!!
         prm_diag%lhfl_s(jc,jb) = evap_s_t(jc,1) * alv     ! should be tile mean !!!
+        prm_diag%tch(jc,jb)    = tch_ex(jc,1)             ! -"-
+        prm_diag%tcm(jc,jb)    = tcm_ex(jc,1)             ! -"-
+        prm_diag%tfv(jc,jb)    = tfv_ex(jc,1)             ! -"-
       ENDDO
 
 

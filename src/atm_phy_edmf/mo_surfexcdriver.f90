@@ -50,7 +50,8 @@ SUBROUTINE SURFEXCDRIVER    ( &
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
  & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
- & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
+ & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
@@ -362,12 +363,12 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_2m_ex        ,u_10m_ex       ,v_10m_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
-  freshsnow_ex   ,snowfrac_ex          
+  freshsnow_ex   ,snowfrac_ex    ,subsfrac_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
 REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
   tch_ex         ,tcm_ex         ,tfv_ex               
 REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,nsfc_subs)                :: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
@@ -766,7 +767,8 @@ CALL SURFEXCDRIVER_CTL(CDCONF &
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
  & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
- & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
+ & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in

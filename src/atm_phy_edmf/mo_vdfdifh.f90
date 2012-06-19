@@ -506,13 +506,38 @@ CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
 !
 !xxx
 
-!*         1.10   Flux boundary condition for 1D model (fluxes in W/m2)
+!*         1.10a   Flux boundary condition for 1D model (fluxes in W/m2)
 !                 (Over-write output of SURFSEB)
 
-IF (LDSFCFLX .OR. LDTERRA) THEN
+IF (LDSFCFLX) THEN
   DO JT=1,KTILES
     DO JL=KIDIA,KFDIA
-      IF ( LDSFCFLX .OR. LDLAND(JL) ) THEN
+!xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
+        ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
+!xxx    
+        PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
+        
+        ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
+        ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+        PSSH(JL,JT)=PEXTSHF(JL)
+        PSLH(JL,JT)=PEXTLHF(JL)
+        PSTR(JL,JT)=PSLRFL(JL)
+        PG0 (JL,JT)=PEXTSHF(JL)+PEXTLHF(JL)+PSLRFL(JL)+PSSRFLTI(JL,JT)
+    ENDDO
+  ENDDO
+  DO JL=KIDIA,KFDIA
+      ZSL(JL)=ZJS(JL,1)*ZASL(JL)+ZBSL(JL)
+      ZQL(JL)=PJQ(JL,1)*ZAQL(JL)+ZBQL(JL)
+  ENDDO
+ENDIF
+
+!*         1.10b   Flux boundary condition from TERRA land only (fluxes in W/m2)
+!                 (Over-write output of SURFSEB)
+
+IF (LDTERRA) THEN
+  DO JT=3,KTILES     ! all TERRA goes in tile 3
+    DO JL=KIDIA,KFDIA
+      IF ( LDLAND(JL) ) THEN
 !xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
         ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
 !xxx    
@@ -528,7 +553,7 @@ IF (LDSFCFLX .OR. LDTERRA) THEN
     ENDDO
   ENDDO
   DO JL=KIDIA,KFDIA
-    IF ( LDSFCFLX .OR. LDLAND(JL) ) THEN
+    IF ( LDLAND(JL) ) THEN
       ZSL(JL)=ZJS(JL,1)*ZASL(JL)+ZBSL(JL)
       ZQL(JL)=PJQ(JL,1)*ZAQL(JL)+ZBQL(JL)
     ENDIF

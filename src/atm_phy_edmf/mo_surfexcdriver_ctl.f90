@@ -75,13 +75,14 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
  & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
- & , freshsnow_ex, snowfrac_ex, wliq_snow_ex, wtot_snow_ex, dzh_snow_ex & ! -
+ & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
+ & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t)                        !out
+ & , shfl_s_ex, lhfl_s_ex, shfl_snow_ex, lhfl_snow_ex)                    !out
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -104,7 +105,7 @@ USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
       & RKAP     ,REPDU2   ,RZ0ICE   ,&                     !yoevdf  (& yos_exc)
       & RG       ,RD       ,RSIGMA   ,RTT      ,RETV     ,& !yomcst  (& yos_cst)
-      & RCPD                                                !yomcst  (& yos_cst)
+      & RCPD     ,RLVTT                                     !yomcst  (& yos_cst)
 USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
       & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
@@ -391,12 +392,12 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_2m_ex        ,u_10m_ex       ,v_10m_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
-  freshsnow_ex   ,snowfrac_ex          
+  freshsnow_ex   ,snowfrac_ex    ,subsfrac_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
 REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
   tch_ex         ,tcm_ex         ,tfv_ex               
 REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,nsfc_subs)                :: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
@@ -405,7 +406,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
 REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,nsfc_subs)                :: &
-  shfl_s_t       ,lhfl_s_t       ,shfl_snow_t    ,lhfl_snow_t   
+  shfl_s_ex      ,lhfl_s_ex      ,shfl_snow_ex   ,lhfl_snow_ex  
 TYPE(t_external_data), INTENT(IN)                                          :: &
   ext_data
 
@@ -430,13 +431,14 @@ REAL(KIND=JPRB) :: ZZ0MTI(KLON,KTILES) , ZZ0HTI(KLON,KTILES) ,&
 REAL(KIND=JPRB) :: ZFRMAX(KLON)   , ZFRLMAX(KLON)  , ZALB(KLON)     , &
                  & ZSRFD(KLON)    , ZWETL(KLON)    , ZWETH(KLON)    , &
                  & ZWETHS(KLON)   , ZWETB(KLON)    , ZKHLEV(KLON)   , &
+                 & ZCM(KLON,KTILES),ZCH(KLON,KTILES)                , &
                  & ZTSA(KLON)     , ZCSNW(KLON)    , ZSSRFL1(KLON)  , &
                  & ZCBLENDM(KLON) , ZCBLENDH(KLON) , ZSL(KLON)      , &
                  & ZQL(KLON)      , ZASL(KLON)     , ZBSL(KLON)     , &
                  & ZAQL(KLON)     , ZBQL(KLON)     , ZRHO(KLON)
 
 
-INTEGER(KIND=JPIM) :: JL, JTILE, IITT
+INTEGER(KIND=JPIM) :: JL, JTILE, JT, IITT
 LOGICAL :: LLINIT
 
 REAL(KIND=JPRB) :: ZDUA, ZZCDN, ZQSSN, ZCOR, ZRG, ZRTMST , &
@@ -619,7 +621,8 @@ DO JTILE=1,KTILES
    & ZZ0QTI(:,JTILE),ZZDLTI(:,JTILE),ZBUOMTI(:,JTILE),&
    & PUCURR,PVCURR,&
    & ZCFMTI(:,JTILE),PCFHTI(:,JTILE),&
-   & PCFQTI(:,JTILE),ZKHLEV)
+   & PCFQTI(:,JTILE),ZKHLEV,&
+   & ZCM(:,JTILE),   ZCH(:,JTILE))
 
   DO JL=KIDIA,KFDIA
     IF (JTILE == IFRMAX(JL)) THEN 
@@ -677,6 +680,15 @@ ENDDO
 
 !*         3.2a  CALL TERRA
 
+
+DO JTILE=1,nsfc_subs
+  DO JL=KIDIA,KFDIA
+    tch_ex(jl,jtile) = ZCH(jl,3) ! 3: interception reservoir, should be proper tile ???
+    tcm_ex(jl,jtile) = ZCM(jl,3) ! 3: interception reservoir, should be proper tile ???
+    tfv_ex(jl,jtile) = 1.0       ! laminar reduction factor for evaporation (Matthias) ????
+  ENDDO
+ENDDO
+
 CALL nwp_surface_edmf (&
    ext_data         = ext_data        , & !>in  
    jb               = jb              , & ! block  
@@ -715,7 +727,7 @@ CALL nwp_surface_edmf (&
    wliq_snow_ex     = wliq_snow_ex    , & ! liquid water content in the snow              (m H2O)
    wtot_snow_ex     = wtot_snow_ex    , & ! total (liquid + solid) water content of snow  (m H2O)
    dzh_snow_ex      = dzh_snow_ex     , & ! layer thickness between half levels in snow   (  m  )
-   subsfrac_ex      = PFRTI           , & ! tile fraction                                 (  1  )
+   subsfrac_ex      = subsfrac_ex     , & ! tile fraction                                 (  1  )
 !   
    prr_con_ex       = prr_con_ex      , & ! precipitation rate of rain, convective        (kg/m2*s)
    prs_con_ex       = prs_con_ex      , & ! precipitation rate of snow, convective        (kg/m2*s)
@@ -736,23 +748,40 @@ CALL nwp_surface_edmf (&
    t_g              = t_g             , & ! surface temperature (grid mean)               ( K )
    qv_s             = qv_s            , & ! surface specific humidity (grid mean)         (kg/kg)
 !
-   shfl_s_t         = shfl_s_t        , & ! sensible heat flux soil/air interface         (W/m2)
-   lhfl_s_t         = lhfl_s_t        , & ! latent   heat flux soil/air interface         (W/m2)
-   shfl_snow_t      = shfl_snow_t     , & ! sensible heat flux snow/air interface         (W/m2)
-   lhfl_snow_t      = lhfl_snow_t     )   ! latent   heat flux snow/air interface         (W/m2)
+   shfl_s_ex        = shfl_s_ex       , & ! sensible heat flux soil/air interface         (W/m2)
+   lhfl_s_ex        = lhfl_s_ex       , & ! latent   heat flux soil/air interface         (W/m2)
+   shfl_snow_ex     = shfl_snow_ex    , & ! sensible heat flux snow/air interface         (W/m2)
+   lhfl_snow_ex     = lhfl_snow_ex    )   ! latent   heat flux snow/air interface         (W/m2)
 
 
  DO JTILE=1,KTILES
    DO JL=KIDIA,KFDIA
-     IF ( ABS( shfl_s_t   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
-          ABS( shfl_snow_t(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
-          ABS( lhfl_s_t   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
-          ABS( lhfl_snow_t(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
-       write(*,*) 'TERRA: SHF-soil, SHF-snow, LHF-soil, LHF-snow ', snowfrac_ex(jl,jtile), &
-          shfl_s_t(jl,jtile), shfl_snow_t(jl,jtile), lhfl_s_t(jl,jtile), lhfl_snow_t(jl,jtile)
+     IF ( ABS( shfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
+          ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
+          ABS( lhfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
+          ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
+      write(*,*) 'surfexdriver: SHF-soil, SHF-snow, LHF-soil, LHF-snow ', snowfrac_ex(jl,jtile), &
+         shfl_s_ex(jl,jtile), shfl_snow_ex(jl,jtile), lhfl_s_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
      ENDIF
    ENDDO
  ENDDO
+
+!overwrite fluxes over land from TERRA back to EDMF code
+!...this needs to be done by tile properly???????
+DO JTILE=3,KTILES
+  DO JL=KIDIA,KFDIA
+    PAHFSTI(JL,JTILE) = 0.0_JPRB
+    PEVAPTI(JL,JTILE) = 0.0_JPRB
+    DO JT=1,nsfc_subs
+      PAHFSTI(JL,JTILE) = PAHFSTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
+          ( SHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+            SHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
+      PEVAPTI(JL,JTILE) = PEVAPTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
+          ( LHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+            LHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  )/RLVTT
+    ENDDO
+  ENDDO
+ENDDO
 
 !-------------------------------------------------------------------------
 
