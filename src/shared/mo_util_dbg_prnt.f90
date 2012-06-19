@@ -295,25 +295,6 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_dbg_prnt)
 
-  ! dimensions
-  !                           !  index 1:nproma
-  nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
-  ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
-
-  ! output channel: stderr
-  iout = nerr
-
-  ! compare defined source string with namelist-given output string
-  icheck_str_mod = 0
-  DO jstr = 1, dim_mod_tst
-    IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
-      &  icheck_str_mod = 1
-  END DO
-
-  ! if str_mod_src not found in str_mod_tst - no output
-  IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
-  IF (icheck_str_mod == 0 ) RETURN
-
 #ifdef __SX__
   ! valid g-format without offset of decimal point
   981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
@@ -337,13 +318,36 @@ CONTAINS
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
 #endif
 
-  strout=TRIM(str_prntdes)
-  strmod=TRIM(str_mod_src)
-
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
   ! for output at given index
 
+  !
+  ! All calculations are done inside this IF only
+  !
+
   IF (idbg_val >= idetail_src) THEN
+    !
+    ! dimensions
+    !                           !  index 1:nproma
+    nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
+    ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
+   
+    ! output channel: stderr
+    iout = nerr
+   
+    ! compare defined source string with namelist-given output string
+    icheck_str_mod = 0
+    DO jstr = 1, dim_mod_tst
+      IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
+        &  icheck_str_mod = 1
+    END DO
+   
+    ! if str_mod_src not found in str_mod_tst - no output
+    IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+    IF (icheck_str_mod == 0 ) RETURN
+   
+    strout=TRIM(str_prntdes)
+    strmod=TRIM(str_mod_src)
 
     ! check start and end index for output of vertical levels via namelist
     slev = 1
@@ -380,7 +384,33 @@ CONTAINS
   ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
   ! for MIN/MAX output:
 
+  !
+  ! All calculations are done inside this IF only
+  !
+
   IF (idbg_mxmn >= idetail_src ) THEN
+    !
+    ! dimensions
+    !                           !  index 1:nproma
+    nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
+    ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
+   
+    ! output channel: stderr
+    iout = nerr
+   
+    ! compare defined source string with namelist-given output string
+    icheck_str_mod = 0
+    DO jstr = 1, dim_mod_tst
+      IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
+        &  icheck_str_mod = 1
+    END DO
+   
+    ! if str_mod_src not found in str_mod_tst - no output
+    IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+    IF (icheck_str_mod == 0 ) RETURN
+   
+    strout=TRIM(str_prntdes)
+    strmod=TRIM(str_mod_src)
 
     ! check start and end index for output of vertical levels via namelist
     slev = 1
