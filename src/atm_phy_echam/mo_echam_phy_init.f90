@@ -509,7 +509,8 @@ CONTAINS
       ! Assign initial values for some components of the "field" and 
       ! "tend" state vectors.
 
-!$OMP PARALLEL WORKSHARE
+!$OMP PARALLEL 
+!$OMP WORKSHARE
       field% q(:,:,:,iqv)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv)
      !field% q(:,:,:,iqc)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqc)
      !field% q(:,:,:,iqi)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqi)
@@ -564,8 +565,12 @@ CONTAINS
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
+      tend% x_dtr(:,:,:)   = 0._wp  !"xtec" in ECHAM
+!$OMP END WORKSHARE
+
       IF (phy_config%ljsbach) THEN
 !!$ TR for JSBACH testing (energy balance)
+!$OMP WORKSHARE
       field% surface_temperature    (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testinf
       field% surface_temperature_old(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
       field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
@@ -610,10 +615,9 @@ CONTAINS
       field% glacier_runoff_acc     (:,  :) = 0._wp
       field% runoff_acc             (:,  :) = 0._wp
       field% drainage_acc           (:,  :) = 0._wp
+!$OMP END WORKSHARE
       END IF ! ljsbach
-
-       tend% x_dtr(:,:,:) = 0._wp  !"xtec" in ECHAM
-!$OMP END PARALLEL WORKSHARE
+!$OMP END PARALLEL
 
       IF (phy_config%lvdiff) THEN
 !$OMP PARALLEL
