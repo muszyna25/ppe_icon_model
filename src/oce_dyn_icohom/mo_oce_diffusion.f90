@@ -1368,12 +1368,6 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
   !-----------------------------------------------------------------------
   slev = 1
 
-  !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=5  ! output print level (1-5, fix)
-  CALL dbg_print('VelDifImplHomIn:field_col' ,field_column             ,str_module,idt_src)
-  CALL dbg_print('VelDifImplHomIn: diff_col' ,diff_column              ,str_module,idt_src)
-  !---------------------------------------------------------------------
-
   !gam(1:n_zlev)          = 0.0_wp
   a(slev:n_zlev)          = 0.0_wp
   b(slev:n_zlev)          = 0.0_wp
@@ -1382,6 +1376,12 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
   inv_zinv_i(slev:n_zlev) = 0.0_wp
   inv_zinv_m(slev:n_zlev) = 0.0_wp
   diff_column             = field_column
+
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('VelDifImplHomIn:field_col' ,field_column             ,str_module,idt_src)
+  CALL dbg_print('VelDifImplHomIn: diff_col' ,diff_column              ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
   all_edges => p_patch%edges%all
 
