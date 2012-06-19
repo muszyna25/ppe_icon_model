@@ -24,7 +24,7 @@ echo "GET_DATA.SMS"
 
 module load python
 
-LOGFILE="%SCBASEDIR%/%SUITE_NAME%/log/log.mars4icon.txt"
+LOGFILE="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/log.mars4icon.txt"
 SCRIPTDIR="%SCBASEDIR%/%SUITE_NAME%/def/icon_scripts"
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
 TMPDIR="${TEMP}"
@@ -45,10 +45,6 @@ then
     smsevent enable_build
 fi
 
-# NOTE: For the time being, dump state creation is
-#       enabled for every run:
-smsevent enable_dumpstate
-
 # Change directory ----------------------------
 smsevent change_dir
 cd ${IFSDATADIR}
@@ -56,7 +52,6 @@ cd ${IFSDATADIR}
 # Clean up ------------------------------------
 smsevent clear_directory
 find . -name "${LOGFILE}" -exec rm {} \;
-
 
 # Retrieve data from MARS ---------------------
 smsevent mars4icon

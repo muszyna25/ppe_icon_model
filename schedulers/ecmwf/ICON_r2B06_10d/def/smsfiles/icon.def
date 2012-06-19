@@ -29,11 +29,11 @@ set LAST_DATE     20191231
 
 # HPC environment:
 set SCHOST      c1a
-set SCBASEDIR   /perm/ms/de/dfi0
+set SCBASEDIR   /perm/ms/de/$USER
 set SCTEMP      /$SCHOST/tmp/ms/de/$USER/sms
 set SCLOGPORT   `expr 35000 + $UID `
 set SCLOGDIR    $SCTEMP
-set SCPERM      /perm/ms/de/dfi0
+set SCPERM      /perm/ms/de/$USER
 
 # place where generated job scripts are stored
 set SMSHOME     "$HOME/sms"
