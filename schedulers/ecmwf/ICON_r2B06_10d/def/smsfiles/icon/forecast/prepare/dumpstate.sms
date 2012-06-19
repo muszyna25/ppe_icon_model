@@ -25,16 +25,16 @@
 stage=dump
 EXP=%SUITE_NAME%
 
-# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
-REQUEST_DATE_FMT=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printfmt -d %SMSDATE%00 -s 2`
-
-
 # *************************************************
 
 echo "DUMPSTATE.SMS"
 set -x
 module load python
+
+# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
+REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+REQUEST_DATE_FMT=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printfmt -d %SMSDATE%00 -s 2`
+
 
 # directory where the case setup is stored
 SETUPDIR="%SCBASEDIR%/%SUITE_NAME%/def"
