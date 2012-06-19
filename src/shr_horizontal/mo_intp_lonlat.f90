@@ -1702,7 +1702,7 @@
                 & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
                 &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
 !CDIR EXPAND=4
-              p_out(jc,jk,jb) =  SUM( &
+              vintp =  SUM( &
                 & (/ ( ptr_coeff(i, jc, jb) * &
                 &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
                 &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
@@ -1743,7 +1743,7 @@
                 & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
                 &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
 !CDIR EXPAND=10
-              p_out(jc,jk,jb) =  SUM( &
+              vintp =  SUM( &
                 & (/ ( ptr_coeff(i, jc, jb) * &
                 &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
                 &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
@@ -1784,7 +1784,7 @@
                 & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
                 &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
 !CDIR EXPAND=13
-              p_out(jc,jk,jb) =  SUM( &
+              vintp =  SUM( &
                 & (/ ( ptr_coeff(i, jc, jb) * &
                 &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
                 &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )

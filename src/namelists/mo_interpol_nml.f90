@@ -193,7 +193,7 @@ CONTAINS
     ! stencil size: 4  = nearest neighbor, 
     !               13 = vertex stencil,
     !               rbf_c2grad_dim = edge stencil
-    rbf_dim_c2l  = 9
+    rbf_dim_c2l  = 10
     ! no monotonicity cutoff by default:
     l_mono_c2l   = .FALSE.
 
