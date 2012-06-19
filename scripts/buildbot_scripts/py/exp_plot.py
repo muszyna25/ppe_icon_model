@@ -1,6 +1,7 @@
 #================================== NEW ================================
 
 from buildbot.status.web.base import HtmlResource
+from twisted.web.util import Redirect
 import os
 
 class EXP_plot(HtmlResource):
@@ -27,6 +28,7 @@ class EXP_plot(HtmlResource):
 						
     def body(self, request):
         global exp_plot_Info
+	global exp_file_Info
         global l_nightly
 	self.get_info(request)
 	
@@ -123,11 +125,10 @@ class EXP_plot(HtmlResource):
           <col width="100">
           <col width="250">
         </colgroup>
-
+        <form name=date_form method="POST" action="plot/select" class="command selectfile">
         <tr>
           <td><b>Date</b> <br> from/to</td>
           <td>
-	    <form name=date_form>
 	    
 	'''
         if l_nightly == "nightly":
@@ -135,7 +136,35 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "<select>\n"
 	  
-        data += "<option selected>" + tmp_Date.split('-')[0] + "</option></select>\n"
+        data += "<option selected>" + tmp_Date.split('-')[0] + "</option>\n"
+        data += "</select>\n"
+	
+        if l_nightly == "nightly":
+#	  data += "<select  disabled=\"disabled\">\n"
+          data += "<select>\n"
+	else:
+	  data += "<select>\n"
+
+        data += "<option  selected>" + tmp_Date.split('-')[1] + "</option>"
+        data += "</select>\n"
+	
+	if l_nightly == "nightly":
+	  data += "<select  disabled=\"disabled\">\n"
+	else:
+	  data += "<select>\n"
+
+        data += "<option selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option>\n"
+        data += "</select>\n"
+	
+#        data +="</td></tr><tr><td></td><td>" 
+	data +="<br>"
+
+        if l_nightly == "nightly":
+	  data += "<select  disabled=\"disabled\">\n"
+	else:
+	  data += "<select>\n"
+
+        data += "<option selected>" + tmp_Date.split('-')[0] + "</option>"
         data += "</select>\n"
 	
         if l_nightly == "nightly":
@@ -143,104 +172,72 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "<select>\n"
 
-        data += "<option selected>" + tmp_Date.split('-')[1] + "</option></select>"
+        data += "<option selected>" + tmp_Date.split('-')[1] + "</option>"
         data += "</select>\n"
 	
-	data += "<select  disabled=\"disabled\">\n"
-        data += "<option selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option></select>\n"
+        if l_nightly == "nightly":
+	  data += "<select  name=\"Date\" disabled=\"disabled\">\n"
+	else:
+	  data += "<select name=\"Date\">\n"
+
+        data += "<option selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option>"
         data += "</select>\n"
 	
 	data += '''
-	    </form>
-	    <form name=date_form>
-	'''
-
-        if l_nightly == "nightly":
-	  data += "<select  disabled=\"disabled\">\n"
-	else:
-	  data += "<select>\n"
-
-        data += "<option selected>" + tmp_Date.split('-')[0] + "</option></select>"
-        data += "</select>\n"
-	
-        if l_nightly == "nightly":
-	  data += "<select  disabled=\"disabled\">\n"
-	else:
-	  data += "<select>\n"
-
-        data += "<option selected>" + tmp_Date.split('-')[1] + "</option></select>"
-        data += "</select>\n"
-	
-        if l_nightly == "nightly":
-	  data += "<select  disabled=\"disabled\">\n"
-	else:
-	  data += "<select>\n"
-
-        data += "<option selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option></select>"
-        data += "</select>\n"
-	
-	data += '''
-	    </form>
           </td>
         </tr>
         <tr>
           <td><b>Rev. Nr.</b><br>from/to</td>
             <td>
-	      <form name=ref_form>
-		<select name=mytextarea disabled="disabled">
 	'''
-	data += "<option selected>" + svn_Rev + "</option></select></form>"
 	
-	data += "<form name=ref_form >"
-	data += "  <select  disabled=\"disabled\">\n"
+	data += "  <select  name=\"rev\" disabled=\"disabled\">\n"
+	data += "    <option selected>" + svn_Rev + "</option>\n"
+	data += "  </select>\n<br>\n"
+        
+	data += "  <select  name=\"rev\" disabled=\"disabled\">\n"
 	data += "    <option selected>" + svn_Rev + "</option>\n"
 	data += "  </select>\n"
-	data += "</form>"
-	
+
 	data += '''
             </td>
           </tr>
           <tr>
             <td width="100px"><b>Computer</b></td>
             <td>
-	      <form name=comp_form>
-		<select name=mytextarea disabled="disabled">
+		<select name=\"comp\" disabled="disabled">
 		  <option selected> all </option>
 		</select>
-	    </form>
           </td>
         </tr>
         <tr>
           <td><b>Build Nr.</b></td>
           <td>
-	    <form name=build_form>
-	      <select name=mytextarea disabled="disabled">
+	      <select name=\"build\" disabled="disabled">
 		<option  selected> all </option>
 	      </select>
-	    </form>
           </td>
         </tr>
         <tr>
           <td><b>Exp.</b></td>
           <td>
-	    <form name=exp_form >
-	      <select name=mytextarea disabled="disabled">
+	      <select name=\"exp\"">
 	      '''
 	      
 	data += "<option selected>" + exp_plot_Info + "</option>"
 	
 	data += '''
 	      </select>
-	    </form>
           </td>
         </tr>
         <tr>
           <td><b>File</b></td>
             <td>
-	      <form name=file_form>
-		<select>
+		<select name=\"file\">
 	      '''
-        exp_file_Info = Archive_Button_Dict['file'][0]
+	      
+        if exp_file_Info == "NotSet":
+	  exp_file_Info = Archive_Button_Dict['file'][0].strip(".png")
 
         for f in Archive_Button_Dict['file']:
 	  if f.strip(".png") == exp_file_Info:
@@ -250,17 +247,17 @@ class EXP_plot(HtmlResource):
 
 	data += '''
 	        </select>
-	      </form>
             </td>
           </td>
         </tr>
 	'''
         
         data += "<tr><td><b>Search</b><td>\n"
-        data += "  <input type=\"button\" name=\"Text 1\" value=\"OK\" >\n"
+        data += "  <input type=\"submit\" name=\"Text 1\" value=\"OK\" >\n"
         data += "</td></tr>\n"
         
 	data += '''
+	</form>
       </table>
     </div>
     <div id="arch_file_name">
@@ -328,7 +325,6 @@ class EXP_plot(HtmlResource):
             else:
               data += "<a href=\"#\" class=\"link\"><span style=\"color: #FF0000;\"> No File exist !!! </span></a><br>\n"
             
-            data += "<!--- Ende für file -->\n"
             data += "      </div>\n"
            
           data += "    </div>\n"
@@ -369,7 +365,7 @@ class EXP_plot(HtmlResource):
           data += "            <td> <input type=\"button\" name=\"Text 1\" value=\"Replace\" ></td>\n"
           data += "</tr>\n      </table>\n"
           data += "    </td></tr>\n    <tr><td>\n"
-	  data += "      <img src=\"archive/ref_"+exp_plot_Info+"/"+ref_date+"/buildbot/"+ref_rev+"/"+ref_comp+"/"+ref_build+"/"+exp_plot_Info+"/plots/"+exp_file_Info+"\"/>\n"
+	  data += "      <img src=\"archive/ref_"+exp_plot_Info+"/"+ref_date+"/buildbot/"+ref_rev+"/"+ref_comp+"/"+ref_build+"/"+exp_plot_Info+"/plots/"+exp_file_Info+".png\"/>\n"
 	  data += "    </td>"
 	  data += "  </tr>"
 	  data += "</table>"
@@ -384,7 +380,7 @@ class EXP_plot(HtmlResource):
           data += "            <td> <input type=\"button\" name=\"Text 1\" value=\"Replace\" ></td>\n"
           data += "</tr>\n      </table>\n"
           data += "    </td></tr>\n    <tr><td>\n"
-#	  data += "      <img src=\"archive/ref_" + exp_plot_Info + "/" + ref_date + "/buildbot/" + ref_rev + "/" + ref_comp + "/" + ref_build + "/" + exp_plot_Info + "/plots/" + exp_file_Info + "\" />\n"
+#	  data += "      <img src=\"archive/ref_" + exp_plot_Info + "/" + ref_date + "/buildbot/" + ref_rev + "/" + ref_comp + "/" + ref_build + "/" + exp_plot_Info + "/plots/" + exp_file_Info + ".png\" />\n"
 	  data += "    </td>"
 	  data += "  </tr>"
 	  data += "</table>"
@@ -413,7 +409,7 @@ class EXP_plot(HtmlResource):
 	        data += "    </table>\n"
                 data += "  </td></tr>\n"
                 data += "  <tr><td>\n"        
-	        data += "    <img src=\"archive/" + svn_Date + "/buildbot/"+ svn_Rev + "/" + comp +"/"+ build + "/" + exp_plot_Info + "/plots/" + exp_file_Info + "\" />\n"
+	        data += "    <img src=\"archive/" + svn_Date + "/buildbot/"+ svn_Rev + "/" + comp +"/"+ build + "/" + exp_plot_Info + "/plots/" + exp_file_Info + ".png\" />\n"
 	        data += "  </td>\n"
 	        data += "</tr>\n"
         data += "</table>\n"
@@ -424,12 +420,28 @@ class EXP_plot(HtmlResource):
         '''
 
         return data
-    
+
+    def select(self, req):
+      print "====== select ======"
+      print "web select "
+      print req
+      print req.args
+      print "====== select ======"
+      e = req.args.get("exp",[None])[0]
+      f = req.args.get("file",[None])[0]
+      return Redirect("../plot?exp="+e+"&file="+f+"&modus=nightly")
+
+    def getChild(self, path, req):
+      if path == "select":
+        return self.select(req)
+
     def get_info(self, request):
         global exp_plot_Info
+	global exp_file_Info
         global l_nightly
 	
         exp_plot_Info="NotSet"
+	exp_file_Info="NotSet"
         l_nightly="NotSet"
         
         if "exp" in request.args:
@@ -443,7 +455,13 @@ class EXP_plot(HtmlResource):
             l_nightly = request.args["modus"][0]
           except ValueError:
             pass
-	  
+        
+	if "file" in request.args:
+	  try:
+	    exp_file_Info = request.args["file"][0]
+	  except ValueError:
+	    pass
+							     
         return None
 
 #================================== NEW ================================
