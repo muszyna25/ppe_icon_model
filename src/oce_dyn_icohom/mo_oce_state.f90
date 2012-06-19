@@ -1288,7 +1288,7 @@ CONTAINS
       &          t_cf_var('g_nm1_c_v','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      &          lcontainer=.TRUE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_nm1_c_v_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
       CALL add_ref(ocean_default_list,'g_nm1_c_v',&
@@ -1306,7 +1306,7 @@ CONTAINS
       &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('g_nimd_c_v','',''),&
       &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      &          lcontainer=.TRUE., loutput=.FALSE.)
     ALLOCATE(p_os_aux%g_nimd_c_v_tracer_ptr(no_tracer))
     DO jtrc = 1,no_tracer
       CALL add_ref(ocean_default_list,'g_nimd_c_v',&
