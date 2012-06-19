@@ -190,7 +190,7 @@ CONTAINS
                   wliq_snow_ex     , & ! liquid water content in the snow              (m H2O)
                   wtot_snow_ex     , & ! total (liquid + solid) water content of snow  (m H2O)
                   dzh_snow_ex          ! layer thickness between half levels in snow   (  m  )
-  REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(INOUT) :: &
+  REAL(wp), DIMENSION(nproma,nsfc_subs), INTENT(IN) :: &
                   subsfrac_ex
   REAL(wp), DIMENSION(nproma), INTENT(IN) ::    &
                   prr_con_ex       , & ! precipitation rate of rain, convective        (kg/m2*s)
@@ -622,7 +622,7 @@ ENDDO
           w_i_ex      (jc,isubs)  = w_i_new_t     (ic,isubs)             
           freshsnow_ex(jc,isubs)  = freshsnow_t   (ic,isubs) 
           snowfrac_ex (jc,isubs)  = snowfrac_t    (ic,isubs) 
-          subsfrac_ex (jc,isubs)  = subsfrac_t    (ic,isubs)
+!         subsfrac_ex (jc,isubs)  = subsfrac_t    (ic,isubs)   !not yet changing fractions ???
           runoff_s_ex (jc,isubs)  = runoff_s_t    (ic,isubs)  
           runoff_g_ex (jc,isubs)  = runoff_g_t    (ic,isubs)  
           shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
