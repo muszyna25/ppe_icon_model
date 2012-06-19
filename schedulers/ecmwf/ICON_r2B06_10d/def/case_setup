@@ -17,7 +17,7 @@
 
 
 # absolute path to output directory
-EXPDIR=${outbasedir}/output/${EXP}
+EXPDIR=${outbasedir}/output/${EXP}/${REQUEST_DATE}
 # absolute path to input directory
 INDIR=${basedir}/input/grids
 # absolute path to external parameter directory

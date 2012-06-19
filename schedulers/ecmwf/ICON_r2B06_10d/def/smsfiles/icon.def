@@ -184,7 +184,7 @@ suite icon
             trigger (/icon/init/setup == complete)
             #
             task init_svn 
-                complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) 
+                complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (/icon/init/setup:enable_build)
                 #
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
@@ -200,7 +200,7 @@ suite icon
 
             task init_build
                 trigger (init_svn==complete)
-                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) 
+                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (/icon/init/setup:enable_build)
                 #
                 on_hpc_parallel
                 edit SCJOBTYPE parallel

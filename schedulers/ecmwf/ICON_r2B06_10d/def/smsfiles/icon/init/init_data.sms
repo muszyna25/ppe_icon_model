@@ -30,7 +30,7 @@ REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate 
 
 IFSCONFIGFILE="%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf"
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
-IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%"
+IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%/${REQUEST_DATE}"
 GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
 CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
 RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
@@ -52,7 +52,8 @@ if [ ! -d ${IFSDATAOUTDIR} ]; then
     mkdir -p ${IFSDATAOUTDIR}
 fi
 
-cp ${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb ${IFSDATAOUTDIR}
+# move grib file to IFS2ICON directory
+mv ${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb ${IFSDATAOUTDIR}
 IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_${REQUEST_DATE}.grb"
 
 module unload cdo
