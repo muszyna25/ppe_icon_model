@@ -39,6 +39,7 @@ MODULE mo_vdiff_solver
   USE mo_exception,         ONLY: message, message_text, finish
 #ifdef __ICON__
   USE mo_physical_constants,ONLY: grav, vtmpc2, cpd, als, alv
+  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
                                 & tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
@@ -622,12 +623,13 @@ CONTAINS
   !! moisture, to be used by the surface models (ocean, sea-ice, land).
   !!
   SUBROUTINE matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
-                                      & pcair, pcsat, aa, bb,                    &! in
+                                      & aa, bb,                                  &! in
                                       & aa_btm, bb_btm,                          &! inout
-                                      & pen_h, pfn_h, pen_qv, pfn_qv             )! out
+                                      & pen_h, pfn_h, pen_qv, pfn_qv,            &! out
+                                      & pcair,                                   &! in
+                                      & pcsat)                                    ! in
 
     INTEGER,INTENT(IN)     :: kproma, kbdim, klev, ksfc_type, idx_lnd
-    REAL(wp),INTENT(IN)    :: pcair(kbdim), pcsat(kbdim)
     REAL(wp),INTENT(IN)    :: aa    (kbdim,klev,3,imh:imqv)
     REAL(wp),INTENT(IN)    :: bb    (kbdim,klev,ih:iqv)
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
@@ -638,6 +640,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pen_qv(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT) :: pfn_qv(kbdim,ksfc_type)
 
+    REAL(wp),OPTIONAL,INTENT(IN)    :: pcair(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: pcsat(kbdim)
+
     INTEGER  :: jsfc, klevm1
 
     klevm1 = klev - 1
@@ -647,7 +652,7 @@ CONTAINS
     !---------------------------------------------------------
     ! Evapotranspiration has to be considered over land 
 
-    IF (idx_lnd<=ksfc_type) THEN
+    IF (phy_config%ljsbach .AND. idx_lnd<=ksfc_type) THEN
 
       jsfc = idx_lnd
 
@@ -655,7 +660,7 @@ CONTAINS
                                    & - pcair(1:kproma)*aa_btm(1:kproma,3,jsfc,imqv)
       aa_btm(1:kproma,3,jsfc,imqv) =   pcsat(1:kproma)*aa_btm(1:kproma,3,jsfc,imqv)
 
-    END IF 
+    END IF ! ljsbach
 
     ! Bottom level elimination for all surface types
 

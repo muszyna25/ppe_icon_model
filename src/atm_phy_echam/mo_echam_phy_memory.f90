@@ -61,7 +61,7 @@ MODULE mo_echam_phy_memory
   USE mo_advection_config,    ONLY: advection_config
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 !   USE mo_echam_phy_nml,       ONLY: lvdiff
-   USE mo_echam_phy_config,   ONLY: get_lvdiff
+   USE mo_echam_phy_config,   ONLY: get_lvdiff, get_ljsbach
 !   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_model_domain,        ONLY: t_patch
 
@@ -222,6 +222,56 @@ MODULE mo_echam_phy_memory
                              !< interface of the lowest model layer.
                              !< Computed in "vdiff" by getting the square root of
                              !< thvvar(:,nlev-1,:). Used by "cucall".
+!!$ TR
+!! JSBACH for testing (energy balance)
+     REAL(wp),POINTER ::       &   
+      & surface_temperature      (:,  :),  &!< [K] land surface temperature of actual time step
+      & surface_temperature_old  (:,  :),  &!< [K] land surface temperature of last time step
+      & surface_temperature_rad  (:,  :),  &!< [K] radiative sfc. temperature
+      & surface_temperature_eff  (:,  :),  &!< [K] effective sfc. temperature
+      & evapotranspiration       (:,  :),  &!< [kg(H2O)/m-2s-1] evapotranspiration inst. from land
+      & c_soil_temperature1      (:,  :),  &!< [ ] soil temperature parameter of uppermost soil layer
+      & c_soil_temperature2      (:,  :),  &!< [ ] soil temperature parameter of second soil layer
+      & c_soil_temperature3      (:,  :),  &!< [ ] soil temperature parameter of third soil layer
+      & c_soil_temperature4      (:,  :),  &!< [ ] soil temperature parameter of fourth soil layer
+      & c_soil_temperature5      (:,  :),  &!< [ ] soil temperature parameter of fifth soil layer
+      & d_soil_temperature1      (:,  :),  &!< [ ] soil temperature parameter of uppermost soil layer
+      & d_soil_temperature2      (:,  :),  &!< [ ] soil temperature parameter of second soil layer
+      & d_soil_temperature3      (:,  :),  &!< [ ] soil temperature parameter of third soil layer
+      & d_soil_temperature4      (:,  :),  &!< [ ] soil temperature parameter of fourth soil layer
+      & d_soil_temperature5      (:,  :),  &!< [ ] soil temperature parameter of fifth soil layer
+      & soil_temperature1        (:,  :),  &!< [K] soil temperature parameter of uppermost soil layer
+      & soil_temperature2        (:,  :),  &!< [K] soil temperature parameter of second soil layer
+      & soil_temperature3        (:,  :),  &!< [K] soil temperature parameter of third soil layer
+      & soil_temperature4        (:,  :),  &!< [K] soil temperature parameter of fourth soil layer
+      & soil_temperature5        (:,  :),  &!< [K] soil temperature parameter of fifth soil layer
+      & heat_capacity            (:,  :),  &!< [ ] heat capacity of the soil
+      & ground_heat_flux         (:,  :),  &!< [W/m2] land ground heat flux
+      & swnet                    (:,  :),  &!< [W/m2] net surface solar radiation
+      & time_steps_soil          (:,  :)    !<     number of time steps since initialisation of the soil
+
+!!$ TR
+!! JSBACH for testing (hydrology)
+     REAL(wp),POINTER ::       &   
+      & moisture1         (:,  :),  &!< [m] soil water in 1. soil layer
+      & moisture2         (:,  :),  &!< [m] soil water in 1. soil layer
+      & moisture3         (:,  :),  &!< [m] soil water in 1. soil layer
+      & moisture4         (:,  :),  &!< [m] soil water in 1. soil layer
+      & moisture5         (:,  :),  &!< [m] soil water in 1. soil layer
+      & csat              (:,  :),  &!< 
+      & cair              (:,  :),  &!< 
+      & csat_transpiration(:,  :),  &!< 
+      & sat_surface_specific_humidity(:,  :),  &!< 
+      & skin_reservoir    (:,  :),  &!< 
+      & snow_fract        (:,  :),  &!< 
+      & snow              (:,  :),  &!< 
+      & snow_canopy       (:,  :),  &!<
+      & snow_melt         (:,  :),  &!< 
+      & snow_acc          (:,  :),  &!<
+      & snow_melt_acc     (:,  :),  &!< 
+      & glacier_runoff_acc(:,  :),  &!< 
+      & runoff_acc        (:,  :),  &!<
+      & drainage_acc      (:,  :)    !<
 
     ! Turbulence
 
@@ -824,6 +874,228 @@ CONTAINS
     CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                &
               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
+    IF (get_ljsbach()) THEN
+!!$ TR: variables for JSBACH testing (energy balance)
+
+    cf_desc    = t_cf_var('surface_temperature', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'surface_temperature', field%surface_temperature,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('surface_temperature_old', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'surface_temperature_old', field%surface_temperature_old, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('surface_temperature_rad', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'surface_temperature_rad', field%surface_temperature_rad, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('evapotranspiration', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'evapotranspiration', field%evapotranspiration, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('surface_temperature_eff', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'surface_temperature_eff', field%surface_temperature_eff, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('soil_temperature1', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'soil_temperature1', field%soil_temperature1,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('soil_temperature2', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'soil_temperature2', field%soil_temperature2,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('soil_temperature3', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'soil_temperature3', field%soil_temperature3,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('soil_temperature4', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'soil_temperature4', field%soil_temperature4,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('soil_temperature5', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'soil_temperature5', field%soil_temperature5,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('c_soil_temperature1', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'c_soil_temperature1', field%c_soil_temperature1,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('c_soil_temperature2', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'c_soil_temperature2', field%c_soil_temperature2,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('c_soil_temperature3', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'c_soil_temperature3', field%c_soil_temperature3,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('c_soil_temperature4', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'c_soil_temperature4', field%c_soil_temperature4,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('c_soil_temperature5', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'c_soil_temperature5', field%c_soil_temperature5,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('d_soil_temperature1', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'d_soil_temperature1', field%d_soil_temperature1,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('d_soil_temperature2', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'d_soil_temperature2', field%d_soil_temperature2,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('d_soil_temperature3', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'d_soil_temperature3', field%d_soil_temperature3,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('d_soil_temperature4', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'d_soil_temperature4', field%d_soil_temperature4,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('d_soil_temperature5', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'d_soil_temperature5', field%d_soil_temperature5,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('heat_capacity', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'heat_capacity', field%heat_capacity,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('ground_heat_flux', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'ground_heat_flux', field%ground_heat_flux,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('swnet', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'swnet', field%swnet,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('time_steps_soil', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'time_steps_soil', field%time_steps_soil,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+!!$ TR: variables for JSBACH testing (hydrology)
+
+    cf_desc    = t_cf_var('moisture1', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'moisture1', field%moisture1,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('moisture2', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'moisture2', field%moisture2,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('moisture3', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'moisture3', field%moisture3,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('moisture4', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'moisture4', field%moisture4,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('moisture5', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'moisture5', field%moisture5,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('csat', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'csat', field%csat,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('cair', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'cair', field%cair,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('csat_transpiration', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'csat_transpiration', field%csat_transpiration, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('sat_surface_specific_humidity', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'sat_surface_specific_humidity', &
+                & field%sat_surface_specific_humidity,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('skin_reservoir', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'skin_reservoir', field%skin_reservoir,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('snow_fract', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_fract', field%snow_fract,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('snow', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow', field%snow,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('snow_canopy', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_canopy', field%snow_canopy,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('snow_melt', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_melt', field%snow_melt,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('snow_acc', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_acc', field%snow_acc,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('snow_melt_acc', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_melt_acc', field%snow_melt_acc,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('glacier_runoff_acc', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'glacier_runoff_acc', field%glacier_runoff_acc, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('runoff_acc', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'runoff_acc', field%runoff_acc,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('drainage_acc', '', '')
+    grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'drainage_acc', field%drainage_acc,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    END IF ! ljsbach
 
     !---- 3D variables defined at layer interfaces ----
 

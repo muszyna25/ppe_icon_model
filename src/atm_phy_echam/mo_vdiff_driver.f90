@@ -227,6 +227,8 @@ CONTAINS
   REAL(wp) :: zthetal_b(kbdim)  !< liquid (and ice?) pot. temp.
   REAL(wp) :: zqsat_b  (kbdim)  !< specific humidity at saturation
   REAL(wp) :: zlh_b    (kbdim)  !< latent heat
+  REAL(wp) :: zcsat_b  (kbdim)  !< area fraction with wet land surface
+  REAL(wp) :: zcair_b  (kbdim)  !< area fraction with wet land surface (air)
 
   REAL(wp) :: zconst
 
@@ -289,6 +291,7 @@ CONTAINS
                          & zqsat_b  (:),    zlh_b    (:),         &! in
                          & ztheta_b (:),    zthetav_b(:),         &! in
                          & zthetal_b(:),    paclc (:,klev),       &! in
+                         & zcsat_b(:),      zcair_b(:),           &! in
                          & zthvvar(:,klevm1),                     &! in
 #ifdef __ICON__
 #else
@@ -303,7 +306,7 @@ CONTAINS
                          & zprfac (:,klev), zrhoh  (:,klev),      &! out
                          & ztkevn (:,klev), zthvvar(:,klev),      &! out
                          & zqshear(:,klev),                       &! out, for "vdiff_tendencies"
-                         &  pustar(:)                             )! out, for "atm_exchange_coeff"
+                         & pustar(:)                             )! out, for "atm_exchange_coeff"
                                                                    ! at next time step
 
   !-----------------------------------------------------------------------

@@ -71,13 +71,14 @@ MODULE mo_echam_phy_nml
   LOGICAL :: lice       !< .true. for sea-ice temperature calculation
   LOGICAL :: lmeltpond  !< .true. for calculation of meltponds
   LOGICAL :: lmlo       !< .true. for mixed layer ocean
+  LOGICAL :: ljsbach    !< .true. for calculating the JSBACH land surface
   LOGICAL :: lhd        !< .true. for hydrologic discharge model
 !!$  LOGICAL :: lmidatm    !< .true. for middle atmosphere model version
 
   NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
                          & lcover, lssodrag, lgw_hines, &
                          & llandsurf, lice, lmeltpond,  &
-                         & lmlo, lhd !!$, lmidatm
+                         & lmlo, ljsbach, lhd !!$, lmidatm
 
 CONTAINS
   !>
@@ -101,6 +102,7 @@ CONTAINS
     lice      = .FALSE.
     lmeltpond = .FALSE.
     lmlo      = .FALSE.
+    ljsbach   = .FALSE.
     lhd       = .FALSE.
 !!$    lmidatm   = .FALSE.
 
@@ -158,6 +160,7 @@ CONTAINS
     echam_phy_config% lice      = lice                                                
     echam_phy_config% lmeltpond = lmeltpond                                           
     echam_phy_config% lmlo      = lmlo                                                
+    echam_phy_config% ljsbach   = ljsbach
     echam_phy_config% lhd       = lhd                                                 
 !!$    echam_phy_config% lmidatm   = lmidatm  
 

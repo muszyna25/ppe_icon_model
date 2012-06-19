@@ -44,6 +44,7 @@ MODULE mo_echam_phy_config
   PUBLIC :: configure_echam_phy                       !< subroutine
   PUBLIC :: get_lrad, get_lcond, get_lcover        !< functions
   PUBLIC :: get_lconv, get_lvdiff, get_lgw_hines   !< functions
+  PUBLIC :: get_ljsbach
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -65,6 +66,7 @@ MODULE mo_echam_phy_config
     LOGICAL :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL :: lmeltpond   !<  .true. for calculation of meltponds
     LOGICAL :: lmlo        !<  .true. for mixed layer ocean
+    LOGICAL :: ljsbach     !<  .true. for calculating the JSBACH land surface
     LOGICAL :: lhd         !<  .true. for hydrologic discharge model
 !!$    LOGICAL :: lmidatm     !<  .true. for middle atmosphere model version
 
@@ -154,5 +156,10 @@ CONTAINS
   LOGICAL FUNCTION get_lgw_hines()
     get_lgw_hines = echam_phy_config%lgw_hines
   END FUNCTION get_lgw_hines
+  !>
+  !!
+  LOGICAL FUNCTION get_ljsbach()
+    get_ljsbach = echam_phy_config%ljsbach
+  END FUNCTION get_ljsbach
 
 END MODULE mo_echam_phy_config

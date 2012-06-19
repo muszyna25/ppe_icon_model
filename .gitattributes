@@ -667,6 +667,7 @@ run/grid.create_torus_grid -text
 run/grid.decompose_metis -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
+run/jsbach_test_ape -text
 run/mapfile_vlist.txt -text
 run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
@@ -1004,6 +1005,8 @@ src/atm_phy_echam/mo_echam_phy_memory.f90 -text
 src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
+src/atm_phy_echam/mo_jsbach_interface_icon.f90 -text
+src/atm_phy_echam/mo_soil_icon.f90 -text
 src/atm_phy_echam/mo_ssodrag.f90 -text
 src/atm_phy_echam/mo_ssortns.f90.not_used -text
 src/atm_phy_echam/mo_surface.f90 -text
@@ -1014,6 +1017,11 @@ src/atm_phy_echam/mo_vdiff_downward_sweep.f90 -text
 src/atm_phy_echam/mo_vdiff_driver.f90 -text
 src/atm_phy_echam/mo_vdiff_solver.f90 -text
 src/atm_phy_echam/mo_vdiff_upward_sweep.f90 -text
+src/atm_phy_echam/soil5layer.f90 -text
+src/atm_phy_echam/update_soiltemp_icon.f90 -text
+src/atm_phy_echam/update_surf_down.f90 -text
+src/atm_phy_echam/update_surf_up.f90 -text
+src/atm_phy_echam/update_surfacetemp_icon.f90 -text
 src/atm_phy_edmf/mo_cuadjtq_2.f90 -text
 src/atm_phy_edmf/mo_edmf_param.f90 -text
 src/atm_phy_edmf/mo_sppcfl.f90 -text
@@ -1134,6 +1142,7 @@ src/configure_model/mo_ha_dyn_config.f90 -text
 src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
+src/configure_model/mo_lnd_jsbach_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
 src/configure_model/mo_name_list_output_config.f90 -text
@@ -1241,6 +1250,7 @@ src/namelists/mo_ha_dyn_nml.f90 -text
 src/namelists/mo_icon_testbed_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
+src/namelists/mo_lnd_jsbach_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_mtgrm_nml.f90 -text

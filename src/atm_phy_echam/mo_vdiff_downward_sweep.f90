@@ -43,6 +43,7 @@ MODULE mo_vdiff_downward_sweep
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
+  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
@@ -84,7 +85,10 @@ CONTAINS
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
-                       & pzthvvar,   pztkevn                            )! out
+                       & pzthvvar,   pztkevn,                           &! out
+                       & pcsat,                                         &! in
+                       & pcair)                                          ! in
+
 
     LOGICAL, INTENT(IN) :: lsfc_mom_flux, lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
@@ -178,6 +182,10 @@ CONTAINS
       & pzthvvar  (kbdim,klev)     ,&!<
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
+    REAL(wp), OPTIONAL, INTENT(IN) ::          &
+      & pcsat     (kbdim)          ,&!< area fraction with wet land surface
+      & pcair     (kbdim)            !< area fraction with wet land surface
+
     ! Local variables
 
     REAL(wp) :: zfactor(kbdim,klev)   !< prefactor for the exchange coefficients
@@ -232,7 +240,38 @@ CONTAINS
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
-  
+
+    IF (phy_config%ljsbach) THEN  
+    CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
+                           & idx_wtr, idx_ice, idx_lnd,             &! in
+                           & lsfc_mom_flux, lsfc_heat_flux,         &! in
+                           & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
+                           & pfrc(:,:),       pghpbl(:),            &! in
+                           & pocu(:),         pocv(:),   ppsfc(:),  &! in
+                           & pum1(:,klev),    pvm1  (:,klev),       &! in
+                           & ptm1(:,klev),    pgeom1(:,klev),       &! in
+                           & pqm1(:,klev),    pxm1  (:,klev),       &! in
+                           & zqsat_b  (:),    zlh_b    (:),         &! in
+                           & ztheta_b (:),    zthetav_b(:),         &! in
+                           & zthetal_b(:),    paclc (:,klev),       &! in
+                           & pzthvvar(:,klevm1),                    &! in
+#ifdef __ICON__
+#else
+                           & ptkem1(:,klev),  ptkem0(:,klev),       &! inout
+#endif
+                           & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
+                           & pri    (:,klev),                       &! out
+                           & pcfm   (:,klev), pcfm_tile(:,:),       &! out
+                           & pcfh   (:,klev), pcfh_tile(:,:),       &! out
+                           & pcfv   (:,klev),                       &! out
+                           & pcftke (:,klev), pcfthv  (:,klev),     &! out
+                           & zfactor(:,klev), prhoh   (:,klev),     &! out
+                           & pztkevn(:,klev), pzthvvar(:,klev),     &! out
+                           & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
+                           & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
+                           & pcsat = pcsat(:),                      &! in
+                           & pcair = pcair(:))                       ! in
+    ELSE ! ljsbach
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & lsfc_mom_flux, lsfc_heat_flux,         &! in
@@ -261,6 +300,7 @@ CONTAINS
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            &  pustar(:)                             )! out, for "atm_exchange_coeff"
                                                                      ! at next time step
+    END IF ! ljsbach
   
     !-----------------------------------------------------------------------
     ! 3. Set up coefficient matrix of the tri-diagonal system, then perform

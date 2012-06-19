@@ -564,6 +564,54 @@ CONTAINS
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
+      IF (phy_config%ljsbach) THEN
+!!$ TR for JSBACH testing (energy balance)
+      field% surface_temperature    (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testinf
+      field% surface_temperature_old(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
+      field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
+      field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
+      field% c_soil_temperature1    (:,  :) = 0._wp
+      field% c_soil_temperature2    (:,  :) = 0._wp
+      field% c_soil_temperature3    (:,  :) = 0._wp
+      field% c_soil_temperature4    (:,  :) = 0._wp
+      field% c_soil_temperature5    (:,  :) = 0._wp
+      field% d_soil_temperature1    (:,  :) = 1._wp
+      field% d_soil_temperature2    (:,  :) = 1._wp
+      field% d_soil_temperature3    (:,  :) = 1._wp
+      field% d_soil_temperature4    (:,  :) = 1._wp
+      field% d_soil_temperature5    (:,  :) = 1._wp
+      field% soil_temperature1      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
+      field% soil_temperature2      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
+      field% soil_temperature3      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
+      field% soil_temperature4      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
+      field% soil_temperature5      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
+      field% heat_capacity          (:,  :) = 1._wp
+      field% ground_heat_flux       (:,  :) = 0._wp
+      field% swnet                  (:,  :) = 0._wp
+      field% time_steps_soil        (:,  :) = 0._wp
+
+!!$ TR for JSBACH testing (hydrology)
+      field% moisture1              (:,  :) = 0._wp
+      field% moisture2              (:,  :) = 0._wp
+      field% moisture3              (:,  :) = 0._wp
+      field% moisture4              (:,  :) = 0._wp
+      field% moisture5              (:,  :) = 0._wp
+      field% csat                   (:,  :) = 1._wp
+      field% cair                   (:,  :) = 1._wp
+      field% csat_transpiration     (:,  :) = 0._wp
+      field% sat_surface_specific_humidity (:,  :) = 0.01_wp
+      field% skin_reservoir         (:,  :) = 0._wp
+      field% snow_fract             (:,  :) = 0._wp
+      field% snow                   (:,  :) = 0._wp
+      field% snow_canopy            (:,  :) = 0._wp
+      field% snow_melt              (:,  :) = 0._wp
+      field% snow_acc               (:,  :) = 0._wp
+      field% snow_melt_acc          (:,  :) = 0._wp
+      field% glacier_runoff_acc     (:,  :) = 0._wp
+      field% runoff_acc             (:,  :) = 0._wp
+      field% drainage_acc           (:,  :) = 0._wp
+      END IF ! ljsbach
+
        tend% x_dtr(:,:,:) = 0._wp  !"xtec" in ECHAM
 !$OMP END PARALLEL WORKSHARE
 

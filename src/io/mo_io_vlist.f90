@@ -1159,6 +1159,130 @@ CONTAINS
           &                   'kg/m**2/s', 404, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
+
+!!$ TR JSBACH output for testing
+      IF (echam_phy_config%ljsbach) THEN
+
+      CALL addVar(TimeVar('surface_temperature',&
+      &                   'temperature of land surface',&
+      &                   'K', 21, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('surface_temperature_old',&
+      &                   'temperature of land surface previous time step',&
+      &                   'K', 22, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('surface_temperature_rad',&
+      &                   'radiative temperature',&
+      &                   'K', 23, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('surface_temperature_eff',&
+      &                   'effective temperature',&
+      &                   'K', 24, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('c_soil_temperature1',&
+      &                   'soil temperature parameter c layer 1',&
+      &                   ' ', 25, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('c_soil_temperature2',&
+      &                   'soil temperature parameter c layer 2',&
+      &                   ' ', 26, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('c_soil_temperature3',&
+      &                   'soil temperature parameter c layer 3',&
+      &                   ' ', 27, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('c_soil_temperature4',&
+      &                   'soil temperature parameter c layer 4',&
+      &                   ' ', 28, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('c_soil_temperature5',&
+      &                   'soil temperature parameter c layer 5',&
+      &                   ' ', 29, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('d_soil_temperature1',&
+      &                   'soil temperature parameter d layer 1',&
+      &                   ' ', 30, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('d_soil_temperature2',&
+      &                   'soil temperature parameter d layer 2',&
+      &                   ' ', 31, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('d_soil_temperature3',&
+      &                   'soil temperature parameter d layer 3',&
+      &                   ' ', 32, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('d_soil_temperature4',&
+      &                   'soil temperature parameter d layer 4',&
+      &                   ' ', 33, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('d_soil_temperature5',&
+      &                   'soil temperature parameter d layer 5',&
+      &                   ' ', 34, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('soil_temperature1',&
+      &                   'soil temperature layer 1',&
+      &                   ' ', 35, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('soil_temperature2',&
+      &                   'soil temperature layer 2',&
+      &                   ' ', 36, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('soil_temperature3',&
+      &                   'soil temperature layer 3',&
+      &                   ' ', 37, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('soil_temperature4',&
+      &                   'soil temperature layer 4',&
+      &                   ' ', 38, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('soil_temperature5',&
+      &                   'soil temperature layer 5',&
+      &                   ' ', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('heat_capacity',&
+      &                   'heat capacity of soil layer 1',&
+      &                   ' ', 40, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('ground_heat_flux',&
+      &                   'ground heat flux',&
+      &                   'Wm-2', 41, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('swnet',&
+      &                   'swnet',&
+      &                   'Wm-2', 42, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('time_steps_soil',&
+      &                   'time_steps_soil',&
+      &                   '', 43, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+      END IF ! ljsbach
+
         END SELECT !iforcing
       ENDIF !lwrite_precip
 
@@ -2566,6 +2690,34 @@ CONTAINS
       CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
       CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
       CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
+!!$ TR: JSBACH testing
+      CASE ('surface_temperature');  ptr2 => prm_field(jg)%surface_temperature
+      CASE ('surface_temperature_old');  ptr2 => prm_field(jg)%surface_temperature_old
+      CASE ('surface_temperature_rad');  ptr2 => prm_field(jg)%surface_temperature_rad
+      CASE ('surface_temperature_eff');  ptr2 => prm_field(jg)%surface_temperature_eff
+
+      CASE ('c_soil_temperature1');  ptr2 => prm_field(jg)%c_soil_temperature1
+      CASE ('c_soil_temperature2');  ptr2 => prm_field(jg)%c_soil_temperature2
+      CASE ('c_soil_temperature3');  ptr2 => prm_field(jg)%c_soil_temperature3
+      CASE ('c_soil_temperature4');  ptr2 => prm_field(jg)%c_soil_temperature4
+      CASE ('c_soil_temperature5');  ptr2 => prm_field(jg)%c_soil_temperature5
+
+      CASE ('d_soil_temperature1');  ptr2 => prm_field(jg)%d_soil_temperature1
+      CASE ('d_soil_temperature2');  ptr2 => prm_field(jg)%d_soil_temperature2
+      CASE ('d_soil_temperature3');  ptr2 => prm_field(jg)%d_soil_temperature3
+      CASE ('d_soil_temperature4');  ptr2 => prm_field(jg)%d_soil_temperature4
+      CASE ('d_soil_temperature5');  ptr2 => prm_field(jg)%d_soil_temperature5
+
+      CASE ('soil_temperature1');  ptr2 => prm_field(jg)%soil_temperature1
+      CASE ('soil_temperature2');  ptr2 => prm_field(jg)%soil_temperature2
+      CASE ('soil_temperature3');  ptr2 => prm_field(jg)%soil_temperature3
+      CASE ('soil_temperature4');  ptr2 => prm_field(jg)%soil_temperature4
+      CASE ('soil_temperature5');  ptr2 => prm_field(jg)%soil_temperature5
+
+      CASE ('heat_capacity');  ptr2 => prm_field(jg)%heat_capacity
+      CASE ('ground_heat_flux');  ptr2 => prm_field(jg)%ground_heat_flux
+      CASE ('swnet');  ptr2 => prm_field(jg)%swnet
+      CASE ('time_steps_soil');  ptr2 => prm_field(jg)%time_steps_soil
         !KF  the reset command can only be used for 'plain' fields
       CASE ('swflxsfc_avg')
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
@@ -2643,7 +2795,6 @@ CONTAINS
       !
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
-
 
     ! If not found in the list above, check for tracers, tracer tendencies, or 
     ! tile-specific quantities

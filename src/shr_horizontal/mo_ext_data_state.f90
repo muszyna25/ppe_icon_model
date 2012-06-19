@@ -218,7 +218,7 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! do not read external data
+    CASE(0) ! do not read external data  (except land-sea mask)
             ! topography from analytical functions
 
     !-------------------------------------------------------------------------
@@ -250,6 +250,9 @@ CONTAINS
       END SELECT
 
       CALL message( TRIM(routine),'Running with analytical topography' )
+
+      ! call read_ext_data_atm to read land-sea mask
+      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -440,6 +443,16 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,  &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
+
+    ! atmosphere land-sea-mask at surface on cell centers
+    !
+    ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
+      &                   'Atmosphere model land-sea-mask')
+    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
 
     ! ozone mixing ratio
     !
@@ -1693,6 +1706,39 @@ CONTAINS
     ELSE
       mpi_comm = p_comm_work
     ENDIF
+
+    ! Read land-sea mask in any case
+
+    DO jg = 1,n_dom
+
+      i_lev = p_patch(jg)%level
+
+      IF(my_process_is_stdio()) THEN
+
+        !
+        ! generate file name and open file
+        extpar_file = generate_filename(extpar_filename,                  &
+          &                             model_base_dir,                   &
+          &                             TRIM(p_patch(jg)%grid_filename))
+
+        CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid))
+
+      ENDIF
+
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+
+        ! get land-sea-mask on cells, integer marks are:
+        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+        ! boundary land (1, cells and vertices), inner land (2)
+        CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%lsm_ctr_c)
+
+      ENDIF
+
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+
+    END DO
 
     IF(itopo == 1 ) THEN
       DO jg = 1,n_dom

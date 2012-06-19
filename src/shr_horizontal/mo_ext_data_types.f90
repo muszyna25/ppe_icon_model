@@ -93,6 +93,9 @@ MODULE mo_ext_data_types
       &  llsm_atm_c(:,:)       ! .TRUE. if landpoint
                                ! index1=1,nproma, index2=1,nblks_c
 
+    INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
+      &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
+
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
                                ! index1=1,nproma, index2=1,nblks_c

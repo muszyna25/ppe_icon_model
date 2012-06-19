@@ -68,6 +68,7 @@ MODULE mo_read_namelists
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
   USE mo_gw_hines_nml        ,ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
+  USE mo_lnd_jsbach_nml      ,ONLY: read_lnd_jsbach_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
   USE mo_prepicon_nml        ,ONLY: read_prepicon_namelist
@@ -159,6 +160,7 @@ CONTAINS
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
     CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
     CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
+    CALL read_lnd_jsbach_namelist     (TRIM(atm_namelist_filename))
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
 
     ! Initial conditions
@@ -320,6 +322,7 @@ CONTAINS
     CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))
     CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
+    CALL read_lnd_jsbach_namelist     (TRIM(cpl_dummy_namelist))
 
     ! Initial conditions
     !

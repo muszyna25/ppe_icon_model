@@ -42,7 +42,7 @@ MODULE mo_turbulence_diag
   USE mo_convect_tables,    ONLY: tlucua, jptlucu1, jptlucu2,  &
                                 & lookuperror, lookupoverflow, &
                                 & compute_qsat
-
+  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
 #ifdef __ICON__
 !  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: g=>grav, rd, cpd, rd_o_cpd, rv,           &
@@ -466,7 +466,9 @@ CONTAINS
                                & pcfv_sfc, pcftke_sfc, pcfthv_sfc,       &! out
                                & pprfac_sfc, prho_sfc,                   &! out
                                & ptkevn_sfc, pthvvar_sfc,                &! out
-                               & pqshear_sfc, pustarm                    )! out
+                               & pqshear_sfc, pustarm,                   &! out
+                               & pcsat,                                  &! in
+                               & pcair)                                   ! in
 
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
@@ -527,6 +529,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)  !< vertical shear of total water concentration
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)  !< friction velocity, grid-box mean
 
+    REAL(wp),OPTIONAL,INTENT(IN) :: pcsat(kbdim)  !< area fraction with wet land surface
+    REAL(wp),OPTIONAL,INTENT(IN) :: pcair(kbdim)  !< area fraction with wet land surface
+
 #ifdef __ICON__
 #else
     REAL(wp),INTENT(INOUT) :: ptkem1_sfc (kbdim)  !< boundary condition (surface value) for TKE
@@ -554,7 +559,7 @@ CONTAINS
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
     REAL(wp) :: zdthetal, zdthv, z0h, zscf,  zconvs, zucf
-    REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd
+    REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd, z0hl, zucfh
     LOGICAL  :: lhighz0
     INTEGER  :: jsfc, jl
 
@@ -572,6 +577,7 @@ CONTAINS
     zepdu2     = 1._wp
     zonethird  = 1._wp/3._wp
     ztwothirds = 2._wp/3._wp
+    z0hl       = 1._wp !! TR spatially constant roughness length over land for testing
 
     !------------------------------------------------------------------------------
     ! The prefactor (= air density * Rd) that will be multiplied to the exchange
@@ -588,7 +594,88 @@ CONTAINS
     ! AND STABLE CASE COMMON FACTORS AND NEUTRAL CASE
     ! COMMON PART OF THE DRAG COEFFICIENTS.
     !-------------------------------------------------------------
+     IF (phy_config%ljsbach) THEN
+     DO jsfc = 1,ksfc_type
 
+      CALL compute_qsat( kproma, kbdim, ppsfc, ptsfc(:,jsfc), pqsat_sfc(:,jsfc) )
+
+      DO jl = 1,kproma
+
+! csat, cair, s. mo_surface_land.f90, precalc_land, zcptl = ...
+      IF (jsfc == idx_lnd) THEN
+        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2* &
+            (pcsat(jl)*pqsat_sfc(jl,jsfc)+(1._wp-pcair(jl))*pqm1_b(jl)))
+      ELSE
+        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(jl,jsfc))
+      END IF 
+
+        ztheta      = ptsfc(jl,jsfc)*(1.e5_wp/ppsfc(jl))**rd_o_cpd
+        zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
+
+        zqtl       = pqm1_b(jl) + pqxm1_b(jl)  ! q_total at lowest model level
+        zqts       = pqsat_sfc(jl,jsfc)        ! q_total at surface
+        zqtmit     = 0.5_wp*( zqtl + zqts )    ! q_total, vertical average
+
+        zqsmit     = 0.5_wp*( pqsat_b  (jl) + pqsat_sfc(jl,jsfc) )  ! qs
+        ztmit      = 0.5_wp*( ptm1_b   (jl) + ptsfc    (jl,jsfc) )  ! temp.
+        zthetamit  = 0.5_wp*( ptheta_b (jl) + ztheta  )  ! potential temp.
+        zthetavmit = 0.5_wp*( pthetav_b(jl) + zthetav )  ! virtual potential temp.
+
+        zfux = plh_b(jl)/(cpd*ztmit)
+        zfox = plh_b(jl)/(rd*ztmit)
+
+        zmult1 = 1._wp+vtmpc1*zqtmit   ! A in clear sky
+        zmult2 = zfux*zmult1-zrvrd
+        zmult3 = zrdrv*zfox*zqsmit/(1._wp+zrdrv*zfox*zfux*zqsmit)
+        zmult5 = zmult1-zmult2*zmult3  ! A in cloud
+        zmult4 = zfux*zmult5-1._wp     ! D in cloud
+
+        zdus1 = paclc_b(jl)*zmult5 + (1._wp-paclc_b(jl))*zmult1   ! A avg
+        zdus2 = paclc_b(jl)*zmult4 + (1._wp-paclc_b(jl))*vtmpc1   ! D avg
+
+        zdqt     = zqtl - zqts                                    ! d qt
+        zdthetal = pthetal_b(jl) - ztheta                         ! d theta_l
+!! TR ATTENTION!
+!! TR From here on idx_wtr and idx_lnd are exchanged for testing
+        IF ( jsfc == idx_lnd .OR. jsfc == idx_ice ) THEN          ! over water or ice
+          zdu2(jl,jsfc) = MAX(zepdu2,(pum1_b(jl)-pocu(jl))**2 &   ! (d u)^2
+                                    +(pvm1_b(jl)-pocv(jl))**2)    ! (d v)^2
+        ELSE                                                      ! over land
+          zdu2(jl,jsfc) = MAX(zepdu2,pum1_b(jl)**2 + pvm1_b(jl)**2) ! (d u)^2 + (d v)^2
+        ENDIF
+
+        zbuoy        = zdus1*zdthetal + zdus2*zthetamit*zdqt
+        pri_sfc(jl,jsfc) = pgeom1_b(jl)*zbuoy/(zthetavmit*zdu2(jl,jsfc))
+
+        IF ( jsfc == idx_lnd .OR. jsfc == idx_ice ) THEN          ! over water or ice        
+          zalo = LOG( 1._wp + pgeom1_b(jl)/(g*pz0m(jl,jsfc)) )  ! ln[ 1 + zL/z0m ]
+        ELSE ! over land
+          zalo = LOG( 1._wp + pgeom1_b(jl)/(g*z0hl) )  ! ln[ 1 + zL/z0m ]
+        END IF
+
+        zcdn(jl,jsfc) = (ckap/zalo)**2
+
+        zcfnc(jl,jsfc)= SQRT(zdu2(jl,jsfc))*zcdn(jl,jsfc)
+
+        zdthv         = MAX(0._wp,(zthetav-pthetav_b(jl)))
+        zwst(jl,jsfc) = zdthv*SQRT(zdu2(jl,jsfc))/zthetavmit
+
+        IF ( jsfc == idx_lnd ) THEN ! over water
+          z0h        =pz0m(jl,jsfc)*EXP(2._wp-86.276_wp*pz0m(jl,jsfc)**0.375_wp)
+          zaloh      =LOG(1._wp+pgeom1_b(jl)/(g*z0h))
+          zchn  (jl,jsfc)=ckap**2/(zalo*zaloh)
+          zcfnch(jl,jsfc)=SQRT(zdu2(jl,jsfc))*zchn(jl,jsfc)
+          zcr   (jl)=(cfreec/(zchn(jl,jsfc)*SQRT(zdu2(jl,jsfc))))*ABS(zbuoy)**zonethird
+        ELSEIF (jsfc == idx_ice ) THEN ! over ice
+          zchn  (jl,jsfc) = zcdn (jl,jsfc)
+          zcfnch(jl,jsfc) = zcfnc(jl,jsfc)  ! coeff. for scalar is the same as for momentum
+        ELSE IF (jsfc == idx_wtr ) THEN ! over land
+          zchn  (jl,jsfc)=(ckap/LOG(1._wp+pgeom1_b(jl)/(g*z0hl)))**2 
+          zcfnch(jl,jsfc)=SQRT(zdu2(jl,jsfc))*zchn(jl,jsfc)
+        ENDIF
+      ENDDO ! 1:kproma
+    ENDDO   ! 1:ksfc_type
+    ELSE ! ljsbach
      DO jsfc = 1,ksfc_type
       IF ( jsfc == idx_lnd ) CYCLE ! computation below is valid only over water and ice
 
@@ -650,16 +737,15 @@ CONTAINS
         ENDIF
       ENDDO ! 1:kproma
     ENDDO   ! 1:ksfc_type
-
     IF ( idx_lnd.LE.ksfc_type ) THEN ! There is land surface in this simulation
       CALL finish('mo_turbulence_diag','computation over land surface not implemented')
     ENDIF
-
+    END IF ! ljsbach
     !-------------------------------------------------------------------------
     ! Compute vertical shear of total water
     !-------------------------------------------------------------------------
     zcsat(1:kproma,1:ksfc_type) = 1._wp
-   !IF ( idx_lnd.LE.ksfc_type ) zcsat(1:kproma,idx_lnd) = ...
+    IF (idx_lnd.LE.ksfc_type .AND. phy_config%ljsbach) zcsat(1:kproma,idx_lnd) = pcsat(1:kproma)
 
     pqshear_sfc(1:kproma) = 0._wp ! initialization for weighted q_total at surface
 
@@ -679,7 +765,6 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered 
-
       ! stable case
   
       DO jsfc = 1,ksfc_type
@@ -694,7 +779,50 @@ CONTAINS
       ENDDO
   
       ! unstable case
+      IF (phy_config%ljsbach) THEN  
+      IF (idx_lnd<=ksfc_type) THEN
+        jsfc = idx_lnd  ! water
+        DO jl = 1,kproma
+          IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
+            zucf =  SQRT( -pri_sfc(jl,jsfc)*(1._wp+ pgeom1_b(jl)/(g*pz0m(jl,jsfc))) ) ! sqrt in (5.4)
+            zucf =  1._wp+z3bc*zcdn(jl,jsfc)*zucf                          ! denominator in (5.4)
+            zucf =  1._wp/zucf
+            pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)*(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
+            pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam       ! (5.9)
+            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam
+          ENDIF
+        ENDDO
+      ENDIF
   
+      IF (idx_ice<=ksfc_type) THEN
+        jsfc = idx_ice  ! ice
+        DO jl = 1,kproma
+          IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
+            zucf =  SQRT( -pri_sfc(jl,jsfc)*(1._wp+ pgeom1_b(jl)/(g*pz0m(jl,jsfc))) ) ! sqrt in (5.4)
+            zucf =  1._wp+z3bc*zcdn(jl,jsfc)*zucf                   ! denominator in (5.4)
+            zucf =  1._wp/zucf
+            pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)*(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
+            pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
+            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)
+          ENDIF
+        ENDDO
+      ENDIF
+
+      IF (idx_wtr<=ksfc_type) THEN
+        jsfc = idx_wtr  ! land
+        DO jl = 1,kproma
+          IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
+            zucfh = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + &
+               pgeom1_b(jl)/(g*z0hl))))
+!!$ TR ATTENTION: zucfh in the following line has to be replaced (with respect to
+!!$ TR the roughness length for momentum (and not for heat).
+            pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)/(1._wp-z2b*pri_sfc(jl,jsfc)*zucfh)
+            pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
+            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
+          ENDIF
+        ENDDO
+      ENDIF
+      ELSE ! ljsbach
       IF (idx_wtr<=ksfc_type) THEN
         jsfc = idx_wtr  ! water
         DO jl = 1,kproma
@@ -724,6 +852,10 @@ CONTAINS
       ENDIF
      
       jsfc = idx_lnd ! land, not implemented
+      ! z0 for heat over land is different, thus zucf is also different
+      END IF ! ljsbach
+     
+!!$ TR      jsfc = idx_lnd ! land, not implemented
       ! z0 for heat over land is different, thus zucf is also different
 
     END IF  ! lsfc_mom_flux.OR.lsfc_heat_flux
@@ -866,7 +998,6 @@ CONTAINS
 
     prho_sfc(1:kproma) = 0._wp  ! Initialize the area weighted average
     DO jsfc = 1,ksfc_type
-      IF ( jsfc == idx_lnd ) CALL finish('sfc_exchange_coeff','land surface not implemented')
       ztvsfc(1:kproma) = ptsfc(1:kproma,jsfc)*(1._wp + vtmpc1*pqsat_sfc(1:kproma,jsfc))
       prho_sfc(1:kproma) = prho_sfc(1:kproma) + zrrd*ppsfc(1:kproma)/ztvsfc(1:kproma)
     END DO
