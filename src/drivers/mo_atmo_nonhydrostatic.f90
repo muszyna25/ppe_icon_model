@@ -61,7 +61,7 @@ USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp, nsfc_subs, p_tiles, &
   &                                destruct_tiles_arrays
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom
+USE mo_grid_config,          ONLY: n_dom, start_time
 ! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -166,6 +166,15 @@ CONTAINS
       l_realcase = .FALSE.
     ENDIF
  
+    ! initialize ldom_active flag
+    DO jg=1, n_dom
+      IF (jg > 1 .AND. start_time(jg) > 0._wp) THEN
+        p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
+      ELSE
+        p_patch(jg)%ldom_active = .TRUE.
+      ENDIF
+    ENDDO
+
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------

@@ -332,15 +332,6 @@ MODULE mo_nh_stepping
     ENDDO
   ENDIF
 
-  ! initialize ldom_active flag
-  DO jg=1, n_dom
-    IF (jg > 1 .AND. start_time(jg) > 0._wp) THEN
-      p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
-    ELSE
-      p_patch(jg)%ldom_active = .TRUE.
-    ENDIF
-  ENDDO
-
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   IF (parallel_radiation_omp) THEN

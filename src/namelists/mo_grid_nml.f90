@@ -193,6 +193,11 @@ MODULE mo_grid_nml
     ! convert degrees in radiant for the Coriolis latitude
     corio_lat =  corio_lat/rad2deg
 
+    ! Reset start and end times for global domain in order to avoid 
+    ! interferences with output flow control
+    start_time(1) = 0._wp
+    end_time(1) = 1.e30_wp
+
     !-----------------------------------------------------
     !  Store the namelist for restart
     !-----------------------------------------------------

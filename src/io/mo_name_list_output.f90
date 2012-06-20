@@ -975,6 +975,7 @@ CONTAINS
 
           p_of%start_time    = start_time(p_of%log_patch_id)
           p_of%end_time      = end_time(p_of%log_patch_id)
+          p_of%initialized   = .FALSE.
 
           ! Select all var_lists which belong to current logical domain and i_typ
 
@@ -1853,6 +1854,9 @@ CONTAINS
     ENDIF
 
     i_dom = of%phys_patch_id
+
+    ! set initialization flag to true
+    of%initialized = .TRUE.
 
     !
     ! The following sections add the file global properties collected in init_name_list_output
@@ -2901,6 +2905,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=filename_max+100) :: text
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
+    LOGICAL :: lnewly_initialized = .FALSE.
 
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
     ! that the I/O PEs are ready with the last output step before
@@ -2932,11 +2937,18 @@ CONTAINS
       ! Check if output is due for this file
       IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
 
-        IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
+        IF (output_file(i)%io_proc_id == p_pe) THEN
+          IF (.NOT. output_file(i)%initialized) THEN
+            CALL setup_output_vlist(output_file(i))
+            lnewly_initialized = .TRUE.
+          ELSE
+            lnewly_initialized = .FALSE.
+          ENDIF
+        ENDIF
+
+        IF (lnewly_initialized .OR. MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
-            IF(p_onl%n_output_steps == 0) THEN
-              CALL setup_output_vlist(output_file(i))
-            ELSE
+            IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
             ENDIF
             CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1)
@@ -3045,6 +3057,11 @@ CONTAINS
         CALL compute_start_async_io(datetime, sim_time, last_step)
     ENDIF
 #endif
+
+    ! Close output file when the related model domain has stopped execution
+    DO i = 1, SIZE(output_file)
+      IF (sim_time > output_file(i)%end_time) CALL close_output_file(output_file(i))
+    ENDDO
 
   END SUBROUTINE write_name_list_output
 
