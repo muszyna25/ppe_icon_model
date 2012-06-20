@@ -108,7 +108,10 @@ case $ac_sitename in
     MPIROOT=/usr/lpp/ppe.poe
     # increased level of optimization to "-O3" for ECMWF config
     STD_FLAGS = -O3 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"  -qspillsize=32648
-    
+    # GRIB_API support:    
+    CFLAGS = "$CFLAGS" -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/lib/metaps/lib/grib_api/1.9.16/include -I/usr/local/apps/jasper/1.900.1/LP64/include
+    LIBS   = "$LIBS" -L/usr/local/lib/metaps/lib/grib_api/1.9.16/lib -L/usr/local/apps/jasper/1.900.1/LP64/lib -lgrib_api_f90 -lgrib_api -ljasper
+
     load_profile="." "/etc/profile"
 #   make_command="/sw/aix61/qnq/0.0.5/bin/qnq" "-n" "32" "-c" "cluster" "-w" "03:50:00" "make" "-j" "32"
     make_command="make" "-j" "4"
