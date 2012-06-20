@@ -25,6 +25,7 @@ echo "POST_PROCESS.SMS"
 
 module load python
 module load netcdf
+module load grib_api
 
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
 REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
@@ -38,17 +39,17 @@ i=%VALUE%
 
 # build the name string of the i'th output file:
 DOM=1
-PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%SUITE_NAME%/${REQUEST_DATE}"
+PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/${REQUEST_DATE}/%SUITE_NAME%"
 # disable SMS preprocessor here to avoid the SMSMICRO character (percent sign)...
 %nopp
-  OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.nc", a,b,c);}'`
+  OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.grb", a,b,c);}'`
 %end
 
-# just for demonstration purposes, we perform an "ncdump -h" call
-# and copy the resulting ASCII file to "ecgate:$HOME/ncdump.txt":
+# just for demonstration purposes, we perform an "grib_ls" call
+# and copy the resulting ASCII file to "ecgate:$HOME/info.txt":
 
-ncdump -h ${OUTFILE} > ${PREFIXSTR}/ncdump.txt
-rcp ${PREFIXSTR}/ncdump.txt ecgate:.
+grib_ls ${OUTFILE} > ${PREFIXSTR}_info.txt
+rcp ${PREFIXSTR}_info.txt ecgate:.
 
 
 # -------------------------------------------------

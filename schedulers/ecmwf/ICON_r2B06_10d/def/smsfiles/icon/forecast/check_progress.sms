@@ -36,10 +36,10 @@ do
 
   # build the name string of the i'th output file:
   DOM=1
-  PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%SUITE_NAME%/${REQUEST_DATE}"
+  PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/${REQUEST_DATE}/%SUITE_NAME%"
   # disable SMS preprocessor here to avoid the SMSMICRO character (percent sign)...
 %nopp
-  OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.nc", a,b,c);}'`
+  OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.grb", a,b,c);}'`
 %end
 
   echo "Checking for file ${OUTFILE}..."
