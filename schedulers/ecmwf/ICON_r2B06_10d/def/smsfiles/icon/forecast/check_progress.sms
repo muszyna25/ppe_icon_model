@@ -23,7 +23,7 @@
 echo "CHECK_PROGRESS.SMS"
 
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 
 date
 
@@ -47,7 +47,7 @@ do
   while [[ "${check}" != "true" && $flag -eq 0 ]]
   do  
 
-    check=`rsh c1a "[[ -f ${OUTFILE} ]] && echo true"`
+    check=`rsh %SCHOST% "[[ -f ${OUTFILE} ]] && echo true"`
 
     if [ "${check}" == "true" ]
     then

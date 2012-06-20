@@ -36,7 +36,7 @@ rsh %SCHOST% "svn update %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev"
 
 smsevent make_distclean
 rsh %SCHOST% "svn update %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev"
-rsh %SCHOST% "rsh c1a 'cd %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev ; gmake distclean'"
+rsh %SCHOST% "rsh %SCHOST% 'cd %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev ; gmake distclean'"
 
 else
 
