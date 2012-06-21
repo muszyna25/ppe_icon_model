@@ -1127,13 +1127,13 @@ CONTAINS
         SELECT CASE (p_info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
           IF (p_info%vgrid == ZAXIS_SURFACE) THEN
-            CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,1,1,1) )
+            CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
           ELSE
             CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE (GRID_UNSTRUCTURED_EDGE)
           IF (p_info%vgrid == ZAXIS_SURFACE) THEN
-            CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,1,1,1) )
+            CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
           ELSE
             CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
           END IF
