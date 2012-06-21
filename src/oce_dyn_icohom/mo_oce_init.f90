@@ -1753,13 +1753,15 @@ CONTAINS
           DO jk=1,n_zlev
 
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              ! #slo# 2011-11-17 - for MPIOM comparison - set T to 5C/35psu
-              ! #slo# 2012-05-02 - for MPIOM comparison - set T to 1C/34.8psu
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              ! #slo# 2011-11-17 - for MPIOM comparison - set T/S to 5C/35psu
+              ! #slo# 2012-05-02 - for MPIOM comparison - set T/S to 1C/34.8psu
+              ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 1.0_wp
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
               IF (no_tracer == 2) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               END IF
             END IF
 

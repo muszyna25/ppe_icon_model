@@ -227,8 +227,12 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvDifVert: adv_flux_v'    ,z_adv_flux_v             ,str_module,idt_src)
-    CALL dbg_print('AdvDifVert: div_adv_v'     ,z_div_adv_v              ,str_module,idt_src)
+    CALL dbg_print('AdvDifVert: cell_thk_interm',cell_thick_intermed_c       ,str_module,idt_src)
+    CALL dbg_print('AdvDifVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
+    CALL dbg_print('AdvDifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)                             
+    CALL dbg_print('AdvDifVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
+    CALL dbg_print('AdvDifVert: div_adv_v'      ,z_div_adv_v                 ,str_module,idt_src)
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dif_vert)
