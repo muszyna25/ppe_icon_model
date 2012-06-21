@@ -87,7 +87,6 @@ if [ "${stage}" = "total" ] ; then
 fi
 
 # include experiment parameters
-smsevent prepare
 
 . ${SETUPDIR}/case_setup
 
