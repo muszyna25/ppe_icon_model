@@ -142,9 +142,12 @@ cat > ${ocean_namelist} << EOF
  itopo       = 0                 ! read external ocean data from gridfile
 /
 &dbg_index_nml
-  idbg_mxmn=4                     ! initialize MIN/MAX  debug output
-  idbg_val =4                     ! initialize one cell debug output
-  dbg_lat_in=30.0 dbg_lon_in=10.0 ! lat/lon-location of one cell debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_val =1                     ! initialize one cell debug output
+  dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
+  str_mod_tst='all'               ! define modules to print out in debug mode
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
   str_mod_tst='all', 'module'     ! define modules to print out in debug mode
 /
 &octst_nml

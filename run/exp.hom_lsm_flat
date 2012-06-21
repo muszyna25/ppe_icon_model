@@ -185,8 +185,8 @@ cat > ${ocean_namelist} << EOF
   idbg_val =1                     ! initialize one cell debug output
   dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
-  idbg_slev=1                     ! initialize MIN/MAX  debug output
-  idbg_elev=5                     ! initialize MIN/MAX  debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
 /
 &ocean_dynamics_nml
 ! 10 levels of 500m depth
