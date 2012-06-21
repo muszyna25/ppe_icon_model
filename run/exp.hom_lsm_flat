@@ -223,7 +223,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 45=horizontally homogen temperature
                                  ! 50=zonally homogen temperature for APE SST (Williamson)
   idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 1      !  0: no relaxation used
+  temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
                                  !     use atmospheric temperature in case of coupling (iforc=14)
