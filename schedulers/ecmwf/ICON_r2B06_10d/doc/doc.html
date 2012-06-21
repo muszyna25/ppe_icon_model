@@ -7,7 +7,7 @@
   <title>ecmwf_runs_documentation</title>
 <meta name="generator" content="DokuWiki" />
 <meta name="robots" content="noindex,nofollow" />
-<meta name="date" content="2012-06-19T06:39:55+0000" />
+<meta name="date" content="2012-06-20T14:30:18+0000" />
 <meta name="keywords" content="ecmwf_runs_documentation" />
 <link rel="search" type="application/opensearchdescription+xml" href="/~fprill/wiki/lib/exe/opensearch.php" title="Wiki :: florian.prill@dwd.de" />
 <link rel="start" href="/~fprill/wiki/" />
@@ -33,18 +33,20 @@ var NS='';var JSINFO = {"id":"ecmwf_runs_documentation","namespace":""};
 <div id="toc__inside">
 
 <ul class="toc">
-<li class="level1"><div class="li"><span class="li"><a href="#documentation_-_scheduled_runs_of_the_icon_code_at_ecmwf" class="toc">Documentation - Scheduled runs of the ICON code at ECMWF</a></span></div>
+<li class="level1"><div class="li"><span class="li"><a href="#documentation_-_scheduled_runs_of_the_icon_model_at_ecmwf" class="toc">Documentation - Scheduled runs of the ICON model at ECMWF</a></span></div>
 <ul class="toc">
 <li class="level2"><div class="li"><span class="li"><a href="#general_notes" class="toc">General Notes</a></span></div></li>
 <li class="level2"><div class="li"><span class="li"><a href="#sms_suite_icon_r2b06_10d" class="toc">SMS suite ICON_R2B06_10d</a></span></div>
 <ul class="toc">
 <li class="level3"><div class="li"><span class="li"><a href="#directory_layout" class="toc">Directory layout</a></span></div></li>
 <li class="level3"><div class="li"><span class="li"><a href="#suite_definition" class="toc">Suite definition</a></span></div></li>
+<li class="level3"><div class="li"><span class="li"><a href="#caveats" class="toc">Caveats</a></span></div></li>
 </ul>
 </li>
 <li class="level2"><div class="li"><span class="li"><a href="#technical_infrastructure" class="toc">Technical infrastructure</a></span></div>
 <ul class="toc">
-<li class="level3"><div class="li"><span class="li"><a href="#setting_up_the_sms" class="toc">Setting up the SMS</a></span></div></li>
+<li class="level3"><div class="li"><span class="li"><a href="#setting_up_your_xcdp_client" class="toc">Setting up your XCDP client</a></span></div></li>
+<li class="level3"><div class="li"><span class="li"><a href="#installation_of_the_sms_suite" class="toc">Installation of the SMS suite</a></span></div></li>
 <li class="level3"><div class="li"><span class="li"><a href="#rhosts" class="toc">.rhosts</a></span></div></li>
 <li class="level3"><div class="li"><span class="li"><a href="#svn_access" class="toc">SVN access</a></span></div></li>
 <li class="level3"><div class="li"><span class="li"><a href="#local_ruby_installation" class="toc">Local Ruby installation</a></span></div></li>
@@ -59,16 +61,16 @@ var NS='';var JSINFO = {"id":"ecmwf_runs_documentation","namespace":""};
 </div>
 <!-- TOC END -->
 
-<h1 class="sectionedit1"><a name="documentation_-_scheduled_runs_of_the_icon_code_at_ecmwf" id="documentation_-_scheduled_runs_of_the_icon_code_at_ecmwf">Documentation - Scheduled runs of the ICON code at ECMWF</a></h1>
+<h1 class="sectionedit1"><a name="documentation_-_scheduled_runs_of_the_icon_model_at_ecmwf" id="documentation_-_scheduled_runs_of_the_icon_model_at_ecmwf">Documentation - Scheduled runs of the ICON model at ECMWF</a></h1>
 <div class="level1">
 
 <p>
 
-<em> Florian Prill, DWD. Document version: Phase 0 (Q2/2012) </em>
+<em> Author:  Florian Prill, DWD (2012-06-19). </em>
 </p>
 
 </div>
-<!-- EDIT1 SECTION "Documentation - Scheduled runs of the ICON code at ECMWF" [1-135] -->
+<!-- EDIT1 SECTION "Documentation - Scheduled runs of the ICON model at ECMWF" [1-123] -->
 <h2 class="sectionedit2"><a name="general_notes" id="general_notes">General Notes</a></h2>
 <div class="level2">
 
@@ -87,7 +89,7 @@ var NS='';var JSINFO = {"id":"ecmwf_runs_documentation","namespace":""};
 
 <p>
 
-<strong>Restrictions</strong>
+<strong>Current restrictions</strong>
 </p>
 <ul>
 <li class="level1"><div class="li"> Results are stored in a dedicated directory, not in a database</div>
@@ -96,33 +98,40 @@ var NS='';var JSINFO = {"id":"ecmwf_runs_documentation","namespace":""};
 </li>
 <li class="level1"><div class="li"> GRIB2 output available for plot suite, but still experimental</div>
 </li>
+<li class="level1"><div class="li"> Multi-user support: No whitelist or other access privileges to the SMS have been installed.</div>
+</li>
 </ul>
 
 </div>
-<!-- EDIT2 SECTION "General Notes" [136-524] -->
+<!-- EDIT2 SECTION "General Notes" [124-617] -->
 <h2 class="sectionedit3"><a name="sms_suite_icon_r2b06_10d" id="sms_suite_icon_r2b06_10d">SMS suite ICON_R2B06_10d</a></h2>
 <div class="level2">
 
 <p>
 
-The ICON runs employ ECMWF&#039;s scheduler “SMS”, cf. <a href="http://www.ecmwf.int/publications/manuals/sms/" class="urlextern" title="http://www.ecmwf.int/publications/manuals/sms/"  rel="nofollow">http://www.ecmwf.int/publications/manuals/sms/</a>.
+The ICON runs employ ECMWF&#039;s scheduler “SMS”, cf. <a href="http://www.ecmwf.int/publications/manuals/sms/" class="urlextern" title="http://www.ecmwf.int/publications/manuals/sms/"  rel="nofollow">http://www.ecmwf.int/publications/manuals/sms/</a> for detailed documentation.
 
 </p>
 <ul>
-<li class="level1"><div class="li"> Model is run by a dedicated user, <strong>”<code>deia</code>“</strong>.</div>
+<li class="level1"><div class="li"> The model is run by a dedicated user, <strong>”<code>deia</code>“</strong>. <br/>
+See <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#installation_of_the_sms_suite" class="wikilink1" title="ecmwf_runs_documentation">below</a></span> for instructions on how to set up the SMS suite from scratch.</div>
 </li>
-<li class="level1"><div class="li"> SMS files are stored in the Redmine <code>svn</code> version control system: <code>trunk/icon-dev/schedulers/ecmwf</code></div>
+<li class="level1"><div class="li"> Different stages of the model run take place on the frontend <code><a href="http://www.ecmwf.int/services/computing/ecgate/index.html" class="urlextern" title="http://www.ecmwf.int/services/computing/ecgate/index.html"  rel="nofollow">ecgate</a></code> and the compute cluster <code><a href="http://www.ecmwf.int/services/computing/ecgate/index.html" class="urlextern" title="http://www.ecmwf.int/services/computing/ecgate/index.html"  rel="nofollow">c1a</a></code> (IBM Power6 cluster<sup><a href="#fn__1" name="fnt__1" id="fnt__1" class="fn_top">1)</a></sup>).  <br/>
+When using the <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#setting_up_your_xcdp_client" class="wikilink1" title="ecmwf_runs_documentation">XCDP graphical user interface</a></span>, the actual location of each task is stated in a small info label.</div>
+</li>
+<li class="level1"><div class="li"> Each task has several <em>events</em>, i.e. notifications when important sub-stages of a task have been completed. <br/>
+When using the <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#setting_up_your_xcdp_client" class="wikilink1" title="ecmwf_runs_documentation">XCDP graphical user interface</a></span>, the status of each event is displayed as a label (event name) together with a status icon.</div>
+</li>
+<li class="level1"><div class="li"> The SMS suite can be <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#setting_up_your_xcdp_client" class="wikilink1" title="ecmwf_runs_documentation">monitored and controlled by other users via CDP login</a></span>.</div>
+</li>
+<li class="level1"><div class="li"> SMS files are stored in the Redmine <code>svn</code> version control system: <code>trunk/icon-dev/schedulers/ecmwf</code>.</div>
+</li>
+<li class="level1"><div class="li"> There exists a similar script suite for BCeps (H. Frank, User <code>zde</code>), see <code>/home/ms/de/zde/BCeps/bceps.def</code>.</div>
 </li>
 </ul>
 
-<p>
-
-The described scheduler setup for the ICON model is partly based on a similar script suite for BCeps (H. Frank, User <code>zde</code>), see
-</p>
-<pre class="code">     /home/ms/de/zde/BCeps/bceps.def</pre>
-
 </div>
-<!-- EDIT3 SECTION "SMS suite ICON_R2B06_10d" [525-1000] -->
+<!-- EDIT3 SECTION "SMS suite ICON_R2B06_10d" [618-2190] -->
 <h3 class="sectionedit4"><a name="directory_layout" id="directory_layout">Directory layout</a></h3>
 <div class="level3">
 
@@ -164,8 +173,7 @@ of the following layout:
             grids
             radiation
             ifs2icon       ! model input from IFS
-               cellweights
-               config</pre>
+               cellweights</pre>
 
 <p>
 <strong>Note:</strong>
@@ -184,7 +192,7 @@ After the initial check-out one must add
 </ul>
 
 </div>
-<!-- EDIT4 SECTION "Directory layout" [1001-2822] -->
+<!-- EDIT4 SECTION "Directory layout" [2191-3990] -->
 <h3 class="sectionedit5"><a name="suite_definition" id="suite_definition">Suite definition</a></h3>
 <div class="level3">
 
@@ -205,23 +213,22 @@ There a basically three types of <code>*.sms</code> files:
 
 <p>
 
-File names and output directories depend on two variables:
+File names and output directories depend on several variables<sup><a href="#fn__2" name="fnt__2" id="fnt__2" class="fn_top">2)</a></sup>:
 </p>
 <ul>
-<li class="level1"><div class="li"> <code>%SUITE_NAME%</code> <br/>
+<li class="level1"><div class="li"> <code>%SMSDATE%</code>                    <br/>
+Current date, defined by the system enviroment.</div>
+</li>
+<li class="level1"><div class="li"> <code>%SUITE_NAME%</code> (user-defined)  <br/>
 Currently set to “ICON_r2B06_10d”. Different suite names could later be used to perform several independent model runs.</div>
 </li>
-<li class="level1"><div class="li"> <code>$REQUEST_DATE</code> <br/>
-The starting date for the forecast. Currently this is computed as %SMSDATE% - 2 days, time: UTC 00 </div>
+<li class="level1"><div class="li"> <code>$REQUEST_DATE</code> (user-defined) <br/>
+The starting date for the forecast. <strong>Currently this is computed as %SMSDATE% - 2 days, time: UTC 00.</strong> </div>
 </li>
 </ul>
 
-<p>
-<a href="/~fprill/wiki/lib/exe/detail.php?id=ecmwf_runs_documentation&amp;media=pic_sms_icon.jpg" class="media" title="pic_sms_icon.jpg"><img src="/~fprill/wiki/lib/exe/fetch.php?w=200&amp;media=pic_sms_icon.jpg" class="media" title="Diagram of the ICON SMS suite" alt="Diagram of the ICON SMS suite" width="200" /></a>
-</p>
-
 </div>
-<!-- EDIT5 SECTION "Suite definition" [2823-3908] -->
+<!-- EDIT5 SECTION "Suite definition" [3991-5340] -->
 <h4 class="sectionedit6"><a name="task_ifs_fct_fct_ifs" id="task_ifs_fct_fct_ifs">Task ifs_fct/fct_ifs</a></h4>
 <div class="level4">
 <div class="table sectionedit7"><table class="inline">
@@ -238,7 +245,7 @@ The starting date for the forecast. Currently this is computed as %SMSDATE% - 2 
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> None.                                                   </td>
 	</tr>
 </table></div>
-<!-- EDIT7 TABLE [3939-4270] -->
+<!-- EDIT7 TABLE [5371-5702] -->
 <p>
 
 The whole SMS suite is restarted (<code>repeat date</code> keyword) on a regular basis.
@@ -270,8 +277,18 @@ More events can be obtained from the list generated by the command
 </p>
 <pre class="code"> ecaccess-event-list </pre>
 
+<p>
+Finally, use
+</p>
+<pre class="code"> ecaccess-job-list
+ ecaccess-job-delete &lt;jobID&gt;</pre>
+
+<p>
+to remove a job trigger from the list.
+</p>
+
 </div>
-<!-- EDIT6 SECTION "Task ifs_fct/fct_ifs" [3909-5092] -->
+<!-- EDIT6 SECTION "Task ifs_fct/fct_ifs" [5341-6627] -->
 <h4 class="sectionedit8"><a name="task_init_setup" id="task_init_setup">Task init/setup</a></h4>
 <div class="level4">
 <div class="table sectionedit9"><table class="inline">
@@ -288,14 +305,32 @@ More events can be obtained from the list generated by the command
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1"> sets events “enable_build” and “enable_dumpstate” based on current date. </td>
 	</tr>
 </table></div>
-<!-- EDIT9 TABLE [5118-5517] -->
+<!-- EDIT9 TABLE [6653-7052] -->
+<p>
+
+Some parts of the SMS suite are not run in a daily fashion but less frequently.
+For example, dump states (coefficient tables) must be pre-computed only once and a new binary should be compiled only about once a week.
+</p>
+<ul>
+<li class="level1"><div class="li"> The event <code>init/setup:enable_dumpstate</code> controls if a dump state is computed.</div>
+</li>
+<li class="level1"><div class="li"> The event <code>init/setup:enable_build</code> controls if a new binary is compiled.</div>
+</li>
+</ul>
+
+<p>
+
+<span style='color:red; '>Currently (test phase of the SMS suite), the variable <code>enable_dumpstate</code> is always <strong>en</strong>abled, while <code>enable_build</code> is always disabled.</span>
+
+</p>
+
 </div>
-<!-- EDIT8 SECTION "Task init/setup" [5093-5518] -->
+<!-- EDIT8 SECTION "Task init/setup" [6628-7595] -->
 <h4 class="sectionedit10"><a name="task_init_get_data" id="task_init_get_data">Task init/get_data</a></h4>
 <div class="level4">
 <div class="table sectionedit11"><table class="inline">
 	<tr class="row0">
-		<td class="col0 leftalign"> <strong>Objectives:</strong>      </td><td class="col1"> Retrieve IFS data from MARS. </td>
+		<td class="col0 leftalign"> <strong>Objectives:</strong>      </td><td class="col1"> Retrieve IFS data from MARS database. </td>
 	</tr>
 	<tr class="row1">
 		<td class="col0 leftalign"> <strong>Platform:</strong>        </td><td class="col1"> <code>hpc_serial</code> </td>
@@ -307,9 +342,9 @@ More events can be obtained from the list generated by the command
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Retrieved <code>*.grb</code> file is stored in <code>$PERM/%SUITE_NAME%/cluster/input/ifs2icon</code>  </td>
 	</tr>
 </table></div>
-<!-- EDIT11 TABLE [5547-5839] -->
+<!-- EDIT11 TABLE [7624-7925] -->
 </div>
-<!-- EDIT10 SECTION "Task init/get_data" [5519-5843] -->
+<!-- EDIT10 SECTION "Task init/get_data" [7596-7929] -->
 <h4 class="sectionedit12"><a name="task_init_init_data" id="task_init_init_data">Task init/init_data</a></h4>
 <div class="level4">
 <div class="table sectionedit13"><table class="inline">
@@ -332,7 +367,7 @@ More events can be obtained from the list generated by the command
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Conversion result (NetCDF format) and the GRIB file in <code>$TEMP/sms/input/%SUITE_NAME/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/  </td>
 	</tr>
 </table></div>
-<!-- EDIT13 TABLE [5873-6419] --><ul>
+<!-- EDIT13 TABLE [7959-8505] --><ul>
 <li class="level1"><div class="li"> The task <code>init_data</code> comprises the computation of cell_weights – but only if they have not been previously computed. This is indicated by the existence of a file</div>
 </li>
 </ul>
@@ -345,7 +380,7 @@ More events can be obtained from the list generated by the command
 </ul>
 
 </div>
-<!-- EDIT12 SECTION "Task init/init_data" [5844-7060] -->
+<!-- EDIT12 SECTION "Task init/init_data" [7930-9146] -->
 <h4 class="sectionedit14"><a name="task_init_build_init_svn" id="task_init_build_init_svn">Task init/build/init_svn</a></h4>
 <div class="level4">
 <div class="table sectionedit15"><table class="inline">
@@ -359,7 +394,7 @@ More events can be obtained from the list generated by the command
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Source code in directory <code>c1a:$PERM/%SUITE_NAME%/cluster/icon-dev</code>  </td>
 	</tr>
 </table></div>
-<!-- EDIT15 TABLE [7095-7277] -->
+<!-- EDIT15 TABLE [9181-9363] -->
 <p>
 
 There are two modes, depending on user-defined <code>%SVN_UPDATE%</code> flag:
@@ -383,7 +418,7 @@ SVN export of a source copy in <code>$TMPDIR/icon-dev</code> (on <code>ecgate</c
 </p>
 
 </div>
-<!-- EDIT14 SECTION "Task init/build/init_svn" [7061-7739] -->
+<!-- EDIT14 SECTION "Task init/build/init_svn" [9147-9825] -->
 <h4 class="sectionedit16"><a name="task_init_build_init_build" id="task_init_build_init_build">Task init/build/init_build</a></h4>
 <div class="level4">
 <div class="table sectionedit17"><table class="inline">
@@ -400,9 +435,18 @@ SVN export of a source copy in <code>$TMPDIR/icon-dev</code> (on <code>ecgate</c
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Binary in <code>c1a:$PERM/%SUITE_NAME%/cluster/icon-dev/build/…/bin/</code>  </td>
 	</tr>
 </table></div>
-<!-- EDIT17 TABLE [7776-8059] -->
+<!-- EDIT17 TABLE [9862-10145] -->
+<p>
+
+The build process always starts from a clean directory, i.e. the <em class="u">complete</em> is recompiled.
+</p>
+
+<p>
+<strong>Note:</strong> The binary is configured with <code>-O3</code> optimization enabled, which requires a considerable amount of time on the PWR6. 
+</p>
+
 </div>
-<!-- EDIT16 SECTION "Task init/build/init_build" [7740-8063] -->
+<!-- EDIT16 SECTION "Task init/build/init_build" [9826-10371] -->
 <h4 class="sectionedit18"><a name="task_forecast_prepare_pre_clean" id="task_forecast_prepare_pre_clean">Task forecast/prepare/pre_clean</a></h4>
 <div class="level4">
 <div class="table sectionedit19"><table class="inline">
@@ -416,9 +460,9 @@ SVN export of a source copy in <code>$TMPDIR/icon-dev</code> (on <code>ecgate</c
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Clears output directory <code>%TEMP%/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/  </td>
 	</tr>
 </table></div>
-<!-- EDIT19 TABLE [8105-8351] -->
+<!-- EDIT19 TABLE [10413-10659] -->
 </div>
-<!-- EDIT18 SECTION "Task forecast/prepare/pre_clean" [8064-8353] -->
+<!-- EDIT18 SECTION "Task forecast/prepare/pre_clean" [10372-10661] -->
 <h4 class="sectionedit20"><a name="task_forecast_prepare_dumpstate" id="task_forecast_prepare_dumpstate">Task forecast/prepare/dumpstate</a></h4>
 <div class="level4">
 <div class="table sectionedit21"><table class="inline">
@@ -441,9 +485,9 @@ SVN export of a source copy in <code>$TMPDIR/icon-dev</code> (on <code>ecgate</c
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Dump state in <code>$TEMP/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/  </td>
 	</tr>
 </table></div>
-<!-- EDIT21 TABLE [8395-8883] -->
+<!-- EDIT21 TABLE [10703-11191] -->
 </div>
-<!-- EDIT20 SECTION "Task forecast/prepare/dumpstate" [8354-8887] -->
+<!-- EDIT20 SECTION "Task forecast/prepare/dumpstate" [10662-11195] -->
 <h4 class="sectionedit22"><a name="task_forecast_model" id="task_forecast_model">Task forecast/model</a></h4>
 <div class="level4">
 <div class="table sectionedit23"><table class="inline">
@@ -468,13 +512,15 @@ SVN export of a source copy in <code>$TMPDIR/icon-dev</code> (on <code>ecgate</c
 	<tr class="row6">
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Model output in <code>$TEMP/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/  </td>
 	</tr>
-	<tr class="row7">
-		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> On abort or completion: Terminates <code>“check_progress”</code> by calling the utility script <code>cancel_check_progress</code>.  </td>
-	</tr>
 </table></div>
-<!-- EDIT23 TABLE [8917-9609] -->
+<!-- EDIT23 TABLE [11225-11776] -->
+<p>
+
+On abort or completion: Terminates the SMS task <code>“check_progress”</code> by calling the utility script <code>cancel_check_progress</code>.
+</p>
+
 </div>
-<!-- EDIT22 SECTION "Task forecast/model" [8888-9613] -->
+<!-- EDIT22 SECTION "Task forecast/model" [11196-11907] -->
 <h4 class="sectionedit24"><a name="task_forecast_check_progress" id="task_forecast_check_progress">Task forecast/check_progress</a></h4>
 <div class="level4">
 <div class="table sectionedit25"><table class="inline">
@@ -485,15 +531,23 @@ SVN export of a source copy in <code>$TMPDIR/icon-dev</code> (on <code>ecgate</c
 		<td class="col0 leftalign"> <strong>Platform:</strong>        </td><td class="col1"> <code>ecgate</code> </td>
 	</tr>
 	<tr class="row2">
-		<td class="col0 leftalign"> <strong>Requires input:</strong>  </td><td class="col1"> Terminates, if all NetCDF output files are available in <code>c1a:$TEMP/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/ or if on <code>ecgate</code> a file <code>$HOME/sms/model_complete.flag</code> has been created. </td>
-	</tr>
-	<tr class="row3">
 		<td class="col0"> <strong>Provides output:</strong> </td><td class="col1 leftalign"> Increases SMS meter <code>“progress”</code>.  </td>
 	</tr>
 </table></div>
-<!-- EDIT25 TABLE [9652-10052] -->
+<!-- EDIT25 TABLE [11946-12108] -->
+<p>
+
+When using the <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#setting_up_your_xcdp_client" class="wikilink1" title="ecmwf_runs_documentation">XCDP graphical user interface</a></span> the current number of output files is displayed as a graphical progress bar. Please note that the timing might be inaccurate because the output directory is polled infrequently. 
+The value of the progress meter is used to trigger the post-processing tasks of the suite.
+</p>
+
+<p>
+Terminates, if all NetCDF output files are available in <code>c1a:$TEMP/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/ or if on <code>ecgate</code> a file <code>$HOME/sms/model_complete.flag</code> has been created. 
+
+</p>
+
 </div>
-<!-- EDIT24 SECTION "Task forecast/check_progress" [9614-10052] -->
+<!-- EDIT24 SECTION "Task forecast/check_progress" [11908-12694] -->
 <h4 class="sectionedit26"><a name="task_post_post_process" id="task_post_post_process">Task post/post_process</a></h4>
 <div class="level4">
 
@@ -503,7 +557,7 @@ This task is called for each output step separately.
 </p>
 
 <p>
-<span style='color:red; '>Not yet implemented!</span>
+<span style='color:red; '>Not yet implemented, only a “dummy” call to <code>grib_ls</code>!</span>
 
 </p>
 <div class="table sectionedit27"><table class="inline">
@@ -514,12 +568,26 @@ This task is called for each output step separately.
 		<td class="col0 leftalign"> <strong>Platform:</strong>        </td><td class="col1"> <code>hpc_serial</code> </td>
 	</tr>
 	<tr class="row2">
-		<td class="col0 leftalign"> <strong>Requires input:</strong>  </td><td class="col1"> Model output in <code>$TEMP/sms/output/%SUITE_NAME%/</code> </td>
+		<td class="col0 leftalign"> <strong>Requires input:</strong>  </td><td class="col1"> Model output in <code>$TEMP/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/ </td>
 	</tr>
 </table></div>
-<!-- EDIT27 TABLE [10180-10359] -->
+<!-- EDIT27 TABLE [12858-13074] -->
+<p>
+
+The calling frequency of this post-processing task is probably too high: It is invoked each time after new output file has been written to disk.
+That is, 80 post-processing tasks are launched on <code>hpc_serial</code> (<code>c1a</code>).
+One could also design a post-processing mechanism which is invoked only <em class="u">once</em>, after the final output file has been created. 
+For this, adjust the <code>repeat</code> and <code>trigger</code> keywords in the SMS suite definition file
+</p>
+<pre class="code"> $HOME/ICON_R2B06_10d/def/smsfiles/icon.def</pre>
+
+<p>
+See ECMWF&#039;s <a href="http://www.ecmwf.int/publications/manuals/sms/" class="urlextern" title="http://www.ecmwf.int/publications/manuals/sms/"  rel="nofollow">SMS documentation</a> on how to modify this setting.
+
+</p>
+
 </div>
-<!-- EDIT26 SECTION "Task post/post_process" [10053-10361] -->
+<!-- EDIT26 SECTION "Task post/post_process" [12695-13673] -->
 <h4 class="sectionedit28"><a name="task_post_post_archive" id="task_post_post_archive">Task post/post_archive</a></h4>
 <div class="level4">
 
@@ -536,23 +604,75 @@ This task is called for each output step separately.
 		<td class="col0 leftalign"> <strong>Platform:</strong>        </td><td class="col1"> <code>ecgate</code> </td>
 	</tr>
 	<tr class="row2">
-		<td class="col0 leftalign"> <strong>Requires input:</strong>  </td><td class="col1"> Model output in <code>$TEMP/sms/output/%SUITE_NAME%/</code> </td>
+		<td class="col0 leftalign"> <strong>Requires input:</strong>  </td><td class="col1"> Model output in <code>$TEMP/sms/output/%SUITE_NAME%/</code><span style='color:red; '><code>$REQUEST_DATE</code></span>/ </td>
 	</tr>
 </table></div>
-<!-- EDIT29 TABLE [10435-10677] -->
+<!-- EDIT29 TABLE [13747-14026] -->
 </div>
-<!-- EDIT28 SECTION "Task post/post_archive" [10362-10681] -->
-<h2 class="sectionedit30"><a name="technical_infrastructure" id="technical_infrastructure">Technical infrastructure</a></h2>
+<!-- EDIT28 SECTION "Task post/post_archive" [13674-14028] -->
+<h3 class="sectionedit30"><a name="caveats" id="caveats">Caveats</a></h3>
+<div class="level3">
+<ul>
+<li class="level1"><div class="li"> In case of failure or due to manual settings, if CDP reports a task on the compute cluster as “aborted”, the corresponding job might be still be queued or running and must be manually removed (<code>llcancel</code>)! Check also for shell scripts running in the background on <code>ecgate</code> (especially utility script <code><span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#task_forecast_check_progress" class="wikilink1" title="ecmwf_runs_documentation">cancel_check_progress</a></span></code>).</div>
+</li>
+<li class="level1"><div class="li"> The input/output directories of older runs are not yet actively removed but left in place.</div>
+</li>
+<li class="level1"><div class="li"> If the ICON model crashes due to a <code>CALL finish(…)</code> this is not reliably reported to the operating system. Therefore the tasks <code><span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#task_forecast_model" class="wikilink1" title="ecmwf_runs_documentation">model</a></span></code> and <code><span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#task_forecast_prepare_dumpstate" class="wikilink1" title="ecmwf_runs_documentation">dumpstate</a></span></code> may appear as “completed” while they have in fact crashed, for example due to a missing input file.</div>
+</li>
+</ul>
+
+</div>
+<!-- EDIT30 SECTION "Caveats" [14029-14910] -->
+<h2 class="sectionedit31"><a name="technical_infrastructure" id="technical_infrastructure">Technical infrastructure</a></h2>
 <div class="level2">
 
 </div>
-<!-- EDIT30 SECTION "Technical infrastructure" [10682-10720] -->
-<h3 class="sectionedit31"><a name="setting_up_the_sms" id="setting_up_the_sms">Setting up the SMS</a></h3>
+<!-- EDIT31 SECTION "Technical infrastructure" [14911-14948] -->
+<h3 class="sectionedit32"><a name="setting_up_your_xcdp_client" id="setting_up_your_xcdp_client">Setting up your XCDP client</a></h3>
+<div class="level3">
+
+<p>
+
+<code>deia</code>&#039;s ICON SMS suite can be viewd and controlled from your own ECMWF account via the graphical frontend “xcdp”:
+Launch
+</p>
+<pre class="code">xcdp</pre>
+
+<p>
+and open the menu
+</p>
+<pre class="code">Edit -&gt; Preferences -&gt; Servers</pre>
+
+<p>
+There, add a new server by typing
+</p>
+<pre class="code">Name:   deia
+Host:   ecgate
+Number: 901730</pre>
+
+<p>
+(where “901730” denotes the SMS ID provided by <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#sms_start" class="wikilink1" title="ecmwf_runs_documentation">sms_start</a></span>).
+Then, close the preferences dialog and log into the SMS suite by the menu item
+</p>
+<pre class="code">Servers -&gt; deia</pre>
+
+<p>
+
+<strong>Note:</strong> Currently, the SMS suite is started at about 7:30 CEST and runs less than 60 minutes. Therefore, for most of the day, the XCDP status of the suite is “queued” (blue-gray color)!
+</p>
+
+<p>
+<a href="/~fprill/wiki/lib/exe/detail.php?id=ecmwf_runs_documentation&amp;media=pic_sms_icon.jpg" class="media" title="pic_sms_icon.jpg"><img src="/~fprill/wiki/lib/exe/fetch.php?w=200&amp;media=pic_sms_icon.jpg" class="media" title="Diagram of the ICON SMS suite" alt="Diagram of the ICON SMS suite" width="200" /></a>
+</p>
+
+</div>
+<!-- EDIT32 SECTION "Setting up your XCDP client" [14949-15696] -->
+<h3 class="sectionedit33"><a name="installation_of_the_sms_suite" id="installation_of_the_sms_suite">Installation of the SMS suite</a></h3>
 <div class="level3">
 
 </div>
-<!-- EDIT31 SECTION "Setting up the SMS" [10721-10750] -->
-<h4 class="sectionedit32"><a name="sms_start" id="sms_start">sms_start</a></h4>
+<!-- EDIT33 SECTION "Installation of the SMS suite" [15697-15737] -->
+<h4 class="sectionedit34"><a name="sms_start" id="sms_start">sms_start</a></h4>
 <div class="level4">
 
 <p>
@@ -576,25 +696,61 @@ Then write host and number to <code>.cdprc</code>:
 </p>
 <pre class="code"> alias myalias set SMS_PROG 903455 \; login ecgate UID 1</pre>
 
+<p>
+where ”<code>903455</code>” should be replaced by the provided <code>PROGNUM</code> value.
+
+</p>
+
 </div>
-<!-- EDIT32 SECTION "sms_start" [10751-11086] -->
-<h4 class="sectionedit33"><a name="running_the_suite" id="running_the_suite">Running the suite</a></h4>
+<!-- EDIT34 SECTION "sms_start" [15738-16145] -->
+<h4 class="sectionedit35"><a name="running_the_suite" id="running_the_suite">Running the suite</a></h4>
 <div class="level4">
 
 <p>
 
-In <code>ICON_r2B06_10d/def/smsfiles/</code> call
+Initially create a directory structure for the SMS log files:
+
 </p>
-<pre class="code"> ./start_sms.sh</pre>
+<pre class="code"> cd
+ mkdir sms
+ mkdir sms/icon
+ mkdir sms/icon/init
+ mkdir sms/icon/forecast
+ mkdir sms/icon/post    
+ mkdir sms/icon/init/build
+ mkdir sms/icon/forecast/prepare</pre>
 
 <p>
-Run the suite with   
+
+Similarly, on the compute cluster <code>c1a</code>:
+
+</p>
+<pre class="code"> cd $TEMP
+ mkdir sms
+ mkdir sms/icon
+ mkdir sms/icon/init
+ mkdir sms/icon/forecast
+ mkdir sms/icon/post    
+ mkdir sms/icon/init/build
+ mkdir sms/icon/forecast/prepare</pre>
+
+<p>
+
+In the <code>$HOME/.cdprc</code> file, several utility routines have been defined:
+Start the suite with   
 </p>
 <pre class="code"> cdp
  
  CDP&gt; myalias    
  CDP&gt; play icon.def
  CDP&gt; begin icon   </pre>
+
+<p>
+If there exists already a running SMS suite, you can relaunch the whole setup with
+</p>
+<pre class="code"> cdp
+ 
+ CDP&gt; total_restart</pre>
 
 <p>
 Check the status of the suite with
@@ -606,48 +762,19 @@ Check the status of the suite with
       /{sub}   icon{sub}   t1[sub]   </pre>
 
 </div>
-<!-- EDIT33 SECTION "Running the suite" [11087-11392] -->
-<h4 class="sectionedit34"><a name="restarting_the_suite" id="restarting_the_suite">Restarting the suite</a></h4>
-<div class="level4">
-
-<p>
-
-Add the following to your <code>$HOME/.cdprc</code> file:
-</p>
-<pre class="code">  define icon_restart {
-     cancel -y icon
-     play icon.def
-     begin icon
-  }</pre>
-
-<p>
-Then restart the ICON suite by typing 
-</p>
-<pre class="code"> cdp
- 
- CDP&gt; myalias 
- CDP&gt; icon_restart
- 
- cancel:/icon by UID@220
- unknown:/
- # MSG:play:Sending icon to ecgate
- # MSG:play:Suite icon defined.
- begin:/icon started by UID@220</pre>
-
-</div>
-<!-- EDIT34 SECTION "Restarting the suite" [11393-11802] -->
-<h4 class="sectionedit35"><a name="logserver" id="logserver">Logserver</a></h4>
+<!-- EDIT35 SECTION "Running the suite" [16146-17051] -->
+<h4 class="sectionedit36"><a name="logserver" id="logserver">Logserver</a></h4>
 <div class="level4">
 
 <p>
 
 On the compute cluster <code>c1a</code> a special process is in charge of copying log files back to <code>ecgate</code> s.t. they can be viewed in <code>xcdp</code>:
 </p>
-<pre class="code">  cd $HOME/ICON_r2B06_10d/def/bin
+<pre class="code">  cd $PERM/ICON_r2B06_10d/def/bin
   ./logserver</pre>
 
 <p>
-Now a log server daemon must be running:
+Now a log server daemon must be running: The command line
 </p>
 <pre class="code">  ps -ef | grep $USER</pre>
 
@@ -657,8 +784,8 @@ yield something like
 <pre class="code">  ...  418144       1   0 10:34:29 pts/172  0:00 /usr/bin/perl /usr/local/bin/logsvr.pl </pre>
 
 </div>
-<!-- EDIT35 SECTION "Logserver" [11803-12191] -->
-<h3 class="sectionedit36"><a name="rhosts" id="rhosts">.rhosts</a></h3>
+<!-- EDIT36 SECTION "Logserver" [17052-17457] -->
+<h3 class="sectionedit37"><a name="rhosts" id="rhosts">.rhosts</a></h3>
 <div class="level3">
 
 <p>
@@ -668,19 +795,25 @@ Enable <code>rcp</code> and <code>rsh</code> between the compute cluster and <co
 <pre class="code">  echo &quot;ecga02 $USER&quot; &gt;&gt; ~/.rhosts</pre>
 
 <p>
-For copying files between ecgate and compute cluster we use the commands <code>rcp</code> or <code>ecrcp</code>.
+For copying files between ecgate and compute cluster use the commands <code>rcp</code> or <code>ecrcp</code>.
 
 </p>
 
 </div>
-<!-- EDIT36 SECTION ".rhosts" [12192-12451] -->
-<h3 class="sectionedit37"><a name="svn_access" id="svn_access">SVN access</a></h3>
+<!-- EDIT37 SECTION ".rhosts" [17458-17714] -->
+<h3 class="sectionedit38"><a name="svn_access" id="svn_access">SVN access</a></h3>
 <div class="level3">
 
 <p>
 
-Automatic builds perform a complete <code>svn export</code>.
+SVN access is required
 </p>
+<ul>
+<li class="level1"><div class="li"> for the SMS scripts, </div>
+</li>
+<li class="level1"><div class="li"> for the <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#task_init_build_init_svn" class="wikilink1" title="ecmwf_runs_documentation">creation of automatic builds</a></span>.</div>
+</li>
+</ul>
 
 <p>
 Please note: For direct access to ZMAW&#039;s subversion repository, changes in <code>$HOME/.subversion/servers</code>
@@ -690,17 +823,30 @@ are necessary:
   http-proxy-port = ******</pre>
 
 <p>
-(Ask L. Kornblueh, F. Prill for details).
+(Inofficial access, ask L. Kornblueh, F. Prill for details).
+</p>
+
+<p>
+Note that on <code>c1a</code> no <acronym title="Secure Sockets Layer">SSL</acronym> support is available, therefore type
+
+</p>
+<pre class="code">  svn co http://svn.zmaw.de/svn/icon/trunk/icon-dev/schedulers/ecmwf/ICON_r2B06_10d</pre>
+
+<p>
+
+on the command line for <code>c1a</code>.
+
 </p>
 
 </div>
-<!-- EDIT37 SECTION "SVN access" [12452-12747] -->
-<h3 class="sectionedit38"><a name="local_ruby_installation" id="local_ruby_installation">Local Ruby installation</a></h3>
+<!-- EDIT38 SECTION "SVN access" [17715-18319] -->
+<h3 class="sectionedit39"><a name="local_ruby_installation" id="local_ruby_installation">Local Ruby installation</a></h3>
 <div class="level3">
 
 <p>
 
 Script language <code>ruby</code> has to be installed locally (user account).
+It is required by the <span class="curid"><a href="/~fprill/wiki/doku.php?id=ecmwf_runs_documentation#task_init_init_data" class="wikilink1" title="ecmwf_runs_documentation">IFS2ICON task</a></span>.
 </p>
 
 <p>
@@ -734,8 +880,8 @@ Patch required: In <code>$PERM/software/ruby-1.9.3-p125_build/lib/ruby/gems/1.9.
  </pre>
 
 </div>
-<!-- EDIT38 SECTION "Local Ruby installation" [12748-13689] -->
-<h3 class="sectionedit39"><a name="local_cdo_installation" id="local_cdo_installation">Local CDO installation</a></h3>
+<!-- EDIT39 SECTION "Local Ruby installation" [18320-19347] -->
+<h3 class="sectionedit40"><a name="local_cdo_installation" id="local_cdo_installation">Local CDO installation</a></h3>
 <div class="level3">
 
 <p>
@@ -770,8 +916,8 @@ Ruby script <code>ifs2icon.rb</code>.
 </p>
 
 </div>
-<!-- EDIT39 SECTION "Local CDO installation" [13690-14746] -->
-<h3 class="sectionedit40"><a name="grib_api_settings" id="grib_api_settings">GRIB_API settings</a></h3>
+<!-- EDIT40 SECTION "Local CDO installation" [19348-20404] -->
+<h3 class="sectionedit41"><a name="grib_api_settings" id="grib_api_settings">GRIB_API settings</a></h3>
 <div class="level3">
 
 <p>
@@ -795,19 +941,19 @@ One can set them using the script <code>/home/ms/de/dw7/bin/grib_def</code>.
 </p>
 
 </div>
-<!-- EDIT40 SECTION "GRIB_API settings" [14747-15440] -->
-<h3 class="sectionedit41"><a name="local_settings" id="local_settings">Local settings</a></h3>
+<!-- EDIT41 SECTION "GRIB_API settings" [20405-21098] -->
+<h3 class="sectionedit42"><a name="local_settings" id="local_settings">Local settings</a></h3>
 <div class="level3">
 
 <p>
 
-MARS4ICON script must be executable:
+The MARS4ICON script must be executable:
 </p>
-<pre class="code">   chmod +x ~/ICON_r2B06_10d/icon-dev/scripts/preprocessing/mars4icon_smi_32r3+</pre>
+<pre class="code">   chmod +x $PERM/ICON_r2B06_10d/def/icon_scripts/preprocessing/mars4icon_smi_32r3+</pre>
 
 <p>
 
-Date conversion script <code>datconv</code> must be in <acronym title="Practical Extraction and Report Language">PERL</acronym>&#039;s search path:
+MARS4ICON requires DWD&#039;s date conversion script <code>datconv</code>, which must be in <acronym title="Practical Extraction and Report Language">PERL</acronym>&#039;s search path:
 </p>
 <pre class="code">   cd $HOME/bin
    ln -s ~dfr/routfox/bin/datconv .
@@ -815,8 +961,8 @@ Date conversion script <code>datconv</code> must be in <acronym title="Practical
    export PERL5LIB=&quot;$HOME/routfox/perl&quot;</pre>
 
 </div>
-<!-- EDIT41 SECTION "Local settings" [15441-15782] -->
-<h2 class="sectionedit42"><a name="still_todo" id="still_todo">Still TODO</a></h2>
+<!-- EDIT42 SECTION "Local settings" [21099-21480] -->
+<h2 class="sectionedit43"><a name="still_todo" id="still_todo">Still TODO</a></h2>
 <div class="level2">
 <ul>
 <li class="level1"><div class="li"> Write platform independent scripts (using includes and conditionals).</div>
@@ -843,11 +989,19 @@ Date conversion script <code>datconv</code> must be in <acronym title="Practical
 </li>
 <li class="level1"><div class="li"> <del>Build with <code>-O3</code></del></div>
 </li>
-<li class="level1"><div class="li"> The input/output directories of older runs are not yet actively removed.</div>
+<li class="level1"><div class="li"> For service monitoring: send a daily status e-mail.</div>
+</li>
+<li class="level1"><div class="li"> Implement some <em>ready file mechanism</em>, i.e. some mechanism which makes sure that an output file has been completed (not only opened and partially written) before accessing it by a post-processing task.</div>
 </li>
 </ul>
 
 </div>
-<!-- EDIT42 SECTION "Still TODO" [15783-] --></div>
+<!-- EDIT43 SECTION "Still TODO" [21481-] --><div class="footnotes">
+<div class="fn"><sup><a href="#fnt__1" id="fn__1" name="fn__1" class="fn_bot">1)</a></sup> 
+Important note: The SMS suite is targeted at the compute cluster c1a which will go out of service in 2012.</div>
+<div class="fn"><sup><a href="#fnt__2" id="fn__2" name="fn__2" class="fn_bot">2)</a></sup> 
+Keep in mind that there exist two sets of variables: System environment variables are denoted by the dollar (”<code>$</code>”) sign, while SMS variables are denoted by the percent (”<code>%</code>”) sign.</div>
+</div>
+</div>
 </body>
 </html>
