@@ -719,11 +719,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('vn(nold)'                  ,p_os%p_prog(nold(1))%vn       ,str_module,idt_src)
-  CALL dbg_print('Advect horizontal'         ,p_os%p_diag%veloc_adv_horz    ,str_module,idt_src)
-  CALL dbg_print('LaPlac Diff horizontal'    ,p_os%p_diag%laplacian_horz    ,str_module,idt_src)
-  CALL dbg_print('LaPlac Diff vertical'      ,p_os%p_diag%laplacian_vert    ,str_module,idt_src)
+  CALL dbg_print('VelocAdvHorizontal'        ,p_os%p_diag%veloc_adv_horz    ,str_module,idt_src)
+  CALL dbg_print('VelocLaPlac horizontal'    ,p_os%p_diag%laplacian_horz    ,str_module,idt_src)
+  CALL dbg_print('VelocLaPlac vertical'      ,p_os%p_diag%laplacian_vert    ,str_module,idt_src)
   IF (expl_vertical_velocity_diff == 1 .AND. iswm_oce /= 1) &
-& CALL dbg_print('Impl. vertical Diffusion'  ,p_os%p_diag%vn_impl_vert_diff ,str_module,idt_src)
+& CALL dbg_print('ImplVelocDiff vertical'    ,p_os%p_diag%vn_impl_vert_diff ,str_module,idt_src)
   IF (l_inverse_flip_flop) &
 & CALL dbg_print('dual-flip-flop Adv. horz'  ,z_e                           ,str_module,idt_src)
   idt_src=4  ! output print level (1-5, fix)
