@@ -754,8 +754,8 @@ scripts/buildbot_scripts/public_html/model_compare/test_nah_jww.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nat_jww_nwp_mpiomp.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nh35_tri_jws.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nh3_tri_tracer_solid_body.html -text
+scripts/buildbot_scripts/py/MainPage.py -text
 scripts/buildbot_scripts/py/exp_plot.py -text
-scripts/buildbot_scripts/py/mainpage.py -text
 scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
 scripts/codestyle_scripts/check_style.py -text

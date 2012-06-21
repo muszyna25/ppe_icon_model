@@ -2,7 +2,8 @@
 
 from buildbot.status.web.base import HtmlResource
 from twisted.web.util import Redirect
-import os
+import os, time
+from buildbot import version, util
 
 class EXP_plot(HtmlResource):
     title = "Exp Plots"
@@ -26,12 +27,18 @@ class EXP_plot(HtmlResource):
         '''
         return h
 						
+   
     def body(self, request):
         global exp_plot_Info
 	global exp_file_Info
         global l_nightly
 	self.get_info(request)
+        status = self.getStatus(request)	
 	
+	if exp_plot_Info == "NotSet":
+	  data = self.footer(status,request)
+          return data
+
 	Archive_Button_Dict = {}
 	Archive_Button_Dict['date']  = []
 	Archive_Button_Dict['rev']   = []
@@ -117,15 +124,16 @@ class EXP_plot(HtmlResource):
 #	  Archive_Button_Dict['file'].insert(0, 'all')
 	
         data = '''
+  <div id="page_menu" >
   <div style="float:left; padding:3px; margin:5px width:350px;">
     <div id="arch_menu" >
+      <form name="date_form" method="POST" action="plot/select" class="command selectfile">
       <h1>ICON Buildbot Archive</h1>
       <table border="0" cellspacing="0" cellpadding="0" align="left" width="400">
         <colgroup>
           <col width="100">
           <col width="250">
         </colgroup>
-        <form name=date_form method="POST" action="plot/select" class="command selectfile">
         <tr>
           <td><b>Date</b> <br> from/to</td>
           <td>
@@ -136,16 +144,15 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "<select>\n"
 	  
-        data += "<option selected>" + tmp_Date.split('-')[0] + "</option>\n"
+        data += "<option style=\"font-size: 8pt\" selected>" + tmp_Date.split('-')[0] + "</option>\n"
         data += "</select>\n"
 	
         if l_nightly == "nightly":
-#	  data += "<select  disabled=\"disabled\">\n"
-          data += "<select>\n"
+	  data += "<select  disabled=\"disabled\">\n"
 	else:
 	  data += "<select>\n"
 
-        data += "<option  selected>" + tmp_Date.split('-')[1] + "</option>"
+        data += "<option style=\"font-size: 8pt\" selected>" + tmp_Date.split('-')[1] + "</option>"
         data += "</select>\n"
 	
 	if l_nightly == "nightly":
@@ -153,7 +160,7 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "<select>\n"
 
-        data += "<option selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option>\n"
+        data += "<option  selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option>\n"
         data += "</select>\n"
 	
 #        data +="</td></tr><tr><td></td><td>" 
@@ -178,7 +185,7 @@ class EXP_plot(HtmlResource):
         if l_nightly == "nightly":
 	  data += "<select  name=\"Date\" disabled=\"disabled\">\n"
 	else:
-	  data += "<select name=\"Date\">\n"
+	  data += "<select name=\"Dadate_formte\">\n"
 
         data += "<option selected>" + tmp_Date.split('-')[2].split(' ')[0] + "</option>"
         data += "</select>\n"
@@ -221,7 +228,7 @@ class EXP_plot(HtmlResource):
         <tr>
           <td><b>Exp.</b></td>
           <td>
-	      <select name=\"exp\"">
+	      <select name=\"exp\">
 	      '''
 	      
 	data += "<option selected>" + exp_plot_Info + "</option>"
@@ -257,8 +264,8 @@ class EXP_plot(HtmlResource):
         data += "</td></tr>\n"
         
 	data += '''
-	</form>
       </table>
+      </form>
     </div>
     <div id="arch_file_name">
       <h1>Available Plot List</h1>
@@ -356,13 +363,15 @@ class EXP_plot(HtmlResource):
 	  ref_build = os.listdir(p4)[-1]
 	  
           data += "<h1>Reference Plot (" + ref_date + ")</h1>"
+	  data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">"
+          data += "  <input type=\"submit\" name=\"Replace_1\" value=\"Replace\" >\n"
+	  data += "</form>"
           data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
 	  data += "  <tr>\n    <td>"
           data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
           data += "        <tr><td><b>Rev. Nr:</b></td><td>" + ref_rev + "</td>\n"
           data += "            <td><b>Computer:</b></td><td>" + ref_comp +"</td>\n"
           data += "            <td><b>Build. Nr:</b></td><td>" + ref_build + "</td>\n"
-          data += "            <td> <input type=\"button\" name=\"Text 1\" value=\"Replace\" ></td>\n"
           data += "</tr>\n      </table>\n"
           data += "    </td></tr>\n    <tr><td>\n"
 	  data += "      <img src=\"archive/ref_"+exp_plot_Info+"/"+ref_date+"/buildbot/"+ref_rev+"/"+ref_comp+"/"+ref_build+"/"+exp_plot_Info+"/plots/"+exp_file_Info+".png\"/>\n"
@@ -371,13 +380,15 @@ class EXP_plot(HtmlResource):
 	  data += "</table>"
         else:
           data += "<h1>Reference Plot (xxxx-xx-xx)</h1>"
+	  data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">"
+          data += "  <input type=\"submit\" name=\"Replace_2\" value=\"Replace\" >\n"
+	  data += "</form>"
           data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
 	  data += "  <tr>\n    <td>"
           data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
           data += "        <tr><td><b>Rev. Nr:</b></td><td> ????</td>\n"
           data += "            <td><b>Computer:</b></td><td> ???? </td>\n"
           data += "            <td><b>Build. Nr:</b></td><td> ???? </td>\n"
-          data += "            <td> <input type=\"button\" name=\"Text 1\" value=\"Replace\" ></td>\n"
           data += "</tr>\n      </table>\n"
           data += "    </td></tr>\n    <tr><td>\n"
 #	  data += "      <img src=\"archive/ref_" + exp_plot_Info + "/" + ref_date + "/buildbot/" + ref_rev + "/" + ref_comp + "/" + ref_build + "/" + exp_plot_Info + "/plots/" + exp_file_Info + ".png\" />\n"
@@ -417,7 +428,12 @@ class EXP_plot(HtmlResource):
 	data += '''
     </div>
   </div>
+  </div>
         '''
+        
+#        data += '<hr /><div class="footer">\n'
+#        data += '</div>\n'
+	data += self.footer(status,request)
 
         return data
 
@@ -431,9 +447,22 @@ class EXP_plot(HtmlResource):
       f = req.args.get("file",[None])[0]
       return Redirect("../plot?exp="+e+"&file="+f+"&modus=nightly")
 
+    def replace(self, req):
+      print "====== replace ======"
+      print "web replace "
+      print req
+      print req.args
+      print "====== replace ======"
+#      e = req.args.get("exp",[None])[0]
+#      f = req.args.get("file",[None])[0]
+#      WEB.putChild('reference', reference_page.MainPage())
+      return Redirect("../plot")
+    
     def getChild(self, path, req):
       if path == "select":
         return self.select(req)
+      if path == "replace":
+        return self.replace(req)
 
     def get_info(self, request):
         global exp_plot_Info
@@ -464,4 +493,30 @@ class EXP_plot(HtmlResource):
 							     
         return None
 
+    def footer(self, status, req):
+        # TODO: this stuff should be generated by a template of some sort
+        projectURL = status.getProjectURL()
+        projectName = status.getProjectName()
+        data = '<hr /><div class="footer">\n'
+
+        welcomeurl = self.path_to_root(req) + "index.html"
+        data += '[<a href="%s">welcome</a>]\n' % welcomeurl
+        data += "<br />\n"
+
+        data += '<a href="http://buildbot.sourceforge.net/">Buildbot</a>'
+        data += "-%s " % version
+        if projectName:
+            data += "working for the "
+            if projectURL:
+                data += "<a href=\"%s\">%s</a> project." % (projectURL,projectName)
+            else:
+                data += "%s project." % projectName
+        data += "<br />\n"
+        data += ("Page built: " +
+                 time.strftime("%a %d %b %Y %H:%M:%S",
+                               time.localtime(util.now()))
+                 + "\n")
+        data += '</div>\n'
+
+        return data
 #================================== NEW ================================
