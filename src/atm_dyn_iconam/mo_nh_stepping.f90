@@ -61,19 +61,19 @@ MODULE mo_nh_stepping
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, testbed_mode, output_mode
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
-    &                               timer_model_init, timer_nudging,                 &
+    &                               timer_total, timer_model_init, timer_nudging,    &
     &                               timer_bdy_interp, timer_feedback, timer_nesting, &
     &                               timer_integrate_nh, timer_nh_diagnostics
-  USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, p_tiles
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_model_domain,        ONLY: t_patch, p_patch
+  USE mo_model_domain,        ONLY: p_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
-    &                               n_dom_start, lredgrid_phys, start_time, end_time
+    &                               n_dom_start, lredgrid_phys, start_time, end_time, &
+    &                               global_cell_type
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
     &                               rotate_axis_deg
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
@@ -92,7 +92,6 @@ MODULE mo_nh_stepping
                                     prep_rho_bdy_nudging, density_boundary_nudging
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
-  USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
   USE mo_output,              ONLY: init_output_files, write_output,  &
     &                               create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
@@ -103,7 +102,7 @@ MODULE mo_nh_stepping
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
-  USE mo_math_divrot,         ONLY: div_avg, div
+  USE mo_math_divrot,         ONLY: div
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_test_solve_nonhydro, ONLY: test_solve_nh
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
@@ -125,7 +124,6 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,       ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_vertical_coord_table,ONLY: vct
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
@@ -135,8 +133,7 @@ MODULE mo_nh_stepping
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output_config,  ONLY: is_any_output_file_active
-  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output, &
-    &                               output_file
+  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
     &                               pp_scheduler_process
   USE mo_art_emission_interface, ONLY: art_emission_interface
