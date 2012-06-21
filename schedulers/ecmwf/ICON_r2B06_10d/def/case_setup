@@ -269,6 +269,9 @@ cat > ${atmo_namelist} << EOF
 /
 &interpol_nml
  nudge_zone_width             = 8
+ l_intp_c2l                   = .TRUE.
+ rbf_dim_c2l                  = 10
+ l_mono_c2l                   = .TRUE.
 /
 &gridref_nml
  grf_intmethod_ct             = 2
