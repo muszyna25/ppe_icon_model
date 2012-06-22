@@ -140,10 +140,12 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow_p1     =  7
   INTEGER, PARAMETER, PUBLIC      :: ZA_pressure            =  8
   INTEGER, PARAMETER, PUBLIC      :: ZA_height              =  9
+  INTEGER, PARAMETER, PUBLIC      :: ZA_altitude            = 10
+  INTEGER, PARAMETER, PUBLIC      :: ZA_meansea             = 11
   ! Ocean
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 10
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 11
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 12
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 12
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 13
+  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 14
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6) :: GRP_PREFIX = "group:"
@@ -2035,6 +2037,14 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
+      ! Define axis for output on mean sea level
+      !
+      of%cdiZaxisID(ZA_meansea) = zaxisCreate(ZAXIS_MEANSEA, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 0.0_wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_meansea), levels)
+      DEALLOCATE(levels)
+
       ! Define axes for soil model
 
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
@@ -2069,11 +2079,15 @@ CONTAINS
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow), levels)
       DEALLOCATE(levels)
 
+
       ! Define axes for output on p- and z-levels
       !
       lwrite_pzlev = (of%name_list%pl_varlist(1) /= ' ')  .OR.  &
         &            (of%name_list%hl_varlist(1) /= ' ')
       IF (lwrite_pzlev) THEN
+        !
+        ! p-axis
+        !
         nplev = nh_pzlev_config(of%log_patch_id)%nplev
         of%cdiZaxisID(ZA_pressure) = zaxisCreate(ZAXIS_PRESSURE, nplev)
         ALLOCATE(levels(nplev))
@@ -2084,6 +2098,13 @@ CONTAINS
         CALL zaxisDefVct(of%cdiZaxisID(ZA_pressure), nplev, levels)
         DEALLOCATE(levels)
 
+        !
+        ! z-axis (height above ground)
+        !
+        ! DR: most probably this is wrong, because levels 
+        ! nh_pzlev_config(jg)%zlevels(k) are defined as "altitude above mean 
+        ! sea level"
+        ! 
         nzlev = nh_pzlev_config(of%log_patch_id)%nzlev
         of%cdiZaxisID(ZA_height)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
         ALLOCATE(levels(nzlev))
@@ -2092,6 +2113,18 @@ CONTAINS
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_height), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_height), nzlev, levels)
+        DEALLOCATE(levels)
+        !
+        ! Altitude above mean sea level
+        !
+        nzlev = nh_pzlev_config(of%log_patch_id)%nzlev
+        of%cdiZaxisID(ZA_altitude)  = zaxisCreate(ZAXIS_ALTITUDE, nzlev)
+        ALLOCATE(levels(nzlev))
+        DO k = 1, nzlev
+          levels(k) = nh_pzlev_config(of%log_patch_id)%zlevels(k)
+        END DO
+        CALL zaxisDefLevels(of%cdiZaxisID(ZA_altitude), levels)
+        CALL zaxisDefVct(of%cdiZaxisID(ZA_altitude), nzlev, levels)
         DEALLOCATE(levels)
       ENDIF
 
@@ -2622,6 +2655,9 @@ CONTAINS
       CASE (ZAXIS_SURFACE)
         info%cdiZaxisID =  of%cdiZaxisID(ZA_surface)
 
+      CASE (ZAXIS_MEANSEA)
+        info%cdiZaxisID =  of%cdiZaxisID(ZA_meansea)
+
       CASE (ZAXIS_HYBRID)
         info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid)
 
@@ -2683,7 +2719,8 @@ CONTAINS
         info%cdiZaxisID =  of%cdiZaxisID(ZA_pressure)
 
       CASE (ZAXIS_ALTITUDE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_height)
+        info%cdiZaxisID =  of%cdiZaxisID(ZA_altitude)
+
 
       CASE DEFAULT
         WRITE (message_text,'(a,a,a,i0)') &
