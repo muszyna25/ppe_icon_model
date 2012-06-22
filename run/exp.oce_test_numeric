@@ -12,6 +12,11 @@
 # Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
 #-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  < include in file exp.test_oce_numeric>
+# _bb_table_Model_        < include here >
+# _bb_table_Grid_         < include here >
 #-----------------------------------------------------------------------------
 #
 # These variables are set in the header section of the completed run script:

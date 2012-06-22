@@ -1,6 +1,12 @@
 #!/bin/ksh
 
 #-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson baroclinic wave test + NWP physics, parallelization test
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
 # check if the nested grids have been created
 # currently they should be present in all machines, except maybe on the NEC
 #

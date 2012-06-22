@@ -21,6 +21,12 @@
 # also in the executing section of the completed run script
 #
 #-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson baroclinic wave test + ECHAM physics
+# _bb_table_Model_        hydrost. atmosphere
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
 #

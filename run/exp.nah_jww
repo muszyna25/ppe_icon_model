@@ -12,6 +12,12 @@
 # Almut Gassmann, MPI-M, 2010-11-17
 #
 #-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson baroclinic wave test
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         hexagon/pentagon
+#-----------------------------------------------------------------------------
 #
 # Basic specifications of the simulation
 # --------------------------------------

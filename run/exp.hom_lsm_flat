@@ -12,6 +12,13 @@
 # --------------------------------------
 # Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Wind forcing experiment with real land sea mask
+# _bb_table_Model_        hydrostatic ocean
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
 # Preliminary test phase: run on specific systems and compiler only
 #  - 2011-01-31: mpipc/tornado/squall - all compilers
 #  - 2011-03-03: blizzard serial run included

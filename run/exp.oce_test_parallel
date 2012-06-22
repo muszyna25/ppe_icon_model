@@ -20,6 +20,11 @@
 # NPROMA  = array blocking length / inner loop length
 #-----------------------------------------------------------------------------
 #
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  < include in file exp.test_oce_parallel>
+# _bb_table_Model_        < include here >
+# _bb_table_Grid_         < include here >
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
