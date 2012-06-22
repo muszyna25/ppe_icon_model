@@ -77,7 +77,7 @@ PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
 
 ! Public variables:
-PUBLIC :: c_i, c_b
+PUBLIC :: c_i, c_b, nc_i, nc_b
 
 INTERFACE dbg_print
   MODULE PROCEDURE dbg_print_2d

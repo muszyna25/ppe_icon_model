@@ -62,6 +62,7 @@ MODULE mo_oce_state
     &                               f_plane_coriolis, zero_coriolis
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer,                        &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
+  USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, grid_angular_velocity
@@ -1581,6 +1582,7 @@ CONTAINS
     INTEGER :: lsm_c   (nproma,p_patch%nblks_c)
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
+    REAL(wp):: z_stepvalue
 
     REAL(wp):: z_sync_c(nproma,p_patch%nblks_c)
     REAL(wp):: z_sync_e(nproma,p_patch%nblks_e)
@@ -1591,6 +1593,7 @@ CONTAINS
     INTEGER :: all_nobnd_e, all_nosbd_c, all_nolbd_c
 
     LOGICAL :: LIMITED_AREA = .FALSE.
+    LOGICAL :: l_vert_step  = .FALSE.
     LOGICAL :: is_p_test_run
 
     !-----------------------------------------------------------------------------
@@ -1610,6 +1613,7 @@ CONTAINS
     z_lat_deg = 0.0_wp 
     z_north   = 0.0_wp 
     z_south   = 0.0_wp
+
     !-----------------------------
     !
     ! Basic z-level configuration:
@@ -1633,16 +1637,39 @@ CONTAINS
     n_zlvp = n_zlev + 1
     n_zlvm = n_zlev - 1
 
+    !-----------------------------
+    ! Create a step inside the deep ocean bathymetry
+    !-----------------------------
 
-    CALL set_del_zlev(n_zlev, dzlev_m,                  &
-      &           v_base%del_zlev_i, v_base%del_zlev_m, &
-      &           v_base%zlev_i    , v_base%zlev_m)
+    IF (l_vert_step) THEN
+
+      ! Set the bathymetry at cell and edges to a value for tests mainly with Aqua Planet
+
+      !  - blocks and indices of dbg_print are used, i.e. location of the step
+      !    can be controled by dbg_lat/lon_in of namelist dbg_index_nml
+      !  - Attention: lsm for level 1 and 2 is set by gridgen, therefore minimum depth
+      !    must be greater than zlev_i(3)
+      !  - Attention: when running in parallel there might be steps as much as mpi-processes
+      !    or even errors - use in serial mode only
+      !  - Attention: bathymetry is negative in the ocean
+
+      z_stepvalue = -100.0_wp
+      p_ext_data%oce%bathymetry_c(c_i,c_b) = z_stepvalue
+      !  first neighbor gets another value:
+      p_ext_data%oce%bathymetry_c(nc_i(1),nc_b(1)) = z_stepvalue - 520.0_wp
+
+    END IF
 
     !-----------------------------
     !
     ! Fill the 3-dim land-sea-mask and number of deepest ocean layer in column 'dolic'
     !
     !-----------------------------
+
+    ! fill one-dimensional vertical levels
+    CALL set_del_zlev(n_zlev, dzlev_m,                  &
+      &           v_base%del_zlev_i, v_base%del_zlev_m, &
+      &           v_base%zlev_i    , v_base%zlev_m)
 
     ! surface level: as read in ext_data:
     v_base%lsm_oce_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)

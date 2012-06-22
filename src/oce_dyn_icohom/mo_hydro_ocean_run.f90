@@ -415,6 +415,9 @@ CONTAINS
     !------------------------------------------------------------------
     CALL init_oce_config
 
+    ! initialize ocean indices for debug output (before ocean state, no 3-dim)
+    CALL init_dbg_index(ppatch(1))
+
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
     CALL construct_hydro_ocean_base(ppatch(jg), v_base)
     CALL init_ho_base     (ppatch(jg), p_ext_data(jg), v_base)
@@ -428,8 +431,7 @@ CONTAINS
     ! ppatch and pstate_oce have dimension n_dom
     CALL construct_hydro_ocean_state(ppatch, pstate_oce)
 
-    ! initialize ocean indices for debug output
-    CALL init_dbg_index(ppatch(1))
+    ! initialize ocean indices for debug output (including 3-dim lsm)
     CALL init_oce_index ( ppatch, pstate_oce, p_ext_data )
 
     CALL construct_ho_params(ppatch(jg), p_phys_param)
