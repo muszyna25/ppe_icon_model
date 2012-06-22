@@ -634,7 +634,7 @@ END SUBROUTINE message
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie)  :: &
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) ::&
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s                 ! specific humidity at the surface              (kg/kg)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -1935,9 +1935,8 @@ END SUBROUTINE message
     IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
 
     ! potential evaporation at T_snow and Ts
-    zep_snow(i) = (1._ireals-ztsnow_pm(i))*                       &
-                                      tfv(i)*zrhoch(i)*zdqsnow
-    zep_s   (i) =                   tfv(i)*zrhoch(i)*zdqs
+    zep_snow(i) = (1._ireals-ztsnow_pm(i))* tfv(i)*zrhoch(i)*zdqsnow
+    zep_s   (i) =                           tfv(i)*zrhoch(i)*zdqs
 !    END IF
   ENDDO
 
@@ -2917,6 +2916,9 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
+!rite(*,*) 'hello mo_soil_ml ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
+!'  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
+!'  ......  ', tch(i), tcm(i)
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -4299,13 +4301,10 @@ END SUBROUTINE message
 
 #ifdef __ICON__
   IF (msg_level >= 14) THEN
-!    DO ns = nsubs0, nsubs1
         DO i = istarts, iends
-!          IF (llandmask(i)) THEN          ! land-points only
-            IF (w_snow_new(i) > zepsi .AND. (t_snow_new(i)<180. &
-                & .OR. t_snow_new(i)>280.)) THEN 
+             IF (w_snow_new(i) > zepsi .AND. (t_snow_new(i)<180. &
+                 & .OR. t_snow_new(i)>280.)) THEN 
 !                & .OR. w_i_new(i)*1000. > 0.1_ireals ) THEN
-
               write(0,*) "SFC-DIAGNOSIS TERRA ",i,dt,nsubs1!,ntstep
               write(0,*)" nztlev ",               nztlev   
         !!$   write(0,*)" lmelt  ",               lmelt    
@@ -4339,6 +4338,8 @@ END SUBROUTINE message
               write(0,*) "tcm_t",tcm(i)
               write(0,*) " tfv_t",tfv(i)
               write(0,*) "zshfl,zlhfl,zradfl,zg1",zshfl(i),zlhfl(i),zradfl(i),zg1(i)
+              write(0,*) "zshfl_s,zlhfl_s", zshfl_s(i), zlhfl_s(i)
+              write(0,*) "zshfl_snow,zlhfl_snow,zf_snow",zshfl_snow(i),zlhfl_snow(i), zf_snow(i)  
               write(0,*) "soiltyp_t",soiltyp_subs(i)
               write(0,*) "plcov_t",  plcov(i)
               write(0,*) "rootdp_t", rootdp(i)
@@ -4352,10 +4353,8 @@ END SUBROUTINE message
               write(0,*) "thbs_t",  thbs(i)     
               write(0,*) "pabs_t",  pabs(i)     
 !              write(0,*) "llandmask_t",llandmask(i) 
-            END IF
-!          END IF
+           END IF
          END DO
-!    END DO
   ENDIF
 #endif
 

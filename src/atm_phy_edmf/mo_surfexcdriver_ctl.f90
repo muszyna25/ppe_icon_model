@@ -762,7 +762,7 @@ CALL nwp_surface_edmf (&
           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
           ABS( lhfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
           ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
-      write(*,*) 'surfexdriver: SHF-soil, SHF-snow, LHF-soil, LHF-snow ', snowfrac_ex(jl,jtile), &
+      write(*,*) 'surfexc: SHF-soil,-snow,LHF-soil,-snow', snowfrac_ex(jl,jtile), &
          shfl_s_ex(jl,jtile), shfl_snow_ex(jl,jtile), lhfl_s_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
      ENDIF
    ENDDO
@@ -770,20 +770,20 @@ CALL nwp_surface_edmf (&
 
 !overwrite fluxes over land from TERRA back to EDMF code
 !...this needs to be done by tile properly???????
-DO JTILE=3,KTILES
-  DO JL=KIDIA,KFDIA
-    PAHFSTI(JL,JTILE) = 0.0_JPRB
-    PEVAPTI(JL,JTILE) = 0.0_JPRB
-    DO JT=1,nsfc_subs
-      PAHFSTI(JL,JTILE) = PAHFSTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
-          ( SHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-            SHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
-      PEVAPTI(JL,JTILE) = PEVAPTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
-          ( LHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-            LHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  )/RLVTT
-    ENDDO
-  ENDDO
-ENDDO
+!?? DO JTILE=3,KTILES
+!??   DO JL=KIDIA,KFDIA
+!??     PAHFSTI(JL,JTILE) = 0.0_JPRB
+!??     PEVAPTI(JL,JTILE) = 0.0_JPRB
+!??     DO JT=1,nsfc_subs
+!??       PAHFSTI(JL,JTILE) = PAHFSTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
+!??           ( SHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+!??             SHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
+!??       PEVAPTI(JL,JTILE) = PEVAPTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
+!??           ( LHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+!??             LHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  )/RLVTT
+!??     ENDDO
+!??   ENDDO
+!?? ENDDO
 
 !-------------------------------------------------------------------------
 

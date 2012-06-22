@@ -746,7 +746,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ELSE
           zfrti(jc,2) = 1.0_wp                         ! sea ice
         END IF
-       !ext_data%atm%lc_frac_t(:,jb,:) 
       ENDDO
 
       DO jk = 1,nlev_soil
