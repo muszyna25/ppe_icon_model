@@ -387,6 +387,8 @@ CONTAINS
 
       DO jg = 1, n_dom
 
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
         ! time levels
         ntl  = nnow(jg)
         ntlr = nnow_rcf(jg)

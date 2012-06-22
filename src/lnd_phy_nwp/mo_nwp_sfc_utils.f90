@@ -425,7 +425,7 @@ CONTAINS
           lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_prog%t_so_t(jc,nlev_soil+2,jb,1)
 
           IF(lmulti_snow) THEN
-            lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(ic,nlev_snow+1,jb,1)
+            lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
           ENDIF
         ENDDO
 
@@ -510,7 +510,7 @@ CONTAINS
 
             IF(lmulti_snow) THEN
               lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &
-                                        tilefrac * lnd_prog%t_snow_mult_t(ic,nlev_snow+1,jb,isubs)
+                                        tilefrac * lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
             ENDIF
           ENDDO
 
@@ -569,7 +569,7 @@ CONTAINS
         lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_prog%t_so_t(jc,nlev_soil+2,jb,1)
 
         IF(lmulti_snow) THEN
-          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(ic,nlev_snow+1,jb,1)
+          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
         ENDIF
       ENDDO
 

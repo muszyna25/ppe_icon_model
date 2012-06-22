@@ -339,6 +339,21 @@ MODULE mo_prepicon_utils
       !
       IF(p_pe == p_io) CALL nf(nf_close(ncid))
 
+      IF (.NOT. PRESENT(extdata)) THEN
+
+        CALL smooth_topography (p_patch(jg), p_int_state(jg), prepicon(jg)%topography_c, &
+                                prepicon(jg)%topography_v)
+
+      ELSE ! Copy the already smoothed extdata topography fields to prepicon
+
+        prepicon(jg)%topography_c(:,:) = extdata(jg)%atm%topography_c(:,:)
+        prepicon(jg)%topography_v(:,:) = extdata(jg)%atm%topography_v(:,:)
+
+      ENDIF
+
+      ! Skip reading the atmospheric input data if a model domain is not active at initial time
+  !    IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
       IF(p_pe == p_io .AND. i_oper_mode >= 2) THEN ! Read in data from IFS2ICON
         !
         ! generate file name
@@ -631,19 +646,6 @@ MODULE mo_prepicon_utils
       !
       IF(p_pe == p_io .AND. i_oper_mode >= 2) CALL nf(nf_close(ncid))
 
-
-      IF (.NOT. PRESENT(extdata)) THEN
-
-        CALL smooth_topography (p_patch(jg), p_int_state(jg), prepicon(jg)%topography_c, &
-                                prepicon(jg)%topography_v)
-
-      ELSE ! Copy the already smoothed extdata topography fields to prepicon
-
-        prepicon(jg)%topography_c(:,:) = extdata(jg)%atm%topography_c(:,:)
-        prepicon(jg)%topography_v(:,:) = extdata(jg)%atm%topography_v(:,:)
-
-      ENDIF
-
     ENDDO ! loop over model domains
 
     IF (n_dom > 1) CALL topo_blending_and_fbk(p_int_state, p_grf_state, prepicon, 1)
@@ -738,6 +740,8 @@ MODULE mo_prepicon_utils
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
     DO jg = 1, n_dom
 
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
       nblks_c   = p_patch(jg)%nblks_c
       npromz_c  = p_patch(jg)%npromz_c
       nblks_e   = p_patch(jg)%nblks_e
@@ -785,7 +789,7 @@ MODULE mo_prepicon_utils
             p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb)     = prepicon(jg)%atm%rho(jc,jk,jb)
 
             p_nh_state(jg)%prog(ntl)%rhotheta_v(jc,jk,jb) = &
-           &p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb) * p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
+              p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb) * p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
 
             ! Moisture variables
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
@@ -882,6 +886,7 @@ MODULE mo_prepicon_utils
     ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
     DO jg = 1, n_dom
 
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       ntl = nnow(jg)
 
       CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &

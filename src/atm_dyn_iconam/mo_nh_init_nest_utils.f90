@@ -44,11 +44,11 @@ MODULE mo_nh_init_nest_utils
 
   USE mo_kind,                  ONLY: wp
   USE mo_model_domain,          ONLY: t_patch, p_patch, p_patch_local_parent
-  USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_prog
+  USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nonhydro_state,        ONLY: p_nh_state
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer
-  USE mo_dynamics_config,       ONLY: nnow, nnow_rcf
+  USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
                                       min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH
@@ -72,6 +72,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_interpol_config,       ONLY: nudge_zone_width
   USE mo_intp,                  ONLY: cells2verts_scalar
   USE mo_ext_data_state,        ONLY: ext_data
+  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
+  USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
 
   IMPLICIT NONE
 
@@ -111,12 +113,14 @@ MODULE mo_nh_init_nest_utils
     ! local pointers
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog
     TYPE(t_nh_prog),    POINTER     :: p_child_prog
+    TYPE(t_nh_diag),    POINTER     :: p_child_diag
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog_rcf
     TYPE(t_nh_prog),    POINTER     :: p_child_prog_rcf
     TYPE(t_nh_metrics), POINTER     :: p_parent_metrics
     TYPE(t_nh_metrics), POINTER     :: p_child_metrics
     TYPE(t_lnd_prog),   POINTER     :: p_parent_lprog
     TYPE(t_lnd_prog),   POINTER     :: p_child_lprog
+    TYPE(t_lnd_prog),   POINTER     :: p_child_lprog2
     TYPE(t_lnd_diag),   POINTER     :: p_parent_ldiag
     TYPE(t_lnd_diag),   POINTER     :: p_child_ldiag
     TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
@@ -168,12 +172,14 @@ MODULE mo_nh_init_nest_utils
 
     p_parent_prog     => p_nh_state(jg)%prog(nnow(jg))
     p_child_prog      => p_nh_state(jgc)%prog(nnow(jgc))
+    p_child_diag      => p_nh_state(jgc)%diag
     p_parent_prog_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
     p_child_prog_rcf  => p_nh_state(jgc)%prog(nnow_rcf(jgc))
     p_parent_metrics  => p_nh_state(jg)%metrics
     p_child_metrics   => p_nh_state(jgc)%metrics
     p_parent_lprog    => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
     p_child_lprog     => p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc))
+    p_child_lprog2    => p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc))
     p_parent_ldiag    => p_lnd_state(jg)%diag_lnd
     p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
     p_grfc            => p_grf_state(jgc)
@@ -197,7 +203,7 @@ MODULE mo_nh_init_nest_utils
     nlev_c   = p_pc%nlev
 
     ! number of full levels of parent domain
-    nlev_p   = p_pp%nlev
+    nlev_p   = p_patch(jg)%nlev
 
     ! shift between upper model boundaries
     nshift = p_pc%nshift
@@ -246,7 +252,7 @@ MODULE mo_nh_init_nest_utils
 
     ! cell-based variables
     i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
-    i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int-2,i_nchdom)
+    i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -338,10 +344,12 @@ MODULE mo_nh_init_nest_utils
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) THEN
+      CALL sync_patch_array_mult(SYNC_C,p_patch(jg),2,lndvars_par,snowvars_par)
       CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg),            &
         p_grf_state(jg)%p_dom(i_chidx), i_chidx, 2,                          &
         lndvars_par, lndvars_chi, snowvars_par, snowvars_chi, lnoshift=.TRUE.)
     ELSE IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
+      CALL sync_patch_array(SYNC_C,p_patch(jg),lndvars_par)
       CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
         p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
         lndvars_par, lndvars_chi, lnoshift=.TRUE.                 )
@@ -523,6 +531,9 @@ MODULE mo_nh_init_nest_utils
 
           p_child_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd/p0ref* &
             p_child_prog%rhotheta_v(jc,jk,jb)))
+
+          ! exner_old also needs to be initialized here
+          p_child_diag%exner_old(jc,jk,jb) = p_child_prog%exner(jc,jk,jb)
         ENDDO
       ENDDO
 
@@ -539,6 +550,7 @@ MODULE mo_nh_init_nest_utils
             jk1 = 3*(jk-1) + 1
             DO jc = i_startidx, i_endidx
               p_child_lprog%t_so_t(jc,jk,jb,jt) = lndvars_chi(jc,jk1,jb) + tsfc_ref_c(jc,jb)
+              p_child_lprog2%t_so_t(jc,jk,jb,jt) = p_child_lprog%t_so_t(jc,jk,jb,jt)
               p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+1,jb))
               ! limit w_so_t to pore volume and dryness point - TERRA crashes otherwise
               IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 3) THEN
@@ -560,7 +572,9 @@ MODULE mo_nh_init_nest_utils
                 p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.098_wp, &
                   MIN(dzsoil(jk)*0.863_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
               ENDIF
+              p_child_lprog2%w_so_t(jc,jk,jb,jt) = p_child_lprog%w_so_t(jc,jk,jb,jt)
               p_child_lprog%w_so_ice_t(jc,jk,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+2,jb))
+              p_child_lprog2%w_so_ice_t(jc,jk,jb,jt) = p_child_lprog%w_so_ice_t(jc,jk,jb,jt)
             ENDDO
           ENDDO
         ENDDO
@@ -570,10 +584,14 @@ MODULE mo_nh_init_nest_utils
           DO jc = i_startidx, i_endidx
             p_child_lprog%t_so_t(jc,nlev_soil+2,jb,jt) = lndvars_chi(jc,jk1,jb) + &
               tsfc_ref_c(jc,jb)
-            ! here we need to initialize t_g rather than t_g_t because t_g is copied to t_g_t
-            ! in nwp_surface_init
+            ! here we need to initialize t_g and t_g_t because t_g is copied to t_g_t
+            ! in nwp_surface_init for land points
             p_child_lprog%t_g(jc,jb) = lndvars_chi(jc,jk1+1,jb) + tsfc_ref_c(jc,jb)
+            p_child_lprog2%t_g(jc,jb) = p_child_lprog%t_g(jc,jb)
+            p_child_lprog%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
+            p_child_lprog2%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
             p_child_lprog%t_s_t(jc,jb,jt) = lndvars_chi(jc,jk1+2,jb) + tsfc_ref_c(jc,jb)
+            p_child_lprog2%t_s_t(jc,jb,jt) = p_child_lprog%t_s_t(jc,jb,jt)
             p_child_lprog%t_snow_t(jc,jb,jt) = lndvars_chi(jc,jk1+3,jb) + tsfc_ref_c(jc,jb)
             p_child_lprog%w_snow_t(jc,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+4,jb))
             p_child_lprog%rho_snow_t(jc,jb,jt) = lndvars_chi(jc,jk1+5,jb)
@@ -606,6 +624,13 @@ MODULE mo_nh_init_nest_utils
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    CALL rbf_vec_interpol_cell(p_child_prog%vn, p_patch(jgc), p_int_state(jgc),&
+                               p_child_diag%u, p_child_diag%v)
+
+    CALL diagnose_pres_temp(p_child_metrics, p_child_prog, p_child_prog_rcf, p_child_diag, &
+                            p_patch(jgc), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE.,      &
+                            lnd_prog=p_child_lprog)
 
     DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, snowvars_par, lndvars_chi , snowvars_chi,    &
                tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, thv_pr_lp, rho_pr_lp, tracer_lp, lndvars_lp, &

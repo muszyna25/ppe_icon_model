@@ -148,6 +148,7 @@ CONTAINS
 
       IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE ! skip model domains not active at initial time
 
       CALL vert_interp(p_patch(jg), p_int(jg), prepicon(jg))
 
