@@ -39,17 +39,17 @@ class HomePage(HtmlResource):
               break
              
             if line.find("_Description_") >= 0:
-	      tmp,Info = line.split("_Description_",1)
+	      tmp,Info = line.split("_bb_table_Description_",1)
               Info.replace("\n","")
               ExpDict["Description"] = Info.strip(" ")
                 
             if line.find("_Model_") >= 0:
-	      tmp,Info = line.split("_Model_",1)
+	      tmp,Info = line.split("_bb_table_Model_",1)
               Info.replace("\n","")
               ExpDict["Model"] = Info.strip(" ")
                 
             if line.find("_Grid_") >= 0:
-	      tmp,Info = line.split("_Grid_",1)
+	      tmp,Info = line.split("_bb_table_Grid_",1)
               Info.replace("\n","")
               ExpDict["Grid"] = Info.strip(" ")
               

@@ -82,7 +82,7 @@ class EXP_plot(HtmlResource):
 	rev_Dict[svn_Rev] = comp_Dict
 	Archive_Button_Dict['rev'].append(svn_Rev)
 	
-        p = "./public_html/archive/" + svn_Date + "/buildbot/" + svn_Rev + "/"
+        p = "public_html/archive/" + svn_Date + "/buildbot/" + svn_Rev + "/"
 	for computer in os.listdir(p):
 # Build for each computer a new emty build_Dict type and save it in the comp_Dict under the correct computer name
           build_Dict =  {}
@@ -243,7 +243,7 @@ class EXP_plot(HtmlResource):
 		<select name=\"file\">
 	      '''
 	      
-        if exp_file_Info == "NotSet":
+        if exp_file_Info == "NotSet" and len(Archive_Button_Dict['file']) > 0:
 	  exp_file_Info = Archive_Button_Dict['file'][0].strip(".png")
 
         for f in Archive_Button_Dict['file']:
@@ -281,7 +281,7 @@ class EXP_plot(HtmlResource):
 	b = 0
 	f = 0
 	
-        p = "./public_html/archive/" + svn_Date + "/buildbot/" + svn_Rev + "/"
+        p = "public_html/archive/" + svn_Date + "/buildbot/" + svn_Rev + "/"
         e += 1
 
         r += 1
@@ -349,41 +349,65 @@ class EXP_plot(HtmlResource):
   <div style="float:left; padding:3px; margin:5px  width:200px;"> 
     <div id="arch_ref">
 	  '''
-        p = "./public_html/archive/ref_" + exp_plot_Info
+        p = "public_html/reference_plot/" + exp_plot_Info
+        print "====== ref Plot ======"
+        print p
         if os.path.isdir(p):
+	  save_date = os.listdir(p)
+	  save_date = sorted(save_date)[-1]
+          p += "/" + save_date
+          print "save_date: " + save_date 
+          print "p: " + p
 	  ref_date = os.listdir(p)[-1]
-
+          print "ref_date: " + ref_date 
+          print "p: " + p
+	  
           p2 = p + "/" + ref_date + "/buildbot/"
+          print "p2: " + p2
 	  ref_rev = os.listdir(p2)[-1]
 
           p3 = p2 + "/" + ref_rev
+          print "p3: " + p3
 	  ref_comp = os.listdir(p3)[-1]
 
           p4 = p3 + "/" + ref_comp
+          print "p4: " + p4
 	  ref_build = os.listdir(p4)[-1]
 	  
-          data += "<h1>Reference Plot (" + ref_date + ")</h1>"
-	  data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">"
-          data += "  <input type=\"submit\" name=\"Replace_1\" value=\"Replace\" >\n"
-	  data += "</form>"
-          data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
-	  data += "  <tr>\n    <td>"
+          data += "<h1>Reference Plot (" + ref_date + ")</h1>\n"
+	  data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
+          data += "  <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
+          data += "  <input type=\"submit\" name=\"Replace\" value=\"Replace\" >\n"
+	  data += "</form>\n"
+          data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
+	  data += "  <tr>\n    <td>\n"
           data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
-          data += "        <tr><td><b>Rev. Nr:</b></td><td>" + ref_rev + "</td>\n"
-          data += "            <td><b>Computer:</b></td><td>" + ref_comp +"</td>\n"
+          data += "        <tr><td><b>Rev. Nr:</b></td><td>" + ref_rev + "</td>"
+          data += "            <td><b>Computer:</b></td><td>" + ref_comp +"</td>"
           data += "            <td><b>Build. Nr:</b></td><td>" + ref_build + "</td>\n"
-          data += "</tr>\n      </table>\n"
+          data += "  </tr>\n</table>\n"
           data += "    </td></tr>\n    <tr><td>\n"
-	  data += "      <img src=\"archive/ref_"+exp_plot_Info+"/"+ref_date+"/buildbot/"+ref_rev+"/"+ref_comp+"/"+ref_build+"/"+exp_plot_Info+"/plots/"+exp_file_Info+".png\"/>\n"
+          
+	  data += "      <img src=\"reference_plot/"
+	  data +=   exp_plot_Info + "/" 
+	  data += save_date + "/" 
+	  data += ref_date + "/buildbot/" 
+	  data += ref_rev + "/"
+	  data += ref_comp +"/" 
+	  data += ref_build +"/" 
+	  data += exp_plot_Info + "/plots/"
+	  data += exp_file_Info + ".png\" />\n"
+	  
 	  data += "    </td>"
 	  data += "  </tr>"
 	  data += "</table>"
         else:
-          data += "<h1>Reference Plot (xxxx-xx-xx)</h1>"
+          data += "<h1>Reference Plot (xxxx-xx-xx)</h1>\n"
 	  data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">"
+          data += "  <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
           data += "  <input type=\"submit\" name=\"Replace_2\" value=\"Replace\" >\n"
 	  data += "</form>"
-          data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+          data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
 	  data += "  <tr>\n    <td>"
           data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
           data += "        <tr><td><b>Rev. Nr:</b></td><td> ????</td>\n"
@@ -396,13 +420,14 @@ class EXP_plot(HtmlResource):
 	  data += "  </tr>"
 	  data += "</table>"
 	  
+        print "====== ref Plot ======"
 	data += '''
     </div>
     <div id="arch_plots">
       <h1>Plot Area</h1>
 	  '''
 
-        p = "./public_html/archive/" + svn_Date + "/buildbot/" + svn_Rev + "/"
+        p = "public_html/archive/" + svn_Date + "/buildbot/" + svn_Rev + "/"
         data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
         
         for comp in Archive_Button_Dict['comp']:
@@ -453,16 +478,20 @@ class EXP_plot(HtmlResource):
       print req
       print req.args
       print "====== replace ======"
-#      e = req.args.get("exp",[None])[0]
+      e = req.args.get("exp",[None])[0]
 #      f = req.args.get("file",[None])[0]
-#      WEB.putChild('reference', reference_page.MainPage())
+      return Redirect("../reference?exp="+e)
+    
+    def default(self, req):
       return Redirect("../plot")
     
     def getChild(self, path, req):
       if path == "select":
         return self.select(req)
-      if path == "replace":
+      elif path == "replace":
         return self.replace(req)
+      else:
+        return self.default(req)
 
     def get_info(self, request):
         global exp_plot_Info
