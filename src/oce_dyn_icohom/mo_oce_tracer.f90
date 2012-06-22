@@ -408,6 +408,13 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
 
   p_os%p_diag%depth_c=z_cellthick_intmed
 
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=4  ! output print level (1-5, fix)
+  CALL dbg_print('PrepTrans: depth_c'        ,p_os%p_diag%depth_c         ,str_module,idt_src)
+  CALL dbg_print('PrepTrans: mass_flx_e'     ,p_os%p_diag%mass_flx_e      ,str_module,idt_src)
+  CALL dbg_print('PrepTrans: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+  !---------------------------------------------------------------------
+
 END SUBROUTINE prepare_tracer_transport
 !-------------------------------------------------------------------------
 !
