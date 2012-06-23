@@ -350,28 +350,19 @@ class EXP_plot(HtmlResource):
     <div id="arch_ref">
 	  '''
         p = "public_html/reference_plot/" + exp_plot_Info
-        print "====== ref Plot ======"
-        print p
         if os.path.isdir(p):
 	  save_date = os.listdir(p)
 	  save_date = sorted(save_date)[-1]
           p += "/" + save_date
-          print "save_date: " + save_date 
-          print "p: " + p
 	  ref_date = os.listdir(p)[-1]
-          print "ref_date: " + ref_date 
-          print "p: " + p
 	  
           p2 = p + "/" + ref_date + "/buildbot/"
-          print "p2: " + p2
 	  ref_rev = os.listdir(p2)[-1]
 
           p3 = p2 + "/" + ref_rev
-          print "p3: " + p3
 	  ref_comp = os.listdir(p3)[-1]
 
           p4 = p3 + "/" + ref_comp
-          print "p4: " + p4
 	  ref_build = os.listdir(p4)[-1]
 	  
           data += "<h1>Reference Plot (" + ref_date + ")</h1>\n"
@@ -440,7 +431,12 @@ class EXP_plot(HtmlResource):
 	        data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
 #	        data += "      <tr><td>Date:</td><td>" + svn_Date + "</td></tr>\n"
 #	        data += "      <tr><td>Rev. Nr:</td><td>" + svn_Rev + "</td></tr>\n"
-	        data += "      <tr><td><b>Computer:</b></td><td>" + comp + "</td><td><b>Build. Nr:</b></td><td>" + build + "</td></tr>\n"
+
+	        data += "      <tr><td><b>Computer:</b></td><td>" + comp + "</td><td><b>Build. Nr:</b></td><td>" 
+		data += "<a href=\"../builders/" + comp + "/builds/"+ build + "\">"
+		data += build 
+		data += "</a></td></tr>\n"
+		
 #	        data += "      <tr><td>Exp:</td><td>" + exp_plot_Info + "</td></tr>\n"
 	        data += "    </table>\n"
                 data += "  </td></tr>\n"
@@ -463,21 +459,11 @@ class EXP_plot(HtmlResource):
         return data
 
     def select(self, req):
-      print "====== select ======"
-      print "web select "
-      print req
-      print req.args
-      print "====== select ======"
       e = req.args.get("exp",[None])[0]
       f = req.args.get("file",[None])[0]
       return Redirect("../plot?exp="+e+"&file="+f+"&modus=nightly")
 
     def replace(self, req):
-      print "====== replace ======"
-      print "web replace "
-      print req
-      print req.args
-      print "====== replace ======"
       e = req.args.get("exp",[None])[0]
 #      f = req.args.get("file",[None])[0]
       return Redirect("../reference?exp="+e)

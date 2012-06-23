@@ -142,11 +142,6 @@ class MainPage(HtmlResource):
         #if CONTROL == "ok":
 	  #return Redirect("../plot")
 	
-      print "===== WS ===="
-      print req
-      print req.args
-      print "===== WS ===="
-
       data = "<div id=\"div_ref\"  style=\"float:left; padding:3px; margin:5px width:500px;\">"
       data += "<h1>Replace Reference Plot</h1>\n"
       
@@ -163,7 +158,7 @@ class MainPage(HtmlResource):
       data += "    <td>Revision:</td>"
       if not lr:
         data += "  <td>"
-        data += "    <form name=\"replace_save\" method=\"POST\" action=\"/reference?exp=" + EXP + "\"" + " class=\"command replace\">\n"
+        data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference?exp=" + EXP + "\"" + " class=\"command replace\">\n"
         data += "      <input name=\"rev\" type=\"text\" size=\"5\" maxlength=\"10\">\n"
         data += "      <input type=\"submit\" name=\"Revision_button\" value=\">\" >\n"
         data += "    <form>"
@@ -194,7 +189,7 @@ class MainPage(HtmlResource):
       data += "    <td>Computer:</td>\n"
       if not lc:
         data += "  <td>\n"
-        data += "    <form name=\"reference_comp\" method=\"POST\" action=\"/reference?exp=" + EXP
+        data += "    <form name=\"reference_comp\" method=\"POST\" action=\"reference?exp=" + EXP
         if not l_use_comp:
           data += "\" class=\"command replace\">\n"
           data += "      <select name=\"comp\" disabled=\"disabled\">\n"
@@ -229,7 +224,7 @@ class MainPage(HtmlResource):
       data += "    <td>Build Nr.:</td>\n"
       if not lb:
         data += "  <td>"
-        data += "    <form name=\"reference_build\" method=\"POST\" action=\"/reference?exp=" + EXP
+        data += "    <form name=\"reference_build\" method=\"POST\" action=\"reference?exp=" + EXP
         if not l_use_build:
 #          data += "&rev=" + REV 
           data += "\" class=\"command replace\">\n"
@@ -254,7 +249,7 @@ class MainPage(HtmlResource):
       if le and lr and lc and lb:
 	DATE = get_Date(EXP,REV,COMP,BUILD)
         data += "  <tr>"
-        data += "    <form name=\"replace_save\" method=\"POST\" action=\"/reference/save_cancel\"  class=\"command replace\">\n"
+        data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference/save_cancel\"  class=\"command replace\">\n"
         
         data += "      <input type=\"hidden\" name=\"date\" value=\""+ DATE + "\">\n"
         data += "      <input type=\"hidden\" name=\"exp\" value=\""+ EXP + "\">\n"
@@ -281,11 +276,7 @@ class MainPage(HtmlResource):
 
 
     def save_cancel(self, req):
-      print "===== WS ===="
-      print req
-      print req.args
-      print "===== WS ===="
-      
+     
       if "button" in req.args:
         try:
           CONTROL = req.args["button"][0]
@@ -337,20 +328,10 @@ class MainPage(HtmlResource):
 	
 	dstname   = "public_html/reference_plot/"
 	dstname  += EXP + "/" + save_time + tmpname
-#	dstname  += EXP + "/2012-06-22-19-05/" + tmpname
-#	l_dstname = dstname.split('/') 
-        print "===== OK ===="
-        print srcname
-        print dstname
-#        print l_dstname
         
         if not os.path.exists(dstname):
-          print "Create:" + dstname 
           os.makedirs(dstname)
-        else:
-          print "OK:" + dstname 
 
-        print "===== OK ===="
 
 	copytree(srcname,dstname + "/"  + EXP)
 	l = "../plot?exp=" + EXP + "&modus=nightly&status=ok" 
@@ -363,7 +344,6 @@ class MainPage(HtmlResource):
 							
     def getChild(self, path, req):
         if path == "save_cancel":
-	  print "WS: save_cancel"
 	  return self.save_cancel(req)
 #	else:
 #	  print "WS: else"
