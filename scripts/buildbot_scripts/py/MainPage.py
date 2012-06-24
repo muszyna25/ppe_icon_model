@@ -62,6 +62,8 @@ class HomePage(HtmlResource):
 
       ExpList.sort()
 	
+# Write the upper part of the main page
+
       data  = '''
 <h1>ICON Buildbot</h1>
 Buildbot starts every night a test suite on a set of builders differing in machines, compilers 
@@ -72,9 +74,11 @@ post-processings are archived and are uploaded to web pages for comparison with 
 figures.<p>
       '''
 	
+# Write the Status result part to the main page
+
       data += '''
 <h2>Status results</h2>
-<table border="1" cellspacing="0" cellpadding="2">
+<table border="1" cellspacing="5px" cellpadding="2" >
    <thead>
      <tr valign="baseline">
        <td><i>Display</i></td>
@@ -84,78 +88,70 @@ figures.<p>
    <tfoot></tfoot>
    <tbody>
      <tr valign="baseline">
-       <td><a href="waterfall?show_events=false&show_time=604800">Waterfall</a></td>
-       <td>Status of each step of the Buildbot tests for the past 7 days</td>
+       <td style=\"text-align:left\"><a href="waterfall?show_events=false&show_time=604800">Waterfall</a></td>
+       <td style=\"text-align:left\">Status of each step of the Buildbot tests for the past 7 days</td>
      </tr>
 
      <tr valign="baseline">
-       <td><a href="grid?width=10">Grid</a></td>
-       <td>Status of the complete Builbot test for the 10 latest tested revisions</td>
+       <td style=\"text-align:left\"><a href="grid?width=10">Grid</a></td>
+       <td style=\"text-align:left\">Status of the complete Builbot test for the 10 latest tested revisions</td>
      </tr>
 
      <tr valign="baseline">
-       <td><a href="one_box_per_builder">Latest build</a></td>
-       <td>Status of the complete Builbot test for the latest test on each builder</td>
+       <td style=\"text-align:left\"><a href="one_box_per_builder">Latest build</a></td>
+       <td style=\"text-align:left\">Status of the complete Builbot test for the latest test on each builder</td>
      </tr>
 
      <tr valign="baseline">
-       <td><a href="one_line_per_build">List</a></td>
-       <td>Status of the complete Builbot test for the latest 15 tests</td>
+       <td style=\"text-align:left\"><a href="one_line_per_build">List</a></td>
+       <td style=\"text-align:left\">Status of the complete Builbot test for the latest 15 tests</td>
      </tr>
 
      <tr valign="baseline">
-       <td><a href="buildslaves">Build slaves</a></td>
-       <td>Information on machines ("slaves"), builders, etc.</td>
+       <td style=\"text-align:left\"><a href="buildslaves">Build slaves</a></td>
+       <td style=\"text-align:left\">Information on machines ("slaves"), builders, etc.</td>
      </tr>
    </tbody>
    </table>
       '''
 
-      data += '''
-<h2>Eperiment results</h2>
-<table border="1" cellspacing="0" cellpadding="2">
-  <thead>
-    <tr valign="baseline">
-      <td width="300"><i>Experiment (exp)</i></td>
-      <td width="380"><i>Description</i></td>
-      <td width="200"><i>Model</i></td>
-      <td width="120"><i>Grid</i></td>
-    </tr>
-  </thead>
-  <tfoot>
-  </tfoot>
-  <tbody>
-      '''
-        
+# Create the experiment List as a table
+
+      
+      data += "<h2>Eperiment results</h2>\n"
+      data += "<table border=\"1\" cellspacing=\"5px\" cellpadding=\"2\">\n"
+      data += "  <thead>\n"
+      data += "    <tr valign=\"baseline\">\n"
+      data += "      <td width=\"300\"><i>Experiment (exp)</i></td>\n"
+      data += "      <td width=\"380\"><i>Description</i></td>\n"
+      data += "      <td width=\"200\"><i>Model</i></td>\n"
+      data += "      <td width=\"120\"><i>Grid</i></td>\n"
+      data += "    </tr>\n  </thead>"
+      data += "  <tfoot></tfoot>\n"
+
+         
 # Build HTML Table info
 
+      data += "  <tbody>\n"
       for exp in ExpList:
         for e in ExpListInfo:
           if exp == e.get('ExpName'):
 	    break
 	      
- 	data += '''
-<tr valign="baseline">
-        '''
-        data += "<td><a href=\"plot?exp=" + e.get('ExpName') + "&modus=nightly\">" + e.get('ExpName') + "</a></td>"
-        data += "<td>" + e.get('Description') + "</td>"
-        data += "<td>" + e.get('Model') + "</td>"
-        data += "<td>" + e.get('Grid') + "</td>"
-        data += "</tr>"
-            
+ 	data += "    <tr valign=\"baseline\">\n"
+        data += "      <td style=\"text-align:left\"><a href=\"plot?exp=" + e.get('ExpName') + "&modus=nightly\">" + e.get('ExpName') + "</a></td>\n"
+        data += "      <td style=\"text-align:left\">" + e.get('Description') + "</td>\n"
+        data += "      <td>" + e.get('Model') + "</td>\n"
+        data += "      <td>" + e.get('Grid') + "</td>\n"
+        data += "   </tr>"
+      
+      data += "  </tbody>\n</table>\n"
 
-      data += '''
- 	  </tbody>
-	  </table>
-      '''
-
-      data += '''
-          <h3>About BuildBot</h3>
-	  <ul>
-	    <li><a href="about">Buildbot version used here</a></li>
-	    <li>Buildbot home page: <a href="http://trac.buildbot.net" target="_blank">http://trac.buildbot.net</a></li>
-	  </ul>
-      '''
+      data += "<h3>About BuildBot</h3>\n"
+      data += "<ul>\n"
+      data += "  <li><a href=\"about\">Buildbot version used here</a></li>\n"
+      data += "  <li>Buildbot home page: <a href=\"http://trac.buildbot.net\" target=\"_blank\">http://trac.buildbot.net</a></li>\n"
+      data += "</ul>\n"
 
       return data
   
@@ -164,7 +160,6 @@ figures.<p>
         global change_Info
 	
         change_Info="NotSet"
-#        exp_Info="NotSet"
         
 	if "status" in request.args:
           try:
@@ -177,10 +172,6 @@ figures.<p>
     def body(self, request):
         global change_Info
 	self.get_info(request)
-
         data = self.main_page(request)	
-	print "WS: ======"
-	print data
-	print "WS: ======"
         return data
 #================================== NEW ================================
