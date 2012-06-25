@@ -171,14 +171,17 @@ CONTAINS
    den, ci
 
   REAL(wp):: rrn2, rn2_aux, h_aux, rh
-#ifdef NOMPI
+  
+! NOMPI is disabled for checking the bit-reproducability with mpi versions
+! this is not efficient though, and probably will be re-intronduced
+#ifdef NOMPI_DISABLED
   REAL(wp):: sum_aux(nblks)
 #endif
   INTEGER :: jb, nlen, ndim2
 
   INTEGER :: mnblks, mnpromz
 
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
   REAL(wp) :: z(SIZE(x,1),SIZE(x,3)) ! needed for global sums
   INTEGER :: jk
 #endif
@@ -192,7 +195,7 @@ CONTAINS
 
    mnblks = nblks
    mnpromz = npromz
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
    z(:,:) = 0._wp
 #endif
 
@@ -225,7 +228,7 @@ CONTAINS
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:,:))
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -303,7 +306,7 @@ CONTAINS
 
      gs_orth: DO k = 1, i
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -353,7 +356,7 @@ CONTAINS
 
      ! 4.3) new element for h
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN

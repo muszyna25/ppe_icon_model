@@ -2431,7 +2431,7 @@ SUBROUTINE decomposition_statistics(p_patch)
        DO i_pe = 1, p_n_work
          i1 = (i_pe-1)*max_nprecv+1
          i2 = i1-1+MIN(20,nprecv_buf(i_pe))
-         WRITE(0,'(i6,a,x,20i6)') i_pe-1,':',recvlist_buf(i1:i2)
+         WRITE(0,'(i6,a,1x,20i6)') i_pe-1,':',recvlist_buf(i1:i2)
        ENDDO
      ENDIF
 
