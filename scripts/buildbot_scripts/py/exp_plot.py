@@ -4,6 +4,7 @@ from buildbot.status.web.base import HtmlResource
 from twisted.web.util import Redirect
 import os, time
 from buildbot import version, util
+from datetime import datetime, timedelta
 
 class EXP_plot(HtmlResource):
     title = "Exp Plots"
@@ -240,9 +241,25 @@ class EXP_plot(HtmlResource):
 	      tmp,tmp_Rev = line.split("Revision:",1)
               svn_Rev_from = tmp_Rev.strip(" ").replace("\n","")
 	      svn_Rev_to = svn_Rev_from
-                
-	      svn_Date_from = "2012-06-15"
-	      svn_Date_to = "2012-06-25"
+ 
+	      svn_Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
+	      now_time = time.strftime("%H%M",time.localtime(util.now()))
+	      
+	      yesterday = datetime.now() - timedelta(days=1)
+	      
+	      if now_time > "2200":
+		svn_Date_from = svn_Date_to
+	      else:
+	        svn_Date_from = yesterday.strftime("%Y-%m-%d")
+		      
+	      
+              print "====== svn_Date_from_to ======"
+	      print now_time
+	      print svn_Date_from
+	      print svn_Date_to
+	      
+              print "====== svn_Date_from_to ======"
+	      
 #            if line.find("Last Changed Date:") >= 0:
 #	      tmp,tmp_Date = line.split("Last Changed Date:",1)
 #              tmp_Date.replace("\n","")
@@ -322,8 +339,8 @@ class EXP_plot(HtmlResource):
 #        print date_Dict
 #	print "==== WS ===="
 	
-	if len(Archive_Button_Dict['comp']) > 1:
-	  Archive_Button_Dict['comp'].insert(0, 'all')
+#	if len(Archive_Button_Dict['comp']) > 1:
+#	  Archive_Button_Dict['comp'].insert(0, 'all')
 	  
 #	if len(Archive_Button_Dict['build']) > 1:
 #	  Archive_Button_Dict['build'].insert(0, 'all')
@@ -650,7 +667,19 @@ class EXP_plot(HtmlResource):
         
 	data += "</div>\n"
 	
+#===================================================================================
+
+
+#===================================================================================
+
 	data += "<div style=\"float:left; padding:3px; margin:5px  width:200px;\">\n"
+
+#===================================================================================
+
+# div vor Reference Plot
+
+#===================================================================================
+	
 	data += "  <div id=\"arch_ref\">\n"
         
 	p = "public_html/reference_plot/" + exp_plot_Info
@@ -716,33 +745,38 @@ class EXP_plot(HtmlResource):
 	  
         print "====== ref Plot ======"
 	
+#===================================================================================
+
+# div vor Exp Plots
+
+#===================================================================================
 	data += "  </div>\n  <div id=\"arch_plots\">\n  <h1>Plot Area</h1>\n"
 
         p = "public_html/archive/" + svn_Date_from + "/buildbot/" + svn_Rev_from + "/"
         data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
         
         for comp in Archive_Button_Dict['comp']:
-#        for computer in os.listdir(p):
-	  if os.path.isdir(p + "/" + comp): 
-            for build in os.listdir(p + "/" + comp + "/"):
-              if os.path.isdir(p + "/" + comp + "/"+ build + "/" + exp_plot_Info): 
-	        data += "  <tr><td>\n"
-	        data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
-#	        data += "      <tr><td>Date:</td><td>" + svn_Date_from + "</td></tr>\n"
-#	        data += "      <tr><td>Rev. Nr:</td><td>" + svn_Rev_from + "</td></tr>\n"
+	  for Da in Comp_Dict[comp]:
+            for Re in Comp_Dict[comp][Da]:
+	      for Bu in Comp_Dict[comp][Da][Re]:
+	        for Ex in Comp_Dict[comp][Da][Re][Bu]:
+		  for Fi in Comp_Dict[comp][Da][Re][Bu][Ex]:
+		    if Fi.strip(".png") == exp_file_Info:
+	              data += "  <tr><td>\n"
+	              data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"400\">\n"
 
-	        data += "      <tr>\n"
-		data += "        <td><b>Computer:</b></td><td>" + comp + "</td>\n"
-		data += "        <td><b>Build. Nr:</b></td><td><a href=\"builders/" + comp + "/builds/"+ build + "\">" 
-		data += build 
-		data += "</a></td></tr>\n"
+	              data += "      <tr>\n"
+		      data += "        <td><b>Computer:</b></td><td>" + comp + "</td>\n"
+		      data += "        <td><b>Build. Nr:</b></td><td><a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
+		      data += Bu 
+		      data += "</a></td></tr>\n"
 		
-#	        data += "      <tr><td>Exp:</td><td>" + exp_plot_Info + "</td></tr>\n"
-	        data += "    </table>\n"
-                data += "  </td></tr>\n"
-                data += "  <tr><td>\n"        
-	        data += "    <img src=\"archive/" + svn_Date_from + "/buildbot/"+ svn_Rev_from + "/" + comp +"/"+ build + "/" + exp_plot_Info + "/plots/" + exp_file_Info + ".png\" />\n"
-	        data += "  </td></tr>\n"
+	              data += "    </table>\n"
+                      data += "  </td></tr>\n"
+                      data += "  <tr><td>\n"        
+	              data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/"+ Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+	              data += "  </td></tr>\n"
+		   
         data += "</table>\n"
         data += "</div>\n"
         data += "</div>\n"
