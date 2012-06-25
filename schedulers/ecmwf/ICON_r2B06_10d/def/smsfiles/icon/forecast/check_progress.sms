@@ -23,7 +23,7 @@
 echo "CHECK_PROGRESS.SMS"
 
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+#REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 
 date
 
@@ -36,7 +36,7 @@ do
 
   # build the name string of the i'th output file:
   DOM=1
-  PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/${REQUEST_DATE}/%SUITE_NAME%"
+  PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%YMD%00/%SUITE_NAME%"
   # disable SMS preprocessor here to avoid the SMSMICRO character (percent sign)...
 %nopp
   OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.grb", a,b,c);}'`

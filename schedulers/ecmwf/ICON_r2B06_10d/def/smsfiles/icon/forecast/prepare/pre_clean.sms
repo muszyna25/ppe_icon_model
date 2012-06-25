@@ -26,8 +26,8 @@ set -x
 module load python
 
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
-MODELOUTDIR="%SCTEMP%/output/%SUITE_NAME%/${REQUEST_DATE}"
+#REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+MODELOUTDIR="%SCTEMP%/output/%SUITE_NAME%/%YMD%00"
 
 # Change directory ----------------------------
 smsevent change_dir

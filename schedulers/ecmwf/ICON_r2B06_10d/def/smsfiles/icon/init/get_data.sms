@@ -24,7 +24,7 @@ echo "GET_DATA.SMS"
 
 module load python
 
-LOGFILE="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/log.mars4icon.txt"
+#LOGFILE="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/log.mars4icon.txt"
 SCRIPTDIR="%SCBASEDIR%/%SUITE_NAME%/def/icon_scripts"
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
 TMPDIR="${TEMP}"
@@ -36,27 +36,29 @@ export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 
 # Global setup:
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+#REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 WEEKDAY=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00 -s 2`
 
 # Build a new binary every MONDAY:
+
 if [ "${WEEKDAY}" -eq "1" ]
 then
     smsevent enable_build
 fi
 
 # Change directory ----------------------------
-smsevent change_dir
+
 cd ${IFSDATADIR}
 
 # Clean up ------------------------------------
-smsevent clear_directory
-find . -name "${LOGFILE}" -exec rm {} \;
+
+#find . -name "${LOGFILE}" -exec rm {} \;
 
 # Retrieve data from MARS ---------------------
+
 smsevent mars4icon
 
-${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ "${REQUEST_DATE}" 0 255 1/to/91 2>&1 > ${LOGFILE}
+${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ %YMD%00 0 255 1/to/91 #2>&1 > ${LOGFILE}
 ls -lrt ${IFSDATADIR}
 
 # -------------------------------------------------

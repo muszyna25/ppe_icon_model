@@ -24,8 +24,8 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set FIRST_DATE    20120213
-set LAST_DATE     20191231
+set FIRST_DATE    20120620
+set LAST_DATE     20120701
 
 # HPC environment:
 set SCHOST      c1a
@@ -44,7 +44,7 @@ set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
 # place for SMS output
 set SMSOUT      "$HOME/$SUITE_NAME/log"
 # no. of files to check for:
-set MAXFILES     80
+set MAXFILES     10
 # wait interval between file checks:
 set WAITINTVL    20
 # set no. of restarts for aborted tasks in SMS:
@@ -86,7 +86,7 @@ define on_hpc_serial {
 
 suite icon
     # repeat this suite over and over...
-    repeat date  CYMD ${FIRST_DATE} ${LAST_DATE}
+    repeat date YMD ${FIRST_DATE} ${LAST_DATE}
 
     # init local variables:
     set ENABLE_INIT               1
@@ -104,7 +104,7 @@ suite icon
     set  SVN_UPDATE           1
     edit SVN_UPDATE $SVN_UPDATE
 
-    edit SUITE_NAME   $SUITE_NAME
+    edit SUITE_NAME $SUITE_NAME
 
     edit SMSTRIES   $SMSTRIES
     edit SMSHOME    $SMSHOME
@@ -124,6 +124,7 @@ suite icon
     edit ICONNODES        $ICONNODES        
     edit ICONTASKSPERNODE $ICONTASKSPERNODE 
     edit ICONTHREADS      $ICONTHREADS      
+    edit ENABLE_DUMPSTATE $ENABLE_DUMPSTATE
 
 
     # DUMMY TASK (IFS TRIGGER) ------------------------
@@ -139,16 +140,18 @@ suite icon
         complete ($ENABLE_INIT == 0)
 
         task setup
-            trigger (/icon/ifs_fct/fct_ifs == complete)
+            trigger (/icon:YMD le /icon:SMSDATE - 2 ) or \
+                    (/icon/ifs_fct/fct_ifs == complete)
             #
             on_ecgate
             if ($ENABLE_INIT == 0) then
                 label status "skipped"
             endif
             #
-            label date "???"
+           #label date "???"
             event enable_build
             event enable_dumpstate
+
 
         task get_data
             trigger (/icon/init/setup == complete)
@@ -161,8 +164,8 @@ suite icon
                 label status "skipped"
             endif
             #
-            event change_dir
-            event clear_directory
+            #event change_dir
+            #event clear_directory
             event mars4icon
 
         task init_data
@@ -184,7 +187,8 @@ suite icon
             trigger (/icon/init/setup == complete)
             #
             task init_svn 
-                complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (/icon/init/setup:enable_build)
+                complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
+                  ($ENABLE_BUILD == 0) or not (/icon/init/setup:enable_build)
                 #
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then

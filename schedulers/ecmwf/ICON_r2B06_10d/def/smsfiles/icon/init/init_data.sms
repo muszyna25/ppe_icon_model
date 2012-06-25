@@ -26,11 +26,11 @@ echo "INIT_DATA.SMS"
 module load python
 
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+#REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 
 IFSCONFIGFILE="%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf"
 IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
-IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%/${REQUEST_DATE}"
+IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%/%YMD%00"
 GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
 CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
 RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
@@ -53,8 +53,8 @@ if [ ! -d ${IFSDATAOUTDIR} ]; then
 fi
 
 # move grib file to IFS2ICON directory
-mv ${IFSDATADIR}/ifs_oper_T255_${REQUEST_DATE}.grb ${IFSDATAOUTDIR}
-IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_${REQUEST_DATE}.grb"
+mv ${IFSDATADIR}/ifs_oper_T255_%YMD%00.grb ${IFSDATAOUTDIR}
+IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_%YMD%00.grb"
 
 module unload cdo
 module load cdo/1.5.0
