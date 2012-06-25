@@ -34,12 +34,191 @@ class EXP_plot(HtmlResource):
         global l_nightly
 	self.get_info(request)
         status = self.getStatus(request)	
+        Archive_Button_Dict = {}
+
+# -----------------------------------------------------------
+        def add_file(p,e,Dict):
+	  ret = False
+	  file_L = []
+	  p += e + "/plots/"
+	  for f in os.listdir(p):
+	    file_L.append(f)
+       	    Archive_Button_Dict['file'].append(f)
+	    ret = True
+	    
+# If ret == True we got a file in the list
+	  if ret:
+            Dict[e] = file_L
+	    
+          return ret
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        
+	def add_exp(p,b,Dict):
+	  ret = False
+	  exp_D = {}
+	  p += b + "/"
+	  for e in os.listdir(p):
+	    if e.find("test_") == 0:
+	      if e == exp_plot_Info or exp_plot_Info == "all":
+	        if add_file(p,e,exp_D):
+		  Archive_Button_Dict['exp'].append(e)
+	          ret = True
+
+# If ret == True we found an existing experiment mit a file list
+	  if ret:
+            Dict[b] = exp_D
+          
+	  return ret
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        
+	def add_build(p,c,Dict):
+	  ret = False
+	  build_D = {}
+	  p += c + "/"
+	  for b in os.listdir(p):
+	    if add_exp(p,b,build_D):
+	      Archive_Button_Dict['build'].append(b)
+	      ret = True
+
+# If ret == True we found a build with correct sub-information
+	  if ret:
+            Dict[c] = build_D
+          
+	  return ret
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        
+	def add_comp(p,r,r_Dict):
+	  ret = False
+	  comp_D = {}
+	  p += r + "/"
+	  for c in os.listdir(p):
+	    if add_build(p,c,comp_D):
+  	      Archive_Button_Dict['comp'].append(c)
+	      ret = True
+
+# If ret == True we found a computer with correct sub-information
+	  if ret:
+            r_Dict[r] = comp_D
+          
+          return ret
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        
+	def add_rev(p,D,d_Dict):
+	  ret = False
+	  rev_D = {}
+	  p += D + "/buildbot/"
+	  for r in os.listdir(p):
+            if (r >= svn_Rev_from) and (r <= svn_Rev_to):
+	      if add_comp(p,r,rev_D):
+	        Archive_Button_Dict['rev'].append(r)
+	        ret = True
+#	    else:
+#	      print "Rev: "+r+" not used"
+
+# If ret == True we found a revision number with correct sub-information
+	  if ret:
+            d_Dict[D] = rev_D
+          
+          return ret
+	      
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def create_Exp_Dict(d,r,c,b,eD):
+	  build_D = {}
+	  comp_D  = {}
+	  rev_D   = {}
+	  data_D  = {}
+	  build_D[b] = eD
+	  comp_D[c] = build_D
+	  rev_D[r] = comp_D
+	  data_D[d] = rev_D
+	  return data_D 
+	  
+        def create_data_Dict(r,c,b,eD):
+	  build_D = {}
+	  comp_D  = {}
+	  rev_D   = {}
+	  build_D[b] = eD
+	  comp_D[c] = build_D
+	  rev_D[r] = comp_D
+	  return rev_D 
+        
+	def create_rev_Dict(c,b,eD):
+	  build_D = {}
+	  comp_D  = {}
+	  build_D[b] = eD
+	  comp_D[c] = build_D
+	  return comp_D 
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	def create_comp_Dict(b,eD):
+	  build_D = {}
+	  build_D[b] = eD
+	  return build_D 
+	
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	def Exp_add(Exp_Dict,d,r,c,b,eD):
+	   
+	   for e in eD:
+             if e in Exp_Dict:
+	       if d in Exp_Dict[e]:
+	         print "date existiert " + d
+	         if r in Exp_Dict[e][d]:
+	           print "ref existiert " + r
+	           if c in Exp_Dict[e][d][r]:
+	             print "comp existiert " + c
+	             if b in Exp_Dict[e][d][r][c]:
+	               print "build existiert " + c
+	               Exp_Dict[e][d][r][c][b] = eD[e]
+		     else:
+	               Exp_Dict[e][d][r][c][b] = eD[e]
+	           else:
+	             Exp_Dict[e][d][r][c] = create_comp_Dict(b,eD[e])
+	         else:
+	           Exp_Dict[e][d][r] = create_rev_Dict(c,b,eD[e])
+	       else:
+	         Exp_Dict[e][d] = create_data_Dict(r,c,b,eD[e])
+             else:
+	       Exp_Dict[e] = create_Exp_Dict(d,r,c,b,eD[e])
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	
+        def Comp_create_date(d,r,eD):
+	  rev_D   = {}
+	  data_D  = {}
+	  rev_D[r] = eD
+	  data_D[d] = rev_D
+	  return data_D 
+	
+        def Comp_create_rev(r,eD):
+	  rev_D   = {}
+	  rev_D[r] = eD
+	  return rev_D 
+	
+	def Comp_add(Comp_Dict,d,r,cD):
+	  for c in cD:
+           if c in Comp_Dict:
+             print "comp exists " + c
+             if d in Comp_Dict[c]:
+               print "date exists " + d
+               if r in Comp_Dict[c][d]:
+                 print "!!!! rev exists " + r
+                 Comp_Dict[c][d][r] = cD[c]
+	       else:
+                 Comp_Dict[c][d][r] = cD[c]
+	     else:
+	       Comp_Dict[c][d] = Comp_create_rev(r,cD[c])
+	   else:
+	     Comp_Dict[c] = Comp_create_date(d,r,cD[c])
+# -----------------------------------------------------------
 	
 	if exp_plot_Info == "NotSet":
 	  data = self.footer(status,request)
           return data
 
-	Archive_Button_Dict = {}
 	Archive_Button_Dict['date']  = []
 	Archive_Button_Dict['rev']   = []
 	Archive_Button_Dict['comp']  = []
@@ -62,8 +241,8 @@ class EXP_plot(HtmlResource):
               svn_Rev_from = tmp_Rev.strip(" ").replace("\n","")
 	      svn_Rev_to = svn_Rev_from
                 
-	      svn_Date_from = "2012-06-21"
-	      svn_Date_to = "2012-06-22"
+	      svn_Date_from = "2012-06-15"
+	      svn_Date_to = "2012-06-25"
 #            if line.find("Last Changed Date:") >= 0:
 #	      tmp,tmp_Date = line.split("Last Changed Date:",1)
 #              tmp_Date.replace("\n","")
@@ -89,65 +268,63 @@ class EXP_plot(HtmlResource):
 
 # Build new emty rev_Dict type and save it in the date_Dict under the correct Date
 	date_Dict = {}
-#        p_date = "public_html/archive/"
-	
-#	for DATE in os.listdir(p):
-#	  if DATE.find("201") == 0:
-	    
-	rev_Dict = {}
-        date_Dict[svn_Date_from] = rev_Dict
-	Archive_Button_Dict['date'].append(svn_Date_from)
-
-# Build new emty comp_Dict type and save it in the rev_Dict under the correct reverents number
         
-	comp_Dict = {}
-	rev_Dict[svn_Rev_from] = comp_Dict
-	Archive_Button_Dict['rev'].append(svn_Rev_from)
-	
-        p = "public_html/archive/" + svn_Date_from + "/buildbot/" + svn_Rev_from + "/"
-	for computer in os.listdir(p):
+	p_date = "public_html/archive/"
+        print "==== WS ===="
+	for DATE in os.listdir(p_date):
+	  if DATE.find("2012-06") == 0:
+            if (DATE >= svn_Date_from) and (DATE <= svn_Date_to):
+	      if add_rev(p_date,DATE,date_Dict):
+	        Archive_Button_Dict['date'].append(DATE)
+#	      Archive_Button_Dict['date'].append(DATE)
+#	      print "    Used:" + DATE
+#	    else:
+#	      print "Not Used:" + DATE
+	    
+# Build a new List where the Experiment Name ist the hightest index
+	Exp_Dict = {}
+	for d in date_Dict:
+	  for r in date_Dict[d]:
+	    for c in date_Dict[d][r]:
+	      for b in date_Dict[d][r][c]:
+	        Exp_add(Exp_Dict,d,r,c,b,date_Dict[d][r][c][b])
+             
+# Build a new List where the Experiment Name ist the hightest index
+	Comp_Dict = {}
+	for d in date_Dict:
+	  for r in date_Dict[d]:
+	     Comp_add(Comp_Dict,d,r,date_Dict[d][r])
 
-# Build for each computer a new emty build_Dict type and save it in the comp_Dict under the correct computer name
-          
-	  build_Dict =  {}
-          comp_Dict[computer] = build_Dict
-  	  Archive_Button_Dict['comp'].append(computer)
-          for build in os.listdir(p + "/" + computer + "/"):
-
-# Build for each build number a new emty exp_Dict type and save it in the build_Dict under the correct builder number
-            
-	    exp_Dict = {}
-            build_Dict[build] = exp_Dict
-    	    Archive_Button_Dict['build'].append(build)
-            for exp in os.listdir(p + "/" + computer + "/" + build + "/"):
-	      if exp != "run_info.txt": 
-# To Do
-
-# Hier muss noch eingebaut werden das bei 'all' alle Experimente genommen werden.
-		
-		if exp == exp_plot_Info:
-	          file_List = []
-                  exp_Dict[exp] = file_List
-      	          Archive_Button_Dict['exp'].append(exp)
-
-# Build a new file list and include the all stateman into the list
-                  
-		  for fi in os.listdir(p + "/" + computer + "/" + build + "/" + exp + "/plots/"):
-
-# Append all existing files from the the experiment
-	            
-		    file_List.append(fi)
-       	            Archive_Button_Dict['file'].append(fi)
-
+	print "====== Exp_add ======"
+        print "Exp_Dict:"
+        print Exp_Dict
+	print "====== Exp_add ======"
+ 
+	print "====== Comp_add ======"
+        print "Comp_Dict:"
+        print Comp_Dict
+	print "====== Exp_add ======"
         Archive_Button_Dict['date']  = list(sorted(set(Archive_Button_Dict['date'])))
  	Archive_Button_Dict['rev']   = list(sorted(set(Archive_Button_Dict['rev'])))
 	Archive_Button_Dict['comp']  = list(sorted(set(Archive_Button_Dict['comp'])))
 	Archive_Button_Dict['build'] = list(sorted(set(Archive_Button_Dict['build'])))
 	Archive_Button_Dict['exp']   = list(sorted(set(Archive_Button_Dict['exp'])))
 	Archive_Button_Dict['file']  = list(sorted(set(Archive_Button_Dict['file'])))
+        
+#        print "Archive_Button_Dict"
+#	print Archive_Button_Dict['date']
+# 	print Archive_Button_Dict['rev']
+#	print Archive_Button_Dict['comp']
+#	print Archive_Button_Dict['build']
+#	print Archive_Button_Dict['exp']
+#       print Archive_Button_Dict['file']
+#        print "date_Dict"
+#        print date_Dict
+#	print "==== WS ===="
 	
 	if len(Archive_Button_Dict['comp']) > 1:
 	  Archive_Button_Dict['comp'].insert(0, 'all')
+	  
 #	if len(Archive_Button_Dict['build']) > 1:
 #	  Archive_Button_Dict['build'].insert(0, 'all')
 #	if len(Archive_Button_Dict['exp']) > 1:
@@ -393,67 +570,76 @@ class EXP_plot(HtmlResource):
 	b = 0
 	f = 0
 	
-        p = "public_html/archive/" + svn_Date_from + "/buildbot/" + svn_Rev_from + "/"
-        e += 1
 
-        r += 1
-        data += "\n<!--- " + str(e) + ". Experiment -->\n"
+        for Ex in Exp_Dict:
+	  e += 1
+          data += "\n<!--- " + str(e) + ". Experiment " + Ex + " -->\n"
+          data += "\n<a href=\"javascript:anzeigen('date_" + str(e) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+	  data += "  <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + Ex + "</span>\n"
+	  data += "</a><br>\n"
+	  
+	  data += "<div id=\"date_" + str(e) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	  for Da in Exp_Dict[Ex]:
+	    d += 1 
+            data += "  <!--- " + str(d) + ". Date " + Da + " -->\n"
+          
+	    data += "  <a href=\"javascript:anzeigen('rev_" + str(d) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+	    data += "    <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + Da + "</span>\n"
+	    data += "  </a><br>\n"
+#------------------------------
+	    data += "  <div id=\"rev_" + str(d) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	    for Re in Exp_Dict[Ex][Da]:
+	      r += 1 
+              data += "    <!--- " + str(r) + ". Revision " + Re + " -->\n"
+          
+	      data += "    <a href=\"javascript:anzeigen('comp_" + str(r) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+	      data += "      <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + Re + "</span>\n"
+	      data += "    </a><br>\n"
+#------------------------------
+	      data += "    <div id=\"comp_" + str(r) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	      for Co in Exp_Dict[Ex][Da][Re]:
+	        c += 1 
+                data += "      <!--- " + str(c) + ". Computer " + Co + " -->\n" 
+	        data += "      <a href=\"javascript:anzeigen('build_" + str(c) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+	        data += "        <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + Co + "</span>\n"
+	        data += "      </a><br>\n"
+#------------------------------
+	        data += "      <div id=\"build_" + str(c) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	        for Bu in Exp_Dict[Ex][Da][Re][Co]:
+	          b += 1 
+                  data += "        <!--- " + str(b) + ". Build " + Bu + " -->\n" 
+	          data += "        <a href=\"javascript:anzeigen('file_" + str(b) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+	          data += "          <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + Bu + "</span>\n"
+	          data += "        </a><br>\n"
+#------------------------------
+	          data += "      <div id=\"file_" + str(b) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	          for Fi in Exp_Dict[Ex][Da][Re][Co][Bu]:
+	            f += 1 
+                    data += "          <!--- " + str(f) + ". File " + Co + " -->\n" 
+#	            data += "          <a href=\"javascript:anzeigen('file_" + str(f) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+#	            data += "            <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + Fi + "</span>\n"
+#	            data += "          </a><br>\n"
+                    
+		    if Fi.strip(".png") == exp_file_Info:
+                      data += "<input type=\"checkbox\" name=\"zutat\" value=\"" + Fi.strip(".png") + "\" id=\"check1\" checked=\"checked\" disabled=\"disabled\">"
+                    else:
+                      data += "<input type=\"checkbox\" name=\"zutat\" value=\"" + Fi.strip(".png") + "\" id=\"check1\" disabled=\"disabled\">"
+		      
+		    data += "<label for=\"check1\">"+ Fi.strip(".png") + "</label><br />\n"
+#                    data += "<a href=\"#\" class=\"link\"><span style=\"color: #FF0000;\">" + Fi + "</span></a><br>\n"
+                  data += "        </div>\n"
+#------------------------------
+                data += "      </div>\n"
+#------------------------------
+	      data += "    </div>\n"
+#------------------------------
+	  
+            data += "  </div>\n"
+#------------------------------
+	  
+          data += "</div>\n"
+          
 
-        data += "\n<a href=\"javascript:anzeigen('rev_" + str(r) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-	data += "  <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" + exp_plot_Info + "</span>\n"
-	data += "</a><br>\n"
-	
-	data += "<div id=\"rev_" + str(r) + "\" class=\"Rand\" style=\"display: none;\">\n"
-        data += "\n<!--- " + str(r) + ". Revision Nr. -->\n"
-
-        d += 1
-        data += "  <a href=\"javascript:anzeigen('date_" + str(d) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-        data += "    <img name=\"bild_1\" src=\"closed.gif\" lass=\"Bild\"> <span style=\"color: #000000;\">" + svn_Rev_from + "</span>\n"
-        data += "  </a><br>\n"
-
-        data += "  <div id=\"date_" + str(d) + "\" class=\"Rand\" style=\"display: none;\">\n"
-        data += "<!--- " + str(d) + ". Datum. -->\n"
-        
-        c += 1
-        data += "    <a href=\"javascript:anzeigen('comp_" + str(c) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-        data += "      <img name=\"bild_1\" src=\"closed.gif\" lass=\"Bild\"> <span style=\"color: #000000;\">" + svn_Date_from + "</span>\n"
-        data += "    </a><br>\n"
-        data += "    <div id=\"comp_" + str(c) + "\" class=\"Rand\" style=\"display: none;\">\n"
-        data += "<!--- " + str(c) + ". Computer -->\n"
-        
-        for computer in os.listdir(p):
-	  b += 1
-          data += "    <a href=\"javascript:anzeigen('build_" + str(b) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-          data += "      <img name=\"bild_1\" src=\"closed.gif\" lass=\"Bild\"> <span style=\"color: #000000;\">" + computer + "</span>\n"
-          data += "    </a><br>\n"
-          data += "    <div id=\"build_" + str(b) + "\" class=\"Rand\" style=\"display: none;\">\n"
-          data += "<!--- " + str(b) + ". build -->\n"
-
-          for build in os.listdir(p + "/" + computer + "/"):
-  	    f += 1
-            data += "      <a href=\"javascript:anzeigen('file_" + str(f) + "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-            data += "        <img name=\"bild_1\" src=\"closed.gif\" lass=\"Bild\"> <span style=\"color: #000000;\">" + build + "</span>\n"
-            data += "      </a><br>\n"
-
-            data += "      <div id=\"file_" + str(f) + "\" class=\"Rand\" style=\"display: none;\">\n"
-            data += "<!--- " + str(c) + ". File -->\n"
-            if os.path.isdir(p + "/" + computer + "/" + build + "/" + exp_plot_Info): 
-              for fi in os.listdir(p + "/" + computer + "/" + build + "/" + exp_plot_Info + "/plots/"):
-#	      if fi == exp_file_Info + ".png":
-                data += "<a href=\"#\" class=\"link\"><span style=\"color: #FF0000;\">" + fi.strip(".png") + "</span></a><br>\n"
-            else:
-              data += "<a href=\"#\" class=\"link\"><span style=\"color: #FF0000;\"> No File exist !!! </span></a><br>\n"
-            
-            data += "      </div>\n"
-           
-          data += "    </div>\n"
-
-        data += "  </div>\n"
-        data += "  </div>\n"
-        data += "</div>\n"
-              
-        data += "</td>\n"
-        data += "</tr>\n"
         data += "</table>\n"
 	  
 # End of ´Available Plot List´  div
