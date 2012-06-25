@@ -50,15 +50,16 @@ USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config,    ONLY: nproma
+USE mo_run_config,         ONLY: msg_level
 USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
-  & p_send, p_recv, p_comm_work_test,  p_comm_work, &
+  & p_send, p_recv, p_comm_work_test,  p_comm_work, p_n_work,        &
   & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_all_test_id, &
   & my_process_is_mpi_parallel,       &
   & p_work_pe0,p_pe_work, push_glob_comm, pop_glob_comm, get_glob_proc0, &
-  & comm_lev, glob_comm, comm_proc0
+  & comm_lev, glob_comm, comm_proc0, p_gather, p_gatherv
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
@@ -2277,11 +2278,13 @@ END SUBROUTINE exact_ieee64_sum
 !!
 SUBROUTINE decomposition_statistics(p_patch)
 
-   TYPE(t_patch), INTENT(IN) :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
 
    REAL(wp) :: cellstat(0:6),edgestat(0:6),vertstat(0:5), csmax(0:5),csmin(0:5),csavg(0:6), &
                esmax(0:6),esmin(0:6),esavg(0:6),vsmax(0:5),vsmin(0:5),vsavg(0:5)
-   INTEGER  :: i_nchdom, i
+   INTEGER  :: i_nchdom, i, i_pe, max_nprecv, i1, i2
+   INTEGER, ALLOCATABLE :: nprecv_buf(:),displs(:),recvlist_buf(:)
+
 !-----------------------------------------------------------------------
 
    i_nchdom = MAX(1,p_patch%n_childdom)
@@ -2289,11 +2292,11 @@ SUBROUTINE decomposition_statistics(p_patch)
    cellstat(0) = REAL(nproma*(p_patch%cells%end_blk(grf_bdywidth_c,1)-1) + &
                       p_patch%cells%end_idx(grf_bdywidth_c,1),wp)
    cellstat(1) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int,i_nchdom)-1) + &
-                      p_patch%cells%end_idx(min_rlcell_int,i_nchdom),wp)
+                      p_patch%cells%end_idx(min_rlcell_int,i_nchdom),wp) - cellstat(0)
    cellstat(2) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-1,i_nchdom)-1) + &
-                      p_patch%cells%end_idx(min_rlcell_int-1,i_nchdom),wp)
+                      p_patch%cells%end_idx(min_rlcell_int-1,i_nchdom),wp) - cellstat(0)
    cellstat(3) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)-1) + &
-                      p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp)
+                      p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp) - cellstat(0)
    cellstat(4) = REAL(p_patch%comm_pat_c%np_send,wp)
    cellstat(5) = REAL(p_patch%comm_pat_c%np_recv,wp)
 
@@ -2309,24 +2312,24 @@ SUBROUTINE decomposition_statistics(p_patch)
    edgestat(0) = REAL(nproma*(p_patch%edges%end_blk(grf_bdywidth_e,1)-1) + &
                       p_patch%edges%end_idx(grf_bdywidth_e,1),wp)
    edgestat(1) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int,i_nchdom)-1) + &
-                      p_patch%edges%end_idx(min_rledge_int,i_nchdom),wp)
+                      p_patch%edges%end_idx(min_rledge_int,i_nchdom),wp) - edgestat(0)
    edgestat(2) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-1,i_nchdom)-1) + &
-                      p_patch%edges%end_idx(min_rledge_int-1,i_nchdom),wp)
+                      p_patch%edges%end_idx(min_rledge_int-1,i_nchdom),wp) - edgestat(0)
    edgestat(3) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-2,i_nchdom)-1) + &
-                      p_patch%edges%end_idx(min_rledge_int-2,i_nchdom),wp)
+                      p_patch%edges%end_idx(min_rledge_int-2,i_nchdom),wp) - edgestat(0)
    edgestat(4) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)-1) + &
-                      p_patch%edges%end_idx(min_rledge_int-3,i_nchdom),wp)
+                      p_patch%edges%end_idx(min_rledge_int-3,i_nchdom),wp) - edgestat(0)
    edgestat(5) = REAL(p_patch%comm_pat_e%np_send,wp)
    edgestat(6) = REAL(p_patch%comm_pat_e%np_recv,wp)
 
    vertstat(0) = REAL(nproma*(p_patch%verts%end_blk(grf_bdywidth_c,1)-1) + &
                       p_patch%verts%end_idx(grf_bdywidth_c,1),wp)
    vertstat(1) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int,i_nchdom)-1) + &
-                      p_patch%verts%end_idx(min_rlvert_int,i_nchdom),wp)
+                      p_patch%verts%end_idx(min_rlvert_int,i_nchdom),wp) - vertstat(0)
    vertstat(2) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-1,i_nchdom)-1) + &
-                      p_patch%verts%end_idx(min_rlvert_int-1,i_nchdom),wp)
+                      p_patch%verts%end_idx(min_rlvert_int-1,i_nchdom),wp) - vertstat(0)
    vertstat(3) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-2,i_nchdom)-1) + &
-                      p_patch%verts%end_idx(min_rlvert_int-2,i_nchdom),wp)
+                      p_patch%verts%end_idx(min_rlvert_int-2,i_nchdom),wp) - vertstat(0)
    vertstat(4) = REAL(p_patch%comm_pat_v%np_send,wp)
    vertstat(5) = REAL(p_patch%comm_pat_v%np_recv,wp)
 
@@ -2407,6 +2410,34 @@ SUBROUTINE decomposition_statistics(p_patch)
    IF (.NOT. p_test_run .AND. NINT(csavg(6)) <= 1) &
      CALL finish('Bad use of processor splitting','This grid is processed by only one PE')
 
+
+   IF (msg_level >= 14) THEN ! add list of cell recv PEs for each PE
+
+     WRITE(message_text,'(a,i4)') 'grid ',p_patch%id
+     CALL message('List of receive PEs (cells)', TRIM(message_text))
+     max_nprecv = NINT(csmax(5))
+
+     ALLOCATE(nprecv_buf(p_n_work),displs(p_n_work),recvlist_buf(max_nprecv*p_n_work))
+
+     CALL p_gather(p_patch%comm_pat_c%np_recv, nprecv_buf, 0, p_comm_work)
+
+     displs(:) = (/ ( (i_pe-1)*max_nprecv, i_pe=1, p_n_work) /)
+
+     CALL p_gatherv(p_patch%comm_pat_c%pelist_recv, p_patch%comm_pat_c%np_recv,  &
+                    recvlist_buf, nprecv_buf, displs, 0, p_comm_work)
+
+     IF (p_pe == 0) THEN
+       WRITE(0,'(a)') 'PE, list of receive PEs'
+       DO i_pe = 1, p_n_work
+         i1 = (i_pe-1)*max_nprecv+1
+         i2 = i1-1+MIN(20,nprecv_buf(i_pe))
+         WRITE(0,'(i6,a,x,20i6)') i_pe-1,':',recvlist_buf(i1:i2)
+       ENDDO
+     ENDIF
+
+     DEALLOCATE(nprecv_buf,displs,recvlist_buf)
+
+   ENDIF
 
 END SUBROUTINE decomposition_statistics
 
