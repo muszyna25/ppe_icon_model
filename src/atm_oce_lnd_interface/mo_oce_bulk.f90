@@ -504,7 +504,8 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
-        CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm)
+
+        CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm, datetime%yeaday)
         ! Ice_fast and ice_slow are designed for an ice model that's split between the
         ! atmosphere and ocean models. For ice-ocean only we need to do some minor corrections.
         Qatm%counter = 2

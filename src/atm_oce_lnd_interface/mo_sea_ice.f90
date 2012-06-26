@@ -68,6 +68,7 @@ MODULE mo_sea_ice
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
+  !  USE mo_datetime,            ONLY: t_datetime
 
   IMPLICIT NONE
 
@@ -177,7 +178,7 @@ CONTAINS
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E2', p_ice%E2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('E2', 'Jm/kg', 'Energy content upper layer'),&
+      &          t_cf_var('E2', 'Jm/kg', 'Energy content lower layer'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
@@ -967,7 +968,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,QatmAve)
+  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,QatmAve,doy)
 
     TYPE(t_patch),            INTENT(IN)     :: p_patch 
     !TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
@@ -976,6 +977,7 @@ CONTAINS
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
     TYPE (t_atmos_fluxes),    INTENT (IN)    :: Qatm
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
+    INTEGER,                  INTENT(IN)     :: doy
 
     !------------------------------------------------------------------------- 
     CALL prepareAfterRestart(ice)
@@ -986,8 +988,8 @@ CONTAINS
     ! #achim
     IF      ( i_sea_ice == 1 ) THEN
       CALL set_ice_temp_winton  (p_patch,ice, Tfw, Qatm)
-    ELSE IF ( i_sea_ice == 2 ) THEN
-      CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm)
+    ELSE IF ( i_sea_ice == 2 .OR. i_sea_ice == 3 ) THEN
+      CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm,doy)
     END IF
 
     CALL sum_fluxes    (Qatm, QatmAve)
@@ -1012,7 +1014,8 @@ CONTAINS
     !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
-  !-------------------------------------------------------------------------------
+    
+    !-------------------------------------------------------------------------------
 
     CALL ave_fluxes     (ice, QatmAve)
     !CALL ice_dynamics   (ice, QatmAve)
@@ -1020,7 +1023,7 @@ CONTAINS
     ! #achim
     IF      ( i_sea_ice == 1 ) THEN
       CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
-    ELSE IF ( i_sea_ice == 2 ) THEN
+    ELSE IF ( i_sea_ice == 2 .OR. i_sea_ice == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
       CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
     END IF
 
@@ -1491,6 +1494,7 @@ CONTAINS
     humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
     fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
+    ! #achim: wrong formula! (see below)
     Qatm%LWin(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4
 
     Qatm%LWoutw(:,:) = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
@@ -1530,7 +1534,10 @@ CONTAINS
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
         drags(:,:)    = 0.95_wp * dragl(:,:)
 
-        ! #achim: ?!
+        ! #achim: ?!  
+        ! 
+        ! LWnet is correct, but splitting it up into LWout and LWin
+        ! this way is wrong.
         Qatm%LWout (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) &
           &                    - p_as%tafo(:,:))
         Qatm%LWnet (:,i,:)  = Qatm%LWin(:,:) - Qatm%LWout(:,i,:)

@@ -42,18 +42,12 @@ MODULE mo_sea_ice_winton
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
-!  USE mo_exception,           ONLY: finish, message
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
-!  USE mo_math_constants,      ONLY: rad2deg
-  USE mo_ocean_nml,           ONLY: no_tracer !, &
-!    &                               init_oce_prog, iforc_oce, &
-!    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+  USE mo_ocean_nml,           ONLY: no_tracer 
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state !, v_base, ocean_restart_list
-!  USE mo_var_list,            ONLY: add_var
-!  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx

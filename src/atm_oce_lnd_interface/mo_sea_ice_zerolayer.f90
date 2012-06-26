@@ -38,57 +38,27 @@
 !!
 MODULE mo_sea_ice_zerolayer
 
-!!$  USE mo_kind,                ONLY: wp
-!!$  USE mo_parallel_config,     ONLY: nproma
-!!$  USE mo_run_config,          ONLY: dtime
-!!$  USE mo_dynamics_config,     ONLY: nold
-!!$  USE mo_model_domain,        ONLY: t_patch
-!!$  !
-!!$  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
-!!$
-!!$!  USE mo_exception,           ONLY: finish, message
-!!$!  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
-!!$  USE mo_loopindices,         ONLY: get_indices_c
-!!$!  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
-!!$  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
-!!$    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
-!!$    &                               cpd, zemiss_def,rd, stbo,tmelt   
-!!$!  USE mo_math_constants,      ONLY: rad2deg
-!!$  USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
-!!$    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
-!!$  USE mo_util_dbg_prnt,       ONLY: dbg_print
-!!$  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
-!!$  USE mo_var_list,            ONLY: add_var
-!!$!  USE mo_master_control,      ONLY: is_restart_run
-!!$!  USE mo_cf_convention
-!!$!  USE mo_grib2
-!!$!  USE mo_cdi_constants
-!!$  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
-!!$    &                               t_atmos_for_ocean
-!!$  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
+
+
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
-!  USE mo_exception,           ONLY: finish, message
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
-!  USE mo_math_constants,      ONLY: rad2deg
-  USE mo_ocean_nml,           ONLY: no_tracer !, &
-!    &                               init_oce_prog, iforc_oce, &
-!    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+  USE mo_ocean_nml,           ONLY: no_tracer, i_sea_ice
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state !, v_base, ocean_restart_list
-!  USE mo_var_list,            ONLY: add_var
-!  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state 
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
 
+  ! # achim: for implementation of simple fluxes
+  USE mo_datetime,            ONLY: t_datetime
 
   IMPLICIT NONE
 
@@ -123,29 +93,38 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Achim Randelhoff
 
-  SUBROUTINE set_ice_temp_zerolayer(p_patch,ice, Tfw, Qatm) 
+  SUBROUTINE set_ice_temp_zerolayer(p_patch,ice, Tfw, Qatm, doy) 
     TYPE(t_patch),        INTENT(IN),TARGET    :: p_patch 
     TYPE(t_sea_ice),      INTENT(INOUT)        :: ice
     REAL(wp),             INTENT(IN)           :: Tfw(:,:,:)
     TYPE(t_atmos_fluxes), INTENT(IN)           :: Qatm
+    INTEGER,              INTENT(IN)           :: doy
 
     ! Local variables
     REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::          &
       & k_effective ,  &  ! total heat conductivity of ice/snow
       & deltaT      ,  &  ! temperature increment 
       & F_A         ,  &  ! atmospheric net flux, positive=upward
-      & F_S             ! conductive flux, positive=upward
+      & F_S         ,  &  ! conductive flux, positive=upward
+      & deltaTdenominator     ! prefactor of deltaT in sfc. flux
+                              ! balance
     
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c     ! loop indices
+    REAL(wp) :: one_minus_I_0 ! 1.0 - I_0 for use with SWin
+
+    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c    ! loop indices
+
     
-    ! initialization
+
+    ! --- initialization
     all_cells => p_patch%cells%all 
     k_effective(:,:,:) = 0.0_wp
     deltaT     (:,:,:) = 0.0_wp
     F_A        (:,:,:) = 0.0_wp
     F_S        (:,:,:) = 0.0_wp   
+    deltaTdenominator (:,:,:) = 1.0_wp
+    one_minus_I_0 = 1.0_wp
 
     DO jb = 1,p_patch%nblks_c
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
@@ -153,40 +132,65 @@ CONTAINS
         DO jc = i_startidx_c,i_endidx_c
           IF (ice%isice(jc,k,jb)) THEN
             
-            ! total heat conductivity for the ice-snow system
+            ! --- total heat conductivity for the ice-snow system
             k_effective(jc,k,jb) = ki*ks/(ks*ice%hi(jc,k,jb) + ki*ice%hs(jc,k,jb))
+
+            ! --- calculate (1-I_0)
+            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
+              one_minus_I_0=1.0_wp-I_0
+            ELSE
+              one_minus_I_0=1.0_wp
+            END IF
                     
-            ! F_A, F_S : pos=upward flux
-            ! flux ice-atmosphere
-            !            F_A(jc,k,jb) = zemiss_def * StBo * (ice%Tsurf(jc,k,jb) + tmelt)**4&
-            F_A(jc,k,jb) = Qatm%LWout(jc,k,jb) &
-              &            - (1.0_wp - ice%alb(jc,k,jb)) * Qatm%SWin(jc,jb) &
-              &            - Qatm%LWin(jc,jb) - Qatm%sens(jc,k,jb) - Qatm%lat(jc,k,jb)
-            
-            ! conductive heat flux through the ice
+            ! --- F_A, F_S : pos=upward flux
+
+            ! F_A: flux ice-atmosphere
+            IF (i_sea_ice == 2) THEN
+              F_A(jc,k,jb) = - Qatm%LWnet(jc,k,jb) &
+                &            - (1.0_wp - ice%alb(jc,k,jb))* one_minus_I_0 * Qatm%SWin(jc,jb) &
+                &            - Qatm%sens(jc,k,jb) - Qatm%lat(jc,k,jb)
+            ELSE IF (i_sea_ice ==3) THEN
+              ! #achim: first draft: hard-coding simpler form of
+              ! atmospheric fluxes (from Dirk's thesis, p.193)
+              !
+              ! atm. flx = LWout - (LWin, sens, lat) - SWin
+              F_A(:,:,:) =   zemiss_def * StBo * (ice%Tsurf(:,:,:) +tmelt)**4   &
+                &            - ( 118.0_wp * EXP(-0.5_wp*((doy-206)/53.1_wp)**2) + 179.0_wp ) &
+                &            - 314.0_wp * EXP(-0.5_wp*((doy-164)/47.9_wp)**2) * 0.3_wp & !SW*(1-I_0)
+                &                * ( 0.431_wp / (1.0_wp+((doy-207)/44.5_wp)**2) - 0.086_wp)!1-albedo
+            END IF
+
+            ! F_S conductive heat flux through the ice
             F_S(jc,k,jb) = k_effective(jc,k,jb) * (Tf - ice%Tsurf(jc,k,jb))  
 
-            ! temperature increment
+
+
+            IF (i_sea_ice == 2 ) THEN
+              ! #achim: dLWdT has wrong/inconsistent sign as of now, so
+              ! we have to put a + there.
+              deltaTdenominator(jc,k,jb) = k_effective (jc,k,jb) &
+                &                        + Qatm%  dLWdT(jc,k,jb) &
+                &                        - Qatm%dsensdT(jc,k,jb) &
+                &                        - Qatm% dlatdT(jc,k,jb)
+            ELSE IF (i_sea_ice == 3) THEN
+              ! dLWdT is missing!
+              deltaTdenominator(jc,k,jb) =   k_effective(jc,k,jb) &
+                &              + 4.0_wp*zemiss_def*StBo*(ice%Tsurf(jc,k,jb)+tmelt)**3
+            END IF
+
+            ! --- temperature increment
             deltaT(jc,k,jb) = (F_S(jc,k,jb) - F_A(jc,k,jb))&
-              &               / (k_effective(jc,k,jb) &
-!              &                  + 4.0_wp*zemiss_def * StBo * &
-!              &                    (ice%Tsurf(jc,k,jb) + tmelt)**3 &
-              &                  + Qatm%  dLWdT(jc,k,jb) &
-              &                  - Qatm%dsensdT(jc,k,jb))
+              &               / deltaTdenominator(jc,k,jb)
 
 
-            ! ice temperatures over 0 deg C impossible:
+            ! --- ice temperatures over 0 deg C impossible:
             IF (ice%Tsurf(jc,k,jb) + deltaT(jc,k,jb) > 0.0_wp) THEN  ! if new temperature would be over 0 deg C
               deltaT(jc,k,jb) = -ice%Tsurf(jc,k,jb) 
               ice% Tsurf(jc,k,jb) = 0.0_wp
               
               ! pos. flux means into uppermost ice layer
               ice%Qtop(jc,k,jb) = - F_A(jc,k,jb) + F_S(jc,k,jb) &
-                &               - deltaT(jc,k,jb) * (k_effective(jc,k,jb) &
-                !              &                                    + 4.0_wp*zemiss_def * StBo *       &
-                !              &                                      (ice%Tsurf(jc,k,jb) + tmelt)**3  &
-                &                                    + Qatm%  dLWdT(jc,k,jb) &
-                &                                    - Qatm%dsensdT(jc,k,jb))
+                &               - deltaT(jc,k,jb) * deltaTdenominator(jc,k,jb)
 
               ! pos. flux means into lowest ice layer
               ice%Qbot(jc,k,jb) = - F_S(jc,k,jb) -  deltaT(jc,k,jb) * k_effective(jc,k,jb)
@@ -194,7 +198,7 @@ CONTAINS
               !                       ice_growth_zerolayer
 
 
-            ELSE   ! if new temperature would be under 0 deg C, then we can achieve F_A=F_S just as we wanted
+            ELSE   ! if new temperature is less than 0 deg C, then we can achieve F_A=F_S just as we wanted
               ! new surface temperature
               ice%Tsurf(jc,k,jb) = ice%Tsurf(jc,k,jb) + deltaT(jc,k,jb)
               
@@ -218,6 +222,11 @@ CONTAINS
 ! ----------------------------------------
 
   END SUBROUTINE set_ice_temp_zerolayer
+
+
+
+
+
 
 
 
@@ -279,10 +288,14 @@ CONTAINS
       Tfw(:,:,:) = Tf
     ENDIF
     
-    ! Heat flux from ocean into ice
-    CALL oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
-    ! Add oceanic heat flux to energy available at the bottom of the ice.
-    ice%Qbot(:,:,:) = ice%Qbot(:,:,:) + zHeatOceI(:,:,:)
+    IF (i_sea_ice == 2 ) THEN
+      ! Heat flux from ocean into ice
+      CALL oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
+      ! Add oceanic heat flux to energy available at the bottom of the ice.
+      ice%Qbot(:,:,:) = ice%Qbot(:,:,:) + zHeatOceI(:,:,:)
+!!$    ELSE IF ( i_sea_ice == 3) THEN
+      ! for i_sea_ice == 3, no ocean-ice heatflx is included!
+    END IF
     
     DO jb = 1,p_patch%nblks_c
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
@@ -312,12 +325,13 @@ CONTAINS
             
             
             IF (ice%hi (jc,k,jb) <= 0.0_wp) THEN
-              ! put surplus energy from ice thickness into water
+              ! #achim: check units -- heatocei in J as opposed to W/m2?
+              ! remove surplus energy of ice thickness from water
               ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) &
-                &                     - ice%hi(jc,k,jb)*alf*rhoi/dtime
-              ! put snow energy into water
+                &                     + ice%hi(jc,k,jb)*alf*rhoi/dtime
+              ! remove latent heat of snow from water
               ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) &
-                &                     + ice%hs(jc,k,jb)*alf*rhos/dtime
+                &                     - ice%hs(jc,k,jb)*alf*rhos/dtime
               
               ! 
               ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
@@ -332,6 +346,7 @@ CONTAINS
             
             ! check energy conservation
             ! surplus energy = entering - leaving - latent heat
+            !!! what's up with the energy that's put into the ocean?
             Q_surplus(jc,k,jb) = &!0.0_wp
               &                   ice%Qbot(jc,k,jb) + ice%Qtop(jc,k,jb) &
               &                   + (ice%hi(jc,k,jb)-ice%hiold(jc,k,jb)) *alf*rhoi/dtime&
