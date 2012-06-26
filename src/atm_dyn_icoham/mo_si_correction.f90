@@ -102,7 +102,7 @@ MODULE mo_si_correction
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog
   USE mo_vertical_coord_table,ONLY: delpr, rdelpr, nlevm1
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, auxhyb
-  USE m_gmres,               ONLY: gmres
+  USE mo_gmres,               ONLY: gmres
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, sync_patch_array
   

@@ -52,7 +52,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE m_gmres
+MODULE mo_gmres
 !-------------------------------------------------------------------------
 !
 !    ProTeX FORTRAN source: Style 2
@@ -80,7 +80,7 @@ MODULE m_gmres
 
 ! !PUBLIC MEMBER FUNCTIONS/SUBROUTINES
   PUBLIC :: gmres    ! solver
-  CHARACTER(len=*), PARAMETER :: this_mod_name = 'm_gmres'
+  CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_gmres'
 
 ! !OVERLOADED OPERATORS
 
@@ -873,4 +873,4 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------
-END MODULE m_gmres
+END MODULE mo_gmres
