@@ -76,7 +76,9 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 
   ! microphysics
-  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
+  USE mo_gscp_cosmo,          ONLY: hydci_pp_old_init
+  USE gscp_hydci_pp,          ONLY: hydci_pp_init
+  USE gscp_hydci_pp_ice,      ONLY: hydci_pp_ice_init
   ! convection
   USE mo_cuparameters,        ONLY: sucst,  sucumf,    &
     &                               su_yoethf,         &
@@ -318,13 +320,23 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !------------------------------------------
   !< call for cloud microphysics
   !------------------------------------------
-  IF (  atm_phy_nwp_config(jg)%inwp_gscp ==  1   .OR. &
-    &   atm_phy_nwp_config(jg)%inwp_gscp == 10)  THEN
+
+  SELECT CASE ( atm_phy_nwp_config(jg)%inwp_gscp )
     
+  CASE (1)  ! new hydci_pp from COSMO_V4_23
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
     CALL hydci_pp_init
+    
+  CASE (3)  ! ice nucleation scheme by C.K. based on new hydci_pp from COSMO_V4_23
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
+    CALL hydci_pp_ice_init
 
-  ENDIF
+  CASE (10)  ! old hydci_pp from COSMO_V4_14
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
+    CALL hydci_pp_old_init          
+    
+  END SELECT
+
 
 
   !------------------------------------------

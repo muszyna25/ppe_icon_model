@@ -103,10 +103,6 @@ USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
 ! Time integration
-!
-!  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
-!!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
-
 
 !-------------------------------------------------------------------------
 ! to break circular dependency

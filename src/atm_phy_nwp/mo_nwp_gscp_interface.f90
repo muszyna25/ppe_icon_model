@@ -60,7 +60,9 @@ MODULE mo_nwp_gscp_interface
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_gscp_cosmo,           ONLY: hydci_pp, kessler_pp, hydci_pp_new
+  USE mo_gscp_cosmo,           ONLY: hydci_pp_old, kessler_pp
+  USE gscp_hydci_pp,           ONLY: hydci_pp
+  USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
 
   USE mo_exception,            ONLY: finish
 
@@ -147,14 +149,16 @@ CONTAINS
         CASE(0)  ! no micro physics scheme
           
           WRITE(0,*) "                           "
-          
-        CASE(1)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
 
-          CALL hydci_pp (                                           &
-            & ie     =nproma                            ,    & !> in:  actual array size
+        CASE(1)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
+!                ! version unified with COSMO scheme
+                 ! unification version: COSMO_V4_23
+
+          CALL hydci_pp (                                &
+            & nvec   =nproma                            ,    & !> in:  actual array size
             & ke     =nlev                              ,    & !< in:  actual array size
-            & istart =i_startidx                        ,    & !< in:  start index of calculation
-            & iend   =i_endidx                          ,    & !< in:  end index of calculation
+            & ivstart=i_startidx                        ,    & !< in:  start index of calculation
+            & ivend  =i_endidx                          ,    & !< in:  end index of calculation
             & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
             & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
             & qi0    = atm_phy_nwp_config(jg)%qi0       ,    & 
@@ -172,16 +176,37 @@ CONTAINS
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
             & idbg=msg_level                            ,    &
             & l_cv=.TRUE. )
-
+          
 
         CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
 
           CALL finish('mo_nwp_gscp_interface', 'Graupel scheme not implemented.')
 
 
-        CASE(3)  ! improved ice nucleation scheme
+        CASE(3)  ! improved ice nucleation scheme by C. Koehler based on hydci_pp
 
-          CALL finish('mo_nwp_gscp_interface', 'Improved ice nucleation scheme not implemented.')
+          CALL hydci_pp_ice (                                &
+            & nvec   =nproma                            ,    & !> in:  actual array size
+            & ke     =nlev                              ,    & !< in:  actual array size
+            & ivstart=i_startidx                        ,    & !< in:  start index of calculation
+            & ivend  =i_endidx                          ,    & !< in:  end index of calculation
+            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
+            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
+            & qi0    = atm_phy_nwp_config(jg)%qi0       ,    & 
+            & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 
+            & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & !< in:  vertical layer thickness
+            & t      =p_diag%temp   (:,:,jb)           ,    & !< in:  temp,tracer,...
+            & p      =p_diag%pres   (:,:,jb)           ,    & !< in:  full level pres
+            & rho    =p_prog%rho    (:,:,jb  )         ,    & !< in:  density
+            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)   ,    & !< in:  spec. humidity
+            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)   ,    & !< in:  cloud water
+            & qi     =p_prog_rcf%tracer (:,:,jb,iqi)   ,    & !< in:  cloud ice
+            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)   ,    & !< in:  rain water
+            & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
+            & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
+            & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
+            & idbg=msg_level                            ,    &
+            & l_cv=.TRUE. )
 
         CASE(4)  ! two-moment scheme 
 
@@ -209,10 +234,11 @@ CONTAINS
             & idbg   =msg_level                         ,    &
             & l_cv    =.TRUE. )
 
-        CASE(10)  ! old COSMO-EU scheme (2-cat ice: cloud ice, snow)
-!                   version until 2012-01 (before modifications by FR)
 
-          CALL hydci_pp_new (                                           &
+        CASE(10)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
+                  ! old version from COSMO V4.14
+
+          CALL hydci_pp_old (                                           &
             & ie     =nproma                            ,    & !> in:  actual array size
             & ke     =nlev                              ,    & !< in:  actual array size
             & istart =i_startidx                        ,    & !< in:  start index of calculation
@@ -234,6 +260,7 @@ CONTAINS
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
             & idbg=msg_level                            ,    &
             & l_cv=.TRUE. )
+
 
 
 

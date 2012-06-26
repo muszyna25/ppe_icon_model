@@ -69,7 +69,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-
+ 
 MODULE mo_gscp_cosmo
 
 !------------------------------------------------------------------------------
@@ -212,7 +212,7 @@ PRIVATE
 !! Public subroutines
 !------------------------------------------------------------------------------
 
-PUBLIC :: hydci_pp_new, hydci_pp, hydci_pp_init, satad, kessler_pp
+PUBLIC :: hydci_pp_new, hydci_pp_old, hydci_pp_old_init, satad, kessler_pp
 
 !------------------------------------------------------------------------------
 !! Public variables
@@ -442,7 +442,7 @@ END FUNCTION ice_nuclei_number
 !!  coefficients which are used in "hydci_pp"
 !------------------------------------------------------------------------------
 
-SUBROUTINE hydci_pp_init(idbg)
+SUBROUTINE hydci_pp_old_init(idbg)
 
 !------------------------------------------------------------------------------
 !> Description:
@@ -533,7 +533,7 @@ SUBROUTINE hydci_pp_init(idbg)
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 12) THEN
-      CALL message('mo_gscp_cosmo','hydci_pp_init: Initialized coefficients for hydci_pp')
+      CALL message('mo_gscp_cosmo','hydci_pp_old_init: Initialized coefficients for hydci_pp_old')
       WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
@@ -544,9 +544,9 @@ SUBROUTINE hydci_pp_init(idbg)
     ENDIF
   END IF
 
-  CALL message('hydci_pp_init','microphysical values initialized')
+  CALL message('hydci_pp_old_init','microphysical values initialized')
 
-END SUBROUTINE hydci_pp_init
+END SUBROUTINE hydci_pp_old_init
 
 
 
@@ -2494,11 +2494,11 @@ END SUBROUTINE kessler_pp
 
 
 !==============================================================================
-!> Module procedure "hydci_pp_old" version before changes by FR from 2012-03 on
+!> Module procedure "hydci_pp_old" from COSMO V4.14
 !------------------------------------------------------------------------------
 
 
-SUBROUTINE hydci_pp(             &
+SUBROUTINE hydci_pp_old(             &
   ie,ke,                             & !> array dimensions
   istart,iend,kstart,                & !! optional start/end indicies
   idbg,                              & !! optional debug level
@@ -3643,10 +3643,10 @@ ENDDO loop_over_levels
 
 
 !------------------------------------------------------------------------------
-! End of subroutine hydci_pp
+! End of subroutine hydci_pp_old
 !------------------------------------------------------------------------------
 
-END SUBROUTINE hydci_pp
+END SUBROUTINE hydci_pp_old
 
 
 
