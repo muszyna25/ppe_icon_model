@@ -1026,6 +1026,7 @@ CONTAINS
           ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
           !Final coefficient calculation
+!CDIR nextscalar
           DO jev = 1, patch%verts%num_edges(jv,jb)
             IF(z_area_scaled/=0.0_wp)THEN
               ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
