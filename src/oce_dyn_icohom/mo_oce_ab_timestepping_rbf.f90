@@ -60,7 +60,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, & ! t_hydro_ocean_d
   &                                     v_base, set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_oce_linear_solver,         ONLY: gmres_oce
+USE mo_gmres,                     ONLY: gmres_oce
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
