@@ -59,7 +59,7 @@ USE mo_dbg_nml,                   ONLY: idbg_mxmn
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip_flop,    &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce,              &
   &                                     expl_vertical_velocity_diff,iforc_oce,            &
-  &                                     no_tracer, l_RIGID_LID
+  &                                     no_tracer, l_RIGID_LID, l_edge_based
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
   &                                     timer_ab_rhs4sfc
@@ -120,7 +120,6 @@ INTEGER            :: idt_src    = 1               ! Level of detail for 1 line 
 ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
 ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
 LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
-LOGICAL, PUBLIC,PARAMETER :: l_EDGE_BASED = .TRUE.
 
 CONTAINS
 !-------------------------------------------------------------------------
@@ -815,7 +814,7 @@ TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges
     ENDIF
   ENDIF
 
-IF (l_EDGE_BASED) THEN
+IF (l_edge_based) THEN
 
 !  IF( iswm_oce /= 1 ) THEN !the 3D case
 !   !calculate depth-integrated velocity 
@@ -1112,7 +1111,7 @@ CALL grad_fd_norm_oce_2d_3D( p_x, &
 
 CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,:) )
 
-IF(l_EDGE_BASED)THEN
+IF(l_edge_based)THEN
   z_e(:,:)=z_grad_h(:,:)*h_e(:,:)
 ELSE
 !Step 2) map the gradient to the cell center, multiply it
@@ -1485,7 +1484,7 @@ CHARACTER(len=*), PARAMETER :: &
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
-IF(l_EDGE_BASED)THEN
+IF(l_edge_based)THEN
   DO jb = edges_in_domain%start_block, edges_in_domain%end_block
     CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
     DO jk = 1, n_zlev

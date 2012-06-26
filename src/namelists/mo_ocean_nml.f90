@@ -234,6 +234,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
                                                  ! false=use a shortcut (faster)
+  LOGICAL  :: l_edge_based          = .TRUE.     !
   LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
@@ -244,6 +245,7 @@ MODULE mo_ocean_nml
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
+    &                 l_edge_based,                                        &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
