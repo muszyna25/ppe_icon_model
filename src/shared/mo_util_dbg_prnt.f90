@@ -41,7 +41,7 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
@@ -262,6 +262,36 @@ CONTAINS
     WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
     WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
       &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
+  END IF
+
+  IF (p_pe == proc_id) THEN
+
+ !  !  loop over all cells with minimum distance
+ !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+ !    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+ !    DO jc = i_startidx, i_endidx
+ !  
+ !      zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
+ !      zlon    = ppatch%cells%center(jc,jb)%lon * 180.0_wp / pi
+ !  
+ !      zdist       = sqrt((zlat-plat_in)*(zlat-plat_in) + (zlon-plon_in)*(zlon-plon_in))
+ !      zdst_c(jc,jb) = zdist
+ !      IF (zdist < zdist_cmp) THEN
+ !        iblk = jb
+ !        iidx = jc
+ !        zdist_cmp = zdist
+ !      END IF
+ !  
+ !    END DO
+ !  END DO
+
+ !  WRITE(0,'(3a)') ' ',TRIM(routine),' Par: Found  cell now in Process proc_id'
+ !  WRITE(0,99) ' ',TRIM(routine),    ' Par: Found  block=',iblk,'  index=',iidx, &
+ !    &                               '  lat=',zlat,'  lon=',zlon
+ !  WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' Par: FOUND: proc_id for nearest cell is=',proc_id
+ !  WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' Par: FOUND: Min dist is at idx/blk=', &
+ !    &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
+
   END IF
 
   END SUBROUTINE find_latlonindex
