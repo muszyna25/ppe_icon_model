@@ -961,10 +961,11 @@ CONTAINS
     !-------------------------------------------------------------
     !Merge dual area calculation with coefficients
     ! note: i_v_ctr has been calculated on the owned_verts
-    !       it does not nedd to be synced
+    !       it does not need to be synced
     DO jb = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, jb, i_startidx_v, i_endidx_v)
       DO jk = 1, n_zlev
+!CDIR nextscalar
         DO jv = i_startidx_v, i_endidx_v
 
           zarea_fraction   = 0.0_wp
@@ -998,16 +999,21 @@ CONTAINS
               icell_idx_2 = patch%edges%cell_idx(ile,ibe,2)
               icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
               icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
-              cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
-              cell2_cc    = gc2cc(patch%cells%center(icell_idx_2,icell_blk_2))
+!               cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
+!               cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
+              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
 
               !Check, if edge is sea or boundary edge and take care of dummy edge
               !edge with indices ile, ibe is sea edge
               !Add up for wet dual area.
+              ! Note that this should be modified.
+              !   sea_boundary means an open boundary
+              !   boundary means that only the sea cell are should be added
               IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
                 zarea_fraction = zarea_fraction  &
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
-                ! edge with indices ile, ibe is boundary edge
+                ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
                 zarea_fraction = zarea_fraction  &
                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
@@ -1019,15 +1025,15 @@ CONTAINS
             !ENDIF
           ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
-            !Final coefficient calculation
-            DO jev = 1, patch%verts%num_edges(jv,jb)
-              IF(z_area_scaled/=0.0_wp)THEN
-                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-                & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
-              ELSE
-                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
-              ENDIF
-            END DO
+          !Final coefficient calculation
+          DO jev = 1, patch%verts%num_edges(jv,jb)
+            IF(z_area_scaled/=0.0_wp)THEN
+              ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
+              & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
+            ELSE
+              ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
+            ENDIF
+          END DO
 !
 !          ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
