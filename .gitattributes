@@ -1434,6 +1434,7 @@ vertical_coord_tables/atm_hyb_sp_gw.f90 -text
 vertical_coord_tables/atm_hyb_sz_20 -text
 vertical_coord_tables/atm_hyb_sz_26 -text
 vertical_coord_tables/atm_hyb_sz_3 -text
+vertical_coord_tables/atm_hyb_sz_30 -text
 vertical_coord_tables/atm_hyb_sz_35 -text
 vertical_coord_tables/atm_hyb_sz_40 -text
 vertical_coord_tables/atm_hyb_sz_60 -text
