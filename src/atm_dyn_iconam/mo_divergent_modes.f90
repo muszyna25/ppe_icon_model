@@ -70,7 +70,7 @@ MODULE mo_divergent_modes
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_dir_edge
   USE mo_math_divrot,           ONLY: div
   USE mo_math_laplace,          ONLY: directional_laplace
-  USE m_gmres,                  ONLY: gmres
+  USE mo_gmres,                  ONLY: gmres
   USE mo_exception,             ONLY: finish
   USE mo_nh_init_utils,         ONLY: nflat
   USE mo_sync,                  ONLY: SYNC_E, SYNC_C, sync_patch_array, &
