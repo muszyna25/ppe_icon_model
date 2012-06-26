@@ -37,7 +37,7 @@ smsevent copy_files
 #-----------------------------------------------------------------------------
 # meteogram plots
 
-outdir_mtg=/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%
+outdir_mtg=/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%%INIHOUR%
 outfile_mtg=%SUITE_NAME%_meteogram.nc
 dir_mtgrm=/home/ms/de/deia/ICON_r2B06_10d/def/icon_scripts/postprocessing/tools
 cd ${outdir_mtg}
@@ -54,8 +54,8 @@ cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot
 #   meteo.s
 
 # ncl plotting
-PATH=$PATH:/usr/local/apps/ncl/5.0.0/LP64/bin
-export NCARG_ROOT=/usr/local/apps/ncl/5.0.0/LP64
+PATH=$PATH:/usr/local/apps/ncl/5.2.1/LP64/bin
+export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
 ./mtgrm_plot.s %YMD%%INIHOUR% R2B06 ec001  ${outdir_mtg} ${outfile_mtg}
 
 # transfer to DWD
