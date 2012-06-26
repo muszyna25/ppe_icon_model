@@ -120,8 +120,8 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'qv','qc','qi','qr','qs','o3',
 'ddt_u_turb',  'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv',  'ddt_v_turb',  'ddt_v_sso', \
 'ddt_v_gwd', 'ddt_v_pconv',  'ddt_qv_turb', 'ddt_qv_conv'"
 
-pl_varlist="'v','u','temp','z','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'v','u','temp','pres','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+pl_varlist="'u','v','temp','z',   'tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
+hl_varlist="'u','v','temp','pres','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
 
 # ---
 
@@ -171,9 +171,13 @@ cat > ${atmo_namelist} << EOF
  activate_sync_timers         = .FALSE.
  output                       = "nml"
 /
-&nh_pzlev_output
- nplev                        = 11
- plevels                      = 10000,20000,30000,40000,50000,60000,70000,80000,85000,90000,100000
+&nh_pzlev_nml
+ nplev             = 25     ! number of p level output (attention: levels in [Pa] and top-down)
+ nzlev             = 25     ! number of z level output (attention: levels in [m] and top-down)
+ plevels           = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
+                     30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
+ zlevels           = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
+                     10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
 /
 ! OUTPUT: Reggular grid, model levels, all domains
 &output_nml
