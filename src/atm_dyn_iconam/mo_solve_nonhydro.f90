@@ -1539,7 +1539,7 @@ MODULE mo_solve_nonhydro
 
       ! Interpolate vn and vt to interface levels
 !CDIR UNROLL=6
-      DO jk = nflatlev(p_patch%id), nlev
+      DO jk = MAX(2,nflatlev(p_patch%id)), nlev
         DO je = i_startidx, i_endidx
           p_nh%diag%vn_ie(je,jk,jb) = &
             p_nh%metrics%wgtfac_e(je,jk,jb)*p_nh%prog(nnew)%vn(je,jk,jb) +        &
