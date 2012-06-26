@@ -94,6 +94,9 @@ INTERFACE gmres
 
   MODULE PROCEDURE gmres_hydro
   MODULE PROCEDURE gmres_nonhydro
+  MODULE PROCEDURE gmres_oce
+  MODULE PROCEDURE gmres_e2e
+  MODULE PROCEDURE gmres_arg1
 
 END INTERFACE
 

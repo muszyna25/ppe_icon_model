@@ -2176,22 +2176,6 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
        & MAXVAL(ABS(rhstemp(:,:))), MAXVAL(ABS(rhs_e(:,:)))
      ELSE
       vn_e2 = 0.0_wp!rhs_e(:,jk,:)
-   !  CALL gmres_e2e( vn_e2(:,:),&! Input is the first guess
-   !                & lhs_geo_balance_mim,   &! sbr. calculating l.h.s.
-   !                & h_e,                    &
-   !                & p_patch,                &! used for calculating l.h.s.
-   !                & jk,                     &!idx of vertical level
-   !                & p_patch%nblks_e,        &
-   !                & p_patch%npromz_e,       &
-   !                & zimpl_coeff,            &! used for calculating l.h.s.
-   !                & rhs_e(:,:),          &! right hand side as input
-   !                & tolerance,              &! relative tolerance
-   !                & .true.,                 & !absolute tolerance
-   !                & nmax_iter,              &! max. # of iterations to do
-   !                & lmax_iter,              &! out: .true. = not converged
-   !                & n_iter,                 &! out: # of iterations done
-   !                & z_residual              &! out: the residual (array)
-   !                 )
 
         rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),p_patch, jk,&
           &            zimpl_coeff,grad_coeff, h_e)

@@ -60,7 +60,6 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, & ! t_hydro_ocean_d
   &                                     v_base, set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_gmres,                     ONLY: gmres_oce
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
@@ -253,24 +252,6 @@ IF(.NOT.l_RIGID_LID)THEN
   !ELSEIF( iswm_oce /= 1 ) THEN 
   !  z_h_e = p_os%p_diag%h_e      ! #slo# 2011-02-21 bugfix (for mimetic only)
   !ENDIF
-
-!   CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess
-!         &        lhs_surface_height_ab_RBF,&  ! function calculating l.h.s.
-!         &        z_h_e,                   &   !arg 5 of lhs
-!         &        p_os%p_diag%thick_c,     &   !arg 6 of lhs, not used, just for compatibility with interface gmres_oce (also used for mimetic)
-!         &        p_os%p_prog(nold(1))%h,  &   !arg 2 of lhs
-!         &        p_patch,                 &   !arg 3 of lhs
-!         &        p_patch%nblks_c,         &
-!         &        p_patch%npromz_c,        &
-!         &        z_implcoeff,             &
-!         &        p_op_coeff,              &
-!         &        p_os%p_aux%p_rhs_sfc_eq, &  ! right hand side as input
-!         &        tolerance,               &  ! relative tolerance
-!         &       .FALSE.,                 &  ! NOT absolute tolerance
-!         &        nmax_iter,               &  ! max. # of iterations to do
-!         &        l_maxiter,               &  ! out: .true. = not converged
-!         &        n_iter,                  &  ! out: # of iterations done
-!         &        zresidual )                 ! inout: the residual (array)  
 
   IF (l_maxiter) THEN
   ! #slo# caution - NAG: variables n_iter and l_maxiter referenced but never set!

@@ -69,7 +69,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
   &                                     set_lateral_boundary_values, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_gmres,                     ONLY: gmres_oce, gmres_e2e
+USE mo_gmres,                     ONLY: gmres
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
@@ -261,7 +261,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%thick_c)
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_prog(nold(1))%h)
 
-  CALL gmres_oce( z_h_c(:,:),             &  ! arg 1 of lhs. x input is the first guess.
+  CALL gmres( z_h_c(:,:),             &  ! arg 1 of lhs. x input is the first guess.
       &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
       &        p_os%p_diag%thick_e,       &  ! z_h_e, &  !arg 5 of lhs  !not used
       &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
@@ -1770,7 +1770,7 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
          & jk,MAXVAL(ABS(rhstemp(:,:))), MAXVAL(ABS(rhs_e(:,jk,:)))
      ELSE
        inv_flip_flop_e2(:,:) = 0.0_wp!rhs_e(:,jk,:)
-       CALL gmres_e2e( inv_flip_flop_e2(:,:), &! Input is the first guess
+       CALL gmres( inv_flip_flop_e2(:,:), &! Input is the first guess
                     & lhs_primal_flip_flop,   &! sbr. calculating l.h.s.
                     & h_e,                    &
                     & p_patch,                &! used for calculating l.h.s.
