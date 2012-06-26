@@ -2,7 +2,7 @@
 # -------------------------------------------------------
 # Meteogram plots
 #
-# run as: mtgrm_plot.s 2011010100 R2B04 exp24
+# run as: mtgrm_plot.s 2011010100 R2B04 exp24 dir iFile
 #
 # attention:
 #   scripts need to be local (mtgrm_plot.s, mtgrm_plot.ncl)
@@ -17,11 +17,15 @@ res=${2}
 expnum=${3}
 echo "mtgrm_plot.s --- Arguments: dates="${dates}" res="${res}" expnum="${expnum}
 
-dir="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
-iFile=${dir}"NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.nc"
+dir=${4}
+iFile=${5}
+#dir="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
+#iFile=${dir}"NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.nc"
+echo "dir = ", $dir, " iFile =", $iFile
 
-mkdir -p ${dir}"meteo"
-oType="png"
+mkdir -p ${dir}"/meteo"
+#oType="png" !doesn't work on AIX (NCL 5.2.1)
+oType="pdf"
 
 set -A iStation 1 2 3 4 5 6 7 8 9
 
@@ -47,16 +51,18 @@ for station in ${iStation[*]}
 do
   for var in ${varNameSfc[*]}
   do
-    oFile=${dir}"meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
+    oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
     ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
+    convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
   done	
 
   for var in ${varName3D[*]}
   do
-    oFile=${dir}"meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
+    oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
     ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
+    convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
   done	
 done	
 
