@@ -43,6 +43,12 @@ end
 def scalarPlot(*args)
   @plotter.scalarPlot(*args)
 end
+def levelPlot(*args)
+  @plotter.levelPlot(*args)
+end
+def scatterPlot(*args)
+  @plotter.scatterPlot(*args)
+end
 def showVector(*args)
   @plotter.showVector(*args)
 end
@@ -396,6 +402,14 @@ task :test_scatter do
   image = iconPlot(ifile,ofile,'T S','scatter')
   show(image)
 end
+desc "Level plots"
+task :test_levelPlot do
+  ifile = OCE_REGPLOT_TEST_FILE
+  ofile = "test_levelPlot"
+  image = levelPlot(ifile,ofile,'T')
+  show(image)
+end
+
 
 # -----------------------------------------------------------------------------
 # uncategoriesed tests on
