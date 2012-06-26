@@ -1026,15 +1026,18 @@ CONTAINS
           ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
           !Final coefficient calculation
-!CDIR nextscalar
-          DO jev = 1, patch%verts%num_edges(jv,jb)
-            IF(z_area_scaled/=0.0_wp)THEN
+
+! !CDIR nextscalar
+          IF(z_area_scaled/=0.0_wp)THEN
+            DO jev = 1, patch%verts%num_edges(jv,jb)
               ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-              & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
-            ELSE
-              ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
-            ENDIF
-          END DO
+                & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
+            END DO
+          ELSE
+            DO jev = 1, patch%verts%num_edges(jv,jb)
+                ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
+            END DO
+          ENDIF
 !
 !          ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
