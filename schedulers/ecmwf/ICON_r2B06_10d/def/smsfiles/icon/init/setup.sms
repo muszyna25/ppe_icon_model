@@ -46,7 +46,7 @@ fi
 
 # Create data directory on ecgate
  
-mkdir -p /scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%00
+mkdir -p /scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%%INIHOUR%
 
 # -------------------------------------------------
 

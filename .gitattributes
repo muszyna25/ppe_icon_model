@@ -711,8 +711,10 @@ schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/build/init_svn.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/get_data.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/init_data.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/setup.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/meteogram.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/metview.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/post_archive.sms -text
-schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/post_process.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/post_prepare.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon_restart -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/job.trigger -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/start_sms.sh -text

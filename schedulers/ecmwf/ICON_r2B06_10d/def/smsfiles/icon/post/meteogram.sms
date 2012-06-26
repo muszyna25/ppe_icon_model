@@ -1,0 +1,69 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  POST_ARCHIVE.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - copy output and/or
+  - store in database and/or
+  - trigger transfer to DWD
+%end
+
+# include the standard header file
+%include <head.h>
+
+# -------------------------------------------------
+
+echo "POST_ARCHIVE.SMS" 
+
+# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
+#REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+
+# change directory ----------------------------
+smsevent change_dir
+
+# change directory ----------------------------
+smsevent copy_files
+
+
+#-----------------------------------------------------------------------------
+# meteogram plots
+
+outdir_mtg=/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%
+outfile_mtg=%SUITE_NAME%_meteogram.nc
+dir_mtgrm=/home/ms/de/deia/ICON_r2B06_10d/def/icon_scripts/postprocessing/tools
+cd ${outdir_mtg}
+cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot_sfc.ncl .
+
+#  cat > meteo.s << EOF_METEO
+#   mtgrm_plot.s %YMD%%INIHOUR% R2B06 ec001
+#   chmod a+r meteo/*
+#   #ssh oflxs04.dwd.de mkdir -p /fe1-daten/mkoehler/plots/icon/nwp.ec001/meteo
+#   #scp -r meteo/NWP_iconR2B*_DOM01_2011010100_0001_meteogram.*.png \
+#   #  oflxs04.dwd.de:/fe1-daten/mkoehler/plots/icon/nwp.ec001/meteo
+#EOF_METEO
+#  chmod a+x meteo.s
+#   meteo.s
+
+# ncl plotting
+PATH=$PATH:/usr/local/apps/ncl/5.0.0/LP64/bin
+export NCARG_ROOT=/usr/local/apps/ncl/5.0.0/LP64
+./mtgrm_plot.s %YMD%%INIHOUR% R2B06 ec001  ${outdir_mtg} ${outfile_mtg}
+
+# transfer to DWD
+#ectrans ...
+
+
+# -------------------------------------------------
+
+# include the standard "tail" file
+%include <tail.h>
+

@@ -26,14 +26,11 @@ echo "POST_ARCHIVE.SMS"
 
 
 # change directory ----------------------------
-#smsevent change_dir
-
-# change directory ----------------------------
 smsevent copy_files
 
 
 #-----------------------------------------------------------------------------
-# archive ...
+# metview plots
 
 
 

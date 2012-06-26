@@ -44,7 +44,7 @@ export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-
 
 
 # Change directory ----------------------------
-smsevent change_dir
+#smsevent change_dir
 cd ${IFSDATADIR}
 
 # create IFSDATAOUTDIR, if necessary
@@ -53,7 +53,7 @@ if [ ! -d ${IFSDATAOUTDIR} ]; then
 fi
 
 # move grib file to IFS2ICON directory
-mv ${IFSDATADIR}/ifs_oper_T255_%YMD%00.grb ${IFSDATAOUTDIR}
+mv ${IFSDATADIR}/ifs_oper_T255_%YMD%%INIHOUR%.grb ${IFSDATAOUTDIR}
 IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_%YMD%00.grb"
 
 module unload cdo

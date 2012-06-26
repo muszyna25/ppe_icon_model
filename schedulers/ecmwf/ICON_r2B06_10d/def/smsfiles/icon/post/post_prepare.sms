@@ -33,25 +33,16 @@ module load grib_api
 # change directory ----------------------------
 smsevent change_dir
 
-i=%VALUE%
 
-# build the name string of the i'th output file:
-DOM=1
-PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%YMD%00/%SUITE_NAME%"
-# disable SMS preprocessor here to avoid the SMSMICRO character (percent sign)...
-%nopp
-  OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.grb", a,b,c);}'`
-%end
+PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%YMD%%INIHOUR%/%SUITE_NAME%"
 
 #-----------------------------------------------------------------------------
 # meteogram: rename and copy to ecgate
 
-if [ %VALUE% = 1 ] ; then
-  outfile_mtg1=%SCTEMP%/output/%SUITE_NAME%/%YMD%00/METEOGRAM_patch001.nc
-  outfile_mtg2=${PREFIXSTR}_meteogram.nc
-  #mv $outfile_mtg1 $outfile_mtg2
-  rcp $outfile_mtg2 ecgate:/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%00
-fi
+outfile_mtg1=%SCTEMP%/output/%SUITE_NAME%/%YMD%%INIHOUR%/METEOGRAM_patch001.nc
+outfile_mtg2=${PREFIXSTR}_meteogram.nc
+mv $outfile_mtg1 $outfile_mtg2
+rcp $outfile_mtg2 ecgate:/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%%INIHOUR%
 
 # -------------------------------------------------
 

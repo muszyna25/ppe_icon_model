@@ -15,63 +15,46 @@
   - check for available output files
 %end
 
-# include the standard header file
-%include <head.h>
+# include the header file for remote jobs
+%include <init_job.h> 
+
 
 # -------------------------------------------------
 
 echo "CHECK_PROGRESS.SMS"
 
-# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-#REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
-
 date
 
-# check progress ------------------------------
+# check progress: stdout time step -- -------------
   
 flag=0
-i=1
-while [[ $i -le %MAXFILES% && $flag -eq 0 ]]
+timestep=0
+while [[ $timestep -le %NSTEPS% && $flag -eq 0 ]]
 do
 
-  # build the name string of the i'th output file:
-  DOM=1
-  PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%YMD%00/%SUITE_NAME%"
-  # disable SMS preprocessor here to avoid the SMSMICRO character (percent sign)...
-%nopp
-  OUTFILE=`awk  -v a="${PREFIXSTR}" -v b=${DOM} -v c=$i 'BEGIN{printf("%s_DOM%02d_ML_%04d.grb", a,b,c);}'`
-%end
+  timestep=`grep -i "time step" %SMSOUT%/icon/forecast/model.1 | tail -n1 | awk '{print $6}'`
+  if [ $timestep == "" ]
+  then
+    timestep=0
+  fi
 
-  echo "Checking for file ${OUTFILE}..."
-  check="false"
-  while [[ "${check}" != "true" && $flag -eq 0 ]]
-  do  
+  # If new output available: Increment progress meter
+  smsmeter timesteps $timestep
 
-    check=`rsh %SCHOST% "[[ -f ${OUTFILE} ]] && echo true"`
+  # wait some time before checking for output
+  sleep %WAITINTVL%
 
-    if [ "${check}" == "true" ]
-    then
-      # If new output available: Increment progress meter
-      smsmeter progress $i  
-    else
-      # wait some time before checking for output
-      sleep %WAITINTVL%
-    fi
-
-    if [ -f "%SMSHOME%/model_complete.flag" ];
-    then
-      flag=1
-    fi
-
-  done
-
-  i=$(expr $i + 1)
+  if [ -f "%SMSHOME%/model_complete.flag" ]
+  then
+    flag=1
+  fi
 
 done
 
 
+
+
 # -------------------------------------------------
 
-# include the standard "tail" file
-%include <tail.h>
-
+# include the "tail" file for remote jobs
+%include <end_job.h>

@@ -40,7 +40,7 @@ module load python
 SETUPDIR="%SCBASEDIR%/%SUITE_NAME%/def"
 
 # ifsdir
-ifsdir=%SCTEMP%/input/%SUITE_NAME%/%YMD%00
+ifsdir=%SCTEMP%/input/%SUITE_NAME%/%YMD%%INIHOUR%
 # base directory
 basedir="%SCBASEDIR%/%SUITE_NAME%/cluster"
 # output base directory

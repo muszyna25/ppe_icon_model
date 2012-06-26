@@ -58,7 +58,7 @@ cd ${IFSDATADIR}
 
 smsevent mars4icon
 
-${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ %YMD%00 0 255 1/to/91 #2>&1 > ${LOGFILE}
+${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ %YMD%%INIHOUR% 0 255 1/to/91 #2>&1 > ${LOGFILE}
 ls -lrt ${IFSDATADIR}
 
 # -------------------------------------------------
