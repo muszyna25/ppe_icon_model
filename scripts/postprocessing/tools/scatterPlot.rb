@@ -18,7 +18,7 @@ plotfile  = "plot_#{varnames.join}-#{Time.new.strftime("%Y%m%d-%H%M%S")}"
 
 pp varnames
 if varnames.size > 3
-  warn "Please provide only to variable names"
+  warn "Please provide only two variable names"
   exit -1
 end
 if varnames[2].nil?
