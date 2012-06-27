@@ -841,8 +841,10 @@ CONTAINS
               icell_idx_2 = patch%edges%cell_idx(ile,ibe,2)
               icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
               icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
-              cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
-              cell2_cc    = gc2cc(patch%cells%center(icell_idx_2,icell_blk_2))
+              ! cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
+              ! cell2_cc    = gc2cc(patch%cells%center(icell_idx_2,icell_blk_2))
+              cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
 
               !Check, if edge is sea or boundary edge and take care of dummy edge
               !edge with indices ile, ibe is sea edge
@@ -1000,8 +1002,8 @@ CONTAINS
               icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
               icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
 !               cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
-!               cell1_cc    = gc2cc(patch%cells%center(icell_idx_1,icell_blk_1))
-              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+!               cell2_cc    = gc2cc(patch%cells%center(icell_idx_2,icell_blk_2))
+              cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
               cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
 
               !Check, if edge is sea or boundary edge and take care of dummy edge
