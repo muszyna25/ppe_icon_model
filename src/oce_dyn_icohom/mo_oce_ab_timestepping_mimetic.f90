@@ -73,7 +73,7 @@ USE mo_gmres,                     ONLY: gmres
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
-USE mo_oce_thermodyn,             ONLY: calc_density !, calc_internal_press,&
+USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges_3D,&
