@@ -1667,25 +1667,6 @@ SUBROUTINE hydci_pp (             &
         qv (iv,k) = MAX ( 0.0_ireals, qv(iv,k) + zqvt*zdt )
         qc (iv,k) = MAX ( 0.0_ireals, qc(iv,k) + zqct*zdt )
 
-        ! Store optional microphysical rates for diagnostics
-        IF (PRESENT(ddt_diag_au   )) ddt_diag_au   (iv,k) = scau  (iv)
-        IF (PRESENT(ddt_diag_ac   )) ddt_diag_ac   (iv,k) = scac  (iv)
-        IF (PRESENT(ddt_diag_ev   )) ddt_diag_ev   (iv,k) = sev   (iv)
-        IF (PRESENT(ddt_diag_nuc  )) ddt_diag_nuc  (iv,k) = snuc  (iv)
-        IF (PRESENT(ddt_diag_idep )) ddt_diag_idep (iv,k) = sidep (iv)
-        IF (PRESENT(ddt_diag_sdep )) ddt_diag_sdep (iv,k) = ssdep (iv)
-        IF (PRESENT(ddt_diag_agg  )) ddt_diag_agg  (iv,k) = sagg  (iv)
-        IF (PRESENT(ddt_diag_rim  )) ddt_diag_rim  (iv,k) = srim  (iv)
-        IF (PRESENT(ddt_diag_rcri )) ddt_diag_rcri (iv,k) = srcri (iv)
-        IF (PRESENT(ddt_diag_icri )) ddt_diag_icri (iv,k) = sicri (iv)
-        IF (PRESENT(ddt_diag_dau  )) ddt_diag_dau  (iv,k) = sdau  (iv)
-        IF (PRESENT(ddt_diag_iau  )) ddt_diag_iau  (iv,k) = siau  (iv)
-        IF (PRESENT(ddt_diag_imelt)) ddt_diag_imelt(iv,k) = simelt(iv)
-        IF (PRESENT(ddt_diag_smelt)) ddt_diag_smelt(iv,k) = ssmelt(iv)
-        IF (PRESENT(ddt_diag_cfrz )) ddt_diag_cfrz (iv,k) = scfrz (iv)
-        IF (PRESENT(ddt_diag_rfrz )) ddt_diag_rfrz (iv,k) = srfrz (iv)
-        IF (PRESENT(ddt_diag_shed )) ddt_diag_shed (iv,k) = sshed (iv)
-
       ENDDO loop_over_all_iv
 
   IF (izdebug > 15) THEN
