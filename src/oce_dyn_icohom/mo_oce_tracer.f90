@@ -170,6 +170,14 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
     p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
       &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('3d_rel: AdvTracT forc'  ,p_os%p_aux%relax_3d_forc_T   ,str_module,idt_src)
+    CALL dbg_print('3d_rel: AdvTracT data'  ,p_os%p_aux%relax_3d_data_T   ,str_module,idt_src)
+    idt_src=2  ! output print level (1-5, fix)
+    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
+    CALL dbg_print('3d_relax: AdvTracT trac'  ,z_c                          ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END IF
 
@@ -192,15 +200,22 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
     p_os%p_prog(nnew(1))%tracer(:,:,:,2) = p_os%p_prog(nnew(1))%tracer(:,:,:,2) + &
       &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
 
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('3d_rel: AdvTracS forc'  ,p_os%p_aux%relax_3d_forc_S   ,str_module,idt_src)
+    CALL dbg_print('3d_rel: AdvTracS data'  ,p_os%p_aux%relax_3d_data_S   ,str_module,idt_src)
+    idt_src=2  ! output print level (1-5, fix)
+    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
+    CALL dbg_print('3d_relax: AdvTracS trac'  ,z_c                          ,str_module,idt_src)
+    !---------------------------------------------------------------------
+
   END IF
 
-
-
   DO jk = 1, n_zlev
-    ! Abort if tracer is below treshold
+    ! Abort if tracer is below threshold
     ! Temperature: tf<-1.9 deg, may be possible, limit set to lower value
     IF (minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))<-4.0_wp) THEN
-      write(0,*) ' TEMPERATURE BELOW TRESHOLD:'
+      write(0,*) ' TEMPERATURE BELOW THRESHOLD:'
       iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
       zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
@@ -208,8 +223,8 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
       &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
       write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-      CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
-        &              'Temperatur below treshold')
+      CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+        &              'Temperature below threshold')
     ENDIF
   END DO
 
@@ -225,11 +240,12 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
         &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
         write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-        CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
+        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
         &              'SALINITY NEGATIVE')
       ENDIF
     END DO
   ENDIF
+
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
 !
