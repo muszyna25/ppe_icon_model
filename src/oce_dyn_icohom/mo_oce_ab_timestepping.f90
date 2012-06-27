@@ -46,7 +46,7 @@ MODULE mo_oce_ab_timestepping
 !
 !
 !
-USE mo_ocean_nml,                      ONLY: idisc_scheme
+USE mo_ocean_nml,                      ONLY: idisc_scheme,l_edge_based
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
@@ -174,6 +174,7 @@ CONTAINS
 
     IF(idisc_scheme==MIMETIC_TYPE)THEN
 
+!IF (l_edge_based) THEN
 !       CALL calc_vert_velocity_mimetic( p_patch,            &
 !                                  & p_os,                   &
 !                                  & p_os%p_diag,            &
@@ -183,6 +184,7 @@ CONTAINS
 !                                  !& p_os%p_aux%bc_top_w,    &
 !                                  & p_os%p_aux%bc_bot_w,    &
 !                                  & p_os%p_diag%w )
+!ELSE
       CALL calc_vert_velocity_mim_topdown( p_patch,         &
                                   & p_os,                   &
                                   & p_os%p_diag,            &
@@ -192,6 +194,7 @@ CONTAINS
                                   & p_os%p_aux%bc_top_w,    &
                                   & p_os%p_aux%bc_bot_w,    &
                                   & p_os%p_diag%w )
+!ENDIF
 
     ELSEIF(idisc_scheme==RBF_TYPE)THEN
 

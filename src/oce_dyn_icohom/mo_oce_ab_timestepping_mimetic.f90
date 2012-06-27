@@ -1776,6 +1776,7 @@ IF(l_EDGE_BASED)THEN
   END DO
 
 ELSE
+CALL sync_patch_array(SYNC_C,p_patch,pw_c)
 !----------------------------------------------------------------------------------
 !   CALL map_edges2cell_3D( p_patch, p_diag%vn_time_weighted,p_op_coeff, z_vn_c)
 ! 
@@ -1838,8 +1839,10 @@ ELSE
         END DO
       END DO
     END DO
+!  CALL sync_patch_array(SYNC_C,p_patch,z_vn_c)
   CALL map_cell2edges_3D( p_patch, z_vn_c, z_vn,p_op_coeff)
   CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
+  CALL sync_patch_array(SYNC_C,p_patch,z_div_c)
 
   WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
      pw_c(:,1,:) =(p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime 
@@ -1934,6 +1937,7 @@ ENDIF
 IF(l_RIGID_LID)THEN
   pw_c(:,1,:) = 0.0_wp
 ENDIF
+CALL sync_patch_array(SYNC_C,p_patch,pw_c)
 ! DO jk = 1,n_zlev+1
 ! write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,
 ! !&maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:))
@@ -1956,7 +1960,7 @@ idt_src=4  ! output print level (1-5, fix)
 CALL dbg_print('div velocity'                ,z_div_c                  ,str_module,idt_src)
 !---------------------------------------------------------------------
 
-pw_c=z_pw_bottom_up
+!pw_c=z_pw_bottom_up
 
 END SUBROUTINE calc_vert_velocity_mim_topdown
 !-------------------------------------------------------------------------
