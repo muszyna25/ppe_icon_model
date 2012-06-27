@@ -48,36 +48,32 @@ MODULE mo_oce_ab_timestepping_mimetic
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_parallel_config,           ONLY: nproma, p_test_run
-USE mo_master_control,            ONLY: is_restart_run
+USE mo_parallel_config,           ONLY: nproma
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
-USE mo_sync,                      ONLY: sync_e, sync_c, sync_v, sync_patch_array
-USE mo_mpi,                       ONLY: global_mpi_barrier, my_process_is_mpi_parallel
+USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array
+USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
 USE mo_impl_constants,            ONLY: sea_boundary,                                     &
-  &                                     min_rlcell, min_rledge, min_rlcell,               &
+! &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length, MIN_DOLIC
 USE mo_dbg_nml,                   ONLY: idbg_mxmn
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip_flop,    &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce,              &
-  &                                     expl_vertical_velocity_diff,iforc_oce, EOS_TYPE,  &
+  &                                     expl_vertical_velocity_diff, iforc_oce, EOS_TYPE, &
   &                                     no_tracer, l_RIGID_LID, l_edge_based
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
   &                                     timer_ab_rhs4sfc
 USE mo_dynamics_config,           ONLY: nold, nnew
-USE mo_physical_constants,        ONLY: grav, rho_ref!, re
+USE mo_physical_constants,        ONLY: grav
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base,  &
   &                                     set_lateral_boundary_values, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_gmres,                     ONLY: gmres
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_loopindices,               ONLY: get_indices_c, get_indices_e
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
-USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press,&
-  &                                     calc_internal_press_new, calc_density_JMDWFG06_EOS_func,&
-  &                                     calc_density_MPIOM_func, calc_density_lin_EOS_func
+USE mo_oce_thermodyn,             ONLY: calc_density !, calc_internal_press,&
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges_3D,&
@@ -91,8 +87,8 @@ USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_oce_diffusion,             ONLY: velocity_diffusion,& 
   &                                     velocity_diffusion_vert_mimetic,  &
   &                                     veloc_diffusion_vert_impl_hom
-USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
+USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -124,7 +120,6 @@ INTEGER            :: idt_src    = 1               ! Level of detail for 1 line 
 ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
 LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
 
-
 CONTAINS
 !-------------------------------------------------------------------------
 
@@ -136,7 +131,9 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-  !!  mpi parallelized LL
+!!  mpi parallelized LL (2012)
+!!
+!
 SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     &                                  p_phys_param, timestep, p_op_coeff,p_int)
   !
@@ -222,18 +219,18 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   CALL dbg_print('on entry: vn-new'               ,p_os%p_prog(nnew(1))%vn,str_module,idt_src)
   !---------------------------------------------------------------------
 
-  ! #slo# 2011-05-23 - new abort condition for elevation and vn:
+  ! abort condition for elevation and vn:
   IF ( (maxval(p_os%p_prog(nnew(1))%h)  >  1.e20_wp) .or. &
     &  (minval(p_os%p_prog(nnew(1))%h)  < -1.e20_wp) .or. &
     &  (maxval(p_os%p_prog(nold(1))%vn) >  1.e20_wp) .or. &
     &  (minval(p_os%p_prog(nnew(1))%vn) < -1.e20_wp) ) THEN
-    CALL message('Solve free surface AB mimetic: ',' INSTABIL VN or H - stop now ')
-    CALL finish ('Solve free surface AB mimetic: ',' INSTABIL VN or H !!')
+    CALL message('Solve free surface AB mimetic: ',' INSTABLE VN or H - stop now ')
+    CALL finish ('Solve free surface AB mimetic: ',' INSTABLE VN or H !!')
   END IF
 
   ! Apply windstress 
-  CALL top_bound_cond_horz_veloc(p_patch, p_os,p_op_coeff, p_sfc_flx, &
-    &                            p_os%p_aux%bc_top_u, p_os%p_aux%bc_top_v,&
+  CALL top_bound_cond_horz_veloc(p_patch, p_os, p_op_coeff, p_sfc_flx,     &
+    &                            p_os%p_aux%bc_top_u, p_os%p_aux%bc_top_v, &
     &                            p_os%p_aux%bc_top_veloc_cc)
 
 
@@ -358,7 +355,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !
   !local variables
   !
-  INTEGER  :: i_startidx, i_endidx
   INTEGER  :: je, jk, jb
   REAL(wp) :: gdt
   REAL(wp) :: z_gradh_e(nproma,1,p_patch%nblks_e)
@@ -450,7 +446,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         &                             p_phys_param,           &
         &                             p_os%p_diag%laplacian_vert)
     ENDIF
-   ELSE
+  ELSE  !  iswm_oce=1
     p_os%p_diag%veloc_adv_vert = 0.0_wp
     p_os%p_diag%laplacian_vert = 0.0_wp
   ENDIF
@@ -1121,23 +1117,19 @@ TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start - iteration by GMRES')        
 
-  cells_in_domain => p_patch%cells%in_domain
-  all_cells => p_patch%cells%all
+cells_in_domain => p_patch%cells%in_domain
+all_cells => p_patch%cells%all
 
-  IF (p_test_run) THEN
-    p_lhs(:,:)    = 0.0_wp
-    div_z_c(:,:)  = 0.0_wp
-    z_e(:,:)      = 0.0_wp
-    z_grad_h(:,:) = 0.0_wp
-  ENDIF
+p_lhs(:,:)    = 0.0_wp
+div_z_c(:,:)  = 0.0_wp
+z_e(:,:)      = 0.0_wp
+z_grad_h(:,:) = 0.0_wp
 
 gdt2 = grav*(dtime)**2
 !z_u_c     = 0.0_wp
 !z_v_c     = 0.0_wp
 
 CALL sync_patch_array(SYNC_C, p_patch, p_x )
-
-IF (p_test_run) z_grad_h(:,:) = 0.0_wp
 
 !Step 1) Calculate gradient of iterated height.
 CALL grad_fd_norm_oce_2d_3D( p_x, &
@@ -1230,10 +1222,9 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
   REAL(wp) :: gdt, delta_z
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-  TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
-  TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
+  !TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
+  !TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
   REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
-  !REAL(wp) :: z_tmp_h_e(nproma,1,p_patch%nblks_e)
   CHARACTER(len=*), PARAMETER ::     &
     &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
 
@@ -1243,7 +1234,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   edges_in_domain => p_patch%edges%in_domain
   cells_in_domain => p_patch%cells%in_domain
 
-  IF (p_test_run) z_grad_h(:,:) = 0.0_wp
+  z_grad_h(:,:) = 0.0_wp
 
   gdt=grav*dtime
 
@@ -1388,10 +1379,9 @@ INTEGER                           :: timestep
 
 ! Local variables
 INTEGER  :: jc, jk, jb
-INTEGER  :: z_dolic
 INTEGER  :: i_startidx_c, i_endidx_c
 INTEGER  :: i_dolic_c
-REAL(wp) :: delta_z, gdt2
+!REAL(wp) :: delta_z
 REAL(wp) :: z_thick_c_old(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_div_c(nproma,p_patch%nblks_c)
 REAL(wp) :: z_e(nproma,p_patch%nblks_e)
@@ -1514,14 +1504,14 @@ TYPE(t_subset_range), POINTER :: edges_in_domain
 CHARACTER(len=*), PARAMETER :: &
    & method_name = 'mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic'
 !-----------------------------------------------------------------------  
-  cells_in_domain => p_patch%cells%in_domain
-  edges_in_domain => p_patch%edges%in_domain
+cells_in_domain => p_patch%cells%in_domain
+edges_in_domain => p_patch%edges%in_domain
 
-  z_div_int_c=0.0_wp
-  pw_c       =0.0_wp
-
-! #slo# due to nag -nan compiler-option:
-  IF (p_test_run) z_div_c(:,:,:) = 0.0_wp
+! due to nag -nan compiler-option:
+z_div_int_c(:,:) = 0.0_wp
+z_div_c  (:,:,:) = 0.0_wp
+pw_c     (:,:,:) = 0.0_wp
+z_vn     (:,:,:) = 0.0_wp
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
@@ -1641,18 +1631,18 @@ DO jk = 1,n_zlev
 write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,&
 END DO
 
-!  DO jk = 1,n_zlev
-write(*,*)'bc',maxval(bot_bc_w), minval(bot_bc_w)
-  write(*,*)'max/min vert veloc',jk,&! maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&
-!  &maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:)),&
-&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
-&minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
-&maxval(z_div_int_c), minval(z_div_int_c)
-write(*,*)'difference',&
-&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
-&/dtime+z_div_int_c),&
-&minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
-&/dtime+z_div_int_c)
+! !  DO jk = 1,n_zlev
+! write(*,*)'bc',maxval(bot_bc_w), minval(bot_bc_w)
+!   write(*,*)'max/min vert veloc',jk,&! maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&
+! !  &maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:)),&
+! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
+! &minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
+! &maxval(z_div_int_c), minval(z_div_int_c)
+! write(*,*)'difference',&
+! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
+! &/dtime+z_div_int_c),&
+! &minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
+! &/dtime+z_div_int_c)
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
 idt_src=4  ! output print level (1-5, fix)
@@ -1695,7 +1685,7 @@ REAL(wp),         INTENT(INOUT)   :: pw_c (:,:,:)  ! vertical velocity on cells
 !
 !
 ! Local variables
-INTEGER :: jc, jk, jb, je, jl
+INTEGER :: jc, jk, jb, je
 INTEGER :: z_dolic!jic, jib
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
@@ -1714,24 +1704,26 @@ TYPE(t_subset_range), POINTER:: all_cells, cells_in_domain, edges_in_domain
 CHARACTER(len=*), PARAMETER :: &
   & method_name = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
 !-----------------------------------------------------------------------  
-! #slo# due to nag -nan compiler-option:
 
   all_cells       => p_patch%cells%all
   cells_in_domain => p_patch%cells%in_domain
   edges_in_domain => p_patch%edges%in_domain
 
-  pw_c           =0.0_wp
-  z_div_int_c    =0.0_wp
-  z_pw_bottom_up =0.0_wp
+! due to nag -nan compiler-option:
+  pw_c           = 0.0_wp
+  z_div_int_c    = 0.0_wp
+  z_pw_bottom_up = 0.0_wp
+  z_div_c(:,:,:) = 0.0_wp
   !div_z_c_3D_accum=0.0_wp
 
   z_u_depth_int_cc(1:nproma,1:p_patch%nblks_c)%x(1) = 0.0_wp
   z_u_depth_int_cc(1:nproma,1:p_patch%nblks_c)%x(2) = 0.0_wp
   z_u_depth_int_cc(1:nproma,1:p_patch%nblks_c)%x(3) = 0.0_wp
 
+  z_vn_c(:,:,:)%x(1) = 0.0_wp
+  z_vn_c(:,:,:)%x(2) = 0.0_wp
+  z_vn_c(:,:,:)%x(3) = 0.0_wp
 
-! #slo# due to nag -nan compiler-option:
-  IF (p_test_run) z_div_c(:,:,:) = 0.0_wp
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
@@ -2094,9 +2086,7 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
     !-----------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
 
-    IF (p_test_run) THEN
-      z_x_out(:,:) = 0.0_wp
-    ENDIF
+    z_x_out(:,:) = 0.0_wp
 
     CALL sync_patch_array(SYNC_E, p_patch, x)
 
