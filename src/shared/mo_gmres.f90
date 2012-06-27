@@ -207,7 +207,7 @@ CONTAINS
 
   INTEGER :: mnblks, mnpromz
 
-! NOMPI is disabled for checking the bit-reproducability with mpi versions
+! NOMPI_DISABLED is disabled for checking the bit-reproducability with mpi versions
 ! this is not efficient though, and probably will be re-intronduced
 #ifdef NOMPI_DISABLED
   REAL(wp) :: sum_aux(nblks)
@@ -981,7 +981,7 @@ INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
   REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 #else
   REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
@@ -1001,7 +1001,7 @@ INTEGER :: mnblks, mnpromz
 
    maxiterex = .FALSE.
 
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
    z(:,:) = 0._wp
 #endif
    v(:,:,:)  = 0.0_wp
@@ -1034,7 +1034,7 @@ INTEGER :: mnblks, mnpromz
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1111,7 +1111,7 @@ INTEGER :: mnblks, mnpromz
 
      gs_orth: DO k = 1, i
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1155,7 +1155,7 @@ INTEGER :: mnblks, mnpromz
 
      ! 4.3) new element for h
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1366,11 +1366,11 @@ INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
 REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
 #endif
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 REAL(wp) :: sum_aux(subset_range%end_block)
 #endif
 
@@ -1382,7 +1382,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
    !!
    mnblks  = subset_range%end_block
    mnpromz = subset_range%end_index
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
    z(:,:) = 0.0_wp
 #endif
    maxiterex = .FALSE.
@@ -1414,7 +1414,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1495,7 +1495,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
      gs_orth: DO k = 1, i
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1542,7 +1542,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
      ! 4.3) new element for h
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1753,11 +1753,11 @@ INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
 REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
 #endif
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 REAL(wp) :: sum_aux(nblks)
 #endif
 
@@ -1772,7 +1772,7 @@ REAL(wp) :: sum_aux(nblks)
    !!
    mnblks = nblks
    mnpromz = npromz
-#ifndef NOMPI
+#ifndef NOMPI_DISABLED
    z(:,:) = 0.0_wp
 #endif
    maxiterex = .FALSE.
@@ -1804,7 +1804,7 @@ REAL(wp) :: sum_aux(nblks)
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1883,7 +1883,7 @@ REAL(wp) :: sum_aux(nblks)
 
      gs_orth: DO k = 1, i
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -1929,7 +1929,7 @@ REAL(wp) :: sum_aux(nblks)
 
      ! 4.3) new element for h
 
-#ifdef NOMPI
+#ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
