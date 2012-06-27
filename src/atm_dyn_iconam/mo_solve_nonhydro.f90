@@ -896,15 +896,7 @@ MODULE mo_solve_nonhydro
         ENDIF
 
         IF (igradp_method <= 3) THEN
-          ! Perturbation Exner pressure on bottom and top half level
-          IF (nflatlev(p_patch%id) == 1) THEN
-            DO jc = i_startidx, i_endidx
-            z_exner_ic(jc,1) =                                          &
-              p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_exner_ex_pr(jc,1,jb) + &
-              p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_exner_ex_pr(jc,2,jb) + &
-              p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_exner_ex_pr(jc,3,jb)
-            ENDDO
-          ENDIF
+          ! Perturbation Exner pressure on bottom half level
           DO jc = i_startidx, i_endidx
             z_exner_ic(jc,nlevp1) =                                         &
               p_nh%metrics%wgtfacq_c(jc,1,jb)*z_exner_ex_pr(jc,nlev  ,jb) + &
@@ -926,6 +918,22 @@ MODULE mo_solve_nonhydro
                 p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
             ENDDO
           ENDDO
+
+          IF (nflatlev(p_patch%id) == 1) THEN
+            ! Perturbation Exner pressure on top half level
+            DO jc = i_startidx, i_endidx
+            z_exner_ic(jc,1) =                                          &
+              p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_exner_ex_pr(jc,1,jb) + &
+              p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_exner_ex_pr(jc,2,jb) + &
+              p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_exner_ex_pr(jc,3,jb)
+
+              ! First vertical derivative of perturbation Exner pressure
+              z_dexner_dz_c(1,jc,1,jb) =                    &
+               (z_exner_ic(jc,1) - z_exner_ic(jc,2)) *   &
+                p_nh%metrics%inv_ddqz_z_full(jc,1,jb)
+            ENDDO
+          ENDIF
+
         ENDIF
 
       ENDDO
