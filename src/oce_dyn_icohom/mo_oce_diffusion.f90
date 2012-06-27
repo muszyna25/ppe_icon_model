@@ -109,7 +109,7 @@ SUBROUTINE velocity_diffusion(p_patch, vn_in, p_param, p_diag,p_op_coeff, laplac
 
   !Local variables
   !REAL(wp) :: z_lapl(nproma,n_zlev,p_patch%nblks_e)
-  INTEGER  :: jk
+  !INTEGER  :: jk
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:velocity_diffusion_horz')
 !-------------------------------------------------------------------------------
@@ -567,9 +567,11 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 
     ! compute divergence of vector field
     CALL div_oce_3d( u_vec_e, ptr_patch, p_op_coeff%div_coeff, z_div_c)
+    CALL sync_patch_array(SYNC_C,ptr_patch,z_div_c)
 
     ! compute rotation of vector field for the ocean
     CALL rot_vertex_ocean_3D( ptr_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
+    CALL sync_patch_array(SYNC_V,ptr_patch,z_rot_v)
     !z_rot_v=vort
     !
     !  loop through all patch edges (and blocks)
