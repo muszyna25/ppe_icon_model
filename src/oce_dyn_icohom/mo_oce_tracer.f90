@@ -54,7 +54,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
   &                                     iswm_oce, &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
   &                                     UPWIND, CENTRAL, MIMETIC, MIMETIC_MIURA
-USE mo_physical_constants,        ONLY: tf
+USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_math_constants,            ONLY: pi
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -215,7 +215,7 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
 
   DO jk = 1, n_zlev
     ! Abort if tracer is below threshold
-    ! Temperature: tf<-1.9 deg, may be possible, limit set to lower value
+    ! Temperature: <-1.9 deg, may be possible, limit set to lower value
     IF (minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))<-4.0_wp) THEN
       write(0,*) ' TEMPERATURE BELOW THRESHOLD:'
       iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
