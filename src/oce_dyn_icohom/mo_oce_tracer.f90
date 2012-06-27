@@ -83,6 +83,8 @@ PRIVATE
 
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=12)  :: str_module = 'oceTracer   '  ! Output of module for 1 line debug
+INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
 
 !
 ! PUBLIC INTERFACE
