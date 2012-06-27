@@ -55,7 +55,7 @@ USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
 USE mo_model_domain,        ONLY: t_patch
 !USE mo_exception,           ONLY: message, finish!, message_text
 USE mo_oce_physics,         ONLY: t_ho_params
-USE mo_scalar_product,      ONLY: map_cell2edges !, primal_map_c2e
+USE mo_scalar_product,      ONLY: map_cell2edges_3D
 USE mo_oce_math_operators,  ONLY: div_oce_3D, rot_vertex_ocean_3d,&
  &                                map_edges2vert_3D
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -109,7 +109,7 @@ SUBROUTINE velocity_diffusion(p_patch, vn_in, p_param, p_diag,p_op_coeff, laplac
 
   !Local variables
   !REAL(wp) :: z_lapl(nproma,n_zlev,p_patch%nblks_e)
-  !INTEGER  :: jk
+  INTEGER  :: jk
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:velocity_diffusion_horz')
 !-------------------------------------------------------------------------------
@@ -159,11 +159,11 @@ SUBROUTINE velocity_diffusion(p_patch, vn_in, p_param, p_diag,p_op_coeff, laplac
    ENDIF
  ENDIF
 
-! DO jk=1, n_zlev
-!  write(*,*)'LAPLACIAN',jk,&
-!  &maxval(laplacian_vn_out(:,jk,:)),minval(laplacian_vn_out(:,jk,:))!,&
-! ! &maxval(z_lapl(:,jk,:)),minval(z_lapl(:,jk,:))
-! END DO
+!   DO jk=1, n_zlev
+!    write(*,*)'LAPLACIAN',jk,&
+!    &maxval(laplacian_vn_out(:,jk,:)),minval(laplacian_vn_out(:,jk,:))!,&
+!   ! &maxval(z_lapl(:,jk,:)),minval(z_lapl(:,jk,:))
+!   END DO
 
  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
@@ -305,8 +305,9 @@ SUBROUTINE veloc_diff_harmonic_div_grad(p_patch, vn_in, p_param, p_diag,&
   END DO
 
   !Step 3: Map divergence back to edges
-  CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out,subset_range=all_cells)
-
+  !CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out,subset_range=all_cells)
+  CALL map_cell2edges_3D( p_patch, z_div_grad_u, laplacian_vn_out, p_op_coeff)!,&
+                                   !& subset_range=all_cells )
 
 ! write(*,*)'lapla',maxval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length),&
 ! &minval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length)
@@ -514,7 +515,8 @@ SUBROUTINE veloc_diff_biharmonic_div_grad(p_patch, vn_in, p_param, p_diag,&
 
 
   !Step 6: Map divergence back to edges
-  CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out,subset_range=all_cells)
+  !CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out,subset_range=all_cells)
+  CALL map_cell2edges_3D( p_patch, z_div_grad_u,laplacian_vn_out,p_op_coeff)!,subset_range=all_cells)
 ! write(*,*)'lapla',maxval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length),&
 ! &minval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length)
 ! !  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
@@ -565,11 +567,9 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 
     ! compute divergence of vector field
     CALL div_oce_3d( u_vec_e, ptr_patch, p_op_coeff%div_coeff, z_div_c)
-    CALL sync_patch_array(SYNC_C,ptr_patch,z_div_c)
 
     ! compute rotation of vector field for the ocean
     CALL rot_vertex_ocean_3D( ptr_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
-    CALL sync_patch_array(SYNC_V,ptr_patch,z_rot_v)
     !z_rot_v=vort
     !
     !  loop through all patch edges (and blocks)
@@ -796,10 +796,12 @@ END SUBROUTINE velocity_diffusion_horz_rbf
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 !!  mpi parallelized LL (no sync required)
-SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, laplacian_vn_out)
+SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,p_op_coeff,&
+                                           &h_c,p_param, laplacian_vn_out)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   TYPE(t_hydro_ocean_diag)          :: p_diag
   TYPE(t_hydro_ocean_aux)           :: p_aux
+  TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
   REAL(wp), INTENT(in)              :: h_c(:,:) 
   TYPE(t_ho_params), INTENT(in)     :: p_param
   REAL(wp)                          :: laplacian_vn_out(:,:,:)
@@ -872,7 +874,7 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
   CALL sync_patch_array(SYNC_C, p_patch, z_u(:,:,:)%x(2))
   CALL sync_patch_array(SYNC_C, p_patch, z_u(:,:,:)%x(3))  
   ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)  
-  CALL map_cell2edges( p_patch, z_u, laplacian_vn_out)
+  CALL map_cell2edges_3D( p_patch, z_u,laplacian_vn_out,p_op_coeff)
   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -898,7 +900,7 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 !!
 !!  mpi parallelized, sync required
 SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_bc_v_c,&
-                          &  bot_bc_u_c,  bot_bc_v_c,p_param, laplacian_vn_out)
+                          &  bot_bc_u_c,  bot_bc_v_c,p_param,p_op_coeff, laplacian_vn_out)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   ! Components of cell based variable which is vertically advected
   REAL(wp), INTENT(inout) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
@@ -913,6 +915,7 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
   REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
   REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
   TYPE(t_ho_params), INTENT(in)     :: p_param
+  TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
   ! variable in which horizontally advected velocity is stored
   REAL(wp)            :: laplacian_vn_out(:,:,:)
 
@@ -1009,7 +1012,7 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
   END DO
 
   ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
-  CALL map_cell2edges( p_patch, zu_cc, laplacian_vn_out)
+  CALL map_cell2edges_3D( p_patch, zu_cc,laplacian_vn_out,p_op_coeff)
   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1068,7 +1071,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx, subset_r
           ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-            diff_flx(je,jk,jb) = K_T(je,jk,jb)&!*delta_z&
+            diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z&
                        &*(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
                        &/p_patch%edges%dual_edge_length(je,jb)
           ELSE

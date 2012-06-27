@@ -228,9 +228,9 @@ END DO
 
 IF ( iswm_oce /= 1 ) THEN
   ! Apply windstress 
-  CALL top_bound_cond_horz_veloc(p_patch, p_os, p_sfc_flx,  &
-                                & p_os%p_aux%bc_top_u, p_os%p_aux%bc_top_v,&
-                                & p_os%p_aux%bc_top_veloc_cc) 
+!  CALL top_bound_cond_horz_veloc(p_patch, p_os, p_sfc_flx,  &
+!                                & p_os%p_aux%bc_top_u, p_os%p_aux%bc_top_v,&
+!                                & p_os%p_aux%bc_top_veloc_cc) 
   CALL bot_bound_cond_horz_veloc(p_patch, p_os, p_phys_param, p_op_coeff%div_coeff)
 ENDIF
 
@@ -382,7 +382,7 @@ IF ( iswm_oce /= 1 ) THEN
     &                             p_os%p_aux%bc_top_v,    &
     &                             p_os%p_aux%bc_bot_u,    &
     &                             p_os%p_aux%bc_bot_v,    &
-    &                             p_phys_param,           &
+    &                             p_phys_param,p_op_coeff, &
     &                             p_os%p_diag%laplacian_vert)
   ENDIF
   DO jk=1, n_zlev

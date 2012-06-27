@@ -52,8 +52,9 @@ MODULE mo_oce_boundcond
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
-  USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2d,&
-                                 & map_cell2edges
+  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
+  USE mo_scalar_product,     ONLY: map_edges2cell_3D, map_cell2edges_2d,&
+                                 & map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce_3D
@@ -99,11 +100,12 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!  mpi parallelized LL
   !!
-  SUBROUTINE top_bound_cond_horz_veloc( p_patch, p_os, p_sfc_flx, &
+  SUBROUTINE top_bound_cond_horz_veloc( p_patch, p_os, p_op_coeff, p_sfc_flx, &
     & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
     TYPE(t_patch), TARGET                      :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: p_os            ! ocean state variable
+    TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
     TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
     REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
     REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,nblks_c)
@@ -193,9 +195,8 @@ CONTAINS
         END DO
       END DO
     END SELECT
-    ! LL: no sync rquired
 
-    CALL map_cell2edges( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn, level=1)
+    CALL map_cell2edges_3D( p_patch, top_bc_u_cc,p_os%p_aux%bc_top_vn,p_op_coeff,  level=1)
     CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_top_vn)
 
     !---------Debug Diagnostics-------------------------------------------
@@ -434,10 +435,14 @@ CONTAINS
     !----------------------------------------
     
     !----------------------------------------
-    CALL map_edges2cell( p_patch, &
-      & z_grad_h,&
-      & z_grad_h_cc,&
-      & opt_slev=1, opt_elev=1)
+!     CALL map_edges2cell( p_patch, &
+!       & z_grad_h,&
+!       & z_grad_h_cc,&
+!       & opt_slev=1, opt_elev=1)
+!     CALL map_edges2cell_3D( p_patch, &
+!       & z_grad_h,&
+!       & z_grad_h_cc,&
+!       & opt_slev=1, opt_elev=1)
     !----------------------------------------
     
     DO jb = all_cells%start_block, all_cells%end_block
@@ -505,11 +510,11 @@ CONTAINS
     CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,1,:))        
     
     IF(idisc_scheme==1)THEN
-      CALL map_edges2cell( p_patch,        &
-        & z_grad_h,       &
-        & z_grad_h_cc_vec,&
-      !                         & p_os%p_diag%h_e,&
-        & opt_slev=1,opt_elev=1 )
+!       CALL map_edges2cell( p_patch,        &
+!         & z_grad_h,       &
+!         & z_grad_h_cc_vec,&
+!       !                         & p_os%p_diag%h_e,&
+!         & opt_slev=1,opt_elev=1 )
       
     ELSEIF(idisc_scheme==2)THEN
       

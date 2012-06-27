@@ -55,7 +55,8 @@ USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
   &                                          calc_normal_velocity_ab_mimetic, &
-  &                                          calc_vert_velocity_mimetic
+  &                                          calc_vert_velocity_mimetic,      &
+  &                                          calc_vert_velocity_mim_topdown
 USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
   &                                          calc_normal_velocity_ab_RBF,     &
   &                                          calc_vert_velocity_RBF
@@ -173,23 +174,24 @@ CONTAINS
 
     IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_vert_velocity_mimetic( p_patch,            &
-                                 & p_os,                   &
-                                 & p_os%p_diag,            &
-                                 & p_op_coeff,             &
-                                 & p_os%p_prog(nold(1))%h, &
-                                 & p_os%p_diag%h_e,        &
-                                 !& p_os%p_aux%bc_top_w,    &
-                                 & p_os%p_aux%bc_bot_w,    &
-                                 & p_os%p_diag%w )
-    !   CALL calc_vert_velocity_mim_topdown( p_patch,       &
-    !                               & p_os,                   &
-    !                               & p_os%p_diag,            &
-    !                               & p_os%p_diag%h_e,        &
-    !                               !& p_os%p_prog(nnew(1))%h, &
-    !                               & p_os%p_aux%bc_top_w,    &
-    !                               & p_os%p_aux%bc_bot_w,    &
-    !                               & p_os%p_diag%w )
+!       CALL calc_vert_velocity_mimetic( p_patch,            &
+!                                  & p_os,                   &
+!                                  & p_os%p_diag,            &
+!                                  & p_op_coeff,             &
+!                                  & p_os%p_prog(nold(1))%h, &
+!                                  & p_os%p_diag%h_e,        &
+!                                  !& p_os%p_aux%bc_top_w,    &
+!                                  & p_os%p_aux%bc_bot_w,    &
+!                                  & p_os%p_diag%w )
+      CALL calc_vert_velocity_mim_topdown( p_patch,         &
+                                  & p_os,                   &
+                                  & p_os%p_diag,            &
+                                  & p_op_coeff,             &
+                                  & p_os%p_diag%h_e,        &
+                                  !& p_os%p_prog(nnew(1))%h, &
+                                  & p_os%p_aux%bc_top_w,    &
+                                  & p_os%p_aux%bc_bot_w,    &
+                                  & p_os%p_diag%w )
 
     ELSEIF(idisc_scheme==RBF_TYPE)THEN
 

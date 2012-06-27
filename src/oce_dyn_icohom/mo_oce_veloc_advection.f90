@@ -53,8 +53,7 @@ MODULE mo_oce_veloc_advection
     &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
     &                               rot_vertex_ocean_3d!, rot_vertex_ocean
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product!,cc2gc, gvec2cvec, gc2cc
-  USE mo_scalar_product,      ONLY: map_cell2edges, primal_map_c2e,   &
-    &                               nonlinear_coriolis_3d!, map_edges2edges, map_edges2cell
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3d!, map_edges2edges, map_edges2cell
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp,                ONLY: verts2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
@@ -142,20 +141,21 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
   !!   mpi parallelized LL
-  SUBROUTINE veloc_adv_vert_mimetic( p_patch, p_diag, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     TYPE(t_hydro_ocean_diag)          :: p_diag
+    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
-      CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
+      CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,p_op_coeff,&
         & veloc_adv_vert_e)
       !CALL veloc_adv_vert_mimetic_rot2( p_patch, p_diag,&
       !  & veloc_adv_vert_e)
     ELSEIF (velocity_advection_form == divergence_form) THEN
-      CALL veloc_adv_vert_mimetic_div( p_patch, p_diag,&
+      CALL veloc_adv_vert_mimetic_div( p_patch, p_diag,p_op_coeff,&
         & veloc_adv_vert_e)
     ENDIF
 
@@ -533,7 +533,9 @@ CONTAINS
       END DO
    END DO
 
-    CALL map_cell2edges( p_patch, z_div_vec_c, veloc_adv_horz_e, &
+!     CALL map_cell2edges( p_patch, z_div_vec_c, veloc_adv_horz_e, &
+!       & opt_slev=slev, opt_elev=elev )
+    CALL map_cell2edges_3D( p_patch, z_div_vec_c, veloc_adv_horz_e,p_op_coeff, &
       & opt_slev=slev, opt_elev=elev )
 
 
@@ -696,10 +698,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    TYPE(t_hydro_ocean_diag)          :: p_diag
+    TYPE(t_hydro_ocean_diag)          :: p_diag    
+    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
 
     !local variables
@@ -778,8 +781,12 @@ CONTAINS
     END DO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+!     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+!       & opt_slev=slev, opt_elev=elev )
+    CALL map_cell2edges_3D( p_patch, z_adv_u_m, veloc_adv_vert_e,p_op_coeff, &
       & opt_slev=slev, opt_elev=elev )
+
+
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
     !---------Debug Diagnostics-------------------------------------------
@@ -811,11 +818,12 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_rot2( p_patch, p_diag,&
+  SUBROUTINE veloc_adv_vert_mimetic_rot2( p_patch, p_diag,p_op_coeff,&
     & veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    TYPE(t_hydro_ocean_diag)          :: p_diag
+    TYPE(t_hydro_ocean_diag)          :: p_diag    
+    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
 
     !local variables
@@ -909,8 +917,12 @@ CONTAINS
     END DO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+!     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+!       & opt_slev=slev, opt_elev=elev )
+    CALL map_cell2edges_3D( p_patch, z_adv_u_m, veloc_adv_vert_e,p_op_coeff, &
       & opt_slev=slev, opt_elev=elev )
+
+
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
     !---------Debug Diagnostics-------------------------------------------
@@ -942,11 +954,12 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_div( p_patch, p_diag,&
+  SUBROUTINE veloc_adv_vert_mimetic_div( p_patch, p_diag,p_op_coeff,&
     & veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     TYPE(t_hydro_ocean_diag)          :: p_diag
+     TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
 
     !local variables
@@ -1020,8 +1033,11 @@ CONTAINS
     END DO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+!     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+!       & opt_slev=slev, opt_elev=elev )
+    CALL map_cell2edges_3D( p_patch, z_adv_u_m, veloc_adv_vert_e,p_op_coeff, &
       & opt_slev=slev, opt_elev=elev )
+
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
     veloc_adv_vert_e=0.0_wp  ! #slo# ???
@@ -1492,9 +1508,9 @@ CONTAINS
     END DO
 
     ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL primal_map_c2e( p_patch,&
-      & z_adv_u_m, z_adv_v_m,&
-      & veloc_adv_vert_e )
+!     CALL primal_map_c2e( p_patch,&
+!       & z_adv_u_m, z_adv_v_m,&
+!       & veloc_adv_vert_e )
     ! result is synced in the called funtion
 
   ! !---------Debug Diagnostics-------------------------------------------

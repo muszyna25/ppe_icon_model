@@ -1,4 +1,4 @@
-!>
+!>  
 !! Contains the implementation of the initial conditions for the hydrostatic ocean model.
 !!
 !! Contains the implementation of the initial conditions for the hydrostatic ocean model.
@@ -75,7 +75,7 @@ USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
-USE mo_scalar_product,     ONLY: map_edges2cell, calc_scalar_product_veloc_3D
+USE mo_scalar_product,     ONLY: map_edges2cell_3D, calc_scalar_product_veloc_3D
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_3D !,&
 !  &                              height_related_quantities
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
@@ -1065,7 +1065,7 @@ CONTAINS
         END DO
       END DO
     END DO
-!p_os%p_prog(nold(1))%tracer=16.0_wp
+p_os%p_prog(nold(1))%tracer=16.0_wp
    CASE (34)
    ! Adjusting density front in a basin: vertical wall at basin_center_lon
       CALL message(TRIM(routine), 'Initialization of testcases (34)')
@@ -1757,7 +1757,7 @@ CONTAINS
               ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 1.0_wp
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 16.0_wp !5.0_wp
               IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
@@ -2219,22 +2219,22 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
    FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff,grad_coeff, h_e) RESULT(llhs)
      TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
      INTEGER                         :: lev
-     REAL(wp),INTENT(inout)          :: x(:,:)
+     REAL(wp),INTENT(inout)          :: x(nproma,p_patch%nblks_e)!(:,:)
      REAL(wp),INTENT(in)             :: p_coeff
      REAL(wp), INTENT(in)            :: grad_coeff(:,:,:)
-     REAL(wp),OPTIONAL,INTENT(in)    :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
-     REAL(wp)                        :: llhs(SIZE(x,1), SIZE(x,2))
+     REAL(wp),OPTIONAL,INTENT(in)    :: h_e(nproma,p_patch%nblks_e)!(SIZE(x,1), SIZE(x,2))!(:,:)
+     REAL(wp)                        :: llhs(nproma,p_patch%nblks_e)!(SIZE(x,1), SIZE(x,2))
 
      !locl variables
      INTEGER :: i_startidx_c, i_endidx_c
      INTEGER :: jc,jb
-     REAL(wp) :: z_x_e(SIZE(x,1),1,SIZE(x,2))!(nproma,p_patch%nblks_e)
+     REAL(wp) :: z_x_e(nproma,p_patch%nblks_e)
      REAL(wp) :: z_x_vort(nproma,1,p_patch%nblks_v)
      REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
     !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
      REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
      REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
-     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,1,p_patch%nblks_c)
+     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,p_patch%nblks_c)
      !-----------------------------------------------------------------------
      TYPE(t_subset_range), POINTER :: all_cells
      !-----------------------------------------------------------------------
@@ -2242,15 +2242,18 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
      z_x_vort(:,:,:)= 0.0_wp
      z_x_out(:,:,:) = 0.0_wp
-     z_x_e(:,1,:)   = x(:,:)
-
-  !  CALL rot_vertex_ocean(z_x_e, z_vt, p_patch, z_x_vort)
-
-     CALL map_edges2cell( p_patch, z_x_e, z_pv_cc, h_e )
+     z_x_e(:,:)   = x(:,:)
+write(*,*)'warning: edge2cell mapping missing'
+stop
+!       CALL map_edges2cell_3D( p_patch, &
+!                             & z_x_e,   &
+!                             &  z_pv_cc,&
+!                             & p_coeff, &
+!                             & level=1)
      DO jb = all_cells%start_block, all_cells%end_block
        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
        DO jc =  i_startidx_c, i_endidx_c
-            z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,1,jb)%x,z_pv_cc(jc,1,jb)%x)
+            z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,jb)%x,z_pv_cc(jc,jb)%x)
        END DO
      END DO
 
