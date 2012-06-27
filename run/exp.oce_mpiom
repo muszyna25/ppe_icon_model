@@ -172,7 +172,7 @@ cat > ${ocean_namelist} << EOF
   dt_data       = ${dt_data}
   dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
-  lkeep_in_sync = .TRUE.          ! sync after each timestep
+  lkeep_in_sync = .TRUE.         ! sync after each timestep
 /
 EOF
 
