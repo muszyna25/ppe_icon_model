@@ -7,24 +7,23 @@
 # Default EXPNAME is the suffix of this script after "exp."
 #
 #-----------------------------------------------------------------------------
-# Basic specifications for the hydrostatic ocean model for aquaplanet configuration
+# Basic specifications for the hydrostatic ocean model
 # --------------------------------------
 # Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
 #-----------------------------------------------------------------------------
+#
 # The following information is included to present some information on the buildbot-html main page
 #
-# _bb_table_Description_  < include in file exp.test_oce_numeric>
-# _bb_table_Model_        < include here >
-# _bb_table_Grid_         < include here >
+# _bb_table_Description_  unforced flat bottom aqua planet
+# _bb_table_Model_        ocean
+# _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
 #
 # These variables are set in the header section of the completed run script:
 #
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
-#-----------------------------------------------------------------------------
-#
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
@@ -93,7 +92,7 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6       # ocean model output interval hours [hours]
+nhours_data=6        # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=360    # stop model for restart [days]
@@ -117,9 +116,9 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
-# write ICON namelist parameters
-# ------------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
+# write namelist parameters
+# -------------------------
+# For a complete list see Namelist_overview.pdf
 #
 cat > ${ocean_namelist} << EOF
 !
@@ -145,7 +144,7 @@ cat > ${ocean_namelist} << EOF
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
+  k_veloc_v          = 1.0E-2    ! [m/s]  vertical   viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
   k_pot_temp_h       = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
@@ -155,8 +154,8 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
+  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
@@ -174,4 +173,5 @@ cat > ${ocean_namelist} << EOF
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
+#-----------------------------------------------------------------------------
 

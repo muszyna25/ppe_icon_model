@@ -1,4 +1,3 @@
-#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the experiment.
@@ -38,7 +37,6 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-01T03:00:00Z"
 end_date="2008-09-13T00:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
@@ -46,13 +44,10 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=320
-#ndays=12
-#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
 dt_file=`expr 30 \* 86400 `  # 30 days per file
 dt_data=`expr 1 \* 86400 `   # output daily
 dt_checkpoint=`expr 6 \* 86400 `  # write restart file every 6 days
-#dt_checkpoint=`expr 1 \* 3600 `  # write restart file every 1 hour
 #
 #-----------------------------------------------------------------------------
 # model parameters

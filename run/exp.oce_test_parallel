@@ -7,24 +7,23 @@
 # Default EXPNAME is the suffix of this script after "exp."
 #
 #-----------------------------------------------------------------------------
-# Basic specifications for the hydrostatic ocean model (hom)
+# Basic specifications for the hydrostatic ocean model
 # --------------------------------------
 # Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
 #-----------------------------------------------------------------------------
+#
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  parallelized ocean with land sea mask and bathymetry
+# _bb_table_Model_        ocean
+# _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
 #
 # These variables are set in the header section of the completed run script:
 #
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
-#-----------------------------------------------------------------------------
-#
-# The following information is included to present some information on the buildbot-html main page
-#
-# _bb_table_Description_  < include in file exp.test_oce_parallel>
-# _bb_table_Model_        < include here >
-# _bb_table_Grid_         < include here >
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
@@ -43,7 +42,7 @@ B=4   # number of bisections applied
   LOC='POOL'   # all ocean files needed for running are found on pool
 # LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
-# 
+#
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
 init_oce=0     # 1: use ocean initialization file; 0: init analytically
@@ -111,19 +110,15 @@ ocean_model_equations=-1     # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 # provide an ocean horizontal grid file
-# grid_ext="etopo40_flat"    # mapped from ETOPO-file with 2/3 deg resolution, flat bottom bathymetry
   grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
-# grid_ext="aqua_planet"     # global flat bottom bathymetry for aqua planet experiments
-# grid_ext="bas0-60N"        # pentagon ocean basin with flat bottom at 30N 0E location
-# grid_ext="channel30S"      # circumpolar channel at 30S with flat bottom
 #
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
-# write ICON namelist parameters
-# ------------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
+# write namelist parameters
+# -------------------------
+# For a complete list see Namelist_overview.pdf
 #
 cat > ${ocean_namelist} << EOF
 !
@@ -150,23 +145,22 @@ cat > ${ocean_namelist} << EOF
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 0.001     ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
+  k_veloc_v          = 1.0E-3    ! [m/s]  vertical   viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in impl.vert. velocity diffusion, if stabil. crit.is met
   k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
+  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
 /
 &ocean_forcing_and_init_nml
-  iforc_oce          = ${iforc}       ! ocean forcing:
+  iforc_oce          = ${iforc}  ! ocean forcing:
+  idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
+  itestcase_oce      =   33      ! 33=Collapsing density front, requires realistic lsm and topography
   iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   33      ! 33=Collapsing density front, requires realistic lsm and topography
-                                 ! 46=zonally and vertically homogen T/S
-  idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      !  0: no relaxation used
   irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
 /
@@ -178,4 +172,5 @@ cat > ${ocean_namelist} << EOF
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
+#-----------------------------------------------------------------------------
 
