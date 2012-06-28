@@ -1776,7 +1776,7 @@ IF(l_EDGE_BASED)THEN
   END DO
 
 ELSE
-CALL sync_patch_array(SYNC_C,p_patch,pw_c)
+!CALL sync_patch_array(SYNC_C,p_patch,pw_c)
 !----------------------------------------------------------------------------------
 !   CALL map_edges2cell_3D( p_patch, p_diag%vn_time_weighted,p_op_coeff, z_vn_c)
 ! 
@@ -1839,10 +1839,13 @@ CALL sync_patch_array(SYNC_C,p_patch,pw_c)
         END DO
       END DO
     END DO
-!  CALL sync_patch_array(SYNC_C,p_patch,z_vn_c)
+  CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(1))
+  CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(2))
+  CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(3))
   CALL map_cell2edges_3D( p_patch, z_vn_c, z_vn,p_op_coeff)
+! CALL sync_patch_array(SYNC_E,p_patch,z_vn)
   CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
-  CALL sync_patch_array(SYNC_C,p_patch,z_div_c)
+!  CALL sync_patch_array(SYNC_C,p_patch,z_div_c)
 
   WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
      pw_c(:,1,:) =(p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime 
