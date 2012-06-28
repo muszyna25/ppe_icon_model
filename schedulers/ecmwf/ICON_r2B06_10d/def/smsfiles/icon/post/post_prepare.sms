@@ -38,7 +38,7 @@ smsevent change_dir
 #-----------------------------------------------------------------------------
 # meteogram: rename and copy to ecgate
 
-PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/%SUITE_NAME%/"
+PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/"
 outfile_mtg1=${PREFIXSTR}"METEOGRAM_patch001.nc"
 outfile_mtg2=${PREFIXSTR}%SUITE_NAME%"_meteogram.nc"
 mv $outfile_mtg1 $outfile_mtg2 || true

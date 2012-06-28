@@ -24,7 +24,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "001"
+set EXPNUM        "002"
 set FIRST_DATE    20120620
 set LAST_DATE     20120701
 
@@ -46,7 +46,7 @@ set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles/icon"
 set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
 
 # place for SMS output
-set SMSOUT      "$HOME/$SUITE_NAME/log"
+set SMSOUT      "$HOME/sms"
 
 # no. of files to check for:
 set MAXFILES     1
@@ -95,8 +95,7 @@ define on_hpc_serial {
 # -------------------------------------------------
 
 suite icon_${EXPNUM}
-    # cycle over dates
-    repeat date YMD ${FIRST_DATE} ${LAST_DATE}
+    repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
 
     # initial hour: could be cycled later
     edit INIHOUR 00
@@ -143,7 +142,7 @@ suite icon_${EXPNUM}
 
     # ONCE --------------------------------------------
     task once
-        complete (/icon_${EXPNUM}:YMD gt ${FIRST_DATE})
+       #complete (/icon_${EXPNUM}:YMD gt ${FIRST_DATE})
         on_hpc_serial
         edit SCWALLCLOCKLIMIT 00:02:00
 

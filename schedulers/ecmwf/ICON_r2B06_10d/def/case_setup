@@ -197,7 +197,7 @@ cat > ${atmo_namelist} << EOF
  reg_lon_def                  = 0.,1.,358.
  reg_lat_def                  = 90.,-1., -90.
 !namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf
- map_file                     = "${SETUPDIR}/mapfile_vlist.txt"
+ map_file                     = "${SETDIRTMP}/mapfile_vlist.txt"
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
