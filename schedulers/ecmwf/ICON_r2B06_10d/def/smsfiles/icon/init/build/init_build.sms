@@ -61,6 +61,10 @@ smsevent make
 export LDR_CNTRL=MAXDAT=0xD000000DSA
 gmake -j%SCTOTALTASKS%
 
+# Copy to experiment temporary directory
+arch=powerpc-ibm-aix5.3.0.0  # compare with model.sms!
+cp icon-dev/build/${arch}/bin/control_model \
+  /scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/setup
 
 # -------------------------------------------------
 

@@ -34,14 +34,14 @@ module load grib_api
 smsevent change_dir
 
 
-PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%YMD%%INIHOUR%/%SUITE_NAME%"
 
 #-----------------------------------------------------------------------------
 # meteogram: rename and copy to ecgate
 
-outfile_mtg1=%SCTEMP%/output/%SUITE_NAME%/%YMD%%INIHOUR%/METEOGRAM_patch001.nc
-outfile_mtg2=${PREFIXSTR}_meteogram.nc
-mv $outfile_mtg1 $outfile_mtg2
+PREFIXSTR="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/%SUITE_NAME%/"
+outfile_mtg1=${PREFIXSTR}"METEOGRAM_patch001.nc"
+outfile_mtg2=${PREFIXSTR}%SUITE_NAME%"_meteogram.nc"
+mv $outfile_mtg1 $outfile_mtg2 || true
 rcp $outfile_mtg2 ecgate:/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%%INIHOUR%
 
 # -------------------------------------------------

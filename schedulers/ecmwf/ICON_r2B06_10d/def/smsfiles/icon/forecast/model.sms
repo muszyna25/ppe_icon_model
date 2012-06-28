@@ -22,7 +22,9 @@
 
 # *************************************************
 stage=run
-EXP=%SUITE_NAME%
+EXP1=%SUITE_NAME%
+EXP2=%SUITE%
+
 
 # *************************************************
 
@@ -37,7 +39,7 @@ INITIME_FMT=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printfmt -d
 
 
 # directory where the case setup is stored
-SETUPDIR="%SCBASEDIR%/%SUITE_NAME%/def"
+SETDIRTMP=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
 
 
 # base directory
@@ -48,7 +50,7 @@ outbasedir=%SCTEMP%
 ifsdir=%SCTEMP%/input/%SUITE_NAME%/%YMD%%INIHOUR%
 
 # architecture (corresponds to build/<build architecture>/bin/...)
-arch=powerpc-ibm-aix5.3.0.0
+arch=powerpc-ibm-aix5.3.0.0  # compare with init_build.sms!
 
 # -------------------------------------------------
 
@@ -93,11 +95,11 @@ fi
 
 # include experiment parameters
 
-. ${SETUPDIR}/case_setup
+. ${SETDIRTMP}/case_setup
 
 # copy binary and execute in parallel
 smsevent run_model
-cp -p $MODEL ./icon.exe
+cp -p ../setup/control_model ./icon.exe
 
 echo "job::start"
 date

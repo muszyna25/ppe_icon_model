@@ -17,7 +17,7 @@
 
 
 # absolute path to output directory
-EXPDIR=${outbasedir}/output/${EXP}/${INITIME}
+EXPDIR=${outbasedir}/output/${EXP1}/${EXP2}/${INITIME}
 # absolute path to input directory
 INDIR=${basedir}/input/grids
 # absolute path to external parameter directory
@@ -28,8 +28,8 @@ IFS2ICONDIR=${ifsdir}
 RADDIR=${basedir}/input/radiation
 
 # absolute path to model binary, including the executable
-MODEL=${basedir}/icon-dev/build/${arch}/bin/control_model
-echo ${MODEL}
+#MODEL=${basedir}/icon-dev/build/${arch}/bin/control_model
+#echo ${MODEL}
 
 # --------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=60          # output interval 3600s
 
 # model parameters
-atmo_namelist=NAMELIST_${EXP}
+atmo_namelist=NAMELIST_${EXP1}
 model_equations=3      #  3=non-hydrost. atm.,
 
 # grid parameters
@@ -188,7 +188,7 @@ cat > ${atmo_namelist} << EOF
  steps_per_file               =  20
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
- output_filename              = '${EXP}'                  ! file name base
+ output_filename              = '${EXP2}_${EXP1}'         ! file name base
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
  hl_varlist                   = ${hl_varlist}

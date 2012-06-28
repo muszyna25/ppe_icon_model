@@ -27,7 +27,7 @@ echo "SETUP.SMS"
 # calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
 
 #REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
-WEEKDAY=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00 -s 2`
+WEEKDAY=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00`
 
 # display starting date of simulation:
 
@@ -39,6 +39,7 @@ then
      smsevent enable_build
 fi
 
+
 # NOTE: For the time being, dump state creation is
 #       enabled for every run:
 # smsevent enable_dumpstate
@@ -46,7 +47,7 @@ fi
 
 # Create data directory on ecgate
  
-mkdir -p /scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%%INIHOUR%
+mkdir -p /scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
 
 # -------------------------------------------------
 

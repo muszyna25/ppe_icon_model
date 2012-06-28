@@ -24,6 +24,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
+set EXPNUM        "001"
 set FIRST_DATE    20120620
 set LAST_DATE     20120701
 
@@ -37,18 +38,25 @@ set SCPERM      /perm/ms/de/$USER
 
 # place where generated job scripts are stored
 set SMSHOME     "$HOME/sms"
+
 # place where suite and tasks are defined
-set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles"
+set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles/icon"
+
 # place where include files are stored
 set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
+
 # place for SMS output
 set SMSOUT      "$HOME/$SUITE_NAME/log"
+
 # no. of files to check for:
 set MAXFILES     1
+
 # no. of time steps (10x86400s/60s)
 set NSTEPS       14400
+
 # wait interval between file checks:
 set WAITINTVL    10
+
 # set no. of restarts for aborted tasks in SMS:
 set SMSTRIES      1
 
@@ -86,8 +94,8 @@ define on_hpc_serial {
 
 # -------------------------------------------------
 
-suite icon
-    # repeat this suite over and over...
+suite icon_${EXPNUM}
+    # cycle over dates
     repeat date YMD ${FIRST_DATE} ${LAST_DATE}
 
     # initial hour: could be cycled later
@@ -97,8 +105,8 @@ suite icon
     set ENABLE_INIT               1
     set     ENABLE_GET_DATA       1
     set     ENABLE_INIT_DATA      1
-    set     ENABLE_BUILD          1
-    set         ENABLE_INIT_SVN   1
+    set     ENABLE_BUILD          0
+    set         ENABLE_INIT_SVN   0
     set ENABLE_FORECAST           1
     set     ENABLE_DUMPSTATE      0
     set     ENABLE_MODEL          1
@@ -133,6 +141,13 @@ suite icon
     edit ENABLE_DUMPSTATE $ENABLE_DUMPSTATE
 
 
+    # ONCE --------------------------------------------
+    task once
+        complete (/icon_${EXPNUM}:YMD gt ${FIRST_DATE})
+        on_hpc_serial
+        edit SCWALLCLOCKLIMIT 00:02:00
+
+
     # DUMMY TASK (IFS TRIGGER) ------------------------
     family ifs_fct
         task fct_ifs
@@ -146,8 +161,8 @@ suite icon
         complete ($ENABLE_INIT == 0)
 
         task setup
-            trigger (/icon:YMD le /icon:SMSDATE - 2 ) or \
-                    (/icon/ifs_fct/fct_ifs == complete)
+            trigger (/icon_${EXPNUM}:YMD le /icon_${EXPNUM}:SMSDATE - 2 ) or \
+                    (../../ifs_fct/fct_ifs == complete)
             #
             on_ecgate
             if ($ENABLE_INIT == 0) then
@@ -160,7 +175,7 @@ suite icon
 
 
         task get_data
-            trigger (/icon/init/setup == complete)
+            trigger (setup == complete) and (../once == complete)
             #
             complete ($ENABLE_GET_DATA == 0)
             #
@@ -175,7 +190,7 @@ suite icon
             event mars4icon
 
         task init_data
-            trigger (get_data==complete)
+            trigger (get_data == complete)
             complete ($ENABLE_INIT_DATA == 0)
             #
             on_hpc_serial
@@ -190,11 +205,11 @@ suite icon
             event ifs2icon
 
         family build
-            trigger (/icon/init/setup == complete)
+            trigger (setup == complete) and (../once == complete)
             #
             task init_svn 
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
-                  ($ENABLE_BUILD == 0) or not (/icon/init/setup:enable_build)
+                  ($ENABLE_BUILD == 0) or not (../setup:enable_build)
                 #
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
@@ -209,8 +224,8 @@ suite icon
                 event clear_directory
 
             task init_build
-                trigger (init_svn==complete)
-                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (/icon/init/setup:enable_build)
+                trigger (init_svn == complete)
+                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../setup:enable_build)
                 #
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
@@ -240,7 +255,7 @@ suite icon
 
         family prepare
             task pre_clean
-                trigger (/icon/init/setup == complete)
+                trigger (../../../init/setup == complete)
                 #
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:20:00
@@ -253,7 +268,7 @@ suite icon
                 event clear_directory
 
             task dumpstate
-                complete ($ENABLE_DUMPSTATE == 0) or not (/icon/init/setup:enable_dumpstate)
+                complete ($ENABLE_DUMPSTATE == 0) or not (../../../init/setup:enable_dumpstate)
                 trigger (pre_clean == complete)
                 #
                 on_hpc_parallel
@@ -289,7 +304,7 @@ suite icon
         task check_progress
             complete (model == complete)
             #
-            trigger (prepare/dumpstate == complete)
+            trigger (model == active)
             #
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 03:00:00
@@ -306,11 +321,10 @@ suite icon
        family post
            #repeat integer VALUE 1 $MAXFILES
            #
-           #trigger (($ENABLE_FORECAST==0) or (forecast/model:run_model  and ((forecast/check_progress:progress ge post:VALUE) or (forecast/model:model_complete))))
-           trigger (($ENABLE_FORECAST==0) or (forecast/model:run_model  or (forecast/model:model_complete)))
+           #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
+           trigger (../forecast/model:model_complete)
 
-           task post_prepare
-   
+           task post_prepare   
                #
                on_hpc_serial
                edit SCWALLCLOCKLIMIT 00:20:00
