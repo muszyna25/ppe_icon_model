@@ -66,50 +66,50 @@ class HomePage(HtmlResource):
 
       data  = '''
 <h1>ICON Buildbot</h1>
-Buildbot starts every night a test suite on a set of builders differing in machines, compilers 
-and parallelization setup. A standard Buildbot test unpacks the model code and scripts from the  
-repositors, configures and compiles the codes for the selected builder, and runs a series of 
-standard test experiments and related post-processings. Figures resulting from the 
-post-processings are archived and are uploaded to web pages for comparison with reference 
-figures.<p>
+Buildbot starts every night a test suite on a set of builders differing in machines, 
+compilers and parallelization setup. A standard Buildbot test unpacks the latest model 
+from the trunk/icon-dev branch of the repository, configures and compiles the codes, 
+and runs a series of test experiments and related post-processings. Figures resulting 
+from the post-processing are archived and uploaded to web pages for comparison with 
+reference figures.<p>
       '''
 	
 # Write the Status result part to the main page
 
       data += '''
-<h2>Status results</h2>
+<h2>Buildbot displays</h2>
 <table border="1" cellspacing="5px" cellpadding="2" >
    <thead>
      <tr valign="baseline">
        <td><i>Display</i></td>
-       <td><i>What it shows</i></td>
+       <td><i>Information</i></td>
      </tr>
    </thead>
    <tfoot></tfoot>
    <tbody>
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="waterfall?show_events=false&show_time=604800">Waterfall</a></td>
-       <td style=\"text-align:left\">Status of each step of the Buildbot tests for the past 7 days</td>
+       <td style=\"text-align:left\"><a href="waterfall>Waterfall</a></td>
+       <td style=\"text-align:left\">For each step of the test suite, for each builder</td>
      </tr>
 
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="grid?width=10">Grid</a></td>
-       <td style=\"text-align:left\">Status of the complete Builbot test for the 10 latest tested revisions</td>
+       <td style=\"text-align:left\"><a href="grid">Grid</a></td>
+       <td style=\"text-align:left\">For the full test suite, for each builder and several revisions</td>
      </tr>
 
      <tr valign="baseline">
        <td style=\"text-align:left\"><a href="one_box_per_builder">Latest build</a></td>
-       <td style=\"text-align:left\">Status of the complete Builbot test for the latest test on each builder</td>
+       <td style=\"text-align:left\">For the full test suite, the latest test on each builder</td>
      </tr>
 
      <tr valign="baseline">
        <td style=\"text-align:left\"><a href="one_line_per_build">List</a></td>
-       <td style=\"text-align:left\">Status of the complete Builbot test for the latest 15 tests</td>
+       <td style=\"text-align:left\">For the full testsuite, the latest 15 completed tests</td>
      </tr>
 
      <tr valign="baseline">
        <td style=\"text-align:left\"><a href="buildslaves">Build slaves</a></td>
-       <td style=\"text-align:left\">Information on machines ("slaves"), builders, etc.</td>
+       <td style=\"text-align:left\">Machines and builders</td>
      </tr>
    </tbody>
    </table>
@@ -118,7 +118,7 @@ figures.<p>
 # Create the experiment List as a table
 
       
-      data += "<h2>Eperiment results</h2>\n"
+      data += "<h2>Latest nightly test results</h2>\n"
       data += "<table border=\"1\" cellspacing=\"5px\" cellpadding=\"2\">\n"
       data += "  <thead>\n"
       data += "    <tr valign=\"baseline\">\n"
