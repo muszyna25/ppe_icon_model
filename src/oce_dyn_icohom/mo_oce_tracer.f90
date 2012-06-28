@@ -172,7 +172,7 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
     p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
       &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
-    !---------Debug Diagnostics-------------------------------------------
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('3d_rel: AdvTracT forc'  ,p_os%p_aux%relax_3d_forc_T   ,str_module,idt_src)
     CALL dbg_print('3d_rel: AdvTracT data'  ,p_os%p_aux%relax_3d_data_T   ,str_module,idt_src)
@@ -202,7 +202,7 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
     p_os%p_prog(nnew(1))%tracer(:,:,:,2) = p_os%p_prog(nnew(1))%tracer(:,:,:,2) + &
       &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
 
-    !---------Debug Diagnostics-------------------------------------------
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('3d_rel: AdvTracS forc'  ,p_os%p_aux%relax_3d_forc_S   ,str_module,idt_src)
     CALL dbg_print('3d_rel: AdvTracS data'  ,p_os%p_aux%relax_3d_data_S   ,str_module,idt_src)
@@ -413,7 +413,16 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
       END DO
     END DO
   END DO
-p_os%p_diag%depth_c=z_cellthick_intmed
+
+  p_os%p_diag%depth_c=z_cellthick_intmed
+
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=4  ! output print level (1-5, fix)
+  CALL dbg_print('PrepTrans: depth_c'        ,p_os%p_diag%depth_c         ,str_module,idt_src)
+  CALL dbg_print('PrepTrans: mass_flx_e'     ,p_os%p_diag%mass_flx_e      ,str_module,idt_src)
+  CALL dbg_print('PrepTrans: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+  !---------------------------------------------------------------------
+
 END SUBROUTINE prepare_tracer_transport
 !-------------------------------------------------------------------------
 !
@@ -454,6 +463,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   trac_tmp = 0.0_wp
   flux_horz= 0.0_wp
 
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=1  ! output print level (1-5, fix)
+  CALL dbg_print('on entry: IndTrac: trac_old',trac_old                 ,str_module,idt_src)
+  !---------------------------------------------------------------------
+
 !      CALL advect_diffuse_horizontal(p_patch, trac_old,       &
 !                                   & p_os,p_op_coeff,         &
 !                                   & K_h,                     &
@@ -469,14 +483,16 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                                     & p_os%p_diag%h_e, z_cellthick_intmed, &
                                     & FLUX_CALCULATION_HORZ)
 
-!         DO jk = 1, n_zlev
-!            write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-!                                                  & minval(trac_old(:,jk,:)),&
-!                                                  & maxval(trac_tmp(:,jk,:)),&
-!                                                  & minval(trac_tmp(:,jk,:))
-!         END DO
-!trac_new = trac_tmp
-!return
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=3  ! output print level (1-5, fix)
+  CALL dbg_print('after AdvDiffHorz: trac_old',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffHorz: trac_new',trac_old                 ,str_module,idt_src)
+  !---------------------------------------------------------------------
+
+  ! without tracer advection/diffusion - should be controlled by namelist
+  !trac_new = trac_tmp
+  !return
+
   IF( iswm_oce /= 1) THEN
 
 !          CALL advect_diffuse_vertical(p_patch, trac_tmp, trac_old,      &
@@ -495,19 +511,17 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                             & z_cellthick_intmed,             &
                             & FLUX_CALCULATION_VERT, tracer_id)
 
-!     DO jk = 1, n_zlev
-!       write(*,*)'max/min tracer old-new:',jk,&
-!       & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
-!       & maxval(trac_new(:,jk,:)),minval(trac_new(:,jk,:))
-! 
-!       END DO
   ELSEIF( iswm_oce == 1) THEN
 
     trac_new = trac_tmp
 
-
   ENDIF
 
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=3  ! output print level (1-5, fix)
+  CALL dbg_print('after AdvDiffVert: trac_old',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffVert: trac_new',trac_new                 ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
 END SUBROUTINE advect_individual_tracer_ab
 
