@@ -95,7 +95,6 @@ define on_hpc_serial {
 # -------------------------------------------------
 
 suite icon_${EXPNUM}
-    repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
 
     # initial hour: could be cycled later
     edit INIHOUR 00
@@ -141,6 +140,7 @@ suite icon_${EXPNUM}
 
 
     # ONCE --------------------------------------------
+
     task once
        #complete (/icon_${EXPNUM}:YMD gt ${FIRST_DATE})
         on_hpc_serial
@@ -148,73 +148,69 @@ suite icon_${EXPNUM}
 
 
     # DUMMY TASK (IFS TRIGGER) ------------------------
-    family ifs_fct
-        task fct_ifs
-            on_ecgate
-            defstatus unknown
-    endfamily
+   #family ifs_fct
+   #    task fct_ifs
+   #        on_ecgate
+   #        defstatus unknown
+   #endfamily
 
 
     # INITIALIZATION ----------------------------------
+
     family init
+        repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+        trigger (init:YMD le ( forecast:YMD + 1 )) and (once == complete)
         complete ($ENABLE_INIT == 0)
 
+        task fct_ifs                                    # DUMMY TASK (IFS TRIGGER) 
+            on_ecgate
+            defstatus unknown
+
         task setup
-            trigger (/icon_${EXPNUM}:YMD le /icon_${EXPNUM}:SMSDATE - 2 ) or \
-                    (../../ifs_fct/fct_ifs == complete)
-            #
+            trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE - 2 ) or \
+                    (fct_ifs == complete)
             on_ecgate
             if ($ENABLE_INIT == 0) then
                 label status "skipped"
             endif
-            #
            #label date "???"
             event enable_build
             event enable_dumpstate
 
-
         task get_data
             trigger (setup == complete) and (../once == complete)
-            #
             complete ($ENABLE_GET_DATA == 0)
-            #
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 00:30:00
             if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
                 label status "skipped"
             endif
-            #
-            #event change_dir
-            #event clear_directory
+           #event change_dir
+           #event clear_directory
             event mars4icon
 
         task init_data
             trigger (get_data == complete)
             complete ($ENABLE_INIT_DATA == 0)
-            #
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 00:60:00
-            #
             if (($ENABLE_INIT == 0) or ($ENABLE_INIT_DATA == 0)) then
                 label status "skipped"
             endif
-            #
-            #event change_dir
+           #event change_dir
             event compute_weights
             event ifs2icon
 
         family build
             trigger (setup == complete) and (../once == complete)
-            #
+
             task init_svn 
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
                   ($ENABLE_BUILD == 0) or not (../setup:enable_build)
-                #
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
                     label status "skipped"
                 endif
-                #
                 event svn_update
                 event make_distclean
                 event change_dir
@@ -225,7 +221,6 @@ suite icon_${EXPNUM}
             task init_build
                 trigger (init_svn == complete)
                 complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../setup:enable_build)
-                #
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
@@ -233,121 +228,108 @@ suite icon_${EXPNUM}
                 edit SCCPUS       4
                 edit SCMEM        6200MB
                 edit SCWALLCLOCKLIMIT 05:00:00
-                #
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0)) then
                     label status "skipped"
                 endif
-                #
                 event change_dir
                 event uncompress
                 event configure
                 event make
+
         endfamily
 
     endfamily
 
+
     # FORECAST ----------------------------------------
+
     family forecast
+        repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+        trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 1 ))
         complete ($ENABLE_FORECAST == 0)
-        #
-        trigger init==complete
 
         family prepare
             task pre_clean
-                trigger (../../../init/setup == complete)
-                #
+               #trigger (../../../init/setup == complete)
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:20:00
-                #
                 if ($ENABLE_FORECAST == 0) then
                     label status "skipped"
                 endif
-                #
                 event change_dir
                 event clear_directory
 
             task dumpstate
-                complete ($ENABLE_DUMPSTATE == 0) or not (../../../init/setup:enable_dumpstate)
                 trigger (pre_clean == complete)
-                #
+                complete ($ENABLE_DUMPSTATE == 0) or not (../../../init/setup:enable_dumpstate)
                 on_hpc_parallel
                 edit SCWALLCLOCKLIMIT 00:20:00
-                #
                 if (($ENABLE_FORECAST == 0) or ($ENABLE_DUMPSTATE == 0)) then
                     label status "skipped"
                 endif
-                #
                 event prepare
                 event create_dumpstate
 
         endfamily
 
         task model
-            complete ($ENABLE_MODEL == 0)
-            #
             trigger (prepare/dumpstate == complete)
-            #
+            complete ($ENABLE_MODEL == 0)
             on_hpc_parallel
             edit SCWALLCLOCKLIMIT 03:00:00
             if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
                 label status "skipped"
             endif
-            #
             event run_model
             event model_complete
-            #
             # auto-shutdown of "check_progress" subtask:
             #action abort    $SMSFILES/cancel_check_progress
             #action complete $SMSFILES/cancel_check_progress
 
         task check_progress
-            complete (model == complete)
-            #
             trigger (model == active)
-            #
+            complete (model == complete)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 03:00:00
             if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
                 label status "skipped"
             endif
-            #
             meter timesteps 0 $NSTEPS $NSTEPS
 
     endfamily
 
+
     # POST-PROCESS---------------------------------
+
     if ($ENABLE_POST == 1) then
        family post
+           repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+           trigger (forecast:YMD gt post:YMD)
            #repeat integer VALUE 1 $MAXFILES
            #
            #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
-           trigger (../forecast/model:model_complete)
+           #trigger (../forecast/model:model_complete)
 
            task post_prepare   
-               #
                on_hpc_serial
                edit SCWALLCLOCKLIMIT 00:20:00
-               #
                event change_dir
    
            task meteogram
                trigger (post_prepare == complete)
                on_ecgate
-               #
                event change_dir
                event copy_files
    
            task metview
                trigger (post_prepare == complete)
                on_ecgate
-               #
                event change_dir
                event copy_files
    
            task post_archive
                trigger (post_prepare == complete)
                on_ecgate
-               #
                event change_dir
                event copy_files
    
