@@ -3,7 +3,7 @@ from twisted.application import service
 from buildbot.slave.bot import BuildSlave
 
 basedir = r'/scratch/mpi/mh0287/buildbot'
-buildmaster_host = 'mpipc91.mpi.zmaw.de'
+buildmaster_host = 'buildbot:zmaw.de'
 port = 9988
 slavename = 'squall'
 passwd = 'bot1passwd'
