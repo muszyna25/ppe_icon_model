@@ -229,6 +229,9 @@ SUBROUTINE advect_diffuse_flux_horz(p_patch, trac_old,          &
        END DO
      END DO
    END DO
+   CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(1))
+   CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(2))
+   CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(3))
    CALL map_cell2edges_3D( p_patch, z_vn_c,z_adv_flux_h,p_op_coeff)
 
 
