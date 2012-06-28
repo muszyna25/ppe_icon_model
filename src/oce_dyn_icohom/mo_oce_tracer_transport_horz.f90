@@ -877,10 +877,10 @@ END SUBROUTINE elad
   SUBROUTINE upwind_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e, opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pvn_e(:,:,:)       !< normal velocity on edges
+    REAL(wp), INTENT(IN)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN)  :: pvn_e(:,:,:)       !< normal velocity on edges
     !EAL(wp), INTENT(INOUT), OPTIONAL :: ph_e (:,:)         !< surface elevation on edges
-    REAL(wp), INTENT(INOUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(OUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev    ! optional vertical end level
     ! local variables
