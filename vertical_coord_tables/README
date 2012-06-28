@@ -39,6 +39,7 @@
 #
 #    A(k) [m]   fixed height value,   A(1)=model top height, A(nlev+1)=0 m
 #    B(k) []    sigma coefficient,    B(1)=0,                B(nlev+1)=1
+#               (H-\eta)/H
 #
 #    zh(1)      = top height of model
 #    zh(nlev+1) = surface (orographic) height

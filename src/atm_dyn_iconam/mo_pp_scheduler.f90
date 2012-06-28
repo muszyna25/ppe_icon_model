@@ -694,9 +694,9 @@ CONTAINS
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
         ! GEOPOT
-        cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
-        grib2_desc = t_grib2_var(0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_p, 'z', p_diag_pz%p_geopot,             &
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height')
+        grib2_desc = t_grib2_var(0, 3, 5, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_geopot,             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
           & ldims=shape3d )
         ! temp
@@ -748,7 +748,8 @@ CONTAINS
       ! fields:
       CALL difference(hl_varlist, nvars_hl, varlist_predef, nvars_predef)
       IF (l_intp_p) &
-        CALL difference(pl_varlist, nvars_pl, (/ "z   ", "temp" /), 2)
+!DR        CALL difference(pl_varlist, nvars_pl, (/ "z   ", "temp" /), 2)
+        CALL difference(pl_varlist, nvars_pl, (/ "gh  ", "temp" /), 2)
 
       !-- loop over requested p- and z-level variables, add variables
       !-- ("add_var") and register interpolation tasks:

@@ -1941,7 +1941,11 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot', p_metrics%geopot,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c,                                              &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=VINTP_TYPE_P_OR_Z,                 &
+                &             vert_intp_method=VINTP_METHOD_LIN,                &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.)            )
 
 
     ! geopotential above groundlevel at cell center

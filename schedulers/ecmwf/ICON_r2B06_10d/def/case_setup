@@ -120,7 +120,7 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'qv','qc','qi','qr','qs','o3',
 'ddt_u_turb',  'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv',  'ddt_v_turb',  'ddt_v_sso', 
 'ddt_v_gwd', 'ddt_v_pconv',  'ddt_qv_turb', 'ddt_qv_conv'"
 
-pl_varlist="'u','v','temp','z',   'tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
+pl_varlist="'u','v','temp','geopot','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
 hl_varlist="'u','v','temp','pres','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
 
 # ---
