@@ -18,7 +18,7 @@
 #
 # _bb_table_Description_  Jablonowski Williamson baroclinic wave test + NWP physics, parallelization test
 # _bb_table_Model_        non-hydrost. atmosph.
-# _bb_table_Grid_         triangle
+# _bb_table_Grid_         triangle, global + 1 double nested region
 #-----------------------------------------------------------------------------
 #
 # This test must have available at least 3 MPI processes.

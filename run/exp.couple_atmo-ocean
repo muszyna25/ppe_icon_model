@@ -1,11 +1,5 @@
-#!/bin/ksh
 #=============================================================================
 #
-# Test experiment, running the coupled aquaplanet experiments
-#
-# Current setting: couple_atmo-ocean_ape_2_0, r7220
-#
-#=============================================================================
 # This section of the run script defines the experiment.
 # The specifications are passed by namelist to the program.
 # For a complete list see Namelist_overview.pdf
@@ -27,9 +21,9 @@
 #-----------------------------------------------------------------------------
 # The following information is included to present some information on the buildbot-html main page
 #
-# _bb_table_Description_  < include in file exp.test_couple_atmo-ocean>
-# _bb_table_Model_        < include here >
-# _bb_table_Grid_         < include here >
+# _bb_table_Description_  coupled aqua planet, ocean with flat bottom
+# _bb_table_Model_        hydrost. atm + ocean
+# _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
 #
 # Number of ocean processes
@@ -495,8 +489,6 @@ EOF
 if [ $mpi_total_procs -lt 2 ] ; then
   check_error 0 "This setup requires at least 2 mpi processes. Exit"
 fi
-
-
 
 #-----------------------------------------------------------------------------
 #split the number of procs in two for each of the dummy component
