@@ -29,8 +29,9 @@ module load python
 #REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 
 IFSCONFIGFILE="%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf"
-IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon"
-IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%/%YMD%00"
+IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/%SUITE%"
+IFSCELLDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/cellweights"
+IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
 GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
 CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
 RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
@@ -54,7 +55,7 @@ fi
 
 # move grib file to IFS2ICON directory
 mv ${IFSDATADIR}/ifs_oper_T255_%YMD%%INIHOUR%.grb ${IFSDATAOUTDIR}
-IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_%YMD%00.grb"
+IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_%YMD%%INIHOUR%.grb"
 
 module unload cdo
 module load cdo/1.5.0
@@ -64,19 +65,20 @@ export LDR_CNTRL=MAXDATA=0xD0000000@DSA
 
    
 # Compute weights for ifs2icon ----------------
-if [ -f "${IFSDATADIR}/cellweights/initialized.flag" ];
+
+if [ -f "${IFSCELLDIR}/initialized.flag" ];
 then
    echo "CDO cell weights already computed!"
 else
    smsevent compute_weights
-   cd ${IFSDATADIR}/cellweights
+   cd ${IFSCELLDIR}
 
    # clean up:
-   find ${IFSDATADIR}/cellweights -name "*.nc" -exec rm {} \;
+   find ${IFSCELLDIR} -name "*.nc" -exec rm {} \;
 
    # Build a temporary shell script for CDO processing
 
-cat > ${IFSDATADIR}/cellweights/create_cellweights << EOF
+cat > ${IFSCELLDIR}/create_cellweights << EOF
 #!/bin/ksh
 set -x
 # cut path from file name
@@ -89,17 +91,18 @@ ${CDOBIN} gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
 echo "done."
 EOF
 
-   chmod +x ${IFSDATADIR}/cellweights/create_cellweights
+   chmod +x ${IFSCELLDIR}/create_cellweights
 
-   find ${GRIDDIR} -name "*.nc" -exec ${IFSDATADIR}/cellweights/create_cellweights {} \;
+   find ${GRIDDIR} -name "*.nc" -exec ${IFSCELLDIR}/create_cellweights {} \;
 
-   rm ${IFSDATADIR}/cellweights/create_cellweights
+   rm ${IFSCELLDIR}/create_cellweights
    touch "initialized.flag"
    cd ${IFSDATADIR}
 fi
 
 
 # Prepare IFS data for ICON -------------------
+
 smsevent ifs2icon 
 
 cd ${TMPDIR}
@@ -121,7 +124,7 @@ else
     export INPUTFILE=${IFS_FILENAME}
     export OUTPUTFILE=${IFSDATAOUTDIR}/ifs2icon_\${GRIDFILENAME}
     export GRIDFILE=${GRIDDIR}/\${GRIDFILENAME}
-    export CELLWEIGHTFILE=${IFSDATADIR}/cellweights/\${GRIDFILENAME}
+    export CELLWEIGHTFILE=${IFSCELLDIR}/\${GRIDFILENAME}
     # process grid file:
     echo "IFS2ICON: Processing \$1..."
     ${RUBYBIN} ${IFS2ICON} -c ${IFSCONFIGFILE}
@@ -129,10 +132,10 @@ fi
 echo "done."
 EOF
 
-   chmod +x run_ifs2icon
-   find ${GRIDDIR} -name "*.nc" -exec ./run_ifs2icon {} \;
+chmod +x run_ifs2icon
+find ${GRIDDIR} -name "*.nc" -exec ./run_ifs2icon {} \;
 
-   rm run_ifs2icon
+rm run_ifs2icon
 
 
 # Rename the resulting files ------------------
@@ -161,11 +164,10 @@ else
 fi
 EOF
 
-   chmod +x do_rename
-   find ${GRIDDIR} -name "*.nc" -exec do_rename {} \;
+chmod +x do_rename
+find ${GRIDDIR} -name "*.nc" -exec do_rename {} \;
 
-   rm do_rename
-
+rm do_rename
 
 
 # -------------------------------------------------

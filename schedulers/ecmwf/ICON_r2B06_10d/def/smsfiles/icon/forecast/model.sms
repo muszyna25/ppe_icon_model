@@ -47,7 +47,7 @@ basedir="%SCBASEDIR%/%SUITE_NAME%/cluster"
 # output base directory
 outbasedir=%SCTEMP%
 # ifsdir
-ifsdir=%SCTEMP%/input/%SUITE_NAME%/%YMD%%INIHOUR%
+ifsdir=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
 
 # architecture (corresponds to build/<build architecture>/bin/...)
 arch=powerpc-ibm-aix5.3.0.0  # compare with init_build.sms!

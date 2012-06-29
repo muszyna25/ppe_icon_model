@@ -26,7 +26,7 @@ set UID `id -u`
 set SUITE_NAME    "ICON_r2B06_10d"
 set EXPNUM        "002"
 set FIRST_DATE    20120620
-set LAST_DATE     20120701
+set LAST_DATE     20120801
 
 # HPC environment:
 set SCHOST      c1a
@@ -185,9 +185,6 @@ suite icon_${EXPNUM}
             if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
                 label status "skipped"
             endif
-           #event change_dir
-           #event clear_directory
-            event mars4icon
 
         task init_data
             trigger (get_data == complete)
@@ -236,6 +233,12 @@ suite icon_${EXPNUM}
                 event configure
                 event make
 
+            task init_cp_binary
+                trigger (init_build == complete) 
+                complete (../../init:YMD gt ${FIRST_DATE}) and ($ENABLE_BUILD == 0)
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 00:02:00
+
         endfamily
 
     endfamily
@@ -256,8 +259,6 @@ suite icon_${EXPNUM}
                 if ($ENABLE_FORECAST == 0) then
                     label status "skipped"
                 endif
-                event change_dir
-                event clear_directory
 
             task dumpstate
                 trigger (pre_clean == complete)
@@ -276,7 +277,7 @@ suite icon_${EXPNUM}
             trigger (prepare/dumpstate == complete)
             complete ($ENABLE_MODEL == 0)
             on_hpc_parallel
-            edit SCWALLCLOCKLIMIT 03:00:00
+            edit SCWALLCLOCKLIMIT 02:00:00
             if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
                 label status "skipped"
             endif
@@ -290,7 +291,7 @@ suite icon_${EXPNUM}
             trigger (model == active)
             complete (model == complete)
             on_hpc_serial
-            edit SCWALLCLOCKLIMIT 03:00:00
+            edit SCWALLCLOCKLIMIT 02:00:00
             if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
                 label status "skipped"
             endif
@@ -313,7 +314,6 @@ suite icon_${EXPNUM}
            task post_prepare   
                on_hpc_serial
                edit SCWALLCLOCKLIMIT 00:20:00
-               event change_dir
    
            task meteogram
                trigger (post_prepare == complete)
@@ -324,8 +324,8 @@ suite icon_${EXPNUM}
            task metview
                trigger (post_prepare == complete)
                on_ecgate
-               event change_dir
-               event copy_files
+               event cpdata
+               event metview
    
            task post_archive
                trigger (post_prepare == complete)

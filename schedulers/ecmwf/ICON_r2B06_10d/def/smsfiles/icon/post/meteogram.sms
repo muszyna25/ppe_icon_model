@@ -24,9 +24,6 @@
 
 echo "POST_ARCHIVE.SMS" 
 
-# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-#REQUEST_DATE=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
-
 # change directory ----------------------------
 smsevent change_dir
 
@@ -37,8 +34,8 @@ smsevent copy_files
 #-----------------------------------------------------------------------------
 # meteogram plots
 
-outdir_mtg=/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%YMD%%INIHOUR%
-outfile_mtg=%SUITE_NAME%_meteogram.nc
+outdir_mtg=/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+outfile_mtg=%SUITE%_meteogram.nc
 dir_mtgrm=/home/ms/de/deia/ICON_r2B06_10d/def/icon_scripts/postprocessing/tools
 cd ${outdir_mtg}
 cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot_sfc.ncl .
