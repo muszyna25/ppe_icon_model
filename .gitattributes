@@ -707,7 +707,6 @@ schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/forecast/check_progress.sms -t
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/forecast/model.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/forecast/prepare/dumpstate.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/forecast/prepare/pre_clean.sms -text
-schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/ifs_fct/fct_ifs.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/build/init_build.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/build/init_svn.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/init/get_data.sms -text
