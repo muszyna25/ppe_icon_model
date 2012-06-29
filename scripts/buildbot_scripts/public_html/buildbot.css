@@ -1,81 +1,130 @@
-a:visited {
-	color: #800080;
+body { 
+	margin-left: 30px; 
+	margin-right: 30px; 
+	margin-top: 20px;
+	padding: 0;
+	background: url(bg_gradient.jpg) repeat-x;
+	font: 12px/18px "Lucida Grande", "Lucida Sans Unicode", Arial, Verdana, sans-serif;
+	background-color: #fff; 
+	color: #333;
 }
 
-td.Event, td.BuildStep, td.Activity, td.Change, td.Time, td.Builder {
-    font-size: 80%;
-    border-top: 1px solid;
-    border-right: 1px solid;
+a:link,a:visited,a:active {
+	color: #444;
 }
 
-td.box {
-       border: 1px solid;
+table {
+	border-spacing: 1px 1px;
 }
 
-/* Activity states */
-.offline { 
-        background-color: gray;
+table td {
+	padding: 3px 0px 3px 0px;
+	text-align: center;
 }
-.idle {
-	background-color: white;
+
+.Project {
+	width: 100px;
 }
-.waiting { 
-        background-color: yellow;
+
+.LastBuild, .Activity {
+	width: 230px;
+	padding: 0 0 0 4px;
 }
-.building { 
-        background-color: yellow;
+
+td.Time {
+	color: #000;
+	border-bottom: 1px solid #aaa;
+	background-color: #eee;
+}
+
+td.Activity, td.Change, td.Builder {
+	color: #333333;
+	background-color: #CCCCCC;
+}
+
+td.Change {
+	border-radius: 5px;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+}
+td.Event {
+	color: #777;
+	background-color: #ddd;
+	border-radius: 5px;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+}
+
+td.Activity {
+	border-top-left-radius: 10px;
+	-webkit-border-top-left-radius: 10px;
+	-moz-border-radius-topleft: 10px;
+	min-height: 20px;
+	padding: 8px 0 8px 0;
+}
+
+td.idle, td.waiting, td.offline, td.building {
+	border-top-left-radius: 0px;
+	-webkit-border-top-left-radius: 0px;
+	-moz-border-radius-topleft: 0px;
+}
+
+td.builder {
+	width: 150px;
+        color: #333333;
+        background-color: #CCCCCC;
+}
+
+td.sourcestamp {
+	width: 80px;
+	vertical-align: middle;
+}
+
+.LastBuild {
+	border-top-left-radius: 5px;
+	-webkit-border-top-left-radius: 5px;
+	-moz-border-radius-topleft: 5px;
+	border-top-right-radius: 5px;	
+	-webkit-border-top-right-radius: 5px;	
+	-moz-border-radius-topright: 5px;
 }
 
 /* LastBuild, BuildStep states */
 .success {
-    font-size: 80%;
-	background-color: #72ff75;
+	color: #FFFFFF;
+	background-color: #8fdf5f;
 }
+
 .failure {
-    font-size: 80%;
-	background-color: red;
+	color: #FFFFFF;
+	background-color: #e98080;
 }
+
 .warnings {
-	background-color: #ff8000;
-}
-.exception {
-	background-color: #c000c0;
-}
-.start,.running {
-	background-color: yellow;
+	color: #FFFFFF;
+	background-color: #ffc343;
 }
 
-/* grid styles */
-
-table.Grid {
-    border-collapse: collapse;
+.exception, td.offline {
+	color: #FFFFFF;
+	background-color: #e0b0ff;
 }
 
-table.Grid tr td {
-    padding: 0.2em;
-    margin: 0px;
-    text-align: center;
+.start,.running, td.building {
+	color: #666666;
+	background-color: #fffc6c;
 }
 
-table.Grid tr td.title {
-    font-size: 70%;
-    border-right: 1px gray solid;
-    border-bottom: 1px gray solid;
+.start {
+	border-bottom-left-radius: 10px;
+	-webkit-border-bottom-left-radius: 10px;
+	-moz-border-radius-bottomleft: 10px;
+	border-bottom-right-radius: 10px;
+	-webkit-border-bottom-right-radius: 10px;
+	-moz-border-radius-bottomright: 10px;
 }
 
-table.Grid tr td.sourcestamp {
-    font-size: 70%;
+td.Project a:hover, td.start a:hover {
+	color: #000;
 }
 
-table.Grid tr td.builder {
-    text-align: right;
-    font-size: 70%;
-}
-
-table.Grid tr td.build {
-    border: 1px gray solid;
-}
-
-div.footer {
-    font-size: 60%;
-}

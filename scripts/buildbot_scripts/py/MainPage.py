@@ -56,7 +56,19 @@ class HomePage(HtmlResource):
           file.close
           ExpList.append(filename.lstrip("exp."))
           ExpListInfo.append(ExpDict)
-            
+          
+          file = open("icon_run/svn_info")
+          while 1:
+            line = file.readline()
+            if not line:
+              break
+          
+            if line.find("Revision:") >= 0:
+	      tmp,tmp_Rev = line.split("Revision:",1)
+              Rev = tmp_Rev.strip(" ").replace("\n","")
+              
+          file.close
+           
             
 # Sort the Experiment List type
 
@@ -66,50 +78,50 @@ class HomePage(HtmlResource):
 
       data  = '''
 <h1>ICON Buildbot</h1>
-Buildbot starts every night a test suite on a set of builders differing in machines, 
-compilers and parallelization setup. A standard Buildbot test unpacks the latest model 
-from the trunk/icon-dev branch of the repository, configures and compiles the codes, 
-and runs a series of test experiments and related post-processings. Figures resulting 
-from the post-processing are archived and uploaded to web pages for comparison with 
-reference figures.<p>
+Buildbot starts every night a test suite on a set of builders differing in machines, compilers 
+and parallelization setup. A standard Buildbot test unpacks the model code and scripts from the  
+repositors, configures and compiles the codes for the selected builder, and runs a series of 
+standard test experiments and related post-processings. Figures resulting from the 
+post-processings are archived and are uploaded to web pages for comparison with reference 
+figures.<p>
       '''
 	
 # Write the Status result part to the main page
 
       data += '''
-<h2>Buildbot displays</h2>
+<h2>Status results</h2>
 <table border="1" cellspacing="5px" cellpadding="2" >
    <thead>
      <tr valign="baseline">
        <td><i>Display</i></td>
-       <td><i>Information</i></td>
+       <td><i>What it shows</i></td>
      </tr>
    </thead>
    <tfoot></tfoot>
    <tbody>
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="waterfall>Waterfall</a></td>
-       <td style=\"text-align:left\">For each step of the test suite, for each builder</td>
+       <td class=\"status_result_a\"><a href="waterfall?show_events=false&show_time=604800">Waterfall</a></td>
+       <td class=\"status_result_b\">Status of each step of the Buildbot tests for the past 7 days</td>
      </tr>
 
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="grid">Grid</a></td>
-       <td style=\"text-align:left\">For the full test suite, for each builder and several revisions</td>
+       <td class=\"status_result_a\"><a href="grid?width=10">Grid</a></td>
+       <td class=\"status_result_b\">Status of the complete Builbot test for the 10 latest tested revisions</td>
      </tr>
 
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="one_box_per_builder">Latest build</a></td>
-       <td style=\"text-align:left\">For the full test suite, the latest test on each builder</td>
+       <td class=\"status_result_a\"><a href="one_box_per_builder">Latest build</a></td>
+       <td class=\"status_result_b\">Status of the complete Builbot test for the latest test on each builder</td>
      </tr>
 
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="one_line_per_build">List</a></td>
-       <td style=\"text-align:left\">For the full testsuite, the latest 15 completed tests</td>
+       <td class=\"status_result_a\"><a href="one_line_per_build">List</a></td>
+       <td class=\"status_result_b\">Status of the complete Builbot test for the latest 15 tests</td>
      </tr>
 
      <tr valign="baseline">
-       <td style=\"text-align:left\"><a href="buildslaves">Build slaves</a></td>
-       <td style=\"text-align:left\">Machines and builders</td>
+       <td class=\"status_result_a\"><a href="buildslaves">Build slaves</a></td>
+       <td class=\"status_result_b\">Information on machines ("slaves"), builders, etc.</td>
      </tr>
    </tbody>
    </table>
@@ -119,17 +131,17 @@ reference figures.<p>
 
       
       data += "<h2>Latest nightly test results</h2>\n"
+      data += "<h3>Source : trunk/icon-dev &#64; &lt;r" + Rev + "&gt; </h3>"
       data += "<table border=\"1\" cellspacing=\"5px\" cellpadding=\"2\">\n"
       data += "  <thead>\n"
       data += "    <tr valign=\"baseline\">\n"
-      data += "      <td width=\"300\"><i>Experiment (exp)</i></td>\n"
+      data += "      <td width=\"250\"><i>Experiment (exp)</i></td>\n"
       data += "      <td width=\"380\"><i>Description</i></td>\n"
       data += "      <td width=\"200\"><i>Model</i></td>\n"
       data += "      <td width=\"120\"><i>Grid</i></td>\n"
       data += "    </tr>\n  </thead>"
       data += "  <tfoot></tfoot>\n"
 
-         
 # Build HTML Table info
 
       data += "  <tbody>\n"
@@ -139,13 +151,28 @@ reference figures.<p>
 	    break
 	      
  	data += "    <tr valign=\"baseline\">\n"
-        data += "      <td style=\"text-align:left\"><a href=\"plot?exp=" + e.get('ExpName') + "&modus=nightly\">" + e.get('ExpName') + "</a></td>\n"
-        data += "      <td style=\"text-align:left\">" + e.get('Description') + "</td>\n"
+        data += "      <td class=\"last_night\"><a href=\"plot?exp=" 
+	data += e.get('ExpName') + "&modus=nightly\">" + e.get('ExpName') + "</a></td>\n"
+        data += "      <td class=\"last_night\">" + e.get('Description') + "</td>\n"
         data += "      <td>" + e.get('Model') + "</td>\n"
         data += "      <td>" + e.get('Grid') + "</td>\n"
         data += "   </tr>"
       
       data += "  </tbody>\n</table>\n"
+#============================================
+
+# Archive
+
+#============================================
+
+      data += "<h2>Archived test results</h2>"
+      data += "<a href=\"plot?exp="+ExpList[-1]+"&modus=archive\"><h3>Archive viewer</h3></a>"
+      
+#============================================
+
+# footer
+
+#============================================
 
       data += "<h3>About BuildBot</h3>\n"
       data += "<ul>\n"

@@ -16,6 +16,10 @@ class MainPage(HtmlResource):
         return h
 
     def body(self, req):
+      print "=== body ======="
+      print req
+      print req.args
+      print "=== body ======="
       
 #=========================================================
 
@@ -27,19 +31,20 @@ class MainPage(HtmlResource):
         d_list = []
         p = "public_html/archive/"
         for d in os.listdir(p):
-	  if os.path.isdir(p + d):
-	    p_d = p + d + "/buildbot/"
-            for r in os.listdir(p_d):
-              if r == rev:
-	        p_r = p_d + r + "/"
-                for c in os.listdir(p_r):
-	          p_c = p_r + c + "/"
-                  for b in os.listdir(p_c):
-	            p_b = p_c + b + "/"
-	            if os.path.isdir(p_b + exp):
-		      st = True
-                      d_list.append(d)
-                      c_list.append(c)
+	  if d.find("20") == 0:
+	    if os.path.isdir(p + d):
+	      p_d = p + d + "/buildbot/"
+              for r in os.listdir(p_d):
+                if r == rev:
+	          p_r = p_d + r + "/"
+                  for c in os.listdir(p_r):
+	            p_c = p_r + c + "/"
+                    for b in os.listdir(p_c):
+	              p_b = p_c + b + "/"
+	              if os.path.isdir(p_b + exp):
+		        st = True
+                        d_list.append(d)
+                        c_list.append(c)
                         
         d_list = list(sorted(d_list))                
         c_list = list(sorted(set(c_list)))                
@@ -128,6 +133,13 @@ class MainPage(HtmlResource):
         except ValueError:
           pass
 	
+      start_rev = "0000"
+      if "start" in req.args:
+        try:
+          start_rev = req.args["start"][0]
+        except ValueError:
+          pass
+      
       #if "button" in req.args:
         #try:
           #CONTROL = req.args["button"][0]
@@ -159,7 +171,7 @@ class MainPage(HtmlResource):
       if not lr:
         data += "  <td>"
         data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference?exp=" + EXP + "\"" + " class=\"command replace\">\n"
-        data += "      <input name=\"rev\" type=\"text\" size=\"5\" maxlength=\"10\">\n"
+        data += "      <input name=\"rev\" type=\"text\" value=\"" + start_rev + "\" size=\"5\" maxlength=\"10\">\n"
         data += "      <input type=\"submit\" name=\"Revision_button\" value=\">\" >\n"
         data += "    <form>"
         data += "  </td>"
@@ -276,7 +288,10 @@ class MainPage(HtmlResource):
 
 
     def save_cancel(self, req):
-     
+      print "=== save_cancel ======="
+      print req
+      print req.args
+      print "=== save_cancel ======="
       if "button" in req.args:
         try:
           CONTROL = req.args["button"][0]

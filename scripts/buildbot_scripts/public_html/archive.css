@@ -1,0 +1,104 @@
+img.Bild{
+	border: 0px;
+	margin-right: 3px;
+}
+
+a.Ordner{
+	font-family: Verdana;
+	font-size: 12px;
+	text-decoration: None;
+	color: #770000;
+}
+
+.link{
+	font-family: Verdana;
+	font-size: 12px;
+	text-decoration: None;
+	color: #FF0000;
+}
+.link:hover{
+	text-decoration: none;
+}
+.Rand{
+	margin-left: 5px;
+}
+td#exp_td {
+  text-align: left;
+}
+div#page_menu { 
+  background-color: white; 
+  padding-right: 25px; 
+  padding-left: 8px; 
+/*  border: thin solid black; */
+  margin: 5px; 
+  width: 1170px; 
+  height: 730px; 
+  overflow: auto;
+} 
+div#arch_menu { 
+  background-color: white; 
+  padding-right: 25px; 
+  padding-left: 8px; 
+  border: thin solid black; 
+  margin: 5px; 
+  width: 400px; 
+  height: 350px; 
+  overflow: auto;
+} 
+div#arch_file_name { 
+  padding-right: 25px; 
+  padding-left:  8px; 
+  border:        thin solid black; 
+  margin:        5px;
+  width:         400px; 
+  height:        350px; 
+  overflow:      auto;
+} 
+div#arch_ref {
+  padding-right: 25px;  
+  padding-left:   8px; 
+  border: thin solid black; 
+  margin: 5px; 
+  width: 660px; 
+  height: 350px; 
+  overflow: auto;
+}
+div#arch_plots { 
+  padding-right: 25px; 
+  padding-left: 8px; 
+  border: thin solid black; 
+  margin: 5px; 
+  width: 660px; 
+  height: 706px; 
+  overflow: auto;
+}
+div#ap_ref { 
+  padding-right: 25px; 
+  padding-left: 8px; 
+  border: thin solid black; 
+  margin: 5px; 
+  width: 660px; 
+  height: 350px; 
+  overflow: auto;
+}
+td#exp_header{
+  font: 18px "Lucida Grande", "Lucida Sans Unicode", Arial, Verdana, sans-serif;
+  text-align: left;
+}
+
+td.last_night {
+  width: 80px;
+  text-align: left;
+  padding-left: 5px; 
+}
+
+td.status_result_a {
+  width: 80px;
+  text-align: left;
+  padding-left: 5px; 
+}
+td.status_result_b {
+  width: 400px;
+  text-align: left;
+  padding-left: 5px; 
+}
