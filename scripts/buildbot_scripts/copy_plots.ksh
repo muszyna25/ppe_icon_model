@@ -92,26 +92,31 @@ then
   echo "!!!! BUILDER not set "
   exit 1
 fi
+#===================================================================
+#
+# This part creates the directory for the old buildbot-plot webpages
+#
+#===================================================================
 
-if [ -d /tmp/${BUILDER} ]
-then
-  rm -rf /tmp/${BUILDER} 
-fi
+#if [ -d /tmp/${BUILDER} ]
+#then
+#  rm -rf /tmp/${BUILDER} 
+#fi
 
-echo "BB_SYSTEM=${SLAVE}"
-echo "BB_SLAVE=${BUILDER}"
+#echo "BB_SYSTEM=${SLAVE}"
+#echo "BB_SLAVE=${BUILDER}"
 
 #REV=`svn info | grep Revision | cut -d ':' -f2`
-echo "REV=${REV}"
+#echo "REV=${REV}"
 
-mkdir /tmp/${BUILDER} 
-echo "_COMPUTER_ ${SLAVE}" > /tmp/${BUILDER}/job_info.txt
-echo "_BUILDER_ ${BUILDER}" >> /tmp/${BUILDER}/job_info.txt
-echo "_REVISION_ ${REV}" >> /tmp/${BUILDER}/job_info.txt
-echo "_UPDATE_ ${PUPDATE}" >> /tmp/${BUILDER}/job_info.txt
-echo "_BUILDID_ ${BUILDER_NR}" >> /tmp/${BUILDER}/job_info.txt
-pwd
-find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
+#mkdir /tmp/${BUILDER} 
+#echo "_COMPUTER_ ${SLAVE}" > /tmp/${BUILDER}/job_info.txt
+#echo "_BUILDER_ ${BUILDER}" >> /tmp/${BUILDER}/job_info.txt
+#echo "_REVISION_ ${REV}" >> /tmp/${BUILDER}/job_info.txt
+#echo "_UPDATE_ ${PUPDATE}" >> /tmp/${BUILDER}/job_info.txt
+#echo "_BUILDID_ ${BUILDER_NR}" >> /tmp/${BUILDER}/job_info.txt
+#pwd
+#find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
