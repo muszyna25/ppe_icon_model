@@ -265,11 +265,11 @@ class EXP_plot(HtmlResource):
 #ws	    Date_from = "2012-06-20"
 	
 	else:
-          svn_Rev_from  = "9440"
-          svn_Rev_to    = "9450"
-	  now_min_10d = datetime.now() - timedelta(days=10)
-	  Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
-	  Date_from = now_min_10d.strftime("%Y-%m-%d")
+          svn_Rev_from  = str(int(RevisionNr)-50)
+          svn_Rev_to    = RevisionNr
+          now_min_10d = datetime.now() - timedelta(days=10)
+          Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
+          Date_from = now_min_10d.strftime("%Y-%m-%d")
 
 #========================================================================================================
 #
