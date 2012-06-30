@@ -156,13 +156,12 @@ copy_files png
 # The following part of the script is included to check the download from buildbot.
 # All plots are for a short time also saved in the slave working directory.
 
-tmpDIR=".."
+#tmpDIR=".."
 
-if [ ! -d  ${tmpDIR}/archive ]
-then
-  mkdir -p ${tmpDIR}/archive
-fi
-cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
-#scp -r /tmp/BuildBot/${BUILDER}/archive/* m211098@login1.zmaw.de:/tmp/ICON/archive/.
+#if [ ! -d  ${tmpDIR}/archive ]
+#then
+#  mkdir -p ${tmpDIR}/archive
+#fi
+#cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
 #==================== End =====================================================
 
