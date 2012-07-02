@@ -43,9 +43,84 @@ outfile_mtg1=${outdir}"METEOGRAM_patch001.nc"
 outfile_mtg2=${outdir}%SUITE%"_meteogram.nc"
 mv $outfile_mtg1 $outfile_mtg2 || true
 rcp $outfile_mtg2 ecgate:${gatedir}
-emkdir               icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
+emkdir -p            icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
 ecp $outfile_mtg2 ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
 
+#-----------------------------------------------------------------------------
+# metview: rename and copy to ecgate
+
+for levtype in ML PL HL ; do
+  outfile1=${outdir}%SUITE%_%SUITE_NAME%_DOM01_${levtype}_0001.grb
+  outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
+  mv ${outfile1} ${outfile2} || true
+  ecp $outfile2 ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
+done
+
+
+#-----------------------------------------------------------------------------
+# fix and copy data to ecgate for metview processing
+
+lsplitdata=1
+lcpdata=1
+ldeldata=1
+
+if [[ $lsplitdata = 1 ]] ; then
+
+# export the DWD GRIB short names:
+  export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+
+ #smsevent cpdata
+  mkdir -p grb_data
+  for levtype in ML PL ; do
+#    grib_set -s centre=98 ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.grb      \
+#                          ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.temp.grb
+#    \mv                   ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.temp.grb \
+#                          ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.grb
+    grib_copy  %SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb  \
+      grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_[shortName]_[typeOfFirstFixedSurface].grb
+  done
+  grib_copy  %SUITE%_DOM01_HL_0001_%YMD%%INIHOUR%.grb  \
+    grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_[shortName]_zl.grb
+
+# fixes
+  for levtype in sfc ml pl zl ; do
+    for bad in unknown '~' ; do
+      grib_copy grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_${bad}_${levtype}.grb \
+                grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype}.grb || true
+      \rm -rf   grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_${bad}_${levtype}.grb
+    done
+  done
+
+# for grbfile in `ls grb_data/${EXPNAME}_icon${res}_DOM01_${inidate}_0001_*_*.grb` ; do
+#   cdo invertlat ${grbfile} temp.grb
+#   mv temp.grb   ${grbfile}
+# done
+
+fi
+
+
+#-----------------------------------------------------------------------------
+# move data to ecgate
+
+if [[ $lcpdata = 1 ]] ; then
+  rsh ecgate mkdir ${gatedir}/grb_data
+  rcp grb_data/* ecgate:${gatedir}/grb_data
+fi
+
+
+#-----------------------------------------------------------------------------
+# delete data
+
+if [[ $ldeldata = 1 ]] ; then
+  \rm -rf grb_data 
+  for levtype in ML PL HL ; do
+    outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
+    \rm -rf ${outfile2}
+  done
+fi
+
+
+=======
 
 #-----------------------------------------------------------------------------
 # metview: rename and copy to ecgate
