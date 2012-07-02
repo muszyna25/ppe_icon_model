@@ -235,6 +235,8 @@ MODULE mo_nonhydro_types
    REAL(wp), POINTER :: ddxn_z_full(:,:,:)
    ! slope of the terrain in tangential direction (nproma,nlevp1,nblks_e)
    REAL(wp), POINTER :: ddxt_z_half(:,:,:)
+   ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
+   REAL(wp), POINTER :: ddxt_z_full(:,:,:)
 
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: ddqz_z_full(:,:,:)

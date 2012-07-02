@@ -303,6 +303,7 @@ MODULE mo_vertical_grid
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
 
       p_nh(jg)%metrics%ddxt_z_half = 0._wp
+      p_nh(jg)%metrics%ddxt_z_full = 0._wp
       p_nh(jg)%metrics%ddxn_z_half = 0._wp
       p_nh(jg)%metrics%ddxn_z_full = 0._wp
 
@@ -355,6 +356,10 @@ MODULE mo_vertical_grid
               p_nh(jg)%metrics%ddxn_z_full(je,jk,jb) = 0.5_wp * &
               & (p_nh(jg)%metrics%ddxn_z_half(je,jk  ,jb) + &
               &  p_nh(jg)%metrics%ddxn_z_half(je,jk+1,jb))
+
+              p_nh(jg)%metrics%ddxt_z_full(je,jk,jb) = 0.5_wp * &
+              & (p_nh(jg)%metrics%ddxt_z_half(je,jk  ,jb) + &
+              &  p_nh(jg)%metrics%ddxt_z_half(je,jk+1,jb))
             ENDDO
           ENDDO
         ENDIF

@@ -433,7 +433,7 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Nonhydrostatic atm
     !--------------------------------------------------------------------
-    IF (lhdiff_rcf .AND. (idiv_method /= 1 .OR. itype_comm == 3)) CALL finish(TRIM(routine), &
+    IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(TRIM(routine), &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
     !--------------------------------------------------------------------

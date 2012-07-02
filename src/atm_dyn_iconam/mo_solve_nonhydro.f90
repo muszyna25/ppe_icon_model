@@ -112,7 +112,7 @@ MODULE mo_solve_nonhydro
     TYPE(t_int_state), TARGET, INTENT(IN):: p_int
     TYPE(t_nh_prog), INTENT(INOUT)       :: p_prog
     TYPE(t_nh_metrics), INTENT(IN)       :: p_metrics
-    TYPE(t_nh_diag), INTENT(inout)       :: p_diag
+    TYPE(t_nh_diag), INTENT(INOUT)       :: p_diag
 
     INTEGER, INTENT(IN)  :: ntnd  ! time level of ddt_adv fields used to store tendencies
     INTEGER, INTENT(IN)  :: istep ! 1: predictor step, 2: corrector step
@@ -122,10 +122,10 @@ MODULE mo_solve_nonhydro
     INTEGER :: jb, jk, jc, je
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    REAL(wp):: z_concorr_e(nproma,p_patch%nlevp1,p_patch%nblks_e)
+    REAL(wp):: z_w_concorr_me(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp):: z_w_concorr_mc(nproma,p_patch%nlev)
     REAL(wp):: z_w_con_c(nproma,p_patch%nlevp1,p_patch%nblks_c)
     REAL(wp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
-    REAL(wp):: z_vt_ie(nproma,p_patch%nlevp1)
     REAL(wp):: z_kin_hor_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp):: z_vnw(nproma,p_patch%nlevp1,p_patch%nblks_e)
@@ -182,92 +182,59 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, z_vt_ie) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (istep == 1) THEN
-
-        ! Interpolate vn to interface levels and compute horizontal part of kinetic energy on edges
-        DO jk = 2, nlev
-          DO je = i_startidx, i_endidx
-            p_diag%vn_ie(je,jk,jb) =                                  &
-              p_metrics%wgtfac_e(je,jk,jb)*p_prog%vn(je,jk,jb) +        &
-             (1._wp - p_metrics%wgtfac_e(je,jk,jb))*p_prog%vn(je,jk-1,jb)
-            z_kin_hor_e(je,jk,jb) = 0.5_wp*(p_prog%vn(je,jk,jb)*p_prog%vn(je,jk,jb) + &
-              p_diag%vt(je,jk,jb)*p_diag%vt(je,jk,jb) )
-          ENDDO
-        ENDDO
-
-        IF (.NOT. l_vert_nested) THEN
-          ! Top and bottom levels
-          DO je = i_startidx, i_endidx
-            p_diag%vn_ie(je,1,jb) =                                &
-              p_metrics%wgtfacq1_e(je,1,jb)*p_prog%vn(je,1,jb) +   &
-              p_metrics%wgtfacq1_e(je,2,jb)*p_prog%vn(je,2,jb) + &
-              p_metrics%wgtfacq1_e(je,3,jb)*p_prog%vn(je,3,jb)
-            z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
-              p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
-            p_diag%vn_ie(je,nlevp1,jb) =                           &
-              p_metrics%wgtfacq_e(je,1,jb)*p_prog%vn(je,nlev,jb) +   &
-              p_metrics%wgtfacq_e(je,2,jb)*p_prog%vn(je,nlev-1,jb) + &
-              p_metrics%wgtfacq_e(je,3,jb)*p_prog%vn(je,nlev-2,jb)
-          ENDDO
-        ELSE
-          ! vn_ie(jk=1) is extrapolated using parent domain information in this case
-          DO je = i_startidx, i_endidx
-            p_diag%vn_ie(je,1,jb) = p_diag%vn_ie(je,2,jb) + p_diag%dvn_ie_ubc(je,jb)
-            z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
-              p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
-            p_diag%vn_ie(je,nlevp1,jb) =                           &
-              p_metrics%wgtfacq_e(je,1,jb)*p_prog%vn(je,nlev,jb) +   &
-              p_metrics%wgtfacq_e(je,2,jb)*p_prog%vn(je,nlev-1,jb) + &
-              p_metrics%wgtfacq_e(je,3,jb)*p_prog%vn(je,nlev-2,jb)
-          ENDDO
-
-        ENDIF
-
-      ELSE ! corrector step (istep = 2)
-
-        ! Compute only horizontal kinetic energy
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-            z_kin_hor_e(je,jk,jb) = 0.5_wp*                &
-             (p_prog%vn(je,jk,jb)*p_prog%vn(je,jk,jb) +    &
-              p_diag%vt(je,jk,jb)*p_diag%vt(je,jk,jb) )
-          ENDDO
-        ENDDO
-
-      ENDIF ! istep == 1
-
-      IF (istep == 1) THEN
-        ! Interpolate vt to interface levels
-        DO jk = nflatlev(p_patch%id)+1, nlev
-          DO je = i_startidx, i_endidx
-            z_vt_ie(je,jk) =                                     &
-              p_metrics%wgtfac_e(je,jk,jb)*p_diag%vt(je,jk,jb) + &
-             (1._wp - p_metrics%wgtfac_e(je,jk,jb))*p_diag%vt(je,jk-1,jb)
-          ENDDO
-        ENDDO
-
-        ! Bottom level
+      ! Interpolate vn to interface levels and compute horizontal part of kinetic energy on edges
+      DO jk = 2, nlev
         DO je = i_startidx, i_endidx
-          z_vt_ie(je,nlevp1) =                                     &
-            p_metrics%wgtfacq_e(je,1,jb)*p_diag%vt(je,nlev,jb) +   &
-            p_metrics%wgtfacq_e(je,2,jb)*p_diag%vt(je,nlev-1,jb) + &
-            p_metrics%wgtfacq_e(je,3,jb)*p_diag%vt(je,nlev-2,jb)
+          p_diag%vn_ie(je,jk,jb) =                                    &
+            p_metrics%wgtfac_e(je,jk,jb)*p_prog%vn(je,jk,jb) +        &
+           (1._wp - p_metrics%wgtfac_e(je,jk,jb))*p_prog%vn(je,jk-1,jb)
+          z_kin_hor_e(je,jk,jb) = 0.5_wp*(p_prog%vn(je,jk,jb)*p_prog%vn(je,jk,jb) + &
+            p_diag%vt(je,jk,jb)*p_diag%vt(je,jk,jb) )
         ENDDO
+      ENDDO
 
+      IF (istep == 1) THEN
         ! Compute contravariant correction for vertical velocity at interface levels
         ! (will be interpolated to cell centers below)
-        DO jk = nflatlev(p_patch%id)+1, nlevp1
+        DO jk = nflatlev(p_patch%id), nlev
           DO je = i_startidx, i_endidx
-            z_concorr_e(je,jk,jb) = &
-              p_diag%vn_ie(je,jk,jb)*p_metrics%ddxn_z_half(je,jk,jb) + &
-              z_vt_ie(je,jk)        *p_metrics%ddxt_z_half(je,jk,jb)
+            z_w_concorr_me(je,jk,jb) =                              &
+              p_prog%vn(je,jk,jb)*p_metrics%ddxn_z_full(je,jk,jb) + &
+              p_diag%vt(je,jk,jb)*p_metrics%ddxt_z_full(je,jk,jb)
           ENDDO
+        ENDDO
+      ENDIF
+
+      IF (.NOT. l_vert_nested) THEN
+        ! Top and bottom levels
+        DO je = i_startidx, i_endidx
+          p_diag%vn_ie(je,1,jb) =                                &
+            p_metrics%wgtfacq1_e(je,1,jb)*p_prog%vn(je,1,jb) +   &
+            p_metrics%wgtfacq1_e(je,2,jb)*p_prog%vn(je,2,jb) + &
+            p_metrics%wgtfacq1_e(je,3,jb)*p_prog%vn(je,3,jb)
+          z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
+            p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
+          p_diag%vn_ie(je,nlevp1,jb) =                           &
+            p_metrics%wgtfacq_e(je,1,jb)*p_prog%vn(je,nlev,jb) +   &
+            p_metrics%wgtfacq_e(je,2,jb)*p_prog%vn(je,nlev-1,jb) + &
+            p_metrics%wgtfacq_e(je,3,jb)*p_prog%vn(je,nlev-2,jb)
+        ENDDO
+      ELSE
+        ! vn_ie(jk=1) is extrapolated using parent domain information in this case
+        DO je = i_startidx, i_endidx
+          p_diag%vn_ie(je,1,jb) = p_diag%vn_ie(je,2,jb) + p_diag%dvn_ie_ubc(je,jb)
+          z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
+            p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
+          p_diag%vn_ie(je,nlevp1,jb) =                           &
+            p_metrics%wgtfacq_e(je,1,jb)*p_prog%vn(je,nlev,jb) +   &
+            p_metrics%wgtfacq_e(je,2,jb)*p_prog%vn(je,nlev-1,jb) + &
+            p_metrics%wgtfacq_e(je,3,jb)*p_prog%vn(je,nlev-2,jb)
         ENDDO
       ENDIF
 
@@ -280,7 +247,7 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -304,23 +271,34 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
 
-      ! Interpolate contravariant correction to cell centers
       IF (istep == 1) THEN
 
+        ! Interpolate contravariant correction to cell centers ...
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
-          DO jk = nflatlev(p_patch%id)+1, nlevp1
+          DO jk = nflatlev(p_patch%id), nlev
 #else
 !CDIR UNROLL=6
-        DO jk = nflatlev(p_patch%id)+1, nlevp1
+        DO jk = nflatlev(p_patch%id), nlev
           DO jc = i_startidx, i_endidx
 #endif
 
-            p_diag%w_concorr_c(jc,jk,jb) =  &
-              p_int%e_bln_c_s(jc,1,jb)*z_concorr_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
-              p_int%e_bln_c_s(jc,2,jb)*z_concorr_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
-              p_int%e_bln_c_s(jc,3,jb)*z_concorr_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
+            z_w_concorr_mc(jc,jk) =  &
+              p_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
+              p_int%e_bln_c_s(jc,2,jb)*z_w_concorr_me(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
+              p_int%e_bln_c_s(jc,3,jb)*z_w_concorr_me(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
 
+          ENDDO
+        ENDDO
+
+        ! ... and to interface levels
+        ! Remark: computation of w_concorr_c at nlevp1 is needed in solve_nh only
+        ! because this serves solely for setting the lower boundary condition for w
+        DO jk = nflatlev(p_patch%id)+1, nlev
+          DO jc = i_startidx, i_endidx
+            p_diag%w_concorr_c(jc,jk,jb) =                                &
+              p_metrics%wgtfac_c(jc,jk,jb)*z_w_concorr_mc(jc,jk) +        &
+             (1._wp - p_metrics%wgtfac_c(jc,jk,jb))*z_w_concorr_mc(jc,jk-1) 
           ENDDO
         ENDDO
 
@@ -565,7 +543,7 @@ MODULE mo_solve_nonhydro
                 z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_graddiv_vn    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_graddiv2_vn   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_concorr_e     (nproma,p_patch%nlevp1,p_patch%nblks_e), &
+                z_w_concorr_me  (nproma,p_patch%nlev,p_patch%nblks_e), &
                 z_distv_bary    (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
 
     INTEGER ::  z_cell_indices  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
@@ -595,7 +573,7 @@ MODULE mo_solve_nonhydro
                 z_exner_ic      (nproma,p_patch%nlevp1),          &
                 z_theta_v_pr_mc (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_ic (nproma,p_patch%nlevp1),          &
-                z_vt_ie         (nproma,p_patch%nlevp1),          &
+                z_w_concorr_mc  (nproma,p_patch%nlev  ),          &
                 z_thermal_exp   (nproma,p_patch%nblks_c),         &
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
@@ -1457,6 +1435,26 @@ MODULE mo_solve_nonhydro
               + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
               + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
 
+           ENDDO
+        ENDDO
+
+      ELSE IF (lhdiff_rcf .AND. istep == 1) THEN ! idiv_method = 2
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! Compute gradient of divergence of vn for divergence damping
+            z_graddiv_vn(je,jk,jb) = p_int%geofac_grdiv(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)    &
+              + p_int%geofac_grdiv(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%geofac_grdiv(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%geofac_grdiv(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%geofac_grdiv(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
             ! RBF reconstruction of tangential wind component
             p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
               * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
@@ -1470,30 +1468,19 @@ MODULE mo_solve_nonhydro
            ENDDO
         ENDDO
 
-      ELSE ! idiv_method = 2
-
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-          DO jk = 1, nlev
-#else
-!CDIR UNROLL=3
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-#endif
-            ! Perform only RBF reconstruction of tangential wind component
-            p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
-              * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
-              + p_int%rbf_vec_coeff_e(2,je,jb)                       &
-              * p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
-              + p_int%rbf_vec_coeff_e(3,je,jb)                       &
-              * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
-              + p_int%rbf_vec_coeff_e(4,je,jb)                       &
-              * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-
-           ENDDO
-        ENDDO
-
       ENDIF
+
+      IF (istep == 1) THEN
+        ! Compute contravariant correction for vertical velocity at full levels
+        DO jk = nflatlev(p_patch%id), nlev
+          DO je = i_startidx, i_endidx
+            z_w_concorr_me(je,jk,jb) =                                          &
+              p_nh%prog(nnew)%vn(je,jk,jb)*p_nh%metrics%ddxn_z_full(je,jk,jb) + &
+              p_nh%diag%vt(je,jk,jb)      *p_nh%metrics%ddxt_z_full(je,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
     ENDDO
 !$OMP END DO
 
@@ -1533,111 +1520,60 @@ MODULE mo_solve_nonhydro
 
     ENDIF
 
-    rl_start = 3
-    rl_end = min_rledge_int - 2
+    ! It turned out that it is sufficient to compute the contravariant correction in the
+    ! predictor step at time level n+1; repeating the calculation in the corrector step
+    ! has negligible impact on the results
+    IF (istep == 1) THEN
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      rl_start = 3
+      rl_end = min_rlcell_int - 1
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vt_ie) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
 
-      ! Interpolate vn and vt to interface levels
-!CDIR UNROLL=6
-      DO jk = MAX(2,nflatlev(p_patch%id)), nlev
-        DO je = i_startidx, i_endidx
-          p_nh%diag%vn_ie(je,jk,jb) = &
-            p_nh%metrics%wgtfac_e(je,jk,jb)*p_nh%prog(nnew)%vn(je,jk,jb) +        &
-           (1._wp - p_nh%metrics%wgtfac_e(je,jk,jb))*p_nh%prog(nnew)%vn(je,jk-1,jb)
-          z_vt_ie(je,jk) =                                                  &
-            p_nh%metrics%wgtfac_e(je,jk,jb)*p_nh%diag%vt(je,jk,jb) +        &
-           (1._wp - p_nh%metrics%wgtfac_e(je,jk,jb))*p_nh%diag%vt(je,jk-1,jb)
-        ENDDO
-      ENDDO
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
 
-      ! Reduced computations required for flat levels
-      IF (istep == 1) THEN
-        DO jk = 2, nflatlev(p_patch%id)-1
-          DO je = i_startidx, i_endidx
-            p_nh%diag%vn_ie(je,jk,jb) = &
-              p_nh%metrics%wgtfac_e(je,jk,jb)*p_nh%prog(nnew)%vn(je,jk,jb) + &
-             (1._wp - p_nh%metrics%wgtfac_e(je,jk,jb))*p_nh%prog(nnew)%vn(je,jk-1,jb)
-          ENDDO
-        ENDDO
-      ENDIF
-
-      IF (istep == 1 .AND. .NOT. l_vert_nested) THEN
-        DO je = i_startidx, i_endidx
-          p_nh%diag%vn_ie(je,1,jb) =                                       &
-            p_nh%metrics%wgtfacq1_e(je,1,jb)*p_nh%prog(nnew)%vn(je,1,jb) + &
-            p_nh%metrics%wgtfacq1_e(je,2,jb)*p_nh%prog(nnew)%vn(je,2,jb) + &
-            p_nh%metrics%wgtfacq1_e(je,3,jb)*p_nh%prog(nnew)%vn(je,3,jb)
-        ENDDO
-      ELSE IF (istep == 1 .AND. l_vert_nested) THEN
-        DO je = i_startidx, i_endidx
-          p_nh%diag%vn_ie(je,1,jb) = p_nh%diag%vn_ie(je,2,jb) + &
-            p_nh%diag%dvn_ie_ubc(je,jb)
-        ENDDO
-      ENDIF
-
-      ! Bottom level
-      DO je = i_startidx, i_endidx
-        p_nh%diag%vn_ie(je,nlevp1,jb) =                                    &
-          p_nh%metrics%wgtfacq_e(je,1,jb)*p_nh%prog(nnew)%vn(je,nlev,jb)   + &
-          p_nh%metrics%wgtfacq_e(je,2,jb)*p_nh%prog(nnew)%vn(je,nlev-1,jb) + &
-          p_nh%metrics%wgtfacq_e(je,3,jb)*p_nh%prog(nnew)%vn(je,nlev-2,jb)
-        z_vt_ie(je,nlevp1) =                                           &
-          p_nh%metrics%wgtfacq_e(je,1,jb)*p_nh%diag%vt(je,nlev,jb) +   &
-          p_nh%metrics%wgtfacq_e(je,2,jb)*p_nh%diag%vt(je,nlev-1,jb) + &
-          p_nh%metrics%wgtfacq_e(je,3,jb)*p_nh%diag%vt(je,nlev-2,jb)
-      ENDDO
-
-      ! Compute contravariant correction for vertical velocity at interface levels
-      DO jk = nflatlev(p_patch%id)+1, nlevp1
-        DO je = i_startidx, i_endidx
-          z_concorr_e(je,jk,jb) =                                            &
-            p_nh%diag%vn_ie(je,jk,jb)*p_nh%metrics%ddxn_z_half(je,jk,jb) + &
-            z_vt_ie(je,jk)*p_nh%metrics%ddxt_z_half(je,jk,jb)
-        ENDDO
-      ENDDO
-
-    ENDDO
-!$OMP END DO
-
-    rl_start = 3
-    rl_end = min_rlcell_int - 1
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-
-      ! Interpolate contravariant correction to cell centers
+        ! Interpolate contravariant correction to cell centers...
 #ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = nflatlev(p_patch%id)+1, nlevp1
+        DO jc = i_startidx, i_endidx
+          DO jk = nflatlev(p_patch%id), nlev
 #else
 !CDIR UNROLL=6
-      DO jk = nflatlev(p_patch%id)+1, nlevp1
-        DO jc = i_startidx, i_endidx
+        DO jk = nflatlev(p_patch%id), nlev
+          DO jc = i_startidx, i_endidx
 #endif
 
-          p_nh%diag%w_concorr_c(jc,jk,jb) =                                          &
-            p_int%e_bln_c_s(jc,1,jb)*z_concorr_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
-            p_int%e_bln_c_s(jc,2,jb)*z_concorr_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
-            p_int%e_bln_c_s(jc,3,jb)*z_concorr_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
+            z_w_concorr_mc(jc,jk) =  &
+              p_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
+              p_int%e_bln_c_s(jc,2,jb)*z_w_concorr_me(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
+              p_int%e_bln_c_s(jc,3,jb)*z_w_concorr_me(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
 
+          ENDDO
         ENDDO
+
+        ! ... and to interface levels
+        DO jk = nflatlev(p_patch%id)+1, nlev
+          DO jc = i_startidx, i_endidx
+            p_nh%diag%w_concorr_c(jc,jk,jb) =                                &
+              p_nh%metrics%wgtfac_c(jc,jk,jb)*z_w_concorr_mc(jc,jk) +        &
+             (1._wp - p_nh%metrics%wgtfac_c(jc,jk,jb))*z_w_concorr_mc(jc,jk-1) 
+          ENDDO
+        ENDDO
+
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%w_concorr_c(jc,nlevp1,jb) =                         &
+            p_nh%metrics%wgtfacq_c(jc,1,jb)*z_w_concorr_mc(jc,nlev) +   &
+            p_nh%metrics%wgtfacq_c(jc,2,jb)*z_w_concorr_mc(jc,nlev-1) + &
+            p_nh%metrics%wgtfacq_c(jc,3,jb)*z_w_concorr_mc(jc,nlev-2)
+        ENDDO
+
       ENDDO
-    ENDDO
 !$OMP END DO
+    ENDIF
 
     rl_start = 7
     IF (idiv_method == 1) THEN
@@ -1648,6 +1584,12 @@ MODULE mo_solve_nonhydro
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+    IF (idiv_method == 2 .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
+!$OMP WORKSHARE
+      z_theta_v_fl_e(:,:,p_patch%edges%start_blk(5,1):i_startblk) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk

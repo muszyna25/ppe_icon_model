@@ -1903,6 +1903,16 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_ehalf )
 
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=shape3d_e )
+
 
     ! functional determinant of the metrics [sqrt(gamma)]
     ! ddqz_z_full  p_metrics%ddqz_z_full(nproma,nlev,nblks_c)
