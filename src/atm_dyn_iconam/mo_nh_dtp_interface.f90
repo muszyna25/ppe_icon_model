@@ -152,7 +152,7 @@ CONTAINS
     i_rlstart_e = 1
     IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 ) .OR. &
       &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 ) .OR. &
-      &  advection_config(jg)%iord_backtraj == 2 ) THEN
+      &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
       i_rlend_e   = min_rledge_int - 3
     ELSE
       i_rlend_e   = min_rledge_int - 2
@@ -313,10 +313,8 @@ CONTAINS
       r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
 
       i_rlstart_e  = 2
-!DR Note that this is not correct: itype_hlimit has the dimension 
-!DR MAX_TRACER and not MAX_DOM !!
-      IF ( advection_config(jg)%itype_hlimit(jg) == 1 .OR. &
-        &  advection_config(jg)%itype_hlimit(jg) == 2 .OR. &
+      IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1) .OR. &
+        &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2) .OR. &
         &  advection_config(jg)%iord_backtraj == 2) THEN
         i_rlend_e   = min_rledge_int - 3
       ELSE
