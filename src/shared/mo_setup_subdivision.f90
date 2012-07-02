@@ -995,6 +995,7 @@ CONTAINS
     wrk_p_patch%nshift = wrk_p_patch_g%nshift
     wrk_p_patch%nshift_total = wrk_p_patch_g%nshift_total
     wrk_p_patch%nshift_child = wrk_p_patch_g%nshift_child
+    wrk_p_patch%grid_uuid = wrk_p_patch_g%grid_uuid
 
     !-----------------------------------------------------------------------------------------------
     ! Allocate the required data arrays in patch
