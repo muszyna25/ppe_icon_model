@@ -25,8 +25,8 @@ set UID `id -u`
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
 set EXPNUM        "002"
-set FIRST_DATE    20120620
-set LAST_DATE     20120801
+set FIRST_DATE    20120601
+set LAST_DATE     20120901
 
 # HPC environment:
 set SCHOST      c1a
@@ -313,7 +313,7 @@ suite icon_${EXPNUM}
 
            task post_prepare   
                on_hpc_serial
-               edit SCWALLCLOCKLIMIT 00:20:00
+               edit SCWALLCLOCKLIMIT 00:40:00
    
            task meteogram
                trigger (post_prepare == complete)
