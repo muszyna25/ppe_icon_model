@@ -935,7 +935,11 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 10, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_v, lrestart=.FALSE., in_group=groups("atmo_derived_vars") )
+                & ldims=shape3d_v, lrestart=.FALSE.,       &
+                & vert_interp=create_vert_interp_metadata( &
+                &   vert_intp_type=VINTP_TYPE_P_OR_Z,      &
+                &   vert_intp_method=VINTP_METHOD_LIN ),   &
+                &   in_group=groups("atmo_derived_vars") )
 
     ! ddt_vn_phy   p_diag%ddt_vn_phy(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***

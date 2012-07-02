@@ -510,7 +510,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_pp_scheduler:pp_scheduler_init_pz")
     INTEGER                            :: &
-      &  jg, ndom, ientr, nblks_c, ierrstat, ivar, i, idx, &
+      &  jg, ndom, ientr, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
       &  iaxis, vgrid, nlev
     LOGICAL                            :: &
       &  l_jg_active, l_intp_p, l_intp_z, found
@@ -558,7 +558,9 @@ CONTAINS
       l_intp_p = .FALSE.
       NML_LOOP_P : DO
         IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP_P
-      
+
+        IF (dbg_level >= 10)  WRITE (0,*) p_onl%pl_varlist 
+
         ! If dom(:) was not specified in namelist input, it is set
         ! completely to -1.  In this case all domains are wanted in
         ! the output
@@ -652,6 +654,8 @@ CONTAINS
 
       ! predefined array shapes
       nblks_c   = p_patch(jg)%nblks_c
+      nblks_v   = p_patch(jg)%nblks_v
+
       shape3d = (/ nproma, nh_pzlev_config(jg)%nzlev, nblks_c /)
       nvars_predef = 0
         
@@ -821,11 +825,12 @@ CONTAINS
 
               ! Found it, add it to the variable list of optional
               ! diagnostics
-              IF ( (info%used_dimensions(1) /= nproma) .OR.  &
-                &  (info%used_dimensions(3) /= nblks_c) ) THEN
+              IF ( (info%used_dimensions(1) /= nproma)  .OR.   &
+                &  ((info%used_dimensions(3) /= nblks_c) .AND. &
+                &   (info%used_dimensions(3) /= nblks_v)) ) THEN
                 CALL finish(routine, "Unexpected field size!")
               END IF
-              shape3d  = (/ nproma, nlev, nblks_c /)
+              shape3d  = (/ info%used_dimensions(1), nlev, info%used_dimensions(3) /)
 
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
@@ -1234,7 +1239,7 @@ CONTAINS
     INTEGER                            :: &
       &  vert_intp_type, vert_intp_method, jg,  &
       &  in_var_idx, out_var_idx, nlev, nlevp1, &
-      &  nzlev, nplev, npzlev
+      &  nzlev, nplev, npzlev, npromz, nblks
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -1320,6 +1325,15 @@ CONTAINS
     IF (.NOT. vcoeff%l_initialized) &
       CALL finish(routine, "Interpolation coefficients not yet initialized!")
 
+    SELECT CASE ( p_info%hgrid )
+    CASE (GRID_UNSTRUCTURED_CELL) 
+      nblks  = p_patch%nblks_c
+      npromz = p_patch%npromz_c
+    CASE (GRID_UNSTRUCTURED_VERT) 
+      nblks  = p_patch%nblks_v
+      npromz = p_patch%npromz_v
+    END SELECT
+
     !--- actually perform vertical interpolation task
     SELECT CASE ( vert_intp_method )
     CASE ( VINTP_METHOD_UV )
@@ -1327,7 +1341,7 @@ CONTAINS
       CALL uv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                     & !in
         &          out_var%r_ptr(:,:,:,out_var_idx,1),                   & !out
         &          p_metrics%z_mc, p_z3d,                                & !in
-        &          p_patch%nblks_c, p_patch%npromz_c, nlev, npzlev,      & !in
+        &          nblks, npromz, nlev, npzlev,                          & !in
         &          vcoeff%coef1, vcoeff%coef2,                           & !in
         &          vcoeff%coef3, vcoeff%wfac_lin,                        & !in
         &          vcoeff%idx0_cub, vcoeff%idx0_lin,                     & !in
@@ -1341,7 +1355,7 @@ CONTAINS
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
       CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    & !inout
         &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-        &           p_patch%nblks_c, p_patch%npromz_c, nlev, npzlev,     & !in
+        &           nblks, npromz, nlev, npzlev,                         & !in
         &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & !in
         &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & !in
         &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & !in
@@ -1353,7 +1367,7 @@ CONTAINS
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
       CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    & !inout
         &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-        &           p_patch%nblks_c, p_patch%npromz_c, nlevp1, npzlev,   & !in
+        &           nblks, npromz, nlevp1, npzlev,                       & !in
         &           vcoeff%wfac_lin_nlevp1, vcoeff%idx0_lin_nlevp1,      & !in
         &           vcoeff%bot_idx_lin_nlevp1,                           & !in
         &           vcoeff%wfacpbl1_nlevp1, vcoeff%kpbl1_nlevp1,         & !in
@@ -1368,7 +1382,7 @@ CONTAINS
         &          out_var%r_ptr(:,:,:,out_var_idx,1),                 & !out
         &          p_metrics%z_mc, p_z3d, p_diag%temp,                 & !in
         &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d, & !in
-        &          p_patch%nblks_c, p_patch%npromz_c, nlev, npzlev,    & !in
+        &          nblks, npromz, nlev, npzlev,                        & !in
         &          vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,           & !in
         &          vcoeff%wfac_lin, vcoeff%idx0_cub, vcoeff%idx0_lin,  & !in
         &          vcoeff%bot_idx_cub, vcoeff%bot_idx_lin,             & !in
