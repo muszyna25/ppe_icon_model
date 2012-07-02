@@ -107,7 +107,7 @@ MODULE mo_nh_stepping
   USE mo_test_solve_nonhydro, ONLY: test_solve_nh
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
-  USE mo_integrate_density_pa,ONLY: get_nh_df_mflx_rho
+  USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
@@ -899,11 +899,11 @@ MODULE mo_nh_stepping
 
           ! get mass flux and new \rho. The latter one is only computed,
           ! if the density equation is re-integrated.
-          CALL get_nh_df_mflx_rho(p_patch(jg), p_int_state(jg),  & !in
-            &                     p_nh_state(jg)%prog(n_now),    & !in
-            &                     p_nh_state(jg)%prog(n_new),    & !in
-            &                     p_nh_state(jg)%metrics,        & !in
-            &                     p_nh_state(jg)%diag, dtadv_loc ) !inout,in
+          CALL integrate_density_pa(p_patch(jg), p_int_state(jg),  & !in
+            &                     p_nh_state(jg)%prog(n_now),      & !in
+            &                     p_nh_state(jg)%prog(n_new),      & !in
+            &                     p_nh_state(jg)%metrics,          & !in
+            &                     p_nh_state(jg)%diag, dtadv_loc   ) !inout,in
         END SELECT
 
 

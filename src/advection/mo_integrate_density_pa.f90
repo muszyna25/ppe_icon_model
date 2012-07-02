@@ -62,7 +62,7 @@ MODULE mo_integrate_density_pa
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
-  PUBLIC :: get_nh_df_mflx_rho
+  PUBLIC :: integrate_density_pa
 
 
 CONTAINS
@@ -72,14 +72,13 @@ CONTAINS
   !! SUBROUTINE get_nh_df_mflx_rho
   !!
   !! Short description:
-  !! computes updated massflux and density for the deformational flow 
-  !! test case, if necessary
+  !! Integrates mass equation when running in pure advection mode
   !!
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert (2011-03-11)
   !!
-  SUBROUTINE get_nh_df_mflx_rho( p_patch, p_int, p_prog_now, p_prog_new, &
+  SUBROUTINE integrate_density_pa( p_patch, p_int, p_prog_now, p_prog_new, &
     &                            p_metrics, p_diag, p_dtime )
 
     !INPUT PARAMETERS:
@@ -265,7 +264,7 @@ CONTAINS
 !$OMP END PARALLEL
     ENDIF
 
-  END SUBROUTINE get_nh_df_mflx_rho
+  END SUBROUTINE integrate_density_pa
 
 
 
