@@ -719,6 +719,7 @@ schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/metview.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/post_archive.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/post/post_prepare.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon_restart -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/ifs_trigger.def -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/job.trigger -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/start_sms.sh -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/stop_sms.sh -text

@@ -20,8 +20,8 @@ date
 cdp << ENDCDP
 set SMS_PROG 903409
 myalias
-force complete /icon/ifs_fct/fct_ifs
-force queued   /icon/forecast/check_progress
+force complete /ifs_trigger/fct_ifs
+#force queued  /icon/forecast/check_progress
 status -a
 exit
 ENDCDP

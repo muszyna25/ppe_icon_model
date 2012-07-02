@@ -1,0 +1,68 @@
+# -------------------------------------------------
+# IFS_TRIGGER.DEF
+# -------------------------------------------------
+#
+# SMS suite definition file.
+#
+# This script is part of the ICON SMS suite
+# Initial implementation: F. Prill, DWD (2012-05-07)
+#
+# Corresponding author:
+#   Florian Prill, DWD, mailto:florian.prill@dwd.de
+#
+# Some parts of this definition file are based
+# on the "bceps" SMS suite (H. Frank, DWD), cf.
+# "ecgate:/home/ms/de/zde/BCeps"
+#
+
+# import environment variables:
+setenv -i HOME
+setenv -i USER
+setenv -i HOST
+setenv -i TMPDIR
+set UID `id -u`
+
+# global definitions:
+set SUITE_NAME    "ICON_r2B06_10d"
+
+# place where generated job scripts are stored
+set SMSHOME     "$HOME/sms"
+
+# place where suite and tasks are defined
+set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles/icon"
+
+# place where include files are stored
+set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
+
+# place for SMS output
+set SMSOUT      "$HOME/sms"
+
+
+# set no. of restarts for aborted tasks in SMS:
+set SMSTRIES      1
+
+
+# -------------------------------------------------
+
+define on_ecgate {
+  label host "$HOST"
+}
+
+# -------------------------------------------------
+
+suite ifs_trigger
+
+    edit SUITE_NAME $SUITE_NAME
+    edit SMSTRIES   $SMSTRIES
+    edit SMSHOME    $SMSHOME
+    edit SMSFILES   $SMSFILES
+    edit SMSINCLUDE $SMSINCLUDE
+    edit SMSOUT     $SMSOUT
+    edit USER       $USER
+
+    # DUMMY TASK (IFS TRIGGER) ------------------------
+    task fct_ifs  
+        on_ecgate
+        defstatus unknown
+
+endsuite
