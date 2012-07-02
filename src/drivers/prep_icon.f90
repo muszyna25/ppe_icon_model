@@ -42,6 +42,7 @@ USE mo_mpi,                   ONLY: start_mpi, p_stop,         &
   &                                 my_process_is_mpi_parallel,&
   &                                 set_mpi_work_communicators
 USE mo_timer,                 ONLY: init_timer
+  USE mo_master_nml,          ONLY: read_master_namelist
 
 
 ! Control parameters: run control, dynamics, i/o
@@ -175,7 +176,7 @@ IMPLICIT NONE
     !---------------------------------------------------------------------
 
     lrestart = .FALSE. ! restarting is not available for prep_icon
-
+    error_status = read_master_namelist("icon_master.namelist")
     CALL read_atmo_namelists("NAMELIST_PREPICON","icon_master.namelist")
 
 
