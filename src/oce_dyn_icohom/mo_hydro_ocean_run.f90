@@ -166,6 +166,7 @@ CONTAINS
   INTEGER                         :: jstep, jg
   LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring
+  CHARACTER(len=36)               :: moc_fname
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   !TYPE(t_operator_coeff)          :: ptr_op_coeff
 
@@ -199,6 +200,12 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_total)
 
+  ! open file for MOC - extraordinary at this time
+  CALL datetime_to_string(datestring, datetime)
+  moc_fname='MOC.'//TRIM(datestring)
+  OPEN (77,file=moc_fname,form='unformatted')
+  WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
+  CALL message (TRIM(routine), message_text)
 
 
   !------------------------------------------------------------------
@@ -324,7 +331,7 @@ CONTAINS
     l_outputtime = (MOD(jstep,n_io) == 0)
     IF ( l_outputtime ) THEN
 
-      !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
+      CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
       CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
         &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), &
         &                        pstate_oce(jg)%p_diag%u_vint, datetime)

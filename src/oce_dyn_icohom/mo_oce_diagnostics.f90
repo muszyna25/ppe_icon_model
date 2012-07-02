@@ -664,11 +664,11 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
       write(77) i1,i2,i3,i4
       write(77) (global_moc(lbr,jk),lbr=1,180)
       i2=int(778,i8)
-      write(78) i1,i2,i3,i4
-      write(78) (atlant_moc(lbr,jk),lbr=1,180)
+      write(77) i1,i2,i3,i4
+      write(77) (atlant_moc(lbr,jk),lbr=1,180)
       i2=int(779,i8)
-      write(79) i1,i2,i3,i4
-      write(79) (pacind_moc(lbr,jk),lbr=1,180)
+      write(77) i1,i2,i3,i4
+      write(77) (pacind_moc(lbr,jk),lbr=1,180)
 
   !   write(82,*) 'jk=',jk
   !   write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
