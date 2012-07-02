@@ -24,9 +24,6 @@
 
 echo "METVIEW.SMS" 
 
-# change directory ----------------------------
-smsevent copy_files
-
 
 #-----------------------------------------------------------------------------
 # metview plots
@@ -48,7 +45,6 @@ cd ${EXPDIR}
 # quick plots (find standard output on oflws144:/uwork1/mkoehler/wq)
 
 if [[ $lmetview = 1 ]] ; then
-  smsevent metview
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_DOM01_'
@@ -60,6 +56,10 @@ if [[ $lmetview = 1 ]] ; then
   ./many.error.s %YMD% %INIHOUR% $VERDATE $VERHOUR 1 r2B06 icon_001
    #many.error.s %YMD% %INIHOUR% %YMD%-1 %INIHOUR% 2 r2B06 icon_001
 fi
+
+nstart=$metproc #index of process    (e.g. 1 or 4)
+ndiff=4         #number of processes (e.g. 4)
+awk 'NR%${ndiff}==${nstart}' met.job > job.${nstart}
 
 #if [[ $lmetview = 1 ]] ; then
 #    2011010100) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110101 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.1 2>&1 &" ;;

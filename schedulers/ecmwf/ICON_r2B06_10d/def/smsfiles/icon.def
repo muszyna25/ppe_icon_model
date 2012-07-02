@@ -26,7 +26,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "002"
+set EXPNUM        "001"
 set FIRST_DATE    20120601
 set LAST_DATE     20120901
 
@@ -73,10 +73,17 @@ define on_ecgate {
   label host "$HOST"
 }
 
+define on_ecgate_submit {
+  label host "$HOST submit"
+  edit SMSCMD  "/usr/local/share/sms_submit      %USER% $HOST %SMSJOB%"
+  edit SMSKILL "/usr/local/share/sms_kill        %USER% $HOST %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status %USER% $HOST %SMSRID% %SMSJOB%"
+}
+
 define on_hpc_parallel {
   label host "$SCHOST parallel"
-  edit SMSCMD  "/usr/local/share/sms_submit %USER% %SCHOST% %SMSJOB%"
-  edit SMSKILL "/usr/local/share/sms_kill %USER% %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSCMD  "/usr/local/share/sms_submit      %USER% %SCHOST% %SMSJOB%"
+  edit SMSKILL "/usr/local/share/sms_kill        %USER% %SCHOST% %SMSRID% %SMSJOB%"
   edit SMSSTATUSCMD "/usr/local/share/sms_status %USER% %SCHOST% %SMSRID% %SMSJOB%"
   edit SMSOUT     ${SCLOGDIR}
   edit SMSLOGHOST ${SCHOST}
@@ -149,14 +156,6 @@ suite icon_${EXPNUM}
         edit SCWALLCLOCKLIMIT 00:02:00
 
 
-    # DUMMY TASK (IFS TRIGGER) ------------------------
-   #family ifs_fct
-   #    task fct_ifs
-   #        on_ecgate
-   #        defstatus unknown
-   #endfamily
-
-
     # INITIALIZATION ----------------------------------
 
     family init
@@ -164,13 +163,11 @@ suite icon_${EXPNUM}
         trigger (init:YMD le ( forecast:YMD + 1 )) and (once == complete)
         complete ($ENABLE_INIT == 0)
 
-        task fct_ifs                                    # DUMMY TASK (IFS TRIGGER) 
-            on_ecgate
-            defstatus unknown
+        extern /ifs_trigger/fct_ifs
 
         task setup
-            trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE - 2 ) or \
-                    (fct_ifs == complete)
+            trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE-2) or \
+                    (/ifs_trigger/fct_ifs == complete)
             on_ecgate
             if ($ENABLE_INIT == 0) then
                 label status "skipped"
@@ -319,19 +316,22 @@ suite icon_${EXPNUM}
    
            task meteogram
                trigger (post_prepare == complete)
-               on_ecgate
-               event change_dir
-               event copy_files
+               on_ecgate_submit
    
-           task metview
+           set work "1 2 3 4"
+
+           loop ii ( $work ) do
+             family metview_$ii
                trigger (post_prepare == complete)
-               on_ecgate
-               event cpdata
-               event metview
-   
+               edit metproc $ii
+               task metview
+                 on_ecgate_submit
+             endfamily
+           endloop   
+
            task post_archive
                trigger (post_prepare == complete)
-               on_ecgate
+               on_ecgate_submit
                event change_dir
                event copy_files
    

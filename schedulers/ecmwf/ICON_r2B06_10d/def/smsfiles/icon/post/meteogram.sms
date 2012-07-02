@@ -2,7 +2,7 @@
 
 %manual
   -------------------------------------------------
-  POST_ARCHIVE.SMS
+  METEOGRAM.SMS
   -------------------------------------------------
 
   This script is part of the ICON SMS suite
@@ -22,13 +22,7 @@
 
 # -------------------------------------------------
 
-echo "POST_ARCHIVE.SMS" 
-
-# change directory ----------------------------
-smsevent change_dir
-
-# change directory ----------------------------
-smsevent copy_files
+echo "METEOGRAM.SMS" 
 
 
 #-----------------------------------------------------------------------------
