@@ -234,7 +234,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
                                                  ! false=use a shortcut (faster)
-  LOGICAL  :: l_edge_based          = .FALSE.     !
+  LOGICAL  :: l_edge_based          = .TRUE.     ! mimetic discretization based on edges (true) or cells (false)
   LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
