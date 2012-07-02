@@ -467,6 +467,7 @@ CONTAINS
                                & pprfac_sfc, prho_sfc,                   &! out
                                & ptkevn_sfc, pthvvar_sfc,                &! out
                                & pqshear_sfc, pustarm,                   &! out
+                               & pch_sfc,                                &! out
                                & pcsat,                                  &! in
                                & pcair)                                   ! in
 
@@ -528,6 +529,8 @@ CONTAINS
                                                 !< of the variance of theta_v
     REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)  !< vertical shear of total water concentration
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)  !< friction velocity, grid-box mean
+
+    REAL(wp),OPTIONAL,INTENT(OUT) :: pch_sfc(kbdim,ksfc_type) !< factor for TKE boundary condition and JSBACH
 
     REAL(wp),OPTIONAL,INTENT(IN) :: pcsat(kbdim)  !< area fraction with wet land surface
     REAL(wp),OPTIONAL,INTENT(IN) :: pcair(kbdim)  !< area fraction with wet land surface
@@ -773,7 +776,7 @@ CONTAINS
             zscf = SQRT(1._wp+pri_sfc(jl,jsfc))
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)/(1._wp+z2b*pri_sfc(jl,jsfc)/zscf)   ! 5.2? 5.5
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)/(1._wp+z2b*pri_sfc(jl,jsfc)*zscf)   ! 5.2? 5.6
-            zch     (jl,jsfc) = zchn  (jl,jsfc)/(1._wp+z2b*pri_sfc(jl,jsfc)*zscf)   ! for (5.22)
+            zch (jl,jsfc) = zchn  (jl,jsfc)/(1._wp+z2b*pri_sfc(jl,jsfc)*zscf)   ! for (5.22)
           ENDIF
         ENDDO
       ENDDO
@@ -789,7 +792,7 @@ CONTAINS
             zucf =  1._wp/zucf
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)*(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam       ! (5.9)
-            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam
+            zch (jl,jsfc) = zchn  (jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam
           ENDIF
         ENDDO
       ENDIF
@@ -803,7 +806,7 @@ CONTAINS
             zucf =  1._wp/zucf
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)*(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
-            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)
+            zch (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)
           ENDIF
         ENDDO
       ENDIF
@@ -818,7 +821,7 @@ CONTAINS
 !!$ TR the roughness length for momentum (and not for heat).
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)/(1._wp-z2b*pri_sfc(jl,jsfc)*zucfh)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
-            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
+            zch (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
           ENDIF
         ENDDO
       ENDIF
@@ -832,7 +835,7 @@ CONTAINS
             zucf =  1._wp/zucf
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)*(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam       ! (5.9)
-            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam
+            zch (jl,jsfc) = zchn  (jl,jsfc)*(1._wp+zcr(jl)**cgam)**zrgam
           ENDIF
         ENDDO
       ENDIF
@@ -846,7 +849,7 @@ CONTAINS
             zucf =  1._wp/zucf
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)*(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)  ! (5.2), (5.4)
-            zch     (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)
+            zch (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucf)
           ENDIF
         ENDDO
       ENDIF
@@ -855,9 +858,6 @@ CONTAINS
       ! z0 for heat over land is different, thus zucf is also different
       END IF ! ljsbach
      
-!!$ TR      jsfc = idx_lnd ! land, not implemented
-      ! z0 for heat over land is different, thus zucf is also different
-
     END IF  ! lsfc_mom_flux.OR.lsfc_heat_flux
 
     IF (.NOT.lsfc_mom_flux) THEN  ! Surface momentum flux is switched off 
@@ -877,7 +877,6 @@ CONTAINS
     DO jsfc = 1,ksfc_type
       pcfm_gbm(1:kproma) = pcfm_gbm(1:kproma) + pfrc(1:kproma,jsfc)*pcfm_sfc(1:kproma,jsfc)
     ENDDO
-
 
     !-------------------------------------------------------------------------
     ! For sensible heat and water vapour, it is not the exchange coefficient
@@ -968,6 +967,8 @@ CONTAINS
       END DO
       ptkevn_sfc(jl) = MAX( tkemin,ptkevn_sfc(jl) )
     END DO
+
+    IF (PRESENT(pch_sfc)) pch_sfc(:,:) = zch(:,:)
 
 #ifdef __ICON__
     ! should the same be done as in echam?

@@ -210,6 +210,7 @@ CONTAINS
 
   ! Local variables
 
+  REAL(wp) :: pch_sfc(kbdim,ksfc_type)
   REAL(wp) :: zcpt_tile(kbdim,ksfc_type)
   REAL(wp) :: zthvvar (kbdim,klev)
   REAL(wp) :: ztkevn  (kbdim,klev)
@@ -306,8 +307,8 @@ CONTAINS
                          & zprfac (:,klev), zrhoh  (:,klev),      &! out
                          & ztkevn (:,klev), zthvvar(:,klev),      &! out
                          & zqshear(:,klev),                       &! out, for "vdiff_tendencies"
-                         & pustar(:)                             )! out, for "atm_exchange_coeff"
-                                                                   ! at next time step
+                         & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
+                         & pch_sfc)                                ! out, for JSBACH
 
   !-----------------------------------------------------------------------
   ! 3. Set up coefficient matrix of the tri-diagonal system, then perform

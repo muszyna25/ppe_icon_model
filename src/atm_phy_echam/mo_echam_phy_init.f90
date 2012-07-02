@@ -596,13 +596,13 @@ CONTAINS
       field% time_steps_soil        (:,  :) = 0._wp
 
 !!$ TR for JSBACH testing (hydrology)
-      field% moisture1              (:,  :) = 0._wp
-      field% moisture2              (:,  :) = 0._wp
-      field% moisture3              (:,  :) = 0._wp
-      field% moisture4              (:,  :) = 0._wp
-      field% moisture5              (:,  :) = 0._wp
-      field% csat                   (:,  :) = 1._wp
-      field% cair                   (:,  :) = 1._wp
+      field% moisture1              (:,  :) = 0.05_wp
+      field% moisture2              (:,  :) = 0.05_wp
+      field% moisture3              (:,  :) = 0.05_wp
+      field% moisture4              (:,  :) = 0.05_wp
+      field% moisture5              (:,  :) = 0.05_wp
+      field% csat                   (:,  :) = 1.0_wp
+      field% cair                   (:,  :) = 1.0_wp
       field% csat_transpiration     (:,  :) = 0._wp
       field% sat_surface_specific_humidity (:,  :) = 0.01_wp
       field% skin_reservoir         (:,  :) = 0._wp

@@ -38,6 +38,7 @@ MODULE mo_jsbach_interface_icon
   USE mo_exception,         ONLY: finish, message
   USE mo_kind,              ONLY: wp
   USE mo_soil_icon,         ONLY: update_soil_icon
+  USE mo_canopy,            ONLY: unstressed_canopy_cond_par
 
   IMPLICIT NONE
   PRIVATE
@@ -78,6 +79,7 @@ CONTAINS
        etBcoef, &
        eqAcoef, &
        eqBcoef, &
+       p_echam_zchl, &
        !! inout for testing (hydrology)
        cair, &
        csat, &
@@ -174,6 +176,7 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(in)    :: etBcoef(kdim)            !! 
     REAL(wp), OPTIONAL, INTENT(in)    :: eqAcoef(kdim)            !! Richtmeyer Morton coeff. humidity
     REAL(wp), OPTIONAL, INTENT(in)    :: eqBcoef(kdim)            !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: p_echam_zchl(kdim)       !!
     !! inout for testing (hydrology
     REAL(wp), OPTIONAL, INTENT(inout) :: cair(kdim)                !! area fraction with wet surface
     REAL(wp), OPTIONAL, INTENT(inout) :: csat(kdim)                !! area fraction with wet surface (air)
@@ -270,13 +273,14 @@ CONTAINS
     LOGICAL,  DIMENSION(kdim)  ::   mask                               !! Land mask or all true's
 
     !! local declarations for testing
-!!$ TR    REAL(wp), ALLOCATABLE, DIMENSION(:,:)  :: canopy_conductance
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)  :: canopy_conductance
 !!$ TR    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)  :: root_depth
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)  :: lai
     REAL(wp), ALLOCATABLE, DIMENSION(:)  :: zwind10
 !!$ TR   REAL(wp), ALLOCATABLE, DIMENSION(:)  :: swnet
 
     INTEGER :: nidx, ntiles !!$ TR, nsoil, isoil
+    INTEGER :: itile
 
 !!$ TR    INTEGER                 ::   i, kidx0, kidx1, itile
 
@@ -302,8 +306,8 @@ CONTAINS
     ELSE
        mask = .TRUE.
     ENDIF
-    csat(:) = 1._wp
-    cair(:) = 1._wp
+!!$ TR    csat(:) = 1._wp
+!!$ TR    cair(:) = 1._wp
 
     !Generate local packed forcing arrays for each domain (processor)
     IF (PRESENT(wind))         zwind       = PACK(wind, MASK=mask)
@@ -367,7 +371,7 @@ CONTAINS
     IF (PRESENT(swnet)) zswnet = PACK(swnet, MASK=mask)
     IF (PRESENT(time_steps_soil)) ztime_steps_soil = PACK(time_steps_soil, MASK=mask)
 
-!!$ TR    ALLOCATE(canopy_conductance(nidx,ntiles))
+    ALLOCATE(canopy_conductance(kdim,ntiles))
 !!$ TR    ALLOCATE(root_depth(nidx,ntiles,nsoil))
     !!$ JSBACH testing: replace kdim by nidx
     ALLOCATE(lai(kdim,ntiles))
@@ -377,23 +381,27 @@ CONTAINS
     !! for testing
 !!$ TR    canopy_conductance(:,:) = 1._wp               ! set to 1 for numerical reasons
 !!$ TR    root_depth(:,:,:) = 1._wp                     ! root depth equals the depth of the soil bucket (as in the current JSBACH)
-    lai(:,:) = 0._wp                              ! no leaves, no transpiration
+    lai(:,:) = 5._wp                              ! no leaves, no transpiration
     zwind10(:) = zwind(:) * 0.8_wp
     zswnet(:) = zswdown(:) * 0.8_wp
-!!$ TR    p_echam_zchl(:) = 1._wp                       ! set to 1 for numerical reasons
+
+    DO itile=1,ntiles
+       CALL unstressed_canopy_cond_par(lai(1:nidx,itile), zswdown(:) / 2._wp, &
+                  canopy_conductance(1:nidx,itile))
+    END DO
 
 !!$ TR    ALLOCATE(root_depth(nidx,ntiles,nsoil))    
     CALL update_soil_icon(ntiles, kdim, &
                      delta_time, time_step_len, &
                      ztime_steps_soil, &
-!!$ TR                     canopy_conductance(:,:), &
+                     canopy_conductance(:,:), &
 !!$ TR                     root_depth(:,:,:), &
                      lai(:,:), zcdrag, &
                      zetAcoef, zetBcoef, zeqAcoef, zeqBcoef, &
                      ztemp_air, zqair, &
                      zpressure, zwind, zwind10, &
                      zlwdown, zswnet, zprecip_rain, zprecip_snow, &
-!!$ TR               p_echam_zchl, &
+                     p_echam_zchl, &
                      !! output for testing (hydrology)
                      cair, &
                      csat, &

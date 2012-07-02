@@ -44,10 +44,11 @@ CONTAINS
        delta_time, time_step_len, &
        time_steps_soil, &
 !!$ TR       nidx, surface, soil, soil_param, useDynveg, &
-!!$ TR       canopy_conductance_max, root_depth, &
+       canopy_conductance_max, &
+!!$ TR       root_depth, &
        lai, cdrag, t_Acoef, t_Bcoef, q_Acoef, q_Bcoef, air_temperature, air_moisture, &
        surface_pressure, windspeed, wind10, rad_longwave_down, rad_shortwave_net, &
-       precip_rain, precip_snow, &
+       precip_rain, precip_snow, p_echam_zchl, &
 !!$ TR       cair, csat, p_echam_zchl, zhsoil_avg, tte_corr_avg, canopy_conductance_limited, &
 !!$ TR       glac_runoff_evap, surf_runoff_hd, drainage_hd &
        !! output for testing (hydrology)
@@ -105,9 +106,9 @@ CONTAINS
 !!$ TR    TYPE(soil_param_type), INTENT(in) :: soil_param
 !!$ TR    LOGICAL,               INTENT(in) :: useDynveg
     REAL(wp), DIMENSION(:,:), INTENT(in) :: &  ! Dimension (nidx,ntiles)
+         canopy_conductance_max                   ! Unstressed canopy resistance
+    REAL(wp), DIMENSION(:,:), INTENT(in) :: &  ! Dimension (nidx,ntiles)
          lai
-!!$ TR    REAL(wp), DIMENSION(:,:), INTENT(in) :: &  ! Dimension (nidx,ntiles)
-!!$ TR         canopy_conductance_max                   ! Unstressed canopy resistance
 !!$ TR    REAL(wp), DIMENSION(:,:), INTENT(inout) :: &  ! Dimension (nidx,ntiles)
 !!$ TR         canopy_snow, &                             ! Snow depth in canopy
 !!$ TR         canopy_snow_fract
@@ -125,9 +126,9 @@ CONTAINS
          rad_longwave_down, &  ! Longwave radiation down
          rad_shortwave_net, &  ! Net shortwave radiation
          precip_rain, &        ! Rainfall
-         precip_snow           ! Snowfall
+         precip_snow, &        ! Snowfall
+         p_echam_zchl
 
-!!$ TR    REAL(dp), DIMENSION(:), INTENT(in) :: p_echam_zchl
 !!$ TR    REAL(dp), INTENT(in) :: root_depth(:,:,:)
     !! output for testing (hydrology)
     REAL(wp), DIMENSION(:), INTENT(inout) :: cair                !! area fraction with wet surface
@@ -202,24 +203,28 @@ CONTAINS
 !!$ TR         wet_skin_fract, &
 !!$ TR         glacier_precip_minus_evap, &       ! P-E for glaciers [m]
 !!$ TR         surface_runoff, drainage, &        ! Surface runoff and drainage for HD model [m]
-!!$ TR         qsat_fact, qair_fact, &            ! Factors for implicit coupling
+         qsat_fact, qair_fact, &            ! Factors for implicit coupling
          air_dry_static_energy_new, &
-         air_moisture_new
+         air_moisture_new, &
 !!$ TR         evaporation_pot, &                 ! Potential evaporation
-!!$ TR         canopy_resistance, &               ! Water-limited canopy resistance
-!!$ TR         soil_moisture_root, &              ! Soil moisture in root zone
-!!$ TR         soil_moisture_root_max, &          ! Field capacity in root zone
-!!$ TR         water_stress_factor, &             ! Water stress factor (=1: no stress, =0: infinite stress)
+         canopy_resistance, &               ! Water-limited canopy resistance
+         canopy_conductance_limited, &      ! water limited canopy conductance
+         soil_moisture_root, &              ! Soil moisture in root zone
+         soil_moisture_root_max, &          ! Field capacity in root zone
+         water_stress_factor, &             ! Water stress factor (=1: no stress, =0: infinite stress)
 !!$ TR         relative_humidity, &               ! Relative humidity (Eq. 3.3.2.9 ECHAM3 Manual)
 !!$ TR         zhsoil, tte_corr, &
 !!$ TR         sat_surface_specific_hum_old, &
-!!$ TR         qsat_veg, qair_veg, &
+         qsat_veg, qair_veg
 !!$ TR         csat_tiles, cair_tiles, &
 !!$ TR         qsat_transpiration, csat_transpiration_tiles
 !!$ TR#ifdef __PGI
 !!$ TR    REAL(wp), DIMENSION(kidx,soil%ntiles) :: moisture_max
 !!$ TR#endif
-
+    REAL(wp), DIMENSION(kidx,5,ntiles) :: soil_moisture ! substitute for soil%moisture
+    REAL(wp), DIMENSION(kidx,5,ntiles) :: root_depth
+    REAL(wp), DIMENSION(kidx,5) :: soil_depth
+    REAL(wp), DIMENSION(kidx,5) :: soil_MaxMoisture
 !!$ TR    LOGICAL, DIMENSION(kidx,soil%ntiles) :: &
 !!$ TR         soil_mask                          ! True if not glacier and not lake
 
@@ -244,6 +249,8 @@ CONTAINS
     REAL(wp)  ::  Gravity
     REAL(wp)  ::  SpecificHeatDryAirConstPressure
     REAL(wp)  ::  SpecificHeatVaporConstPressure
+    REAL(wp)  ::  moist_crit_fract, moist_wilt_fract
+
 
     REAL(wp), DIMENSION(kidx,5)  ::  c_soil_temperature
     REAL(wp), DIMENSION(kidx,5)  ::  d_soil_temperature
@@ -273,6 +280,9 @@ CONTAINS
     ztpfac3 = 1._wp - ztpfac2
     vtmpc2 = SpecificHeatVaporConstPressure / SpecificHeatDryAirConstPressure - 1._wp
 
+    moist_crit_fract = 0.75_wp
+    moist_wilt_fract = 0.35_wp
+
 !!$ TR    soil_mask = .NOT. surface%is_glacier(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) &
 !!$ TR         .AND. surface%is_present(kidx0:kidx1,:)
     !----------------------------------------------------------------------------------------
@@ -285,10 +295,7 @@ CONTAINS
 !!$ TR       cair(1:nidx) = soil%cair(kidx0:kidx1)
 !!$ TR       csat_transpiration(1:nidx) = soil%csat_transpiration(kidx0:kidx1)
 !!$ TR    END IF
-    !! completely wet surface for testing
-    csat(1:nidx) = 1._wp
-    cair(1:nidx) = 1._wp
-    snow_fract(1:nidx) = 0._wp
+
     !----------------------------------------------------------------------------------------
     ! Soil moisture in root zone
 !!$ TR   DO itile=1,ntiles
@@ -301,6 +308,24 @@ CONTAINS
 !!$ TR   END DO
 !!$ TR   soil_moisture_root = MERGE(soil_moisture_root, 0._dp, surface%is_vegetation(kidx0:kidx1,:))
 !!$ TR   soil_moisture_root_max = MERGE(soil_moisture_root_max, 0._dp, surface%is_vegetation(kidx0:kidx1,:))
+
+    root_depth(:,:,:) = 0.1_wp
+    soil_depth(:,:) = 0.1_wp
+    soil_MaxMoisture(:,:) = 0.1_wp
+
+    DO itile=1,ntiles
+       soil_moisture(1:nidx,1,itile) = moisture1(1:nidx)
+       soil_moisture(1:nidx,2,itile) = moisture2(1:nidx)
+       soil_moisture(1:nidx,3,itile) = moisture3(1:nidx)
+       soil_moisture(1:nidx,4,itile) = moisture4(1:nidx)
+       soil_moisture(1:nidx,5,itile) = moisture5(1:nidx)
+       soil_moisture_root(1:nidx,itile) =                               &
+            calc_moist_root_zone(soil_moisture(1:nidx,:,itile), &
+                                 soil_depth(1:nidx,:), root_depth(:,:,itile))
+       soil_moisture_root_max(1:nidx,itile) =                           &
+            calc_moist_root_zone(soil_MaxMoisture(1:nidx,:), &
+                                 soil_depth(1:nidx,:), root_depth(:,:,itile))
+    END DO
 
     !------------------------------------------------------------------------------------------
 
@@ -330,26 +355,29 @@ CONTAINS
 !!$ TR         surface%cover_fract(kidx0:kidx1,:),sat_surf_specific_hum_avg(:))
 
     ! Modify minimum canopy resistance (no water stress) according to water limitation in the soil root zone 
-!!$ TR    canopy_resistance = 1.e20_wp
-!!$ TR    water_stress_factor = 0._wp
-!!$ TR    canopy_conductance_limited = 1._wp/1.e20_wp
+    canopy_resistance(:,:) = 1.e20_wp
+    water_stress_factor(:,:) = 0._wp
+    canopy_conductance_limited(:,:) = 1._wp/1.e20_wp
 
-!!$ TR    DO itile=1,ntiles
-!!$ TR    DO i=1,nidx
+    DO itile=1,ntiles
+       DO i=1,nidx
 !!$ TR    j=kidx0+i-1
 !!$ TR    IF (surface%is_vegetation(j,itile)) THEN
-!!$ TR       water_stress_factor(i,itile) = calc_water_stress_factor(soil_moisture_root(i,itile), soil_moisture_root_max(i,itile), &
-!!$ TR                                             soil_options%MoistureFractCritical, soil_options%MoistureFractWilting)
-!!$ TR       IF (water_stress_factor(i,itile) > EPSILON(1._dp) .AND. canopy_conductance_max(i,itile) > EPSILON(1._dp) .AND. &
-!!$ TR            air_moisture(i) .LE. sat_surf_specific_hum_avg(i)) THEN
-!!$ TR          canopy_resistance(i,itile) = 1._dp / (canopy_conductance_max(i,itile) * water_stress_factor(i,itile) + 1.e-20_dp)
-!!$ TR       ELSE
-!!$ TR          canopy_resistance(i,itile) = 1.e20_dp
-!!$ TR       END IF
-!!$ TR       canopy_conductance_limited(i,itile) = 1._dp/MAX(canopy_resistance(i,itile),1.e-20_dp)
+       water_stress_factor(i,itile) = calc_water_stress_factor(soil_moisture_root(i,itile), &
+                                      soil_moisture_root_max(i,itile), moist_crit_fract, &
+                                      moist_wilt_fract)
+       IF (water_stress_factor(i,itile) > EPSILON(1._wp) .AND. &
+           canopy_conductance_max(i,itile) > EPSILON(1._wp) .AND. &
+           air_moisture(i) .LE. sat_surface_specific_humidity(i)) THEN
+          canopy_resistance(i,itile) = 1._wp / (canopy_conductance_max(i,itile) * &
+             water_stress_factor(i,itile) + 1.e-20_wp)
+       ELSE
+          canopy_resistance(i,itile) = 1.e20_wp
+       END IF
+       canopy_conductance_limited(i,itile) = 1._wp/MAX(canopy_resistance(i,itile),1.e-20_wp)
 !!$ TR    END IF
-!!$ TR    END DO
-!!$ TR    END DO
+       END DO
+    END DO
 
     ! Sensitivity of saturated surface specific humidity to temperature
 !!$ TR    zdqsl = (sat_specific_humidity(surface_temperature_avg(:) + 0.001_dp, surface_pressure(1:nidx)) - &
@@ -746,59 +774,56 @@ CONTAINS
 !!$
 !!$    !------------------------------------------------------------------------------------------------------
 !!$
-!!$    qsat_fact = 0._dp
-!!$    qair_fact = 0._dp
-!!$    qsat_veg(:,:) = 0._dp
-!!$    qair_veg(:,:) = 0._dp
+    qsat_fact(:,:) = 0._wp
+    qair_fact(:,:) = 0._wp
+    qsat_veg(:,:) = 0._wp
+    qair_veg(:,:) = 0._wp
 !!$    qsat_transpiration(:,:) = 0._dp
 !!$    zhsoil = 0._dp
 !!$
 !!$    DO itile=1,ntiles
-!!$    DO i=1,nidx
-!!$    j=kidx0+i-1  
-!!$    IF (surface%is_present(j,itile)) THEN
-!!$       IF (soil%moisture(j,1,itile) > & 
-!!$            (soil_options%MoistureFractWilting * soil_param%MaxMoisture(j,1))) THEN
-!!$          qsat_veg(i,itile) = soil%snow_fract(j,itile) + (1._dp - soil%snow_fract(j,itile)) *   &
-!!$                              (wet_skin_fract(i,itile) + (1._dp - wet_skin_fract(i,itile)) /    &
-!!$                              (1._dp + p_echam_zchl(i) * canopy_resistance(i,itile) *           &
-!!$                              MAX(1.0_dp,windspeed(i))))
+!!$       DO i=1,nidx
+!!$          IF (soil%moisture(j,1,itile) > & 
+!!$              (soil_options%MoistureFractWilting * soil_param%MaxMoisture(j,1))) THEN
+!!$             qsat_veg(i,itile) = soil%snow_fract(j,itile) + (1._dp - soil%snow_fract(j,itile)) *   &
+!!$                                 (wet_skin_fract(i,itile) + (1._dp - wet_skin_fract(i,itile)) /    &
+!!$                                 (1._dp + p_echam_zchl(i) * canopy_resistance(i,itile) *           &
+!!$                                 MAX(1.0_dp,windspeed(i))))
 !!$          qsat_transpiration(i,itile) = (1._dp - soil%snow_fract(j,itile)) *                    &
 !!$                                        (1._dp - wet_skin_fract(i,itile)) /                     &
 !!$                                        (1._dp + p_echam_zchl(i) * canopy_resistance(i,itile) * &
 !!$                                        MAX(1.0_dp,windspeed(i)))
-!!$       ELSE
-!!$          qsat_veg(i,itile) = soil%snow_fract(j,itile) + (1._dp - soil%snow_fract(j,itile)) * &
-!!$                              wet_skin_fract(i,itile)
-!!$          qsat_transpiration(i,itile) = 0._dp
-!!$       END IF
-!!$       qair_veg(i,itile) = qsat_veg(i,itile)
-!!$    END IF
-!!$    END DO
+!!$          ELSE
+!!$             qsat_veg(i,itile) = soil%snow_fract(j,itile) + (1._dp - soil%snow_fract(j,itile)) * &
+!!$                                 wet_skin_fract(i,itile)
+!!$             qsat_transpiration(i,itile) = 0._dp
+!!$          END IF
+!!$          qair_veg(i,itile) = qsat_veg(i,itile)
+!!$       END DO
 !!$    END DO
 !!$        
 !!$    WHERE (relative_humidity(1:nidx,:) > SPREAD(air_moisture(1:nidx), NCOPIES=ntiles, DIM=2) / &
 !!$         SPREAD(sat_surf_specific_hum_avg(1:nidx), NCOPIES=ntiles, DIM=2) .AND. &
 !!$         relative_humidity(1:nidx,:) > 1.e-10_dp )
 !!$
-!!$       qsat_fact = soil%snow_fract(kidx0:kidx1,:) +                                 & 
-!!$                   (1._dp - soil%snow_fract(kidx0:kidx1,:)) *                       &
-!!$                   (wet_skin_fract(1:nidx,:) + (1._dp - wet_skin_fract(1:nidx,:)) * &
-!!$                   relative_humidity(1:nidx,:))
-!!$       qair_fact = 1._dp
+!!$       qsat_fact(:,:) = soil%snow_fract(kidx0:kidx1,:) +                                 & 
+!!$                        (1._dp - soil%snow_fract(kidx0:kidx1,:)) *                       &
+!!$                        (wet_skin_fract(1:nidx,:) + (1._dp - wet_skin_fract(1:nidx,:)) * &
+!!$                        relative_humidity(1:nidx,:))
+!!$       qair_fact(:,:) = 1._dp
 !!$
 !!$    ELSEWHERE (surface%is_present(kidx0:kidx1,:))
 !!$
-!!$       qsat_fact = soil%snow_fract(kidx0:kidx1,:) + &
-!!$                   (1._dp - soil%snow_fract(kidx0:kidx1,:)) * wet_skin_fract(1:nidx,:)
-!!$       qair_fact = qsat_fact
+!!$       qsat_fact(:,:) = soil%snow_fract(kidx0:kidx1,:) + &
+!!$                        (1._dp - soil%snow_fract(kidx0:kidx1,:)) * wet_skin_fract(1:nidx,:)
+!!$       qair_fact(:,:) = qsat_fact(:,:)
 !!$
 !!$    END WHERE
 !!$
 !!$    WHERE(SPREAD(air_moisture(1:nidx), NCOPIES=ntiles, DIM=2) > &
 !!$         SPREAD(sat_surf_specific_hum_avg(1:nidx), NCOPIES=ntiles, DIM=2))
-!!$       qsat_fact = 1._dp
-!!$       qair_fact = 1._dp
+!!$       qsat_fact(:,:) = 1._dp
+!!$       qair_fact(:,:) = 1._dp
 !!$    END WHERE
 !!$  
 !!$    csat_tiles(1:nidx,:)=Surface%veg_ratio(kidx0:kidx1,:) * qsat_veg(1:nidx,:) +            &
@@ -880,6 +905,46 @@ CONTAINS
     time_steps_soil(1:nidx) = time_steps_soil(1:nidx) + 1.0_wp
 
   END SUBROUTINE update_soil_icon
+
+  FUNCTION calc_moist_root_zone(soil_moisture, soil_depth, root_depth) RESULT(root_moisture)
+
+    ! Calculate moisture in root zone
+    ! This assumes for now that depths of root zones are equal to depths of soil moisture layers, 
+    ! except the last root zone
+
+    REAL(wp), INTENT(in) :: soil_moisture(:,:)    ! nland x nsoil
+    REAL(wp), INTENT(in) :: soil_depth(:,:)       ! nland x nsoil
+    REAL(wp), INTENT(in) :: root_depth(:,:)       ! nland x nroot_zones
+    REAL(wp)             :: root_moisture(SIZE(soil_moisture,1))
+
+    INTEGER :: n_soil, n_root
+
+    n_soil = SIZE(soil_moisture,2)
+    n_root = SIZE(root_depth,2)
+
+    root_moisture(:) = SUM(soil_moisture(:,1:n_root-1), DIM=2)
+    root_moisture(:) = root_moisture(:) + soil_moisture(:,n_root) * root_depth(:,n_root) / &
+                       soil_depth(:,n_root)
+
+  END FUNCTION calc_moist_root_zone
+
+  ELEMENTAL FUNCTION calc_water_stress_factor(moisture, moisture_max, fract_critical, &
+                                              fract_wilting) RESULT(stress)
+
+    REAL(wp), INTENT(in)  :: moisture
+    REAL(wp), INTENT(in)  :: moisture_max
+    REAL(wp), INTENT(in)  :: fract_critical, fract_wilting
+    REAL(wp)              :: stress
+
+    REAL(wp) :: moisture_critical, moisture_wilting
+
+    moisture_critical = fract_critical * moisture_max
+    moisture_wilting  = fract_wilting  * moisture_max
+
+    stress = MAX(0._wp, MIN(1._wp, (moisture - moisture_wilting) / &
+             (moisture_critical - moisture_wilting)))
+
+  END FUNCTION calc_water_stress_factor
 
   FUNCTION sat_specific_humidity(temp, pressure) RESULT(qsat)
     !

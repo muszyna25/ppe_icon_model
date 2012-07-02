@@ -84,6 +84,7 @@ CONTAINS
                            & ptrsolall,                         &! in
                            & presi_old,                         &! in
                            & pcosmu0,                           &! in
+                           & pch_tile,                          &! in
                            !! added for testing JSBACH (hydrology)
                            & pcsat,                             &! inout
                            & pcair,                             &! inout
@@ -179,6 +180,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(IN) :: ptrsolall (kbdim)              ! net surface shortwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(IN) :: presi_old (kbdim)              ! surface pressure
     REAL(wp),OPTIONAL,INTENT(IN) :: pcosmu0   (kbdim)              ! cos of zenith angle
+    REAL(wp),OPTIONAL,INTENT(IN) :: pch_tile  (kbdim,ksfc_type)
     !! added for testing JSBACH (hydrology)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
@@ -297,7 +299,7 @@ CONTAINS
                           etBcoef = zfn_h(1:kproma,idx_wtr),               &
                           eqAcoef = zen_qv(1:kproma,idx_wtr),              &
                           eqBcoef = zfn_qv(1:kproma,idx_wtr),              &
-!!$ TR                          echam_zchl = 1._wp,                              & ! intent in, comment out to simplify for testing (no leaves)
+                          p_echam_zchl = pch_tile(1:kproma,idx_wtr),       & ! intent in
                            !! added for testing JSBACH (hydrology)
                           cair = pcair(1:kproma),                          & ! intent out
                           csat = pcsat(1:kproma),                          & ! intent out

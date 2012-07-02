@@ -180,6 +180,7 @@ CONTAINS
     REAL(wp) :: zqshear (nbdim,nlev) !<
     REAL(wp) :: zthvvar (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
+    REAL(wp) :: zch_tile(nbdim,nsfc_type)
 
 !!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
@@ -704,6 +705,7 @@ CONTAINS
                      & zqshear(:,:),                    &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
+                     & pch_tile = zch_tile(:,:),        &! out, optional, for JSBACH
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb))        ! in, optional, area fraction with wet land surface (air)
       ELSE
@@ -819,6 +821,7 @@ CONTAINS
                        & ptrsolall = field% swflxsfc(:,jb), &! in, replaces jsswvis & jsswnir, net surface shortwave flux [W/m2]
                        & presi_old = field% presi_old(:,nlevp1,jb),&! in, paphm1, sfc pressure
                        & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
+                       & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
                        !! added for testing JSBACH (hydrology)
                        & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
                        & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)

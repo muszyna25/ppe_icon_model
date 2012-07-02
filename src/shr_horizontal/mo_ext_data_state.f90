@@ -1714,7 +1714,7 @@ CONTAINS
 
     IF (echam_phy_config%ljsbach) THEN
     DO jg = 1,n_dom
-      CALL finish(TRIM(ROUTINE),'land sea mask should not be read here')
+
       i_lev = p_patch(jg)%level
 
       IF(my_process_is_stdio()) THEN

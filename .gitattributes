@@ -962,6 +962,7 @@ src/atm_oce_lnd_interface/mo_sea_ice_types.f90 -text
 src/atm_oce_lnd_interface/mo_sea_ice_winton.f90 -text
 src/atm_oce_lnd_interface/mo_sea_ice_zerolayer.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
+src/atm_phy_echam/mo_canopy.f90 -text
 src/atm_phy_echam/mo_cloud.f90 -text
 src/atm_phy_echam/mo_cover.f90 -text
 src/atm_phy_echam/mo_cuadjtq.f90 -text

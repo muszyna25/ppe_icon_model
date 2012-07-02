@@ -86,6 +86,7 @@ CONTAINS
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pztkevn,                           &! out
+                       & pch_tile,                                      &! out
                        & pcsat,                                         &! in
                        & pcair)                                          ! in
 
@@ -182,6 +183,8 @@ CONTAINS
       & pzthvvar  (kbdim,klev)     ,&!<
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
+    REAL(wp), OPTIONAL, INTENT(OUT) :: pch_tile(kbdim,ksfc_type)
+
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface
       & pcair     (kbdim)            !< area fraction with wet land surface
@@ -269,6 +272,7 @@ CONTAINS
                            & pztkevn(:,klev), pzthvvar(:,klev),     &! out
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
+                           & pch_sfc = pch_tile(:,:),               &! out
                            & pcsat = pcsat(:),                      &! in
                            & pcair = pcair(:))                       ! in
     ELSE ! ljsbach
