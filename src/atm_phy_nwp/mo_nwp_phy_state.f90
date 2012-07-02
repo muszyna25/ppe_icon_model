@@ -582,7 +582,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 1, 15, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_gsp', diag%snow_gsp,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-                & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM,        &
+                & ldims=shape2d, istatproc=TSTEP_ACCUM,                      &
                 & in_group=groups("precip_vars") )
 
     ! &      diag%rain_con(nproma,nblks_c)
@@ -597,7 +597,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 1, 14, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_con', diag%snow_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM,         &
+                & ldims=shape2d, istatproc=TSTEP_ACCUM,                       &
                 & in_group=groups("precip_vars") )
 
     ! &      diag%tot_prec(nproma,nblks_c)
@@ -605,7 +605,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 1, 52, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM,         &
+                & ldims=shape2d, istatproc=TSTEP_ACCUM,                       &
                 & in_group=groups("precip_vars") )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
@@ -895,7 +895,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           CALL add_var( diag_list, 'SOB_S_T', diag%swflxsfc_t,                       &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
             & ldims=(/nproma,kblks,nsfc_subs/), lcontainer=.TRUE., lrestart=.FALSE., &
-            & loutput=.FALSE., laccu=.TRUE.)
+            & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container swflxsfc_t
           ALLOCATE(diag%swflxsfc_t_ptr(nsfc_subs))
@@ -917,7 +917,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           CALL add_var( diag_list, 'THB_S_T', diag%lwflxsfc_t,                        &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,             &
             & ldims=(/nproma,kblks,nsfc_subs/),lcontainer=.TRUE., lrestart=.FALSE.,   &
-            & loutput=.FALSE., laccu=.TRUE.)
+            & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container lwflxsfc_t
           ALLOCATE(diag%lwflxsfc_t_ptr(nsfc_subs))
@@ -954,7 +954,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 4, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'flxdwswtoa', diag%flxdwswtoa,                 &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, lrestart=.FALSE., laccu=.TRUE.)
+          & ldims=shape2d, lrestart=.FALSE.)
 
 
         ! &      diag%swflxsfc(nproma,nblks_c)
@@ -962,7 +962,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 4, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'SOB_S', diag%swflxsfc,                        &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, laccu=.TRUE.)
+          & ldims=shape2d)
 
 
 
@@ -971,7 +971,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 4, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'SOB_T', diag%swflxtoa,                        &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, lrestart=.FALSE., laccu=.TRUE. ,                     &
+          & ldims=shape2d, lrestart=.FALSE.,                                    &
           & in_group=groups("rad_vars"))
 
         ! &      diag%lwflxsfc(nproma,nblks_c)
@@ -979,7 +979,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 5, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'THB_S', diag%lwflxsfc,                        &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, laccu=.TRUE.,                                        &
+          & ldims=shape2d,                                                      &
           & in_group=groups("rad_vars"))
 
 
@@ -1000,7 +1000,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 5, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, laccu=.TRUE., istatproc=TSTEP_ACCUM)
+          & ldims=shape2d, istatproc=TSTEP_ACCUM)
 
 
         ! &      diag%swflxtoa_a(nproma,nblks_c)
@@ -1095,14 +1095,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 5, 6, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxclr', diag%lwflxclr,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
-          & ldims=shape3dkp1, lrestart=.FALSE., laccu=.TRUE. )
+          & ldims=shape3dkp1, lrestart=.FALSE. )
 
         ! &      diag% lwflxall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux')
         grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxall', diag%lwflxall,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
-          & ldims=shape3dkp1, laccu=.TRUE.)
+          & ldims=shape3dkp1 )
 
         ! &      diag% trsolclr(nproma,nlev,nblks_c)
         cf_desc    = t_cf_var('trsolclr', '', 'shortwave clear-sky net tranmissivity')
@@ -1126,7 +1126,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 11, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'SHFL_S', diag%shfl_s,                       &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-          & ldims=shape2d, laccu=.TRUE.,                                      &
+          & ldims=shape2d,                                                    &
           & in_group=groups("pbl_vars") )
 
 
@@ -1137,7 +1137,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 11, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%shfl_s_a,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-          & ldims=shape2d, laccu=.TRUE.)
+          & ldims=shape2d )
 
 
         ! &      diag%lhfl_s(nproma,nblks_c)
@@ -1145,7 +1145,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 10, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'LHFL_S', diag%lhfl_s,                       &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-          & ldims=shape2d, laccu=.TRUE.,                                      &
+          & ldims=shape2d,                                                    &
           & in_group=groups("pbl_vars"))
 
                     
@@ -1156,7 +1156,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 10, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lhfl_s_a,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-          & ldims=shape2d, laccu=.TRUE.)
+          & ldims=shape2d )
 
 
         ! &      diag%qhfl_s(nproma,nblks_c)
@@ -1164,7 +1164,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(2, 0, 6, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'qhfl_s', diag%qhfl_s,                       &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-          & ldims=shape2d, laccu=.TRUE.,                                      &
+          & ldims=shape2d,                                                    &
           & in_group=groups("pbl_vars"))
 
 
@@ -1172,7 +1172,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(2, 0, 6, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'qhfl_s_avg', diag%qhfl_s_avg,               &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-          & ldims=shape2d, laccu=.TRUE.)
+          & ldims=shape2d )
 
 
         ! &      diag%tcm(nproma,nblks_c)

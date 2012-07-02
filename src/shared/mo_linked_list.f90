@@ -47,7 +47,6 @@ MODULE mo_linked_list
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
     LOGICAL                       :: loutput            ! output stream
-    LOGICAL                       :: laccu              ! accumulation
     LOGICAL                       :: lmiss              ! missing values
     LOGICAL                       :: lrestart           ! restart stream
     LOGICAL                       :: linitial           ! initial stream
@@ -115,7 +114,6 @@ CONTAINS
     this_list%p%list_elements      = 0
     !
     this_list%p%loutput            = .FALSE.
-    this_list%p%laccu              = .FALSE.
     this_list%p%lmiss              = .FALSE.
     this_list%p%lrestart           = .FALSE.
     this_list%p%linitial           = .FALSE.

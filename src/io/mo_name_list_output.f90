@@ -3351,25 +3351,6 @@ CONTAINS
         END DO
       END IF
 
-      ! Reset variable if laccu flag is set
-
-      IF(info%laccu) THEN
-        SELECT CASE (info%ndims)
-        CASE (2)
-          IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-            of%var_desc(iv)%r_ptr(:,:,nindex,1,1)          = info%resetval%rval
-          ELSE
-            of%var_desc(iv)%tlev_ptr(tl)%p(:,:,nindex,1,1) = info%resetval%rval
-          ENDIF
-        CASE (3)
-          IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-            of%var_desc(iv)%r_ptr(:,:,:,nindex,1)          = info%resetval%rval
-          ELSE
-            of%var_desc(iv)%tlev_ptr(tl)%p(:,:,:,nindex,1) = info%resetval%rval
-          ENDIF
-        END SELECT
-      ENDIF
-
       IF(info%ndims == 2) DEALLOCATE(r_ptr)
 
     ENDDO
