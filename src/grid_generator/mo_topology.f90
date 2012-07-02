@@ -1177,10 +1177,10 @@ CONTAINS
   !! \\vskip 1.cm
   !! @f{tabular}{
   !! [c]{|c|c|c|c|c|c|}  \hline
-  !! 0    & 1  & 2 &  3 & 4 & up, vertex at NP \\\
-  !! 5    & 6  & 7  & 8 & 9 &  down, across Equator\\\
-  !! 10    & 11  & 12  &  13 & 14 & up, across Equator \\\
-  !! 15    & 16  & 17  &  18 & 19 & down, vertex at SP \\\
+  !!  0 &  1 &  2 &  3 &  4 & up, vertex at NP     \\
+  !!  5 &  6 &  7 &  8 &  9 & down, across Equator \\
+  !! 10 & 11 & 12 & 13 & 14 & up, across Equator   \\
+  !! 15 & 16 & 17 & 18 & 19 & down, vertex at SP   \\
   !! \hline
   !! @f}
   !!
