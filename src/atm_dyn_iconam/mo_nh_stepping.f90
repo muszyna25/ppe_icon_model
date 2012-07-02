@@ -77,7 +77,7 @@ MODULE mo_nh_stepping
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
     &                               rotate_axis_deg
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
-  USE mo_nh_df_test,          ONLY: get_nh_df_velocity, get_nh_df_mflx_rho
+  USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
@@ -107,6 +107,7 @@ MODULE mo_nh_stepping
   USE mo_test_solve_nonhydro, ONLY: test_solve_nh
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
+  USE mo_integrate_density_pa,ONLY: get_nh_df_mflx_rho
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &

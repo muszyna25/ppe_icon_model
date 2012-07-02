@@ -748,7 +748,6 @@ CONTAINS
       ! fields:
       CALL difference(hl_varlist, nvars_hl, varlist_predef, nvars_predef)
       IF (l_intp_p) &
-!DR        CALL difference(pl_varlist, nvars_pl, (/ "z   ", "temp" /), 2)
         CALL difference(pl_varlist, nvars_pl, (/ "gh  ", "temp" /), 2)
 
       !-- loop over requested p- and z-level variables, add variables

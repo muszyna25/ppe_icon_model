@@ -81,7 +81,8 @@ MODULE mo_test_nh_communication
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
     &                               rotate_axis_deg
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
-  USE mo_nh_df_test,          ONLY: get_nh_df_velocity, get_nh_df_mflx_rho
+  USE mo_nh_df_test,          ONLY: get_nh_df_velocity
+  USE mo_integrate_density_pa,ONLY: get_nh_df_mflx_rho
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
