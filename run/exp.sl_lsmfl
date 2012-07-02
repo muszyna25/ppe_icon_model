@@ -211,6 +211,7 @@ cat > ${ocean_namelist} << EOF
                                  !  f- or beta-plane.
   expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
+  l_edge_based = .TRUE.          !  edge- or cell-based mimetic discretization
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = sea ice switched on
