@@ -36,8 +36,12 @@ class EXP_plot(HtmlResource):
         global l_nightly
         global modus
         global RevisionNr
-	global selected_comp
+	global selected_builder
+	global selected_build
 
+	global selected_Date_from
+	global selected_Date_to
+	
 	self.get_info(request)
 #ToDo when archive has no plots
 	if exp_plot_Info == "test_couple_atmo-ocean":
@@ -123,7 +127,7 @@ class EXP_plot(HtmlResource):
 	  rev_D = {}
 	  p += D + "/buildbot/"
 	  for r in os.listdir(p):
-            if (r >= svn_Rev_from) and (r <= svn_Rev_to):
+            if (r >= Rev_from) and (r <= Rev_to):
 	      if add_comp(p,r,rev_D):
 	        Archive_Button_Dict['rev'].append(r)
 	        ret = True
@@ -248,8 +252,8 @@ class EXP_plot(HtmlResource):
         file.close
 
         if l_nightly:
-          svn_Rev_from = RevisionNr
-	  svn_Rev_to = svn_Rev_from
+          Rev_from = RevisionNr
+	  Rev_to = Rev_from
  
 	  Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
 #ws	  Date_to = "2012-06-21"
@@ -265,11 +269,23 @@ class EXP_plot(HtmlResource):
 #ws	    Date_from = "2012-06-20"
 	
 	else:
-          svn_Rev_from  = str(int(RevisionNr)-50)
-          svn_Rev_to    = RevisionNr
+          Rev_from  = str(int(RevisionNr)-50)
+          Rev_to    = RevisionNr
           now_min_10d = datetime.now() - timedelta(days=10)
-          Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
           Date_from = now_min_10d.strftime("%Y-%m-%d")
+          Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
+          
+          if selected_Date_from != "NotSet":
+	    Date_from = selected_Date_from  
+	    
+          if selected_Date_to != "NotSet":
+	    Date_to = selected_Date_to
+
+	  if selected_Rev_from != "NotSet":
+	    Rev_from = selected_Rev_from  
+	    
+          if selected_Rev_to != "NotSet":
+	    Rev_to = selected_Rev_to
 
 #========================================================================================================
 #
@@ -313,6 +329,29 @@ class EXP_plot(HtmlResource):
 	Archive_Button_Dict['exp']   = list(sorted(set(Archive_Button_Dict['exp'])))
 	Archive_Button_Dict['file']  = list(sorted(set(Archive_Button_Dict['file'])))
 	
+        if not Archive_Button_Dict['rev']:
+	  data = "Revision List for this timeperode ist emty"
+	  return data
+	  
+	print "==============================================="
+	print Archive_Button_Dict['rev']
+        if not l_nightly:
+	  min_Revision = Archive_Button_Dict['rev'][0]
+	  max_Revision = Archive_Button_Dict['rev'][-1]
+	  
+	  if Rev_from < min_Revision:
+	    Rev_from = min_Revision
+	    
+	  if Rev_to > max_Revision:
+	    Rev_to   = max_Revision
+	    
+        print "min_Revision: " + min_Revision
+        print "max_Revision: " + max_Revision
+        print "==============================================="
+	
+
+# Build a plot list which contains only the plots of the acual experiment
+
 	t_file = []
 	for Fi in Archive_Button_Dict['file']:
 	  if Fi.find(exp_plot_Info+"_") >= 0:
@@ -381,7 +420,7 @@ class EXP_plot(HtmlResource):
 
 # Define cell widths
 
-        data += "<colgroup><col width=\"70\"><col width=\"470\"></colgroup>\n"
+        data += "<colgroup><col width=\"80\"><col width=\"470\"></colgroup>\n"
 	
 #     ----------   Date     ----------   
 
@@ -394,7 +433,7 @@ class EXP_plot(HtmlResource):
         if l_nightly:
 	  data += Date_from 
 	else:
-	  data += "    <input name=\"date_from\" type=\"text\" value=\"" + Date_from.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
+	  data += "    <input name=\"date_from\" type=\"text\" value=\"" + Date_from.split(' ')[0] + "\" size=\"10\" maxlength=\"10\" >\n"
 	  
 
 # Date Year to
@@ -404,6 +443,7 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "&nbsp; to &nbsp"
 	  data += "    <input name=\"date_to\" type=\"text\" value=\"" + Date_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
+	  data += "    <input type=\"submit\" name=\"Date_button\" value=\">\">"
 	
 	data += "  </td>\n"
 	data += "</tr>\n"
@@ -417,22 +457,49 @@ class EXP_plot(HtmlResource):
 # Revision from 
 
         if l_nightly:
-	  data += svn_Rev_from
+	  data += Rev_from
 	else:
-	  data += "    <input name=\"rev_from\" type=\"text\" value=\"" + svn_Rev_from.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
+	  data += "    <input name=\"rev_from\" type=\"text\" value=\"" + Rev_from.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
         
 # Revision to 
 
         if l_nightly:
-	  if svn_Rev_to != svn_Rev_from:
-	    data += "&nbsp; to &nbsp" + svn_Rev_to
+	  if Rev_to != Rev_from:
+	    data += "&nbsp; to &nbsp" + Rev_to
 	else:
 	  data += "&nbsp; to &nbsp"
-	  data += "    <input name=\"date_to\" type=\"text\" value=\"" + svn_Rev_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
+	  data += "    <input name=\"rev_to\" type=\"text\" value=\"" + Rev_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
+	  data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
 
 	data += "  </td>\n"
 	data += "</tr>\n"
 	
+# Branch 
+
+        data += "<tr>\n"
+	data += "  <td style=\"text-align:left;\" ><b>SVN-Branch:</b></td>\n"
+	data += "  <td style=\"text-align:left;\">\n"
+
+        if l_nightly:
+	  data += "trunk/icon-dev"
+	else:
+	  data += "    <select  name=\"branch\" onChange=\"document.date_form.submit()\">\n"
+	  if selected_build == "all":
+	    data += "    <option selected> all </option>\n"
+	  else:
+	    data += "    <option> all </option>\n"
+	    
+#	  for Bran in Archive_Button_Dict['branch']:
+#	    if selected_branch == Bu:
+#	      data += "    <option selected>"+ Bran + "</option>\n"
+#	    else:
+#	      data += "    <option>"+ Bran + "</option>\n"
+	      
+	  data += "  </select>\n"
+
+	data += "  </td>\n"
+	data += "</tr>\n"
+
 #     ----------    Computer     ----------   
 
         data += "<tr>\n"
@@ -442,14 +509,14 @@ class EXP_plot(HtmlResource):
         if l_nightly:
 	  data += "all"
 	else:
-	  data += "    <select  name=\"comp\" onChange=\"document.date_form.submit()\">\n"
-	  if selected_comp == "all":
+	  data += "    <select  name=\"builder\" onChange=\"document.date_form.submit()\">\n"
+	  if selected_builder == "all":
 	    data += "    <option selected> all </option>\n"
 	  else:
 	    data += "    <option> all </option>\n"
 	
 	  for Co in Archive_Button_Dict['comp']:
-	    if selected_comp == Co:
+	    if selected_builder == Co:
 	      data += "    <option selected>"+ Co + "</option>\n"
 	    else:
 	      data += "    <option>"+ Co + "</option>\n"
@@ -459,6 +526,14 @@ class EXP_plot(HtmlResource):
 	data += "</tr>\n"
 	
 #     ----------    Build Nr.     ----------   
+	t_build = []
+        if selected_builder != "all":
+	  for Da in Comp_Dict[selected_builder]:
+            for Re in Comp_Dict[selected_builder][Da]:
+	      for Bu in Comp_Dict[selected_builder][Da][Re]:
+		t_build.append(Bu)
+	
+        Archive_Button_Dict['build'] = list(sorted(t_build))
 
         data += "<tr>\n"
 	data += "  <td style=\"text-align:left;\" ><b>Build:</b></td>\n"
@@ -467,11 +542,18 @@ class EXP_plot(HtmlResource):
         if l_nightly:
 	  data += "all"
 	else:
-	  data += "    <select  name=\"build_nr\" onChange=\"document.date_form.submit()\">\n"
-	
-	  data += "    <option selected> all </option>\n"
+	  data += "    <select  name=\"build\" onChange=\"document.date_form.submit()\">\n"
+	  if selected_build == "all":
+	    data += "    <option selected> all </option>\n"
+	  else:
+	    data += "    <option> all </option>\n"
+	    
 	  for Bu in Archive_Button_Dict['build']:
-	    data += "    <option>"+ Bu + "</option>\n"
+	    if selected_build == Bu:
+	      data += "    <option selected>"+ Bu + "</option>\n"
+	    else:
+	      data += "    <option>"+ Bu + "</option>\n"
+	      
 	  data += "  </select>\n"
 
 	data += "  </td>\n"
@@ -485,6 +567,9 @@ class EXP_plot(HtmlResource):
 	
 	data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
 #	data += "    <select  name=\"exp\">\n"
+
+#ToDo   Include the correct showing of '_' in experment name and plot-name
+
 	for Ex in Archive_Button_Dict['exp']:
 	  if Ex == exp_plot_Info:
 	    data += "      <option selected>" + Ex + "</option>\n"
@@ -765,47 +850,49 @@ class EXP_plot(HtmlResource):
 	  data += "<div id=\"arch_plots\">\n  <h1>Plot Area</h1>\n"
 	
 
-        p = "public_html/archive/" + Date_from + "/buildbot/" + svn_Rev_from + "/"
+        p = "public_html/archive/" + Date_from + "/buildbot/" + Rev_from + "/"
         data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
         
         for comp in Archive_Button_Dict['comp']:
-	  for Da in Comp_Dict[comp]:
-            for Re in Comp_Dict[comp][Da]:
-	      for Bu in Comp_Dict[comp][Da][Re]:
-	        for Ex in Comp_Dict[comp][Da][Re][Bu]:
-		  for Fi in Comp_Dict[comp][Da][Re][Bu][Ex]:
-		    if Fi.strip(".png") == exp_file_Info:
-	              data += "  <tr><td>\n"
-	              data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+	  if comp == selected_builder or selected_builder == "all":
+	    for Da in Comp_Dict[comp]:
+              for Re in Comp_Dict[comp][Da]:
+	        for Bu in Comp_Dict[comp][Da][Re]:
+	          if Bu == selected_build or selected_build == "all":
+	            for Ex in Comp_Dict[comp][Da][Re][Bu]:
+		      for Fi in Comp_Dict[comp][Da][Re][Bu][Ex]:
+		        if Fi.strip(".png") == exp_file_Info:
+	                  data += "  <tr><td>\n"
+	                  data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
             
-	              data += "        <colgroup>"
-	              data += "          <col width=\"60\">"
-	              data += "          <col width=\"40\">"
-	              data += "          <col width=\"60\">"
-	              data += "          <col width=\"120\">"
-	              data += "          <col width=\"50\">"
-	              data += "          <col width=\"50\">"
-	              data += "          <col width=\"60\">"
-	              data += "          <col width=\"70\">"
-	              data += "          <col width=\"90\">"
-	              data += "        </colgroup>\n"
+	                  data += "        <colgroup>"
+	                  data += "          <col width=\"60\">"
+	                  data += "          <col width=\"40\">"
+	                  data += "          <col width=\"60\">"
+	                  data += "          <col width=\"120\">"
+	                  data += "          <col width=\"50\">"
+	                  data += "          <col width=\"50\">"
+	                  data += "          <col width=\"60\">"
+	                  data += "          <col width=\"70\">"
+	                  data += "          <col width=\"90\">"
+	                  data += "        </colgroup>\n"
                
-	              data += "      <tr>\n"
-                      data += "        <td><b>Revision:</b></td><td>" + Re + "</td>"
-		      data += "        <td><b>Builder:</b></td><td>" + comp + "</td>\n"
-		      data += "        <td><b>Build:</b></td><td><a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
-		      data += Bu 
-		      data += "</a></td>\n"
-                      data += "        <td><b>Date:</b></td><td>" + Da + "</td>\n"
-                      data += "        <td><b>&nbsp</b></td><td>&nbsp</td>\n"
-		      data += "</tr>\n"
+	                  data += "      <tr>\n"
+                          data += "        <td><b>Revision:</b></td><td>" + Re + "</td>"
+		          data += "        <td><b>Builder:</b></td><td>" + comp + "</td>\n"
+		          data += "        <td><b>Build:</b></td><td><a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
+		          data += Bu 
+		          data += "</a></td>\n"
+                          data += "        <td><b>Date:</b></td><td>" + Da + "</td>\n"
+                          data += "        <td><b>&nbsp</b></td><td>&nbsp</td>\n"
+		          data += "</tr>\n"
 		
-	              data += "    </table>\n"
-                      data += "  </td></tr>\n"
-                      data += "  <tr><td style=\"text-align:left;\">\n"        
-	              data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/"
-		      data +=  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
-	              data += "  </td></tr>\n"
+	                  data += "    </table>\n"
+                          data += "  </td></tr>\n"
+                          data += "  <tr><td style=\"text-align:left;\">\n"        
+	                  data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/"
+		          data +=  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+	                  data += "  </td></tr>\n"
 		   
         data += "</table>\n"
         data += "</div>\n"
@@ -819,20 +906,41 @@ class EXP_plot(HtmlResource):
         return data
 
     def select(self, req):
+      global selected_builder
       print "======  select ====="
       print req
       print req.args
       print "======  select ====="
-      m = req.args.get("modus",[None])[0]
-      e = req.args.get("exp",[None])[0]
-      f = req.args.get("file",[None])[0]
-#      print "m "+m
-#      print "e "+e
-#      print "f "+f
+      m       = req.args.get("modus",[None])[0]
+      e       = req.args.get("exp",[None])[0]
+      f       = req.args.get("file",[None])[0]
+      builder = req.args.get("builder",[None])[0]
+      build   = req.args.get("build",[None])[0]
+      fDate   = req.args.get("date_from",[None])[0]
+      tDate   = req.args.get("date_to",[None])[0]
+      fRev    = req.args.get("rev_from",[None])[0]
+      tRev    = req.args.get("rev_to",[None])[0]
+      
+      Redirect_Info = "../plot?exp=" + e  + "&modus=" + m
+      
       if f.find(e + "_") >= 0:
-        return Redirect("../plot?exp=" + e + "&file=" + f + "&modus=" + m)
-      else:
-        return Redirect("../plot?exp=" + e + "&modus=" + m)
+        Redirect_Info += "&file=" + f
+
+      if builder != "all":
+	Redirect_Info += "&builder=" + builder
+	if selected_builder != builder:
+          build = "all"
+          
+      if build != "all":
+        Redirect_Info += "&build=" + build
+      
+      Redirect_Info += "&date_from=" + fDate      
+      Redirect_Info += "&date_to=" + tDate
+
+      Redirect_Info += "&rev_from=" + fRev      
+      Redirect_Info += "&rev_to=" + tRev
+
+      return Redirect(Redirect_Info)
 #      return Redirect("../plot?exp=" + e + "&file=" + f + "&modus=")
 
     def replace(self, req):
@@ -857,11 +965,25 @@ class EXP_plot(HtmlResource):
 	global exp_file_Info
         global l_nightly
         global modus
-	global selected_comp
-        exp_plot_Info = "NotSet"
-	exp_file_Info = "NotSet"
-	modus         = "nightly"
-	selected_comp = "all"
+	global selected_builder
+	global selected_build
+
+	global selected_Date_from
+	global selected_Date_to
+	
+	global selected_Rev_from
+	global selected_Rev_to
+
+	exp_plot_Info      = "NotSet"
+	exp_file_Info      = "NotSet"
+	modus              = "nightly"
+	selected_builder   = "all"
+	selected_build     = "all"
+	selected_Date_from = "NotSet"
+	selected_Date_to   = "NotSet"
+	selected_Rev_from  = "NotSet"
+	selected_Rev_to    = "NotSet"
+	
         l_nightly = True
         
         if "exp" in request.args:
@@ -870,13 +992,19 @@ class EXP_plot(HtmlResource):
           except ValueError:
             pass
 
-        if "comp" in request.args:
+        if "builder" in request.args:
           try:
-            selected_comp = request.args["com"][0]
+            selected_builder = request.args["builder"][0]
           except ValueError:
             pass
         
-	if "modus" in request.args:
+        if "build" in request.args:
+          try:
+            selected_build = request.args["build"][0]
+          except ValueError:
+            pass
+
+        if "modus" in request.args:
           try:
 	    if request.args["modus"][0] == "archive":
 	      modus = "archive"
@@ -890,7 +1018,31 @@ class EXP_plot(HtmlResource):
 	  except ValueError:
 	    pass
 							     
-        return None
+	if "date_from" in request.args:
+	  try:
+	    selected_Date_from = request.args["date_from"][0]
+	  except ValueError:
+	    pass
+
+	if "date_to" in request.args:
+	  try:
+	    selected_Date_to = request.args["date_to"][0]
+	  except ValueError:
+	    pass
+
+	if "rev_from" in request.args:
+	  try:
+	    selected_Rev_from = request.args["rev_from"][0]
+	  except ValueError:
+	    pass
+
+	if "rev_to" in request.args:
+	  try:
+	    selected_Rev_to = request.args["rev_to"][0]
+	  except ValueError:
+	    pass
+
+	return None
 
     def footer(self, status, req):
         global RevisionNr
