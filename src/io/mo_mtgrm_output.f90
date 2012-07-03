@@ -165,6 +165,7 @@ MODULE mo_meteogram_output
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_util_phys,             ONLY: rel_hum
   
   IMPLICIT NONE
   
@@ -562,7 +563,7 @@ CONTAINS
     ! local variables
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER                         :: ilev
-    REAL(wp)                        :: e, e_s, temp, pres, qv, p_ex
+    REAL(wp)                        :: temp, qv, p_ex
 
     IF (i_REL_HUM(jg) == 0) RETURN
 
@@ -571,20 +572,13 @@ CONTAINS
     ! TODO[FP] : In some cases, values (slightly) greater than 100%
     !            are computed for relative humidity.
 
-    !-- compute relative humidity as r = e/e_s:
     DO ilev=1,meteogram_data%var_info(i_REL_HUM(jg))%nlevs
       ! get values for temperature, etc.:
       temp = station%var( i_T(jg))%values(ilev, i_tstep)
       qv   = station%var(i_QV(jg))%values(ilev, i_tstep)
-      ! compute dynamic pressure from Exner pressure:
       p_ex = station%var(i_PEXNER(jg))%values(ilev, i_tstep)
-      pres = p0ref * EXP((cpd/rd)*LOG(p_ex))
-
-      ! approx. saturation vapor pressure:
-      e_s = sat_pres_water(temp)
-      ! compute vapor pressure from formula for specific humidity:
-      e   = pres*qv / (rdv + o_m_rdv*qv)
-      station%var(i_REL_HUM(jg))%values(ilev, i_tstep) = 100._wp * e/e_s
+      !-- compute relative humidity as r = e/e_s:
+      station%var(i_REL_HUM(jg))%values(ilev, i_tstep) = rel_hum(temp, qv, p_ex)
     END DO
     
   END SUBROUTINE compute_diagnostics
