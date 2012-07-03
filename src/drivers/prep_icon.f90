@@ -359,6 +359,11 @@ IMPLICIT NONE
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'allocation for prepicon failed')
     ENDIF
+
+    ! Set all model domains to active at initial time
+    DO jg = 1, n_dom
+     p_patch(jg)%ldom_active = .TRUE.
+    ENDDO
     
     ! allocate memory for topography and coordinate fields,
     ! read topo data from netCDF file, 
