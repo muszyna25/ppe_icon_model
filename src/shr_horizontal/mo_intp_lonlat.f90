@@ -91,7 +91,8 @@
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, &
-      &                               GRID_CELL, ZAXIS_SURFACE, TIME_CONSTANT
+      &                               GRID_CELL, ZAXIS_SURFACE, TIME_CONSTANT, &
+      &                               DATATYPE_PACK16, DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state
     USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
@@ -342,8 +343,8 @@
 
             nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
             var_shape = (/ nproma, 1, nblks_lonlat /)
-            cf_desc    = t_cf_var('gw', '-', 'area weights')
-            grib2_desc = t_grib2_var(0, 0, 0, 0, GRID_REFERENCE, GRID_CELL)
+            cf_desc    = t_cf_var('gw', '-', 'area weights', DATATYPE_FLT32)
+            grib2_desc = t_grib2_var(0, 0, 0, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
