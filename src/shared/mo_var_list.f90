@@ -878,7 +878,7 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
+      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
       ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &   STAT=istat)
@@ -999,7 +999,7 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = 1
       new_list_element%field%info%ndims = 4
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
+      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
       ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &   STAT=istat)
@@ -1121,7 +1121,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 3
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
+      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1243,7 +1243,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 2
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
+      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1365,7 +1365,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 1
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
+      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1485,7 +1485,7 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
+      new_list_element%field%info%cdiDataType = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1603,7 +1603,7 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = 1
       new_list_element%field%info%ndims = 4
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
+      new_list_element%field%info%cdiDataType = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1721,7 +1721,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 3
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
+      new_list_element%field%info%cdiDataType = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1839,7 +1839,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 2
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
+      new_list_element%field%info%cdiDataType = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -1957,7 +1957,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 1
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
+      new_list_element%field%info%cdiDataType = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -2077,7 +2077,7 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
+      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -2195,7 +2195,7 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = 1
       new_list_element%field%info%ndims = 4
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
+      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -2313,7 +2313,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 3
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
+      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -2431,7 +2431,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 2
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
+      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
@@ -2549,7 +2549,7 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 1
-      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
+      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
