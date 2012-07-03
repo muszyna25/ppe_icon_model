@@ -1915,7 +1915,7 @@ MODULE mo_nonhydro_state
     ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
     !
     cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction')
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
