@@ -477,7 +477,7 @@ CONTAINS
     this_info%key                 = 0    
     this_info%name                = ''
     !
-    this_info%cf                  = t_cf_var('', '', '')
+    this_info%cf                  = t_cf_var('', '', '', -1)
     this_info%grib2               = t_grib2_var(-1, -1, -1, -1, -1, -1)
     !
     this_info%allocated           = .FALSE.

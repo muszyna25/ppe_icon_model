@@ -385,7 +385,8 @@ MODULE mo_nwp_lnd_state
 
 
     ! & p_prog_lnd%t_snow_t(nproma,nblks_c,nsfc_subs)
-    cf_desc    = t_cf_var('t_snow_t', 'K', 'temperature of the snow-surface', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('t_snow_t', 'K', 'temperature of the snow-surface', &
+         &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_t'//suffix, p_prog_lnd%t_snow_t,&
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,            &
@@ -408,7 +409,8 @@ MODULE mo_nwp_lnd_state
 
 
     ! & p_prog_lnd%t_snow_mult_t(nproma,nlev_snow+1,nblks_c,nsfc_subs)
-    cf_desc    = t_cf_var('t_snow_mult_t', 'K', 'temperature of the snow-surface')
+    cf_desc    = t_cf_var('t_snow_mult_t', 'K', 'temperature of the snow-surface', &
+         & DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_mult_t'//suffix, p_prog_lnd%t_snow_mult_t, &
      & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, cf_desc, grib2_desc,           &
