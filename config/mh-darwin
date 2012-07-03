@@ -63,11 +63,11 @@ FDEBUG      = -g -fbacktrace -fbounds-check
 FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
 FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
 CC          = gcc
-CFLAGS      = -march=native -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=gnu99 -g
+CFLAGS      = -march=core2 -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=gnu99 -g
 FC          = gfortran
-FFLAGS      = -march=native -O -ffast-math "$FOPTIONS"
+FFLAGS      = -march=core2 -O -ffast-math "$FOPTIONS"
 F77         = gfortran
-F77FLAGS    = -march=native -O -ffast-math
+F77FLAGS    = -march=core2 -O -ffast-math
 OMPFLAG     = -fopenmp
 DEFOPT      = -D
 DEFCOPT     = -D
