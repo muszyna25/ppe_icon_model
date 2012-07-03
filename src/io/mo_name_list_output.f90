@@ -3402,7 +3402,8 @@ CONTAINS
 #ifdef NOMPI
   ! Just define the entry point of name_list_io_main_proc, it will never be called
 
-  SUBROUTINE name_list_io_main_proc
+  SUBROUTINE name_list_io_main_proc(isample)
+    INTEGER, INTENT(in) :: isample
   END SUBROUTINE name_list_io_main_proc
 
 #else
