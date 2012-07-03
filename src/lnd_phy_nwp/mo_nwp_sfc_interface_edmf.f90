@@ -578,9 +578,10 @@ DO ic = 1, i_count
    endif
 ENDDO
 
-        IF (lmulti_snow) THEN
+       IF (lmulti_snow) THEN
           CALL diag_snowfrac_tg(                        &
             &  istart = 1, iend = i_count             , & ! start/end indices
+            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
             &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
             &  t_snow    = t_snow_mult_new_t (:,2,isubs), & ! snow temp
             &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
@@ -594,6 +595,7 @@ ENDDO
         ELSE
           CALL diag_snowfrac_tg(                        &
             &  istart = 1, iend = i_count             , & ! start/end indices
+            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
             &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
             &  t_snow    = t_snow_new_t      (:,isubs), & ! snow temp
             &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
@@ -605,7 +607,6 @@ ENDDO
             &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
             &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
         ENDIF
-
 
 !---------- Copy index list fields back to state fields
 

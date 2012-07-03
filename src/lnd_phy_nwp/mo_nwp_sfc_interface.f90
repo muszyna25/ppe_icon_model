@@ -485,7 +485,8 @@ CONTAINS
 
         IF (lmulti_snow) THEN
           CALL diag_snowfrac_tg(                           &
-            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  istart = 1, iend = i_count                , & ! start/end indices            
+            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
             &  t_snow    = t_snow_mult_new_t (:,2,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp
@@ -499,6 +500,7 @@ CONTAINS
         ELSE
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
+            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
             &  t_snow    = t_snow_new_t      (:,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp

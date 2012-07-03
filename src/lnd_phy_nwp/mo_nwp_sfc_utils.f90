@@ -48,7 +48,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac
   USE mo_soil_ml,             ONLY: terra_multlay_init
-  USE mo_phyparam_soil,       ONLY: z0_lu, cf_snow     ! soil and vegetation parameters for TILES
+  USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd  ! r_d / cp_d
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
   
@@ -266,10 +266,11 @@ CONTAINS
                                                       )
 
 
-        IF (lmulti_snow) THEN
+       IF (lmulti_snow) THEN
 !CDIR NOIEXPAND
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
+            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
             &  t_snow    = t_snow_mult_now_t (:,2,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
@@ -284,6 +285,7 @@ CONTAINS
 !CDIR NOIEXPAND
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
+            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
             &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
             &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
@@ -999,12 +1001,13 @@ CONTAINS
   END SUBROUTINE subsmean_power4
 
 
-  SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, t_snow, t_soiltop, w_snow, rho_snow, &
+  SUBROUTINE diag_snowfrac_tg(istart, iend, z0_lcc, lc_class, t_snow, t_soiltop, w_snow, rho_snow, &
     freshsnow, sso_sigma, tai, snowfrac, t_g)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
     INTEGER, INTENT (IN) :: lc_class(:)  ! list of land-cover classes
+    REAL(wp), DIMENSION(:), INTENT(IN) :: z0_lcc(:)    ! roughness length
     REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
       freshsnow, sso_sigma, tai
 
@@ -1026,7 +1029,7 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.04_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(20._wp*freshsnow(ic)+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          z0_fac   = MAX(1._wp,SQRT(20._wp*z0_lu(MAX(1,lc_class(ic)))))
+          z0_fac   = MAX(1._wp,SQRT(20._wp*z0_lcc(MAX(1,lc_class(ic)))))
           z0_limit = MIN(1._wp,SQRT(SQRT(1.5_wp/z0_fac)))
           lc_limit = MIN(1._wp,1._wp/SQRT(MAX(0.1_wp,tai(ic))))
           snowfrac(ic) = MIN(lc_limit,z0_limit,snowdepth_fac/z0_fac)
