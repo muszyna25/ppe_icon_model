@@ -93,7 +93,8 @@ MODULE mo_pp_scheduler
     &                                   GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,  &
     &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE
+    &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
+    &                                   DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl, &
@@ -510,7 +511,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_pp_scheduler:pp_scheduler_init_pz")
     INTEGER                            :: &
-      &  jg, ndom, ientr, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
+      &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
       &  iaxis, vgrid, nlev
     LOGICAL                            :: &
       &  l_jg_active, l_intp_p, l_intp_z, found
@@ -650,7 +651,7 @@ CONTAINS
       p_diag_pz         => p_nh_opt_diag(jg)%diag_pz
       p_opt_diag_list_z => p_nh_opt_diag(jg)%opt_diag_list_z
       p_opt_diag_list_p => p_nh_opt_diag(jg)%opt_diag_list_p
-      ientr     = 16   ! "entropy" of horizontal slice
+      ibits     = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
       ! predefined array shapes
       nblks_c   = p_patch(jg)%nblks_c
@@ -660,8 +661,8 @@ CONTAINS
       nvars_predef = 0
         
       ! temp         (nproma,nzlev,nblks_c)        
-      cf_desc    = t_cf_var('temperature', 'K', 'temperature')
-      grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
+      cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
       nvars_predef = nvars_predef + 1
       varlist_predef(nvars_predef) = "temp"
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef), p_diag_pz%z_temp, &
@@ -671,8 +672,8 @@ CONTAINS
       ! pres         (nproma,nzlev,nblks_c)
       nvars_predef = nvars_predef + 1
       varlist_predef(nvars_predef) = "pres"
-      cf_desc    = t_cf_var('pressure', 'Pa', 'pressure')
-      grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
+      cf_desc    = t_cf_var('pressure', 'Pa', 'pressure', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef), p_diag_pz%z_pres, &
         & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
         & ldims=shape3d )
@@ -680,8 +681,8 @@ CONTAINS
       ! tracer_qv
       nvars_predef = nvars_predef + 1
       varlist_predef(nvars_predef) = "qv"
-      cf_desc    = t_cf_var('tracer_qv', 'kg kg-1', 'specific_humidity')
-      grib2_desc = t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL)
+      cf_desc    = t_cf_var('tracer_qv', 'kg kg-1', 'specific_humidity', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 1, 201, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef),          &
         & p_diag_pz%z_tracer_iqv, GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,     &
         & cf_desc, grib2_desc, ldims=shape3d)
@@ -689,8 +690,8 @@ CONTAINS
       ! tot_qv
       nvars_predef = nvars_predef + 1
       varlist_predef(nvars_predef) = "tot_qv"
-      cf_desc    = t_cf_var('tot_qv', '','total_specific_humidity')
-      grib2_desc = t_grib2_var(0, 6, 6, ientr, GRID_REFERENCE, GRID_CELL)
+      cf_desc    = t_cf_var('tot_qv', '','total_specific_humidity', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 6, 6, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef),          &
         & p_diag_pz%z_tot_cld_iqv, GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,    &
         & cf_desc, grib2_desc, ldims=shape3d)
@@ -698,14 +699,14 @@ CONTAINS
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
         ! GEOPOT
-        cf_desc    = t_cf_var('gh', 'm', 'geopotential height')
-        grib2_desc = t_grib2_var(0, 3, 5, ientr, GRID_REFERENCE, GRID_CELL)
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_geopot,             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
           & ldims=shape3d )
         ! temp
-        cf_desc    = t_cf_var('temperature', 'K', 'temperature')
-        grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
+        cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'temp', p_diag_pz%p_temp,            &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
           & ldims=shape3d )
