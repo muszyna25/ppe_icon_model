@@ -702,6 +702,10 @@ schedulers/ecmwf/ICON_r2B06_10d/def/mapfile_vlist.txt -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/cancel_check_progress -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/dot_cdprc -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon.def -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_archive.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_metview.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_prepare.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/testday.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/fct_ifs.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/forecast/check_progress.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/forecast/model.sms -text

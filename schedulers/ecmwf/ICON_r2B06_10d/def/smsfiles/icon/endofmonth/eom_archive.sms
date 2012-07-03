@@ -1,0 +1,53 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  EOM_ARCHIVE.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - copy output and/or
+  - store in database and/or
+  - trigger transfer to DWD
+%end
+
+# include the standard header file
+%include <head.h>
+
+# -------------------------------------------------
+
+echo "EOM_ARCHIVE.SMS" 
+
+
+ldeldata=0
+
+# change directory ----------------------------
+#smsevent change_dir
+
+# change directory ----------------------------
+smsevent copy_files
+
+
+#-----------------------------------------------------------------------------
+# archive ...
+
+#-----------------------------------------------------------------------------
+# delete grib data
+
+if [[ $ldeldata = 1 ]] ; then
+  \rm -rf grb_data 
+fi
+
+
+
+# -------------------------------------------------
+
+# include the standard "tail" file
+%include <tail.h>
+
