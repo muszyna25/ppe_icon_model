@@ -125,6 +125,7 @@ CONTAINS
 
     !Local variables
     !INTEGER i
+    INTEGER :: ibits = DATATYPE_PACK16
 
     INTEGER :: nblks_c, ist
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_sea_ice'
@@ -142,156 +143,163 @@ CONTAINS
 
     CALL add_var(ocean_restart_list, 'isice', p_ice%restart_isice ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('isice', '', 'ice mask'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('isice', '', 'ice mask', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'alb', p_ice%alb ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('alb', '', 'albedo of snow-ice system'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('alb', '', 'albedo of snow-ice system', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'Tsurf', p_ice%Tsurf ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('Tsurf', '', 'surface temperature'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('Tsurf', '', 'surface temperature', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'T1', p_ice%T1 ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('T1', 'C', 'Temperature upper layer'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'T2', p_ice%T2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('T2', 'C', 'Temperature lower layer'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E1', p_ice%E1 ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('E1', 'Jm/kg', 'Energy content upper layer'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('E1', 'Jm/kg', 'Energy content upper layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E2', p_ice%E2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('E2', 'Jm/kg', 'Energy content lower layer'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('E2', 'Jm/kg', 'Energy content lower layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hi', p_ice%hi ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('hi', 'm', 'ice thickness'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hs', p_ice%hs ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('hs', 'm', 'snow thickness'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hiold', p_ice%hiold ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('hiold', 'm', 'ice thickness (last timstep)'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('hiold', 'm', 'ice thickness (last timstep)', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hsold', p_ice%hsold ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('hsold', 'm', 'snow thickness (last timstep)'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('hsold', 'm', 'snow thickness (last timstep)', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'Qtop', p_ice%Qtop ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'Qbot', p_ice%Qbot ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'heatocei', p_ice%heatocei ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('heatocei', 'J', 'Energy to ocean when all ice is melted'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('heatocei', 'J', 'Energy to ocean when all ice is melted', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'snow_to_ice', p_ice%snow_to_ice ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'surfmelt', p_ice%surfmelt ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('surfmelt', 'm', 'surface melt water running into ocean'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('surfmelt', 'm', 'surface melt water running into ocean', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'surfmeltT', p_ice%surfmeltT ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('surfmeltT', 'C', 'Mean temperature of surface melt water'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('surfmeltT', 'C', 'Mean temperature of surface melt water', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
 
     CALL add_var(ocean_restart_list, 'evapwi', p_ice%evapwi ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('evapwi', 'kg/m^2', 'amount of evaporated water if no ice left'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('evapwi', 'kg/m^2', 'amount of evaporated water if no ice left', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'conc', p_ice%conc ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('conc', '', 'ice concentration in each ice class'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'ice_u', p_ice%u ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('ice_u', 'm/s', 'zonal velocity'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('ice_u', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'ice_v', p_ice%v ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('ice_v', 'm/s', 'meridional velocity'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('ice_v', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),&
       &          lrestart_cont=.TRUE.)
       
     CALL add_var(ocean_restart_list, 'concSum', p_ice%concSum ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('concSum', '', 'total ice concentration'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('concSum', '', 'total ice concentration', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'newice', p_ice%newice ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
-      &          t_cf_var('newice', 'm', 'new ice groth in open water'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('newice', 'm', 'new ice groth in open water', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'zUnderIce', p_ice%zUnderIce ,&
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
-      &          t_cf_var('zUnderIce', 'm', 'water in upper ocean grid cell below ice'),&
-      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          t_cf_var('zUnderIce', 'm', 'water in upper ocean grid cell below ice', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),&
       &          lrestart_cont=.TRUE.)
 
