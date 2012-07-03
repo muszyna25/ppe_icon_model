@@ -1,8 +1,9 @@
 import optparse
 import datetime
+import calendar
 
 #  -------------------------------------------------
-#  REQUEST_DATE.PY
+#  DATE_CALC.PY
 #  -------------------------------------------------
 #
 #  Python script doing some date calculations.
@@ -13,11 +14,16 @@ import datetime
 #  Corresponding author:
 #    Florian Prill, DWD, mailto:florian.prill@dwd.de
 
+# returns the last day of a month
+def last_day_of_month(date):
+    return (calendar.monthrange(date.year, date.month)[1])
+
+
 def main():
     p = optparse.OptionParser()
     p.add_option('--date',     '-d', default="2012050100",  help="requested date YYYMMDDHH")
     p.add_option('--subtract', '-s', default="0",           help="days to subtract")
-    p.add_option('--action',   '-a', default="printdate",   help="requested type of output: printdate/weekday/printfmt")
+    p.add_option('--action',   '-a', default="printdate",   help="requested type of output: printdate/weekday/printfmt/endofmonth")
     #
     options, arguments = p.parse_args()
 
@@ -35,6 +41,12 @@ def main():
     elif (options.action == "printfmt"):
         # format as required by ICON:
         print(date_object2.strftime("%Y-%m-%dT%H:00:00Z"))
+    elif (options.action == "endofmonth"):
+        # return "1" if end of month, "0" otherwise
+        if (date_object2.day == last_day_of_month(date_object2)):
+            print("1")
+        else:
+            print("0")
     else:
         print "Unknown command line option \"", options.action,"\"!"
 
