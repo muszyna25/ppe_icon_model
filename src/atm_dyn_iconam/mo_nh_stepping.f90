@@ -75,7 +75,7 @@ MODULE mo_nh_stepping
     &                               n_dom_start, lredgrid_phys, start_time, end_time, &
     &                               global_cell_type
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
-    &                               rotate_axis_deg
+    &                               rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
@@ -903,7 +903,9 @@ MODULE mo_nh_stepping
             &                     p_nh_state(jg)%prog(n_now),      & !in
             &                     p_nh_state(jg)%prog(n_new),      & !in
             &                     p_nh_state(jg)%metrics,          & !in
-            &                     p_nh_state(jg)%diag, dtadv_loc   ) !inout,in
+            &                     p_nh_state(jg)%diag, dtadv_loc,  & !inout,in
+            &                     jstep_adv(jg)%marchuk_order,     & !in
+            &                     lcoupled_rho                     )
         END SELECT
 
 

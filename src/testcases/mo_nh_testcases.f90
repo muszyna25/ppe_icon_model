@@ -141,6 +141,7 @@ MODULE mo_nh_testcases
   LOGICAL  :: linit_tracer_fv  !< finite volume initialization for tracer fields
                                !< if .TRUE.
 
+  LOGICAL  :: lcoupled_rho     !< re-integrate mass equation in PA test cases (TRUE/FALSE)
 
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
@@ -166,14 +167,14 @@ MODULE mo_nh_testcases
                             halfwidth_2dm, mount_lonc_deg, mount_latc_deg,   &
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
-                            tgr_poly, rh_poly, rhgr_poly 
+                            tgr_poly, rh_poly, rhgr_poly, lcoupled_rho  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
-    &       linit_tracer_fv, lhs_fric_heat
+    &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho 
 
   PRIVATE
 
@@ -315,6 +316,8 @@ MODULE mo_nh_testcases
     m_height       = 1000.0_wp
     m_width_x      = 5000.0_wp
     m_width_y      = 5000.0_wp
+    ! for PA test cases:
+    lcoupled_rho = .FALSE.
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
