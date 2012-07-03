@@ -26,7 +26,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "001"
+set EXPNUM        "002"                #---experiment number---
 set FIRST_DATE    20120601
 set LAST_DATE     20120901
 
@@ -319,7 +319,6 @@ suite icon_${EXPNUM}
                on_ecgate_submit
    
            set work "1 2 3 4"
-
            loop ii ( $work ) do
              family metview_$ii
                trigger (post_prepare == complete)
@@ -330,12 +329,48 @@ suite icon_${EXPNUM}
            endloop   
 
            task post_archive
-               trigger (post_prepare == complete)
+               trigger metview_1==complete and metview_2==complete \
+                   and metview_3==complete and metview_4==complete
                on_ecgate_submit
                event change_dir
                event copy_files
    
        endfamily
     endif
+
+
+    # END OF MONTH---------------------------------
+
+    family endofmonth
+        repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+        trigger (post==complete)
+
+        task testday
+            on_ecgate
+            event time_eom
+
+        task eom_prepare  
+            trigger testday:time_eom
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 02:00:00
+   
+        set work "1 2 3 4"
+        loop ii ( $work ) do
+          family eom_metview_$ii
+            trigger (eom_prepare == complete)
+            edit metproc $ii
+            task eom_metview
+              on_ecgate_submit
+          endfamily
+        endloop   
+   
+        task eom_archive
+            trigger eom_metview_1==complete and eom_metview_2==complete \
+                and eom_metview_3==complete and eom_metview_4==complete
+            on_ecgate_submit
+            event change_dir
+            event copy_files
+   
+    endfamily
 
 endsuite

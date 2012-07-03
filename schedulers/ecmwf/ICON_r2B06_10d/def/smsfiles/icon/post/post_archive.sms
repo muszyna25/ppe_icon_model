@@ -25,6 +25,8 @@
 echo "POST_ARCHIVE.SMS" 
 
 
+ldeldata=1
+
 # change directory ----------------------------
 #smsevent change_dir
 
@@ -35,6 +37,14 @@ smsevent copy_files
 #-----------------------------------------------------------------------------
 # archive ...
 
+
+
+#-----------------------------------------------------------------------------
+# delete grib data
+
+if [[ $ldeldata = 1 ]] ; then
+  \rm -rf grb_data 
+fi
 
 
 

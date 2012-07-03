@@ -29,7 +29,6 @@ echo "METVIEW.SMS"
 # metview plots
 
 lmetview=1
-ldeldata=1
 
 
 #-----------------------------------------------------------------------------
@@ -58,7 +57,7 @@ if [[ $lmetview = 1 ]] ; then
 fi
 
 nstart=$metproc #index of process    (e.g. 1 or 4)
-ndiff=4         #number of processes (e.g. 4)
+ndiff=4         #number of processes (e.g. 4, synchronize with icon.def "work")
 awk 'NR%${ndiff}==${nstart}' met.job > job.${nstart}
 
 #if [[ $lmetview = 1 ]] ; then
@@ -71,12 +70,6 @@ awk 'NR%${ndiff}==${nstart}' met.job > job.${nstart}
 #fi
 
 
-#-----------------------------------------------------------------------------
-# delete grib data
-
-if [[ $ldeldata = 1 ]] ; then
-  \rm -rf grb_data 
-fi
 
 
 # -------------------------------------------------
