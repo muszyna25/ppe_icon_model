@@ -79,7 +79,7 @@ MODULE mo_cf_convention
     CHARACTER(len=128) :: standard_name = ''
     CHARACTER(len=128) :: units         = ''
     CHARACTER(len=128) :: long_name     = ''
-    INTEGER            :: datatype
+    INTEGER            :: datatype      = -1
   END TYPE t_cf_var
 
   TYPE t_cf_gridspec
@@ -118,17 +118,19 @@ CONTAINS
 
   END FUNCTION set_cf_global
 
-  FUNCTION set_cf_var(long_name, units, standard_name) &
+  FUNCTION set_cf_var(long_name, units, standard_name, datatype) &
        RESULT(cf_var_info)
     TYPE(t_cf_var) :: cf_var_info
     CHARACTER(len=*), INTENT(in), OPTIONAL :: long_name
     CHARACTER(len=*), INTENT(in), OPTIONAL :: units
     CHARACTER(len=*), INTENT(in), OPTIONAL :: standard_name
+    INTEGER,          INTENT(in), OPTIONAL :: datatype
 
-    IF (PRESENT(long_name))     cf_var_info%long_name = long_name
-    IF (PRESENT(units))         cf_var_info%units     = units
+    IF (PRESENT(long_name))     cf_var_info%long_name     = long_name
+    IF (PRESENT(units))         cf_var_info%units         = units
     IF (PRESENT(standard_name)) cf_var_info%standard_name = standard_name
-    
+    IF (PRESENT(datatype))      cf_var_info%datatype      = datatype
+
   END FUNCTION set_cf_var
 
   FUNCTION set_cf_gridspec(coordinate_uuid, data_uuid, grid_file) &
