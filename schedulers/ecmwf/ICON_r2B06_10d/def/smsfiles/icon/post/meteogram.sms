@@ -18,7 +18,7 @@
 %end
 
 # include the standard header file
-%include <head.h>
+%include <init_ecgate_submit.h>
 
 # -------------------------------------------------
 
@@ -56,5 +56,5 @@ export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
 # -------------------------------------------------
 
 # include the standard "tail" file
-%include <tail.h>
+%include <end_job.h>
 

@@ -18,7 +18,7 @@
 %end
 
 # include the standard header file
-%include <head.h>
+%include <init_ecgate_submit.h>
 
 # -------------------------------------------------
 
