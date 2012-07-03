@@ -1001,8 +1001,8 @@ CONTAINS
   END SUBROUTINE subsmean_power4
 
 
-  SUBROUTINE diag_snowfrac_tg(istart, iend, z0_lcc, lc_class, t_snow, t_soiltop, w_snow, rho_snow, &
-    freshsnow, sso_sigma, tai, snowfrac, t_g)
+  SUBROUTINE diag_snowfrac_tg(istart, iend, z0_lcc, lc_class, t_snow, t_soiltop, w_snow, &
+    & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 

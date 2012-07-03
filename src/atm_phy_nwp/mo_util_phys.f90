@@ -45,7 +45,8 @@ MODULE mo_util_phys
   PRIVATE
   PUBLIC :: rel_hum
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: version = &
+    &  '$Id$'
 
 CONTAINS
 
