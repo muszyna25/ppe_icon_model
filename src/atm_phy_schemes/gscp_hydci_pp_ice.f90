@@ -527,8 +527,7 @@ SUBROUTINE hydci_pp_ice_init(idbg)
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 10) THEN
-      CALL message('gscp_hydci_pp_ice',&
-        &          'hydci_pp_ice_init: Initialized coefficients for hydci_pp_ice')
+      CALL message('gscp_hydci_pp_ice','hydci_pp_ice_init: Initialized coefficients for hydci_pp_ice')
       WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
@@ -1603,11 +1602,10 @@ SUBROUTINE hydci_pp_ice (             &
         ENDIF
         zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snuc(iv)
         zqct = simelt(iv)- scau(iv)  - scfrz(iv)  - scac(iv)   - sshed(iv) - srim(iv) 
-        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)  - &
-          &    sagg(iv) - siau(iv)
+        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)  - sagg(iv) - siau(iv)
         zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv)   - srcri(iv) - srfrz(iv) 
-        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv) + srim(iv) &
-                                                                           + ssdep(iv) + srfrz(iv)
+        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv) + srim(iv)       &
+                                                                                + ssdep(iv) + srfrz(iv)
         ztt = cpdr*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 
@@ -1644,9 +1642,7 @@ SUBROUTINE hydci_pp_ice (             &
           IF (qsg+qs(iv,k+1) <= zqmin) THEN
             zvzs(iv)= 0.0_ireals
           ELSE
-            zvzs(iv)= zvz0s(iv) * &
-              &       EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(iv,k+1))*0.5_ireals*rhog)) * &
-              &       zrho1o2(iv)
+            zvzs(iv)= zvz0s(iv) * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
           ENDIF
         ELSE
           ! Precipitation fluxes at the ground
@@ -1669,25 +1665,6 @@ SUBROUTINE hydci_pp_ice (             &
         t  (iv,k) = t (iv,k) + ztt*zdt 
         qv (iv,k) = MAX ( 0.0_ireals, qv(iv,k) + zqvt*zdt )
         qc (iv,k) = MAX ( 0.0_ireals, qc(iv,k) + zqct*zdt )
-
-        ! Store optional microphysical rates for diagnostics
-        IF (PRESENT(ddt_diag_au   )) ddt_diag_au   (iv,k) = scau  (iv)
-        IF (PRESENT(ddt_diag_ac   )) ddt_diag_ac   (iv,k) = scac  (iv)
-        IF (PRESENT(ddt_diag_ev   )) ddt_diag_ev   (iv,k) = sev   (iv)
-        IF (PRESENT(ddt_diag_nuc  )) ddt_diag_nuc  (iv,k) = snuc  (iv)
-        IF (PRESENT(ddt_diag_idep )) ddt_diag_idep (iv,k) = sidep (iv)
-        IF (PRESENT(ddt_diag_sdep )) ddt_diag_sdep (iv,k) = ssdep (iv)
-        IF (PRESENT(ddt_diag_agg  )) ddt_diag_agg  (iv,k) = sagg  (iv)
-        IF (PRESENT(ddt_diag_rim  )) ddt_diag_rim  (iv,k) = srim  (iv)
-        IF (PRESENT(ddt_diag_rcri )) ddt_diag_rcri (iv,k) = srcri (iv)
-        IF (PRESENT(ddt_diag_icri )) ddt_diag_icri (iv,k) = sicri (iv)
-        IF (PRESENT(ddt_diag_dau  )) ddt_diag_dau  (iv,k) = sdau  (iv)
-        IF (PRESENT(ddt_diag_iau  )) ddt_diag_iau  (iv,k) = siau  (iv)
-        IF (PRESENT(ddt_diag_imelt)) ddt_diag_imelt(iv,k) = simelt(iv)
-        IF (PRESENT(ddt_diag_smelt)) ddt_diag_smelt(iv,k) = ssmelt(iv)
-        IF (PRESENT(ddt_diag_cfrz )) ddt_diag_cfrz (iv,k) = scfrz (iv)
-        IF (PRESENT(ddt_diag_rfrz )) ddt_diag_rfrz (iv,k) = srfrz (iv)
-        IF (PRESENT(ddt_diag_shed )) ddt_diag_shed (iv,k) = sshed (iv)
 
       ENDDO loop_over_all_iv
 
