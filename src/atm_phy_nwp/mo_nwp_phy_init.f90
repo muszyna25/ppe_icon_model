@@ -710,23 +710,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !DR WARNING: plcov_mx and lai_mx have not been multiplied by ndvi_mrat in order 
 !DR          to account for seasonal variations.!!
 !DR
-      CALL init_canopy( ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
-         &  istartpar=i_startidx, iendpar=i_endidx, jstartpar=1, jendpar=1, &
-!
-!        &  hhl=p_metrics%z_ifc(:,:,jb), &
+      CALL init_canopy( ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
+         &  istartpar=i_startidx, iendpar=i_endidx,                 &
          &  fr_land=ext_data%atm%fr_land(:,jb), plcov=ext_data%atm%plcov_mx(:,jb), & 
          &  sai=prm_diag%sai(:,jb), lai=ext_data%atm%lai_mx(:,jb), &
          &  tai=prm_diag%tai(:,jb), eai=prm_diag%eai(:,jb) )
 
       CALL turbtran(iini=1, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
 !
-         &  ie=nproma, je=1, ke=nlev, ke1=nlevp1, vst=0, &
-!
-         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
-         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-!
-         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
-         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+         &  ie=nproma, ke=nlev, ke1=nlevp1,                                           &
+         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx, &
 !
          &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
 !
@@ -755,13 +748,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
 !
-         &  ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1, vst=0, &
-!
-         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
-         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-!
-         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
-         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
+         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  &
 !
          &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
          &  dp0=p_diag%dpres_mc(:,:,jb),                                                &

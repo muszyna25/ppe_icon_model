@@ -399,13 +399,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
 !
-         &  ie=nproma, je=1, ke=2, ke1=3,  vst=0, &
-!       
-         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
-         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-!       
-         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
-         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+         &  ie=nproma, ke=2, ke1=3,                                                   &
+         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx, &
 !       
          &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,ks:ke1,jb),   &
 !
@@ -435,13 +430,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !
          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
 !
-         &  ie=nproma, je=1, ke=nlev, ke1=nlevp1,  kcm=nlevp1,  vst=0, &
-!       
-         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
-         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-!       
-         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
-         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+         &  ie=nproma, ke=nlev, ke1=nlevp1,  kcm=nlevp1,  &
+         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  &
 !       
          &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),            &
          &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
