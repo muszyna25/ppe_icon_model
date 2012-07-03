@@ -1268,8 +1268,7 @@ REAL(wp) :: z_sum
       ! (needed for proper bracket formalism)
       ptr_int_state%c_lin_e(je,1,jb) = ptr_patch%edges%edge_cell_length(je,jb,2)/&
                                            ptr_patch%edges%dual_edge_length(je,jb)
-      ptr_int_state%c_lin_e(je,2,jb) = ptr_patch%edges%edge_cell_length(je,jb,1)/&
-                                           ptr_patch%edges%dual_edge_length(je,jb)
+      ptr_int_state%c_lin_e(je,2,jb) = 1._wp - ptr_int_state%c_lin_e(je,1,jb)
 
       IF (ptr_patch%cell_type == 6) THEN
         ilv1 = ptr_patch%edges%vertex_idx(je,jb,1)
