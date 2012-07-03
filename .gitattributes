@@ -1215,7 +1215,6 @@ src/io/mo_cf_convention.f90 -text
 src/io/mo_grib1.f90 -text
 src/io/mo_grib2.f90 -text
 src/io/mo_io_async.f90 -text
-src/io/mo_io_output.f90 svneol=native#text/plain
 src/io/mo_io_util.f90 -text
 src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text

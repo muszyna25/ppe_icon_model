@@ -2747,8 +2747,6 @@ CONTAINS
       
       info%cdiVarID   = varID
 
-      CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
-
       CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
 
       IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
@@ -2757,11 +2755,13 @@ CONTAINS
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
 
-
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
         ! Set GRIB2 Triplet
         CALL vlistDefVarParam(vlistID, varID,                                              &
           &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+        CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
+      ELSE
+        CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
 !DR
