@@ -1602,10 +1602,11 @@ SUBROUTINE hydci_pp (             &
         ENDIF
         zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snuc(iv)
         zqct = simelt(iv)- scau(iv)  - scfrz(iv)  - scac(iv)   - sshed(iv) - srim(iv) 
-        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)  - sagg(iv) - siau(iv)
-        zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv)   - srcri(iv) - srfrz(iv) 
-        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv) + srim(iv)       &
-                                                                                + ssdep(iv) + srfrz(iv)
+        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)            &
+                                                               - sagg(iv) - siau(iv)
+        zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv) - srcri(iv) - srfrz(iv) 
+        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv)           &
+                                                               + srim(iv) + ssdep(iv) + srfrz(iv)
         ztt = cpdr*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 

@@ -527,7 +527,8 @@ SUBROUTINE hydci_pp_ice_init(idbg)
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 10) THEN
-      CALL message('gscp_hydci_pp_ice','hydci_pp_ice_init: Initialized coefficients for hydci_pp_ice')
+      CALL message('gscp_hydci_pp_ice', &
+         'hydci_pp_ice_init: Initialized coefficients for hydci_pp_ice')
       WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
@@ -1602,10 +1603,11 @@ SUBROUTINE hydci_pp_ice (             &
         ENDIF
         zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snuc(iv)
         zqct = simelt(iv)- scau(iv)  - scfrz(iv)  - scac(iv)   - sshed(iv) - srim(iv) 
-        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)  - sagg(iv) - siau(iv)
-        zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv)   - srcri(iv) - srfrz(iv) 
-        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv) + srim(iv)       &
-                                                                                + ssdep(iv) + srfrz(iv)
+        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)            &
+                                                               - sagg(iv) - siau(iv)
+        zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv) - srcri(iv) - srfrz(iv) 
+        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv)           & 
+                                                               + srim(iv) + ssdep(iv) + srfrz(iv)
         ztt = cpdr*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 
