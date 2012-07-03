@@ -11,7 +11,7 @@
 #   -xf95-cpp-input
 #   -std=f2003
 #   -fmodule-private -fimplicit-none
-#   -ffree-line-length-99 -fmax-identifier-length=31
+#   -ffree-line-length-132 -fmax-identifier-length=31
 # 
 # . warning options:
 #   -Wall (= -Waliasing -Wampersand -Wsurprising -Wnonstd-intrinsics -Wno-tabs -Wline-truncation)
@@ -26,7 +26,7 @@
 #   (other potential initializers: -finit-integer=, -finit-logical=)
 #
 # 2010-02-09, Luis Kornblueh,  MPI-M: clean-up
-# 2010-02-17, Marco Giorgetta, MPI-M: activate -ffree-line-length-99
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -ffree-line-length-132
 # 2010-02-17, Marco Giorgetta, MPI-M: activate -fmodule-private
 # 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
 #
@@ -57,7 +57,7 @@ LAPACK_LIB  =
 LIBS        = -L../lib -lsupport -lcurl
 
 FCPP        = -xf95-cpp-input
-FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-99
+FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-132
 FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
 FDEBUG      = -g -fbacktrace -fbounds-check
 FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
