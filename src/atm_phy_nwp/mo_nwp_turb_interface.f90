@@ -60,7 +60,7 @@ MODULE mo_nwp_turb_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_phyparam_soil,        ONLY: z0_lu
+!  USE mo_phyparam_soil,        ONLY: z0_lu
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -183,7 +183,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &  zdummy_oh(nproma,p_patch%nblks_c) 
   INTEGER  :: idummy_oh(nproma ,p_patch%nblks_c)    !< dummy variable for output
   INTEGER  :: nlev, nlevp1                          !< number of full and half levels
-  INTEGER  :: lc_class                              !< land-cover class
+  INTEGER  :: lc_class, i_lc_si                              !< land-cover class
   INTEGER  :: ks, ke, ke1    ! For turbtran call
 
   ! local variables for edmf
@@ -235,7 +235,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ! number of vertical levels
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
-  
+
+  i_lc_si= ext_data%atm%i_lc_snow_ice(1)
+
   IF (msg_level >= 15) &
         & CALL message('mo_nwp_turb:', 'turbulence')
     
@@ -351,8 +353,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
             lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
             gz0(jc) = gz0(jc) + ext_data%atm%lc_frac_t(jc,jb,jt) * grav * ( &
-             (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*z0_lu(lc_class) +        &
-              lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*z0_lu(21) ) ! 21 = snow/ice
+             (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class) +        &
+              lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! 21 = snow/ice
           ENDIF
         ENDDO
       ENDDO

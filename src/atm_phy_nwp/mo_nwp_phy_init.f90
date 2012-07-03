@@ -102,7 +102,7 @@ MODULE mo_nwp_phy_init
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init
   USE mo_lnd_nwp_config,      ONLY: nsfc_subs
-  USE mo_phyparam_soil,       ONLY: csalbw, z0_lu
+  USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
 
@@ -173,7 +173,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !! slices
   INTEGER :: i_nchdom                !! domain index
-  INTEGER :: lc_class
+  INTEGER :: lc_class,i_lc_si
 !  INTEGER :: inwp_turb_init          !< 1: initialize nwp_turb
 !                                     !< 0: do not initialize
 
@@ -193,6 +193,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   jg     = p_patch%id
 
   nshift = p_patch%nshift_total
+
+  i_lc_si= ext_data%atm%i_lc_snow_ice(1)
 
   IF (.NOT. is_restart_run())THEN
 
@@ -672,13 +674,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ! specify land-cover-related roughness length over land points
         ! note:  water points are set in turbdiff
         gz0(:) = 0._wp
+        
         DO jt = 1, nsfc_subs
           DO jc = i_startidx, i_endidx
             IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%lc_frac_t(jc,jb,jt) * grav * ( &
-               (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*z0_lu(lc_class) +      &
-                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*z0_lu(21) ) ! 21 = snow/ice
+               (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+      &
+                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! 21 = snow/ice
             ENDIF
           ENDDO
         ENDDO
