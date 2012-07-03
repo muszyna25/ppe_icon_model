@@ -3006,7 +3006,6 @@ CONTAINS
 
       ! Check if output is due for this file
       IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
-
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
@@ -3413,8 +3412,9 @@ CONTAINS
   !! Main routine for I/O PEs.
   !! Please note that this routine never returns.
 
-  SUBROUTINE name_list_io_main_proc
+  SUBROUTINE name_list_io_main_proc(isample)
 
+    INTEGER, INTENT(in) :: isample
     LOGICAL :: done, last_step
     TYPE(t_datetime) :: datetime
     REAL(wp) :: sim_time
@@ -3439,7 +3439,8 @@ CONTAINS
     END DO
 
     ! Initialize name list output, this is a collective call for all PEs
-    CALL init_name_list_output
+    
+    CALL init_name_list_output(isample=isample)
 
     ! Tell the compute PEs that we are ready to work
     CALL async_io_send_ready_message

@@ -376,7 +376,7 @@ CONTAINS
         use_async_name_list_io = .TRUE.
         CALL message('','asynchronous namelist I/O scheme is enabled.')
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-          CALL name_list_io_main_proc
+          CALL name_list_io_main_proc(isample=iadv_rcf)
         END IF
         IF (output_mode%l_vlist) THEN
           output_mode%l_vlist = .FALSE.
