@@ -1,5 +1,5 @@
 !>
-!! Integrates density for idealized test cases
+!! Offline integration of density for idealized test cases
 !!
 !! Integrates density for idealized test cases, i.e. when the dynamical core 
 !! is switched off.
@@ -43,7 +43,8 @@ MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell,  &
-    &                               MIURA, MIURA3
+    &                               min_rledge_int, min_rlcell_int, MIURA, MIURA3
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -85,18 +86,17 @@ CONTAINS
     &                             p_metrics, p_diag, p_dtime, k_step,      &
     &                             lcoupled_rho )
 
-    !INPUT PARAMETERS:
-    TYPE(t_patch),      INTENT(IN)    :: p_patch
-    TYPE(t_int_state),  INTENT(IN)    :: p_int
-    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog_now
-    TYPE(t_nh_prog),    INTENT(INOUT) :: p_prog_new
-    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
-    TYPE(t_nh_diag),    INTENT(INOUT) :: p_diag
+    TYPE(t_patch),      INTENT(IN)   :: p_patch
+    TYPE(t_int_state),  INTENT(IN)   :: p_int
+    TYPE(t_nh_prog),    INTENT(IN)   :: p_prog_now
+    TYPE(t_nh_prog),    INTENT(INOUT):: p_prog_new
+    TYPE(t_nh_metrics), INTENT(IN)   :: p_metrics
+    TYPE(t_nh_diag),    INTENT(INOUT):: p_diag
 
-    REAL(wp), INTENT(IN) :: p_dtime
+    REAL(wp),           INTENT(IN)   :: p_dtime
 
-    INTEGER,  INTENT(IN) :: k_step       !< time step counter [1]
-    LOGICAL,  INTENT(IN) :: lcoupled_rho !< integrate mass equation (TRUE/FALSE)
+    INTEGER,            INTENT(IN)   :: k_step       !< time step counter [1]
+    LOGICAL,            INTENT(IN)   :: lcoupled_rho !< integrate mass equation (TRUE/FALSE)
  
     REAL(wp) ::   &                   !< density edge value
       &  z_rho_e(nproma,p_patch%nlev,p_patch%nblks_e)
@@ -106,8 +106,6 @@ CONTAINS
       &  z_w_traj(nproma,p_patch%nlevp1,p_patch%nblks_c)
     REAL(wp) ::  &                    !< flux divergence at cell center
       &  z_fluxdiv_rho(nproma,p_patch%nlev,p_patch%nblks_c)
-    REAL(wp) ::   &                   !< rho * dz (cell center)
-      &  z_rhodz_mc_new(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) ::   &                   !< vertical mass flux
       &  z_mflx_contra_v(nproma,p_patch%nlevp1)
 
@@ -131,6 +129,7 @@ CONTAINS
     ! get patch ID
     pid = p_patch%id
 
+
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
@@ -141,7 +140,6 @@ CONTAINS
 
 
     IF (lcoupled_rho) THEN
-
 
       lcompute =.TRUE.
       lcleanup =.TRUE.
@@ -156,7 +154,7 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
 
       i_rlstart = 1
-      i_rlend   = min_rledge
+      i_rlend   = min_rledge_int
 
       i_startblk = p_patch%edges%start_blk(i_rlstart,1)
       i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
@@ -186,7 +184,7 @@ CONTAINS
       IF ( advection_config(pid)%lvadv_tracer ) THEN
 
         i_rlstart = 1
-        i_rlend   = min_rlcell
+        i_rlend   = min_rlcell_int
 
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
@@ -218,22 +216,25 @@ CONTAINS
       !***************************************************
       IF ( advection_config(pid)%lvadv_tracer .AND. MOD( k_step, 2 ) == 0 ) THEN
 
-        i_rlstart = 1
-        i_rlend   = min_rlcell
+        i_rlstart = grf_bdywidth_c-1
+        i_rlend   = min_rlcell_int
 
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+
+!DR replaced 
+!DR \rho^{n+1/2}*w^{n+1/2} by w^{n+1/2}
+!DR \rho^{n} \Delta z by \Delta z
 
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
         CALL upwind_vflux_ppm_cfl( p_patch, ptr_current_rho,               &! in
           &                  advection_config(pid)%iubc_adv,               &! in
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
-          &                  0,                                            &! in (vlimit)
+          &                  advection_config(pid)%itype_vlimit(1),        &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full,                        &! in ! is that correct?
-!DR          &                  z_rhodz_mc_new,                               &! in
+          &                  p_metrics%ddqz_z_full,                        &! in 
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in
@@ -301,6 +302,12 @@ CONTAINS
       ! Horizontal integration of mass continuity equation
       !***************************************************
 
+      i_rlstart = grf_bdywidth_e-1
+      i_rlend   = min_rledge_int-1
+
+      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
       !
       ! get new Density 'edge-value'
       !
@@ -318,23 +325,19 @@ CONTAINS
           &                     advection_config(pid)%igrad_c_miura,           &
           &                     advection_config(pid)%itype_hlimit(1),         &
           &                     advection_config(pid)%iord_backtraj,           &
-          &                     z_rho_e, opt_lout_edge=.TRUE.   )
+          &                     z_rho_e, opt_lout_edge=.TRUE.,                 &
+          &                     opt_rlend=i_rlend   )
 
       CASE( MIURA3 )
 
         CALL upwind_hflux_miura3(p_patch, ptr_current_rho, p_prog_new%vn,      &
           &                      z_vn_traj, p_dtime, p_int, lcompute, lcleanup,&
           &                      advection_config(pid)%itype_hlimit(1),        &
-          &                      z_rho_e, opt_lout_edge=.TRUE.                 )
+          &                      z_rho_e, opt_lout_edge=.TRUE.,                &
+          &                      opt_rlend=i_rlend  )
       END SELECT
 
 
-
-      i_rlstart = 1
-      i_rlend   = min_rledge
-
-      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 
       !
@@ -366,7 +369,7 @@ CONTAINS
         &       p_int, z_fluxdiv_rho(:,:,:)       )! in,inout
 
 
-      i_rlstart = 1
+      i_rlstart = grf_bdywidth_c+1
       i_rlend   = min_rlcell
 
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
@@ -407,23 +410,26 @@ CONTAINS
 
       ! Integrate mass equation also in the vertical
 
-        i_rlstart = 1
-        i_rlend   = min_rlcell
+        i_rlstart = grf_bdywidth_c+1
+        i_rlend   = min_rlcell_int
 
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 
 
+!DR replaced 
+!DR \rho^{n+1/2}*w^{n+1/2} by w^{n+1/2}
+!DR \rho^{n} \Delta z by \Delta z
+
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
         CALL upwind_vflux_ppm_cfl( p_patch, ptr_current_rho,               &! in
           &                  advection_config(pid)%iubc_adv,               &! in
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
-          &                  0,                                            &! in (vlimit)
+          &                  advection_config(pid)%itype_vlimit(1),        &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full,                        &! in ! is that correct?
-!DR          &                  z_rhodz_mc_new,                               &! in
+          &                  p_metrics%ddqz_z_full,                        &! in
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in
@@ -482,8 +488,8 @@ CONTAINS
       ! - the velocity field is divergence free
 
 
-      i_rlstart = 1
-      i_rlend   = min_rledge
+      i_rlstart = grf_bdywidth_c-1
+      i_rlend   = min_rledge_int
 
       i_startblk = p_patch%edges%start_blk(i_rlstart,1)
       i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
