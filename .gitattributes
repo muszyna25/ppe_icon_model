@@ -849,6 +849,7 @@ scripts/postprocessing/tools/PLOT_examples/vertical_transection.ncl -text
 scripts/postprocessing/tools/Rakefile -text
 scripts/postprocessing/tools/analyze_io_files.py -text
 scripts/postprocessing/tools/angle-dist.rb -text
+scripts/postprocessing/tools/calc_moc_oce_icon.ksh -text
 scripts/postprocessing/tools/calc_psi_oce_icon.ksh -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
 scripts/postprocessing/tools/icon_plot.ncl -text
