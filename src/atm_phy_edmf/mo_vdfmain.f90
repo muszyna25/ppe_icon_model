@@ -1193,8 +1193,8 @@ ZSOC(KIDIA:KFDIA,1:KLEV)=PSOBETA(KIDIA:KFDIA,1:KLEV)*ZHU1
 DO JL=KIDIA,KFDIA
   if (zuuh(jl,klev-1,1) > 100.0  .or. zvuh(jl,klev-1,1)   > 100.0 .or. &
       zcfm(jl,klev)     > 1000.0 .or. zmflxm(jl,klev-1,1) > 1000.0  ) THEN
-    write(*,*) 'vdfmain before vdfdifm', zuuh(jl,klev-1,1), zvuh(jl,klev-1,1), &
-      zcfm(jl,klev), zmflxm(jl,klev-1,1)
+!    write(*,*) 'vdfmain before vdfdifm', zuuh(jl,klev-1,1), zvuh(jl,klev-1,1), &
+!      zcfm(jl,klev), zmflxm(jl,klev-1,1)
   endif
 ENDDO
 
@@ -1352,7 +1352,7 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
 DO JL=KIDIA,KFDIA
   IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
        ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
-    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
+!    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
   ENDIF
 ENDDO
 
@@ -1727,15 +1727,15 @@ ENDDO
       PAE(JL,JK) = ( ZAUPD(JL,JK) - PAM1(JL,JK) ) * ZRTMST
       
 !amk: debug
-IF ( PTE(JL,JK)  > 50.0/3600 ) THEN
-  WRITE(*,*) 'PTE>50K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
-ENDIF
-IF ( PVOM(JL,JK) > 50.0/3600 ) THEN
-  WRITE(*,*) 'PVOM>50m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
-ENDIF
-IF ( PVOL(JL,JK) > 50.0/3600 ) THEN
-  WRITE(*,*) 'PVOL>50m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
-ENDIF
+!IF ( PTE(JL,JK)  > 50.0/3600 ) THEN
+!  WRITE(*,*) 'PTE>50K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
+!ENDIF
+!IF ( PVOM(JL,JK) > 50.0/3600 ) THEN
+!  WRITE(*,*) 'PVOM>50m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
+!ENDIF
+!IF ( PVOL(JL,JK) > 50.0/3600 ) THEN
+!  WRITE(*,*) 'PVOL>50m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
+!ENDIF
 !xxx
 
     ENDDO
@@ -1744,12 +1744,12 @@ ENDIF
 !amk: debug
   DO JK=1,KLEV
     DO JL=KIDIA,KFDIA
-      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
-        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
-      ENDIF
-      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
-        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
-      ENDIF
+!      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
+!        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
+!      ENDIF
+!      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
+!        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
+!      ENDIF
     ENDDO
   ENDDO
 !xxx

@@ -762,8 +762,8 @@ CALL nwp_surface_edmf (&
           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
           ABS( lhfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
           ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
-      write(*,*) 'surfexc: SHF-soil,-snow,LHF-soil,-snow', snowfrac_ex(jl,jtile), &
-         shfl_s_ex(jl,jtile), shfl_snow_ex(jl,jtile), lhfl_s_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
+!      write(*,*) 'surfexc: SHF-soil,-snow,LHF-soil,-snow', snowfrac_ex(jl,jtile), &
+!         shfl_s_ex(jl,jtile), shfl_snow_ex(jl,jtile), lhfl_s_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
      ENDIF
    ENDDO
  ENDDO

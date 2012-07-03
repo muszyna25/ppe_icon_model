@@ -572,9 +572,9 @@ DO ic = 1, i_count
   jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
   if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
        abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
-    write(*,*) 'mo_nwp_sfc_interface_edmf ', ic, jc, isubs, snowfrac_t(ic,isubs), &
-      shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
-      lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
+!    write(*,*) 'mo_nwp_sfc_interface_edmf ', ic, jc, isubs, snowfrac_t(ic,isubs), &
+!      shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
+!      lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
    endif
 ENDDO
 
