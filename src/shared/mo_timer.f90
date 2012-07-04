@@ -57,7 +57,7 @@ MODULE mo_timer
   PUBLIC :: timer_barrier  
 
   PUBLIC :: timer_integrate_nh
-  PUBLIC :: timer_solve_nh
+  PUBLIC :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
   PUBLIC :: timer_physics
                         !< IDs of timers
   PUBLIC :: timer_radiation
@@ -139,6 +139,8 @@ MODULE mo_timer
   PUBLIC :: timer_bdy_interp
   PUBLIC :: timer_feedback
 
+  PUBLIC :: timer_extra1, timer_extra2, timer_extra3, timer_extra4
+
   !-------------------
   ! Module variables
   !-------------------
@@ -152,7 +154,7 @@ MODULE mo_timer
   INTEGER :: timer_nh_hdiffusion
 
   INTEGER :: timer_integrate_nh
-  INTEGER :: timer_solve_nh
+  INTEGER :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
   INTEGER :: timer_physics
   INTEGER :: timer_update_prog_phy
 
@@ -247,6 +249,10 @@ MODULE mo_timer
   
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
+  ! The purpose of these "extra" timers is to have otherwise unused timers available for
+  ! special-purpose measurements. Please do not remove them and do not use them permanently.
+  INTEGER :: timer_extra1, timer_extra2, timer_extra3, timer_extra4
+
 CONTAINS
 
   SUBROUTINE init_timer
@@ -268,8 +274,12 @@ CONTAINS
     timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
  
-    timer_integrate_nh= new_timer  ("ntegrate_nh")
-    timer_solve_nh    = new_timer  ("nh_solve")
+    timer_integrate_nh  = new_timer  ("integrate_nh")
+    timer_solve_nh      = new_timer  ("nh_solve")
+    timer_solve_nh_p1   = new_timer  ("nh_solve.p1")
+    timer_solve_nh_p2   = new_timer  ("nh_solve.p2")
+    timer_solve_nh_exch = new_timer  ("nh_solve.exch")
+
     timer_step_2tl_si = new_timer("2tl_si_solve")
     timer_step_RK     = new_timer("RK_solve")
     timer_nh_hdiffusion= new_timer("nh_hdiff")
@@ -388,14 +398,13 @@ CONTAINS
     timer_bdy_interp = new_timer("nesting.bdy_interp")
     timer_feedback   = new_timer("nesting.feedback") 
 
+    ! extra timers for on-demand (non-permanent) timings
+    timer_extra1 = new_timer("extra1")
+    timer_extra2 = new_timer("extra2")
+    timer_extra3 = new_timer("extra3")
+    timer_extra4 = new_timer("extra4")
+
   END SUBROUTINE init_timer
 
 END MODULE mo_timer
-
-
-
-
-
-
-
 

@@ -165,7 +165,7 @@ inwp_gscp       = 1
 inwp_convection = 1
 inwp_radiation  = 1
 inwp_cldcover   = 3
-inwp_turb       = 2
+inwp_turb       = 4
 inwp_satad      = 1
 /
 &radiation_nml

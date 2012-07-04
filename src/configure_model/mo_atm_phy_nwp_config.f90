@@ -229,7 +229,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
 
 
-    IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
+    IF( atm_phy_nwp_config(1)%inwp_turb == 4) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF

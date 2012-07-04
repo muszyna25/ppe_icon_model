@@ -498,7 +498,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     shape3dkp1 = (/nproma, klevp1,    kblks            /)
     shape3dsubs = (/nproma, kblks,    nsfc_subs        /)
 
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 4) THEN
       shapesfc   = (/nproma,          kblks, nsfc_type /)
     ENDIF
 
@@ -1712,7 +1712,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
   ! vdiff
   !
 
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 4) THEN
 
       ! &      diag%cfm_tile(nproma,nblks_c)
       cf_desc    = t_cf_var('cfm_tile','',&
@@ -1877,7 +1877,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
-    ENDIF  !inwp_turb == 2 (vdiff)
+    ENDIF  !inwp_turb == 4 (vdiff)
 
 
   !

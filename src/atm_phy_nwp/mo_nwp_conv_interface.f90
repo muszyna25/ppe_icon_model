@@ -184,7 +184,7 @@ CONTAINS
           z_qhfl(i_startidx:i_endidx,nlevp1) = - prm_diag%qhfl_s(i_startidx:i_endidx,jb)
           z_shfl(i_startidx:i_endidx,nlevp1) = - prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
-        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
+        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4 ) THEN
 
           ! In turb2, the flux is negative upwards.
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)

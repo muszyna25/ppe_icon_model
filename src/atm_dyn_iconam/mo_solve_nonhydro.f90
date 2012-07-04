@@ -51,7 +51,7 @@ MODULE mo_solve_nonhydro
                                      rayleigh_type
   USE mo_dynamics_config,      ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
-  USE mo_run_config,         ONLY: ltimer, lvert_nest
+  USE mo_run_config,         ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,       ONLY: t_patch
   USE mo_grid_config,        ONLY: l_limited_area, nroot, grid_sphere_radius
   USE mo_intp_data_strc,     ONLY: t_int_state
@@ -74,7 +74,8 @@ MODULE mo_solve_nonhydro
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
-  USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop
+  USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop, &
+                                  timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
 
   IMPLICIT NONE
 
@@ -477,7 +478,6 @@ MODULE mo_solve_nonhydro
       DO je = i_startidx, i_endidx
         DO jk = 1, nlev
 #else
-! unrolling with 6 would be even better, but only if nlev is a multiple of 6
 !CDIR UNROLL=2
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
@@ -611,6 +611,7 @@ MODULE mo_solve_nonhydro
     !-------------------------------------------------------------------
     
     IF (ltimer) CALL timer_start(timer_solve_nh)
+    IF (timers_level > 5) CALL timer_start(timer_solve_nh_p1)
 
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  
       l_vert_nested = .TRUE.
@@ -1355,6 +1356,10 @@ MODULE mo_solve_nonhydro
 
 !$OMP END PARALLEL
 
+    IF (timers_level > 5) THEN
+      CALL timer_stop(timer_solve_nh_p1)
+      CALL timer_start(timer_solve_nh_exch)
+    ENDIF
     IF (itype_comm == 1) THEN
       IF (istep == 1) THEN
         IF (idiv_method == 1) THEN
@@ -1365,6 +1370,10 @@ MODULE mo_solve_nonhydro
       ELSE
         CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
       ENDIF
+    ENDIF
+    IF (timers_level > 5) THEN
+      CALL timer_stop(timer_solve_nh_exch)
+      CALL timer_start(timer_solve_nh_p2)
     ENDIF
 
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
@@ -1973,6 +1982,10 @@ MODULE mo_solve_nonhydro
 
 !$OMP END PARALLEL
 
+    IF (timers_level > 5) THEN
+      CALL timer_stop(timer_solve_nh_p2)
+      CALL timer_start(timer_solve_nh_exch)
+    ENDIF
     IF (itype_comm == 1) THEN
       IF (istep == 1) THEN ! Only w is updated in the predictor step
         CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
@@ -1981,6 +1994,10 @@ MODULE mo_solve_nonhydro
         CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho,  &
                                    p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
       ENDIF
+    ENDIF
+    IF (timers_level > 5) THEN
+      CALL timer_stop(timer_solve_nh_exch)
+      IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
     ENDIF
 
     ENDDO ! istep-loop
@@ -1991,13 +2008,17 @@ MODULE mo_solve_nonhydro
       RETURN
     ENDIF 
 
-! OpenMP directives are commented for the time being because the overhead is too large
-!!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+! OpenMP directives are commented for the NEC because the overhead is too large
+#ifndef __SX__
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+#endif
     IF (l_limited_area .OR. p_patch%id > 1) THEN
 
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points 
-!!$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#ifndef __SX__
+!$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#endif
       DO ic = 1, p_nh%metrics%bdy_halo_c_dim
 
         jb = p_nh%metrics%bdy_halo_c_blk(ic)
@@ -2016,7 +2037,9 @@ MODULE mo_solve_nonhydro
 
         ENDDO
       ENDDO
-!!$OMP END DO
+#ifndef __SX__
+!$OMP END DO
+#endif
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -2024,7 +2047,9 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#ifndef __SX__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2046,7 +2071,9 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
       ENDDO
-!!$OMP END DO
+#ifndef __SX__
+!$OMP END DO
+#endif
     ENDIF
 
     rl_start = min_rlcell_int - 1
@@ -2055,7 +2082,9 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#ifndef __SX__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2075,8 +2104,10 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
     ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
+#ifndef __SX__
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
 
    IF (ltimer) CALL timer_stop(timer_solve_nh)
 

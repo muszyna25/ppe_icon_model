@@ -73,7 +73,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  inwp_convection = 1
  inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO
  inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
- inwp_turb       = 1        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
+ inwp_turb       = 1        ! 1: Raschendorfer, 3: EDMF-DUALM, 4: ECHAM
  inwp_sso        = 0
  inwp_surface    = 0
  dt_conv         = 900

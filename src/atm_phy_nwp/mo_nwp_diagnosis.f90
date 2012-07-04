@@ -325,7 +325,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & / p_sim_time 
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4) THEN
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v         &
@@ -370,7 +370,7 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4) THEN
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
                                &  * dt_phy_jg(itfastphy)
@@ -412,7 +412,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
                                & / p_sim_time
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)              &

@@ -2979,7 +2979,7 @@ CONTAINS
       CASE ('SHFL_S')
        IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
          ptr2 => prm_diag(jg)%shfl_s
        ELSE
          ptr2 => prm_diag(jg)%shfl_s
@@ -2987,7 +2987,7 @@ CONTAINS
       CASE ('LHFL_S')
        IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
          ptr2 =>  dup2(-1.*prm_diag(jg)%lhfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
          ptr2 => prm_diag(jg)%lhfl_s
        ELSE
          ptr2 => prm_diag(jg)%lhfl_s
