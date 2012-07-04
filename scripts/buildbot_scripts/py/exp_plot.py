@@ -259,7 +259,7 @@ class EXP_plot(HtmlResource):
 #ws	  Date_to = "2012-06-21"
 	  now_time = time.strftime("%H%M",time.localtime(util.now()))
 	      
-	  yesterday = datetime.now() - timedelta(days=1)
+	  yesterday = datetime.now() - timedelta(days=2)
 	      
 	  if now_time > "2200":
 #ws	    Date_from = "2012-06-20"
@@ -333,7 +333,6 @@ class EXP_plot(HtmlResource):
 	  data = "Revision List for this timeperode ist emty"
 	  return data
 	  
-	print "==============================================="
 	print Archive_Button_Dict['rev']
         if not l_nightly:
 	  min_Revision = Archive_Button_Dict['rev'][0]
@@ -345,9 +344,6 @@ class EXP_plot(HtmlResource):
 	  if Rev_to > max_Revision:
 	    Rev_to   = max_Revision
 	    
-        print "min_Revision: " + min_Revision
-        print "max_Revision: " + max_Revision
-        print "==============================================="
 	
 
 # Build a plot list which contains only the plots of the acual experiment
@@ -608,6 +604,12 @@ class EXP_plot(HtmlResource):
 #        data += "  <td style=\"text-align:left;\">\n"
 	data += "    <input type=\"hidden\" name=\"modus\" value=\""+ modus + "\">\n"
 	data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
+	data += "    <input type=\"hidden\" name=\"builder\" value=\"" + selected_builder + "\">\n"
+	data += "    <input type=\"hidden\" name=\"build\" value=\"" + selected_build + "\">\n"
+#      fDate   = req.args.get("date_from",[None])[0]
+#      tDate   = req.args.get("date_to",[None])[0]
+#      fRev    = req.args.get("rev_from",[None])[0]
+#      tRev    = req.args.get("rev_to",[None])[0]
 #	data += "    <input type=\"submit\" name=\"Search_OK\" value=\"OK\" >\n"
 #        data += "  </td>\n</tr>\n"
 
@@ -916,29 +918,50 @@ class EXP_plot(HtmlResource):
       f       = req.args.get("file",[None])[0]
       builder = req.args.get("builder",[None])[0]
       build   = req.args.get("build",[None])[0]
-      fDate   = req.args.get("date_from",[None])[0]
-      tDate   = req.args.get("date_to",[None])[0]
-      fRev    = req.args.get("rev_from",[None])[0]
-      tRev    = req.args.get("rev_to",[None])[0]
+#      fDate   = req.args.get("date_from",[None])[0]
+#      tDate   = req.args.get("date_to",[None])[0]
+#      fRev    = req.args.get("rev_from",[None])[0]
+#      tRev    = req.args.get("rev_to",[None])[0]
       
       Redirect_Info = "../plot?exp=" + e  + "&modus=" + m
       
       if f.find(e + "_") >= 0:
         Redirect_Info += "&file=" + f
 
+      Redirect_Info += "&build=" + build
+      
       if builder != "all":
 	Redirect_Info += "&builder=" + builder
 	if selected_builder != builder:
           build = "all"
           
-      if build != "all":
-        Redirect_Info += "&build=" + build
+      if "date_from" in req.args:
+        try:
+          fDate = req.args["date_from"][0]
+          Redirect_Info += "&date_from=" + fDate      
+        except ValueError:
+          pass
       
-      Redirect_Info += "&date_from=" + fDate      
-      Redirect_Info += "&date_to=" + tDate
-
-      Redirect_Info += "&rev_from=" + fRev      
-      Redirect_Info += "&rev_to=" + tRev
+      if "date_to" in req.args:
+        try:
+          tDate = req.args["date_to"][0]
+          Redirect_Info += "&date_to=" + tDate      
+        except ValueError:
+          pass
+      
+      if "rev_from" in req.args:
+        try:
+          fRev = req.args["rev_from"][0]
+          Redirect_Info += "&rev_from=" + fRev      
+        except ValueError:
+          pass
+      
+      if "rev_to" in req.args:
+        try:
+          tRev = req.args["rev_to"][0]
+          Redirect_Info += "&rev_to=" + tRev      
+        except ValueError:
+          pass
 
       return Redirect(Redirect_Info)
 #      return Redirect("../plot?exp=" + e + "&file=" + f + "&modus=")
