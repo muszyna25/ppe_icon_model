@@ -81,7 +81,7 @@ MODULE mo_ha_stepping
   
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync_all
   USE mo_parallel_config,   ONLY: use_icon_comm
-  USE mo_name_list_output_config, ONLY: is_any_output_file_active, use_async_name_list_io
+  USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_name_list_output,        ONLY: write_name_list_output, istime4name_list_output, &
        &                                output_file
 

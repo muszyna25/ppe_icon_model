@@ -61,7 +61,10 @@ MODULE mo_pp_scheduler
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,               &
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
-    & max_dom, max_var_ml, max_var_pl, max_var_hl
+    & max_dom, max_var_ml, max_var_pl, max_var_hl,                    &
+    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
+    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PZLEV, TASK_INTP_SYNC,      &
+    & TASK_COMPUTE_RH     
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
@@ -75,7 +78,8 @@ MODULE mo_pp_scheduler
     &                                   t_nh_metrics
   USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, p_nh_opt_diag
-  USE mo_nwp_phy_state,           ONLY: t_nwp_phy_diag, prm_diag
+  USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
   USE mo_name_list_output_config, ONLY: t_output_name_list, &
     &                                   vname_len, first_output_name_list
@@ -93,39 +97,21 @@ MODULE mo_pp_scheduler
     &                                   DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_pzlev_setup, &
-    &                                   pp_task_pzlev, t_data_input, t_data_output,        &
-    &                                   t_simulation_status, t_job_queue, job_queue
+    &                                   pp_task_pzlev, pp_task_compute_field,              &
+    &                                   t_data_input, t_data_output,                       &
+    &                                   t_simulation_status, t_job_queue, job_queue,       &
+    &                                   MAX_NAME_LENGTH, HIGH_PRIORITY, DEFAULT_PRIORITY1, &
+    &                                   DEFAULT_PRIORITY2, LOW_PRIORITY, dbg_level
   USE mo_fortran_tools,           ONLY: assign_if_present
 
   IMPLICIT NONE
-
-  ! max. name string length
-  INTEGER, PARAMETER :: MAX_NAME_LENGTH   =   64
-
-  ! priority levels for tasks (smaller is earlier):
-  INTEGER, PARAMETER :: HIGH_PRIORITY     =    0  
-  INTEGER, PARAMETER :: DEFAULT_PRIORITY1 =    9   
-  INTEGER, PARAMETER :: DEFAULT_PRIORITY2 =   10  
-  INTEGER, PARAMETER :: LOW_PRIORITY      =  100  
-
-  ! level of output verbosity
-  INTEGER :: dbg_level = 0
-  
-  !--- Available post-processing tasks
-  !------ setup tasks (coefficients,...)
-  INTEGER, PARAMETER :: TASK_INIT_VER_PZ       = 1  !< task: setup pz-interpolation
-  INTEGER, PARAMETER :: TASK_INIT_VER_Z        = 2  !< task: setup only z-interpolation
-  INTEGER, PARAMETER :: TASK_FINALIZE_PZ       = 3  !< task: deallocate pz-interpolation
-  !------ interpolation tasks:
-  INTEGER, PARAMETER :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
-  INTEGER, PARAMETER :: TASK_INTP_VER_PZLEV    = 5  !< task: vertical p or z-levels
-  INTEGER, PARAMETER :: TASK_INTP_SYNC         = 6  !< task: synchronizes halo regions
 
   ! interface definition
   PRIVATE
 
   ! functions and subroutines
   PUBLIC :: pp_scheduler_init
+  PUBLIC :: pp_scheduler_register
   PUBLIC :: pp_scheduler_process
   PUBLIC :: pp_scheduler_finalize
   PUBLIC :: new_simulation_status
@@ -172,6 +158,34 @@ CONTAINS
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
+
+    !-------------------------------------------------------------
+    !--- setup of optional diagnostic fields updated by the 
+    !    post-processing scheduler
+
+    !- loop over model level variables
+    DO i = 1,nvar_lists
+      jg = var_lists(i)%p%patch_id         
+
+      element => NULL()
+      DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT
+
+        SELECT CASE(element%field%info%l_pp_scheduler_task)
+        CASE (TASK_COMPUTE_RH)
+          IF (dbg_level > 5)  &
+            & CALL message(routine, "Inserting pp task: "//TRIM(element%field%info%name))
+          CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element )
+        END SELECT
+        
+      ENDDO ! loop over vlist "i"
+    ENDDO ! i = 1,nvar_lists
+
 
     !-------------------------------------------------------------
     !--- setup of vertical interpolation onto p/z-levels
@@ -792,6 +806,44 @@ CONTAINS
 
 
   !---------------------------------------------------------------
+  !> Register a new post-processing task.
+  !
+  !  The new task will be added to the dynamic list of post-processing
+  !  jobs and called on a regular basis.
+  !
+  SUBROUTINE pp_scheduler_register(name, jg, p_out_var, &
+    &                              opt_priority, opt_l_output_step)
+
+    CHARACTER(LEN=*)                   , INTENT(IN) :: name
+    INTEGER                            , INTENT(IN) :: jg
+    TYPE (t_list_element), POINTER                  :: p_out_var
+    INTEGER, OPTIONAL                  , INTENT(IN) :: opt_priority
+    LOGICAL, OPTIONAL                  , INTENT(IN) :: opt_l_output_step
+    ! local variables
+    LOGICAL                    :: l_output_step
+    INTEGER                    :: priority
+    TYPE(t_job_queue), POINTER :: task
+    
+    ! set default values
+    l_output_step = .TRUE.
+    priority      = DEFAULT_PRIORITY1
+    ! assign optional parameters:
+    CALL assign_if_present(priority, opt_priority)
+    CALL assign_if_present(l_output_step, opt_l_output_step)
+    ! create a post-processing task and fill its input/output data:
+    task => pp_task_insert(priority)
+    WRITE (task%job_name, *) TRIM(name),", DOM ",jg
+    task%data_input%jg          =  jg           
+    task%data_input%p_nh_state  => p_nh_state(jg)
+    task%data_input%p_patch     => p_patch(jg)
+    task%data_output%var        => p_out_var%field
+    task%job_type               =  TASK_COMPUTE_RH
+    task%activity               =  new_simulation_status(l_output_step=l_output_step)
+
+  END SUBROUTINE pp_scheduler_register
+
+
+  !---------------------------------------------------------------
   !> Loop over job queue, call active tasks.
   !
   SUBROUTINE pp_scheduler_process(simulation_status)
@@ -823,7 +875,9 @@ CONTAINS
       CASE ( TASK_INTP_VER_PZLEV )
         CALL pp_task_pzlev(ptr_task)
       CASE ( TASK_INTP_SYNC )
-        call pp_task_sync()
+        CALL pp_task_sync()
+      CASE ( TASK_COMPUTE_RH )
+        call pp_task_compute_field(ptr_task)
       CASE DEFAULT
         CALL finish(routine, "Unknown post-processing job.")
       END SELECT
@@ -916,9 +970,6 @@ CONTAINS
     element%job_priority =  job_priority
     element%next         => tmp
   END FUNCTION pp_task_insert
-
-
-  !------------------------------------------------------------------------------------------------
 
 
   !------------------------------------------------------------------------------------------------

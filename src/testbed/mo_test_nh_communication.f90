@@ -136,7 +136,6 @@ MODULE mo_test_nh_communication
   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
     & init_ompthread_radiation
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
-  USE mo_name_list_output_config,  ONLY: is_any_output_file_active
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output, &
     &                               output_file
   !-------------------------------------------------------------------------

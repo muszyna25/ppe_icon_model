@@ -60,7 +60,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
   USE mo_nonhydro_types,       ONLY: t_nh_diag
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2

@@ -46,7 +46,7 @@ MODULE mo_nwp_phy_init
   USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths

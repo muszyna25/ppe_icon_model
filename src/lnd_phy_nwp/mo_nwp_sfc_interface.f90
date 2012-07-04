@@ -51,7 +51,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config

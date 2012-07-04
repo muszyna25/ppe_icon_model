@@ -128,6 +128,10 @@ MODULE mo_var_metadata
     ! meta data containing the groups to which a variable belongs
     LOGICAL :: in_group(SIZE(var_groups))
 
+    ! Flag: defines, if this field is updated by the internal
+    ! post-processing scheduler
+    INTEGER :: l_pp_scheduler_task
+
   END TYPE t_var_metadata
 
   PUBLIC :: t_union_vals

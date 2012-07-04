@@ -44,7 +44,10 @@ MODULE mo_pp_tasks
   USE mo_impl_constants,          ONLY: SUCCESS,                      &
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,               &
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
-    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1
+    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
+    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
+    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PZLEV, TASK_INTP_SYNC,      &
+    & TASK_COMPUTE_RH     
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -59,7 +62,8 @@ MODULE mo_pp_tasks
   USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
     &                                   vcoeff_deallocate, p_nh_opt_diag
-  USE mo_nwp_phy_state,           ONLY: t_nwp_phy_diag, prm_diag
+  USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
   USE mo_name_list_output_config, ONLY: t_output_name_list, &
     &                                   vname_len, first_output_name_list
@@ -77,38 +81,31 @@ MODULE mo_pp_tasks
     &                                   rbf_vec_interpol_lonlat_nl
   USE mo_sync,                    ONLY: sync_patch_array,                        &
     &                                   SYNC_C, SYNC_E, SYNC_V
+  USE mo_util_phys,               ONLY: compute_field_rel_hum
 
   IMPLICIT NONE
 
-  ! max. name string length
-  INTEGER, PARAMETER :: MAX_NAME_LENGTH   =   64
-
-  ! priority levels for tasks (smaller is earlier):
-  INTEGER, PARAMETER :: HIGH_PRIORITY     =    0  
-  INTEGER, PARAMETER :: DEFAULT_PRIORITY1 =    9   
-  INTEGER, PARAMETER :: DEFAULT_PRIORITY2 =   10  
-  INTEGER, PARAMETER :: LOW_PRIORITY      =  100  
-
-  ! level of output verbosity
-  INTEGER :: dbg_level = 0
-  
-  !--- Available post-processing tasks
-  !------ setup tasks (coefficients,...)
-  INTEGER, PARAMETER :: TASK_INIT_VER_PZ       = 1  !< task: setup pz-interpolation
-  INTEGER, PARAMETER :: TASK_INIT_VER_Z        = 2  !< task: setup only z-interpolation
-  INTEGER, PARAMETER :: TASK_FINALIZE_PZ       = 3  !< task: deallocate pz-interpolation
-  !------ interpolation tasks:
-  INTEGER, PARAMETER :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
-  INTEGER, PARAMETER :: TASK_INTP_VER_PZLEV    = 5  !< task: vertical p or z-levels
-  INTEGER, PARAMETER :: TASK_INTP_SYNC         = 6  !< task: synchronizes halo regions
-
   ! interface definition
   PRIVATE
+
+  ! max. name string length
+  INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   64
+
+  ! priority levels for tasks (smaller is earlier):
+  INTEGER, PARAMETER, PUBLIC  :: HIGH_PRIORITY     =    0  
+  INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY1 =    9   
+  INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY2 =   10  
+  INTEGER, PARAMETER, PUBLIC  :: LOW_PRIORITY      =  100  
+
+  ! level of output verbosity
+  INTEGER, PUBLIC :: dbg_level = 0
+
   ! functions and subroutines
   PUBLIC :: pp_task_lonlat
   PUBLIC :: pp_task_sync
   PUBLIC :: pp_task_pzlev_setup
   PUBLIC :: pp_task_pzlev
+  PUBLIC :: pp_task_compute_field
   ! variables
   PUBLIC :: job_queue
   ! data types
@@ -645,5 +642,48 @@ CONTAINS
     END SELECT ! vert_intp_method
 
   END SUBROUTINE pp_task_pzlev
+
+
+  !---------------------------------------------------------------
+  !> Performs computation of optional diagnostic fields.
+  !
+  !  Selects subroutines for field computation based on the variable
+  !  name.
+  !
+  !  @note This could be easily replaced by a procedure pointer,
+  !        alas, this is an F2003 feature.
+  !
+  SUBROUTINE pp_task_compute_field(ptr_task)
+    TYPE(t_job_queue), POINTER :: ptr_task
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = &
+      &  TRIM("mo_pp_tasks:pp_task_compute_field")
+    INTEGER                            :: jg, out_var_idx
+    TYPE (t_var_list_element), POINTER :: out_var
+    TYPE(t_var_metadata),      POINTER :: p_info
+    TYPE(t_patch),             POINTER :: p_patch
+    TYPE(t_nh_prog),           POINTER :: p_prog
+    TYPE(t_nh_diag),           POINTER :: p_diag
+    
+    ! output field for this task
+    out_var   => ptr_task%data_output%var
+    p_info    => out_var%info    
+    out_var   => out_var
+    out_var_idx = 1
+    if (out_var%info%lcontained)  out_var_idx = out_var%info%ncontained
+
+    ! input data required for computation:
+    jg        =  ptr_task%data_input%jg
+    p_patch   => ptr_task%data_input%p_patch
+    p_prog    => ptr_task%data_input%p_nh_state%prog(nnow(jg))
+    p_diag    => ptr_task%data_input%p_nh_state%diag
+
+    SELECT CASE(p_info%name)
+    CASE ("rh")
+      CALL compute_field_rel_hum(p_patch, p_prog, p_diag, &
+        &                        out_var%r_ptr(:,:,:,out_var_idx,1))
+    END SELECT
+
+  END SUBROUTINE pp_task_compute_field
 
 END MODULE mo_pp_tasks

@@ -2,7 +2,7 @@
 #define HAVE_F95
 #endif
 !>
-!!  !MODULE:  mo_nwp_phy_types\\
+!!  !MODULE:  mo_nwp_lnd_types\\
 !!
 !! Description:  Data type definition for land surface scheme (TERRA)
 !

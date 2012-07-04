@@ -73,7 +73,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
 
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &

@@ -48,7 +48,8 @@ MODULE mo_nwp_conv_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params
+  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_run_config,           ONLY: iqv, iqc, iqi !, iqs
   USE mo_physical_constants,   ONLY: grav, alv
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config

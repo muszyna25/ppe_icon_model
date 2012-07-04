@@ -61,7 +61,7 @@ MODULE mo_nwp_diagnosis
   USE mo_model_domain,       ONLY: t_patch
   
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
   USE mo_time_config,        ONLY: time_config
   USE mo_physical_constants, ONLY: lh_v     => alv      !! latent heat of vapourization

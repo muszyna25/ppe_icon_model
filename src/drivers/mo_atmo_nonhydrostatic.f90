@@ -71,9 +71,9 @@ USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
-USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state,                    &
-  &                                destruct_nwp_phy_state, prm_diag,           &
-  &                                prm_nwp_diag_list, prm_nwp_tend_list
+USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_diag_list, prm_nwp_tend_list, &
+  &                                construct_nwp_phy_state,                        &
+  &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -88,10 +88,13 @@ USE mo_ext_data_state,      ONLY: ext_data
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
+USE mo_name_list_output_config,   ONLY: first_output_name_list, &
+  &                               is_any_output_nml_active
 USE mo_name_list_output,    ONLY: init_name_list_output,  &
   &                               write_name_list_output, &
   &                               close_name_list_output, &
-  &                               parse_variable_groups
+  &                               parse_variable_groups,  &
+  &                               output_file
 USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_init, &
   &                               pp_scheduler_process, pp_scheduler_finalize
 USE mo_pp_tasks,            ONLY: t_simulation_status
@@ -144,12 +147,14 @@ CONTAINS
   SUBROUTINE construct_atmo_nonhydrostatic
     
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
-
+    
 
     INTEGER :: jg,  ist, ntl, ntlr
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     TYPE(t_simulation_status) :: simulation_status
+    LOGICAL :: l_rh(n_dom) !< Flag. TRUE if computation of relative humidity desired
+    INTEGER :: k_jg
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -236,7 +241,11 @@ CONTAINS
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
     IF(iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:) )
+      DO k_jg=1,n_dom
+        l_rh(k_jg) = is_any_output_nml_active(first_output_name_list, &
+          &                                   dtime=dtime, var_name="rh")
+      END DO
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh )
     ENDIF
 
     CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )

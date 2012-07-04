@@ -51,11 +51,13 @@ MODULE mo_name_list_output_config
     &                                 max_var_hl, max_levels
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_util_string,           ONLY: toupper
 
   IMPLICIT NONE
 
-  PUBLIC :: is_grib_output, is_output_nml_active, is_output_file_active, &
-    &       is_any_output_file_active
+  PUBLIC :: is_grib_output, &
+    &       is_output_nml_active,  is_any_output_nml_active, &
+    &       is_output_file_active, is_any_output_file_active
   PUBLIC :: name_list_output_active, use_async_name_list_io, l_output_phys_patch
   PUBLIC :: max_var_ml, max_var_pl, max_var_hl, max_bounds              
   PUBLIC :: max_levels, vname_len, t_output_name_list
@@ -207,24 +209,81 @@ CONTAINS
   !>
   !! @return .TRUE. if output is due for a given namelist
   FUNCTION is_output_nml_active(p_onl, sim_time, dtime, &
-    &                           iadv_rcf, last_step) RESULT(retval)
+    &                           iadv_rcf, last_step, var_name) RESULT(retval)
     LOGICAL                           :: retval
 
     TYPE(t_output_name_list), POINTER     :: p_onl      !< output name list
-    REAL(wp),            INTENT(IN)       :: sim_time   !< elapsed simulation time
+    REAL(wp),            INTENT(IN), OPTIONAL :: sim_time   !< elapsed simulation time
     REAL(wp),            INTENT(IN)       :: dtime      !< [s] length of a time step
     INTEGER,             INTENT(IN)       :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL  :: last_step
+    CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
+    ! local variables
+    INTEGER :: ivar
     
     IF (PRESENT(last_step)) THEN
       retval = (p_onl%include_last .AND. last_step)
     ELSE
       retval = .FALSE.
     END IF
-    retval = retval .OR.  &
-      &      ( p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp )
+
+    IF (PRESENT(sim_time)) THEN
+      retval = retval .OR.  &
+        &      ( p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp )
+    END IF
+
+    ! if a specific variable name has been provided, loop over the
+    ! variables for this output file
+    IF (PRESENT(var_name)) THEN
+      retval = .FALSE.
+      DO ivar=1,max_var_ml
+        IF (p_onl%ml_varlist(ivar) == ' ') CYCLE
+        IF (toupper(TRIM(p_onl%ml_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
+        IF (retval) EXIT
+      END DO
+      DO ivar=1,max_var_pl
+        IF (p_onl%pl_varlist(ivar) == ' ') CYCLE
+        IF (toupper(TRIM(p_onl%pl_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
+        IF (retval) EXIT
+      END DO
+      DO ivar=1,max_var_hl
+        IF (p_onl%hl_varlist(ivar) == ' ') CYCLE
+        IF (toupper(TRIM(p_onl%hl_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
+        IF (retval) EXIT
+      END DO
+    END IF
 
   END FUNCTION is_output_nml_active
+
+
+  !-------------------------------------------------------------------------------------------------
+  !>
+  !! @return .TRUE. if output is due for a given namelist
+  FUNCTION is_any_output_nml_active(first_output_name_list, sim_time, dtime, &
+    &                               iadv_rcf, last_step, var_name) RESULT(retval)
+    LOGICAL                           :: retval
+
+    TYPE(t_output_name_list), POINTER          :: first_output_name_list   !< head output namelist list
+    REAL(wp),            INTENT(IN), OPTIONAL  :: sim_time   !< elapsed simulation time
+    REAL(wp),            INTENT(IN)            :: dtime      !< [s] length of a time step
+    INTEGER,             INTENT(IN), OPTIONAL  :: iadv_rcf   !< calling freq. of adv., phys.
+    LOGICAL,             INTENT(IN), OPTIONAL  :: last_step
+    CHARACTER(LEN=*),    INTENT(IN), OPTIONAL  :: var_name   !< variable name
+    ! local variables
+    TYPE (t_output_name_list), POINTER :: p_onl
+
+    p_onl => first_output_name_list
+    retval = .FALSE.
+
+    DO
+      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      IF (retval) EXIT
+      retval = is_output_nml_active(p_onl, sim_time, dtime, &
+        &                           iadv_rcf, last_step, var_name)
+      p_onl => p_onl%next
+    END DO
+
+  END FUNCTION is_any_output_nml_active
 
 
   !-------------------------------------------------------------------------------------------------
@@ -237,9 +296,9 @@ CONTAINS
     LOGICAL                           :: retval
 
     TYPE(t_output_file), INTENT(IN), TARGET   :: of         !< output file
-    REAL(wp),            INTENT(IN)           :: sim_time   !< elapsed simulation time
+    REAL(wp),            INTENT(IN), OPTIONAL :: sim_time   !< elapsed simulation time
     REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
-    INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
+    INTEGER,             INTENT(IN), OPTIONAL :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL :: last_step
     INTEGER,             INTENT(IN), OPTIONAL :: idom       !< logical domain index 
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
@@ -256,8 +315,10 @@ CONTAINS
     END IF
 
     ! check if output file is active
-    retval = retval .AND. &
-      &      is_output_nml_active(of%name_list, sim_time, dtime, iadv_rcf, last_step)
+    IF (PRESENT(sim_time) .AND. PRESENT(iadv_rcf)) THEN
+      retval = retval .AND. &
+        &      is_output_nml_active(of%name_list, sim_time, dtime, iadv_rcf, last_step)
+    END IF
     
     ! if a specific variable name has been provided, loop over the
     ! variables for this output file
@@ -270,7 +331,9 @@ CONTAINS
       END DO ! iv
     END IF
 
-    IF (sim_time < of%start_time .OR. sim_time > of%end_time) retval = .FALSE.
+    IF (PRESENT(sim_time)) THEN
+      IF (sim_time < of%start_time .OR. sim_time > of%end_time) retval = .FALSE.
+    END IF
 
   END FUNCTION is_output_file_active
 
@@ -284,9 +347,9 @@ CONTAINS
     LOGICAL  :: retval
 
     TYPE(t_output_file), TARGET               :: of_list(:) !< list of output files
-    REAL(wp),            INTENT(IN)           :: sim_time   !< elapsed simulation time
+    REAL(wp),            INTENT(IN), OPTIONAL :: sim_time   !< elapsed simulation time
     REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
-    INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
+    INTEGER,             INTENT(IN), OPTIONAL :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL :: last_step
     INTEGER,             INTENT(IN), OPTIONAL :: idom       !< logical domain index 
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name

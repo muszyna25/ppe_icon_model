@@ -455,5 +455,22 @@ MODULE mo_impl_constants
     max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
 
+  !-----------------------------------!
+  !  POST PROCESSING SCHEDULER TASKS  !
+  !-----------------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: TASK_NONE              = 0 
+  !------ setup tasks (coefficients,...)
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_PZ       = 1  !< task: setup pz-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 2  !< task: setup only z-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_FINALIZE_PZ       = 3  !< task: deallocate pz-interpolation
+  !------ interpolation tasks:
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_PZLEV    = 5  !< task: vertical p or z-levels
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 6  !< task: synchronizes halo regions
+  !------ computation of optional diagnostic fields
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 7  !< task: compute relative humidity
+
+
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

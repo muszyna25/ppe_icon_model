@@ -60,7 +60,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_types,       ONLY: t_nh_diag
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
+  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
   USE mo_satad,                ONLY: qsat_rho

@@ -1061,6 +1061,7 @@ src/atm_phy_nwp/mo_nwp_mpiomp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_parameters.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_init.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_state.f90 -text
+src/atm_phy_nwp/mo_nwp_phy_types.f90 -text
 src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_interface.f90 -text

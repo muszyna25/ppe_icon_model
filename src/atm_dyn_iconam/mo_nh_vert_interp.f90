@@ -48,7 +48,7 @@ MODULE mo_nh_vert_interp
     &                               t_nh_metrics
   USE mo_opt_diagnostics,     ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
     &                               vcoeff_allocate, vcoeff_deallocate
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp,                ONLY: edges2cells_scalar
   USE mo_parallel_config,     ONLY: nproma

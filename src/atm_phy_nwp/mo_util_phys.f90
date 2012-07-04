@@ -54,6 +54,7 @@ MODULE mo_util_phys
 
   PRIVATE
   PUBLIC :: rel_hum
+  PUBLIC :: compute_field_rel_hum
 
   CHARACTER(len=*), PARAMETER :: version = &
     &  '$Id$'
@@ -115,7 +116,7 @@ CONTAINS
     slev     = 1
     elev     = UBOUND(out_var,2)
     rl_start = 2
-    rl_end   = min_rlcell_int
+    rl_end   = min_rlcell_int-1
     ! check optional arguments
     CALL assign_if_present(slev,     opt_slev)
     CALL assign_if_present(elev,     opt_elev)
