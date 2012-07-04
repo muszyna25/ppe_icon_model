@@ -958,6 +958,7 @@ src/atm_dyn_iconam/mo_nonhydro_state.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_types.f90 -text
 src/atm_dyn_iconam/mo_opt_diagnostics.f90 -text
 src/atm_dyn_iconam/mo_pp_scheduler.f90 -text
+src/atm_dyn_iconam/mo_pp_tasks.f90 -text
 src/atm_dyn_iconam/mo_solve_nh_async.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
 src/atm_dyn_iconam/mo_vector_operations.f90 -text

@@ -135,8 +135,8 @@ MODULE mo_nh_stepping
   USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output_config,  ONLY: is_any_output_file_active
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
-  USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
-    &                               pp_scheduler_process
+  USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
+  USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface, ONLY: art_emission_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
