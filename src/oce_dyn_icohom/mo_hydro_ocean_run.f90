@@ -207,6 +207,9 @@ CONTAINS
   WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
   CALL message (TRIM(routine), message_text)
 
+  ! call of MOC before time loop
+  !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
+
 
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
