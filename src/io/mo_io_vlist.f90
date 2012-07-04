@@ -1281,6 +1281,46 @@ CONTAINS
       &                   '', 43, 128,&
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
       &           k_jg)
+     CALL addVar(TimeVar('moisture1',&
+      &                   'soil moisture layer 1',&
+      &                   'm', 44, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('moisture2',&
+      &                   'soil moisture layer 2',&
+      &                   'm', 45, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('moisture3',&
+      &                   'soil moisture layer 3',&
+      &                   'm', 46, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('moisture4',&
+      &                   'soil moisture layer 4',&
+      &                   'm', 47, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('moisture5',&
+      &                   'soil moisture layer 5',&
+      &                   'm', 48, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('moisture_all',&
+      &                   'sum of soil moisture in all layers',&
+      &                   'm', 49, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('skin_reservoir',&
+      &                   'skin reservoir',&
+      &                   'm', 51, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('snow',&
+      &                   'snow depth',&
+      &                   'm', 52, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
       END IF ! ljsbach
 
         END SELECT !iforcing
@@ -2718,6 +2758,14 @@ CONTAINS
       CASE ('ground_heat_flux');  ptr2 => prm_field(jg)%ground_heat_flux
       CASE ('swnet');  ptr2 => prm_field(jg)%swnet
       CASE ('time_steps_soil');  ptr2 => prm_field(jg)%time_steps_soil
+      CASE ('moisture1');   ptr2 => prm_field(jg)%moisture1
+      CASE ('moisture2');   ptr2 => prm_field(jg)%moisture2
+      CASE ('moisture3');   ptr2 => prm_field(jg)%moisture3
+      CASE ('moisture4');   ptr2 => prm_field(jg)%moisture4
+      CASE ('moisture5');   ptr2 => prm_field(jg)%moisture5
+      CASE ('moisture_all');   ptr2 => prm_field(jg)%moisture_all
+      CASE ('skin_reservoir');   ptr2 => prm_field(jg)%skin_reservoir
+      CASE ('snow');   ptr2 => prm_field(jg)%snow
         !KF  the reset command can only be used for 'plain' fields
       CASE ('swflxsfc_avg')
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)

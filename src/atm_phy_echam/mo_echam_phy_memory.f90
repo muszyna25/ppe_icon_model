@@ -254,10 +254,11 @@ MODULE mo_echam_phy_memory
 !! JSBACH for testing (hydrology)
      REAL(wp),POINTER ::       &   
       & moisture1         (:,  :),  &!< [m] soil water in 1. soil layer
-      & moisture2         (:,  :),  &!< [m] soil water in 1. soil layer
-      & moisture3         (:,  :),  &!< [m] soil water in 1. soil layer
-      & moisture4         (:,  :),  &!< [m] soil water in 1. soil layer
-      & moisture5         (:,  :),  &!< [m] soil water in 1. soil layer
+      & moisture2         (:,  :),  &!< [m] soil water in 2. soil layer
+      & moisture3         (:,  :),  &!< [m] soil water in 3. soil layer
+      & moisture4         (:,  :),  &!< [m] soil water in 4. soil layer
+      & moisture5         (:,  :),  &!< [m] soil water in 5. soil layer
+      & moisture_all      (:,  :),  &!< [m] soil water in all layers
       & csat              (:,  :),  &!< 
       & cair              (:,  :),  &!< 
       & csat_transpiration(:,  :),  &!< 
@@ -1025,6 +1026,11 @@ CONTAINS
     cf_desc    = t_cf_var('moisture5', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'moisture5', field%moisture5,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('moisture_all', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'moisture_all', field%moisture_all, &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('csat', '', '', DATATYPE_FLT32)

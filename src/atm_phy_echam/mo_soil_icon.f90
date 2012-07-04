@@ -38,9 +38,11 @@ Module mo_soil_icon
 !!$ TR  PUBLIC :: soil_type, soil_param_type, init_soil, update_soil, soil_diagnostics, get_soil_diag
   PUBLIC :: update_soil_icon
 
+  REAL(wp), PARAMETER :: cdel(5) = (/0.065_wp,0.254_wp,0.913_wp,2.902_wp,5.700_wp/) ! thicknesses of soil layers [m] for 5 layer scheme (should be namelist var?)
+
 CONTAINS
 
-  SUBROUTINE update_soil_icon(ntiles, kidx, &
+  SUBROUTINE update_soil_icon(ntiles, nidx, &
        delta_time, time_step_len, &
        time_steps_soil, &
 !!$ TR       nidx, surface, soil, soil_param, useDynveg, &
@@ -53,7 +55,7 @@ CONTAINS
 !!$ TR       glac_runoff_evap, surf_runoff_hd, drainage_hd &
        !! output for testing (hydrology)
        cair, csat, csat_transpiration, &
-       moisture1, moisture2, moisture3, moisture4, moisture5, &
+       moisture1, moisture2, moisture3, moisture4, moisture5, moisture_all, &
        sat_surface_specific_humidity, skin_reservoir, &
        snow_fract, snow, snow_canopy, snow_melt, snow_acc, snow_melt_acc, &
        glacier_runoff_acc, runoff_acc, drainage_acc, &
@@ -97,7 +99,7 @@ CONTAINS
 !!$ TR   USE mo_param_switches, ONLY: lsurf
 
     INTEGER, INTENT(in) :: ntiles
-    INTEGER, INTENT(in) :: kidx
+    INTEGER, INTENT(in) :: nidx
     REAL(wp), INTENT(in) :: delta_time
     REAL(wp), INTENT(in) :: time_step_len
 !!$ TR    INTEGER, INTENT(in) :: nidx
@@ -139,6 +141,7 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(inout) :: moisture3
     REAL(wp), DIMENSION(:), INTENT(inout) :: moisture4
     REAL(wp), DIMENSION(:), INTENT(inout) :: moisture5
+    REAL(wp), DIMENSION(:), INTENT(inout) :: moisture_all
     REAL(wp), DIMENSION(:), INTENT(inout) :: sat_surface_specific_humidity
     REAL(wp), DIMENSION(:), INTENT(inout) :: skin_reservoir
     REAL(wp), DIMENSION(:), INTENT(inout) :: snow_fract
@@ -177,71 +180,107 @@ CONTAINS
 !!$ TR         cair, csat, zhsoil_avg ,tte_corr_avg, &
 !!$ TR         glac_runoff_evap, surf_runoff_hd, drainage_hd ! INPUT for HD-Model in coupled ocean model
     ! Local variables
-    REAL(wp), DIMENSION(kidx) :: &
+    REAL(wp), DIMENSION(nidx) :: &
          net_radiation, &                        ! Net radiation at surface
          dry_static_energy, &                    ! Surface dry static energy (= C_p * T )
          dry_static_energy_new, &                ! New dry static energy
          surface_qsat_new, &                     ! New surface saturated specific humidity
-         canopy_snow_fract, &                    !
+         transpiration, &                        ! transpiration by plants through stomata
 !!$ TR         air_qsat, &                             ! Saturated specific humidity at lowest atmospheric level
-!!$ TR         evapotranspiration_no_snow_skin, &      ! Evapotranspiration without that from snow and the skin reservoir
+         evapotranspiration_no_snow_skin, &      ! Evapotranspiration without that from snow and the skin reservoir
          zdqsl, &                                ! Sensitivity of saturated surface specific humidity wrt temperature
-         zcpq                                   ! Conversion factor for humidity from dry static energy
+         zcpq, &                                 ! Conversion factor for humidity from dry static energy
 !!$ TR         snow_avg, &                             ! Snow [m water equivalent] averaged over all tiles
-!!$ TR         melt_water_excess, &                    ! water from snow melting which exceeds skin reservoir and infiltrates soil
+         melt_water_excess                       ! water from snow melting which exceeds skin reservoir and infiltrates soil
 !!$ TR         csat_transpiration                      ! fraction of grid box that contributes to transpiration
                                                  ! (considered to be completely wet)
-!!$ TR    REAL(wp), DIMENSION(kidx) :: &
+!!$ TR    REAL(wp), DIMENSION(nidx) :: &
 !!$ TR         sat_surf_specific_hum_avg, &
 !!$ TR         ground_heat_flux_avg, &
 !!$ TR         heat_capacity_avg, &
 !!$ TR         surface_temperature_avg, soil_temperature_avg, &
 !!$ TR         soil_moisture_avg
 
-    REAL(wp), DIMENSION(kidx,ntiles) :: &
-!!$ TR         skin_reservoir_max, &          
-!!$ TR         wet_skin_fract, &
-!!$ TR         glacier_precip_minus_evap, &       ! P-E for glaciers [m]
-!!$ TR         surface_runoff, drainage, &        ! Surface runoff and drainage for HD model [m]
+    REAL(wp), DIMENSION(nidx,ntiles) :: &
+         glacier_depth, &
+         skin_reservoir_max, &          
+         wet_skin_fract, &
+         glacier_precip_minus_evap, &       ! P-E for glaciers [m]
+         surface_runoff, drainage, &        ! Surface runoff and drainage for HD model [m]
          qsat_fact, qair_fact, &            ! Factors for implicit coupling
          air_dry_static_energy_new, &
          air_moisture_new, &
-!!$ TR         evaporation_pot, &                 ! Potential evaporation
+         evaporation_pot, &                 ! Potential evaporation
          canopy_resistance, &               ! Water-limited canopy resistance
          canopy_conductance_limited, &      ! water limited canopy conductance
          soil_moisture_root, &              ! Soil moisture in root zone
          soil_moisture_root_max, &          ! Field capacity in root zone
+         canopy_snow_fract, &               !
          water_stress_factor, &             ! Water stress factor (=1: no stress, =0: infinite stress)
 !!$ TR         relative_humidity, &               ! Relative humidity (Eq. 3.3.2.9 ECHAM3 Manual)
-!!$ TR         zhsoil, tte_corr, &
+!!$ TR         zhsoil, &
+         tte_corr, &
 !!$ TR         sat_surface_specific_hum_old, &
          qsat_veg, qair_veg
 !!$ TR         csat_tiles, cair_tiles, &
 !!$ TR         qsat_transpiration, csat_transpiration_tiles
 !!$ TR#ifdef __PGI
-!!$ TR    REAL(wp), DIMENSION(kidx,soil%ntiles) :: moisture_max
+!!$ TR    REAL(wp), DIMENSION(nidx,soil%ntiles) :: moisture_max
 !!$ TR#endif
-    REAL(wp), DIMENSION(kidx,5,ntiles) :: soil_moisture ! substitute for soil%moisture
-    REAL(wp), DIMENSION(kidx,5,ntiles) :: root_depth
-    REAL(wp), DIMENSION(kidx,5) :: soil_depth
-    REAL(wp), DIMENSION(kidx,5) :: soil_MaxMoisture
-!!$ TR    LOGICAL, DIMENSION(kidx,soil%ntiles) :: &
+    REAL(wp), DIMENSION(nidx,1,ntiles) :: soil_moisture ! substitute for soil%moisture
+    REAL(wp), DIMENSION(nidx,5)        :: soil_layer_moisture ! substitute for soil%layer_moisture
+    REAL(wp), DIMENSION(nidx,1,ntiles) :: root_depth
+    REAL(wp), DIMENSION(nidx,1) :: soil_depth
+    REAL(wp), DIMENSION(nidx,1) :: soil_MaxMoisture
+!!$ TR    LOGICAL, DIMENSION(nidx,soil%ntiles) :: &
 !!$ TR         soil_mask                          ! True if not glacier and not lake
-
+!
     REAL(wp) :: zcons30, ztpfac2, ztpfac3, vtmpc2
 !!$ TR    REAL(wp) :: hlp1
-    INTEGER :: nidx, itile, i, j
+    INTEGER :: itile, i, j
+
+! 5 layer scheme variables and variables for extra water balance diagnostics
+    REAL(wp) :: FieldCapacity(nidx, 5)                ! Field capacity of soil layer i [m]
+    INTEGER  :: jllog                                 ! Switch/Index of water balance test grid box
+    REAL(wp) :: skin_res_evap_tile(nidx,ntiles)       ! Skin reservoir evaporation from update_surf_up per tile [m]
+    REAL(wp) :: skin_reservoire_evap(nidx)            ! Total-Skin reservoir evaporation [m]
+    REAL(wp) :: snow_evap(nidx)                       ! Total snow evaporation [kg/m**2/s]
+    REAL(wp) :: snow_evap_tile(nidx,ntiles)           ! Evaporation over snow per tile [kg/m**2/s]
+    REAL(wp) :: layer_moisture_tile(nidx, 5, ntiles)  ! Temporary field to distribute layer_moisture to different tiles [m]
+    REAL(wp) :: RedEvapotransp(nidx,ntiles)           ! Evapotransp. without snow and the skin reservoir evap. per tile [m]
+    REAL(wp) :: reduced_evap(nidx,ntiles)             ! Diagnostic evaporation reduction obtained from 5 layer scheme
+                                                      ! --> is currently distributed between the soil layers [kg/m**2/s]
+    REAL(wp) :: soil_water_pre(nidx)                  ! Soil water storages of previous time step
+    REAL(wp) :: water_balance(nidx)                   ! Soil water balance within time step [mm]
+    REAL(wp) :: dum(nidx)                             ! Array for various temporary data
+!   The atmosphere sees only the average skin reservoir regarding evapotranspiration. 
+!   Thus, tiling makes no sense and leads to errors in Back-calculations of bare soil evap.
+    REAL(wp) :: SkinReservoire(nidx)                  ! Mean skin reservoir [m]
+    REAL(wp) :: SkinReservoire_tile(nidx,ntiles) ! Mean skin reservoir distributed on tiles [m]
+    REAL(wp) :: SnowDepthCan(nidx)                    ! Mean snow on canopy [m]
+    REAL(wp) :: WetSkin_frac(nidx)                    ! Mean wet skin fraction
+    REAL(wp) :: MaxSkinResCap(nidx)                   ! Mean maximum skin reservoir capacity[m]
+    REAL(wp) :: RootDepth(nidx)
+    REAL(wp) :: SoilDepth(nidx)
+    REAL(wp) :: hyd_cond_sat(nidx)
+    REAL(wp) :: PotMoisture(nidx)
+    REAL(wp) :: bclapp(nidx)
+    REAL(wp) :: SoilPorosity(nidx)
+    REAL(wp) :: FieldCapacity_param(nidx)
+    REAL(wp) :: WiltingPoint(nidx)
+    REAL(wp) :: PoreSizeIndex(nidx)
 
 !!$ TR#ifdef STANDALONE
 !!$ TR    REAL(wp), PARAMETER :: cvdifts = 1.0_dp
 !!$ TR#endif
 
     !! local variables for testing
-    REAL(wp), DIMENSION(kidx) :: sat_surface_specific_hum_old
-    REAL(wp), DIMENSION(kidx) :: surface_temperature_unfiltered
-    INTEGER  ::  ntsoil
-    REAL(wp), DIMENSION(kidx) :: ThermalDiffusivity
-    REAL(wp), DIMENSION(kidx) :: VolHeatCapacity
+    LOGICAL, DIMENSION(nidx,ntiles) :: is_present,is_glacier
+    REAL(wp), DIMENSION(nidx) :: sat_surface_specific_hum_old
+    REAL(wp), DIMENSION(nidx) :: surface_temperature_unfiltered
+    INTEGER  ::  ntsoil,nsoil
+    REAL(wp), DIMENSION(nidx) :: ThermalDiffusivity
+    REAL(wp), DIMENSION(nidx) :: VolHeatCapacity
     REAL(wp)  ::  cvdifts
     REAL(wp)  ::  eps
     REAL(wp)  ::  Emissivity
@@ -249,17 +288,23 @@ CONTAINS
     REAL(wp)  ::  Gravity
     REAL(wp)  ::  SpecificHeatDryAirConstPressure
     REAL(wp)  ::  SpecificHeatVaporConstPressure
+    REAL(wp)  ::  LatentHeatVaporization
+    REAL(wp)  ::  RhoH2O, tmelt
     REAL(wp)  ::  moist_crit_fract, moist_wilt_fract
+    REAL(wp)  ::  skin_res_max, zqsncr, zepsec, zsigfac
+    REAL(wp), DIMENSION(nidx)  ::  oro_std_dev
+    REAL(wp)  ::  crit_snow_depth
+    REAL(wp), DIMENSION(nidx) :: veg_ratio_max
 
 
-    REAL(wp), DIMENSION(kidx,5)  ::  c_soil_temperature
-    REAL(wp), DIMENSION(kidx,5)  ::  d_soil_temperature
-    REAL(wp), DIMENSION(kidx,5)  ::  soil_temperature
+    REAL(wp), DIMENSION(nidx,5)  ::  c_soil_temperature
+    REAL(wp), DIMENSION(nidx,5)  ::  d_soil_temperature
+    REAL(wp), DIMENSION(nidx,5)  ::  soil_temperature
 
     EXTERNAL update_surfacetemp_icon, update_soiltemp_icon
 
-    nidx = kidx
-    ntsoil = 5
+    ntsoil = 5   ! number of thermal soil layers
+    nsoil = 5    ! number of hydrological soil layers
     ThermalDiffusivity(1:nidx) = 7.e-7_wp
     VolHeatCapacity(1:nidx) = 2.e+6_wp
     cvdifts = 1.5_wp
@@ -269,7 +314,9 @@ CONTAINS
     Gravity = 9.80665_wp
     SpecificHeatDryAirConstPressure = 1005.46_wp
     SpecificHeatVaporConstPressure = 1869.46_wp
-
+    LatentHeatVaporization = 2.5008e6_wp
+    RhoH2O = 1000._wp            !! Density of liquid water (kg/m^3)
+    tmelt = 273.15_wp
 !!$ TR    ntiles = soil%ntiles
 !!$ TR    kidx0 = kstart
 !!$ TR    kidx1 = kend
@@ -282,6 +329,12 @@ CONTAINS
 
     moist_crit_fract = 0.75_wp
     moist_wilt_fract = 0.35_wp
+    skin_res_max     = 2.e-4_wp
+    zqsncr  = 0.95_wp   ! inverse of equivalent water height when snow is considered to completely cover the ground
+    zepsec  = 1.e-12_wp
+    zsigfac = 0.15_wp
+    crit_snow_depth  = 5.85036e-3_wp
+    oro_std_dev(1:nidx) = 140.606_wp
 
 !!$ TR    soil_mask = .NOT. surface%is_glacier(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) &
 !!$ TR         .AND. surface%is_present(kidx0:kidx1,:)
@@ -309,16 +362,19 @@ CONTAINS
 !!$ TR   soil_moisture_root = MERGE(soil_moisture_root, 0._dp, surface%is_vegetation(kidx0:kidx1,:))
 !!$ TR   soil_moisture_root_max = MERGE(soil_moisture_root_max, 0._dp, surface%is_vegetation(kidx0:kidx1,:))
 
-    root_depth(:,:,:) = 0.1_wp
-    soil_depth(:,:) = 0.1_wp
-    soil_MaxMoisture(:,:) = 0.1_wp
+    root_depth(:,:,:) = 1._wp
+    soil_depth(:,:) = 1._wp
+    soil_MaxMoisture(:,:) = 0.5_wp
+    veg_ratio_max(:) = 1._wp ! for testing
+
+    soil_layer_moisture(1:nidx,1) = moisture1(1:nidx)
+    soil_layer_moisture(1:nidx,2) = moisture2(1:nidx)
+    soil_layer_moisture(1:nidx,3) = moisture3(1:nidx)
+    soil_layer_moisture(1:nidx,4) = moisture4(1:nidx)
+    soil_layer_moisture(1:nidx,5) = moisture5(1:nidx)
 
     DO itile=1,ntiles
-       soil_moisture(1:nidx,1,itile) = moisture1(1:nidx)
-       soil_moisture(1:nidx,2,itile) = moisture2(1:nidx)
-       soil_moisture(1:nidx,3,itile) = moisture3(1:nidx)
-       soil_moisture(1:nidx,4,itile) = moisture4(1:nidx)
-       soil_moisture(1:nidx,5,itile) = moisture5(1:nidx)
+       soil_moisture(1:nidx,1,itile) = moisture_all(1:nidx)
        soil_moisture_root(1:nidx,itile) =                               &
             calc_moist_root_zone(soil_moisture(1:nidx,:,itile), &
                                  soil_depth(1:nidx,:), root_depth(:,:,itile))
@@ -389,51 +445,72 @@ CONTAINS
 !!$ TR    skin_reservoir_max(:,:) = MERGE(soil_options%SkinReservoirMax * (1._dp + lai(:,:) *               &
 !!$ TR                              SPREAD(surface%veg_ratio_max(kidx0:kidx1),DIM=2,ncopies=ntiles)), 0._dp, &
 !!$ TR                              .NOT. surface%is_glacier(kidx0:kidx1,:))
+    skin_reservoir_max(:,:) = skin_res_max * (1._wp + lai(:,:) * &
+                              SPREAD(veg_ratio_max(1:nidx),DIM=2,ncopies=ntiles))
 
-!!$ TR    evaporation_pot = 0._dp
-!!$ TR    do itile=1,ntiles
-!!$ TR    do i=1,nidx
-!!$ TR    j=kidx0+i-1
-!!$ .   IF (skin_reservoir_max(i,itile) > EPSILON(1._dp)) THEN
-!!$ .       canopy_snow_fract(i,itile) = MIN(1._dp, canopy_snow(i,itile) / skin_reservoir_max(i,itile))
-!!$ .    ELSE
-!!$       canopy_snow_fract(i,itile) = 0._dp
-!!$    END IF
-!!$    IF (soil_mask(i,itile)) THEN
-!!$       wet_skin_fract(i,itile) = MERGE(MIN(1._dp, soil%skin_reservoir(j,itile) / skin_reservoir_max(i,itile)), &
-!!$            0.0_dp, soil_options%SkinReservoirMax > EPSILON(1._dp))
-!!$      
-!!$       ! Roesch et al, 2002, Climate Dynamics
-!!$       soil%snow_fract(j,itile) = zqsncr * TANH(soil%snow(j,itile) * 100._dp) * &
-!!$            SQRT(soil%snow(j,itile) * 1000._dp / (soil%snow(j,itile) * 1000._dp + zepsec + &
-!!$            zsigfac * surface%oro_std_dev(j)))
-!!$       IF (soil%snow_fract(j,itile) .LT. EPSILON(1._dp) .AND. canopy_snow_fract(i,itile) .GE. EPSILON(1._dp)) &
-!!$            soil%snow_fract(j,itile) = canopy_snow_fract(i,itile)
-!!$       ! Modify snow cover if snow loss during the time step due to potential evaporation is larger than 
-!!$       ! equivalent snow water content from soil and canopy; same for skin reservoir
-!!$       ! Potential evaporation using old values of air and surface humidity
-!!$       evaporation_pot(i,itile) = zcons30 * cdrag(i) * &
-!!$            (soil%sat_surface_specific_humidity(j,itile) - air_moisture(i))
-!!$       IF (soil%snow_fract(j,itile) > 0._dp) THEN
-!!$          soil%snow_fract(j,itile) = soil%snow_fract(j,itile) / &
-!!$               MAX(1._dp, soil%snow_fract(j,itile) * evaporation_pot(i,itile) * delta_time / &
-!!$               (RhoH2O*(soil%snow(j,itile) + canopy_snow(i,itile))))
-!!$       END IF
-!!$       IF (wet_skin_fract(i,itile) > 0._dp) THEN
-!!$          wet_skin_fract(i,itile) = wet_skin_fract(i,itile) / &
-!!$               MAX(1._dp, (1._dp - soil%snow_fract(j,itile)) * evaporation_pot(i,itile) * delta_time / &
-!!$               (RhoH2O * MAX(EPSILON(1._dp),soil%skin_reservoir(j,itile))))
-!!$       END IF
-!!$       
-!!$    ELSE IF (surface%is_glacier(j,itile)) THEN
-!!$       wet_skin_fract(i,itile) = 0.0_dp
-!!$       soil%snow_fract(j,itile) = 1.0_dp
-!!$ .    ELSE
-!!$ .       wet_skin_fract(i,itile) = 0.0_dp
-!!$ .       soil%snow_fract(j,itile) = 0.0_dp
-!!$ TR    END IF
-!!$ TR    END DO
-!!$ TR    END do
+    evaporation_pot(:,:) = 0._wp
+    DO  itile=1,ntiles
+      DO  i=1,nidx
+!!$ TR       j=kidx0+i-1
+        IF (skin_reservoir_max(i,itile) > EPSILON(1._wp)) THEN
+           canopy_snow_fract(i,itile) = MIN(1._wp, snow_canopy(i) / skin_reservoir_max(i,itile))
+        ELSE
+           canopy_snow_fract(i,itile) = 0._wp
+        END IF
+!!$ TR        IF (soil_mask(i,itile)) THEN
+!!$ TR           wet_skin_fract(i,itile) = MERGE(MIN(1._dp, soil%skin_reservoir(j,itile) / skin_reservoir_max(i,itile)), &
+!!$ TR                0.0_dp, soil_options%SkinReservoirMax > EPSILON(1._dp))
+           wet_skin_fract(i,itile) = MIN(1._wp, skin_reservoir(i) / skin_reservoir_max(i,itile))
+          
+           ! Roesch et al, 2002, Climate Dynamics
+!!$ TR           soil%snow_fract(j,itile) = zqsncr * TANH(soil%snow(j,itile) * 100._dp) *            &
+!!$ TR                SQRT(soil%snow(j,itile) * 1000._dp / (soil%snow(j,itile) * 1000._dp + zepsec + &
+!!$ TR                zsigfac * surface%oro_std_dev(j)))
+           snow_fract(i) = zqsncr * TANH(snow(i) * 100._wp) *            &
+                SQRT(snow(i) * 1000._wp / (snow(i) * 1000._wp + zepsec + &
+                zsigfac * oro_std_dev(i)))           
+
+!!$ TR           IF (soil%snow_fract(j,itile) < EPSILON(1._dp) .AND. canopy_snow_fract(i,itile) > EPSILON(1._dp)) &
+!!$ TR                soil%snow_fract(j,itile) = canopy_snow_fract(i,itile)
+           IF (snow_fract(i) < EPSILON(1._wp) .AND. canopy_snow_fract(i,itile) > EPSILON(1._wp)) &
+                snow_fract(i) = canopy_snow_fract(i,itile)
+           ! Modify snow cover if snow loss during the time step due to potential evaporation is larger than 
+           ! equivalent snow water content from soil and canopy; same for skin reservoir
+           ! Potential evaporation using old values of air and surface humidity
+!!$ TR           evaporation_pot(i,itile) = zcons30 * cdrag(i) * &
+!!$ TR                (soil%sat_surface_specific_humidity(j,itile) - air_moisture(i))
+           evaporation_pot(i,itile) = zcons30 * cdrag(i) * &
+                (sat_surface_specific_humidity(i) - air_moisture(i))
+!!$ TR           IF (soil%snow_fract(j,itile) > 0._dp) THEN
+!!$ TR              soil%snow_fract(j,itile) = soil%snow_fract(j,itile) /                              &
+!!$ TR                   MAX(1._dp, soil%snow_fract(j,itile) * evaporation_pot(i,itile) * delta_time / &
+!!$ TR                   (RhoH2O*(soil%snow(j,itile) + canopy_snow(i,itile))))
+!!$ TR           END IF
+           IF (snow_fract(i) > 0._wp) THEN
+              snow_fract(i) = snow_fract(i) / &
+                   MAX(1._wp, snow_fract(i) * evaporation_pot(i,itile) * delta_time / &
+                   (RhoH2O * (snow(i) + snow_canopy(i))))
+           END IF
+!!$ TR           IF (wet_skin_fract(i,itile) > 0._dp) THEN
+!!$ TR              wet_skin_fract(i,itile) = wet_skin_fract(i,itile) /                                          &
+!!$ TR                   MAX(1._dp, (1._dp - soil%snow_fract(j,itile)) * evaporation_pot(i,itile) * delta_time / &
+!!$ TR                   (RhoH2O * MAX(EPSILON(1._dp),soil%skin_reservoir(j,itile))))
+!!$ TR           END IF
+           IF (wet_skin_fract(i,itile) > 0._wp) THEN
+              wet_skin_fract(i,itile) = wet_skin_fract(i,itile) / &
+                   MAX(1._wp, (1._wp - snow_fract(i)) * evaporation_pot(i,itile) * delta_time / &
+                   (RhoH2O * MAX(EPSILON(1._wp),skin_reservoir(i))))
+           END IF
+           
+!!$ TR        ELSE IF (surface%is_glacier(j,itile)) THEN
+!!$ TR           wet_skin_fract(i,itile)  = 0.0_dp
+!!$ TR           soil%snow_fract(j,itile) = 1.0_dp
+!!$ TR        ELSE
+!!$ TR           wet_skin_fract(i,itile)  = 0.0_dp
+!!$ TR           soil%snow_fract(j,itile) = 0.0_dp
+!!$ TR        END IF
+      END DO
+    END DO
 
     !----------------------------------------------------------------------------------------------------------------------
 
@@ -502,6 +579,9 @@ CONTAINS
 !!$ TR       END IF
 !!$ TR       soil%dry_static_energy_new(kidx0:kidx1,itile) = dry_static_energy_new(:)
 !!$ TR    END DO
+    IF (time_steps_soil(1) > 0.5_wp) THEN
+       sat_surface_specific_humidity(:) = surface_qsat_new(:)
+    END IF 
 
     ! New unfiltered land surface temperature at t+dt (\tilde(X)^(t+1))
 !!$ TR    soil%surface_temperature_unfiltered(kidx0:kidx1,:) = &
@@ -516,12 +596,16 @@ CONTAINS
 !!$ TR    WHERE (snow_avg(:) > soil_options%CriticalSnowDepth .OR. ANY(surface%is_glacier(kidx0:kidx1,:),DIM=2)) &
 !!$ TR       dry_static_energy_new(:) = (MIN(soil%surface_temperature_unfiltered(kidx0:kidx1,1),tmelt)                &
 !!$ TR       * zcpq(:) - ztpfac3 * dry_static_energy(:)) / ztpfac2
+    ! Correction for snowmelt
+    WHERE (snow(:) > crit_snow_depth) &
+       dry_static_energy_new(:) = (MIN(surface_temperature_unfiltered(1:nidx),tmelt)  &
+       * zcpq(1:nidx) - ztpfac3 * dry_static_energy(1:nidx)) / ztpfac2
 
     DO itile=1,ntiles
        ! Compute temperature and moisture at lowest atmospheric level by back-substitution
        air_dry_static_energy_new(:,itile) = t_Acoef(:) * dry_static_energy_new(:) + t_Bcoef(:)
 !!$ TR       air_moisture_new(:,itile) = q_Acoef(:) * soil%sat_surface_specific_humidity(kidx0:kidx1,itile) + q_Bcoef(:)
-       air_moisture_new(:,itile) = q_Acoef(:) * surface_qsat_new(:) + q_Bcoef(:)
+       air_moisture_new(:,itile) = q_Acoef(:) * sat_surface_specific_humidity(:) + q_Bcoef(:)
     END DO
 
 !!$ TR    DO itile=1,ntiles
@@ -531,10 +615,10 @@ CONTAINS
 
     ! Compute sensible heat flux
 !!$ TR    DO itile=1,ntiles
-!!$ TR       soil%sensible_heat_flux(kidx0:kidx1,itile) = zcons30 * cdrag(:) *              &
-!!$ TR         (air_dry_static_energy_new(:,itile) - dry_static_energy_new(:) -             &
-!!$ TR         SpecificHeatDryAirConstPressure * vtmpc2 * surface_temperature_avg(:) *      &
-!!$ TR         (cair(:) * air_moisture_new(:,itile) - csat(:) *                             &
+!!$ TR       soil%sensible_heat_flux(kidx0:kidx1,itile) = zcons30 * cdrag(:) *         &
+!!$ TR         (air_dry_static_energy_new(:,itile) - dry_static_energy_new(:) -        &
+!!$ TR         SpecificHeatDryAirConstPressure * vtmpc2 * surface_temperature_avg(:) * &
+!!$ TR         (cair(:) * air_moisture_new(:,itile) - csat(:) *                        &
 !!$ TR         soil%sat_surface_specific_humidity(kidx0:kidx1,itile)))
 !!$ TR    END DO
 
@@ -549,97 +633,150 @@ CONTAINS
 !!$ TR       ! Potential evaporation
 !!$ TR       soil%evaporation_pot(kidx0:kidx1,itile) = zcons30 * cdrag(:)  &
 !!$ TR       * (air_moisture_new(:,itile) - soil%sat_surface_specific_humidity(kidx0:kidx1,itile))
+!!$ TR       ! Evaporation over snow
+!!$ TR       IF ((nsoil==5) .OR. (ldiag_soil)) &
+!!$ TR         snow_evap_tile(1:nidx,itile) = soil%snow_fract(kidx0:kidx1,itile) * soil%evaporation_pot(kidx0:kidx1,itile)
 !!$ TR    END DO
-!!$ TR    ! Latent heat flux
+    ! Latent heat flux
 !!$ TR    soil%latent_heat_flux(kidx0:kidx1,:) = LatentHeatVaporization  * soil%evapotranspiration(kidx0:kidx1,:) &
 !!$ TR    + (LatentHeatSublimation - LatentHeatVaporization) * soil%snow_fract(kidx0:kidx1,:) * soil%evaporation_pot(kidx0:kidx1,:)
 
-    evapotranspiration(1:nidx) = zcons30 * cdrag(1:nidx) * &
-      (cair(1:nidx) * (q_Acoef(1:nidx) * surface_qsat_new(1:nidx) + q_Bcoef(1:nidx)) - &
-      csat(1:nidx)  * surface_qsat_new(1:nidx))
+    DO itile=1,ntiles
+       ! Evapotranspiration
+       evapotranspiration(1:nidx) = zcons30 * cdrag(1:nidx) * &
+       (cair(1:nidx) * air_moisture_new(1:nidx,itile) - &
+       csat(1:nidx)  * sat_surface_specific_humidity(1:nidx))
+       ! Transpiration
+       transpiration(1:nidx) = zcons30 * cdrag(1:nidx) * &
+       csat_transpiration(1:nidx) * (air_moisture_new(1:nidx,itile) - &
+       sat_surface_specific_humidity(1:nidx))
+       ! Potential evaporation
+       evaporation_pot(1:nidx,itile) = zcons30 * cdrag(1:nidx) * &
+       (air_moisture_new(1:nidx,itile) - sat_surface_specific_humidity(1:nidx))
+    END DO
+
+!   Initial values for 5 layer scheme
+!!$ TR    IF (nsoil==5) THEN
+!   *** Note that the atmosphere does not see tiles, thus the evaporative fluxes are
+!          valid for the gridbox average. Therefore, separating the water fluxes per tile is 
+!          leading to errors in the water balance, especially for the 5 layer hydrology scheme.
+!!$ TR      CALL average_tiles(wet_skin_fract(1:nidx, :),                                       &
+!!$ TR           surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
+!!$ TR           surface%cover_fract(kidx0:kidx1,:), WetSkin_frac(1:nidx) )
+!!$ TR      CALL average_tiles(skin_reservoir_max(1:nidx, :),                                   &
+!!$ TR           surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
+!!$ TR           surface%cover_fract(kidx0:kidx1,:), MaxSkinResCap(1:nidx) )
+!!$ TR    ENDIF
+
+!!$ TR    IF ((nsoil==5) .OR. (ldiag_soil)) THEN
+    IF (nsoil == 5) THEN
+!!$ TR      CALL average_tiles(soil%skin_reservoir(kidx0:kidx1,:),                              &
+!!$ TR           surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
+!!$ TR           surface%cover_fract(kidx0:kidx1,:), SkinReservoire(1:nidx) )
+       SkinReservoire(1:nidx) = skin_reservoir(1:nidx)
+!
+!   *** Save sum of water storages from previous time step
+!!$ TR      CALL average_tiles(canopy_snow(1:nidx, :),                                          &
+!!$ TR           surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
+!!$ TR           surface%cover_fract(kidx0:kidx1,:), SnowDepthCan(1:nidx) )
+!!$ TR      IF (nsoil == 5) THEN
+!!$ TR        DO i=kidx0, kidx1
+!!$ TR          soil_water_pre(i - kidx0 + 1) = SUM( soil%layer_moisture(i,1:soil%nsoil) )
+!!$ TR        ENDDO
+        DO itile=1,ntiles
+           SkinReservoire_tile(1:nidx, itile) = SkinReservoire(1:nidx)
+        ENDDO
+!!$ TR      ELSE
+!!$ TR        CALL average_tiles(soil%moisture(kidx0:kidx1,1,:), surface%is_present(kidx0:kidx1,:) &
+!!$ TR             .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR             soil_water_pre(1:nidx)  )
+!!$ TR      ENDIF
+!!$ TR      soil_water_pre(1:nidx) = soil_water_pre(1:nidx) + SkinReservoire(1:nidx) + SnowDepthCan(1:nidx) + snow_avg(1:nidx)
+    ENDIF
     !
     !--------------------------------------------------------------------------------------------------------
     ! 
-!!$ TR    tte_corr = 0._dp
-!!$ TR    glacier_precip_minus_evap = 0._dp
-!!$ TR    melt_water_excess = 0._dp
-!!$ TR    surface_runoff = 0._dp
-!!$ TR    drainage = 0._dp
+    tte_corr(:,:)                  = 0._wp
+    glacier_precip_minus_evap(:,:) = 0._wp
+    melt_water_excess(:)           = 0._wp
+    surface_runoff(:,:)            = 0._wp
+    drainage(:,:)                  = 0._wp
+    glacier_depth(:,:)             = 0._wp
+    is_present(:,:) = .TRUE.
+    is_glacier(:,:) = .FALSE.
 
-!!$ TR    DO itile=1,ntiles
-!!$ TR       CALL update_surf_down( nidx, delta_time,                                                             &
-!!$ TR            air_moisture(1:nidx),                                                                           &
-!!$ .            soil%surface_temperature_unfiltered(kidx0:kidx1,itile), wind10(1:nidx), air_temperature(1:nidx), &
-!!$ .            soil%skin_reservoir(kidx0:kidx1,itile), wet_skin_fract(1:nidx,itile), skin_reservoir_max(1:nidx,itile), &
-!!$ .            soil%snow(kidx0:kidx1,itile), soil%snow_fract(kidx0:kidx1,itile),                                &
-!!$            canopy_snow(1:nidx,itile), soil%glacier_depth(kidx0:kidx1,itile),                                &
-!!$            soil%heat_capacity(kidx0:kidx1,itile),                                                           &
-!!$            soil%evapotranspiration(kidx0:kidx1,itile), soil%evaporation_pot(kidx0:kidx1,itile),             &
-!!$            evapotranspiration_no_snow_skin(1:nidx),                                                         &
-!!$            precip_rain, precip_snow,                                                                        &
-!!$            surface%is_present(kidx0:kidx1,itile),                                                           &
-!!$            surface%is_glacier(kidx0:kidx1,itile),                                                           &
-!!$            glacier_precip_minus_evap(:,itile),                                                              &
-!!$            soil%snow_acc(kidx0:kidx1,itile), soil%snow_melt_acc(kidx0:kidx1,itile),                         &
-!!$            soil%glacier_runoff_acc(kidx0:kidx1,itile), melt_water_excess(1:nidx),                           &
-!!$            tte_corr(1:nidx,itile),soil%snow_melt(kidx0:kidx1,itile))
-!!$
-!!$       CALL update_soiltemp(nidx,soil%ntsoil                                                               &
-!!$                         , soil%surface_temperature_unfiltered(kidx0:kidx1,itile),soil%snow(kidx0:kidx1,itile) &
-!!$                         , soil_param%ThermalDiffusivity(kidx0:kidx1)                                      &
-!!$                         , soil_param%VolHeatCapacity(kidx0:kidx1)                                         &
-!!$                         , soil%c_soil_temperature(kidx0:kidx1,:,itile)                                    &
-!!$                         , soil%d_soil_temperature(kidx0:kidx1,:,itile)                                    &
-!!$                         , soil%soil_temperature(kidx0:kidx1,:,itile)                                      &
-!!$                         , soil%heat_capacity(kidx0:kidx1,itile),soil%ground_heat_flux(kidx0:kidx1,itile)  &
-!!$                         , surface%is_present(kidx0:kidx1,itile)                                           &
-!!$                         , surface%is_glacier(kidx0:kidx1,itile))
-!!$
-!!$       CALL update_surf_up(nidx, itile, delta_time,                                                       &
-!!$            soil%skin_reservoir(kidx0:kidx1,itile), wet_skin_fract(:,itile), skin_reservoir_max(:,itile), &
-!!$            soil%moisture(kidx0:kidx1,1,itile), soil_param%MaxMoisture(kidx0:kidx1,1),                    &
-!!$            soil%soil_temperature(kidx0:kidx1,1,itile), soil%snow_fract(kidx0:kidx1,itile),               &
-!!$            surface%oro_std_dev(kidx0:kidx1),                                                             &
-!!$            soil%evapotranspiration(kidx0:kidx1,itile), soil%evaporation_pot(kidx0:kidx1,itile),          &
-!!$            evapotranspiration_no_snow_skin(1:nidx),                                                      &
-!!$            precip_rain(1:nidx),                                                                          &
-!!$            surface%is_present(kidx0:kidx1,itile),                                                        &
-!!$            surface%is_glacier(kidx0:kidx1,itile),                                                        &
-!!$            soil%runoff_acc(kidx0:kidx1,itile), soil%drainage_acc(kidx0:kidx1,itile),                     &
-!!$            surface_runoff(1:nidx,itile), drainage(1:nidx,itile), melt_water_excess(1:nidx))
-!!$       ! Note: surface_runoff and drainage have to be passed to the runoff model once this is part of jsbach
-!!$    END DO
-!!$    CALL average_tiles(tte_corr, surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
-!!$         surface%cover_fract(kidx0:kidx1,:), tte_corr_avg)
-!!$    CALL average_tiles(soil%moisture(kidx0:kidx1,1,:), surface%is_present(kidx0:kidx1,:) &
-!!$                      .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
-!!$                      soil_moisture_avg)
-!!$ .    CALL average_tiles(soil%snow(kidx0:kidx1,:), surface%is_present(kidx0:kidx1,:) &
-!!$ .                      .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
-!!$ .                      snow_avg)
-!!$ TR    CALL average_tiles(soil%surface_temperature_unfiltered(kidx0:kidx1,:), surface%is_present(kidx0:kidx1,:) &
-!!$ TR                      .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
-!!$ TR                      surface_temperature_avg)
-    !! for testing
-    c_soil_temperature(1:nidx,1) = c_soil_temperature1(1:nidx)
-    c_soil_temperature(1:nidx,2) = c_soil_temperature2(1:nidx)
-    c_soil_temperature(1:nidx,3) = c_soil_temperature3(1:nidx)
-    c_soil_temperature(1:nidx,4) = c_soil_temperature4(1:nidx)
-    c_soil_temperature(1:nidx,5) = c_soil_temperature5(1:nidx)
-    d_soil_temperature(1:nidx,1) = d_soil_temperature1(1:nidx)
-    d_soil_temperature(1:nidx,2) = d_soil_temperature2(1:nidx)
-    d_soil_temperature(1:nidx,3) = d_soil_temperature3(1:nidx)
-    d_soil_temperature(1:nidx,4) = d_soil_temperature4(1:nidx)
-    d_soil_temperature(1:nidx,5) = d_soil_temperature5(1:nidx)
-    soil_temperature(1:nidx,1) = soil_temperature1(1:nidx)
-    soil_temperature(1:nidx,2) = soil_temperature2(1:nidx)
-    soil_temperature(1:nidx,3) = soil_temperature3(1:nidx)
-    soil_temperature(1:nidx,4) = soil_temperature4(1:nidx)
-    soil_temperature(1:nidx,5) = soil_temperature5(1:nidx)
+    DO itile=1,ntiles
 
-!!$ TR CALL update_surf_down from current cosmos-landveg
+!!$ TR       IF (nsoil==5) SkinReservoire(1:nidx) = soil%skin_reservoir(kidx0:kidx1,itile)
+       IF (nsoil==5) SkinReservoire(1:nidx) = skin_reservoir(1:nidx)
 
-    CALL update_soiltemp_icon(nidx,ntsoil                           &
+!!$ TR       CALL update_surf_down( nidx,                                                  &
+!!$ TR            air_moisture(1:nidx),                                                    &
+!!$ TR            soil%surface_temperature_unfiltered(kidx0:kidx1,itile), wind10(1:nidx),  &
+!!$ TR            air_temperature(1:nidx), soil%skin_reservoir(kidx0:kidx1,itile),         &
+!!$ TR            wet_skin_fract(1:nidx,itile), skin_reservoir_max(1:nidx,itile),          &
+!!$ TR            soil%snow(kidx0:kidx1,itile), soil%snow_fract(kidx0:kidx1,itile),        &
+!!$ TR            canopy_snow(1:nidx,itile), soil%glacier_depth(kidx0:kidx1,itile),        &
+!!$ TR            soil%heat_capacity(kidx0:kidx1,itile),                                   &
+!!$ TR            soil%evapotranspiration(kidx0:kidx1,itile),                              &
+!!$ TR            soil%evaporation_pot(kidx0:kidx1,itile),                                 &
+!!$ TR            evapotranspiration_no_snow_skin(1:nidx),                                 &
+!!$ TR            rain, snow,                                                              &
+!!$ TR            surface%is_present(kidx0:kidx1,itile),                                   &
+!!$ TR            surface%is_glacier(kidx0:kidx1,itile),                                   &
+!!$ TR            glacier_precip_minus_evap(:,itile),                                      &
+!!$ TR            soil%snow_acc(kidx0:kidx1,itile), soil%snow_melt_acc(kidx0:kidx1,itile), &
+!!$ TR            soil%glacier_runoff_acc(kidx0:kidx1,itile), melt_water_excess(1:nidx),   &
+!!$ TR            tte_corr(1:nidx,itile),soil%snow_melt(kidx0:kidx1,itile))
+
+       CALL update_surf_down( nidx, delta_time, time_steps_soil(1:nidx),        &
+            air_moisture(1:nidx),                                               &
+            surface_temperature_unfiltered(1:nidx), wind10(1:nidx),             &
+            air_temperature(1:nidx), skin_reservoir(1:nidx),                    &
+            wet_skin_fract(1:nidx,itile), skin_reservoir_max(1:nidx,itile),     &
+            snow(1:nidx), snow_fract(1:nidx),                                   &
+            snow_canopy(1:nidx), glacier_depth(1:nidx,itile),                   &
+            heat_capacity(1:nidx),                                              &
+            evapotranspiration(1:nidx),                                         &
+            evaporation_pot(1:nidx,itile),                                      &
+            evapotranspiration_no_snow_skin(1:nidx),                            &
+            precip_rain(1:nidx), precip_snow(1:nidx),                           &
+            is_present(1:nidx,itile),                                           &
+            is_glacier(1:nidx,itile),                                           &
+            glacier_precip_minus_evap(1:nidx,itile),                            &
+            snow_acc(1:nidx), snow_melt_acc(1:nidx),                            &
+            glacier_runoff_acc(1:nidx), melt_water_excess(1:nidx),              &
+            tte_corr(1:nidx,itile), snow_melt(1:nidx))
+
+!!$ TR       CALL update_soiltemp(nidx,soil%ntsoil                                                                   &
+!!$ TR                         , soil%surface_temperature_unfiltered(kidx0:kidx1,itile),soil%snow(kidx0:kidx1,itile) &
+!!$ TR                         , soil_param%ThermalDiffusivity(kidx0:kidx1)                                          &
+!!$ TR                         , soil_param%VolHeatCapacity(kidx0:kidx1)                                             &
+!!$ TR                         , soil%c_soil_temperature(kidx0:kidx1,:,itile)                                        &
+!!$ TR                         , soil%d_soil_temperature(kidx0:kidx1,:,itile)                                        &
+!!$ TR                         , soil%soil_temperature(kidx0:kidx1,:,itile)                                          &
+!!$ TR                         , soil%heat_capacity(kidx0:kidx1,itile),soil%ground_heat_flux(kidx0:kidx1,itile)      &
+!!$ TR                         , surface%is_present(kidx0:kidx1,itile)                                               &
+!!$ TR                         , surface%is_glacier(kidx0:kidx1,itile) )
+
+       !! for JSBACH testing
+       c_soil_temperature(1:nidx,1) = c_soil_temperature1(1:nidx)
+       c_soil_temperature(1:nidx,2) = c_soil_temperature2(1:nidx)
+       c_soil_temperature(1:nidx,3) = c_soil_temperature3(1:nidx)
+       c_soil_temperature(1:nidx,4) = c_soil_temperature4(1:nidx)
+       c_soil_temperature(1:nidx,5) = c_soil_temperature5(1:nidx)
+       d_soil_temperature(1:nidx,1) = d_soil_temperature1(1:nidx)
+       d_soil_temperature(1:nidx,2) = d_soil_temperature2(1:nidx)
+       d_soil_temperature(1:nidx,3) = d_soil_temperature3(1:nidx)
+       d_soil_temperature(1:nidx,4) = d_soil_temperature4(1:nidx)
+       d_soil_temperature(1:nidx,5) = d_soil_temperature5(1:nidx)
+       soil_temperature(1:nidx,1) = soil_temperature1(1:nidx)
+       soil_temperature(1:nidx,2) = soil_temperature2(1:nidx)
+       soil_temperature(1:nidx,3) = soil_temperature3(1:nidx)
+       soil_temperature(1:nidx,4) = soil_temperature4(1:nidx)
+       soil_temperature(1:nidx,5) = soil_temperature5(1:nidx)
+
+       CALL update_soiltemp_icon(nidx,ntsoil                        &
                       , delta_time                                  &
                       , time_steps_soil(1:nidx)                     &
                       , surface_temperature_unfiltered(1:nidx)      &
@@ -652,8 +789,196 @@ CONTAINS
                       , ground_heat_flux(1:nidx)                    &
                       )
 
-!!$ TR CALL update_surf_up from current cosmos-landveg
+!
+!      update_surf_up is called for each tile, 5 layer hydrology routine is without tiles
+!               as this is incompatible with REMO
+!               --> Dummy Separation into tiles before update_surf_up and tile averaging
+!                   afterwards using new temporary field zlayer_moisture_tile
+       IF (nsoil == 5) THEN
+!!$ TR         layer_moisture_tile(1:nidx, :, itile) = soil%layer_moisture(kidx0:kidx1, :)
+!!$ TR         SkinReservoire_tile(1:nidx,    itile) = SkinReservoire_tile(1:nidx, itile) + &
+!!$ TR                                                 soil%skin_reservoir(kidx0:kidx1,itile) - SkinReservoire(1:nidx)
+         layer_moisture_tile(1:nidx, :, itile) = soil_layer_moisture(1:nidx, :)
+         SkinReservoire_tile(1:nidx,    itile) = SkinReservoire_tile(1:nidx, itile) + &
+                                                 skin_reservoir(1:nidx) - SkinReservoire(1:nidx)
 
+          ! Note: surface_runoff and drainage have to be passed to the runoff model once this is part of jsbach
+
+!!$ TR         CALL update_surf_up(nidx, itile, nsoil,                                          &
+!!$ TR            SkinReservoire_tile(1:nidx, itile), WetSkin_frac(1:nidx), MaxSkinResCap(1:nidx),    &
+!!$ TR            soil%moisture(kidx0:kidx1,1,itile), soil_param%MaxMoisture(kidx0:kidx1,1),                    &
+!!$ TR            soil%soil_temperature(kidx0:kidx1,1,itile), soil%snow_fract(kidx0:kidx1,itile),               &
+!!$ TR            surface%oro_std_dev(kidx0:kidx1),                                                             &
+!!$ TR            soil%evapotranspiration(kidx0:kidx1,itile), soil%evaporation_pot(kidx0:kidx1,itile),          &
+!!$ TR            evapotranspiration_no_snow_skin(1:nidx),                                                      &
+!!$ TR            rain(1:nidx),                                                                                 &
+!!$ TR            surface%is_present(kidx0:kidx1,itile),                                                        &
+!!$ TR            surface%is_glacier(kidx0:kidx1,itile),                                                        &
+!!$ TR            soil%runoff_acc(kidx0:kidx1,itile), soil%drainage_acc(kidx0:kidx1,itile),                     &
+!!$ TR            surface_runoff(1:nidx,itile), drainage(1:nidx,itile), melt_water_excess(1:nidx),              &
+!!$ TR            skin_res_evap_tile(1:nidx,itile),                                                             &
+!!$ TR            ! 5 layer hydrology fields (optional)      
+!!$ TR            cdel,                                  &
+!!$ TR            layer_moisture_tile(1:nidx, :, itile), &            
+!!$ TR            FieldCapacity(1:nidx, :),              &            
+!!$ TR            soil_param%RootDepth(kidx0:kidx1),     &            
+!!$ TR            soil_param%SoilDepth(kidx0:kidx1),     &            
+!!$ TR            soil_param%hyd_cond_sat(kidx0:kidx1),  &            
+!!$ TR            soil_param%PotMoisture(kidx0:kidx1),   &            
+!!$ TR            soil_param%bclapp(kidx0:kidx1),        &            
+!!$ TR            soil_param%SoilPorosity(kidx0:kidx1),  &            
+!!$ TR            soil%transpiration(kidx0:kidx1,itile), &
+!!$ TR            reduced_evap(1:nidx,itile),            &
+!!$ TR            soil_param%FieldCapacity(kidx0:kidx1), &            
+!!$ TR            soil_param%WiltingPoint(kidx0:kidx1),  &            
+!!$ TR            soil_param%PoreSizeIndex(kidx0:kidx1), &            
+!!$ TR            jllog                                  &
+!!$ TR           )
+!!$ TR global values for soil properties to test JSBACH
+         RootDepth(1:nidx) = 2.65355_wp
+         SoilDepth(1:nidx) = 2.72603_wp
+         hyd_cond_sat(1:nidx) = 4.60588e-06_wp
+         PotMoisture(1:nidx) = 0.275715_wp
+         bclapp(1:nidx) = 8.58824_wp
+         SoilPorosity(1:nidx) = 0.441515_wp
+         FieldCapacity_param(1:nidx) = 0.318517_wp
+         WiltingPoint = 0.185245_wp
+         PoreSizeIndex = 0.20747_wp
+
+         CALL update_surf_up(nidx, itile, delta_time, nsoil,                                 &
+            SkinReservoire_tile(1:nidx, itile),                                              &
+            wet_skin_fract(1:nidx,itile), skin_reservoir_max(1:nidx,itile),                  &
+            soil_moisture(1:nidx,1,itile), soil_MaxMoisture(1:nidx,1),                       &
+            soil_temperature(1:nidx,1), snow_fract(1:nidx),                                  &
+            oro_std_dev(1:nidx),                                                             &
+            evapotranspiration(1:nidx), evaporation_pot(1:nidx,itile),                       &
+            evapotranspiration_no_snow_skin(1:nidx),                                         &
+            precip_rain(1:nidx),                                                             &
+            is_present(1:nidx,itile),                                                        &
+            is_glacier(1:nidx,itile),                                                        &
+            runoff_acc(1:nidx), drainage_acc(1:nidx),                                        &
+            surface_runoff(1:nidx,itile), drainage(1:nidx,itile), melt_water_excess(1:nidx), &
+            skin_res_evap_tile(1:nidx,itile),                                                &
+            ! 5 layer hydrology fields (optional)      
+            cdel(1:nsoil),                         &
+            layer_moisture_tile(1:nidx, :, itile), &            
+            FieldCapacity(1:nidx,1:nsoil),         &            
+            RootDepth(1:nidx),                     &            
+            SoilDepth(1:nidx),                     &            
+            hyd_cond_sat(1:nidx),                  &            
+            PotMoisture(1:nidx),                   &            
+            bclapp(1:nidx),                        &            
+            SoilPorosity(1:nidx),                  &            
+            transpiration(1:nidx),                 &
+            reduced_evap(1:nidx,itile),            &
+            FieldCapacity_param(1:nidx),           &            
+            WiltingPoint(1:nidx),                  &            
+            PoreSizeIndex(1:nidx),                 &            
+            jllog                                  &
+           )
+
+!!$ TR       ELSE ! 1 layer soil model below
+!!$ TR
+!!$ TR         CALL update_surf_up(nidx, itile, nsoil,                                                          &
+!!$ TR            soil%skin_reservoir(kidx0:kidx1,itile), wet_skin_fract(:,itile), skin_reservoir_max(:,itile), &
+!!$ TR            soil%moisture(kidx0:kidx1,1,itile), soil_param%MaxMoisture(kidx0:kidx1,1),                    &
+!!$ TR            soil%soil_temperature(kidx0:kidx1,1,itile), soil%snow_fract(kidx0:kidx1,itile),               &
+!!$ TR            surface%oro_std_dev(kidx0:kidx1),                                                             &
+!!$ TR            soil%evapotranspiration(kidx0:kidx1,itile), soil%evaporation_pot(kidx0:kidx1,itile),          &
+!!$ TR            evapotranspiration_no_snow_skin(1:nidx),                                                      &
+!!$ TR            rain(1:nidx),                                                                                 &
+!!$ TR            surface%is_present(kidx0:kidx1,itile),                                                        &
+!!$ TR            surface%is_glacier(kidx0:kidx1,itile),                                                        &
+!!$ TR            soil%runoff_acc(kidx0:kidx1,itile), soil%drainage_acc(kidx0:kidx1,itile),                     &
+!!$ TR            surface_runoff(1:nidx,itile), drainage(1:nidx,itile), melt_water_excess(1:nidx),              &
+!!$ TR            skin_res_evap_tile(1:nidx,itile)                                                              &
+!!$ TR           )
+       ENDIF
+
+!!$ TR       IF ((nsoil == 5) .OR. (ldiag_soil)) RedEvapotransp(1:nidx,itile) = evapotranspiration_no_snow_skin(1:nidx)
+       IF (nsoil == 5) RedEvapotransp(1:nidx,itile) = &
+          evapotranspiration_no_snow_skin(1:nidx)
+
+    END DO                  ! End of loop over tiles
+
+!!$ TR    CALL average_tiles(tte_corr, surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
+!!$ TR         surface%cover_fract(kidx0:kidx1,:), tte_corr_avg)
+!!$ TR    CALL average_tiles(soil%moisture(kidx0:kidx1,1,:), surface%is_present(kidx0:kidx1,:)              &
+!!$ TR                      .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                      soil_moisture_avg)
+!!$ TR    CALL average_tiles(soil%snow(kidx0:kidx1,:), surface%is_present(kidx0:kidx1,:)                    &
+!!$ TR                      .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                      snow_avg)
+!!$ TR    CALL average_tiles(soil%surface_temperature_unfiltered(kidx0:kidx1,:), surface%is_present(kidx0:kidx1,:) &
+!!$ TR                      .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:),        &
+!!$ TR                      surface_temperature_avg)
+!!$ TR    IF ((nsoil==5) .OR. (ldiag_soil)) THEN
+!!$ TR      CALL average_tiles(skin_res_evap_tile(1:nidx,:), surface%is_present(kidx0:kidx1,:)                &
+!!$ TR                        .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                        skin_reservoire_evap)
+!!$ TR      CALL average_tiles(RedEvapotransp(1:nidx,:), surface%is_present(kidx0:kidx1,:)                    &
+!!$ TR                        .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                        evapotranspiration_no_snow_skin)
+!!$ TR      CALL average_tiles(snow_evap_tile(1:nidx,:), surface%is_present(kidx0:kidx1,:)                    &
+!!$ TR                        .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                        snow_evap)
+!!$ TR    ENDIF
+    IF (nsoil==5) THEN
+!!$ TR      DO i=1, soil%nsoil
+!!$ TR        CALL average_tiles(layer_moisture_tile(1:nidx,i,:), surface%is_present(kidx0:kidx1,:)           &
+!!$ TR                        .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                        soil%layer_moisture(kidx0:kidx1,i) )
+!!$ TR      END DO
+      moisture1(1:nidx) = layer_moisture_tile(1:nidx,1,1)
+      moisture2(1:nidx) = layer_moisture_tile(1:nidx,2,1)
+      moisture3(1:nidx) = layer_moisture_tile(1:nidx,3,1)
+      moisture4(1:nidx) = layer_moisture_tile(1:nidx,4,1)
+      moisture5(1:nidx) = layer_moisture_tile(1:nidx,5,1)
+      moisture_all(1:nidx) = soil_moisture(1:nidx,1,1)
+
+      ! update the skin_reservoir per tile in a consistent way
+!!$ TR      CALL average_tiles(SkinReservoire_tile(1:nidx, :),                                  &
+!!$ TR           surface%is_present(kidx0:kidx1,:) .AND. .NOT. surface%is_lake(kidx0:kidx1,:) , &
+!!$ TR           surface%cover_fract(kidx0:kidx1,:), SkinReservoire(1:nidx) )
+      DO itile=1,ntiles
+        DO i=1, nidx
+!!$ TR          j=kidx0+i-1
+!!$ TR          IF (MaxSkinResCap(i) > EPSILON(1._dp)) THEN
+!!$ TR            soil%skin_reservoir(j, itile) = MIN(SkinReservoire(i)/MaxSkinResCap(i), 1._dp) * skin_reservoir_max(i, itile)
+!!$ TR          ELSE    
+!!$ TR            soil%skin_reservoir(j, itile) = 0._dp
+          IF (skin_reservoir_max(i,itile) > EPSILON(1._wp)) THEN
+            skin_reservoir(i) = MIN(SkinReservoire_tile(i,itile),skin_reservoir_max(i,itile))
+          ELSE
+            skin_reservoir(i) = 0._wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDIF
+
+    ! Test that soil moisture has still a positive value
+!!$ TR    IF (MINVAL(soil_moisture_avg(:)) < 0._dp .AND. flag_soil_moisture) THEN
+!!$ TR      CALL message('update_soil','Warning: Negative soil moisture occurred!')
+!!$ TR      flag_soil_moisture = .false.
+!!$ TR    END IF
+!!$ TR    soil_moisture_avg(:) = MAX(EPSILON(1._dp),soil_moisture_avg(:))
+!!$ TR    DO itile=1,ntiles
+!!$ TR      soil%moisture(kidx0:kidx1,1,itile) = soil_moisture_avg(:)
+!!$ TR      soil%snow(kidx0:kidx1,itile) = snow_avg(:)
+!!$ TR      soil%surface_temperature_unfiltered(kidx0:kidx1,itile) = surface_temperature_avg(:)
+!!$ TR      soil%soil_temperature(kidx0:kidx1,1,itile) = surface_temperature_avg(:)
+    soil_temperature(1:nidx,1) = surface_temperature_unfiltered(1:nidx)
+!!$ TR    END DO
+!!$ TR    DO isoil=2,soil%ntsoil
+!!$ TR       CALL average_tiles(soil%soil_temperature(kidx0:kidx1,isoil,:), surface%is_present(kidx0:kidx1,:) &
+!!$ TR                    .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
+!!$ TR                    soil_temperature_avg)
+!!$ TR       DO itile=1,ntiles
+!!$ TR          soil%soil_temperature(kidx0:kidx1,isoil,itile) = soil_temperature_avg
+!!$ TR       END DO
+!!$ TR    END DO
+
+    !! for JSBACH testing
     c_soil_temperature1(1:nidx) = c_soil_temperature(1:nidx,1)
     c_soil_temperature2(1:nidx) = c_soil_temperature(1:nidx,2)
     c_soil_temperature3(1:nidx) = c_soil_temperature(1:nidx,3)
@@ -669,28 +994,6 @@ CONTAINS
     soil_temperature3(1:nidx) = soil_temperature(1:nidx,3)
     soil_temperature4(1:nidx) = soil_temperature(1:nidx,4)
     soil_temperature5(1:nidx) = soil_temperature(1:nidx,5)
-
-    ! Test that soil moisture has still a positive value
-!!$ TR    IF (MINVAL(soil_moisture_avg(:)) < 0._dp .AND. flag_soil_moisture) THEN
-!!$ TR      CALL message('update_soil','Warning: Negative soil moisture occurred!')
-!!$ TR      flag_soil_moisture = .false.
-!!$ TR    END IF
-!!$ TR    soil_moisture_avg(:) = MAX(EPSILON(1._dp),soil_moisture_avg(:))
-!!$ TR    DO itile=1,ntiles
-!!$ TR      soil%moisture(kidx0:kidx1,1,itile) = soil_moisture_avg(:)
-!!$ TR      soil%snow(kidx0:kidx1,itile) = snow_avg(:)
-!!$ TR      soil%surface_temperature_unfiltered(kidx0:kidx1,itile) = surface_temperature_avg(:)
-!!$ TR      soil%soil_temperature(kidx0:kidx1,1,itile) = surface_temperature_avg(:)
-!!$ TR    END DO
-!!$ TR    DO isoil=2,soil%ntsoil
-!!$ TR       CALL average_tiles(soil%soil_temperature(kidx0:kidx1,isoil,:), surface%is_present(kidx0:kidx1,:) &
-!!$ TR                    .AND. .NOT. surface%is_lake(kidx0:kidx1,:), surface%cover_fract(kidx0:kidx1,:), &
-!!$ TR                    soil_temperature_avg)
-!!$ TR       DO itile=1,ntiles
-!!$ TR          soil%soil_temperature(kidx0:kidx1,isoil,itile) = soil_temperature_avg
-!!$ TR       END DO
-!!$ TR    END DO
-
 
         ! Time filter for surface temperature
 !!$ TR    IF (lsurf) THEN
@@ -715,47 +1018,65 @@ CONTAINS
     ! Re-calculate qsat,qair and zhsoil with updated moisture parameters due to time mismatch with old echam
     !--------------------------------------------------------------------------------------------------------
 
-!!$    DO itile=1,ntiles
-!!$    DO i=1,nidx
-!!$    j=kidx0+i-1
-!!$    IF (soil_mask(i,itile)) THEN
-!!$       wet_skin_fract(i,itile) = MERGE(MIN(1._dp, soil%skin_reservoir(j,itile) / skin_reservoir_max(i,itile)), &
-!!$            0.0_dp, soil_options%SkinReservoirMax > EPSILON(1._dp))
-!!$      
-!!$       ! Roesch et al, 2002, Climate Dynamics
-!!$       soil%snow_fract(j,itile) = zqsncr * TANH(soil%snow(j,itile) * 100._dp) * &
-!!$            SQRT(soil%snow(j,itile)*1000. / (soil%snow(j,itile)*1000._dp + zepsec + &
-!!$            zsigfac * surface%oro_std_dev(j)))
-!!$
-!!$       IF (soil%snow_fract(j,itile) .LT. EPSILON(1._dp) .AND. canopy_snow_fract(i,itile) .GE. EPSILON(1._dp)) &
-!!$            soil%snow_fract(j,itile) = canopy_snow_fract(i,itile)
-!!$       ! Modify snow cover if snow loss during the time step due to potential evaporation is larger than
-!!$       ! equivalent snow water content from soil and canopy; same for skin reservoir
-!!$       ! Potential evaporation using old values of air and surface humidity
-!!$       evaporation_pot(i,itile) = zcons30 * cdrag(i) * &
-!!$            (sat_surface_specific_hum_old(i,itile) - air_moisture(i))
-!!$       IF (soil%snow_fract(j,itile) > 0._dp .AND. soil%snow(j,itile) + canopy_snow(i,itile) > 0._dp) THEN
-!!$          soil%snow_fract(j,itile) = soil%snow_fract(j,itile) / &
-!!$               MAX(1._dp, soil%snow_fract(j,itile) * evaporation_pot(i,itile) * delta_time / &
-!!$               (RhoH2O*(soil%snow(j,itile) + canopy_snow(i,itile))))
-!!$       END IF
-!!$
-!!$       IF (wet_skin_fract(i,itile) > 0._dp) THEN
-!!$          wet_skin_fract(i,itile) = wet_skin_fract(i,itile) / &
-!!$               MAX(1._dp, (1._dp - soil%snow_fract(j,itile)) * evaporation_pot(i,itile) * delta_time / &
-!!$               (RhoH2O * MAX(EPSILON(1._dp),soil%skin_reservoir(j,itile))))
-!!$       END IF
-!!$       
-!!$    ELSE IF (surface%is_glacier(j,itile)) THEN
-!!$       wet_skin_fract(i,itile) = 0.0_dp
-!!$       soil%snow_fract(j,itile) = 1.0_dp
-!!$    ELSE
-!!$       wet_skin_fract(i,itile) = 0.0_dp
-!!$       soil%snow_fract(j,itile) = 0.0_dp
-!!$    END IF
-!!$    END DO
-!!$    END DO
-!!$
+    DO  itile=1,ntiles
+      DO  i=1,nidx
+!!$ TR       j=kidx0+i-1
+!!$ TR        IF (soil_mask(i,itile)) THEN
+!!$ TR           wet_skin_fract(i,itile) = MERGE(MIN(1._dp, soil%skin_reservoir(j,itile) / skin_reservoir_max(i,itile)), &
+!!$ TR                0.0_dp, soil_options%SkinReservoirMax > EPSILON(1._dp))
+           wet_skin_fract(i,itile) = MIN(1._wp, skin_reservoir(i) / skin_reservoir_max(i,itile))
+          
+           ! Roesch et al, 2002, Climate Dynamics
+!!$ TR           soil%snow_fract(j,itile) = zqsncr * TANH(soil%snow(j,itile) * 100._dp) *            &
+!!$ TR                SQRT(soil%snow(j,itile) * 1000._dp / (soil%snow(j,itile) * 1000._dp + zepsec + &
+!!$ TR                zsigfac * surface%oro_std_dev(j)))
+           snow_fract(i) = zqsncr * TANH(snow(i) * 100._wp) *            &
+                SQRT(snow(i) * 1000._wp / (snow(i) * 1000._wp + zepsec + &
+                zsigfac * oro_std_dev(i)))           
+
+!!$ TR           IF (soil%snow_fract(j,itile) < EPSILON(1._dp) .AND. canopy_snow_fract(i,itile) > EPSILON(1._dp)) &
+!!$ TR                soil%snow_fract(j,itile) = canopy_snow_fract(i,itile)
+           IF (snow_fract(i) < EPSILON(1._wp) .AND. canopy_snow_fract(i,itile) > EPSILON(1._wp)) &
+                snow_fract(i) = canopy_snow_fract(i,itile)
+           ! Modify snow cover if snow loss during the time step due to potential evaporation is larger than 
+           ! equivalent snow water content from soil and canopy; same for skin reservoir
+           ! Potential evaporation using old values of air and surface humidity
+!!$ TR           evaporation_pot(i,itile) = zcons30 * cdrag(i) * &
+!!$ TR                (sat_surface_specific_hum_old(i,itile) - air_moisture(i))
+           evaporation_pot(i,itile) = zcons30 * cdrag(i) * &
+                (sat_surface_specific_hum_old(i) - air_moisture(i))
+!!$ TR      IF (soil%snow_fract(j,itile) > 0._dp .AND. soil%snow(j,itile) + canopy_snow(i,itile) > 0._dp) THEN
+!!$ TR              soil%snow_fract(j,itile) = soil%snow_fract(j,itile) /                              &
+!!$ TR                   MAX(1._dp, soil%snow_fract(j,itile) * evaporation_pot(i,itile) * delta_time / &
+!!$ TR                   (RhoH2O*(soil%snow(j,itile) + canopy_snow(i,itile))))
+!!$ TR           END IF
+
+           IF (snow_fract(i) > 0._wp .AND. snow(i) + snow_canopy(i) > 0._wp) THEN
+              snow_fract(i) = snow_fract(i) / &
+                   MAX(1._wp, snow_fract(i) * evaporation_pot(i,itile) * delta_time / &
+                   (RhoH2O * (snow(i) + snow_canopy(i))))
+           END IF
+!!$ TR           IF (wet_skin_fract(i,itile) > 0._dp) THEN
+!!$ TR              wet_skin_fract(i,itile) = wet_skin_fract(i,itile) /                                          &
+!!$ TR                   MAX(1._dp, (1._dp - soil%snow_fract(j,itile)) * evaporation_pot(i,itile) * delta_time / &
+!!$ TR                   (RhoH2O * MAX(EPSILON(1._dp),soil%skin_reservoir(j,itile))))
+!!$ TR           END IF
+           IF (wet_skin_fract(i,itile) > 0._wp) THEN
+              wet_skin_fract(i,itile) = wet_skin_fract(i,itile) / &
+                   MAX(1._wp, (1._wp - snow_fract(i)) * evaporation_pot(i,itile) * delta_time / &
+                   (RhoH2O * MAX(EPSILON(1._wp),skin_reservoir(i))))
+           END IF
+           
+!!$ TR        ELSE IF (surface%is_glacier(j,itile)) THEN
+!!$ TR           wet_skin_fract(i,itile)  = 0.0_dp
+!!$ TR           soil%snow_fract(j,itile) = 1.0_dp
+!!$ TR        ELSE
+!!$ TR           wet_skin_fract(i,itile)  = 0.0_dp
+!!$ TR           soil%snow_fract(j,itile) = 0.0_dp
+!!$ TR        END IF
+      END DO
+    END DO
+
 !!$    relative_humidity = 0.0_dp
 !!$
 !!$    ! Calculate relative humidity from water content in first soil layer
@@ -855,7 +1176,9 @@ CONTAINS
 !!$    soil%csat(kidx0:kidx1) = csat(1:nidx)
 !!$    soil%cair(kidx0:kidx1) = cair(1:nidx)
 !!$    soil%csat_transpiration(kidx0:kidx1) = csat_transpiration(1:nidx)
-
+    csat(1:nidx) = 1._wp
+    cair(1:nidx) = 1._wp
+    csat_transpiration(1:nidx) = 1._wp
     !------------------------------------------------------------------------------------------------------------
     ! END RECALC QSAT QAir and zhsoil
     !------------------------------------------------------------------------------------------------------------
@@ -901,6 +1224,7 @@ CONTAINS
 !!$ TR          soil%snow_age(j) = 0._dp
 !!$ TR       END IF
 !!$ TR    END DO
+
 !!$ TR set time step counter
     time_steps_soil(1:nidx) = time_steps_soil(1:nidx) + 1.0_wp
 
@@ -945,6 +1269,52 @@ CONTAINS
              (moisture_critical - moisture_wilting)))
 
   END FUNCTION calc_water_stress_factor
+
+!!$  FUNCTION calc_relative_humidity(moisture, moisture_max, fract_wilting) RESULT(rel_humidity)
+!!$
+!!$    USE mo_constants,          ONLY: api
+!!$
+!!$    REAL(dp), INTENT(in)  :: moisture(:,:)
+!!$    REAL(dp), INTENT(in)  :: moisture_max(:,:)
+!!$    REAL(dp), INTENT(in)  :: fract_wilting
+!!$    REAL(dp)              :: rel_humidity(SIZE(moisture,1),SIZE(moisture,2))
+!!$
+!!$    REAL(dp) moisture_limit(SIZE(moisture,1),SIZE(moisture,2)), evap_stop(SIZE(moisture,1),SIZE(moisture,2))
+!!$
+!!$    evap_stop      = MIN(0.1_dp, moisture_max)
+!!$    moisture_limit = moisture_max - evap_stop
+!!$
+!!$    WHERE (moisture > moisture_limit .AND. moisture > fract_wilting*moisture_max)
+!!$       rel_humidity = 0.5_dp * (1._dp - COS((moisture-moisture_limit) * api / evap_stop))
+!!$    ELSEWHERE
+!!$       rel_humidity = 0._dp
+!!$    END WHERE
+!!$
+!!$  END FUNCTION calc_relative_humidity
+
+  FUNCTION calc_relative_humidity_upper(moisture, moisture_max, ntiles) RESULT(rel_humidity)
+
+    REAL(wp), INTENT(in)  :: moisture(:)
+    REAL(wp), INTENT(in)  :: moisture_max(:)
+    INTEGER, INTENT(in)   :: ntiles              !! Number of soil tiles
+    REAL(wp)              :: rel_humidity(SIZE(moisture), ntiles)
+
+    INTEGER               :: i
+    REAL(wp)              :: moisture_upper(SIZE(moisture))
+    REAL(wp)              :: rhum(SIZE(moisture))
+    REAL(wp),PARAMETER    :: api = 3.141592653589793_wp ! pi 
+
+    moisture_upper = DMIN1(moisture, moisture_max)
+    WHERE (moisture_upper > 0._wp)
+       rhum = 0.5_wp * (1._wp - COS((moisture_upper) * api / moisture_max))
+    ELSEWHERE
+       rhum = 0._wp
+    END WHERE
+    DO i = 1, ntiles
+      rel_humidity(:,i) = rhum(:)
+    ENDDO
+  
+  END FUNCTION calc_relative_humidity_upper
 
   FUNCTION sat_specific_humidity(temp, pressure) RESULT(qsat)
     !

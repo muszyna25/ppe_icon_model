@@ -94,6 +94,7 @@ CONTAINS
                            & moisture3,                         &! inout
                            & moisture4,                         &! inout
                            & moisture5,                         &! inout
+                           & moisture_all,                      &! inout
                            & sat_surface_specific_humidity,     &! inout
                            & skin_reservoir,                    &! inout
                            & snow_fract,                        &! inout
@@ -190,6 +191,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture3(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture4(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture5(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture_all(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: sat_surface_specific_humidity(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: skin_reservoir(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: snow_fract(kbdim)
@@ -310,6 +312,7 @@ CONTAINS
                           moisture3 = moisture3(1:kproma),                 & ! intent out
                           moisture4 = moisture4(1:kproma),                 & ! intent out
                           moisture5 = moisture5(1:kproma),                 & ! intent out
+                          moisture_all = moisture_all(1:kproma),           & ! intent out
                           sat_surface_specific_humidity = sat_surface_specific_humidity(1:kproma),& ! intent out
                           skin_reservoir = skin_reservoir(1:kproma),       & ! intent out
                           snow_fract = snow_fract(1:kproma),               & ! intent out

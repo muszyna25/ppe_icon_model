@@ -831,6 +831,7 @@ CONTAINS
                        & moisture3 = field%moisture3(:,jb),                     &! inout
                        & moisture4 = field%moisture4(:,jb),                     &! inout
                        & moisture5 = field%moisture5(:,jb),                     &! inout
+                       & moisture_all = field%moisture_all(:,jb),               &! inout
                        & sat_surface_specific_humidity = &
                             field%sat_surface_specific_humidity(:,jb),          &! inout
                        & skin_reservoir = field%skin_reservoir(:,jb),           &! inout

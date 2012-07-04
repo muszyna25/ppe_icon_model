@@ -89,6 +89,7 @@ CONTAINS
        moisture3, &
        moisture4, &
        moisture5, &
+       moisture_all, &
        sat_surface_specific_humidity, &
        skin_reservoir, &
        snow_fract, &
@@ -186,6 +187,7 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture3(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture4(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture5(kdim)
+    REAL(wp), OPTIONAL, INTENT(inout) :: moisture_all(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: sat_surface_specific_humidity(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: skin_reservoir(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: snow_fract(kdim)
@@ -411,6 +413,7 @@ CONTAINS
                      moisture3, &
                      moisture4, &
                      moisture5, &
+                     moisture_all, &
                      sat_surface_specific_humidity, &
                      skin_reservoir, &
                      snow_fract, &

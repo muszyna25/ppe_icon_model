@@ -174,7 +174,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 # model timing
 dtime=600
 ndays=1 # 1280
-nsteps=10 # `expr ${ndays} \* 86400 / ${dtime}`
+nsteps=4 # `expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=3600 # `expr 6 \* 3600  `   # global integral output each 6 hours
 dt_file=`expr 1 \* 86400 `   # 1 day per file
 dt_data=600. # 21600.               # write output every 6 hours
