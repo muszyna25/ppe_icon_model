@@ -45,6 +45,14 @@ end if
 #-----------------------------------------------------------------------
 # --- setup
 
+user     = getenv("USER")
+plotdir  = getenv("PLOTDIR")
+datafile = getenv("DATAFILE")
+tailfile = getenv("TAILFILE")
+lmonth   = getenv("LMONTH")
+yyyymm   = getenv("YYYYMM")
+#plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
+
 expres  = 'NWP.'&exphres&'L90'
 
 varfile  = varname
@@ -71,8 +79,6 @@ case levtype of
      end 
 end case
 
-user = getenv("USER")
-plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
 
 if ndays > 1  then
   nd_txt1 = '_n'&ndays
@@ -135,20 +141,43 @@ case varfile of
  'ttendlw':   varfile = '192.162.101' end
 end case
 
+
 for nd=1 to ndays do 
 
-#--- read ICON experiment:
+
+# --- data files
+
+# source_ini_icon = '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+#   '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb'
+# source_ver_icon = '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+#   '/NWP_icon'&exphres&'_DOM01_'&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb' 
+
+  if lmonth = 0 then
+    source_ini_icon = datafile&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb'
+    source_ver_icon = datafile&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb'
+  else
+    source_ini_icon = datafile&yyyymm&'_0001_'&varfile&'_'&levtype&tailfile
+    source_ver_icon = datafile&yyyymm&'_0001_'&varfile&'_'&levtype&tailfile 
+  end if
+
+  source_pl_ifs ='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb'
+  source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
+
+
+#--- read ICON experiment
+
+  vertime1 = parse(vertime)
+  initime1 = parse(initime)
+  step = 24 * (date(verdate)+vertime1/24.0 - date(inidate)-initime1/24.0)
 
   if stat <> 'ctr' then
     temp = read(
-                SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
-                           '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb',
-#               SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
-#                          '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_ML_0001.grb',
+                SOURCE   : source_ini_icon,
 #               param    : varname,
 #               levtype  : levtype,
-  		date     : verdate,
-  		time     : vertime
+  		date     : inidate,
+  		time     : initime,
+                step     : step
   	       )
     scale = 1.0
     case varname of
@@ -169,7 +198,8 @@ for nd=1 to ndays do
     end if
   end if
 
-#--- read IFS data:
+
+#--- read IFS data
 	
   if stat <> 'snap' then
     case levtype of
@@ -181,10 +211,13 @@ for nd=1 to ndays do
 #         'V_P' : param = 'V' end
 #         'QV_P': param = 'Q' end
           'FI'  : param = 'Z' end
+          'CLWC': param = 'QC' end
+          'CIWC': param = 'QI' end
+          'CLC' : param = 'CC' end
 #         'R_P' : param = 'R' end
         end case
         temp = read(  
-                SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb',
+                SOURCE   : source_pl_ifs,
                 param    : param,
                 date     : verdate,
   		time     : vertime
@@ -196,6 +229,7 @@ for nd=1 to ndays do
         vertime1 = parse(vertime)
         initime1 = parse(initime)
         ddays = date(verdate)+vertime1[1]/24.0  - date(inidate)-initime1[1]/24.0
+        param = varname
         case varname of
           'CLCT':            param = 'TCC'  end
           'TQV':             param = 'TCWV' end
@@ -219,7 +253,7 @@ for nd=1 to ndays do
           'ACCSHFL_S':       param = 'SSHF' ; scale= 1.0/86400.0/ddays end
         end case
         temp = read(  
-  		SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb',
+  		SOURCE   : source_sfc_ifs,
   		param    : param,
   		date     : verdate,
   		time     : vertime
@@ -227,15 +261,18 @@ for nd=1 to ndays do
         temp = temp * scale
         end
       otherwise:
+        case varname of
+          'QV'  : varfile = '192.201.28' end
+          'CLWC': varfile = 'qc' end
+          'CIWC': varfile = 'qi' end
+        end case
         temp = read(  
-                SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
-                           '/NWP_icon'&exphres&'_DOM01_'&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb', 
-#  		SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
-#                          '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_ML_0001.grb',
+  		SOURCE   : source_ver_icon, 
 #               param    : varname,
 #               levtype  : levtype,
    		date     : verdate,
-   		time     : vertime
+   		time     : vertime,
+                step     : 0
   	)
         end
     end case
@@ -393,7 +430,8 @@ for k=1 to nlev do
   if mode = 'batch' or mode = 'execute' then  
     shell('mkdir -p '&plotdir)
    #setoutput(file_ps, file_png)  
-    setoutput(file_png)  
+   #setoutput(file_png)  
+    setoutput(file_ps)  
   end if  
   display_window = build_layout()
 
