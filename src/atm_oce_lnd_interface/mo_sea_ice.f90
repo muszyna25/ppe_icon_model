@@ -68,7 +68,8 @@ MODULE mo_sea_ice
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
-  !  USE mo_datetime,            ONLY: t_datetime
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
 
@@ -104,7 +105,10 @@ MODULE mo_sea_ice
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !to be put into namelist
-!  INTEGER :: i_no_ice_thick_class = 1
+  !  INTEGER :: i_no_ice_thick_class = 1
+
+  CHARACTER(len=12)           :: str_module    = 'SeaIce'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
 
 
@@ -1420,7 +1424,7 @@ CONTAINS
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !
   SUBROUTINE calc_atm_fluxes_from_bulk(p_patch, p_as, p_os, p_ice, Qatm)
-    TYPE(t_patch),            INTENT(IN)    :: p_patch
+    TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
@@ -1451,16 +1455,49 @@ CONTAINS
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
     
-    INTEGER :: i
+    INTEGER :: i,k, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
+
+    TYPE(t_subset_range), POINTER :: all_cells
 
     !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_atm_fluxes_from_bulk'
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
     Tsurf(:,:)  = p_os%p_prog(nold(1))%tracer(:,1,:,1)  ! set surface temp = mixed layer temp
-    tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafoK  to Kelvin
-    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdewC to C
+    tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
+    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
+
+
+    ! --- standard initialisation
+    
+    ! Tsurf
+    ! tafoK
+    fu10lim        (:,:) = 0.0_wp
+    esta           (:,:) = 0.0_wp
+    esti           (:,:) = 0.0_wp
+    estw           (:,:) = 0.0_wp
+    sphumida       (:,:) = 0.0_wp
+    sphumidi       (:,:) = 0.0_wp
+    sphumidw       (:,:) = 0.0_wp
+    ! ftdewC
+    rhoair         (:,:) = 0.0_wp
+    dragl0         (:,:) = 0.0_wp
+    dragl1         (:,:) = 0.0_wp
+    dragl          (:,:) = 0.0_wp
+    drags          (:,:) = 0.0_wp
+    fakts          (:,:) = 0.0_wp
+    humi           (:,:) = 0.0_wp
+    fa             (:,:) = 0.0_wp
+    fw             (:,:) = 0.0_wp
+    fi             (:,:) = 0.0_wp
+    dsphumididesti (:,:) = 0.0_wp
+    destidT        (:,:) = 0.0_wp
+    dfdT           (:,:) = 0.0_wp
+
+    ! subset range pointer
+    all_cells => p_patch%cells%all 
+
 
 
     !-----------------------------------------------------------------------
@@ -1515,8 +1552,28 @@ CONTAINS
     !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
     !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-    !-----------------------------------------------------------------------    
-    rhoair(:,:)     = p_as%pao(:,:)/(rd*tafoK(:,:)*(1.0_wp+0.61_wp*sphumida(:,:)) )
+    !-----------------------------------------------------------------------  
+    
+    DO jb = 1,p_patch%nblks_c
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      DO jc = i_startidx_c,i_endidx_c
+        
+        rhoair(jc,jb) = p_as%pao(jc,jb)                &
+          &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
+        
+      END DO
+    END DO
+
+!!$ !---------DEBUG DIAGNOSTICS-------------------------------------------
+!!$    idt_src=1 !3  ! output print level (1-5, fix)
+!!$    CALL dbg_print('calc_atm_fluxes:rhoair'       ,rhoair            ,str_module,idt_src)
+!!$    CALL dbg_print('calc_atm_fluxes:p_as%pao'     ,p_as%pao          ,str_module,idt_src)
+!!$    CALL dbg_print('calc_atm_fluxes:tafoK'        ,tafoK             ,str_module,idt_src)
+!!$    CALL dbg_print('calc_atm_fluxes:p_as%tafo'    ,p_as%tafo          ,str_module,idt_src)
+!!$    CALL dbg_print('calc_atm_fluxes:sphumida'     ,sphumida          ,str_module,idt_src)
+!!$ !---------------------------------------------------------------------
+
+
     fu10lim(:,:)    = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(:,:)) )
     dragl1(:,:)     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim(:,:) &
       &               - 0.6743_wp/(fu10lim(:,:) * fu10lim(:,:)))
@@ -1526,12 +1583,19 @@ CONTAINS
     ! Need to keep the drag honest
     dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
     drags(:,:)      = 0.95_wp * dragl(:,:)
-    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) * (p_as%tafo(:,:) -Tsurf(:,:))
+    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) &
+      &               * (p_as%tafo(:,:) -Tsurf(:,:))
     Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) &
       &               * (sphumida(:,:)-sphumidw(:,:))
 
     DO i = 1, p_ice%kice
       WHERE (p_ice% isice(:,i,:))
+!!$    DO jb = 1,p_patch%nblks_c
+!!$      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+!!$      DO k=1,ice%kice
+!!$        DO jc = i_startidx_c,i_endidx_c
+!!$          IF (ice%isice(jc,k,jb)) THEN
+
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
         fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
@@ -1545,7 +1609,8 @@ CONTAINS
         ! #achim: ?!  
         ! 
         ! LWnet is correct, but splitting it up into LWout and LWin
-        ! this way is wrong.
+        ! this way is wrong. Doesn't matter as of now since neither
+        ! sea ice model explicitly refers to LWout or LWin
         Qatm%LWout (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) &
           &                    - p_as%tafo(:,:))
         Qatm%LWnet (:,i,:)  = Qatm%LWin(:,:) - Qatm%LWout(:,i,:)

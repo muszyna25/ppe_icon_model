@@ -38,9 +38,6 @@
 !!
 MODULE mo_sea_ice_zerolayer
 
-
-
-
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
@@ -135,12 +132,12 @@ CONTAINS
             ! --- total heat conductivity for the ice-snow system
             k_effective(jc,k,jb) = ki*ks/(ks*ice%hi(jc,k,jb) + ki*ice%hs(jc,k,jb))
 
-            ! --- calculate (1-I_0)
-            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
-              one_minus_I_0=1.0_wp-I_0
-            ELSE
+! as of now, I_0 is zero anyway            ! --- calculate (1-I_0)
+!            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
+!              one_minus_I_0=1.0_wp-I_0
+!            ELSE
               one_minus_I_0=1.0_wp
-            END IF
+!            END IF
                     
             ! --- F_A, F_S : pos=upward flux
 
@@ -156,7 +153,7 @@ CONTAINS
               ! atm. flx = LWout - (LWin, sens, lat) - SWin
               F_A(:,:,:) =   zemiss_def * StBo * (ice%Tsurf(:,:,:) +tmelt)**4   &
                 &            - ( 118.0_wp * EXP(-0.5_wp*((doy-206)/53.1_wp)**2) + 179.0_wp ) &
-                &            - 314.0_wp * EXP(-0.5_wp*((doy-164)/47.9_wp)**2) * 0.3_wp & !SW*(1-I_0)
+                &            - 314.0_wp * EXP(-0.5_wp*((doy-164)/47.9_wp)**2)  & !SW, NO 1-I_0 factor
                 &                * ( 0.431_wp / (1.0_wp+((doy-207)/44.5_wp)**2) - 0.086_wp)!1-albedo
             END IF
 
