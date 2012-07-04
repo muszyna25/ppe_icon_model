@@ -139,7 +139,7 @@ CONTAINS
 
 
 
-    IF (lcoupled_rho) THEN
+    IF (lcoupled_rho) THEN  ! integrate mass equation
 
       lcompute =.TRUE.
       lcleanup =.TRUE.
@@ -275,11 +275,10 @@ CONTAINS
 
             DO jc = i_startidx, i_endidx
 
-              p_prog_new%rho(jc,jk,jb) =                            &
-                &              ptr_current_rho(jc,jk,jb) - p_dtime  &
-                &              * ( z_mflx_contra_v(jc,  jk)         &
-                &              -   z_mflx_contra_v(jc,ikp1)  )      &
-                &              * p_metrics%inv_ddqz_z_full(jc,jk,jb)
+              p_prog_new%rho(jc,jk,jb) = ptr_current_rho(jc,jk,jb) - p_dtime  &
+                &                      * ( z_mflx_contra_v(jc,  jk)           &
+                &                      -   z_mflx_contra_v(jc,ikp1)  )        &
+                &                      * p_metrics%inv_ddqz_z_full(jc,jk,jb)
             ENDDO  ! jc
           ENDDO  ! jk
         ENDDO  ! jb
@@ -352,7 +351,7 @@ CONTAINS
 
         DO jk = 1,nlev
           DO je = i_startidx, i_endidx
-            p_diag%mass_fl_e(je,jk,jb) = z_vn_traj(je,jk,jb)               & 
+            p_diag%mass_fl_e(je,jk,jb) = z_vn_traj(je,jk,jb)                & 
               &                         * p_metrics%ddqz_z_full_e(je,jk,jb) &
               &                         * z_rho_e(je,jk,jb)   
           ENDDO  ! je
@@ -467,8 +466,8 @@ CONTAINS
             DO jc = i_startidx, i_endidx
 
               p_prog_new%rho(jc,jk,jb) =  ptr_current_rho(jc,jk,jb) - p_dtime  &
-                &                      * ( z_mflx_contra_v(jc,  jk)         &
-                &                      -   z_mflx_contra_v(jc,ikp1)     )   &
+                &                      * ( z_mflx_contra_v(jc,  jk)            &
+                &                      -   z_mflx_contra_v(jc,ikp1)     )      &
                 &                      * p_metrics%inv_ddqz_z_full(jc,jk,jb)
             ENDDO  ! jc
           ENDDO  ! jk
@@ -497,6 +496,9 @@ CONTAINS
 
       ! Compute density at cell edges
       CALL cells2edges_scalar(p_prog_now%rho, p_patch, p_int%c_lin_e, z_rho_e)
+
+
+      CALL sync_patch_array(SYNC_E, p_patch, z_rho_e)
 
 
       !
