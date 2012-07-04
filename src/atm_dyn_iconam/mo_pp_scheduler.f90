@@ -95,6 +95,7 @@ MODULE mo_pp_scheduler
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_pzlev_setup, &
     &                                   pp_task_pzlev, t_data_input, t_data_output,        &
     &                                   t_simulation_status, t_job_queue, job_queue
+  USE mo_fortran_tools,           ONLY: assign_if_present
 
   IMPLICIT NONE
 
@@ -128,11 +129,6 @@ MODULE mo_pp_scheduler
   PUBLIC :: pp_scheduler_process
   PUBLIC :: pp_scheduler_finalize
   PUBLIC :: new_simulation_status
-
-
-  INTERFACE assign_if_present  ! purely internal
-    MODULE PROCEDURE assign_if_present_logical
-  END INTERFACE
 
 
 CONTAINS
@@ -945,16 +941,5 @@ CONTAINS
     CALL assign_if_present(sim_status%status_flags(3), l_last_step)
 
   END FUNCTION new_simulation_status
-
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! private routine to assign values if actual parameters are present
-  !
-  SUBROUTINE assign_if_present_logical (y,x)
-    LOGICAL, INTENT(inout)        :: y
-    LOGICAL, INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_logical
 
 END MODULE mo_pp_scheduler

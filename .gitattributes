@@ -1295,6 +1295,7 @@ src/shared/mo_dump_restore.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_exception.f90_luis -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
+src/shared/mo_fortran_tools.f90 -text
 src/shared/mo_get_utc_date_tr.f90 -text
 src/shared/mo_gmres.f90 -text
 src/shared/mo_gnat_gridsearch.f90 -text

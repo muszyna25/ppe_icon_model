@@ -25,6 +25,7 @@ MODULE mo_var_list
   USE mo_impl_constants,   ONLY: VINTP_TYPE_NONE, VINTP_METHOD_LIN, &
     &                            HINTP_TYPE_LONLAT,                 &
     &                            max_var_lists, vname_len
+  USE mo_fortran_tools,    ONLY: assign_if_present
 
   IMPLICIT NONE
 
@@ -100,19 +101,14 @@ MODULE mo_var_list
     MODULE PROCEDURE get_var_list_element_l1d
   END INTERFACE get_var
   
-  INTERFACE assign_if_present  ! purely internal
-    MODULE PROCEDURE assign_if_present_character
-    MODULE PROCEDURE assign_if_present_logical
-    MODULE PROCEDURE assign_if_present_integer
-    MODULE PROCEDURE assign_if_present_integers
-    MODULE PROCEDURE assign_if_present_real
+  INTERFACE struct_assign_if_present  ! purely internal
     MODULE PROCEDURE assign_if_present_cf
     MODULE PROCEDURE assign_if_present_grib2
     MODULE PROCEDURE assign_if_present_union
     MODULE PROCEDURE assign_if_present_tracer_meta
     MODULE PROCEDURE assign_if_present_vert_interp
     MODULE PROCEDURE assign_if_present_hor_interp
-  END INTERFACE assign_if_present
+  END INTERFACE struct_assign_if_present
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
@@ -729,8 +725,8 @@ CONTAINS
     ! set components describing the 'Content of the field'
     !
     CALL assign_if_present (info%name,  name)
-    CALL assign_if_present (info%cf,    cf)
-    CALL assign_if_present (info%grib2, grib2)
+    CALL struct_assign_if_present (info%cf,    cf)
+    CALL struct_assign_if_present (info%grib2, grib2)
     !
     ! hash variable name for fast search
     !
@@ -748,24 +744,24 @@ CONTAINS
     CALL assign_if_present (info%loutput,       loutput)
     CALL assign_if_present (info%lcontainer,    lcontainer)
     IF (info%lcontainer) info%ncontained = 0
-    CALL assign_if_present (info%resetval,      resetval)
+    CALL struct_assign_if_present (info%resetval,resetval)
     CALL assign_if_present (info%istatproc,     istatproc)
     CALL assign_if_present (info%lmiss,         lmiss)
-    CALL assign_if_present (info%missval,       missval)
+    CALL struct_assign_if_present (info%missval,       missval)
     CALL assign_if_present (info%lrestart,      lrestart)
     CALL assign_if_present (info%lrestart_cont, lrestart_cont)
-    CALL assign_if_present (info%initval,       initval)
+    CALL struct_assign_if_present (info%initval,       initval)
     CALL assign_if_present (info%tlev_source,   tlev_source)
     !
     ! set flags concerning tracer fields
     !
-    CALL assign_if_present (info%tracer,   tracer_info)
+    CALL struct_assign_if_present (info%tracer,   tracer_info)
     !
     ! set flags concerning vertical interpolation
-    CALL assign_if_present (info%vert_interp,   vert_interp )
+    CALL struct_assign_if_present (info%vert_interp,   vert_interp )
 
     ! set flags concerning horizontal interpolation
-    CALL assign_if_present (info%hor_interp,    hor_interp )
+    CALL struct_assign_if_present (info%hor_interp,    hor_interp )
 
     ! set meta data containing the groups to which a variable belongs
     IF (PRESENT(in_group)) THEN
@@ -3490,49 +3486,6 @@ CONTAINS
 
   END SUBROUTINE collect_group
 
-  !------------------------------------------------------------------------------------------------
-  !
-  ! private routines to assign values if actual parameters are present
-  !
-  SUBROUTINE assign_if_present_character (y,x)
-    CHARACTER(len=*), INTENT(inout)        :: y
-    CHARACTER(len=*), INTENT(in) ,OPTIONAL :: x
-    IF (.NOT. PRESENT(x)) RETURN
-    IF ( x == ' ' )       RETURN      
-    y = x
-  END SUBROUTINE assign_if_present_character
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_logical (y,x)
-    LOGICAL, INTENT(inout)        :: y
-    LOGICAL, INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_logical
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_integer (y,x)
-    INTEGER, INTENT(inout)        :: y
-    INTEGER, INTENT(in) ,OPTIONAL :: x
-    IF (.NOT. PRESENT(x)) RETURN
-    IF ( x == -HUGE(x)  ) RETURN
-    y = x
-  END SUBROUTINE assign_if_present_integer
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_integers (y,x)
-    INTEGER, INTENT(inout)        :: y (:)
-    INTEGER, INTENT(in) ,OPTIONAL :: x (:)
-    INTEGER :: n
-    IF (PRESENT(x)) THEN
-      n = MIN(SIZE(x), SIZE(y))
-      y(1:n) = x(1:n)
-    ENDIF
-  END SUBROUTINE assign_if_present_integers
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_real (y,x)
-    REAL(wp), INTENT(inout)        :: y
-    REAL(wp), INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    IF ( x == -HUGE(x) ) RETURN
-    y = x
-  END SUBROUTINE assign_if_present_real
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_cf (y,x)
     TYPE(t_cf_var), INTENT(inout)        :: y
