@@ -27,17 +27,17 @@ module load netcdf
 module load grib_api
 
 
-lecget=0
+lecget=1
 lsplitdata=0
 lcatdata=0
-lcpdata=1
+lcpdata=0
 ldeldata=0
 
 #-----------------------------------------------------------------------------
 # loop over level type
 
 #for levtype1 in PL HL ML; do
- for levtype1 in PL      ; do
+ for levtype1 in ML      ; do
 
 
 #-----------------------------------------------------------------------------

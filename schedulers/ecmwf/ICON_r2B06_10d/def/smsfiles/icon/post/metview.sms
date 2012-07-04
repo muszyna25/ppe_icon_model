@@ -52,13 +52,16 @@ if [[ $lmetview = 1 ]] ; then
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_DOM01_'
+  export TAILFILE='.grb'
+  export LMONTH=0
+  export YYYYMM
   mkdir -p ${PLOTDIR}
   # add one day "-s -1"!!!
   VERDATEHOUR=`python ${HOME}/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %YMD%%INIHOUR% -s -1`
   VERDATE=`echo $VERDATEHOUR | cut -c1-8`
   VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
-  ./many.error.s %YMD% %INIHOUR% $VERDATE $VERHOUR 1 r2B06 icon_001
-   #many.error.s %YMD% %INIHOUR% %YMD%-1 %INIHOUR% 2 r2B06 icon_001
+  ./many.error.s %YMD% %INIHOUR% $VERDATE $VERHOUR 1 r2B06 %SUITE%
+   #many.error.s %YMD% %INIHOUR% %YMD%-1 %INIHOUR% 2 r2B06 %SUITE%
 fi
 
 %nopp
