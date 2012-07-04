@@ -280,7 +280,6 @@ suite icon_${EXPNUM}
             if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
                 label status "skipped"
             endif
-            event run_model
             event model_complete
             # auto-shutdown of "check_progress" subtask:
             #action abort    $SMSFILES/cancel_check_progress
@@ -351,7 +350,11 @@ suite icon_${EXPNUM}
             trigger testday:time_eom
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 02:00:00
-   
+            meter ecget     0 31 31
+            meter splitdata 0 31 31
+            meter deldata   0 31 31
+            event catdata
+            event cpdata
    
         set work "1 2 3 4"
         loop ii ( $work ) do

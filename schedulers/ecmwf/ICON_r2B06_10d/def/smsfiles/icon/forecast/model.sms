@@ -98,7 +98,6 @@ fi
 . ${SETDIRTMP}/case_setup
 
 # copy binary and execute in parallel
-smsevent run_model
 cp -p ../setup/control_model ./icon.exe
 
 echo "job::start"

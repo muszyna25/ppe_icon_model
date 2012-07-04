@@ -43,6 +43,11 @@ cd ${EXPDIR}
 #-----------------------------------------------------------------------------
 # quick plots (find standard output on oflws144:/uwork1/mkoehler/wq)
 
+ndiff=4                     #number of processes (e.g. 4, synchronize with icon.def "work")
+nstart=%metproc%            #index of process    (e.g. 1 or 4)
+nstart=`awk -v var="$nstart" 'BEGIN{ print (var-1) }'` #awk requires indices [0,4-1]
+export nstart
+
 if [[ $lmetview = 1 ]] ; then
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
@@ -56,11 +61,13 @@ if [[ $lmetview = 1 ]] ; then
    #many.error.s %YMD% %INIHOUR% %YMD%-1 %INIHOUR% 2 r2B06 icon_001
 fi
 
-nstart=%metproc% #index of process    (e.g. 1 or 4)
-ndiff=4          #number of processes (e.g. 4, synchronize with icon.def "work")
 %nopp
-awk 'NR%'${ndiff}'=='${nstart} met.job > job.${nstart}
+awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end
+echo "work:"
+cat met.job.${nstart}
+chmod u+x ./met.job.${nstart}
+./met.job.${nstart}
 
 #if [[ $lmetview = 1 ]] ; then
 #    2011010100) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110101 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.1 2>&1 &" ;;
