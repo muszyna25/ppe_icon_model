@@ -697,9 +697,6 @@ MODULE mo_nh_stepping
     REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
     REAL(wp):: rdt_loc,  rdtadv_loc ! inverse time step for local grid level
 
-    REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
-    REAL(wp), DIMENSION(:,:,:), ALLOCATABLE  :: z_tmp_e
-
     LOGICAL, PARAMETER :: l_straka=.FALSE.
     LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge

@@ -138,24 +138,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_pp_scheduler:pp_scheduler_init")
-    INTEGER                               :: &
-      &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, &
-      &  nblks_lonlat, ilev_type, max_var, ilev
-    LOGICAL                               :: &
-      &  l_jg_active, found, l_horintp
-    TYPE (t_output_name_list), POINTER    :: p_onl
-    TYPE(t_job_queue),         POINTER    :: task
-    TYPE(t_var_list),          POINTER    :: p_opt_diag_list
-    REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
-    TYPE(t_list_element),      POINTER    :: element, new_element, new_element_2
-    CHARACTER(LEN=vname_len),  POINTER    :: varlist(:)
-    INTEGER, ALLOCATABLE                  :: ll_vargrid(:)
-    CHARACTER(LEN=vname_len), ALLOCATABLE :: ll_varlist(:)
-    INTEGER, ALLOCATABLE                  :: ll_varlevs(:)
-    CHARACTER(LEN=vname_len)              :: vname
-    TYPE(t_var_metadata),      POINTER    :: info
-    INTEGER                               :: var_shape(5)
-    TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
+    INTEGER                          :: jg, i
+    TYPE(t_list_element), POINTER    :: element
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -186,11 +170,49 @@ CONTAINS
       ENDDO ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
 
-
     !-------------------------------------------------------------
     !--- setup of vertical interpolation onto p/z-levels
 
     CALL pp_scheduler_init_pz(l_init_prm_diag)
+
+    !-------------------------------------------------------------
+    !-- horizontal interpolation regular lon-lat grids
+
+    CALL pp_scheduler_init_lonlat
+
+    IF (dbg_level > 5)  CALL message(routine, "Done")
+    
+  END SUBROUTINE pp_scheduler_init
+
+
+  !---------------------------------------------------------------
+  !> Setup of lon-lat interpolation tasks.
+  !
+  SUBROUTINE pp_scheduler_init_lonlat
+
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine =  &
+      &  TRIM("mo_pp_scheduler:pp_scheduler_init_lonlat")
+    INTEGER                               :: &
+      &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, &
+      &  nblks_lonlat, ilev_type, max_var, ilev
+    LOGICAL                               :: &
+      &  found, l_horintp
+    TYPE (t_output_name_list), POINTER    :: p_onl
+    TYPE(t_job_queue),         POINTER    :: task
+    TYPE(t_var_list),          POINTER    :: p_opt_diag_list
+    REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
+    TYPE(t_list_element),      POINTER    :: element, new_element, new_element_2
+    CHARACTER(LEN=vname_len),  POINTER    :: varlist(:)
+    INTEGER, ALLOCATABLE                  :: ll_vargrid(:)
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: ll_varlist(:)
+    INTEGER, ALLOCATABLE                  :: ll_varlevs(:)
+    CHARACTER(LEN=vname_len)              :: vname
+    TYPE(t_var_metadata),      POINTER    :: info
+    INTEGER                               :: var_shape(5)
+    TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
+
+    if (dbg_level > 5)  CALL message(routine, "Enter")
 
     !-------------------------------------------------------------
     !-- horizontal interpolation regular lon-lat grids
@@ -420,7 +442,7 @@ CONTAINS
 
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
-  END SUBROUTINE pp_scheduler_init
+  END SUBROUTINE pp_scheduler_init_lonlat
 
 
   !---------------------------------------------------------------

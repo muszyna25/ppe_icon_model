@@ -678,8 +678,8 @@ CONTAINS
     p_prog    => ptr_task%data_input%p_nh_state%prog(nnow(jg))
     p_diag    => ptr_task%data_input%p_nh_state%diag
 
-    SELECT CASE(p_info%name)
-    CASE ("rh")
+    SELECT CASE(ptr_task%job_type)
+    CASE (TASK_COMPUTE_RH)
       CALL compute_field_rel_hum(p_patch, p_prog, p_diag, &
         &                        out_var%r_ptr(:,:,:,out_var_idx,1))
     END SELECT
