@@ -900,7 +900,9 @@ CONTAINS
                 p_ext_atm%stomresmin_lcc(num_lcc), & ! Minimum stomata resistance for each land-cover class
                 p_ext_atm%snowalb_lcc(num_lcc),    & ! Albedo in case of snow cover for each land-cover class
                 p_ext_atm%snowtile_lcc(num_lcc),   & ! Specification of snow tiles for land-cover class
-                p_ext_atm%i_lc_snow_ice(1)          )
+                p_ext_atm%i_lc_snow_ice(1),        & ! Specification of land-use class snow and ice
+                p_ext_atm%i_lc_water(1)            ) ! Specification of land-use class water
+
 
       !--------------------------------
       ! soil parameters
@@ -1782,6 +1784,7 @@ CONTAINS
         ilu = 0
         IF (i_lctype(jg) == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice(1) = 21
+          ext_data(jg)%atm%i_lc_water(1)    = 20
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i  )  ! Land-cover related roughness length
@@ -1795,6 +1798,7 @@ CONTAINS
         ELSE IF (i_lctype(jg) == 2) THEN
           i_lctype(jg) = 2
           ext_data(jg)%atm%i_lc_snow_ice(1) = 22
+          ext_data(jg)%atm%i_lc_water(1)    = 21
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i  )  ! Land-cover related roughness length
@@ -2577,6 +2581,7 @@ CONTAINS
     REAL(wp) :: tile_frac(num_lcc), sum_frac
     INTEGER  :: lu_subs, it_count(nsfc_subs)
     INTEGER  :: npoints, npoints_sea
+    INTEGER  :: i_lc_water
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
       &  ptr_ndvi_mrat(:,:)   !< NDVI (for starting time of model integration)
@@ -2604,7 +2609,8 @@ CONTAINS
 
        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
+     
+       i_lc_water = ext_data(jg)%atm%i_lc_water(1)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
@@ -2629,7 +2635,7 @@ CONTAINS
 
              tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
              tile_mask(:)=.true.
-             tile_mask(20)=.false. ! exclude water points
+             tile_mask(i_lc_water)=.false. ! exclude water points
              ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
              ext_data(jg)%atm%lp_count(jb) = i_count

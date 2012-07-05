@@ -258,9 +258,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &    !< Albedo in case of snow cover for each land-cover class  [ ]
       & snowalb_lcc(:)         ! index1=1,23
     REAL(wp), POINTER ::  &    !< Specification of snow tiles for land-cover class [ ]
-      & snowtile_lcc(:)           ! index1=1,23
-    INTEGER, POINTER ::  &     !< Specification of land-use class for snow and ice
+      & snowtile_lcc(:)        ! index1=1,23
+    INTEGER, POINTER ::   &    !< Specification of land-use class for snow and ice
       & i_lc_snow_ice(:)       ! index1=1,23
+    INTEGER, POINTER ::   &    !< Specification of land-use class for water
+      & i_lc_water(:)          ! index1=1,23
+
   END TYPE t_external_atmos
 
 
