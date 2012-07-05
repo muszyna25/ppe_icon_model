@@ -7,8 +7,11 @@
 !! For example, the interpolation of model variables onto lon-lat
 !! fields constitutes such a task. Allocating and computing only those
 !! fields which are required for output (or as intermediate results)
-!! can save memory and computing time. Jobs are processed according to
-!! user-defined priority levels.
+!! can save memory and computing time. 
+
+!! Jobs are processed according to user-defined priority levels. In
+!! principle, all tasks with the same job priority could be processed
+!! simultaneously (with OpenMP).
 !!
 !! @author F. Prill, DWD
 !!
@@ -235,6 +238,8 @@ CONTAINS
     NML_LOOP : DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
 
+      ! do the same for the three level types: model levels (ml),
+      ! height levels (hl), and pressure levels (pl):
       DO ilev=1,3
    
         SELECT CASE(ilev)
@@ -489,8 +494,7 @@ CONTAINS
     !   executed ahead of interpolation tasks)
     ! - for each variable: register post-processing task
 
-    ALLOCATE(pl_varlist(ndom*max_var_pl), hl_varlist(ndom*max_var_hl), &
-      &      STAT=ierrstat)
+    ALLOCATE(pl_varlist(ndom*max_var_pl), hl_varlist(ndom*max_var_hl), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     DOM_LOOP : DO jg=1,ndom
@@ -572,6 +576,7 @@ CONTAINS
         p_onl => p_onl%next
       END DO NML_LOOP_H
 
+      ! some debugging output...
       IF (dbg_level > 8)  THEN
         DO i=1,nvars_pl
           WRITE (message_text,*) "p var list: ", TRIM(pl_varlist(i))
@@ -784,7 +789,7 @@ CONTAINS
                 &           ldims=shape3d, lrestart=.FALSE.,           &
                 &           loutput=.TRUE., new_element=new_element)
 
-              !-- add post-processing task
+              !-- add post-processing task for lon-lat interpolation
 
               task => pp_task_insert(DEFAULT_PRIORITY1)
               task%job_name        =  &
@@ -828,7 +833,8 @@ CONTAINS
 
 
   !---------------------------------------------------------------
-  !> Register a new post-processing task.
+  !> Register a new post-processing task for computing additional 
+  !  diagnostic fields (not for interpolation).
   !
   !  The new task will be added to the dynamic list of post-processing
   !  jobs and called on a regular basis.
