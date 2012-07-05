@@ -231,6 +231,11 @@ MODULE mo_ext_data_types
       & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
       & sp_count(:)           ! index1=1,nblks_c
+    INTEGER, POINTER ::  &    !< Sea point index list for each block        [ ]
+      & idx_lst_fp(:,:)       ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
+      & fp_count(:)           ! index1=1,nblks_c
+
 
     INTEGER, POINTER ::  &    !< Grid point index list for each block and tile [ ]
       & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs

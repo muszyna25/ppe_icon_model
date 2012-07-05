@@ -114,7 +114,7 @@ MODULE mo_ext_data_state
   CHARACTER(len=5)  :: o3name
   CHARACTER(len=20) :: o3unit
 
-  REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp
+  REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp, frlake_thrhld = 0.5_wp
 
   ! Number of landcover classes provided by external parameter data
   ! Needs to be changed into a variable if landcover classifications 
@@ -863,6 +863,14 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      ! idx_lst_fp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
+      cf_desc    = t_cf_var('lake point index list', '-', &
+        &                   'lake point index list', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'idx_lst_fp', p_ext_atm%idx_lst_fp, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+
       ! idx_lst_t        p_ext_atm%idx_lst_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('tile point index list', '-', &
         &                   'tile point index list', DATATYPE_FLT32)
@@ -873,7 +881,7 @@ CONTAINS
 
       ! not sure if these dimensions are supported by add_var...
       ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,nsfc_subs))
-      ALLOCATE(p_ext_atm%sp_count(nblks_c))
+      ALLOCATE(p_ext_atm%sp_count(nblks_c),p_ext_atm%fp_count(nblks_c))
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('tile point land cover class list', '-', &
@@ -2572,7 +2580,7 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_sea
+    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_sea, i_count_flk
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -2580,7 +2588,7 @@ CONTAINS
     LOGICAL  :: tile_mask(num_lcc) = .true. 
     REAL(wp) :: tile_frac(num_lcc), sum_frac
     INTEGER  :: lu_subs, it_count(nsfc_subs)
-    INTEGER  :: npoints, npoints_sea
+    INTEGER  :: npoints, npoints_sea, npoints_lake
     INTEGER  :: i_lc_water
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
@@ -2624,6 +2632,8 @@ CONTAINS
          ext_data(jg)%atm%lp_count(jb) = 0
          i_count_sea                   = 0   ! counter for sea points
          ext_data(jg)%atm%sp_count(jb) = 0
+         i_count_flk                   = 0   ! counter for lake points
+         ext_data(jg)%atm%fp_count(jb) = 0
 
          it_count(:)                       = 0 ! counter for tiles
          ext_data(jg)%atm%gp_count_t(jb,:) = 0
@@ -2736,7 +2746,11 @@ CONTAINS
                    ext_data(jg)%atm%soiltyp(jc,jb)
                END DO
              END IF ! nfc_subs
-           ELSE  !IF (fr_land(jc,jb) <= frlnd_thrhld) THEN  searching for sea-points
+           ELSE  IF (ext_data(jg)%atm%fr_lake(jc,jb)> frlake_thrhld) THEN ! searching for lake-points 
+             i_count_flk=i_count_flk+1
+             ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
+             ext_data(jg)%atm%fp_count(jb) = i_count_flk
+           ELSE                                                           ! searching for sea-points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
@@ -2756,6 +2770,11 @@ CONTAINS
        npoints_sea = global_sum_array(npoints_sea)
        WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg,':', npoints_sea
        CALL message('', TRIM(message_text))
+       npoints_lake = SUM(ext_data(jg)%atm%fp_count(i_startblk:i_endblk))
+       npoints_lake = global_sum_array(npoints_lake)
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of lake points in domain',jg,':', npoints_lake
+       CALL message('', TRIM(message_text))
+
 
        DO i_lu = 1, nsfc_subs
          npoints = SUM(ext_data(jg)%atm%gp_count_t(i_startblk:i_endblk,i_lu))

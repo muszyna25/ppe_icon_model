@@ -111,6 +111,7 @@ CONTAINS
     INTEGER :: ist
     INTEGER :: i_count_lnd             !< number of land points
     INTEGER :: i_count_sea             !< number of sea points
+    INTEGER :: i_count_flk             !< number of lake points
 
     !-----------------------------------------------------------------------
 
@@ -250,6 +251,26 @@ CONTAINS
           prm_diag%albvisdif(jc,jb) = csalb(ist)
         ENDDO
 
+
+        !
+        ! 3. Consider lake points (no tiles)
+        !
+        ! - loop over lake points
+        !
+        i_count_flk = ext_data%atm%fp_count(jb)
+
+        DO ic = 1, i_count_flk
+          jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+          ! special handling of sea ice points
+          IF (lnd_prog%t_g(jc,jb) < tmelt-1.7_wp) THEN ! sea ice
+            ist = 10
+          ELSE
+            ist = 9 ! water
+          ENDIF
+
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
+        ENDDO
 
 
       ELSE  ! surface model switched OFF
