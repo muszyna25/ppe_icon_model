@@ -857,9 +857,9 @@ class EXP_plot(HtmlResource):
         
         for comp in Archive_Button_Dict['comp']:
 	  if comp == selected_builder or selected_builder == "all":
-	    for Da in Comp_Dict[comp]:
-              for Re in Comp_Dict[comp][Da]:
-	        for Bu in Comp_Dict[comp][Da][Re]:
+	    for Da in sorted(Comp_Dict[comp]):
+              for Re in sorted(Comp_Dict[comp][Da]):
+	        for Bu in sorted(Comp_Dict[comp][Da][Re]):
 	          if Bu == selected_build or selected_build == "all":
 	            for Ex in Comp_Dict[comp][Da][Re][Bu]:
 		      for Fi in Comp_Dict[comp][Da][Re][Bu][Ex]:
