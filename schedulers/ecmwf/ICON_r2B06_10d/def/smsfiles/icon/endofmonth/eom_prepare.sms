@@ -27,10 +27,10 @@ module load netcdf
 module load grib_api
 
 
-lecget=1
+lecget=0
 lsplitdata=0
 lcatdata=0
-lcpdata=0
+lcpdata=1
 ldeldata=0
 
 #-----------------------------------------------------------------------------
@@ -136,9 +136,13 @@ mondir=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/${YYYYMM}
 mkdir -p $mondir
 
 if [[ $lcatdata = 1 ]] ; then
+ #varlist=`ls grb_data/%SUITE%_DOM01_${date31}_0001_*_*.grb | \
+ #         awk 'BEGIN { FS="_"} ; {print $7"_"$8}'          | \
+ #         sed 's/.grb//'`
   varlist=`ls grb_data/%SUITE%_DOM01_${date31}_0001_*_*.grb | \
-           awk 'BEGIN { FS="_"} ; {print $7"_"$8}'          | \
-           sed 's/.grb//'`
+      sed "s/grb_data\/%SUITE%_DOM01_${date31}_0001_//"      | \
+      sed "s/.grb//"`
+
   for var in $varlist ; do
     mkdir -p ${mondir}/tmp_dir
     ymdh=${date01}

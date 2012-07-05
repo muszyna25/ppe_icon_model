@@ -35,14 +35,14 @@ smsevent copy_files
 
 
 #-----------------------------------------------------------------------------
-# archive ...
-
+# archive plots and tranfer to DWD by ectrans
 
 
 #-----------------------------------------------------------------------------
 # delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
+  gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
   \rm -rf grb_data 
 fi
 
