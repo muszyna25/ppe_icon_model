@@ -53,9 +53,9 @@ MODULE mo_lnd_nwp_config
 
   PRIVATE
 
-  PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs, nsfc_snow
+  PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs, nsfc_stat
   PUBLIC :: frac_thresh
-  PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
+  PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
@@ -76,8 +76,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  nztlev             !< time integration scheme
   INTEGER ::  nlev_snow          !< number of snow layers
   INTEGER ::  nsfc_subs          !< number of TILES
-  INTEGER ::  nsfc_snow          !< number of static surface types 
-                                 !< which can have snow as a tile
+  INTEGER ::  nsfc_stat          !< number of static surface types 
   REAL(wp)::  frac_thresh        !< fraction threshold for retaining the respective 
                                  !< tile for a grid point
   INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
@@ -98,6 +97,7 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  lstomata    !! map of minimum stomata resistance
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
   LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 
+  LOGICAL ::  lsnowtile   !! if .TRUE., snow is considered as a separate tile
 
 
   ! derived variables
@@ -168,21 +168,21 @@ CONTAINS
     ENDIF
     CALL construct_tiles_arrays (p_patch, p_tiles, n_dom, nproma)
 
-    DO jg = 1, n_dom
-      DO isubs = 1, nsfc_subs - nsfc_snow
-        p_tiles(jg,isubs)%snow_tile     = .FALSE.
-        p_tiles(jg,isubs)%snowfree_tile = .FALSE.
-        p_tiles(jg,isubs)%conjunct      = isubs
-      END DO
-
-      DO isubs = nsfc_subs - nsfc_snow + 1, nsfc_subs-1, 2
-        p_tiles(jg,isubs  )%snow_tile     = .FALSE.
-        p_tiles(jg,isubs+1)%snow_tile     = .TRUE.
-        p_tiles(jg,isubs  )%snowfree_tile = .TRUE.
-        p_tiles(jg,isubs+1)%snowfree_tile = .FALSE.
-        p_tiles(jg,isubs  )%conjunct      = isubs+1
-        p_tiles(jg,isubs+1)%conjunct      = isubs
-      END DO
+!    DO jg = 1, n_dom
+!      DO isubs = 1, nsfc_subs - nsfc_snow
+!        p_tiles(jg,isubs)%snow_tile     = .FALSE.
+!        p_tiles(jg,isubs)%snowfree_tile = .FALSE.
+!        p_tiles(jg,isubs)%conjunct      = isubs
+!      END DO
+!
+!      DO isubs = nsfc_subs - nsfc_snow + 1, nsfc_subs-1, 2
+!        p_tiles(jg,isubs  )%snow_tile     = .FALSE.
+!        p_tiles(jg,isubs+1)%snow_tile     = .TRUE.
+!        p_tiles(jg,isubs  )%snowfree_tile = .TRUE.
+!        p_tiles(jg,isubs+1)%snowfree_tile = .FALSE.
+!        p_tiles(jg,isubs  )%conjunct      = isubs+1
+!        p_tiles(jg,isubs+1)%conjunct      = isubs
+!      END DO
 !!$    p_tiles(jg,:)%lake_tile = .FALSE.
 !!$    IF(nsfc_subs .NE. nsfc_snow) THEN       !temporary
 !!$      p_tiles(jg,2)%lake_tile = .TRUE.
@@ -200,7 +200,7 @@ CONTAINS
 !!$      END DO
 !!$
 !!$    END DO
-    ENDDO  ! jg
+!    ENDDO  ! jg
 
 
   END SUBROUTINE configure_lnd_nwp

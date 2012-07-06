@@ -52,7 +52,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_lnd_nwp_config,      ONLY: config_nztlev      => nztlev        , &
     &                               config_nlev_snow   => nlev_snow     , &
     &                               config_nsfc_subs   => nsfc_subs     , &
-    &                               config_nsfc_snow   => nsfc_snow     , &
+    &                               config_nsfc_stat   => nsfc_stat     , &
     &                               config_frac_thresh => frac_thresh   , &
     &                               config_lseaice     => lseaice       , &
     &                               config_llake       => llake         , &
@@ -70,7 +70,8 @@ MODULE mo_lnd_nwp_nml
     &                               config_itype_subs  => itype_subs    , &
     &                            config_itype_heatcond => itype_heatcond, &
     &                            config_itype_hydbound => itype_hydbound, &
-    &                            config_lana_rho_snow  => lana_rho_snow
+    &                            config_lana_rho_snow  => lana_rho_snow , &
+    &                            config_lsnowtile      => lsnowtile
 
   IMPLICIT NONE
 
@@ -80,9 +81,8 @@ MODULE mo_lnd_nwp_nml
 ! --------------------------------------
   INTEGER ::  nztlev            !< time integration scheme
   INTEGER ::  nlev_snow         !< number of snow layers
-  INTEGER ::  nsfc_subs         !< number of TILES
-  INTEGER ::  nsfc_snow         !< number of static surface types which can have 
-                                !< snow as a tile
+  INTEGER ::  nsfc_subs         !< number of TILES   ! should be eliminated
+  INTEGER ::  nsfc_stat         !< number of static tiles
   REAL(wp)::  frac_thresh       !< fraction threshold for retaining the respective 
                                 !< tile for a grid point
   INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
@@ -105,12 +105,13 @@ MODULE mo_lnd_nwp_nml
        lmulti_snow,& !! run the multi-layer snow model
        lstomata   , & ! map of minimum stomata resistance
        l2tls      , & ! forecast with 2-TL integration scheme
-       lana_rho_snow  ! if .TRUE., take rho_snow-values from analysis file 
+       lana_rho_snow, &  ! if .TRUE., take rho_snow-values from analysis file 
+       lsnowtile      ! if .TRUE., snow is considered as a separate tile
 !--------------------------------------------------------------------
 ! nwp forcing (right hand side)
 !--------------------------------------------------------------------
 
-  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_snow   , &
+  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_stat   , &
     &               frac_thresh, lseaice, llake, lmelt        , &
     &               lmelt_var, lmulti_snow, itype_gscp        , & 
     &               itype_trvg, idiag_snowfrac                , & 
@@ -122,7 +123,8 @@ MODULE mo_lnd_nwp_nml
     &               lstomata                                  , & 
     &               l2tls                                     , & 
     &               lana_rho_snow                             , & 
-    &               itype_subs            
+    &               itype_subs                                , &
+    &               lsnowtile
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -163,13 +165,13 @@ MODULE mo_lnd_nwp_nml
     nztlev         = 2       ! 2 = default value for time integration scheme
     nlev_snow      = 1       ! 0 = default value for number of snow layers
     nsfc_subs      = 1       ! 1 = default value for number of TILES
-    nsfc_snow      = 0       ! 0 = default value for number of static surface 
-                             !     types which can have snow as a tile
+    nsfc_stat      = 1       ! 1 = default value for number of static surface types
     frac_thresh    = 0.05_wp ! fraction threshold for retaining the respective 
                              ! tile for a grid point
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
     lmulti_snow    = .FALSE. ! run the multi-layer snow model
+    lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
     itype_gscp     = 3       ! type of grid-scale precipitation physics
@@ -216,10 +218,10 @@ MODULE mo_lnd_nwp_nml
     !----------------------------------------------------
     ! 4. Sanity check (if necessary)
     !----------------------------------------------------
-    IF ( nsfc_snow > nsfc_subs ) THEN
-      CALL finish( TRIM(routine),                                   &
-        &  'incorrect settings for nsfc_snow. Must be <= nsfc_subs')
-    ENDIF
+!    IF ( nsfc_snow > nsfc_subs ) THEN
+!      CALL finish( TRIM(routine),                                   &
+!        &  'incorrect settings for nsfc_snow. Must be <= nsfc_subs')
+!    ENDIF
 
     !Multi-layer snow model
     !
@@ -237,7 +239,7 @@ MODULE mo_lnd_nwp_nml
       config_nztlev      = nztlev
       config_nlev_snow   = nlev_snow
       config_nsfc_subs   = nsfc_subs
-      config_nsfc_snow   = nsfc_snow
+      config_nsfc_stat   = nsfc_stat
       config_frac_thresh = frac_thresh
       config_lseaice     = lseaice
       config_llake       = llake
@@ -256,6 +258,7 @@ MODULE mo_lnd_nwp_nml
       config_itype_heatcond = itype_heatcond
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
+      config_lsnowtile   = lsnowtile
     ENDDO
 
     !-----------------------------------------------------

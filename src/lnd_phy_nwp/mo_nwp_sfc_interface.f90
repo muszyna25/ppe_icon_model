@@ -56,10 +56,10 @@ MODULE mo_nwp_sfc_interface
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
-    &                               lseaice, llake, lmulti_snow
+    &                               lseaice, llake, lmulti_snow, nsfc_stat
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
-  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_snow_index_list
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
@@ -204,8 +204,9 @@ CONTAINS
 
 !!$    REAL(wp) :: lu_class_frac(nsfc_subs), sum_frac 
 !!$    INTEGER  :: i_tile(nproma, nsfc_subs),lu_subs
+    INTEGER  :: lu_subs
     REAL(wp) :: subsfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
-    INTEGER  :: i_count, ic
+    INTEGER  :: i_count, i_count_snow, ic
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
     REAL(wp) :: t_s_s(nproma), t_snow_s(nproma), t_snow_mult_s(nproma, nlev_snow),          &
@@ -618,6 +619,19 @@ CONTAINS
            lnd_diag%qv_s(jc,jb)     = qv_s_s(jc) ! &
     !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
     !          ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
+         ENDDO
+
+         DO isubs = 1, nsfc_stat
+
+           i_count      = ext_data%atm%gp_count_t(jb,isubs) 
+           i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat) 
+
+!           CALL update_snow_index_list(i_count, i_count_snow,                                        &
+!                                       idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
+!                                       idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
+!                                       lsnowpres = (lnd_prog_new%w_snow_t(:,jb,isubs).GT.1.E-06_wp), &
+!                                       lc_class = lc_class_t(:,jb,isubs),                            &
+!                                       sntile_lcc = ext_data%atm%snowtile_lcc(:))
          ENDDO
 
        ENDIF

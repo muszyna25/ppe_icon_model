@@ -68,6 +68,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: nwp_surface_init
   PUBLIC :: diag_snowfrac_tg
   PUBLIC :: aggregate_landvars
+  PUBLIC :: update_snow_index_list
 
 CONTAINS
 
@@ -1041,6 +1042,66 @@ CONTAINS
 
   END SUBROUTINE diag_snowfrac_tg
 
+  SUBROUTINE update_snow_index_list (i_count, i_count_snow, idx_lst_nosnow, idx_lst_snow, &
+                                     lsnowpres, lc_class, sntile_lcc)
+
+    INTEGER, INTENT(IN)    :: i_count
+    INTEGER, INTENT(IN)    :: idx_lst_nosnow(:)
+    LOGICAL, INTENT(IN)    :: lsnowpres(:)
+    INTEGER, INTENT(IN)    :: lc_class(:)
+    REAL(wp), INTENT(IN)   :: sntile_lcc(:)    ! why REAL?
+    INTEGER, INTENT(INOUT) :: i_count_snow
+    INTEGER, INTENT(INOUT) :: idx_lst_snow(:)
+
+    INTEGER :: ic, jc, icc, iminval, iminneg, itmp, iminsize, lu_subs
+
+    !-------------------------------------------------------------------------
+
+    DO ic = 1, i_count
+      jc = idx_lst_nosnow(ic)
+
+      lu_subs = lc_class(jc)
+      IF(sntile_lcc(lu_subs) .EQ. 1.) THEN  ! snow tile is considered
+
+        iminsize = MIN(i_count_snow, ic)
+  
+        ! find if there was snow at the previous time step and if yes, 
+        ! the position of the jc point in the "snow" index list
+        iminval  = ic
+        DO icc = iminsize, 1, -1
+          itmp = jc - idx_lst_snow(icc)
+          IF(ABS(itmp).LT.iminval) THEN
+            iminval = ABS(itmp)
+            IF(itmp.LT.0) THEN
+              iminneg = icc
+            ELSE
+              iminneg = icc-1
+            END IF 
+          END IF
+        END DO
+         
+        IF(iminval.EQ.0 .AND. .NOT.lsnowpres(jc)) THEN
+          ! there was snow at the previous time step AND there is no snow at the current time step
+          DO icc = iminneg, iminsize-1
+            ! shift indices in the index list filling new gap
+            idx_lst_snow(icc) = idx_lst_snow(icc+1)
+          END DO
+          i_count_snow = i_count_snow - 1
+        ELSEIF(iminval.GT.0 .AND. lsnowpres(jc)) THEN
+          ! there was no snow at the previous time step AND there is snow at the current time step
+          DO icc = iminsize,iminneg+1,-1
+            ! shift indices in the index list creating a gap
+            idx_lst_snow(icc+1) = idx_lst_snow(icc)
+          END DO
+          ! insert new index into the index list
+          idx_lst_snow(iminneg+1) = jc
+          i_count_snow = i_count_snow + 1
+        END IF
+      END IF
+
+    END DO
+
+  END SUBROUTINE update_snow_index_list
 
 END MODULE mo_nwp_sfc_utils
 
