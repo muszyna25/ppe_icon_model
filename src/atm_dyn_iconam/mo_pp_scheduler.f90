@@ -180,7 +180,8 @@ CONTAINS
               ! register task for interpolation to z=0:
               CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
                 &                         job_type=TASK_INTP_MSL,                                 &
-                &                         l_init_prm_diag=l_init_prm_diag, opt_p_in_var=element_pres )            
+                &                         l_init_prm_diag=l_init_prm_diag,                        &
+                &                         opt_p_in_var=element_pres)
             END IF
             CASE DEFAULT
             CALL finish(routine, "Unknown pp task type!")
