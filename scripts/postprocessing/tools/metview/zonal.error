@@ -116,7 +116,11 @@ if varname = 'QC'   or varname = 'QI'   or
 end if
 # rename
 case varfile of
- 'CC':        varfile = 'CLC'         end
+ 'CC':        if levtype = 'pl' then
+                varfile = '0.6.22'  
+              else
+                varfile = 'CLC'
+              end if                  end
  'Q1':        varfile = '192.201.28'  end
  'QTVAR':     varfile = '192.201.39'  end
  'ttendsw':   varfile = '192.162.100' end
