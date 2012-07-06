@@ -695,6 +695,7 @@ schedulers/ecmwf/ICON_r2B06_10d/def/case_setup -text
 schedulers/ecmwf/ICON_r2B06_10d/def/ifs2icon_1279.conf -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/end_job.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/head.h -text
+schedulers/ecmwf/ICON_r2B06_10d/def/include/init_ecgate_submit.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/init_icon_job.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/init_job.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/tail.h -text

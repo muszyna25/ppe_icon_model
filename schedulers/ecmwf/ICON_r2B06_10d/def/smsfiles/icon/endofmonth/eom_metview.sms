@@ -62,7 +62,7 @@ if [[ $lmetview = 1 ]] ; then
  #DAYS_MONTH=`echo %YMD% | cut -c 5-6`
   DAYS_MONTH=30
 
-  for DAYS_FORC in "1 10" ; do 
+  for DAYS_FORC in 1 10 ; do 
     # 24h forecast verification:
     # add one day "-s -1" for verification !!!
     # substract one day from number of days (e.g. 31-1=30)

@@ -43,6 +43,7 @@ smsevent copy_files
 
 if [[ $ldeldata = 1 ]] ; then
   gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
+  cd $gatedir
   \rm -rf grb_data 
 fi
 
