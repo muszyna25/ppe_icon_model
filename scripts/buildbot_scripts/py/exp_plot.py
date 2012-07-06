@@ -114,7 +114,6 @@ class EXP_plot(HtmlResource):
   	      Archive_Button_Dict['comp'].append(c)
 	      ret = True
 
-# If ret == True we found a computer with correct sub-information
 	  if ret:
             r_Dict[r] = comp_D
           
@@ -131,10 +130,30 @@ class EXP_plot(HtmlResource):
 	      if add_comp(p,r,rev_D):
 	        Archive_Button_Dict['rev'].append(r)
 	        ret = True
-#	    else:
-#	      print "Rev: "+r+" not used"
-
-# If ret == True we found a revision number with correct sub-information
+	        
+	  if ret:
+            d_Dict[D] = rev_D
+          
+          return ret
+	      
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        
+	def add_branch(p,D,d_Dict):
+	  ret = False
+	  rev_D = {}
+	  p1 += D + "/"
+	  
+	  for b in os.listdir(p1):
+	    if b.find("trunk") == 0 or b.find("tags") == 0 or b.find("branch") == 0:
+	      if add_comp(p1,r,rev_D):
+	        Archive_Button_Dict['branch'].append(b)
+	        ret = True
+	    else:
+	      if add_comp(p,D,rev_D):
+	        Archive_Button_Dict['branch'].append("trunk+icon-dev")
+	        ret = True
+	        break
+	      
 	  if ret:
             d_Dict[D] = rev_D
           
@@ -229,12 +248,13 @@ class EXP_plot(HtmlResource):
 	  data = self.footer(status,request)
           return data
 
-	Archive_Button_Dict['date']  = []
-	Archive_Button_Dict['rev']   = []
-	Archive_Button_Dict['comp']  = []
-	Archive_Button_Dict['build'] = []
-	Archive_Button_Dict['exp']   = []
-	Archive_Button_Dict['file']  = []
+	Archive_Button_Dict['date']   = []
+	Archive_Button_Dict['rev']    = []
+	Archive_Button_Dict['branch'] = []
+	Archive_Button_Dict['comp']   = []
+	Archive_Button_Dict['build']  = []
+	Archive_Button_Dict['exp']    = []
+	Archive_Button_Dict['file']   = []
 	
 #        ExpListInfo = []
 
@@ -259,7 +279,7 @@ class EXP_plot(HtmlResource):
 #ws	  Date_to = "2012-06-21"
 	  now_time = time.strftime("%H%M",time.localtime(util.now()))
 	      
-	  yesterday = datetime.now() - timedelta(days=2)
+	  yesterday = datetime.now() - timedelta(days=4)
 	      
 	  if now_time > "2200":
 #ws	    Date_from = "2012-06-20"
@@ -301,17 +321,26 @@ class EXP_plot(HtmlResource):
 	date_Dict = {}
         
 	p_date = "public_html/archive/"
-        print "==== WS ===="
+#        print "==== WS ===="
 	for DATE in os.listdir(p_date):
 	  if DATE.find("20") == 0:
             if (DATE >= Date_from) and (DATE <= Date_to):
 	      if add_rev(p_date,DATE,date_Dict):
 	        Archive_Button_Dict['date'].append(DATE)
-	    
+#         print date_Dict
+#         print "==== WS ===="
+#	 return "Test Stop"
+	
 # Build a new List where the Experiment Name ist the hightest index
 	Exp_Dict = {}
 	for d in date_Dict:
 	  for r in date_Dict[d]:
+# new
+#	    for B in date_Dict[R]:
+#	      for c in date_Dict[d][r]:
+#	        for b in date_Dict[d][r][c]:
+#	          Exp_add(Exp_Dict,d,r,c,b,date_Dict[d][r][c][b])
+# old
 	    for c in date_Dict[d][r]:
 	      for b in date_Dict[d][r][c]:
 	        Exp_add(Exp_Dict,d,r,c,b,date_Dict[d][r][c][b])
@@ -320,14 +349,19 @@ class EXP_plot(HtmlResource):
 	Comp_Dict = {}
 	for d in date_Dict:
 	  for r in date_Dict[d]:
-	     Comp_add(Comp_Dict,d,r,date_Dict[d][r])
+# new
+#	    for b in date_Dict[r]:
+#	      Comp_add(Comp_Dict,d,r,date_Dict[d][r])
+# old
+	    Comp_add(Comp_Dict,d,r,date_Dict[d][r])
 
-        Archive_Button_Dict['date']  = list(sorted(set(Archive_Button_Dict['date'])))
- 	Archive_Button_Dict['rev']   = list(sorted(set(Archive_Button_Dict['rev'])))
-	Archive_Button_Dict['comp']  = list(sorted(set(Archive_Button_Dict['comp'])))
-	Archive_Button_Dict['build'] = list(sorted(set(Archive_Button_Dict['build'])))
-	Archive_Button_Dict['exp']   = list(sorted(set(Archive_Button_Dict['exp'])))
-	Archive_Button_Dict['file']  = list(sorted(set(Archive_Button_Dict['file'])))
+        Archive_Button_Dict['date']   = list(sorted(set(Archive_Button_Dict['date'])))
+ 	Archive_Button_Dict['rev']    = list(sorted(set(Archive_Button_Dict['rev'])))
+ 	Archive_Button_Dict['branch'] = list(sorted(set(Archive_Button_Dict['branch'])))
+	Archive_Button_Dict['comp']   = list(sorted(set(Archive_Button_Dict['comp'])))
+	Archive_Button_Dict['build']  = list(sorted(set(Archive_Button_Dict['build'])))
+	Archive_Button_Dict['exp']    = list(sorted(set(Archive_Button_Dict['exp'])))
+	Archive_Button_Dict['file']   = list(sorted(set(Archive_Button_Dict['file'])))
 	
         if not Archive_Button_Dict['rev']:
 	  data = "Revision List for this timeperode ist emty"
@@ -374,26 +408,6 @@ class EXP_plot(HtmlResource):
         data = ""
         
 	
-#ToDo        if l_nightly:
-#ToDo	  data +=  "<table>\n"
-#ToDo	  data +=  "  <tr>\n"
-#ToDo	  data +=  "    <td id=\"exp_header\"> Source:</td><td id=\"exp_header\"> trunk/icon-dev &#64; r" + RevisionNr  + "</td>\n"
-#ToDo	  data +=  "  </tr><tr>\n"
-#ToDo	  data +=  "    <td id=\"exp_header\">Experiment:</td><td id=\"exp_header\">" + exp_plot_Info + "</td>\n"
-#ToDo	  data +=  "  </tr><tr>\n"
-#ToDo	  data +=  "    <td id=\"exp_header\">Experiment descriptor file: </td>"
-#ToDo	  data +=  "    <td id=\"exp_header\"><a href=\""
-#ToDo	  data +=  " https://code.zmaw.de/projects/icon/repository/entry/trunk/icon-dev/run/exp." + exp_plot_Info 
-#ToDo	  data += "?rev="+RevisionNr+"\">exp." + exp_plot_Info + "</a></td>\n"
-#ToDo	  data +=  "  </tr><tr>\n"
-#ToDo	  data +=  "    <td id=\"exp_header\">Post-processing descriptor file: </td>"
-#ToDo	  data +=  "    <td id=\"exp_header\"><a href=\""
-#ToDo	  data +=  " https://code.zmaw.de/projects/icon/repository/entry/trunk/icon-dev/run/post." + exp_plot_Info 
-#ToDo	  data +=  "?rev="+RevisionNr + "\">post." + exp_plot_Info + "</a></td>\n"
-#ToDo	  data +=  "  </tr>\n"
-#ToDo	  data +=  "</table>\n"
-#ToDo     data +=  "<br />\n"
-          
         data +=  "<div id=\"page_menu\" >\n"
 
 # Begin of left side  div
@@ -473,7 +487,7 @@ class EXP_plot(HtmlResource):
 # Branch 
 
         data += "<tr>\n"
-	data += "  <td style=\"text-align:left;\" ><b>SVN-Branch:</b></td>\n"
+	data += "  <td style=\"text-align:left;\" ><b>Branch:</b></td>\n"
 	data += "  <td style=\"text-align:left;\">\n"
 
         if l_nightly:
@@ -761,28 +775,24 @@ class EXP_plot(HtmlResource):
 	  
             data += "  <h1>Reference Plot </h1>\n"
             
-	    data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+	    data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
 	    data += "    <tr>\n    <td>\n"
-            data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+            data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
             data += "        <colgroup>"
-	    data += "          <col width=\"60\">"
-	    data += "          <col width=\"40\">"
-	    data += "          <col width=\"60\">"
-	    data += "          <col width=\"120\">"
-	    data += "          <col width=\"50\">"
-	    data += "          <col width=\"50\">"
-	    data += "          <col width=\"60\">"
+	    data += "          <col width=\"35\"> <col width=\"70\">"
+	    data += "          <col width=\"55\"> <col width=\"45\">"
+	    data += "          <col width=\"50\"> <col width=\"110\">"
+	    data += "          <col width=\"45\"> <col width=\"110\">"
+	    data += "          <col width=\"35\"> <col width=\"45\">"
 	    data += "          <col width=\"70\">"
-	    data += "          <col width=\"90\">"
 	    data += "        </colgroup>\n"
-            data += "        <tr><td><b>Revision:</b></td><td>" + ref_rev + "</td>"
-            data += "            <td><b>Builder:</b></td><td>" + ref_comp +"</td>"
-#            data += "            <td><b>Build:</b></td><td>" + ref_build + "</td>"
-            data += "        <td><b>Build:</b></td><td><a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" 
-	    data += ref_build 
-	    data += "</a></td>\n"
-            data += "            <td><b>Date:</b></td><td>" + ref_date + "</td>\n"
-            
+            data += "        <tr>\n"
+            data += "            <td style=\"text-align:left;\"><b>Date:</b></td><td style=\"text-align:left;\">" + ref_date + "</td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Revision:</b></td><td style=\"text-align:left;\">" + ref_rev + "</td>"
+#ToDo SVN-Branch eintragen lassen
+            data += "            <td style=\"text-align:left;\"><b>Brunch:</b></td><td style=\"text-align:left;\"> trunk/icon-dev</td>"
+            data += "            <td style=\"text-align:left;\"><b>Builder:</b></td><td style=\"text-align:left;\">" + ref_comp +"</td>"
+            data += "            <td style=\"text-align:left;\"><b>Build:</b></td><td style=\"text-align:left;\"><a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" + ref_build + "</a></td>\n"
 	    data += "            <td style=\"text-align:left;\">\n"
 	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
             data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
@@ -813,24 +823,22 @@ class EXP_plot(HtmlResource):
             data += "  <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
             data += "  <input type=\"submit\" name=\"Replace_2\" value=\"Replace\" >\n"
 	    data += "</form>"
-            data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+            data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"780\">\n"
 	    data += "  <tr>\n    <td>"
-            data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+            data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"780\">\n"
             data += "        <colgroup>"
-	    data += "          <col width=\"60\">"
-	    data += "          <col width=\"40\">"
-	    data += "          <col width=\"60\">"
-	    data += "          <col width=\"120\">"
-	    data += "          <col width=\"50\">"
-	    data += "          <col width=\"50\">"
-	    data += "          <col width=\"60\">"
+	    data += "          <col width=\"35\"> <col width=\"70\">"
+	    data += "          <col width=\"55\"> <col width=\"45\">"
+	    data += "          <col width=\"50\"> <col width=\"110\">"
+	    data += "          <col width=\"45\"> <col width=\"110\">"
+	    data += "          <col width=\"35\"> <col width=\"45\">"
 	    data += "          <col width=\"70\">"
-	    data += "          <col width=\"90\">"
-	    data += "        </colgroup>\n"
-            data += "        <tr><td><b>Revision:</b></td><td> ????</td>\n"
-            data += "            <td><b>Builder:</b></td><td> ???? </td>\n"
-            data += "            <td><b>Build:</b></td><td> ???? </td>\n"
-            data += "            <td><b>Date:</b></td><td> xxxx-xx-xx </td>\n"
+	    data += "        </colgroup>\n<re>\n"
+            data += "            <td style=\"text-align:left;\"><b>Date:</b></td><td> xxxx-xx-xx </td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Revision:</b></td><td> ????</td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Branch:</b></td><td> ????</td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Builder:</b></td><td> ???? </td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Build:</b></td><td> ???? </td>\n"
             data += "</tr>\n      </table>\n"
             data += "    </td></tr>\n    <tr><td style=\"text-align:left; valign:top;\">\n"
 	    data += "    </td>"
@@ -853,40 +861,39 @@ class EXP_plot(HtmlResource):
 	
 
         p = "public_html/archive/" + Date_from + "/buildbot/" + Rev_from + "/"
-        data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+        data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
         
         for comp in Archive_Button_Dict['comp']:
 	  if comp == selected_builder or selected_builder == "all":
-	    for Da in sorted(Comp_Dict[comp]):
-              for Re in sorted(Comp_Dict[comp][Da]):
-	        for Bu in sorted(Comp_Dict[comp][Da][Re]):
+	    for Da in sorted(Comp_Dict[comp], reverse=True):
+              for Re in sorted(Comp_Dict[comp][Da], reverse=True):
+		Br = "trunk/icon-dev"
+	        for Bu in sorted(Comp_Dict[comp][Da][Re], reverse=True):
 	          if Bu == selected_build or selected_build == "all":
 	            for Ex in Comp_Dict[comp][Da][Re][Bu]:
 		      for Fi in Comp_Dict[comp][Da][Re][Bu][Ex]:
 		        if Fi.strip(".png") == exp_file_Info:
 	                  data += "  <tr><td>\n"
-	                  data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"600\">\n"
+	                  data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
             
 	                  data += "        <colgroup>"
-	                  data += "          <col width=\"60\">"
-	                  data += "          <col width=\"40\">"
-	                  data += "          <col width=\"60\">"
-	                  data += "          <col width=\"120\">"
-	                  data += "          <col width=\"50\">"
-	                  data += "          <col width=\"50\">"
-	                  data += "          <col width=\"60\">"
+	                  data += "          <col width=\"35\"> <col width=\"70\">"
+	                  data += "          <col width=\"55\"> <col width=\"45\">"
+	                  data += "          <col width=\"50\"> <col width=\"110\">"
+	                  data += "          <col width=\"45\"> <col width=\"110\">"
+	                  data += "          <col width=\"35\"> <col width=\"45\">"
 	                  data += "          <col width=\"70\">"
-	                  data += "          <col width=\"90\">"
 	                  data += "        </colgroup>\n"
                
 	                  data += "      <tr>\n"
-                          data += "        <td><b>Revision:</b></td><td>" + Re + "</td>"
-		          data += "        <td><b>Builder:</b></td><td>" + comp + "</td>\n"
-		          data += "        <td><b>Build:</b></td><td><a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
+                          data += "        <td style=\"text-align:left;\"><b>Date:</b></td><td style=\"text-align:left;\">" + Da + "</td>\n"
+                          data += "        <td style=\"text-align:left;\"><b>Revision:</b></td><td style=\"text-align:left;\">" + Re + "</td>"
+                          data += "        <td style=\"text-align:left;\"><b>Branch:</b></td><td style=\"text-align:left;\">" + Br + "</td>"
+		          data += "        <td style=\"text-align:left;\"><b>Builder:</b></td><td style=\"text-align:left;\">" + comp + "</td>\n"
+		          data += "        <td style=\"text-align:left;\"><b>Build:</b></td><td style=\"text-align:left;\"><a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
 		          data += Bu 
 		          data += "</a></td>\n"
-                          data += "        <td><b>Date:</b></td><td>" + Da + "</td>\n"
-                          data += "        <td><b>&nbsp</b></td><td>&nbsp</td>\n"
+                          data += "        <td><b>&nbsp</b></td>\n"
 		          data += "</tr>\n"
 		
 	                  data += "    </table>\n"

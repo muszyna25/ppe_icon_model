@@ -30,8 +30,8 @@ div#page_menu {
   padding-right: 25px; 
   padding-left: 8px; 
 /*  border: thin solid black; */
-  margin: 5px; 
-  width: 1170px; 
+  margin: 2px; 
+  width: 1190px; 
   height: 730px; 
   overflow: auto;
 } 
@@ -40,7 +40,9 @@ div#arch_menu {
   padding-right: 25px; 
   padding-left: 8px; 
   border: thin solid black; 
-  margin: 5px; 
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-bottom:    6px;
   width: 400px; 
   height: 350px; 
   overflow: auto;
@@ -49,7 +51,9 @@ div#arch_file_name {
   padding-right: 25px; 
   padding-left:  8px; 
   border:        thin solid black; 
-  margin:        5px;
+  margin-left:   0px;
+  margin-right:  0px;
+  margin-top:    0px;
   width:         400px; 
   height:        350px; 
   overflow:      auto;
@@ -58,8 +62,10 @@ div#arch_ref {
   padding-right: 25px;  
   padding-left:   8px; 
   border: thin solid black; 
-  margin: 5px; 
-  width: 660px; 
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top:    0px;
+  width: 670px; 
   height: 350px; 
   overflow: auto;
 }
@@ -67,8 +73,10 @@ div#arch_plots {
   padding-right: 25px; 
   padding-left: 8px; 
   border: thin solid black; 
-  margin: 5px; 
-  width: 660px; 
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top:    0px;
+  width: 670px; 
   height: 706px; 
   overflow: auto;
 }
@@ -76,8 +84,10 @@ div#ap_ref {
   padding-right: 25px; 
   padding-left: 8px; 
   border: thin solid black; 
-  margin: 5px; 
-  width: 660px; 
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top:    6px;
+  width: 670px; 
   height: 350px; 
   overflow: auto;
 }
