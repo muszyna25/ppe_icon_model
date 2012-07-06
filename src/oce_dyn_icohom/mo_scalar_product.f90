@@ -303,10 +303,10 @@ CONTAINS
             !calculate finall vortex flux by mapping the vorticity-velocity-product
             !from vertices back to edges
             vort_flux(je,jk,jb) = &
-              & - DOT_PRODUCT(u_v2_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
-              & + DOT_PRODUCT(u_v1_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-        !     & - DOT_PRODUCT(u_v2_cc%x, p_op_coeff%edge2vert_coeff_cc_t(je,jk,jb,2)%x)&
-        !     & + DOT_PRODUCT(u_v1_cc%x, p_op_coeff%edge2vert_coeff_cc_t(je,jk,jb,1)%x)
+              & - DOT_PRODUCT(u_v2_cc%x, p_op_coeff%edge2vert_coeff_cc_t(je,jk,jb,2)%x)&
+              & + DOT_PRODUCT(u_v1_cc%x, p_op_coeff%edge2vert_coeff_cc_t(je,jk,jb,1)%x)
+        !     & - DOT_PRODUCT(u_v2_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
+        !     & + DOT_PRODUCT(u_v1_cc%x, p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
             
             !          IF(   i_v_ctr(il_v1,jk,ib_v1)==p_patch%verts%num_edges(il_v1,ib_v1)&
             !          &.AND.i_v_ctr(il_v2,jk,ib_v2)==p_patch%verts%num_edges(il_v2,ib_v2))THEN
