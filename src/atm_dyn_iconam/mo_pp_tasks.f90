@@ -796,6 +796,9 @@ CONTAINS
   !  @note This could be easily replaced by a procedure pointer,
   !        alas, this is an F2003 feature.
   !
+  !  @todo Change order of processing: First, interpolate input fields
+  !        onto z-levels, then compute rel_hum.
+  !
   SUBROUTINE pp_task_compute_field(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
