@@ -76,4 +76,4 @@ ExtCsvDiagram.plot_xy(icon,"datetime",varname,
                       :ylabel => "#{varname} [#{Shellwords.escape(unit)}]",     # Correct the label if necessary
                       :input_time_format => "'%Y%m%d %H:%M:%S'",
                       :filename => plotfile,
-                      :output_time_format => '"%d.%m.%y \n %H:%M"',:size => "1600,600")
+                      :output_time_format => '"%d.%m.%y \n %H:%M"',:size => "1000,600")
