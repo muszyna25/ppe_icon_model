@@ -652,7 +652,8 @@ CONTAINS
   SUBROUTINE prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev, &
     &                            temp_z_out, tracer_z_qv_out, tot_cld_z_qv_out,   &
     &                            pres_z_out, geopot_p_out, temp_p_out,            &
-    &                            nh_pzlev_config, p_metrics, vcoeff_z, vcoeff_p)
+    &                            p_p3d_out, p_z3d_out,                            &
+    &                            p_metrics, vcoeff_z, vcoeff_p, l_only_p2z)
 
     TYPE(t_patch),       TARGET,       INTENT(IN)    :: p_patch
     TYPE(t_nh_prog),     POINTER                     :: p_prog
@@ -662,25 +663,28 @@ CONTAINS
     INTEGER,                           INTENT(IN)    :: nplev     !< number of output levels (pres)
     REAL(wp),                          INTENT(INOUT) :: &
       &  temp_z_out(:,:,:), tracer_z_qv_out(:,:,:), tot_cld_z_qv_out(:,:,:), &
-      &  pres_z_out(:,:,:), geopot_p_out(:,:,:), temp_p_out(:,:,:)
-    TYPE(t_nh_pzlev_config),           INTENT(IN)    :: nh_pzlev_config
+      &  pres_z_out(:,:,:)
+    REAL(wp),  OPTIONAL,  INTENT(INOUT) :: &
+      &  geopot_p_out(:,:,:), temp_p_out(:,:,:)
+    REAL(wp) ,        POINTER, OPTIONAL      :: p_p3d_out(:,:,:)  !< pressure field
+    REAL(wp) ,        POINTER                :: p_z3d_out(:,:,:)  !< height field:
     TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_z
     ! if parameter "vcoeff_p" is not present, only z-interpolation is initialized
     TYPE(t_vcoeff),   INTENT(INOUT), OPTIONAL  :: vcoeff_p
+    ! Flag. If .TRUE., only pressure is extrapolated onto z-levels
+    LOGICAL,          INTENT(IN),    OPTIONAL  :: l_only_p2z
 
     ! LOCAL VARIABLES
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_nh_vert_interp:prepare_vert_interp")
 
     INTEGER :: nlev, nlevp1
+    INTEGER :: nblks, npromz !< blocking parameters
     ! Auxiliary field for input data
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_tempv_in
     ! Auxiliary field for output data
     REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c) :: z_tempv
-
-    REAL(wp), DIMENSION(:,:,:), POINTER:: p_p3d_out => NULL()
-    REAL(wp), DIMENSION(:,:,:), POINTER:: p_z3d_out => NULL()
 
     !-------------------------------------------------------------------------
 
@@ -692,47 +696,46 @@ CONTAINS
 
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
-    p_p3d_out => nh_pzlev_config%p3d   ! output pressure field
-    p_z3d_out => nh_pzlev_config%z3d   ! output height field
+    nblks  = p_patch%nblks_c
+    npromz = p_patch%npromz_c
 
     !--- Coefficients: Interpolation to z-level fields
 
     ! allocate coefficient table:
-    CALL vcoeff_allocate(p_patch, nzlev, vcoeff_z)
+    CALL vcoeff_allocate(nblks, nzlev, vcoeff_z)
 
-    !
     ! Prepare interpolation coefficients
     CALL prepare_lin_intp(p_metrics%z_mc, p_z3d_out,                      & !in
-      &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
+      &                   nblks, npromz, nlev, nzlev,                     & !in
       &                   vcoeff_z%wfac_lin, vcoeff_z%idx0_lin,           & !out
       &                   vcoeff_z%bot_idx_lin  )                           !out
 
     CALL prepare_extrap(p_metrics%z_mc,                          & !in
-      &                 p_patch%nblks_c, p_patch%npromz_c, nlev, & !in
+      &                 nblks, npromz, nlev,                     & !in
       &                 vcoeff_z%kpbl1, vcoeff_z%wfacpbl1,       & !out
       &                 vcoeff_z%kpbl2, vcoeff_z%wfacpbl2 )        !out
 
     CALL prepare_cubic_intp(p_metrics%z_mc, p_z3d_out,                      & !in
-      &                     p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
+      &                     nblks, npromz, nlev, nzlev,                     & !in
       &                     vcoeff_z%coef1, vcoeff_z%coef2,                 & !out
       &                     vcoeff_z%coef3, vcoeff_z%idx0_cub,              & !out
       &                     vcoeff_z%bot_idx_cub )                            !out
 
     ! Interpolation data for the vertical interface of cells, "nlevp1"
     CALL prepare_lin_intp(p_metrics%z_ifc, p_z3d_out,                         & !in
-      &                   p_patch%nblks_c, p_patch%npromz_c, nlevp1, nzlev,   & !in
+      &                   nblks, npromz, nlevp1, nzlev,                       & !in
       &                   vcoeff_z%wfac_lin_nlevp1, vcoeff_z%idx0_lin_nlevp1, & !out
       &                   vcoeff_z%bot_idx_lin_nlevp1  )                        !out
 
     CALL prepare_extrap(p_metrics%z_ifc,                                      & !in
-      &                 p_patch%nblks_c, p_patch%npromz_c, nlevp1,            & !in
+      &                 nblks, npromz, nlevp1,                                & !in
       &                 vcoeff_z%kpbl1_nlevp1, vcoeff_z%wfacpbl1_nlevp1,      & !out
       &                 vcoeff_z%kpbl2_nlevp1, vcoeff_z%wfacpbl2_nlevp1 )       !out
 
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, temp_z_out,                           & !in,out
       &                   p_metrics%z_mc, p_z3d_out,                         & !in
-      &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+      &                   nblks, npromz, nlev, nzlev,                        & !in
       &                   vcoeff_z%coef1, vcoeff_z%coef2,                    & !in
       &                   vcoeff_z%coef3, vcoeff_z%wfac_lin,                 & !in
       &                   vcoeff_z%idx0_cub, vcoeff_z%idx0_lin,              & !in
@@ -747,7 +750,7 @@ CONTAINS
       ! interpolation of prognostic specific water vapor content
       CALL lin_intp(p_prog%tracer(:,:,:,iqv),                            & !inout
         &           tracer_z_qv_out,                                     & !out
-        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           nblks, npromz, nlev, nzlev,                          & !in
         &           vcoeff_z%wfac_lin,    vcoeff_z%idx0_lin,             & !in
         &           vcoeff_z%bot_idx_lin, vcoeff_z%wfacpbl1,             & !in
         &           vcoeff_z%kpbl1, vcoeff_z%wfacpbl2, vcoeff_Z%kpbl2,   & !in
@@ -763,14 +766,19 @@ CONTAINS
       z_tempv_in(:,:,:) = p_diag%temp(:,:,:)
       z_tempv(:,:,:)    = temp_z_out
     END IF
-
+    
     ! Interpolate pressure on z-levels
     CALL pressure_intp(p_diag%pres, z_tempv_in, p_metrics%z_mc,        & !in
       &                pres_z_out, z_tempv, p_z3d_out,                 & !out,in,in
-      &                p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
+      &                nblks, npromz, nlev, nzlev,                     & !in
       &                vcoeff_z%wfac_lin,    vcoeff_z%idx0_lin,        & !in
       &                vcoeff_z%bot_idx_lin, vcoeff_z%wfacpbl1,        & !in
       &                vcoeff_z%kpbl1 )                                  !in
+    ! SKIP THE REST of this subroutine, if only pressure interpolation
+    ! was demanded:
+    IF (PRESENT(l_only_p2z)) THEN
+      IF (l_only_p2z) RETURN
+    END IF
 
     IF (  iforcing == inwp  ) THEN
       ! Final interpolation of prognostic QV, without supersaturation limiting
@@ -778,7 +786,7 @@ CONTAINS
         &          tracer_z_qv_out,                                   & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
         &          p_diag%pres, temp_z_out, pres_z_out,               & !in
-        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+        &          nblks, npromz, nlev, nzlev,                        & !in
         &          vcoeff_z%coef1,       vcoeff_z%coef2,              & !in
         &          vcoeff_z%coef3,       vcoeff_z%wfac_lin,           & !in
         &          vcoeff_z%idx0_cub,    vcoeff_z%idx0_lin,           & !in
@@ -797,7 +805,7 @@ CONTAINS
         &          tot_cld_z_qv_out,                                  & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
         &          p_diag%pres, temp_z_out, pres_z_out,               & !in
-        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+        &          nblks, npromz, nlev, nzlev,                        & !in
         &          vcoeff_z%coef1,       vcoeff_z%coef2,              & !in
         &          vcoeff_z%coef3,       vcoeff_z%wfac_lin,           & !in
         &          vcoeff_z%idx0_cub,    vcoeff_z%idx0_lin,           & !in
@@ -812,8 +820,13 @@ CONTAINS
     !--- Coefficients: Interpolation to pressure-level fields
     IF (PRESENT(vcoeff_p)) THEN
 
+      IF (.NOT. (PRESENT(geopot_p_out) .AND.   &
+        &        PRESENT(temp_p_out)   .AND.   &
+        &        present(p_p3d_out))) &
+        &  CALL finish(routine, "Output fields missing!")
+
       ! allocate coefficient table:
-      CALL vcoeff_allocate(p_patch, nplev, vcoeff_p)
+      CALL vcoeff_allocate(nblks, nplev, vcoeff_p)
       
       ! Compute height at pressure levels (i.e. geopot/g); this height 
       ! field is afterwards also used as target coordinate for vertical 
@@ -821,24 +834,24 @@ CONTAINS
       
       CALL z_at_plevels(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
         &               pres_z_out, z_tempv, p_z3d_out,               & !in
-        &               p_p3d_out, geopot_p_out, p_patch%nblks_c,     & !in,out,in
-        &               p_patch%npromz_c, nlev, nzlev, nplev          ) !in
+        &               p_p3d_out, geopot_p_out, nblks,               & !in,out,in
+        &               npromz, nlev, nzlev, nplev                    ) !in
       
       ! Prepare again interpolation coefficients (now for pressure levels)
       CALL prepare_lin_intp(p_metrics%z_mc, geopot_p_out,                   & !in
-        &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
+        &                   nblks, npromz, nlev, nplev,                     & !in
         &                   vcoeff_p%wfac_lin, vcoeff_p%idx0_lin,           & !out
         &                   vcoeff_p%bot_idx_lin )                            !out
       
       CALL prepare_cubic_intp(p_metrics%z_mc, geopot_p_out,                   & !in
-        &                     p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
+        &                     nblks, npromz, nlev, nplev,                     & !in
         &                     vcoeff_p%coef1, vcoeff_p%coef2,                 & !out
         &                     vcoeff_p%coef3, vcoeff_p%idx0_cub,              & !out
         &                     vcoeff_p%bot_idx_cub )                            !out
 
       ! Interpolation data for the vertical interface of cells, "nlevp1"
       CALL prepare_lin_intp(p_metrics%z_ifc, geopot_p_out,                      & !in
-        &                   p_patch%nblks_c, p_patch%npromz_c, nlevp1, nplev,   & !in
+        &                   nblks, npromz, nlevp1, nplev,                       & !in
         &                   vcoeff_p%wfac_lin_nlevp1, vcoeff_p%idx0_lin_nlevp1, & !out
         &                   vcoeff_p%bot_idx_lin_nlevp1  )                        !out
       
@@ -857,7 +870,7 @@ CONTAINS
       ! Perform vertical interpolation
       CALL temperature_intp(p_diag%temp, temp_p_out,                        & !in,out
         &                   p_metrics%z_mc, geopot_p_out,                   & !in
-        &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
+        &                   nblks, npromz, nlev, nplev,                     & !in
         &                   vcoeff_p%coef1, vcoeff_p%coef2, vcoeff_p%coef3, & !in
         &                   vcoeff_p%wfac_lin, vcoeff_p%idx0_cub,           & !in
         &                   vcoeff_p%idx0_lin, vcoeff_p%bot_idx_cub,        & !in
@@ -974,7 +987,6 @@ CONTAINS
           ENDDO
         ENDIF
       ENDDO
-
       DO jk = MINVAL(bot_idx(1:nlen,jb))+1, nlevs_out
         DO jc = 1, nlen
           IF (jk >= bot_idx(jc,jb)+1) THEN

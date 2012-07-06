@@ -153,7 +153,8 @@ CONTAINS
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     TYPE(t_simulation_status) :: simulation_status
-    LOGICAL :: l_rh(n_dom) !< Flag. TRUE if computation of relative humidity desired
+    LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     INTEGER :: k_jg
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
@@ -235,7 +236,12 @@ CONTAINS
     ENDIF
 
     ! Now allocate memory for the states
-    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2)
+    DO k_jg=1,n_dom
+      l_pres_msl(k_jg) = is_any_output_nml_active(first_output_name_list, &
+        &                                   dtime=dtime, var_name="pres_msl")
+    END DO
+    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
+      &                     l_pres_msl=l_pres_msl)
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)

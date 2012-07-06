@@ -237,43 +237,42 @@ CONTAINS
   ! Initialize a variable containing coefficient tables for vertical
   ! interpolation. There exist to different kinds of coefficients: For
   ! p- and for z-level-interpolation.
-  SUBROUTINE vcoeff_allocate(p_patch, nlev, vcoeff)
-    TYPE(t_patch),       TARGET,       INTENT(IN)    :: p_patch    
+  SUBROUTINE vcoeff_allocate(nblks, nlev, vcoeff)
+    INTEGER,                           INTENT(IN)    :: nblks
     INTEGER,                           INTENT(IN)    :: nlev
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
 
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_opt_diagnostics:vcoeff_allocate")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_allocate")
     INTEGER :: ierrstat
 
     IF (.NOT. vcoeff%l_allocated) THEN
       ! real(wp)
       ALLOCATE( &
-        &  vcoeff%wfac_lin(nproma,nlev,p_patch%nblks_c),        &
-        &  vcoeff%coef1(nproma,nlev,p_patch%nblks_c),           &
-        &  vcoeff%coef2(nproma,nlev,p_patch%nblks_c),           &
-        &  vcoeff%coef3(nproma,nlev,p_patch%nblks_c),           &
+        &  vcoeff%wfac_lin(nproma,nlev,nblks),        &
+        &  vcoeff%coef1(nproma,nlev,nblks),           &
+        &  vcoeff%coef2(nproma,nlev,nblks),           &
+        &  vcoeff%coef3(nproma,nlev,nblks),           &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ! integer
       ALLOCATE( &
-        &  vcoeff%idx0_lin(nproma,nlev,p_patch%nblks_c),        &
-        &  vcoeff%idx0_cub(nproma,nlev,p_patch%nblks_c),        &
-        &  vcoeff%bot_idx_lin(nproma,p_patch%nblks_c),          &
-        &  vcoeff%bot_idx_cub(nproma,p_patch%nblks_c),          &
+        &  vcoeff%idx0_lin(nproma,nlev,nblks),        &
+        &  vcoeff%idx0_cub(nproma,nlev,nblks),        &
+        &  vcoeff%bot_idx_lin(nproma,nblks),          &
+        &  vcoeff%bot_idx_cub(nproma,nblks),          &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ALLOCATE( &
-        &  vcoeff%wfacpbl1(nproma,p_patch%nblks_c),             &
-        &  vcoeff%wfacpbl2(nproma,p_patch%nblks_c),             &
+        &  vcoeff%wfacpbl1(nproma,nblks),             &
+        &  vcoeff%wfacpbl2(nproma,nblks),             &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ALLOCATE( &
-        &  vcoeff%kpbl1(nproma,p_patch%nblks_c),                &
-        &  vcoeff%kpbl2(nproma,p_patch%nblks_c),                &
+        &  vcoeff%kpbl1(nproma,nblks),                &
+        &  vcoeff%kpbl2(nproma,nblks),                &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -281,23 +280,23 @@ CONTAINS
 
       ! real(wp)
       ALLOCATE( &
-        &  vcoeff%wfac_lin_nlevp1(nproma,nlev,p_patch%nblks_c), &
+        &  vcoeff%wfac_lin_nlevp1(nproma,nlev,nblks), &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ! integer
       ALLOCATE( &
-        &  vcoeff%idx0_lin_nlevp1(nproma,nlev,p_patch%nblks_c), &
-        &  vcoeff%bot_idx_lin_nlevp1(nproma,p_patch%nblks_c),   &
+        &  vcoeff%idx0_lin_nlevp1(nproma,nlev,nblks), &
+        &  vcoeff%bot_idx_lin_nlevp1(nproma,nblks),   &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ALLOCATE( &
-        &  vcoeff%wfacpbl1_nlevp1(nproma,p_patch%nblks_c),      &
-        &  vcoeff%wfacpbl2_nlevp1(nproma,p_patch%nblks_c),      &
+        &  vcoeff%wfacpbl1_nlevp1(nproma,nblks),      &
+        &  vcoeff%wfacpbl2_nlevp1(nproma,nblks),      &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ALLOCATE( &
-        &  vcoeff%kpbl1_nlevp1(nproma,p_patch%nblks_c),         &
-        &  vcoeff%kpbl2_nlevp1(nproma,p_patch%nblks_c),         &
+        &  vcoeff%kpbl1_nlevp1(nproma,nblks),         &
+        &  vcoeff%kpbl2_nlevp1(nproma,nblks),         &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 

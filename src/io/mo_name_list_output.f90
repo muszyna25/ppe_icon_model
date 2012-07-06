@@ -605,7 +605,9 @@ CONTAINS
         END DO
         nvars = nvars - 1
 
-        varlist(1:nvars) = in_varlist(1:nvars)
+        IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error.")
+
+        if (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
         varlist((nvars+1):ntotal_vars) = " "
         ! look for variable groups ("group:xyz") and replace them:
         DO ivar = 1, nvars

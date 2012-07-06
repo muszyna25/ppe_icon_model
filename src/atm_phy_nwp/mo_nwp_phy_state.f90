@@ -1714,6 +1714,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     !------------------
 
     ! &     relative humidity
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !       which takes care of the regular update:
+    ! 
     IF (l_rh) THEN
       cf_desc    = t_cf_var('rh', '%', 'relative humidity', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(0, 1, 1, ibits, GRID_REFERENCE, GRID_CELL)

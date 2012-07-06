@@ -55,7 +55,8 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_UV, VINTP_TYPE_P_OR_Z, &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
     &                                VINTP_METHOD_LIN, VINTP_TYPE_Z,     &
-    &                                VINTP_METHOD_LIN_NLEVP1
+    &                                VINTP_METHOD_LIN_NLEVP1,            &
+    &                                TASK_INTP_MSL
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -128,16 +129,15 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels)
+  SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels, l_pres_msl)
 !
     TYPE(t_patch),     INTENT(IN)   ::  & ! patch
       &  p_patch(n_dom)
-
     TYPE(t_nh_state),  INTENT(INOUT)::  & ! nh state at different grid levels
       &  p_nh_state(n_dom)
-
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
+    LOGICAL :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
 
     INTEGER  :: ntl,      &! local number of timelevels
                 ntl_pure, &! local number of timelevels (without any extra timelevs)
@@ -249,7 +249,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
-        &  p_nh_state(jg)%diag_list, listname)
+        &  p_nh_state(jg)%diag_list, listname, l_pres_msl(jg) )
 
       !
       ! Build metrics state list
@@ -812,7 +812,7 @@ MODULE mo_nonhydro_state
   !! - added pressure on interfaces
   !!
   SUBROUTINE new_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
-    &                                 listname )
+    &                                 listname, l_pres_msl )
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
       &  p_patch
@@ -824,6 +824,8 @@ MODULE mo_nonhydro_state
       &  p_diag_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
+    LOGICAL, INTENT(IN)               :: &  !< Flag. If .TRUE., compute mean sea level pressure
+      &  l_pres_msl
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
@@ -1022,6 +1024,20 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'pres_sfc_s6avg', p_diag%pres_sfc_s6avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d_c, lrestart=.FALSE. )
+
+    ! pres_msl           p_diag%pres_msl(nproma,nblks_c)
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !        which takes care of the regular update.
+    !
+    IF (l_pres_msl) THEN
+      cf_desc    = t_cf_var('mean sea level pressure', 'Pa', 'mean sea level pressure', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
+        &           ldims=shape2d_c, lrestart=.FALSE.,                            &
+        &           l_pp_scheduler_task=TASK_INTP_MSL )
+    END IF
 
     ! temp         p_diag%temp(nproma,nlev,nblks_c)
     !

@@ -93,6 +93,7 @@ MODULE mo_pp_tasks
 
   ! priority levels for tasks (smaller is earlier):
   INTEGER, PARAMETER, PUBLIC  :: HIGH_PRIORITY     =    0  
+  INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY0 =    8  
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY1 =    9   
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY2 =   10  
   INTEGER, PARAMETER, PUBLIC  :: LOW_PRIORITY      =  100  
@@ -105,6 +106,7 @@ MODULE mo_pp_tasks
   PUBLIC :: pp_task_sync
   PUBLIC :: pp_task_pzlev_setup
   PUBLIC :: pp_task_pzlev
+  PUBLIC :: pp_task_intp_msl
   PUBLIC :: pp_task_compute_field
   ! variables
   PUBLIC :: job_queue
@@ -206,8 +208,7 @@ CONTAINS
   SUBROUTINE pp_task_lonlat(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_tasks:pp_task_lonlat")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_lonlat")
     INTEGER                            :: &
       &  nblks_ll, npromz_ll, lonlat_id, jg,     &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
@@ -358,8 +359,7 @@ CONTAINS
   !
   SUBROUTINE pp_task_sync()
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_tasks:pp_task_sync")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_sync")
     TYPE(t_job_queue), POINTER :: ptr_task
     INTEGER                            :: in_var_idx
     TYPE (t_var_list_element), POINTER :: in_var
@@ -412,10 +412,8 @@ CONTAINS
   SUBROUTINE pp_task_pzlev_setup(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_tasks:pp_task_pzlev_setup")
-    INTEGER                            :: &
-      &  jg, nzlev, nplev
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_pzlev_setup")
+    INTEGER                            :: jg, nzlev, nplev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
 
@@ -450,8 +448,9 @@ CONTAINS
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
         &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
         &                      p_diag_pz%p_temp,                                 & ! inout
-        &                      nh_pzlev_config, p_metrics,                       & ! in
-        &                      p_diag_pz%vcoeff_z, p_diag_pz%vcoeff_p )            ! inout
+        &                      nh_pzlev_config%p3d, nh_pzlev_config%z3d,         & ! in
+        &                      p_metrics,                                        & ! in
+        &                      vcoeff_z=p_diag_pz%vcoeff_z, vcoeff_p=p_diag_pz%vcoeff_p )            ! inout
       !
     CASE ( TASK_INIT_VER_Z )
       ! build data structure "vcoeff" containing coefficient tables
@@ -460,8 +459,9 @@ CONTAINS
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
         &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
         &                      p_diag_pz%p_temp,                                 & ! inout
-        &                      nh_pzlev_config, p_metrics,                       & ! in
-        &                      p_diag_pz%vcoeff_z )                                ! inout
+        &                      nh_pzlev_config%p3d, nh_pzlev_config%z3d,         & ! in
+        &                      p_metrics,                                        & ! in
+        &                      vcoeff_z=p_diag_pz%vcoeff_z )                                ! inout
       !
     CASE ( TASK_FINALIZE_PZ )
       ! deallocate coefficient tables:
@@ -483,12 +483,12 @@ CONTAINS
   SUBROUTINE pp_task_pzlev(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_tasks:pp_task_pzlev")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_pzlev")
     INTEGER                            :: &
       &  vert_intp_type, vert_intp_method, jg,  &
       &  in_var_idx, out_var_idx, nlev, nlevp1, &
-      &  nzlev, nplev, npzlev, npromz, nblks
+      &  nzlev, nplev, npzlev, npromz, nblks,   &
+      &  dim2, ierrstat
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -502,6 +502,7 @@ CONTAINS
     TYPE(t_vcoeff),            POINTER :: vcoeff
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     REAL(wp),                  POINTER :: p_z3d(:,:,:)
+    REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
 
     LOGICAL                            :: &
       &  l_hires_intp, l_restore_fricred, l_loglin, &
@@ -574,20 +575,28 @@ CONTAINS
     IF (.NOT. vcoeff%l_initialized) &
       CALL finish(routine, "Interpolation coefficients not yet initialized!")
 
+    nblks  = p_patch%nblks_c
+    npromz = p_patch%npromz_c
+
+    dim2 = UBOUND(in_var%r_ptr, 2)
+    ALLOCATE(tmp_var(nproma, dim2, nblks), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
+
     SELECT CASE ( p_info%hgrid )
     CASE (GRID_UNSTRUCTURED_CELL) 
-      nblks  = p_patch%nblks_c
-      npromz = p_patch%npromz_c
+      tmp_var(:,:,:) = in_var%r_ptr(:,:,:,in_var_idx,1)
     CASE (GRID_UNSTRUCTURED_VERT) 
-      nblks  = p_patch%nblks_v
-      npromz = p_patch%npromz_v
+      CALL verts2cells_scalar( in_var%r_ptr(:,:,:,in_var_idx,1), p_patch,      &
+        &                      ptr_task%data_input%p_int_state%verts_aw_cells, &
+        &                      tmp_var(:,:,:), 1, dim2 )
     END SELECT
+
 
     !--- actually perform vertical interpolation task
     SELECT CASE ( vert_intp_method )
     CASE ( VINTP_METHOD_UV )
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_UV")
-      CALL uv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                     & !in
+      CALL uv_intp(tmp_var(:,:,:),                                       & !in
         &          out_var%r_ptr(:,:,:,out_var_idx,1),                   & !out
         &          p_metrics%z_mc, p_z3d,                                & !in
         &          nblks, npromz, nlev, npzlev,                          & !in
@@ -602,7 +611,7 @@ CONTAINS
       !
     CASE ( VINTP_METHOD_LIN )        
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
-      CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    & !inout
+      CALL lin_intp(tmp_var(:,:,:),                                      & !inout
         &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
         &           nblks, npromz, nlev, npzlev,                         & !in
         &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & !in
@@ -614,7 +623,7 @@ CONTAINS
       !
     CASE ( VINTP_METHOD_LIN_NLEVP1 )        
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
-      CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    & !inout
+      CALL lin_intp(tmp_var(:,:,:),                                      & !inout
         &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
         &           nblks, npromz, nlevp1, npzlev,                       & !in
         &           vcoeff%wfac_lin_nlevp1, vcoeff%idx0_lin_nlevp1,      & !in
@@ -627,7 +636,7 @@ CONTAINS
       !
     CASE (VINTP_METHOD_QV )
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
-      CALL qv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                   & !in
+      CALL qv_intp(tmp_var(:,:,:),                                     & !in
         &          out_var%r_ptr(:,:,:,out_var_idx,1),                 & !out
         &          p_metrics%z_mc, p_z3d, p_diag%temp,                 & !in
         &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d, & !in
@@ -641,7 +650,141 @@ CONTAINS
         &          l_restore_pbldev=l_restore_pbldev )                   !in
     END SELECT ! vert_intp_method
 
+    ! clean up
+    DEALLOCATE(tmp_var, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+
   END SUBROUTINE pp_task_pzlev
+
+
+  !---------------------------------------------------------------
+  !> Performs interpolation of a 2D field onto mean sea level, z=0.
+  !
+  !  This routine is completely independent from the data structures
+  !  used for pz-level interpolation.
+  !
+  !  @note It could save computational capacity, if the temporary
+  !        fields for temperature etc. would be allocated once and
+  !        destroyed once for each task.
+  !
+  SUBROUTINE pp_task_intp_msl(ptr_task)
+    TYPE(t_job_queue), POINTER :: ptr_task
+    ! local variables    
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_intp_msl")
+    REAL(wp), ALLOCATABLE              :: z_temp(:,:,:), z_tracer_iqv(:,:,:),  &
+      &                                   z_tot_cld_iqv(:,:,:), z_pres(:,:,:)
+    REAL(wp), POINTER                  :: z_0(:,:,:)
+    REAL(wp)                           :: lower_limit
+    INTEGER                            :: nzlev, nplev, nblks, npromz, jg,     &
+      &                                   in_var_idx, out_var_idx, dim1, dim2, &
+      &                                   ierrstat, sea_lev
+    LOGICAL                            :: l_extrapol, l_pd_limit, l_loglin,    &
+      &                                   l_only_p2z
+    TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
+    TYPE(t_vcoeff)                     :: vcoeff
+    TYPE(t_vert_interp_meta),  POINTER :: pzlev_flags
+    TYPE (t_var_list_element), POINTER :: in_var, out_var
+    TYPE(t_var_metadata),      POINTER :: p_info
+    REAL(wp), ALLOCATABLE              :: tmp_var_out(:,:,:)
+    TYPE(t_patch),             POINTER :: p_patch
+    TYPE(t_nh_metrics),        POINTER :: p_metrics    
+    TYPE(t_nh_prog),           POINTER :: p_prog
+    TYPE(t_nh_diag),           POINTER :: p_diag
+    TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
+
+    ! just a single z-level... 
+    nzlev   = 1
+    sea_lev = 1
+    nplev   = 0
+
+
+    ! patch, state, and metrics
+    jg             =  ptr_task%data_input%jg
+    p_patch        => ptr_task%data_input%p_patch
+    p_metrics      => ptr_task%data_input%p_nh_state%metrics
+    p_prog         => ptr_task%data_input%p_nh_state%prog(nnow(jg))
+    p_diag         => ptr_task%data_input%p_nh_state%diag
+    prm_diag       => ptr_task%data_input%prm_diag
+
+    ! pz-level interpolation data
+    nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
+
+    ! input/output field for this task
+    p_info            => ptr_task%data_input%var%info
+    in_var            => ptr_task%data_input%var
+    out_var           => ptr_task%data_output%var
+
+    l_only_p2z     = (TRIM(p_info%name) == "pres")
+    IF ((dbg_level >= 10) .AND. l_only_p2z)  CALL message(routine, "pressure interpolation")
+
+    ! interpolation flags + parameters
+    pzlev_flags => in_var%info%vert_interp
+    l_loglin       = pzlev_flags%l_loglin          
+    l_extrapol     = pzlev_flags%l_extrapol        
+    l_pd_limit     = pzlev_flags%l_pd_limit
+    lower_limit    = pzlev_flags%lower_limit       
+
+    SELECT CASE ( p_info%hgrid )
+    CASE (GRID_UNSTRUCTURED_CELL) 
+      nblks  = p_patch%nblks_c
+      npromz = p_patch%npromz_c
+    CASE (GRID_UNSTRUCTURED_VERT) 
+      nblks  = p_patch%nblks_v
+      npromz = p_patch%npromz_v
+    END SELECT
+
+    in_var_idx  = 1
+    IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
+    out_var_idx = 1
+    IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
+
+    ! First create a 1-level 3D variable for output  (nproma, nlevs, nblks):
+    dim1 = p_info%used_dimensions(1)
+    dim2 = p_info%used_dimensions(3)
+    ALLOCATE(tmp_var_out(dim1, nzlev, dim2), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
+
+    ! allocate temporary variables for temperature, etc.
+    ALLOCATE(z_temp(dim1, nzlev, dim2), z_tracer_iqv(dim1, nzlev, dim2),  &
+      &      z_tot_cld_iqv(dim1, nzlev, dim2), z_pres(dim1, nzlev, dim2), &
+      &      z_0(dim1, nzlev, dim2), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
+
+    ! initialize trivial height field:
+    z_0(:,sea_lev,:) = 0._wp
+
+    ! build data structure "vcoeff" containing coefficient tables
+    CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev, & ! in
+      &           z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres,                & ! inout
+      &           p_z3d_out=z_0, p_metrics=p_metrics,                         & ! in
+      &           vcoeff_z=vcoeff, l_only_p2z=l_only_p2z )                 ! inout, in
+    
+    ! skip the rest, if only pressure interpolation was demanded:
+    IF (.NOT. l_only_p2z) THEN
+      CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    &
+        &           tmp_var_out,                                         & ! inout, out
+        &           nblks, npromz, nzlev, nzlev,                         & ! in
+        &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & ! in
+        &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & ! in
+        &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & ! in
+        &           l_loglin=l_loglin, l_extrapol=l_extrapol,            & ! in
+        &           l_pd_limit=l_pd_limit, lower_limit=lower_limit )       ! in
+      ! copy back:
+      out_var%r_ptr(:,:,out_var_idx,1,1) = tmp_var_out(:,sea_lev,:)
+    ELSE
+      ! copy back pressure:
+      out_var%r_ptr(:,:,out_var_idx,1,1) = z_pres(:,sea_lev,:)
+    END IF
+
+    ! clean up:
+    DEALLOCATE(tmp_var_out, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+    DEALLOCATE(z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres, z_0, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+    ! deallocate coefficient tables:
+    CALL vcoeff_deallocate(vcoeff)
+
+  END SUBROUTINE pp_task_intp_msl
 
 
   !---------------------------------------------------------------
@@ -656,8 +799,7 @@ CONTAINS
   SUBROUTINE pp_task_compute_field(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_tasks:pp_task_compute_field")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_compute_field")
     INTEGER                            :: jg, out_var_idx
     TYPE (t_var_list_element), POINTER :: out_var
     TYPE(t_var_metadata),      POINTER :: p_info

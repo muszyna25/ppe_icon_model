@@ -67,7 +67,7 @@ MODULE mo_pp_scheduler
     & max_dom, max_var_ml, max_var_pl, max_var_hl,                    &
     & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PZLEV, TASK_INTP_SYNC,      &
-    & TASK_COMPUTE_RH     
+    & TASK_INTP_MSL, TASK_COMPUTE_RH     
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
@@ -98,12 +98,14 @@ MODULE mo_pp_scheduler
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
     &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
     &                                   DATATYPE_FLT32, DATATYPE_PACK16
-  USE mo_linked_list,             ONLY: t_var_list, t_list_element
+  USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_pzlev_setup, &
     &                                   pp_task_pzlev, pp_task_compute_field,              &
+    &                                   pp_task_intp_msl,                                   & 
     &                                   t_data_input, t_data_output,                       &
     &                                   t_simulation_status, t_job_queue, job_queue,       &
-    &                                   MAX_NAME_LENGTH, HIGH_PRIORITY, DEFAULT_PRIORITY1, &
+    &                                   MAX_NAME_LENGTH, HIGH_PRIORITY,                    &
+    &                                   DEFAULT_PRIORITY0, DEFAULT_PRIORITY1,              &
     &                                   DEFAULT_PRIORITY2, LOW_PRIORITY, dbg_level
   USE mo_fortran_tools,           ONLY: assign_if_present
 
@@ -139,10 +141,9 @@ CONTAINS
     LOGICAL, INTENT(IN) :: l_init_prm_diag
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  &
-      &  TRIM("mo_pp_scheduler:pp_scheduler_init")
+    CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:pp_scheduler_init")
     INTEGER                          :: jg, i
-    TYPE(t_list_element), POINTER    :: element
+    TYPE(t_list_element), POINTER    :: element, element_pres
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -163,12 +164,28 @@ CONTAINS
         ENDIF
         IF(.NOT.ASSOCIATED(element)) EXIT
 
-        SELECT CASE(element%field%info%l_pp_scheduler_task)
-        CASE (TASK_COMPUTE_RH)
+        IF (element%field%info%l_pp_scheduler_task /= TASK_NONE) THEN
+
           IF (dbg_level > 5)  &
             & CALL message(routine, "Inserting pp task: "//TRIM(element%field%info%name))
-          CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element )
-        END SELECT
+
+          SELECT CASE(element%field%info%l_pp_scheduler_task)
+          CASE (TASK_COMPUTE_RH) ! relative humidity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_RH )
+          CASE (TASK_INTP_MSL)   ! mean sea level pressure
+            ! find the standard pressure field:
+            element_pres => find_list_element (p_nh_state(jg)%diag_list, 'pres')
+            IF (ASSOCIATED (element)) THEN
+              ! register task for interpolation to z=0:
+              CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+                &                         job_type=TASK_INTP_MSL,                                 &
+                &                         l_init_prm_diag=l_init_prm_diag, opt_p_in_var=element_pres )            
+            END IF
+            CASE DEFAULT
+            CALL finish(routine, "Unknown pp task type!")
+          END SELECT
+        END IF
         
       ENDDO ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
@@ -666,7 +683,7 @@ CONTAINS
       !-- register interpolation setup as a post-processing task
 
       task => pp_task_insert(HIGH_PRIORITY)
-      task%data_input%p_int_state      => NULL()
+      task%data_input%p_int_state      => p_int_state(jg)
       task%data_input%jg               =  jg           
       task%data_input%p_patch          => p_patch(jg)
       task%data_input%p_nh_state       => p_nh_state(jg)
@@ -782,14 +799,17 @@ CONTAINS
                 &   (info%used_dimensions(3) /= nblks_v)) ) THEN
                 CALL finish(routine, "Unexpected field size!")
               END IF
-              shape3d  = (/ info%used_dimensions(1), nlev, info%used_dimensions(3) /)
+              ! Note: Even vertex-based variables are interpolated
+              ! onto a cell-based variable, since we interpolate the
+              ! vertex-based vars to cell-based vars first:
+              shape3d  = (/ info%used_dimensions(1), nlev, nblks_c /)
 
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
                 &           ldims=shape3d, lrestart=.FALSE.,           &
                 &           loutput=.TRUE., new_element=new_element)
 
-              !-- add post-processing task for lon-lat interpolation
+              !-- add post-processing task for interpolation
 
               task => pp_task_insert(DEFAULT_PRIORITY1)
               task%job_name        =  &
@@ -799,7 +819,7 @@ CONTAINS
               task%activity        =  new_simulation_status(l_output_step=.TRUE.)
               task%data_input%jg               =  jg 
               task%data_input%p_patch          => p_patch(jg)          
-              task%data_input%p_int_state      => NULL()
+              task%data_input%p_int_state      => p_int_state(jg)
               task%data_input%p_nh_state       => p_nh_state(jg)
               task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
               task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
@@ -839,14 +859,19 @@ CONTAINS
   !  The new task will be added to the dynamic list of post-processing
   !  jobs and called on a regular basis.
   !
-  SUBROUTINE pp_scheduler_register(name, jg, p_out_var, &
-    &                              opt_priority, opt_l_output_step)
+  SUBROUTINE pp_scheduler_register(name, jg, p_out_var,             &
+    &                              l_init_prm_diag, job_type,       &
+    &                              opt_priority, opt_l_output_step, &
+    &                              opt_p_in_var)
 
     CHARACTER(LEN=*)                   , INTENT(IN) :: name
     INTEGER                            , INTENT(IN) :: jg
     TYPE (t_list_element), POINTER                  :: p_out_var
+    LOGICAL                            , INTENT(IN) :: l_init_prm_diag
+    INTEGER                            , INTENT(IN) :: job_type
     INTEGER, OPTIONAL                  , INTENT(IN) :: opt_priority
     LOGICAL, OPTIONAL                  , INTENT(IN) :: opt_l_output_step
+    TYPE (t_list_element), POINTER, OPTIONAL        :: opt_p_in_var
     ! local variables
     LOGICAL                    :: l_output_step
     INTEGER                    :: priority
@@ -854,19 +879,26 @@ CONTAINS
     
     ! set default values
     l_output_step = .TRUE.
-    priority      = DEFAULT_PRIORITY1
+    priority      = DEFAULT_PRIORITY0
     ! assign optional parameters:
     CALL assign_if_present(priority, opt_priority)
     CALL assign_if_present(l_output_step, opt_l_output_step)
     ! create a post-processing task and fill its input/output data:
     task => pp_task_insert(priority)
     WRITE (task%job_name, *) TRIM(name),", DOM ",jg
-    task%data_input%jg          =  jg           
-    task%data_input%p_nh_state  => p_nh_state(jg)
-    task%data_input%p_patch     => p_patch(jg)
-    task%data_output%var        => p_out_var%field
-    task%job_type               =  TASK_COMPUTE_RH
-    task%activity               =  new_simulation_status(l_output_step=l_output_step)
+    IF (PRESENT(opt_p_in_var)) THEN
+      task%data_input%var            => opt_p_in_var%field
+    END IF
+    task%data_input%jg               =  jg           
+    task%data_input%p_nh_state       => p_nh_state(jg)
+    task%data_input%p_patch          => p_patch(jg)
+    task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
+    IF (l_init_prm_diag) THEN
+      task%data_input%prm_diag       => prm_diag(jg)
+    END IF
+    task%data_output%var             => p_out_var%field
+    task%job_type                    =  job_type
+    task%activity                    =  new_simulation_status(l_output_step=l_output_step)
 
   END SUBROUTINE pp_scheduler_register
 
@@ -904,6 +936,9 @@ CONTAINS
         CALL pp_task_pzlev(ptr_task)
       CASE ( TASK_INTP_SYNC )
         CALL pp_task_sync()
+      CASE ( TASK_INTP_MSL )
+        CALL finish(routine, "Not yet implemented!")
+        ! CALL pp_task_intp_msl(ptr_task) ! mean sea level pressure
       CASE ( TASK_COMPUTE_RH )
         call pp_task_compute_field(ptr_task)
       CASE DEFAULT

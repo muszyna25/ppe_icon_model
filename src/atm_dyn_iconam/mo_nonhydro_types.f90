@@ -121,6 +121,7 @@ MODULE mo_nonhydro_types
     &  pres_sfc(:,:),       & ! diagnosed surface pressure (nproma,nblks_c)     [Pa]
     &  pres_sfc_old(:,:),   & ! diagnosed surface pressure at previous timestep (nproma,nblks_c) [Pa]
     &  pres_sfc_s6avg(:,:), & ! 6 hourly sample  surface pressure average       [Pa]
+    &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
     &  dpres_mc(:,:,:),     & ! pressure thickness at masspoints(nproma,nlevp,nblks_c)  [Pa]
     &  hfl_tracer(:,:,:,:), & ! horizontal tracer flux at edges             [kg/m/s]
                               ! (nproma,nlev,nblks_e,ntracer)
