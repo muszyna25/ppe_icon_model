@@ -198,7 +198,7 @@
   if (.not.isvar("vecColByLen"))  vecColByLen  = False           end if
   if (.not.isvar("vecMinDist"))   vecMinDist   = 0.017           end if
   if (.not.isvar("streamLine"))   streamLine   = False           end if
-  if (.not.isvar("secPoints"))    secPoints    = 20              end if
+  if (.not.isvar("secPoints"))    secPoints    = 161              end if
   ; default + optional coordinates
   if (.not.isvar("lonCo"))         lonCo       =  DEFAULTLON     end if
   if (.not.isvar("latCo"))         latCo       =  DEFAULTLAT     end if

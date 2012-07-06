@@ -862,9 +862,18 @@ begin
   resource@gsnFrame                     = False;                don't turn page yet
   resource@gsnDraw                      = False;                don't draw yet
   resource@tmXBMode                     = "Explicit";     explicitly label x-axis
+  latDiff = stringtodouble(secrc(1)) - stringtodouble(seclc(1))
+  tic = latDiff/(stringtodouble(secpoints)-1)
+  p = (points * tic) + stringtodouble(seclc(1))
+ ; resource@tmXBValues                   = points
   resource@tmXBValues                   = (/points(0),points(secpoints-1)/);  points to label values
+  labels = new(dimsizes(p),string)
+  labels = p
+  print(""+labels)
+ ;resource@tmXBLabels                   = labels
   resource@tmXBLabels                   = (/ seclc(1) +"N, "+ seclc(0)+"E" , secrc(1)+"N, "+secrc(0)+"E" /)
 
+  resource@tmXBLabelFontHeightF  = 0.01
   resource@cnFillOn                     = True;          turn on color
   resource@lbLabelAutoStride            = True;          nice label bar label stride
   resource@gsnSpreadColors              = True;          use full range of colormap
@@ -1038,6 +1047,8 @@ begin
   resource@lbTitleFontHeightF = 0.02
   resource@lbLabelFontHeightF = 0.015
   resource@lbLeftMarginF      = 0.01
+  resource@cnLabelMasking   = True
+  resource@cnLabelMasking   = True
 end
 ;---------------------------------------------------------------
 ; vertical axes label for section plot
