@@ -125,11 +125,6 @@ MODULE mo_nh_dcmip_tc
     &                    qtrop      = 1.e-11_wp         ,& !       Tropopause specific humidity
     &                    consttv    = 0.6080_wp         ,& !       Constant for Virtual Temp Conversion
     &                    epsilon    = 1.e-25_wp            !       Small number to aviod dividing by zero in wind calc
-                   
-  REAL(wp), PARAMETER :: exponent   = rd*gamma/g                        ,& !       Exponent
-    &                    t0         = ts0*(1.0_wp+consttv*q0)           ,& ! (K)   Surface    virtual temp (eq.93)
-    &                    ttrop      = t0 - gamma*ztrop                  ,& ! (K)   Tropopause virtual temp (eq.92)
-    &                    ptrop      = p00*(ttrop/t0)**(1.0_wp/exponent)    ! (Pa)  Tropopause pressure     (eq.95)
 
 CONTAINS
 
@@ -209,6 +204,15 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: vtc_c(:,:,:)              !< tangential wind of cyclone at cell center for eq.108
     REAL(wp), ALLOCATABLE :: vtc_e(:,:,:)              !< tangential wind of cyclone at edge center for eq.112,113
 
+    REAL(wp)            :: exponent   ,& !<       Exponent
+      &                    t0         ,& !< (K)   Surface    virtual temp (eq.93)
+      &                    ttrop      ,& !< (K)   Tropopause virtual temp (eq.92)
+      &                    ptrop         !< (Pa)  Tropopause pressure     (eq.95)
+
+    exponent = rd*gamma/g 
+    t0       = ts0*(1.0_wp+consttv*q0)
+    ttrop    = t0 - gamma*ztrop
+    ptrop    = p00*(ttrop/t0)**(1.0_wp/exponent)
 
     ! number of blocks (nblks) and length of loop in last block (npromz)
     !
