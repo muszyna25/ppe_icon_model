@@ -43,44 +43,34 @@ MODULE mo_nh_testcases
 !  
 !  
 !  
-  USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, finish, message_text
-  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
-  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_math_constants,     ONLY: pi, pi_2
-  USE mo_math_utilities,     ONLY: gc2cc, t_cartesian_coordinates, &
-                                   t_geographical_coordinates, &
-                                   arc_length
-  USE mo_parallel_config,    ONLY: nproma, p_test_run
-  USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
-  USE mo_extpar_config,      ONLY: itopo
+  USE mo_kind,                 ONLY: wp
+  USE mo_exception,            ONLY: message, finish, message_text
+  USE mo_namelist,             ONLY: position_nml, POSITIONED, open_nml, close_nml
+  USE mo_io_units,             ONLY: nnml
+  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp
+  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area
+  USE mo_model_domain,         ONLY: t_patch
+  USE mo_ext_data_types,       ONLY: t_external_data
+  USE mo_math_constants,       ONLY: pi
+  USE mo_math_utilities,       ONLY: gc2cc, t_cartesian_coordinates, &
+                                   & t_geographical_coordinates,     &
+                                   & arc_length
+  USE mo_parallel_config,      ONLY: nproma
+  USE mo_run_config,           ONLY: ltransport, iforcing
+  USE mo_extpar_config,        ONLY: itopo
     
-  USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf, lcoriolis
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
-   &                               p0ref, tmelt, vtmpc1, rv
-! USE mo_convect_tables,     ONLY: B1   => c1es,  &
-!  &                               B2_w => c3les ,&
-!  &                               B2_i => c3ies ,&
-!  &                               B4_w => c4les ,&
-!  &                               B4_i => c4ies
+  USE mo_dynamics_config,      ONLY: nnow, nnew, lcoriolis
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_physical_constants,   ONLY: grav, cpd, rd, cvd_o_rd, p0ref
+
   USE mo_nonhydro_types,       ONLY: t_nh_state
   USE mo_nonhydro_state,       ONLY: duplicate_prog_state
   
   USE mo_intp_data_strc,       ONLY: t_int_state
-  USE mo_intp,                 ONLY: cells2edges_scalar, edges2cells_scalar
-  USE mo_mpi,                  ONLY: my_process_is_stdio
-  USE mo_vertical_coord_table, ONLY: vct_b
-  USE mo_loopindices,          ONLY: get_indices_e, get_indices_c
   USE mo_advection_config,     ONLY: advection_config
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
   USE mo_nh_hs_test,           ONLY: init_nh_state_prog_held_suarez
-  USE mo_nh_ape_exp,           ONLY: init_nh_state_prog_APE
   USE mo_nh_jabw_exp,          ONLY: init_nh_topo_jabw, init_nh_state_prog_jabw, & 
                                    & init_passive_tracers_nh_jabw, init_nh_inwp_tracers
   USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw,    &
@@ -109,11 +99,8 @@ MODULE mo_nh_testcases
                                    & p_base_poly, h_poly, t_poly,                    &
                                    & tgr_poly, rh_poly, rhgr_poly
 
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
-  USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
-  USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-    &                                sat_pres_ice!,  &  !! saturation vapor pressure w.r.t. ice
-!   &                                spec_humi!,     &  !! Specific humidity
+  USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
+
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
 
@@ -328,9 +315,6 @@ MODULE mo_nh_testcases
     CALL close_nml
 
     n_flat_level=MAX(2,n_flat_level)
-
-!DR Quick fix (see REDMINE-Issue 1975)
-!DR    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nh_testcase_nml)
 
   END SUBROUTINE read_nh_testcase_namelist
 
@@ -577,6 +561,10 @@ MODULE mo_nh_testcases
 
     END DO
     CALL message(TRIM(routine),'running g_lim_area')
+
+  CASE ('dcmip_tc_51','dcmip_tc_52')
+    ! itopo == 0 --> The topography is initialized to 0 at the begining of this subroutine
+    CALL message(TRIM(routine),'running DCMIP tropical cyclone testcase')
 
   CASE DEFAULT
 
@@ -1060,6 +1048,26 @@ MODULE mo_nh_testcases
   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
+
+  CASE ('dcmip_tc_51','dcmip_tc_52')
+
+    ! 'dcmip_tc_51' and 'dcmip_tc_52' have the same initial state.
+
+    DO jg = 1, n_dom
+
+      CALL init_nh_dcmip_tc ( p_patch(jg),                   &
+        &                     p_nh_state(jg)%prog(nnow(jg)), &
+        &                     p_nh_state(jg)%diag,           &
+        &                     p_nh_state(jg)%metrics,        &
+        &                     p_int(jg)                     )
+
+      CALL duplicate_prog_state( p_nh_state(jg)%prog(nnow(jg)), &
+        &                        p_nh_state(jg)%prog(nnew(jg)) )
+
+    END DO !jg
+
+    CALL message(TRIM(routine),'End setup dcmip_tc_51/52')
+
   END SELECT
 
  END SUBROUTINE init_nh_testcase
