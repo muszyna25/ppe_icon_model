@@ -1188,7 +1188,8 @@ MODULE mo_vertical_grid
               ENDIF
             ENDDO
             IF (lfound_all) THEN
-              jk_start = MINVAL(p_nh(jg)%metrics%vertidx_gradp(1,i_startidx:i_endidx,jk,jb))
+              jk_start = MIN(nlev-2, &
+                MINVAL(p_nh(jg)%metrics%vertidx_gradp(1,i_startidx:i_endidx,jk,jb)))
             ENDIF
           ENDDO
 
@@ -1262,7 +1263,8 @@ MODULE mo_vertical_grid
               ENDIF
             ENDDO
             IF (lfound_all) THEN
-              jk_start = MINVAL(p_nh(jg)%metrics%vertidx_gradp(2,i_startidx:i_endidx,jk,jb))
+              jk_start = MIN(nlev-2, &
+                MINVAL(p_nh(jg)%metrics%vertidx_gradp(2,i_startidx:i_endidx,jk,jb)))
             ENDIF
           ENDDO
 
