@@ -396,10 +396,10 @@ class EXP_plot(HtmlResource):
         #print date_Dict
         #print "---- comp_Dict ----"
         #print Comp_Dict
-        #print "---- Exp_Dict ----"
-        #print Exp_Dict
+#        print "---- Exp_Dict ----"
+#        print Exp_Dict
         #print "==== WS ===="
-	#return "Test Stop"
+        #return "Test Stop"
 
         Archive_Button_Dict['date']   = list(sorted(set(Archive_Button_Dict['date'])))
  	Archive_Button_Dict['rev']    = list(sorted(set(Archive_Button_Dict['rev'])))
@@ -413,7 +413,7 @@ class EXP_plot(HtmlResource):
 	  data = "Revision List for this timeperode ist emty"
 	  return data
 	  
-	print Archive_Button_Dict['rev']
+#	print Archive_Button_Dict['rev']
         if not l_nightly:
 	  min_Revision = Archive_Button_Dict['rev'][0]
 	  max_Revision = Archive_Button_Dict['rev'][-1]
@@ -582,15 +582,14 @@ class EXP_plot(HtmlResource):
 	data += "</tr>\n"
 	
 #     ----------    Build Nr.     ----------   
-	t_build = []
         if selected_builder != "all":
+	  t_build = []
 	  for Da in Comp_Dict[selected_builder]:
             for Re in Comp_Dict[selected_builder][Da]:
 	      for Br in Comp_Dict[selected_builder][Da][Re]:
 	        for Bu in Comp_Dict[selected_builder][Da][Re][Br]:
 		  t_build.append(Bu)
-	
-        Archive_Button_Dict['build'] = list(sorted(t_build))
+	  Archive_Button_Dict['build'] = list(sorted(t_build))
 
         data += "<tr>\n"
 	data += "  <td style=\"text-align:left;\" ><b>Build:</b></td>\n"
@@ -978,8 +977,11 @@ class EXP_plot(HtmlResource):
 	                      data += "    </table>\n"
                               data += "  </td></tr>\n"
                               data += "  <tr><td style=\"text-align:left;\">\n"        
-	                      data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/"
-		              data +=  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+                              br_path = "public_html/archive/" + Da + "/buildbot/"+ Re + "/" + Br + "/" + comp 
+                              if os.path.isdir(br_path):
+	                        data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + Br + "/" + comp +"/" +  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+			      else:
+	                        data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/" +  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
 	                      data += "  </td></tr>\n"
 		   
         data += "</table>\n"
