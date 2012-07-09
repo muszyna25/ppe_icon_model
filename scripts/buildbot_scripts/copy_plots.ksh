@@ -9,7 +9,7 @@
 # $Author$:  Author of last commit
 # $Date$:    Date of last commit
 #-------------------------------------------------------------------
-
+set -x
 REV=$1
 SLAVE=$2
 BUILDER=$3
@@ -17,6 +17,7 @@ BUILDER_NR=$4
 #DATE=`date '+%Y-%m-%d'`
 W_DIR=$5
 DATE=$6
+BRANCH=$7
 PUPDATE=`date '+%d.%m %H:%M'`
 
 
@@ -124,7 +125,7 @@ fi
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 
-BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
+BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BRANCH}/${BUILDER}/${BUILDER_NR}
 
 # This directory is only a temporary directory. Buildbot is downloadin the directpory
 # to mpipc91 and saves the data in /pool/data/ICON/archiv/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
@@ -152,16 +153,5 @@ echo "Copy png-files"
 FILES=`find experiments -name '*.png'`
 copy_files png
 
-#==================== Begin =====================================================
-# The following part of the script is included to check the download from buildbot.
-# All plots are for a short time also saved in the slave working directory.
-
-#tmpDIR=".."
-
-#if [ ! -d  ${tmpDIR}/archive ]
-#then
-#  mkdir -p ${tmpDIR}/archive
-#fi
-#cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
 #==================== End =====================================================
 

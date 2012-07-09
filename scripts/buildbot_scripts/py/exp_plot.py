@@ -38,7 +38,7 @@ class EXP_plot(HtmlResource):
         global RevisionNr
 	global selected_builder
 	global selected_build
-
+	global selected_branch
 	global selected_Date_from
 	global selected_Date_to
 	
@@ -108,7 +108,13 @@ class EXP_plot(HtmlResource):
 	def add_comp(p,r,r_Dict):
 	  ret = False
 	  comp_D = {}
-	  p += r + "/"
+	  if r != "":
+	    p += r + "/"
+	  else:
+	    r = "trunk+icon-dev"
+          print "p " + p
+          print "r " + r
+	    
 	  for c in os.listdir(p):
 	    if add_build(p,c,comp_D):
   	      Archive_Button_Dict['comp'].append(c)
@@ -120,14 +126,42 @@ class EXP_plot(HtmlResource):
           return ret
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        
+
+	def add_branch(p,D,d_Dict):
+	  ret = False
+	  rev_D = {}
+	  p += D + "/"
+	  
+	  for b in os.listdir(p):
+            B = b
+            print "b " + b
+            print "D " + D
+	    if b.find("trunk") == 0 or b.find("tags") == 0 or b.find("branch") == 0:
+	      if add_comp(p,b,rev_D):
+	        Archive_Button_Dict['branch'].append(b)
+	        ret = True
+	    else:
+              print "else"
+              B = "trunk+icon-dev"
+	      if add_comp(p,"",rev_D):
+	        Archive_Button_Dict['branch'].append(B)
+	        ret = True
+	      break
+	
+	  if ret:
+            d_Dict[D] = rev_D
+
+          return ret
+	      
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 	def add_rev(p,D,d_Dict):
 	  ret = False
 	  rev_D = {}
 	  p += D + "/buildbot/"
 	  for r in os.listdir(p):
             if (r >= Rev_from) and (r <= Rev_to):
-	      if add_comp(p,r,rev_D):
+	      if add_branch(p,r,rev_D):
 	        Archive_Button_Dict['rev'].append(r)
 	        ret = True
 	        
@@ -137,54 +171,50 @@ class EXP_plot(HtmlResource):
           return ret
 	      
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        
-	def add_branch(p,D,d_Dict):
-	  ret = False
-	  rev_D = {}
-	  p1 += D + "/"
+        def create_Exp_Dict(d,r,br,c,b,eD):
+	  build_D  = {}
+	  comp_D   = {}
+	  rev_D    = {}
+	  branch_D = {}
+	  date_D   = {}
 	  
-	  for b in os.listdir(p1):
-	    if b.find("trunk") == 0 or b.find("tags") == 0 or b.find("branch") == 0:
-	      if add_comp(p1,r,rev_D):
-	        Archive_Button_Dict['branch'].append(b)
-	        ret = True
-	    else:
-	      if add_comp(p,D,rev_D):
-	        Archive_Button_Dict['branch'].append("trunk+icon-dev")
-	        ret = True
-	        break
-	      
-	  if ret:
-            d_Dict[D] = rev_D
-          
-          return ret
-	      
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        def create_Exp_Dict(d,r,c,b,eD):
-	  build_D = {}
-	  comp_D  = {}
-	  rev_D   = {}
-	  data_D  = {}
-	  build_D[b] = eD
-	  comp_D[c] = build_D
-	  rev_D[r] = comp_D
-	  data_D[d] = rev_D
-	  return data_D 
+	  build_D[b]   = eD
+	  comp_D[c]    = build_D
+	  branch_D[br] = comp_D
+	  rev_D[r]     = branch_D
+	  date_D[d]    = rev_D
+	  return date_D 
 	  
-        def create_data_Dict(r,c,b,eD):
-	  build_D = {}
-	  comp_D  = {}
-	  rev_D   = {}
-	  build_D[b] = eD
-	  comp_D[c] = build_D
-	  rev_D[r] = comp_D
+        def create_date_Dict(r,br,c,b,eD):
+	  rev_D    = {}
+	  branch_D = {}
+	  comp_D   = {}
+	  build_D  = {}
+	  
+	  build_D[b]   = eD
+	  comp_D[c]    = build_D
+	  branch_D[br] = comp_D
+	  rev_D[r]     = branch_D
 	  return rev_D 
         
-	def create_rev_Dict(c,b,eD):
+	def create_rev_Dict(br,c,b,eD):
+	  branch_D = {}
 	  build_D = {}
 	  comp_D  = {}
-	  build_D[b] = eD
+
+          build_D[b] = eD
 	  comp_D[c] = build_D
+	  branch_D[br] = comp_D
+
+	  return branch_D 
+
+	def create_branch_Dict(c,b,eD):
+	  build_D = {}
+	  comp_D  = {}
+
+          build_D[b] = eD
+	  comp_D[c] = build_D
+
 	  return comp_D 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -194,54 +224,72 @@ class EXP_plot(HtmlResource):
 	  return build_D 
 	
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	def Exp_add(Exp_Dict,d,r,c,b,eD):
+	def Exp_add(Exp_Dict,d,r,Br,c,b,eD):
 	   
 	   for e in eD:
              if e in Exp_Dict:
 	       if d in Exp_Dict[e]:
 	         if r in Exp_Dict[e][d]:
-	           if c in Exp_Dict[e][d][r]:
-	             if b in Exp_Dict[e][d][r][c]:
-	               print "build existiert " + c
-	               Exp_Dict[e][d][r][c][b] = eD[e]
-		     else:
-	               Exp_Dict[e][d][r][c][b] = eD[e]
+	           if Br in Exp_Dict[e][d][r]:
+	             if c in Exp_Dict[e][d][r][Br]:
+	               if b in Exp_Dict[e][d][r][Br][c]:
+	                 print "build existiert " + c
+	                 Exp_Dict[e][d][r][Br][c][b] = eD[e]
+		       else:
+	                 Exp_Dict[e][d][r][Br][c][b] = eD[e]
+	             else:
+	               Exp_Dict[e][d][r][Br][c] = create_comp_Dict(b,eD[e])
 	           else:
-	             Exp_Dict[e][d][r][c] = create_comp_Dict(b,eD[e])
+	             Exp_Dict[e][d][r][Br] = create_branch_Dict(c,b,eD[e])
 	         else:
-	           Exp_Dict[e][d][r] = create_rev_Dict(c,b,eD[e])
+	           Exp_Dict[e][d][r] = create_rev_Dict(Br,c,b,eD[e])
 	       else:
-	         Exp_Dict[e][d] = create_data_Dict(r,c,b,eD[e])
+	         Exp_Dict[e][d] = create_date_Dict(r,Br,c,b,eD[e])
              else:
-	       Exp_Dict[e] = create_Exp_Dict(d,r,c,b,eD[e])
+	       Exp_Dict[e] = create_Exp_Dict(d,r,Br,c,b,eD[e])
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	
-        def Comp_create_date(d,r,eD):
-	  rev_D   = {}
-	  data_D  = {}
-	  rev_D[r] = eD
-	  data_D[d] = rev_D
-	  return data_D 
+        def Comp_create_date(d,r,Br,eD):
+	  branch_D  = {}
+	  rev_D     = {}
+	  date_D    = {}
+
+	  branch_D[Br] = eD
+          rev_D[r] = branch_D
+	  date_D[d] = rev_D
+	  return date_D 
 	
-        def Comp_create_rev(r,eD):
+        def Comp_create_rev(r,Br,eD):
+	  branch_D  = {}
 	  rev_D   = {}
-	  rev_D[r] = eD
+
+	  branch_D[Br] = eD
+          rev_D[r] = branch_D
 	  return rev_D 
+
+        def Comp_create_Branch(Br,eD):
+	  branch_D  = {}
+	  
+	  branch_D[Br] = eD
+	  return branch_D 
 	
-	def Comp_add(Comp_Dict,d,r,cD):
+	def Comp_add(Comp_Dict,d,r,Br,cD):
 	  for c in cD:
            if c in Comp_Dict:
              if d in Comp_Dict[c]:
                if r in Comp_Dict[c][d]:
-                 print "!!!! rev exists " + r
-                 Comp_Dict[c][d][r] = cD[c]
+                 if Br in Comp_Dict[c][d][r]:
+                   print "!!!! rev exists " + r
+                   Comp_Dict[c][d][r][Br] = cD[c]
+	         else:
+                   Comp_Dict[c][d][r][Br] = cD[c]
 	       else:
-                 Comp_Dict[c][d][r] = cD[c]
+	         Comp_Dict[c][d][r] = Comp_create_Branch(Br,cD[c])
 	     else:
-	       Comp_Dict[c][d] = Comp_create_rev(r,cD[c])
+	       Comp_Dict[c][d] = Comp_create_rev(r,Br,cD[c])
 	   else:
-	     Comp_Dict[c] = Comp_create_date(d,r,cD[c])
+	     Comp_Dict[c] = Comp_create_date(d,r,Br,cD[c])
 # -----------------------------------------------------------
 	
 	if exp_plot_Info == "NotSet":
@@ -272,6 +320,7 @@ class EXP_plot(HtmlResource):
         file.close
 
         if l_nightly:
+	  selected_branch = "trunk+icon-dev"
           Rev_from = RevisionNr
 	  Rev_to = Rev_from
  
@@ -279,7 +328,7 @@ class EXP_plot(HtmlResource):
 #ws	  Date_to = "2012-06-21"
 	  now_time = time.strftime("%H%M",time.localtime(util.now()))
 	      
-	  yesterday = datetime.now() - timedelta(days=4)
+	  yesterday = datetime.now() - timedelta(days=1)
 	      
 	  if now_time > "2200":
 #ws	    Date_from = "2012-06-20"
@@ -321,39 +370,36 @@ class EXP_plot(HtmlResource):
 	date_Dict = {}
         
 	p_date = "public_html/archive/"
-#        print "==== WS ===="
+        print "==== WS ===="
 	for DATE in os.listdir(p_date):
 	  if DATE.find("20") == 0:
             if (DATE >= Date_from) and (DATE <= Date_to):
 	      if add_rev(p_date,DATE,date_Dict):
 	        Archive_Button_Dict['date'].append(DATE)
-#         print date_Dict
-#         print "==== WS ===="
-#	 return "Test Stop"
 	
 # Build a new List where the Experiment Name ist the hightest index
 	Exp_Dict = {}
 	for d in date_Dict:
 	  for r in date_Dict[d]:
-# new
-#	    for B in date_Dict[R]:
-#	      for c in date_Dict[d][r]:
-#	        for b in date_Dict[d][r][c]:
-#	          Exp_add(Exp_Dict,d,r,c,b,date_Dict[d][r][c][b])
-# old
-	    for c in date_Dict[d][r]:
-	      for b in date_Dict[d][r][c]:
-	        Exp_add(Exp_Dict,d,r,c,b,date_Dict[d][r][c][b])
+	    for B in date_Dict[d][r]:
+	      for c in date_Dict[d][r][B]:
+	        for b in date_Dict[d][r][B][c]:
+	          Exp_add(Exp_Dict,d,r,B,c,b,date_Dict[d][r][B][c][b])
              
 # Build a new List where the Experiment Name ist the hightest index
 	Comp_Dict = {}
 	for d in date_Dict:
 	  for r in date_Dict[d]:
-# new
-#	    for b in date_Dict[r]:
-#	      Comp_add(Comp_Dict,d,r,date_Dict[d][r])
-# old
-	    Comp_add(Comp_Dict,d,r,date_Dict[d][r])
+	    for b in date_Dict[d][r]:
+	      Comp_add(Comp_Dict,d,r,b,date_Dict[d][r][b])
+        #print "---- date_Dict ----"
+        #print date_Dict
+        #print "---- comp_Dict ----"
+        #print Comp_Dict
+        #print "---- Exp_Dict ----"
+        #print Exp_Dict
+        #print "==== WS ===="
+	#return "Test Stop"
 
         Archive_Button_Dict['date']   = list(sorted(set(Archive_Button_Dict['date'])))
  	Archive_Button_Dict['rev']    = list(sorted(set(Archive_Button_Dict['rev'])))
@@ -491,19 +537,19 @@ class EXP_plot(HtmlResource):
 	data += "  <td style=\"text-align:left;\">\n"
 
         if l_nightly:
-	  data += "trunk/icon-dev"
+	  data += selected_branch.replace('+', '/')
 	else:
 	  data += "    <select  name=\"branch\" onChange=\"document.date_form.submit()\">\n"
-	  if selected_build == "all":
+	  if selected_branch == "all":
 	    data += "    <option selected> all </option>\n"
 	  else:
 	    data += "    <option> all </option>\n"
 	    
-#	  for Bran in Archive_Button_Dict['branch']:
-#	    if selected_branch == Bu:
-#	      data += "    <option selected>"+ Bran + "</option>\n"
-#	    else:
-#	      data += "    <option>"+ Bran + "</option>\n"
+	  for Br in Archive_Button_Dict['branch']:
+	    if selected_branch == Br:
+	      data += "    <option selected>"+ Br + "</option>\n"
+	    else:
+	      data += "    <option>"+ Br + "</option>\n"
 	      
 	  data += "  </select>\n"
 
@@ -540,8 +586,9 @@ class EXP_plot(HtmlResource):
         if selected_builder != "all":
 	  for Da in Comp_Dict[selected_builder]:
             for Re in Comp_Dict[selected_builder][Da]:
-	      for Bu in Comp_Dict[selected_builder][Da][Re]:
-		t_build.append(Bu)
+	      for Br in Comp_Dict[selected_builder][Da][Re]:
+	        for Bu in Comp_Dict[selected_builder][Da][Re][Br]:
+		  t_build.append(Bu)
 	
         Archive_Button_Dict['build'] = list(sorted(t_build))
 
@@ -649,6 +696,7 @@ class EXP_plot(HtmlResource):
 	
 	e = 0
 	r = 0
+	z = 0
 	d = 0
 	c = 0
 	b = 0
@@ -664,7 +712,7 @@ class EXP_plot(HtmlResource):
 	  data += "</a><br>\n"
 	  
 	  data += "<div id=\"date_" + str(e) + "\" class=\"Rand\" style=\"display: none;\">\n"
-	  for Da in Exp_Dict[Ex]:
+	  for Da in sorted(Exp_Dict[Ex], reverse=True):
 	    d += 1 
             data += "  <!--- " + str(d) + ". Date " + Da + " -->\n"
           
@@ -675,54 +723,68 @@ class EXP_plot(HtmlResource):
 	    data += "  </a><br>\n"
 #------------------------------
 	    data += "  <div id=\"rev_" + str(d) + "\" class=\"Rand\" style=\"display: none;\">\n"
-	    for Re in Exp_Dict[Ex][Da]:
+	    for Re in sorted(Exp_Dict[Ex][Da], reverse=True):
 	      r += 1 
               data += "    <!--- " + str(r) + ". Revision " + Re + " -->\n"
           
-	      data += "    <a href=\"javascript:anzeigen('comp_" + str(r) 
+	      data += "    <a href=\"javascript:anzeigen('branch_" + str(r) 
 	      data += "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
 	      data += "      <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" 
 	      data += Re + "</span>\n"
 	      data += "    </a><br>\n"
 #------------------------------
-	      data += "    <div id=\"comp_" + str(r) + "\" class=\"Rand\" style=\"display: none;\">\n"
-	      for Co in Exp_Dict[Ex][Da][Re]:
-	        c += 1 
-                data += "      <!--- " + str(c) + ". Computer " + Co + " -->\n" 
-	        data += "      <a href=\"javascript:anzeigen('build_" + str(c) 
+	      data += "    <div id=\"branch_" + str(r) + "\" class=\"Rand\" style=\"display: none;\">\n"
+#new begin
+	      for Br in sorted(Exp_Dict[Ex][Da][Re]):
+	        z += 1 
+                data += "      <!--- " + str(z) + ". Branch " + Br + " -->\n" 
+	        data += "      <a href=\"javascript:anzeigen('comp_" + str(z) 
 		data += "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
 	        data += "        <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" 
-		data += Co + "</span>\n"
+		data += Br.replace('+', '/') + "</span>\n"
 	        data += "      </a><br>\n"
 #------------------------------
-	        data += "      <div id=\"build_" + str(c) + "\" class=\"Rand\" style=\"display: none;\">\n"
-	        for Bu in Exp_Dict[Ex][Da][Re][Co]:
-	          b += 1 
-                  data += "        <!--- " + str(b) + ". Build " + Bu + " -->\n" 
-	          data += "        <a href=\"javascript:anzeigen('file_" + str(b) 
+	        data += "      <div id=\"comp_" + str(z) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	        for Co in sorted(Exp_Dict[Ex][Da][Re][Br]):
+	          c += 1 
+                  data += "      <!--- " + str(c) + ". Computer " + Co + " -->\n" 
+	          data += "      <a href=\"javascript:anzeigen('build_" + str(c) 
 		  data += "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-	          data += "          <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" 
-		  data +=  Bu + "</span>\n"
-	          data += "        </a><br>\n"
+	          data += "        <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" 
+		  data += Co + "</span>\n"
+	          data += "      </a><br>\n"
 #------------------------------
-	          data += "      <div id=\"file_" + str(b) + "\" class=\"Rand\" style=\"display: none;\">\n"
-	          for Fi in Exp_Dict[Ex][Da][Re][Co][Bu]:
-	            f += 1 
-                    data += "          <!--- " + str(f) + ". File " + Co + " -->\n" 
+	          data += "      <div id=\"build_" + str(c) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	          for Bu in sorted(Exp_Dict[Ex][Da][Re][Br][Co], reverse=True):
+	            b += 1 
+                    data += "        <!--- " + str(b) + ". Build " + Bu + " -->\n" 
+	            data += "        <a href=\"javascript:anzeigen('file_" + str(b) 
+		    data += "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
+	            data += "          <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" 
+		    data +=  Bu + "</span>\n"
+	            data += "        </a><br>\n"
+#------------------------------
+	            data += "      <div id=\"file_" + str(b) + "\" class=\"Rand\" style=\"display: none;\">\n"
+	            for Fi in sorted(Exp_Dict[Ex][Da][Re][Br][Co][Bu]):
+	              f += 1 
+                      data += "          <!--- " + str(f) + ". File " + Co + " -->\n" 
                     
-                    data += "<input type=\"checkbox\" name=\"plot_check\" value=\"" + Fi.strip(".png") + "\" id=\"check1\""
-		    if Fi.strip(".png") == exp_file_Info:
-		      data += "checked=\"checked\""
+                      data += "<input type=\"checkbox\" name=\"plot_check\" value=\"" + Fi.strip(".png") + "\" id=\"check1\""
+		      if Fi.strip(".png") == exp_file_Info:
+		        data += "checked=\"checked\""
 		      
-		    if l_nightly:
-		      data += "disabled=\"disabled\""
-		    data += ">"
-		    data += "<label for=\"check1\">"+ Fi.strip(".png") + "</label><br />\n"
-                  data += "        </div>\n"
+		      if l_nightly:
+		        data += "disabled=\"disabled\""
+		      data += ">"
+		      data += "<label for=\"check1\">"+ Fi.strip(".png") + "</label><br />\n"
+                    data += "        </div>\n"
 #------------------------------
-                data += "      </div>\n"
+
+                  data += "      </div>\n"
 #------------------------------
+	        data += "    </div>\n"
 	      data += "    </div>\n"
+#new end
 #------------------------------
 	  
             data += "  </div>\n"
@@ -756,7 +818,7 @@ class EXP_plot(HtmlResource):
 	
         if l_nightly:
 	  data += "  <div id=\"arch_ref\">\n"
-        
+#ToDo Ref plot mit branch
 	  p = "public_html/reference_plot/" + exp_plot_Info
           if os.path.isdir(p):
 	    save_date = os.listdir(p)
@@ -779,20 +841,27 @@ class EXP_plot(HtmlResource):
 	    data += "    <tr>\n    <td>\n"
             data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
             data += "        <colgroup>"
-	    data += "          <col width=\"35\"> <col width=\"70\">"
-	    data += "          <col width=\"55\"> <col width=\"45\">"
-	    data += "          <col width=\"50\"> <col width=\"110\">"
-	    data += "          <col width=\"45\"> <col width=\"110\">"
-	    data += "          <col width=\"35\"> <col width=\"45\">"
+	    data += "          <col width=\"105\">"
+	    data += "          <col width=\"100\">"
+	    data += "          <col width=\"160\">"
+	    data += "          <col width=\"155\">"
+	    data += "          <col width=\"80\">"
 	    data += "          <col width=\"70\">"
 	    data += "        </colgroup>\n"
             data += "        <tr>\n"
-            data += "            <td style=\"text-align:left;\"><b>Date:</b></td><td style=\"text-align:left;\">" + ref_date + "</td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Revision:</b></td><td style=\"text-align:left;\">" + ref_rev + "</td>"
+            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + ref_date + "</td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;" 
+            data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + ref_rev + "\">"
+            data += ref_rev + "</td>"
 #ToDo SVN-Branch eintragen lassen
-            data += "            <td style=\"text-align:left;\"><b>Brunch:</b></td><td style=\"text-align:left;\"> trunk/icon-dev</td>"
-            data += "            <td style=\"text-align:left;\"><b>Builder:</b></td><td style=\"text-align:left;\">" + ref_comp +"</td>"
-            data += "            <td style=\"text-align:left;\"><b>Build:</b></td><td style=\"text-align:left;\"><a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" + ref_build + "</a></td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Brunch:</b>&nbsp;"
+            data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
+            data += "trunk/icon-dev</td>"
+            
+            data += "            <td style=\"text-align:left;\"><b>Builder:</b>&nbsp;" 
+            data += "<a href=\"builders/" + ref_comp + "\">"
+            data +=              ref_comp +"</td>"
+            data += "            <td style=\"text-align:left;\"><b>Build:</b>&nbsp;<a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" + ref_build + "</a></td>\n"
 	    data += "            <td style=\"text-align:left;\">\n"
 	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
             data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
@@ -827,18 +896,18 @@ class EXP_plot(HtmlResource):
 	    data += "  <tr>\n    <td>"
             data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"780\">\n"
             data += "        <colgroup>"
-	    data += "          <col width=\"35\"> <col width=\"70\">"
-	    data += "          <col width=\"55\"> <col width=\"45\">"
-	    data += "          <col width=\"50\"> <col width=\"110\">"
-	    data += "          <col width=\"45\"> <col width=\"110\">"
-	    data += "          <col width=\"35\"> <col width=\"45\">"
+	    data += "          <col width=\"105\">"
+	    data += "          <col width=\"100\">"
+	    data += "          <col width=\"160\">"
+	    data += "          <col width=\"155\">"
+	    data += "          <col width=\"80\">"
 	    data += "          <col width=\"70\">"
 	    data += "        </colgroup>\n<re>\n"
-            data += "            <td style=\"text-align:left;\"><b>Date:</b></td><td> xxxx-xx-xx </td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Revision:</b></td><td> ????</td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Branch:</b></td><td> ????</td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Builder:</b></td><td> ???? </td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Build:</b></td><td> ???? </td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp; xxxx-xx-xx </td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;  ????</td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Branch:</b>&nbsp;  ????</td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Builder:</b>&nbsp;  ???? </td>\n"
+            data += "            <td style=\"text-align:left;\"><b>Build:</b>&nbsp;  ???? </td>\n"
             data += "</tr>\n      </table>\n"
             data += "    </td></tr>\n    <tr><td style=\"text-align:left; valign:top;\">\n"
 	    data += "    </td>"
@@ -867,41 +936,51 @@ class EXP_plot(HtmlResource):
 	  if comp == selected_builder or selected_builder == "all":
 	    for Da in sorted(Comp_Dict[comp], reverse=True):
               for Re in sorted(Comp_Dict[comp][Da], reverse=True):
-		Br = "trunk/icon-dev"
-	        for Bu in sorted(Comp_Dict[comp][Da][Re], reverse=True):
-	          if Bu == selected_build or selected_build == "all":
-	            for Ex in Comp_Dict[comp][Da][Re][Bu]:
-		      for Fi in Comp_Dict[comp][Da][Re][Bu][Ex]:
-		        if Fi.strip(".png") == exp_file_Info:
-	                  data += "  <tr><td>\n"
-	                  data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
+	        for Br in sorted(Comp_Dict[comp][Da][Re]):
+	          if Br == selected_branch or selected_branch == "all":
+	            for Bu in sorted(Comp_Dict[comp][Da][Re][Br], reverse=True):
+	              if Bu == selected_build or selected_build == "all":
+	                for Ex in Comp_Dict[comp][Da][Re][Br][Bu]:
+		          for Fi in Comp_Dict[comp][Da][Re][Br][Bu][Ex]:
+		            if Fi.strip(".png") == exp_file_Info:
+	                      data += "  <tr><td>\n"
+	                      data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
             
-	                  data += "        <colgroup>"
-	                  data += "          <col width=\"35\"> <col width=\"70\">"
-	                  data += "          <col width=\"55\"> <col width=\"45\">"
-	                  data += "          <col width=\"50\"> <col width=\"110\">"
-	                  data += "          <col width=\"45\"> <col width=\"110\">"
-	                  data += "          <col width=\"35\"> <col width=\"45\">"
-	                  data += "          <col width=\"70\">"
-	                  data += "        </colgroup>\n"
+	                      data += "        <colgroup>"
+	                      data += "          <col width=\"105\">"
+	                      data += "          <col width=\"100\">"
+	                      data += "          <col width=\"160\">"
+	                      data += "          <col width=\"155\">"
+	                      data += "          <col width=\"80\">"
+		              data += "          <col width=\"70\">"
+	                      data += "        </colgroup>\n"
                
-	                  data += "      <tr>\n"
-                          data += "        <td style=\"text-align:left;\"><b>Date:</b></td><td style=\"text-align:left;\">" + Da + "</td>\n"
-                          data += "        <td style=\"text-align:left;\"><b>Revision:</b></td><td style=\"text-align:left;\">" + Re + "</td>"
-                          data += "        <td style=\"text-align:left;\"><b>Branch:</b></td><td style=\"text-align:left;\">" + Br + "</td>"
-		          data += "        <td style=\"text-align:left;\"><b>Builder:</b></td><td style=\"text-align:left;\">" + comp + "</td>\n"
-		          data += "        <td style=\"text-align:left;\"><b>Build:</b></td><td style=\"text-align:left;\"><a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
-		          data += Bu 
-		          data += "</a></td>\n"
-                          data += "        <td><b>&nbsp</b></td>\n"
-		          data += "</tr>\n"
+	                      data += "      <tr>\n"
+                              data += "        <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + Da + "</td>\n"
+                              data += "        <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;" 
+                              data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + Re + "\">"
+                              data += Re + "</td>"
+                              
+                              data += "        <td style=\"text-align:left;\"><b>Branch:</b>&nbsp;" 
+                              data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
+                              data +=  Br.replace('+', '/') + "</td>"
+                              
+		              data += "        <td style=\"text-align:left;\"><b>Builder:</b>&nbsp;" 
+                              data += "<a href=\"builders/" + comp + "\">"
+		              data +=  comp + "</td>\n"
+		              data += "        <td style=\"text-align:left;\"><b>Build:</b>&nbsp;<a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
+		              data += Bu 
+		              
+		              data += "</a></td>\n"
+                              data += "        <td><b>&nbsp</b></td>\n"
+		              data += "</tr>\n"
 		
-	                  data += "    </table>\n"
-                          data += "  </td></tr>\n"
-                          data += "  <tr><td style=\"text-align:left;\">\n"        
-	                  data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/"
-		          data +=  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
-	                  data += "  </td></tr>\n"
+	                      data += "    </table>\n"
+                              data += "  </td></tr>\n"
+                              data += "  <tr><td style=\"text-align:left;\">\n"        
+	                      data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/"
+		              data +=  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+	                      data += "  </td></tr>\n"
 		   
         data += "</table>\n"
         data += "</div>\n"
@@ -997,6 +1076,7 @@ class EXP_plot(HtmlResource):
         global modus
 	global selected_builder
 	global selected_build
+	global selected_branch
 
 	global selected_Date_from
 	global selected_Date_to
@@ -1009,6 +1089,7 @@ class EXP_plot(HtmlResource):
 	modus              = "nightly"
 	selected_builder   = "all"
 	selected_build     = "all"
+	selected_branch    = "all"
 	selected_Date_from = "NotSet"
 	selected_Date_to   = "NotSet"
 	selected_Rev_from  = "NotSet"
