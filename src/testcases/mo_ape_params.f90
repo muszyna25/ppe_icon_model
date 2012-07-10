@@ -45,13 +45,14 @@ MODULE mo_ape_params
 #else
   USE mo_constants,          ONLY: pi=>api, tmelt
 #endif
+  USE mo_nh_testcases,       ONLY: ape_sst_val
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_exception,          ONLY: finish
 
   IMPLICIT NONE
 
   PUBLIC
-  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice
+  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice, ape_sst_const
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -218,6 +219,18 @@ CONTAINS
   END FUNCTION ape_sst_ice
 
 
+  !! Globally constant sea surface temperature (SST)
+  !! for the DCMIP tropical cyclone case of the APE.
+  !!
+  ELEMENTAL FUNCTION ape_sst_const() RESULT(sst)
+
+    REAL(wp) :: sst
+
+    sst = tmelt + ape_sst_val
+
+  END FUNCTION ape_sst_const
+
+
   !-----------
 
   FUNCTION ape_sst(sst_case,lat) RESULT(sst)
@@ -240,6 +253,8 @@ CONTAINS
       sst=ape_sst_qobs(lat)
     CASE ('sst_ice')
       sst=ape_sst_ice(lat)
+    CASE ('sst_const')
+      sst=ape_sst_const()
     CASE DEFAULT
       CALL finish( TRIM(FUNCTION),'wrong sst name, must be sst1, sst2, sst3, sst4 or sst_qobs')
     END SELECT

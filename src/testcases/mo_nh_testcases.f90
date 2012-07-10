@@ -123,6 +123,7 @@ MODULE mo_nh_testcases
   REAL(wp) :: hs_nh_vn_ptb_scale     ! amplitude of the random noise
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
+  REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
 
   LOGICAL  :: linit_tracer_fv  !< finite volume initialization for tracer fields
                                !< if .TRUE.
@@ -138,7 +139,8 @@ MODULE mo_nh_testcases
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
-                            rh_at_1000hpa, qv_max, ape_sst_case,             &
+                            rh_at_1000hpa, qv_max,                           &
+                            ape_sst_case, ape_sst_val,                       &
                             linit_tracer_fv, lhs_fric_heat,                  &
                             qv_max_wk, u_infty_wk,                           &
                             bubctr_lat, bubctr_lon, bubctr_z,                &
@@ -156,7 +158,8 @@ MODULE mo_nh_testcases
                             tgr_poly, rh_poly, rhgr_poly, lcoupled_rho  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
-    &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
+    &       init_nh_testcase, n_flat_level, nh_test_name,                    &
+    &       ape_sst_case, ape_sst_val,                                       &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
@@ -226,6 +229,7 @@ MODULE mo_nh_testcases
     rh_at_1000hpa          = 0.7_wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
+    ape_sst_val            = 29.0_wp ! 29 degC
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
