@@ -209,7 +209,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF(ltestcase .AND. nh_test_name == 'APE_nh') THEN
+        IF (ltestcase .AND. (nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
 
           ! t_g = ape_sst1
           
@@ -374,7 +374,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
     !------------------------------------------
-    IF ( nh_test_name == 'APE_nh' ) THEN
+    IF ( nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52' ) THEN
       ssi(:) = ssi(:)*1365._wp/tsi
       tsi = 1365._wp
     ENDIF  ! APE
@@ -502,7 +502,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
     !------------------------------------------
-    IF ( nh_test_name == 'APE_nh' ) THEN
+    IF ( nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52' ) THEN
       ssi(:) = ssi(:)*1365._wp/tsi
       tsi = 1365._wp
     ENDIF

@@ -194,7 +194,8 @@ MODULE mo_io_vlist
     &                                 torus_domain_length, nh_brunt_vais, nh_u0,  &
     &                                 nh_t0, jw_up,                               &
     &                                 rotate_axis_deg, lhs_nh_vn_ptb,             &
-    &                                 hs_nh_vn_ptb_scale, qv_max, ape_sst_case
+    &                                 hs_nh_vn_ptb_scale, qv_max,                 &
+    &                                 ape_sst_case, ape_sst_val
     !&                                rh_at_1000hpa,linit_tracer_fv
   USE mo_nh_mrw_exp,            ONLY: u0_mrw, mount_height_mrw,                   &
     &                                 mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
@@ -4314,6 +4315,16 @@ CONTAINS
           ELSEIF ( TRIM(nh_test_name) == 'APE_nh') THEN
              CALL addGlobAttTxt('nh_testcase_nml:ape_sst_case',          &
                  &              TRIM(ape_sst_case),vlist,astatus)
+             IF (TRIM(ape_sst_case) == 'ape_sst_const') THEN
+               CALL addGlobAttFlt('nh_testcase_nml:ape_sst_val',           &
+                 &              ape_sst_val,vlist,astatus)
+             END IF
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'dcmip_tc_52') THEN
+             CALL addGlobAttTxt('nh_testcase_nml:ape_sst_case',          &
+                 &              TRIM(ape_sst_case),vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:ape_sst_val',           &
+                 &              ape_sst_val,vlist,astatus)
           !
           END IF
        END IF
