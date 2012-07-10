@@ -259,9 +259,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           END DO
         ELSE ! For real-case simulations, initialize also qv_s
           DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g(jc,jb) =  p_prog_lnd_now%t_g(jc,jb)
-            p_diag_lnd%qv_s    (jc,jb) = &
+            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+            p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+          ENDDO
+          DO jt = 1, nsfc_subs
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
+              p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
+              p_diag_lnd%qv_s_t(jc,jb,jt)    =  p_diag_lnd%qv_s(jc,jb)
+            ENDDO
           ENDDO
         ENDIF
         

@@ -2750,10 +2750,14 @@ CONTAINS
              i_count_flk=i_count_flk+1
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
+             ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
+             ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
            ELSE                                                           ! searching for sea-points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
+             ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
+             ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
            END IF
          END DO ! jc
 

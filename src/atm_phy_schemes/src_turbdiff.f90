@@ -640,7 +640,7 @@ REAL (KIND=ireals), DIMENSION(:,kcm:), OPTIONAL, INTENT(INOUT) :: &
 ! Provisional values for pattern lenth array:
   IF (PRESENT(d_pat)) THEN
      DO i=istartpar, iendpar
-        IF (fr_land(i).LT.z1d2) THEN
+        IF (fr_land(i) <= z1d2) THEN
            d_pat(i)=z0
         ELSE
            d_pat(i)=z1 !should be a 2D external parameter field
@@ -652,7 +652,7 @@ REAL (KIND=ireals), DIMENSION(:,kcm:), OPTIONAL, INTENT(INOUT) :: &
       PRESENT(lai) .AND. PRESENT(plcov)) THEN
 
      DO i=istartpar, iendpar
-        IF (fr_land(i).LT.z1d2) THEN
+        IF (fr_land(i) <= z1d2) THEN
            sai(i)=c_sea
         ELSE
            tai(i)=MAX( 1.0E-6_ireals, lai(i) )
@@ -661,7 +661,7 @@ REAL (KIND=ireals), DIMENSION(:,kcm:), OPTIONAL, INTENT(INOUT) :: &
 
      IF (itype_tran.EQ.1) THEN
         DO i=istartpar, iendpar
-           IF (fr_land(i).GE.z1d2) THEN
+           IF (fr_land(i) > z1d2) THEN
               sai(i)=tai(i)
               eai(i)=(z1-plcov(i))*sai(i)
               tai(i)=plcov(i)*tai(i)
@@ -669,7 +669,7 @@ REAL (KIND=ireals), DIMENSION(:,kcm:), OPTIONAL, INTENT(INOUT) :: &
         END DO
      ELSE
         DO i=istartpar, iendpar
-           IF (fr_land(i).GE.z1d2) THEN
+           IF (fr_land(i) > z1d2) THEN
               tai(i)=plcov(i)*tai(i)  ! transpiration area index
               eai(i)=c_soil               ! evaporation area index
               sai(i)=c_lnd+tai(i)       ! surface area index
@@ -1433,7 +1433,7 @@ REAL (KIND=ireals) :: &
 
       DO i=i_st,i_en
 
-         IF (fr_land(i).LT.z1d2) THEN
+         IF (fr_land(i) <= z1d2) THEN
             ! Water point.
             IF (.NOT. lseaice) THEN
               ! Sea ice model is not used.
@@ -1458,7 +1458,7 @@ REAL (KIND=ireals) :: &
 
          DO i=i_st,i_en
 
-            IF (fr_land(i).LT.z1d2) THEN
+            IF (fr_land(i) <= z1d2) THEN
 
 !              Ueber Wasserpunkten:
 
@@ -1878,7 +1878,7 @@ REAL (KIND=ireals) :: &
 !           ueber Wasserflaechen mit der (angepassten) Charnock-Formel
 !           und Einschraenkung von z0m_dia ueber Land:
  
-            IF (fr_land(i).LT.z1d2) THEN
+            IF (fr_land(i) <= z1d2) THEN
 
               ! Use ice surface roughness or open-water surface roughness
               ! according to lo_ice
@@ -3489,7 +3489,7 @@ REAL (KIND=ireals) :: &
 
         DO i=istartpar,iendpar
 
-          IF (fr_land(i).LT.z1d2) THEN
+          IF (fr_land(i) <= z1d2) THEN
             ! Water point.
             IF (.NOT. lseaice) THEN
               ! Sea ice model is not used.
@@ -3513,7 +3513,7 @@ REAL (KIND=ireals) :: &
       IF (lini.AND.itype_tran.EQ.3) THEN 
 
          DO i=istartpar,iendpar    
-            IF (fr_land(i).LT.z1d2) THEN
+            IF (fr_land(i) <= z1d2) THEN
 
                ! Use ice surface roughness or open-water surface roughness
                ! according to lo_ice
@@ -4389,7 +4389,7 @@ REAL (KIND=ireals) :: &
 
 !           Berechnung der neuen Rauhigkeitslaenge ueber Meer:
 
-            IF (fr_land(i).LT.z1d2) THEN
+            IF (fr_land(i) <= z1d2) THEN
 
                ! Use ice surface roughness or open-water surface roughness
                ! according to lo_ice
