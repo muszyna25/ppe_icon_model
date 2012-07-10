@@ -71,7 +71,7 @@ MODULE mo_nh_testcases
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
   USE mo_nh_hs_test,           ONLY: init_nh_state_prog_held_suarez
-  USE mo_nh_jabw_exp,          ONLY: init_nh_topo_jabw, init_nh_state_prog_jabw, & 
+  USE mo_nh_jabw_exp,          ONLY: init_nh_topo_jabw, init_nh_state_prog_jabw,  & 
                                    & init_passive_tracers_nh_jabw, init_nh_inwp_tracers
   USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw,    &
                                    & init_nh_prog_mwbr_const,                     &
@@ -85,7 +85,8 @@ MODULE mo_nh_testcases
                                    & qv_max_wk, u_infty_wk,                       &
                                    & bubctr_lat, bubctr_lon, bubctr_z,            &
                                    & bub_hor_width, bub_ver_width, bub_amp 
-  USE mo_nh_lim_area_testcases, ONLY: init_nh_atmo_ana_nconstlayers, nlayers_nconst, &
+  USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
+  USE mo_nh_lim_area_testcases,ONLY: init_nh_atmo_ana_nconstlayers, nlayers_nconst,  &
                                    & p_base_nconst, theta0_base_nconst, h_nconst,    &
                                    & N_nconst, rh_nconst, rhgr_nconst,               &
                                    & init_nh_anaprof_uv,                             &
@@ -98,8 +99,6 @@ MODULE mo_nh_testcases
                                    & init_nh_atmo_ana_poly, nlayers_poly,            &
                                    & p_base_poly, h_poly, t_poly,                    &
                                    & tgr_poly, rh_poly, rhgr_poly
-
-  USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
 
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
@@ -304,7 +303,8 @@ MODULE mo_nh_testcases
     m_width_x      = 5000.0_wp
     m_width_y      = 5000.0_wp
     ! for PA test cases:
-    lcoupled_rho = .FALSE.
+    lcoupled_rho   = .FALSE.
+
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

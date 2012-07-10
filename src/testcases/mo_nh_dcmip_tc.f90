@@ -89,8 +89,10 @@ MODULE mo_nh_dcmip_tc
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_intp_data_strc,      ONLY: t_int_state
 
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv
+  USE mo_run_config,          ONLY: iqv, ntracer
 
   USE mo_intp,                ONLY: cells2edges_scalar
 
@@ -147,16 +149,22 @@ CONTAINS
     TYPE(t_nh_metrics),    INTENT(in)            :: p_metrics  !< NH metrics state
     TYPE(t_int_state),     INTENT(in)            :: p_int      !< interpolation state
 
-    ! block dimensions and indices
-
-    INTEGER  :: nblks_c   !< number of blocks of cells
-    INTEGER  :: nblks_e   !< number of blocks of edges
-    INTEGER  :: jb        !< index of block
-
-    INTEGER  :: npromz_c  !< length of last row in block of cells      (<= nproma)
-    INTEGER  :: npromz_e  !< length of last row in block of edges      (<= nproma)
-    INTEGER  :: nlen      !< length of loop in row           ( = nproma or npromz)
-
+    ! dimensions, loops and indices
+    !
+    ! ?
+    INTEGER  :: i_rlstart, i_rlend
+    INTEGER  :: i_nchdom
+    !
+    ! blocks of rows
+    INTEGER  :: nblks_c, nblks_e     !< number of blocks of cells and edges
+    INTEGER  :: i_startblk, i_endblk !< loop index range
+    INTEGER  :: jb                   !< index of block
+    !
+    ! rows of cells
+    INTEGER  :: i_startidx, i_endidx !< loop index range
+    INTEGER  :: jc                   !< cell index
+    !
+    ! levels
     INTEGER  :: nlev      !< number of full levels
     INTEGER  :: jk        !< index of level
 
@@ -169,17 +177,12 @@ CONTAINS
     !
     REAL(wp), POINTER     :: p(:,:,:)   !< Pressure  (Pa)
     !
-!!$    REAL(wp), POINTER     :: u(:,:,:)   !< Zonal wind (m s^-1)
-!!$    REAL(wp), POINTER     :: v(:,:,:)   !< Meridional wind (m s^-1)
-    !
     REAL(wp), POINTER     :: w(:,:,:)   !< Vertical velocity (m s^-1)
     !
     REAL(wp), POINTER     :: t(:,:,:)   !< Temperature (K)
     !
-!!$    REAL(wp), POINTER     :: phis(:,:)  !< Surface Geopotential (m^2 s^-2)
-!!$    REAL(wp), POINTER     :: ps(:,:)    !< Surface Pressure (Pa)
-    !
     REAL(wp), POINTER     :: rho(:,:,:) !< density (kg m^-3)
+    REAL(wp), POINTER     :: x(:,:,:,:) !< tracer (kg/kg)
     REAL(wp), POINTER     :: q(:,:,:)   !< Specific Humidity (kg/kg)
 
 
@@ -199,30 +202,24 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: gr(:,:)                   !< great dcircle distance to center of vortex for eq.97
     REAL(wp), ALLOCATABLE :: d1(:,:), d2(:,:), d(:,:)  !< factors for computing ufac anv vfac for eqs.109,110,111
     REAL(wp), ALLOCATABLE :: ufac(:,:), vfac(:,:)      !< factors for computing u anv v from tangential wind for eq.112,113
-!!$    REAL(wp), ALLOCATABLE :: u(:,:,:)                  !< zonal      wind of cyclone for eq.108
-!!$    REAL(wp), ALLOCATABLE :: v(:,:,:)                  !< meridional wind of cyclone for eq.108
     REAL(wp), ALLOCATABLE :: vtc_c(:,:,:)              !< tangential wind of cyclone at cell center for eq.108
     REAL(wp), ALLOCATABLE :: vtc_e(:,:,:)              !< tangential wind of cyclone at edge center for eq.112,113
 
-    REAL(wp)            :: exponent   ,& !<       Exponent
-      &                    t0         ,& !< (K)   Surface    virtual temp (eq.93)
-      &                    ttrop      ,& !< (K)   Tropopause virtual temp (eq.92)
-      &                    ptrop         !< (Pa)  Tropopause pressure     (eq.95)
+    REAL(wp)              :: exponent   ,& !<       Exponent
+      &                      t0         ,& !< (K)   Surface    virtual temp (eq.93)
+      &                      ttrop      ,& !< (K)   Tropopause virtual temp (eq.92)
+      &                      ptrop         !< (Pa)  Tropopause pressure     (eq.95)
 
+    ! auxiliary constants
+    rp = rp1 * grid_rescale_factor
     exponent = rd*gamma/g 
     t0       = ts0*(1.0_wp+consttv*q0)
     ttrop    = t0 - gamma*ztrop
     ptrop    = p00*(ttrop/t0)**(1.0_wp/exponent)
 
-    ! number of blocks (nblks) and length of loop in last block (npromz)
-    !
-    ! - for cell variables
-    nblks_c  = p_patch%nblks_c
-    npromz_c = p_patch%npromz_c
-    !
-    ! - for edge variables
-    nblks_e  = p_patch%nblks_e
-    npromz_e = p_patch%npromz_e
+    ! number of blocks
+    nblks_c  = p_patch%nblks_c ! for cells
+    nblks_e  = p_patch%nblks_e ! for edges
 
     ! number of full levels
     nlev = p_patch%nlev
@@ -266,12 +263,12 @@ CONTAINS
     f          => p_patch%cells%f_c             ! (1/s)
     !
     ! thermodynamics
-!!$    ps         => p_nh_diag%pres_sfc            ! (Pa)
     p          => p_nh_diag%pres                ! (Pa)
     exner      => p_nh_prog%exner               ! (),        prognostic
     rho        => p_nh_prog%rho                 ! (kg/m3),   prognostic
     theta_v    => p_nh_prog%theta_v             ! (K),       prognostic, to be computed from p, T, and q
     rhotheta_v => p_nh_prog%rhotheta_v          ! (K*kg/m3), prognostic
+    x          => p_nh_prog%tracer(:,:,:,:)     ! (kg/kg),   prognostic
     q          => p_nh_prog%tracer(:,:,:,iqv)   ! (kg/kg),   prognostic
     t          => p_nh_diag%temp                ! (K)
     !
@@ -279,101 +276,111 @@ CONTAINS
     w          => p_nh_prog%w                   ! (m/s),     prognostic
 
 
-    ! scale radius for pressure field equally as the Earth radius of the grid
-    rp = rp1 * grid_rescale_factor
+    ! determine loop index ranges
+    !
+    i_rlstart = 1
+    i_rlend   = min_rlcell
+    !
+    ! number of child domains
+    i_nchdom = MAX(1,p_patch%n_childdom)
+    !
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_c
-      ENDIF
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx, i_endidx)
+    DO jb = i_startblk,  i_endblk
 
-      ! great circle distance (gr) to vortex center                    (eq.97)
-      !-----------------------------------------------------------------------
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      gr(1:nlen,jb) = a*ACOS( SIN(cen_lat)*SIN(lat(1:nlen,jb))                               &
-        &                    +COS(cen_lat)*COS(lat(1:nlen,jb))*COS(lon(1:nlen,jb)-cen_lon) )
+      DO jc = i_startidx, i_endidx
 
+        ! great circle distance (gr) to vortex center                    (eq.97)
+        !-----------------------------------------------------------------------
+
+        gr(jc,jb) = a*ACOS( SIN(cen_lat)*SIN(lat(jc,jb))                               &
+          &                    +COS(cen_lat)*COS(lat(jc,jb))*COS(lon(jc,jb)-cen_lon) )
+
+      END DO
 
       ! initialize atmosphere ...
       !-----------------------------------------------------------------------
       DO jk = 1, nlev
 
-        WHERE (z(1:nlen,jk,jb) > ztrop) ! ... above tropopause ...
+        DO jc = i_startidx, i_endidx
 
-          ! pressure                                                   (eqs.94+98)
+          IF (z(jc,jk,jb) > ztrop) THEN ! ... above tropopause ...
+
+            ! pressure                                                   (eqs.94+98)
+            !-----------------------------------------------------------------------
+            p(jc,jk,jb) = ptrop*EXP(-(g*(z(jc,jk,jb)-ztrop))/(rd*ttrop))
+
+            ! virtual potential temperature                         (eqs.93,104,105)
+            !-----------------------------------------------------------------------
+            theta_v(jc,jk,jb) = ttrop
+
+            ! tracers and specific humidity                                  (eq.91)
+            !-----------------------------------------------------------------------
+            x(jc,jk,jb,:) = 0.0_wp
+            q(jc,jk,jb)   = qtrop
+
+            ! tangential wind of cyclone                                    (eq.108)
+            !-----------------------------------------------------------------------
+            vtc_c(jc,jk,jb) = 0.0_wp
+
+          ELSE ! ... below tropopause ...
+
+            ! pressure                                                   (eqs.94+98)
+            !-----------------------------------------------------------------------
+            p(jc,jk,jb) = (p00-dp*EXP(-(gr(jc,jb)/rp)**exppr-(z(jc,jk,jb)/zp)**exppz)) &
+              &          *((t0-gamma*z(jc,jk,jb))/t0)**(1/exponent)
+
+            ! virtual potential temperature                         (eqs.93,104,105)
+            !-----------------------------------------------------------------------
+            theta_v(jc,jk,jb) =  (t0-gamma*z(jc,jk,jb))                                                  &
+              &                 /(1.0_wp + (exppz*rd*(t0-gamma*z(jc,jk,jb))*z(jc,jk,jb))                 &
+              &                           /(g*zp**exppz*(1.0_wp-p00/dp*EXP( (gr(jc,jb)/rp)**exppr        &
+              &                                                            +(z(jc,jk,jb)/zp)**exppz))))
+
+            ! tracers and specific humidity                                  (eq.91)
+            !-----------------------------------------------------------------------
+            x(jc,jk,jb,:) = 0.0_wp
+            q(jc,jk,jb)   = q0*EXP(-(z(jc,jk,jb)/zq1)-(z(jc,jk,jb)/zq2)**exppz)
+
+            ! tangential wind of cyclone                                    (eq.108)
+            !-----------------------------------------------------------------------
+            vtc_c(jc,jk,jb) = -f(jc,jb)*gr(jc,jb)/2.0_wp                                                 &
+              &               +SQRT( (f(jc,jb)*gr(jc,jb)/2.0_wp)**2.0_wp                                 &
+              &                     - ( exppr*(gr(jc,jb)/rp)**exppr*rd*(t0-gamma*z(jc,jk,jb)))           &
+              &                      /( 1.0_wp+exppz*rd*(t0-gamma*z(jc,jk,jb))*z(jc,jk,jb)/(g*zp**exppz) &
+              &                        -p00/dp*EXP((gr(jc,jb)/rp)**exppr+(z(jc,jk,jb)/zp)**exppz)))
+
+          END IF
+
+          ! ... and at all levels
+
+          ! Exner pressure
           !-----------------------------------------------------------------------
-          p(1:nlen,jk,jb) = ptrop*EXP(-(g*(z(1:nlen,jk,jb)-ztrop))/(rd*ttrop))
+          exner(jc,jk,jb) = (p(jc,jk,jb)/p0ref)**rd_o_cpd
 
-          ! virtual potential temperature                         (eqs.93,104,105)
+          ! density of moist air                                          (eq.106)
           !-----------------------------------------------------------------------
-          theta_v(1:nlen,jk,jb) = ttrop
+          rho(jc,jk,jb) = p(jc,jk,jb)/(rd*theta_v(jc,jk,jb) )
 
-          ! specific humidity                                              (eq.91)
+          ! density*virtual potential temparature
           !-----------------------------------------------------------------------
-          q(1:nlen,jk,jb) = qtrop
+          rhotheta_v(jc,jk,jb) = rho(jc,jk,jb)*theta_v(jc,jk,jb)
 
-          ! tangential wind of cyclone                                    (eq.108)
+          ! temperature                                           (eqs.93,104,105)
           !-----------------------------------------------------------------------
-          vtc_c(1:nlen,jk,jb) = 0.0_wp
+          t(jc,jk,jb) = theta_v(jc,jk,jb)/(1.0_wp+consttv*q(jc,jk,jb))
 
-        ELSEWHERE ! ... below tropopause ...
-
-          ! pressure                                                   (eqs.94+98)
+          ! vertical velocity
           !-----------------------------------------------------------------------
-          p(1:nlen,jk,jb) = (p00-dp*EXP(-(gr(1:nlen,jb)/rp)**exppr-(z(1:nlen,jk,jb)/zp)**exppz)) &
-            &              *((t0-gamma*z(1:nlen,jk,jb))/t0)**(1/exponent)
+          w(jc,jk,jb) = 0.0_wp
 
-          ! virtual potential temperature                         (eqs.93,104,105)
-          !-----------------------------------------------------------------------
-          theta_v(1:nlen,jk,jb) =  (t0-gamma*z(1:nlen,jk,jb))                                                 &
-            &                     /(1.0_wp + (exppz*rd*(t0-gamma*z(1:nlen,jk,jb))*z(1:nlen,jk,jb))            &
-            &                               /(g*zp**exppz*(1.0_wp-p00/dp*EXP( (gr(1:nlen,jb)/rp)**exppr       &
-            &                                                                +(z(1:nlen,jk,jb)/zp)**exppz))))
-
-          ! specific humidity                                              (eq.91)
-          !-----------------------------------------------------------------------
-          q(1:nlen,jk,jb) = q0*EXP(-(z(1:nlen,jk,jb)/zq1)-(z(1:nlen,jk,jb)/zq2)**exppz)
-
-          ! tangential wind of cyclone                                    (eq.108)
-          !-----------------------------------------------------------------------
-          vtc_c(1:nlen,jk,jb) = -f(1:nlen,jb)*gr(1:nlen,jb)/2.0_wp                                                    &
-            &                   +SQRT( (f(1:nlen,jb)*gr(1:nlen,jb)/2.0_wp)**(2.0_wp)                                  &
-            &                         - ( exppr*(gr(1:nlen,jb)/rp)**exppr*rd*(t0-gamma*z(1:nlen,jk,jb)))              &
-            &                          /( 1.0_wp+exppz*rd*(t0-gamma*z(1:nlen,jk,jb))*z(1:nlen,jk,jb)/(g*zp**exppz)    &
-            &                            -p00/dp*EXP((gr(1:nlen,jb)/rp)**exppr+(z(1:nlen,jk,jb)/zp)**exppz)))
-
-        END WHERE
-
-        ! ... and at all levels
-
-        ! Exner pressure
-        !-----------------------------------------------------------------------
-        exner(1:nlen,jk,jb) = (p(1:nlen,jk,jb)/p0ref)**rd_o_cpd
-
-        ! density of moist air                                          (eq.106)
-        !-----------------------------------------------------------------------
-        rho(1:nlen,jk,jb) = p(1:nlen,jk,jb)/(rd*theta_v(1:nlen,jk,jb) )
-
-        ! density*virtual potential temparature
-        !-----------------------------------------------------------------------
-        rhotheta_v(1:nlen,jk,jb) = rho(1:nlen,jk,jb)*theta_v(1:nlen,jk,jb)
-
-        ! temperature                                           (eqs.93,104,105)
-        !-----------------------------------------------------------------------
-        t(1:nlen,jk,jb) = theta_v(1:nlen,jk,jb)/(1.0_wp+consttv*q(1:nlen,jk,jb))
-
-        ! vertical velocity
-        !-----------------------------------------------------------------------
-        w(1:nlen,jk,jb) = 0.0_wp
-
-!!$        ! surface geopotential
-!!$        !-----------------------------------------------------------------------
-!!$        phis(1:nlen,jb) = 0.0_wp
-
+        END DO !jc
       END DO !jk
     END DO !jb
 !$OMP END DO NOWAIT
@@ -400,36 +407,48 @@ CONTAINS
     ! horizontal wind normal to edges
     vn         => p_nh_prog%vn                  ! (m/s),     prognostic
 
+    ! determine loop index ranges
+    !
+    i_rlstart = 1
+    i_rlend   = min_rledge
+    !
+    ! number of child domains
+    i_nchdom = MAX(1,p_patch%n_childdom)
+    !
+    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx, i_endidx)
+    DO jb = i_startblk,  i_endblk
 
-      ! factors for u and v components of the tangential wind    (eqs.109-111)
-      !-----------------------------------------------------------------------
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      d1(1:nlen,jb) =  SIN(cen_lat)*COS(lat(1:nlen,jb))                             &
-        &             -COS(cen_lat)*SIN(lat(1:nlen,jb))*COS(lon(1:nlen,jb)-cen_lon)
-      d2(1:nlen,jb) =  COS(cen_lat)*SIN(lon(1:nlen,jb)-cen_lon)
-      d (1:nlen,jb) =  MAX(epsilon, SQRT(d1(1:nlen,jb)**2.0_wp + d2(1:nlen,jb)**2.0_wp))
-      
-      ufac(1:nlen,jb) = d1(1:nlen,jb)/d(1:nlen,jb)
-      vfac(1:nlen,jb) = d2(1:nlen,jb)/d(1:nlen,jb)
+      DO jc = i_startidx, i_endidx
 
-
-      DO jk = 1, nlev
-
-        ! compute wind normal to edges from
-        ! tangential wind of cyclone at edges                  (eqs.108,112,113)
+        ! factors for u and v components of the tangential wind    (eqs.109-111)
         !-----------------------------------------------------------------------
 
-        vn(1:nlen,jk,jb) = vtc_e(1:nlen,jk,jb)*ufac(1:nlen,jb) * p_patch%edges%primal_normal(1:nlen,jb)%v1   &
-          &               +vtc_e(1:nlen,jk,jb)*vfac(1:nlen,jb) * p_patch%edges%primal_normal(1:nlen,jb)%v2
+        d1(jc,jb) =  SIN(cen_lat)*COS(lat(jc,jb))                             &
+          &         -COS(cen_lat)*SIN(lat(jc,jb))*COS(lon(jc,jb)-cen_lon)
+        d2(jc,jb) =  COS(cen_lat)*SIN(lon(jc,jb)-cen_lon)
+        d (jc,jb) =  MAX(epsilon, SQRT(d1(jc,jb)**2.0_wp + d2(jc,jb)**2.0_wp))
 
+        ufac(jc,jb) = d1(jc,jb)/d(jc,jb)
+        vfac(jc,jb) = d2(jc,jb)/d(jc,jb)
+
+
+        DO jk = 1, nlev
+
+          ! compute wind normal to edges from
+          ! tangential wind of cyclone at edges                  (eqs.108,112,113)
+          !-----------------------------------------------------------------------
+
+          vn(jc,jk,jb) = vtc_e(jc,jk,jb)*ufac(jc,jb) * p_patch%edges%primal_normal(jc,jb)%v1   &
+            &           +vtc_e(jc,jk,jb)*vfac(jc,jb) * p_patch%edges%primal_normal(jc,jb)%v2
+
+        END DO !jc
       END DO !jk
     END DO !jb
 !$OMP END DO NOWAIT
