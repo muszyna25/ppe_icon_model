@@ -222,7 +222,7 @@ CONTAINS
   !! Globally constant sea surface temperature (SST)
   !! for the DCMIP tropical cyclone case of the APE.
   !!
-  ELEMENTAL FUNCTION ape_sst_const() RESULT(sst)
+  FUNCTION ape_sst_const( ) RESULT(sst)
 
     REAL(wp) :: sst
 
