@@ -853,7 +853,7 @@ CONTAINS
     ! (potential deadlock observed).
     !---------------------------------------------------------------
 
-    IF (is_restart_run() .AND. .NOT. output_mode%l_none .AND. (num_io_procs>0)) THEN
+    IF (is_restart_run() .AND. output_mode%l_vlist .AND. (num_io_procs>0)) THEN
       CALL finish('atm_crosscheck', &
         &         'Restart runs are disabled for the "old" asynchronous output!')
     END IF
