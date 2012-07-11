@@ -399,7 +399,8 @@ MODULE mo_nh_stepping
   INTEGER                              :: ierr, i_nchdom, jk
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_vlist_output, l_nml_output, &
-    &                                     l_supervise_total_integrals
+    &                                     l_supervise_total_integrals,  &
+    &                                     lwrite_checkpoint
   TYPE(t_simulation_status)            :: simulation_status
   INTEGER                              :: proc_id(2), keyval(2)
 
@@ -407,6 +408,8 @@ MODULE mo_nh_stepping
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
+
+  lwrite_checkpoint = .FALSE.
 
   TIME_LOOP: DO jstep = 1, nsteps
 
@@ -624,6 +627,12 @@ MODULE mo_nh_stepping
     ! Write restart file
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_checkpoint) .AND. .NOT. output_mode%l_none) THEN
+      lwrite_checkpoint = .TRUE.
+    ENDIF
+
+    ! Enforce that checkpointing files are written at the end of a physics time step
+    ! (no reproducibility otherwise)
+    IF (lwrite_checkpoint .AND. MOD(jstep_adv(1)%ntsteps,iadv_rcf)==0) THEN
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   & 
@@ -642,6 +651,8 @@ MODULE mo_nh_stepping
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
       CALL write_restart_info_file
+
+      lwrite_checkpoint = .FALSE.
     END IF
 
 
