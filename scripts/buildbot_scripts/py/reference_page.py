@@ -36,15 +36,17 @@ class MainPage(HtmlResource):
 	      p_d = p + d + "/buildbot/"
               for r in os.listdir(p_d):
                 if r == rev:
-	          p_r = p_d + r + "/"
-                  for c in os.listdir(p_r):
-	            p_c = p_r + c + "/"
-                    for b in os.listdir(p_c):
-	              p_b = p_c + b + "/"
-	              if os.path.isdir(p_b + exp):
-		        st = True
-                        d_list.append(d)
-                        c_list.append(c)
+	          p_b = p_d + r + "/"
+                  for b in os.listdir(p_b):
+	            p_r = p_b + b + "/"
+                    for c in os.listdir(p_r):
+	              p_c = p_r + c + "/"
+                      for b in os.listdir(p_c):
+	                p_b = p_c + b + "/"
+	                if os.path.isdir(p_b + exp):
+		          st = True
+                          d_list.append(d)
+                          c_list.append(c)
                         
         d_list = list(sorted(d_list))                
         c_list = list(sorted(set(c_list)))                
@@ -52,20 +54,22 @@ class MainPage(HtmlResource):
 #=========================================================
 
 #=========================================================
-      def create_BuildList(exp,rev,d_list,comp):
+      def create_BuildList(exp,rev,d_list,branch,comp):
         st = False
         b_list = []
         p = "public_html/archive/"
         for d in d_list:
 	  p_d = p + d + "/buildbot/"
-          p_r = p_d + rev + "/"
-	  if os.path.isdir(p_r + comp):
-	    p_c = p_r + comp + "/"
-            for b in os.listdir(p_c):
-	      p_b = p_c + b + "/"
-	      if os.path.isdir(p_b + exp):
-	        st = True
-                b_list.append(b)
+          p_br = p_d + rev + "/"
+	  if os.path.isdir(p_br + branch):
+	    p_r = p_br + branch + "/"	  
+	    if os.path.isdir(p_r + comp):
+	      p_c = p_r + comp + "/"
+              for b in os.listdir(p_c):
+	        p_b = p_c + b + "/"
+	        if os.path.isdir(p_b + exp):
+	          st = True
+                  b_list.append(b)
                         
         b_list = list(sorted(set(b_list)))                
         return (st,b_list)
@@ -73,7 +77,7 @@ class MainPage(HtmlResource):
 #=========================================================
 
 #=========================================================
-      def get_Date(exp,rev,comp,build):
+      def get_Date(exp,rev,branch,comp,build):
         st = False
         b_list = []
         pr = "public_html/archive/"
@@ -83,6 +87,8 @@ class MainPage(HtmlResource):
 	  p = pr + d + "/buildbot/"
 #         public_html/archive/yyyy-mm-dd/buildbot/rrrr/
 	  p += rev + "/"
+#         public_html/archive/yyyy-mm-dd/buildbot/rrrr/branch/ccccc
+	  p += branch + "/"
 #         public_html/archive/yyyy-mm-dd/buildbot/rrrr/ccccc
 	  p += comp + "/"
 #         public_html/archive/yyyy-mm-dd/buildbot/rrrr/ccccc/bbbb
@@ -224,7 +230,8 @@ class MainPage(HtmlResource):
 # Set Build Info
 
       if l_use_build:
-	st,b_list = create_BuildList(EXP,REV,d_list,COMP)
+	branch = "trunk+icon-dev"
+	st,b_list = create_BuildList(EXP,REV,d_list,branch,COMP)
 	if not st:
           data = "<div id=\"div_ref\" >"
           data += "<h1>Replace Reference Plot</h1>\n"
@@ -259,13 +266,14 @@ class MainPage(HtmlResource):
       data += "  </tr>"
 
       if le and lr and lc and lb:
-	DATE = get_Date(EXP,REV,COMP,BUILD)
+	DATE = get_Date(EXP,REV,branch,COMP,BUILD)
         data += "  <tr>"
         data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference/save_cancel\"  class=\"command replace\">\n"
         
         data += "      <input type=\"hidden\" name=\"date\" value=\""+ DATE + "\">\n"
         data += "      <input type=\"hidden\" name=\"exp\" value=\""+ EXP + "\">\n"
         data += "      <input type=\"hidden\" name=\"rev\" value=\""+ REV + "\">\n"
+        data += "      <input type=\"hidden\" name=\"branch\" value=\""+ branch + "\">\n"
         data += "      <input type=\"hidden\" name=\"comp\" value=\""+ COMP + "\">\n"
         data += "      <input type=\"hidden\" name=\"build\" value=\""+ BUILD + "\">\n"
         data += "      <td><input type=\"submit\" name=\"button\" value=\"ok\" ></td>\n"
@@ -277,11 +285,11 @@ class MainPage(HtmlResource):
       data += "</div>"	
       if le and lr and lc and lb:
         data += "<div>"	
-	DATE = get_Date(EXP,REV,COMP,BUILD)
-	p = "public_html/archive/" + DATE + "/buildbot/" + REV + "/" + COMP + "/" + BUILD + "/" + EXP + "/plots/"
+	DATE = get_Date(EXP,REV,branch,COMP,BUILD)
+	p = "public_html/archive/" + DATE + "/buildbot/" + REV + "/" + branch + "/" + COMP + "/" + BUILD + "/" + EXP + "/plots/"
 	for f in os.listdir(p):
           data += "<br>\n"
-	  data += "<img src=\"archive/"+DATE+"/buildbot/"+REV+"/"+COMP+"/"+BUILD+"/"+EXP+"/plots/" + f + "\"/>\n"
+	  data += "<img src=\"archive/"+DATE+"/buildbot/"+REV+"/"+branch+"/"+COMP+"/"+BUILD+"/"+EXP+"/plots/" + f + "\"/>\n"
 	  
         data += "</div>"	
       return data
@@ -322,6 +330,12 @@ class MainPage(HtmlResource):
         except ValueError:
           pass
 	
+      if "branch" in req.args:
+        try:
+          BRANCH = req.args["branch"][0]
+        except ValueError:
+          pass
+      
       if "build" in req.args:
         try:
           BUILD = req.args["build"][0]
@@ -336,6 +350,7 @@ class MainPage(HtmlResource):
 	save_time = time.strftime("%Y-%m-%d-%H-%M", time.localtime(util.now()))
 	tmpname   = "/" + DATE + "/buildbot"
 	tmpname  += "/" + REV
+	tmpname  += "/" + BRANCH
 	tmpname  += "/" + COMP
 	tmpname  += "/" + BUILD
 	

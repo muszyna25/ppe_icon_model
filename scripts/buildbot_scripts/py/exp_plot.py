@@ -43,10 +43,6 @@ class EXP_plot(HtmlResource):
 	global selected_Date_to
 	
 	self.get_info(request)
-#ToDo when archive has no plots
-	if exp_plot_Info == "test_couple_atmo-ocean":
-	  data = "<h1>For experiment <b>" + exp_plot_Info + "</b> are no plots available"
-	  return data
 	
         status = self.getStatus(request)	
         Archive_Button_Dict = {}
@@ -436,10 +432,27 @@ class EXP_plot(HtmlResource):
 	  else:
 	    print Fi + " (" + exp_plot_Info + "_) not included in the list"
 	    
-        Archive_Button_Dict['file'] = t_file
+        if len(t_file) != 0:
+	  Archive_Button_Dict['file'] = t_file
+	else:
+          date = "<h2> No Plots available for experiment: <h1>" + exp_plot_Info + "</h1></h2>" 
+	  return date
+	
 	
 #ToDo	if len(Archive_Button_Dict['comp']) > 1:
 #ToDo	  Archive_Button_Dict['comp'].insert(0, 'all')
+#ToDo   Getting the String length of the plot name
+        print "===== Plot_name_length ===="
+	print Archive_Button_Dict['file']
+	
+	Plot_name_length = 290.
+	for s in Archive_Button_Dict['file']:
+	  if len(s)*6.9 > Plot_name_length:
+	    Plot_name_length = len(s)*6.9
+	  print "String: " + s + " " + str(Plot_name_length) + " " + str(len(s)*7.0)
+	    
+        print str(Plot_name_length)
+        print "===== Plot_name_length ===="
 
 #========================================================================================================
 #
@@ -458,9 +471,9 @@ class EXP_plot(HtmlResource):
 
 # Begin of left side  div
 	
-	data += "<div style=\"float:left; padding:3px; margin:5px width:350px;\">\n"
+	data += "<div style=\"float:left; padding:3px; margin:5px width:380px;\">\n"
 
-# Begin of ´ICON Buildbot Archive´ div
+# Begin of ICON Buildbot Archive div
         
         data += "<div id=\"arch_menu\" >\n"
 	data += "<h1>ICON Buildbot Archive</h1>\n"
@@ -472,11 +485,11 @@ class EXP_plot(HtmlResource):
 
 # Begin of table 
         
-	data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"540\">\n"
+	data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\""+str(Plot_name_length+90)+"\">\n"
 
 # Define cell widths
 
-        data += "<colgroup><col width=\"80\"><col width=\"470\"></colgroup>\n"
+        data += "<colgroup><col width=\"90\"><col width=\""+str(Plot_name_length)+"\"></colgroup>\n"
 	
 #     ----------   Date     ----------   
 
@@ -525,7 +538,7 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "&nbsp; to &nbsp"
 	  data += "    <input name=\"rev_to\" type=\"text\" value=\"" + Rev_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
-	  data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
+#	  data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
 
 	data += "  </td>\n"
 	data += "</tr>\n"
@@ -660,31 +673,24 @@ class EXP_plot(HtmlResource):
         
 #     ----------    Search OK Button     ----------   
 
-#        data += "<tr>\n  <td style=\"text-align:left;\">\n    <b>Search</b>\n  </td>\n"
-#        data += "  <td style=\"text-align:left;\">\n"
 	data += "    <input type=\"hidden\" name=\"modus\" value=\""+ modus + "\">\n"
 	data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
 	data += "    <input type=\"hidden\" name=\"builder\" value=\"" + selected_builder + "\">\n"
 	data += "    <input type=\"hidden\" name=\"build\" value=\"" + selected_build + "\">\n"
-#      fDate   = req.args.get("date_from",[None])[0]
-#      tDate   = req.args.get("date_to",[None])[0]
-#      fRev    = req.args.get("rev_from",[None])[0]
-#      tRev    = req.args.get("rev_to",[None])[0]
-#	data += "    <input type=\"submit\" name=\"Search_OK\" value=\"OK\" >\n"
-#        data += "  </td>\n</tr>\n"
+	data += "    <input type=\"hidden\" name=\"branch\" value=\"" + selected_branch.replace('+', '/') + "\">\n"
 
-# End of ´ICON Buildbot Archive´ and Form area
+# End of ICON Buildbot Archive and Form area
 
         data += "</table>\n"
         data += "</form>\n"
 
-# End of ´ICON Buildbot Archive´ div
+# End of ICON Buildbot Archive div
         
 	data += "</div>\n"
 
 #==================================================
 #
-# Begin of ´Available Plot List´ div
+# Begin of Available Plot List div
 #
 #==================================================
 
@@ -794,7 +800,7 @@ class EXP_plot(HtmlResource):
 
         data += "</table>\n"
 	  
-# End of ´Available Plot List´  div
+# End of Available Plot List  div
 
         data += "</div>\n"
 
@@ -828,7 +834,10 @@ class EXP_plot(HtmlResource):
             p2 = p + "/" + ref_date + "/buildbot/"
 	    ref_rev = os.listdir(p2)[-1]
 
-            p3 = p2 + "/" + ref_rev
+            p2 += "/" + ref_rev
+	    ref_branch = os.listdir(p2)[-1]
+            
+	    p3 = p2 + "/" + ref_branch
 	    ref_comp = os.listdir(p3)[-1]
 
             p4 = p3 + "/" + ref_comp
@@ -839,33 +848,41 @@ class EXP_plot(HtmlResource):
 	    data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
 	    data += "    <tr>\n    <td>\n"
             data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
-            data += "        <colgroup>"
-	    data += "          <col width=\"105\">"
-	    data += "          <col width=\"100\">"
-	    data += "          <col width=\"160\">"
-	    data += "          <col width=\"155\">"
-	    data += "          <col width=\"80\">"
-	    data += "          <col width=\"70\">"
-	    data += "        </colgroup>\n"
+#            data += "        <colgroup>"
+#	    data += "          <col width=\"690\">"
+#	    data += "          <col width=\"100\">"
+#	    data += "          <col width=\"160\">"
+#	    data += "          <col width=\"155\">"
+#	    data += "          <col width=\"80\">"
+#	    data += "          <col width=\"70\">"
+#	    data += "        </colgroup>\n"
             data += "        <tr>\n"
-            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + ref_date + "</td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;" 
+#            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + ref_date + "</td>\n"
+#            data += "            <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;" 
+            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + ref_date
+	    
+            data += "            &nbsp;&nbsp;<b>Revision:</b>&nbsp;" 
             data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + ref_rev + "\">"
-            data += ref_rev + "</td>"
+            data += ref_rev + "</a>"
+	    
 #ToDo SVN-Branch eintragen lassen
-            data += "            <td style=\"text-align:left;\"><b>Brunch:</b>&nbsp;"
+            data += "           &nbsp;&nbsp;<b>Branch:</b>&nbsp;"
             data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
-            data += "trunk/icon-dev</td>"
+            data += "trunk/icon-dev</a>"
             
-            data += "            <td style=\"text-align:left;\"><b>Builder:</b>&nbsp;" 
+            data += "            &nbsp;&nbsp;<b>Builder:</b>&nbsp;" 
             data += "<a href=\"builders/" + ref_comp + "\">"
-            data +=              ref_comp +"</td>"
-            data += "            <td style=\"text-align:left;\"><b>Build:</b>&nbsp;<a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" + ref_build + "</a></td>\n"
-	    data += "            <td style=\"text-align:left;\">\n"
+            data +=              ref_comp +"</a>"
+            
+	    data += "            &nbsp;&nbsp;<b>Build:</b>&nbsp;<a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" + ref_build + "</a>\n"
+
+	    data += "</td>\n"
+	    data += "<td style=\"text-align:left;\">\n"
+#            data += " &nbsp;&nbsp;&nbsp;"
 	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
-            data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
-            data += "    <input type=\"hidden\" name=\"rev\" value=\""+ ref_rev + "\">\n"
-            data += "    <input type=\"submit\" name=\"Replace\" value=\"Replace\" >\n"
+            data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\" >\n"
+            data += "    <input type=\"hidden\" name=\"rev\" value=\""+ ref_rev + "\" >\n"
+            data += "    <input type=\"submit\" name=\"Replace\" value=\"Replace\"  maxlength=\"10\">\n"
 	    data += "  </form>\n"
             
 	    data += "            </td>\n"
@@ -878,6 +895,7 @@ class EXP_plot(HtmlResource):
 	    data += save_date + "/" 
 	    data += ref_date + "/buildbot/" 
 	    data += ref_rev + "/"
+	    data += ref_branch +"/" 
 	    data += ref_comp +"/" 
 	    data += ref_build +"/" 
 	    data += exp_plot_Info + "/plots/"
@@ -891,22 +909,31 @@ class EXP_plot(HtmlResource):
             data += "  <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
             data += "  <input type=\"submit\" name=\"Replace_2\" value=\"Replace\" >\n"
 	    data += "</form>"
-            data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"780\">\n"
+            data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
 	    data += "  <tr>\n    <td>"
-            data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"780\">\n"
+            data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
             data += "        <colgroup>"
-	    data += "          <col width=\"105\">"
-	    data += "          <col width=\"100\">"
-	    data += "          <col width=\"160\">"
-	    data += "          <col width=\"155\">"
-	    data += "          <col width=\"80\">"
-	    data += "          <col width=\"70\">"
+	    data += "          <col width=\"670\">"
+#	    data += "          <col width=\"100\">"
+#	    data += "          <col width=\"160\">"
+#	    data += "          <col width=\"155\">"
+#	    data += "          <col width=\"80\">"
+#	    data += "          <col width=\"70\">"
 	    data += "        </colgroup>\n<re>\n"
             data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp; xxxx-xx-xx </td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;  ????</td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Branch:</b>&nbsp;  ????</td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Builder:</b>&nbsp;  ???? </td>\n"
-            data += "            <td style=\"text-align:left;\"><b>Build:</b>&nbsp;  ???? </td>\n"
+            data += "            &nbsp;&nbsp;&nbsp;<b>Revision:</b>&nbsp;  ???? \n"
+            data += "            &nbsp;&nbsp;&nbsp;<b>Branch:</b>&nbsp;  ???? \n"
+            data += "            &nbsp;&nbsp;&nbsp;<b>Builder:</b>&nbsp;  ???? \n"
+            data += "            &nbsp;&nbsp;&nbsp;<b>Build:</b>&nbsp;  ???? </td>\n"
+   	    data += "<td style=\"text-align:left;\">\n"
+	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
+            data += "    <input type=\"hidden\" name=\"exp\" value=\"all\" >\n"
+            data += "    <input type=\"hidden\" name=\"rev\" value=\"all\" >\n"
+            data += "    <input type=\"submit\" name=\"Replace\" value=\"Replace\"  maxlength=\"10\">\n"
+	    data += "  </form>\n"
+            
+	    data += "            </td>\n"
+
             data += "</tr>\n      </table>\n"
             data += "    </td></tr>\n    <tr><td style=\"text-align:left; valign:top;\">\n"
 	    data += "    </td>"
@@ -946,29 +973,30 @@ class EXP_plot(HtmlResource):
 	                      data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
             
 	                      data += "        <colgroup>"
-	                      data += "          <col width=\"105\">"
-	                      data += "          <col width=\"100\">"
-	                      data += "          <col width=\"160\">"
-	                      data += "          <col width=\"155\">"
-	                      data += "          <col width=\"80\">"
-		              data += "          <col width=\"70\">"
+	                      data += "          <col width=\"670\">"
+#	                      data += "          <col width=\"100\">"
+#	                      data += "          <col width=\"160\">"
+#	                      data += "          <col width=\"155\">"
+#	                      data += "          <col width=\"80\">"
+#	                      data += "          <col width=\"70\">"
 	                      data += "        </colgroup>\n"
                
 	                      data += "      <tr>\n"
-                              data += "        <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + Da + "</td>\n"
-                              data += "        <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;" 
+                              data += "        <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + Da + "\n"
+                              data += "        &nbsp;&nbsp;&nbsp;<b>Revision:</b>&nbsp;" 
                               data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + Re + "\">"
-                              data += Re + "</td>"
+                              data += Re + "</a> "
                               
-                              data += "        <td style=\"text-align:left;\"><b>Branch:</b>&nbsp;" 
+                              data += "        &nbsp;&nbsp;&nbsp;<b>Branch:</b>&nbsp;" 
                               data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
-                              data +=  Br.replace('+', '/') + "</td>"
+                              data +=  Br.replace('+', '/') + "</a> "
                               
-		              data += "        <td style=\"text-align:left;\"><b>Builder:</b>&nbsp;" 
+		              data += "        &nbsp;&nbsp;&nbsp;<b>Builder:</b>&nbsp;" 
                               data += "<a href=\"builders/" + comp + "\">"
-		              data +=  comp + "</td>\n"
-		              data += "        <td style=\"text-align:left;\"><b>Build:</b>&nbsp;<a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
-		              data += Bu 
+		              data +=  comp + "</a>\n"
+			      
+		              data += "        &nbsp;&nbsp;&nbsp;<b>Build:</b>&nbsp;<a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
+		              data += Bu  + "</a>"
 		              
 		              data += "</a></td>\n"
                               data += "        <td><b>&nbsp</b></td>\n"
@@ -995,6 +1023,12 @@ class EXP_plot(HtmlResource):
 
         return data
 
+#==========================================================================================
+#
+#
+#
+#==========================================================================================
+    
     def select(self, req):
       global selected_builder
       print "======  select ====="
@@ -1006,10 +1040,6 @@ class EXP_plot(HtmlResource):
       f       = req.args.get("file",[None])[0]
       builder = req.args.get("builder",[None])[0]
       build   = req.args.get("build",[None])[0]
-#      fDate   = req.args.get("date_from",[None])[0]
-#      tDate   = req.args.get("date_to",[None])[0]
-#      fRev    = req.args.get("rev_from",[None])[0]
-#      tRev    = req.args.get("rev_to",[None])[0]
       
       Redirect_Info = "../plot?exp=" + e  + "&modus=" + m
       
@@ -1050,18 +1080,43 @@ class EXP_plot(HtmlResource):
           Redirect_Info += "&rev_to=" + tRev      
         except ValueError:
           pass
+      
+      if "branch" in req.args:
+        try:
+          tBranch = req.args["branch"][0]
+          Redirect_Info += "&branch=" + tBranch.replace('+', '/')
+        except ValueError:
+          pass
 
       return Redirect(Redirect_Info)
 #      return Redirect("../plot?exp=" + e + "&file=" + f + "&modus=")
 
+#==========================================================================================
+#
+#
+#
+#==========================================================================================
+    
     def replace(self, req):
       e = req.args.get("exp",[None])[0]
       r = req.args.get("rev",[None])[0]
 #      f = req.args.get("file",[None])[0]
       return Redirect("../reference?exp="+e+"&start="+r)
-    
+
+#==========================================================================================
+#
+#
+#
+#==========================================================================================
+
     def default(self, req):
       return Redirect("../plot")
+    
+#==========================================================================================
+#
+#
+#
+#==========================================================================================
     
     def getChild(self, path, req):
       if path == "select":
@@ -1071,6 +1126,12 @@ class EXP_plot(HtmlResource):
       else:
         return self.default(req)
 
+#==========================================================================================
+#
+#
+#
+#==========================================================================================
+    
     def get_info(self, request):
         global exp_plot_Info
 	global exp_file_Info
@@ -1105,6 +1166,16 @@ class EXP_plot(HtmlResource):
           except ValueError:
             pass
 
+        if "branch" in request.args:
+          try:
+            selected_branch = request.args["branch"][0]
+	    selected_branch = selected_branch.replace('/', '+')
+            print "branch_if " + selected_branch
+          except ValueError:
+            pass
+	  
+        print "branch " + selected_branch
+	
         if "builder" in request.args:
           try:
             selected_builder = request.args["builder"][0]
@@ -1157,6 +1228,12 @@ class EXP_plot(HtmlResource):
 
 	return None
 
+#==========================================================================================
+#
+#
+#
+#==========================================================================================
+    
     def footer(self, status, req):
         global RevisionNr
         # TODO: this stuff should be generated by a template of some sort
