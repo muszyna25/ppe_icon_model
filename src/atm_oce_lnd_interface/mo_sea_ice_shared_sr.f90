@@ -48,27 +48,11 @@ MODULE mo_sea_ice_shared_sr
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_exception,           ONLY: finish, message
-!  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
-!  USE mo_loopindices,         ONLY: get_indices_c
-!  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
-    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
-    &                               cpd, zemiss_def,rd, stbo,tmelt   
-  USE mo_math_constants,      ONLY: rad2deg
-!  USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
-!    &                               FORCING_FROM_FILE_FLUX
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
-!  USE mo_var_list,            ONLY: add_var
-!  USE mo_master_control,      ONLY: is_restart_run
-!  USE mo_cf_convention
-!  USE mo_grib2
-!  USE mo_cdi_constants
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes,&
-    &                               t_atmos_for_ocean
+  USE mo_physical_constants,  ONLY: rho_ref, clw
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state!, v_base, ocean_restart_list
+  USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_io_units,            ONLY: nerr
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
-  USE mo_loopindices,         ONLY: get_indices_c
 
 
   IMPLICIT NONE

@@ -52,7 +52,7 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, mus, &
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
     &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
@@ -67,9 +67,8 @@ MODULE mo_sea_ice
     &                               t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
-  USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
+!  USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
 
@@ -107,8 +106,8 @@ MODULE mo_sea_ice
   !to be put into namelist
   !  INTEGER :: i_no_ice_thick_class = 1
 
-  CHARACTER(len=12)           :: str_module    = 'SeaIce'  ! Output of module for 1 line debug
-  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+!  CHARACTER(len=12)           :: str_module    = 'SeaIce'  ! Output of module for 1 line debug
+!  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
 
 
@@ -1455,7 +1454,7 @@ CONTAINS
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
     
-    INTEGER :: i,k, jb, jc, i_startidx_c, i_endidx_c
+    INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
 
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1534,12 +1533,15 @@ CONTAINS
     !         Note that for humi, esta is given in [mmHg] in the original
     !         publication. Therefore, 0.05*sqrt(esta/100) is used rather than
     !         0.058*sqrt(esta)
+    !  This is the formula used in MPI-OM when using the QLOBERL preprocessing option (currently
+    !  the default usage).
     !-----------------------------------------------------------------------
 
     humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
     fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
-    ! #achim: wrong formula! (see below)
+    ! NB: Lwinw and LWoutw is a misleading nomenclature in this case. The seperation is
+    ! artificial, but LWnetw is correct, according to Berliand & Berliand ('52)
     Qatm%LWin(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4
 
     Qatm%LWoutw(:,:) = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
@@ -1580,7 +1582,8 @@ CONTAINS
     dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
       &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
     dragl(:,:)      = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
-    ! Need to keep the drag honest
+    ! A reasonable maximum and minimum is needed for dragl in case there's a large difference
+    ! between the 2-m and surface temperatures.
     dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
     drags(:,:)      = 0.95_wp * dragl(:,:)
     Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) &
@@ -1602,15 +1605,13 @@ CONTAINS
         sphumidi(:,:) = alpha*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:))
         ! This may not be the best drag parametrisation to use over ice
         dragl(:,:)    = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
-        ! Need to keep the drag honest 
+        ! A reasonable maximum and minimum is needed for dragl in case there's a large difference
+        ! between the 2-m and surface temperatures.
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
         drags(:,:)    = 0.95_wp * dragl(:,:)
 
-        ! #achim: ?!  
-        ! 
-        ! LWnet is correct, but splitting it up into LWout and LWin
-        ! this way is wrong. Doesn't matter as of now since neither
-        ! sea ice model explicitly refers to LWout or LWin
+        ! NB: Lwin and LWout is a misleading nomenclature in this case. The seperation is
+        ! artificial, but LWnetw is correct, according to Berliand & Berliand ('52)
         Qatm%LWout (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) &
           &                    - p_as%tafo(:,:))
         Qatm%LWnet (:,i,:)  = Qatm%LWin(:,:) - Qatm%LWout(:,i,:)
