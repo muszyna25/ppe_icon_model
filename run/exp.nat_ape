@@ -33,12 +33,13 @@ cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
 output=${output:='"none"'}
-out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
-out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
-dt_diag=`expr ${out_diag_hours} \* 3600  `
-dt_data=`expr ${out_data_hours} \* 3600  `
+six_hours=21600
+one_day=86400
+dt_diag=`expr ${one_day} \* 360  `
+dt_data=`expr ${one_day} \* 360  `
 out_newfile_days=${out_newfile_days:=1}     # 1 day per file
 dt_file=`expr ${out_newfile_days} \* 86400 `
+dt_checkpoint=`expr ${one_day} \* 360 `
 msg_level=${msg_level:=1}
 
 iorder_sendrecv=${iorder_sendrecv:=3}
