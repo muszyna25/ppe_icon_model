@@ -16,27 +16,23 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date=${start_date:="2000-07-01T00:00:00Z"}
-ndays_restart=${ndays_restart:=365}              # restart every 1 year
-dt_restart=`expr ${ndays_restart} \* 86400`
-ndays_checkpoint=${ndays_checkpoint:=365}         # write restart file every year
-dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 ` 
+ndays=${ndays:=1}
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=${dtime:=120}
-ndays=${ndays:=1}
-nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 dt_rad=${dt_rad:=3600}             # compute radiative transfer every other hour
 dt_conv=${dt_conv:=$dtime}
 dt_sso=${dt_sso:=$dt_conv}
 #
+nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 #-----------------------------------------------------------------------------
 # the grid files if not defined
 atmo_dyn_grids=${atmo_dyn_grids:='iconR2B02-grid.nc'}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
-output=${output:='"vlist","totint"'}
+output=${output:='"none"'}
 out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
 out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
 dt_diag=`expr ${out_diag_hours} \* 3600  `
@@ -140,8 +136,8 @@ cat >> ${atmo_namelist} << EOF
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer     = ${ntracer}            ! number of tracers
- iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ ntracer     = ${ntracer}   ! number of tracers
+ iforcing    = ${iforcing}  
  ldump_states   = ${ldump_states}
  lrestore_states= ${lrestore_states}
  msg_level   =  $msg_level           ! detailed report during integration

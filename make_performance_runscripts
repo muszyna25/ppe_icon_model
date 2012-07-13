@@ -26,36 +26,26 @@ set_run_parameters ()
  
   model_list=(      "nat"  )
   nodes_list=(          1  )
-  mpi_procs_list=(      1  )
+  mpi_procs_list=(     16  )
   openmp_threads_list=( 4  )
-  nproma_list=(        10  )
+  nproma_list=(        12  )
   grid_level_list=(     4  )  
   vertical_level_list=(78  )
-  ndays_list=(          1  )
-  memory_model_list=("huge")
-  omp_stacksize_list=("200M")
+  ndays_list=(         1  )
+  cpu_time_list=("01:00:00" )
     
-  nsteps=${nsteps:=""}
-
   nodes_list_size=${#nodes_list[*]}
 
   nodes=${nodes_list[0]}
   mpi_procs=${mpi_procs_list[0]}
   openmp_threads=${openmp_threads_list[0]}
+  cpu_time=${cpu_time_list[0]}
 
-  memory_model="huge"
-  omp_stacksize=220M
+  memory_model="Large"
+  omp_stacksize=150M
 
   p_test_run=${p_test_run:=".false."}
-
-  #-----------------------------
-#  end_of_nodes_action="wrap"
-#  end_of_nodes_action="stop"
-  end_of_nodes_action="stay"
   
-
-  cpu_time="02:00:00"
-
 }
 #==============================================================================
 
@@ -86,15 +76,15 @@ eval_argument ()
   ;;
   "initial_conditions" ) initial_conditions=$2
   ;;
-  "end_sday" ) in_end_sday=$2
+  "ndays" ) ndays=$2
+  ;;
+  "nsteps" ) nsteps=$2
   ;;
   "EXPNAME" ) in_EXPNAME=$2
   ;;
   "no_of_nodes" ) in_no_of_nodes=$2
   ;;
   "solver" ) run_model_method_list="$2"
-  ;;
-  "runall_restart" ) run="all_restart"
   ;;
   "runall" ) run="all"
   ;;
@@ -103,8 +93,6 @@ eval_argument ()
   "makeall" ) make="all"
   ;;
   "makefull" ) make="full"
-  ;;
-  "no_restart" ) no_restart="true"
   ;;
   *)
      echo "Error: Unrecognized parameter $1"
@@ -120,7 +108,8 @@ model_default_parameters()
 
   #-----------------------------
   start_date=${start_date:="2000-07-01T00:00:00Z"}
-
+  ndays=1
+  
   #-----------------------------
   # the grid files
   atmo_dyn_grids="iconR2B0${grid_level}-grid.nc"
@@ -139,15 +128,12 @@ model_default_parameters()
   activate_sync_timers=${activate_sync_timers:=".true."}
   test_gw_hines_opt=2
   #-----------------------------
-  no_output=".false."
+  output='\"none\"'
   out_diag_hours=${out_diag_hours:=6}     # global integral output each 6 hours
   out_data_hours=${out_data_hours:=6}     # write output every 6 hours
   out_newfile_days=${out_newfile_days:=1}   # 1 day per file
 
   msg_level=${msg_level:=0}
-
-  #add_header_var rad_threads 1
-  #add_header_var nh_threads 1
 }
 
 #==============================================================================
@@ -176,23 +162,13 @@ EOF
   #-----------------------------
   # create header
   add_header_var run_model_method   "$run_model_method"
-  add_header_var submit_restart     "$submit_restart"
   # run time control
   add_header_var start_date   "$start_date"
-  add_header_var restart      "$restart"
-  add_header_var restart_from "$restart_from" 
-  add_header_var ndays         $ndays
-  add_header_var nsteps         $nsteps
-  add_header_var ndays_restart  $ndays_restart
-  add_header_var ndays_checkpoint $ndays_checkpoint
-  add_header_var start_sday       $start_sday
-  add_header_var end_sday         $end_sday
+  add_header_var ndays        "$ndays"
+  add_header_var nsteps       "$nsteps"
     
   # output control
-  add_header_var no_output "$no_output"
-  add_header_var out_diag_hours $out_diag_hours  
-  add_header_var out_data_hours $out_data_hours      
-  add_header_var out_newfile_days $out_newfile_days 
+  add_header_var output "$output"
   
   # the grid files
   add_header_var atmo_dyn_grids "$atmo_dyn_grids"
@@ -235,8 +211,9 @@ EOF
 
 make_script ()
 {
-  
+    
     expname=${filename}_${ext}_${initial_conditions}initc_${nlevels}levels_${nodes}nodes_${mpi_procs}mpi_procs_${openmp_threads}threads_${nproma}nproma.sdays_${start_sday}-${end_sday}
+    expname=${filename}_${ext}_${nlevels}levels_${ndays}days__${nodes}nodes_${mpi_procs}mpi_procs_${openmp_threads}threads_${nproma}nproma
     runname=${expname}.run
     
     header_filename=$expname.header
@@ -304,20 +281,6 @@ si_2t()
   model_default_parameters
   run_model_method=si_2t
   
-  nodes_restart_95=14
-  mpi_procs_restart_95=16
-  openmp_threads_restart_95=4
-  nproma_restart_95=23
-  restart_days_95=40
-  cpu_time_restart_95="08:00:00"
-
-  nodes_restart_31=10
-  mpi_procs_restart_31=16
-  openmp_threads_restart_31=4
-  nproma_restart_31=32
-  restart_days_31=75
-  cpu_time_restart_31="08:00:00"
-
   filename=exp.hat_ape
   cell_type=3
   itime_scheme=12
@@ -330,13 +293,6 @@ si_2t()
   ;;
   *)    dtime=90
   esac
-
-  if [ x$submit_restart != "x" ] ; then
-    set_restart    
-#  else
-#
-  fi
-
   
   make_script
 }
@@ -399,21 +355,6 @@ ssprk_5_4()
   grid_level=$1
   nlevels=$2
 
-  nodes_restart_95=60
-  mpi_procs_restart_95=8
-  openmp_threads_restart_95=8
-  nproma_restart_95=29
-  restart_days_95=85
-  cpu_time_restart_95="08:00:00"
- 
-  nodes_restart_31=10
-  mpi_procs_restart_31=16
-  openmp_threads_restart_31=4
-  nproma_restart_31=32
-  restart_days_31=50
-  cpu_time_restart_31="08:00:00"
-
-
   model_default_parameters
   run_model_method=ssprk_5_4  
   filename=exp.hat_ape
@@ -428,12 +369,6 @@ ssprk_5_4()
   ;;
   *)    dtime=60
   esac
-
-  if [ x$submit_restart != "x" ] ; then
-    set_restart
-#  else
-#
-  fi
 
   make_script
 }
@@ -507,13 +442,11 @@ make_model_run()
   mpi_procs=${mpi_procs_list[$list_index]}
   openmp_threads=${openmp_threads_list[$list_index]}
   nproma=${nproma_list[$list_index]}
-  ndays=${ndays_list[$list_index]}
-  end_sday=`expr $start_sday + $ndays - 1`
   model_method=${model_list[$list_index]}
   run_grid_level=${grid_level_list[$list_index]}
   run_vertical_levels=${vertical_level_list[$list_index]}
-  memory_mode=${memory_model_list[$list_index]}
-  omp_stacksize=${omp_stacksize_list[$list_index]}
+
+  run_grid_level=${in_grid_level:=$run_grid_level}
             
   $model_method $run_grid_level $run_vertical_levels
         
@@ -524,8 +457,6 @@ make_model_run()
 # create all setups
 make_all_setups()
 {
-  restart=".false."
-  start_sday=1
   
   j=0
   while [ $j -lt ${nodes_list_size} ]
