@@ -255,6 +255,12 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           prm_diag%gz0(jc,jb) = gz0(jc)
         ENDIF
       ENDDO
+    ELSE ! uniform tile-averaged roughness length if SSO contribution is to be included
+      DO jt = 1, nsfc_subs
+        DO jc = i_startidx, i_endidx
+          gz0t(jc,jt) = prm_diag%gz0(jc,jb)
+        ENDDO
+      ENDDO
     ENDIF
 
     IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
@@ -358,7 +364,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & istart=1, iend=i_count, istartpar=1, iendpar=i_count,                             &
             & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt),                          &
             & fr_land=fr_land_t(:), depth_lk=depth_lk_t(:),                                     &
-            & sai=prm_diag%sai_t(:,jb,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),               &
+            & sai=ext_data%atm%sai_t(:,jb,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),           &
             & t_g=t_g_t(:,jt), qv_s=qv_s_t(:,jt), u=u_t(:,:,jt), v=v_t(:,:,jt), w=w_t(:,:,jt),  &
             & T=temp_t(:,:,jt), prs=pres_t(:,:,jt), qv=qv_t(:,:,jt), qc=qc_t(:,:,jt),           &
             & gz0=gz0t_t(:,jt), tcm=tcm_t(:,jt), tch=tch_t(:,jt),                               &
