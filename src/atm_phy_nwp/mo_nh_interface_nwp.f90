@@ -327,7 +327,6 @@ CONTAINS
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
-           &                              opt_calc_tempv=.TRUE.,   &
            &                              opt_calc_pres=.FALSE.,   &
            &                              opt_rlend=min_rlcell_int )
 

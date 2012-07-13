@@ -72,8 +72,8 @@ MODULE mo_nh_diagnose_pres_temp
   !! Initial release by Guenther Zaengl (2010-04-15)
   !!
   SUBROUTINE diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, pt_diag, pt_patch, &
-    &                            opt_calc_temp, opt_calc_pres, opt_calc_tempv, &
-    &                            lnd_prog, opt_calc_temp_ifc, opt_slev, opt_rlend )
+    &                            opt_calc_temp, opt_calc_pres, opt_calc_temp_ifc,    &
+    &                            lnd_prog, opt_slev, opt_rlend )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -90,8 +90,7 @@ MODULE mo_nh_diagnose_pres_temp
 
     TYPE(t_patch),      INTENT(IN)    :: pt_patch    ! Patch
 
-    LOGICAL, INTENT(IN), OPTIONAL   :: opt_calc_temp, opt_calc_pres, opt_calc_tempv, &
-      &                                opt_calc_temp_ifc
+    LOGICAL, INTENT(IN), OPTIONAL   :: opt_calc_temp, opt_calc_pres, opt_calc_temp_ifc
 
     INTEGER, INTENT(IN), OPTIONAL :: opt_slev, opt_rlend 
 
@@ -101,7 +100,7 @@ MODULE mo_nh_diagnose_pres_temp
     INTEGER  :: i_rlstart, i_rlend
     INTEGER  :: slev
 
-    LOGICAL  :: l_opt_calc_temp, l_opt_calc_tempv, l_opt_calc_pres, l_opt_calc_temp_ifc
+    LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
     REAL(wp) :: dz, z_qsum
 
@@ -123,12 +122,6 @@ MODULE mo_nh_diagnose_pres_temp
       l_opt_calc_temp = opt_calc_temp
     ELSE
       l_opt_calc_temp = .TRUE.
-    ENDIF
-
-    IF ( PRESENT(opt_calc_tempv ) ) THEN
-      l_opt_calc_tempv = opt_calc_tempv
-    ELSE
-      l_opt_calc_tempv = .FALSE.
     ENDIF
 
     IF ( PRESENT(opt_calc_pres ) ) THEN
@@ -171,7 +164,7 @@ MODULE mo_nh_diagnose_pres_temp
 
       IF ( lforcing .AND. iforcing /= 1  ) THEN
 
-        IF ( l_opt_calc_temp .AND. l_opt_calc_tempv) THEN
+        IF ( l_opt_calc_temp) THEN
           DO jk = slev, nlev
             DO jc = i_startidx, i_endidx
 
@@ -189,112 +182,18 @@ MODULE mo_nh_diagnose_pres_temp
             ENDDO
           ENDDO
 
-        ELSEIF ( l_opt_calc_temp ) THEN
-          DO jk = slev, nlev
-            DO jc = i_startidx, i_endidx
-
-              z_qsum                   =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-
-              pt_diag%temp(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-                &                    * pt_prog%exner  (jc,jk,jb) &
-                &                    /( 1._wp +  vtmpc1          &
-                &                    * pt_prog_rcf%tracer(jc,jk,jb,iqv) &
-                &                    - z_qsum )
-            ENDDO
-          ENDDO
-
-        ELSEIF ( l_opt_calc_tempv ) THEN
-          DO jk = slev, nlev
-            DO jc = i_startidx, i_endidx
-              pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
-            ENDDO
-          ENDDO
         ENDIF
       ELSE ! .NOT. lforcing or Held-Suarez test forcing
-        IF ( l_opt_calc_temp .AND. l_opt_calc_tempv) THEN
+        IF ( l_opt_calc_temp) THEN
           DO jk = slev, nlev
             DO jc = i_startidx, i_endidx
                pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
                pt_diag%temp(jc,jk,jb)  = pt_diag%tempv  (jc,jk,jb)
             ENDDO
           ENDDO
-        ELSEIF ( l_opt_calc_temp ) THEN
-          DO jk = slev, nlev
-            DO jc = i_startidx, i_endidx
-              pt_diag%temp(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ELSEIF ( l_opt_calc_tempv ) THEN
-          DO jk = slev, nlev
-            DO jc = i_startidx, i_endidx
-               pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
-            ENDDO
-          ENDDO
         ENDIF
 
       ENDIF
-
-      !-------------------------------------------------------------------------
-      !> diagnose pressure on main and interface levels
-      !!    and   pressure thickness
-      !!
-      !-------------------------------------------------------------------------
-
-      IF ( l_opt_calc_pres ) THEN
-        
-        DO jc = i_startidx, i_endidx
-          ! Height difference between surface and first full level
-          dz = p_metrics%z_ifc(jc,nlevp1,jb)-p_metrics%z_mc(jc,nlev,jb)
-
-          pt_diag%pres_sfc(jc,jb) =p0ref*EXP(cpd_o_rd*LOG(pt_prog%exner(jc,nlev,jb))) *&
-            &                      EXP(-grav_o_rd*dz/pt_diag%temp(jc,nlev,jb))
-
-          pt_diag%pres_ifc(jc,nlevp1,jb) = pt_diag%pres_sfc(jc,jb)
-        ENDDO
-
-        !-------------------------------------------------------------------------
-        !> diagnose pressure with hydrostatic approximations for Physics 
-        !! - at interfaces
-        !-------------------------------------------------------------------------
-
-        DO jk = nlev, slev,-1
-          DO jc = i_startidx, i_endidx
-
-            pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                 &
-              & *EXP(-grav_o_rd*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%temp(jc,jk,jb))
-          ENDDO
-        ENDDO
-
-        !-------------------------------------------------------------------------
-        !> - at main levels
-        !-------------------------------------------------------------------------
-
-        DO jk = nlev,slev,-1
-          DO jc = i_startidx, i_endidx
-            pt_diag%pres(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                           &
-              & *EXP(-grav_o_rd*0.5_wp*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%temp(jc,jk,jb))
-          ENDDO
-        ENDDO
-
-        !
-        !-------------------------------------------------------------------------
-        !> Calculate layer thickness for pressure
-        !-------------------------------------------------------------------------
-        !
-        pt_diag%dpres_mc(i_startidx:i_endidx,nlev,jb) =                                          &
-          & pt_diag%pres_sfc(i_startidx:i_endidx,jb)-pt_diag%pres_ifc(i_startidx:i_endidx,nlev,jb)
-
-        DO jk = nlev-1, slev,-1
-          DO jc =  i_startidx, i_endidx
-            pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
-  &                                    - pt_diag%pres_ifc(jc,jk  ,jb)
-          ENDDO
-        ENDDO
-        
-      ENDIF ! calc_pres
 
       !-------------------------------------------------------------------------
       !> diagnose temperature on interface levels
@@ -323,6 +222,51 @@ MODULE mo_nh_diagnose_pres_temp
         ENDIF
 
       ENDIF !l_opt_calc_temp_ifc
+
+      !-------------------------------------------------------------------------
+      !> diagnose pressure on main and interface levels
+      !!    and   pressure thickness
+      !!
+      !-------------------------------------------------------------------------
+
+      IF ( l_opt_calc_pres ) THEN
+        
+        DO jc = i_startidx, i_endidx
+          ! Height difference between surface and first full level
+          dz = p_metrics%z_ifc(jc,nlevp1,jb)-p_metrics%z_mc(jc,nlev,jb)
+
+          pt_diag%pres_sfc(jc,jb) =p0ref*EXP(cpd_o_rd*LOG(pt_prog%exner(jc,nlev,jb))) *&
+            &                      EXP(-grav_o_rd*dz/pt_diag%tempv(jc,nlev,jb))
+
+          pt_diag%pres_ifc(jc,nlevp1,jb) = pt_diag%pres_sfc(jc,jb)
+        ENDDO
+
+        !-------------------------------------------------------------------------
+        !> diagnose pressure for physics parameterizations
+        !! this is accomplished by vertical integration of the hydrostatic equation
+        !! because the physics schemes actually need the air mass represented 
+        !! by a given model layer
+        !-------------------------------------------------------------------------
+
+        DO jk = nlev, slev,-1
+          DO jc = i_startidx, i_endidx
+
+            ! pressure at interface levels
+            pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                  &
+              & *EXP(-grav_o_rd*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%tempv(jc,jk,jb))
+
+            ! pressure at main levels
+            pt_diag%pres(jc,jk,jb) = SQRT(pt_diag%pres_ifc(jc,jk,jb) * &
+                                          pt_diag%pres_ifc(jc,jk+1,jb) )
+
+            ! layer thickness with respect to pressure
+            pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
+                                       - pt_diag%pres_ifc(jc,jk  ,jb)
+
+          ENDDO
+        ENDDO
+        
+      ENDIF ! calc_pres
       
     ENDDO !jb
 !$OMP END DO NOWAIT

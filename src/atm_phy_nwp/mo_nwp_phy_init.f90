@@ -263,13 +263,15 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
             p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           ENDDO
-          DO jt = 1, nsfc_subs
-            DO jc = i_startidx, i_endidx
-              p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
-              p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
-              p_diag_lnd%qv_s_t(jc,jb,jt)    =  p_diag_lnd%qv_s(jc,jb)
+          IF (.NOT. is_restart_run()) THEN ! initialize also tile-based fields
+            DO jt = 1, nsfc_subs
+              DO jc = i_startidx, i_endidx
+                p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
+                p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
+                p_diag_lnd%qv_s_t(jc,jb,jt)    =  p_diag_lnd%qv_s(jc,jb)
+              ENDDO
             ENDDO
-          ENDDO
+          ENDIF
         ENDIF
         
     END DO
