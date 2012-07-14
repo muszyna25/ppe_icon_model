@@ -292,6 +292,7 @@ si_2t()
   "6" ) dtime=90
   ;;
   *)    dtime=90
+  ;;
   esac
   
   make_script

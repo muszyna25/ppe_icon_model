@@ -51,58 +51,140 @@ make_runscript="$use_shell ./config/make_target_runscript"
 #==============================================================================
 create_dec()
 {
-#setup for blizzard
-mpi_procs=16
-mod=`expr ${dec_size} % ${mpi_procs}`
-if [ $mod -eq 0 ] ; then
-  nodes=`expr ${dec_size} / ${mpi_procs}`
-else
-  nodes=`expr ${dec_size} / ${mpi_procs} + 1`
-fi
 
-#note that mpi_procs change on tornado
-if [ $use_target = "tornado" ] ; then
-  mod=`expr ${dec_size} % 8`
-  if [ $mod -eq 0 ] ; then
-    nodes=`expr ${dec_size} / 8`
-  else
-    nodes=`expr ${dec_size} / 8 + 1`
+  if [[ x$atmo_dyn_gridname == x ]] ; then  
+    grid_base_level=$(eval "echo \$$(echo grid_base_level_dec_${dec_size})")
+    grid_level=`expr ${grid_base_level} + ${add_grid_level}`  
+    atmo_dyn_gridname="iconR2B0${grid_level}_dec-${dec_size}"
   fi
-  mpi_procs=`expr ${nodes} \* 8`
-  nodes
-fi
 
-exp_name=${outname}.${dec_size}.${nodes}nodes
-runname=exp.${exp_name}.run
+  
+  mod=`expr ${dec_size} % ${mpi_procs_pernode}`
+  if [ $mod -eq 0 ] ; then
+    nodes=`expr ${dec_size} / ${mpi_procs_pernode}`
+  else
+    nodes=`expr ${dec_size} / ${mpi_procs_pernode} + 1`
+  fi
 
-$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
-atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
-mpi_procs=$mpi_procs openmp_threads=4 cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
-ndays=$ndays
-# queue="express"
+  exp_name=${outname}.${dec_size}.${nodes}nodes.${nproma}nproma
+  runname=exp.${exp_name}.run
 
-if [ $run = "true" ]; then
-  cd $input_folder
-  $use_submit ${runname}
-  cd $base_folder
-fi
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
+  atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
+  mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
+  ndays=$ndays use_icon_comm=$use_icon_comm
+  # queue="express"
+
+  if [ $run = "true" ]; then
+    cd $input_folder
+    $use_submit ${runname}
+    cd $base_folder
+  fi
 
 }
 #==============================================================================
-name=nat_ape-dec
-outname=nat_ape-dec_memtest
-run="false"
-use_barrier=".false."
-testbed_mode=0
-cpu_time="00:10:00"
-division_method=1
-atmo_dyn_gridname='iconR2B04_dec-162'
-atmo_rad_gridname='iconR2B03_dec-162_rrad'
-dec_size=32
-ndays=1
-create_dec
-exit
+
 #==============================================================================
+create_weak_scaling()
+{
+  grid_base_level_dec_32=1
+  grid_base_level_dec_92=2
+  grid_base_level_dec_162=2
+  grid_base_level_dec_362=3
+  grid_base_level_dec_642=3
+  grid_base_level_dec_1082=4
+  grid_base_level_dec_1442=4
+  grid_base_level_dec_1922=4
+  grid_base_level_dec_2432=5
+  
+  case $cells_per_domain in
+    "6" )  add_grid_level=0
+  ;;
+    "24" ) add_grid_level=1
+  ;;
+    "96" ) add_grid_level=2
+  ;;
+    "384" ) add_grid_level=3
+  ;;
+  *)  
+    echo "Wrong cells_per_domain: $cells_per_domain"
+    exit
+  ;;
+  esac
+ 
+  ndays=1
+  atmo_dyn_gridname=""
+  atmo_rad_gridname=""
+
+  dec_size=32
+  create_dec
+
+  dec_size=92
+  create_dec
+
+  dec_size=162
+  create_dec
+
+  dec_size=362
+  create_dec
+
+  dec_size=642
+  create_dec
+
+  dec_size=1082
+  create_dec
+  
+  dec_size=1442
+  create_dec
+  
+  dec_size=1922
+  create_dec
+  
+  dec_size=2432
+  create_dec
+}
+
+
+
+#==============================================================================
+create_weak_scaling_on_blizzard()
+{
+  name=nat_ape-dec
+  cells_per_domain=24
+  mpi_procs_pernode=32
+  openmp_threads=2
+  nproma=4
+  division_method=0
+  rrad="false"
+  outname="nat-ape_hexdec-24cells"
+  ndays=1
+  cpu_time="00:10:00"
+  dt_rad=1800
+  #---------------------------------
+  run="true"
+  run="false"
+  use_barrier=".false."
+  testbed_mode=0
+#  nsteps=5000
+  timers_level=6
+  #==============================================================================
+
+  use_icon_comm=".true."
+  outname="nat-ape_hexdec-24cells_30mrad_iconcomm"
+  create_weak_scaling
+  #==============================================================================  
+  use_icon_comm=".false."
+  outname="nat-ape_hexdec-24cells_30mrad_no-iconcomm"
+  create_weak_scaling
+}
+
+
+create_weak_scaling_on_blizzard
+exit
+
+#===================================================================================
+#===================================================================================
+
 
 create_scaling_dec_lowres()
 {
