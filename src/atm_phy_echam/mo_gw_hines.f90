@@ -1086,8 +1086,8 @@ CONTAINS
           DO i = il1,il2
              u = vel_u(i,l)
              v = vel_v(i,l)
-             IF (ABS(u) < umin)  u = umin 
-             IF (ABS(v) < umin)  v = umin 
+             IF (ABS(u) < umin)  u = SIGN(umin,u) 
+             IF (ABS(v) < umin)  v = SIGN(umin,v) 
              v_alpha(i,l,1) = u 
              v_alpha(i,l,2) = v
              v_alpha(i,l,3) = - u
@@ -1102,18 +1102,19 @@ CONTAINS
           DO i = il1,il2
              u = vel_u(i,l)
              v = vel_v(i,l)
-             IF (ABS(u) < umin)  u = umin  
-             IF (ABS(v) < umin)  v = umin  
+             IF (ABS(u) < umin)  u = SIGN(umin,u)  
+             IF (ABS(v) < umin)  v = SIGN(umin,v)  
              v_alpha(i,l,1) = u 
              v_alpha(i,l,2) = cos45 * ( v + u )
              v_alpha(i,l,3) = v
              umv = v - u
-             IF (ABS(umv) < umin)  umv = umin
+             IF (ABS(umv) < umin)  umv = SIGN(umin,umv)
              v_alpha(i,l,4) = cos45 * umv
              v_alpha(i,l,5) = - u
              v_alpha(i,l,6) = - v_alpha(i,l,2)
              v_alpha(i,l,7) = - v
              v_alpha(i,l,8) = - v_alpha(i,l,4)
+
           END DO
        END DO
        !
@@ -1579,16 +1580,16 @@ CONTAINS
           sigma_alpha(i,lev,4) = sigsqh_alpha(i,lev,4) + sigsqh_alpha(i,lev,8) + sum_odd
        END DO
 
-       sigma_alpha(il1:il2,lev,1) = sigma_alpha(il1:il2,lev,1)
-       sigma_alpha(il1:il2,lev,2) = sigma_alpha(il1:il2,lev,2)
-       sigma_alpha(il1:il2,lev,3) = sigma_alpha(il1:il2,lev,3)
-       sigma_alpha(il1:il2,lev,4) = sigma_alpha(il1:il2,lev,4)
+       sigma_alpha(il1:il2,lev,1) = SQRT(sigma_alpha(il1:il2,lev,1))
+       sigma_alpha(il1:il2,lev,2) = SQRT(sigma_alpha(il1:il2,lev,2))
+       sigma_alpha(il1:il2,lev,3) = SQRT(sigma_alpha(il1:il2,lev,3))
+       sigma_alpha(il1:il2,lev,4) = SQRT(sigma_alpha(il1:il2,lev,4))
 
        DO i = il1,il2
-          sigma_alpha(i,lev,5) = SQRT(sigma_alpha(i,lev,1))
-          sigma_alpha(i,lev,6) = SQRT(sigma_alpha(i,lev,2))
-          sigma_alpha(i,lev,7) = SQRT(sigma_alpha(i,lev,3))
-          sigma_alpha(i,lev,8) = SQRT(sigma_alpha(i,lev,4))
+          sigma_alpha(i,lev,5) = sigma_alpha(i,lev,1)
+          sigma_alpha(i,lev,6) = sigma_alpha(i,lev,2)
+          sigma_alpha(i,lev,7) = sigma_alpha(i,lev,3)
+          sigma_alpha(i,lev,8) = sigma_alpha(i,lev,4)
        END DO
     END IF
     !
