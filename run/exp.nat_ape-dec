@@ -102,6 +102,7 @@ lrestore_states=".false."
 #-----------------------------------------------------------------------------
 use_barrier=${use_barrier:=".false."}
 testbed_mode=${testbed_mode:=0}
+use_icon_comm=${use_icon_comm:=".true."}
 #-----------------------------------------------------------------------------
 
 
@@ -139,6 +140,8 @@ cat >> ${atmo_namelist} << EOF
  division_method=${division_method}
  division_file_name="$division_file_name"
  use_dycore_barrier = ${use_barrier}
+ use_icon_comm   = ${use_icon_comm}
+! max_send_recv_buffer_size = 262144
 /
 &run_nml
  num_lev     = ${nlevels},  ! number of full levels of vertical grid
