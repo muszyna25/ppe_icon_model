@@ -108,8 +108,8 @@ class EXP_plot(HtmlResource):
 	    p += r + "/"
 	  else:
 	    r = "trunk+icon-dev"
-          print "p " + p
-          print "r " + r
+#          print "p " + p
+#          print "r " + r
 	    
 	  for c in os.listdir(p):
 	    if add_build(p,c,comp_D):
@@ -130,14 +130,13 @@ class EXP_plot(HtmlResource):
 	  
 	  for b in os.listdir(p):
             B = b
-            print "b " + b
-            print "D " + D
+#            print "b " + b
+#            print "D " + D
 	    if b.find("trunk") == 0 or b.find("tags") == 0 or b.find("branch") == 0:
 	      if add_comp(p,b,rev_D):
 	        Archive_Button_Dict['branch'].append(b)
 	        ret = True
 	    else:
-              print "else"
               B = "trunk+icon-dev"
 	      if add_comp(p,"",rev_D):
 	        Archive_Button_Dict['branch'].append(B)
@@ -276,7 +275,7 @@ class EXP_plot(HtmlResource):
              if d in Comp_Dict[c]:
                if r in Comp_Dict[c][d]:
                  if Br in Comp_Dict[c][d][r]:
-                   print "!!!! rev exists " + r
+#                   print "!!!! rev exists " + r
                    Comp_Dict[c][d][r][Br] = cD[c]
 	         else:
                    Comp_Dict[c][d][r][Br] = cD[c]
@@ -366,7 +365,7 @@ class EXP_plot(HtmlResource):
 	date_Dict = {}
         
 	p_date = "public_html/archive/"
-        print "==== WS ===="
+#        print "==== WS ===="
 	for DATE in os.listdir(p_date):
 	  if DATE.find("20") == 0:
             if (DATE >= Date_from) and (DATE <= Date_to):
@@ -439,11 +438,8 @@ class EXP_plot(HtmlResource):
 	  return date
 	
 	
-#ToDo	if len(Archive_Button_Dict['comp']) > 1:
-#ToDo	  Archive_Button_Dict['comp'].insert(0, 'all')
-#ToDo   Getting the String length of the plot name
-        print "===== Plot_name_length ===="
-	print Archive_Button_Dict['file']
+#        print "===== Plot_name_length ===="
+#	print Archive_Button_Dict['file']
 	
 	Plot_name_length = 290.
 	for s in Archive_Button_Dict['file']:
@@ -451,8 +447,8 @@ class EXP_plot(HtmlResource):
 	    Plot_name_length = len(s)*6.9
 	  print "String: " + s + " " + str(Plot_name_length) + " " + str(len(s)*7.0)
 	    
-        print str(Plot_name_length)
-        print "===== Plot_name_length ===="
+#        print str(Plot_name_length)
+#        print "===== Plot_name_length ===="
 
 #========================================================================================================
 #
@@ -560,9 +556,9 @@ class EXP_plot(HtmlResource):
 	    
 	  for Br in Archive_Button_Dict['branch']:
 	    if selected_branch == Br:
-	      data += "    <option selected>"+ Br + "</option>\n"
+	      data += "    <option selected>"+ Br.replace('+', '/') + "</option>\n"
 	    else:
-	      data += "    <option>"+ Br + "</option>\n"
+	      data += "    <option>"+ Br.replace('+', '/') + "</option>\n"
 	      
 	  data += "  </select>\n"
 
@@ -942,7 +938,7 @@ class EXP_plot(HtmlResource):
 	    
 	  data += "</div>\n "
 	  
-          print "====== ref Plot ======"
+#          print "====== ref Plot ======"
 	
 #===================================================================================
 
@@ -1031,10 +1027,10 @@ class EXP_plot(HtmlResource):
     
     def select(self, req):
       global selected_builder
-      print "======  select ====="
-      print req
-      print req.args
-      print "======  select ====="
+#      print "======  select ====="
+#      print req
+#      print req.args
+#      print "======  select ====="
       m       = req.args.get("modus",[None])[0]
       e       = req.args.get("exp",[None])[0]
       f       = req.args.get("file",[None])[0]
@@ -1170,11 +1166,11 @@ class EXP_plot(HtmlResource):
           try:
             selected_branch = request.args["branch"][0]
 	    selected_branch = selected_branch.replace('/', '+')
-            print "branch_if " + selected_branch
+#            print "branch_if " + selected_branch
           except ValueError:
             pass
 	  
-        print "branch " + selected_branch
+#        print "branch " + selected_branch
 	
         if "builder" in request.args:
           try:

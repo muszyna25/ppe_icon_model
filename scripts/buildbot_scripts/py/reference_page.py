@@ -16,10 +16,10 @@ class MainPage(HtmlResource):
         return h
 
     def body(self, req):
-      print "=== body ======="
-      print req
-      print req.args
-      print "=== body ======="
+#      print "=== body ======="
+#      print req
+#      print req.args
+#      print "=== body ======="
       
 #=========================================================
 
@@ -28,6 +28,7 @@ class MainPage(HtmlResource):
       def check_rev_exist(exp,rev):
         st = False
         c_list = []
+        br_list = []
         d_list = []
         p = "public_html/archive/"
         for d in os.listdir(p):
@@ -36,42 +37,64 @@ class MainPage(HtmlResource):
 	      p_d = p + d + "/buildbot/"
               for r in os.listdir(p_d):
                 if r == rev:
-	          p_b = p_d + r + "/"
-                  for b in os.listdir(p_b):
-	            p_r = p_b + b + "/"
+	          p_br = p_d + r + "/"
+#	          print "p_br: " + p_br
+                  for br in os.listdir(p_br):
+	            p_r = p_br + br + "/"
+#	            print "p_r: " + p_r
                     for c in os.listdir(p_r):
 	              p_c = p_r + c + "/"
+#	              print "p_c: " + p_c
                       for b in os.listdir(p_c):
 	                p_b = p_c + b + "/"
+#	                print "p_r: " + p_r
 	                if os.path.isdir(p_b + exp):
 		          st = True
                           d_list.append(d)
                           c_list.append(c)
+                          br_list.append(br.replace('+','/'))
                         
         d_list = list(sorted(d_list))                
-        c_list = list(sorted(set(c_list)))                
-        return (st,d_list,c_list)
+        c_list = list(sorted(set(c_list)))
+        br_list = list(sorted(set(br_list)))
+        return (st,d_list,c_list,br_list)
 #=========================================================
 
 #=========================================================
       def create_BuildList(exp,rev,d_list,branch,comp):
+#	print "==== create_BuildList ===="
+#	print exp
+#	print rev
+#	print d_list
+#	print branch
+#	print branch.replace('/','+')
+#	print comp
+	
         st = False
         b_list = []
         p = "public_html/archive/"
         for d in d_list:
 	  p_d = p + d + "/buildbot/"
           p_br = p_d + rev + "/"
-	  if os.path.isdir(p_br + branch):
+#          print "p_d: " + p_d
+#          print "p_d: " + p_d
+
+	  if os.path.isdir(p_br + branch.replace('/','+')):
 	    p_r = p_br + branch + "/"	  
-	    if os.path.isdir(p_r + comp):
+#            print "p_r: " + p_r
+            if os.path.isdir(p_r + comp):
 	      p_c = p_r + comp + "/"
+#              print "p_c: " + p_c
               for b in os.listdir(p_c):
 	        p_b = p_c + b + "/"
+#	        print "p_b: " + p_b
+
 	        if os.path.isdir(p_b + exp):
 	          st = True
                   b_list.append(b)
                         
         b_list = list(sorted(set(b_list)))                
+#	print "==== create_BuildList ===="
         return (st,b_list)
 
 #=========================================================
@@ -101,15 +124,17 @@ class MainPage(HtmlResource):
 	return "yyyy-mm-dd"
 
 #-------------------------------------------------------------
-      e  = "Experement Name"
-      le = False
-      lr = False
-      lc = False
-      lb = False
+      e   = "Experement Name"
+      le  = False
+      lr  = False
+      lbr = False
+      lc  = False
+      lb  = False
       #ls = False
 
-      l_use_build = False
-      l_use_comp  = False
+      l_use_build  = False
+      l_use_comp   = False
+      l_use_branch = False
       
       if "exp" in req.args:
         try:
@@ -129,6 +154,13 @@ class MainPage(HtmlResource):
         try:
           COMP = req.args["comp"][0]
           lc = True
+        except ValueError:
+          pass
+
+      if "branch" in req.args:
+        try:
+          BRANCH = req.args["branch"][0]
+          lbr = True
         except ValueError:
           pass
 
@@ -175,23 +207,25 @@ class MainPage(HtmlResource):
       data += "  <tr>"
       data += "    <td>Revision:</td>"
       if not lr:
-        data += "  <td>"
+        data += "  <td style=\"text-align:left;\">"
         data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference?exp=" + EXP + "\"" + " class=\"command replace\">\n"
         data += "      <input name=\"rev\" type=\"text\" value=\"" + start_rev + "\" size=\"5\" maxlength=\"10\">\n"
         data += "      <input type=\"submit\" name=\"Revision_button\" value=\">\" >\n"
         data += "    <form>"
         data += "  </td>"
       else:
-	data += "<td>" + REV + "</td>"
-        l_use_comp  = True
+	data += "<td style=\"text-align:left;\">" + REV + "</td>"
+        l_use_branch  = True
       data += "  </tr>"
       
-      c_list = ["----"]
-      b_list = ["----"]
+      d_list  = ["----"]
+      c_list  = ["----"]
+      b_list  = ["----"]
+      br_list = ["----"]
       
 #      if l_use_comp and not lc:
-      if l_use_comp:
-	st,d_list,c_list = check_rev_exist(EXP,REV)
+      if l_use_branch:
+	st,d_list,c_list,br_list = check_rev_exist(EXP,REV)
 	if not st:
           data = "<div id=\"div_ref\" >"
           data += "<h1>Replace Reference Plot</h1>\n"
@@ -199,39 +233,63 @@ class MainPage(HtmlResource):
           data += "</div>"
           return data
 
-	
-
+# Set Branch  Info
+      data += "  <tr>\n"
+      data += "    <td>Branch:</td>\n"
+      if not lbr:
+        data += "  <td style=\"text-align:left;\">\n"
+        data += "    <form name=\"reference_branch\" method=\"POST\" action=\"reference?exp=" + EXP
+        if not l_use_branch:
+          data += "\" class=\"command replace\">\n"
+          data += "      <select name=\"branch\" disabled=\"disabled\">\n"
+        else:
+          data += "&rev=" + REV
+          data += "\" class=\"command replace\">\n"
+          data += "      <select name=\"branch\">\n"
+        for br in br_list:
+          data += "        <option>" + br + "</option>\n"
+        data += "      </select>"
+        if l_use_branch:
+          data += "      <input type=\"submit\" name=\"Brunch_button\" value=\">\" >\n"
+        data += "    <form>\n"
+        data += "  </td>"
+      else:
+	data += "    <td style=\"text-align:left;\">" + BRANCH + "</td>"
+        l_use_comp = True
+      data += "    </tr>"
 # Set Computer Info
 
       data += "  <tr>\n"
-      data += "    <td>Computer:</td>\n"
+      data += "    <td>Builder:</td>\n"
       if not lc:
-        data += "  <td>\n"
+        data += "  <td style=\"text-align:left;\">\n"
         data += "    <form name=\"reference_comp\" method=\"POST\" action=\"reference?exp=" + EXP
         if not l_use_comp:
           data += "\" class=\"command replace\">\n"
           data += "      <select name=\"comp\" disabled=\"disabled\">\n"
         else:
           data += "&rev=" + REV
+          data += "&branch=" + BRANCH
           data += "\" class=\"command replace\">\n"
           data += "      <select name=\"comp\">\n"
-        for c in c_list:
+        for c in c_list:	
           data += "        <option>" + c + "</option>\n"
         data += "      </select>"
         if l_use_comp:
+	  data += "      <input type=\"hidden\" name=\"branch\" value=\""+ BRANCH + "\">\n"
           data += "      <input type=\"submit\" name=\"Computer_button\" value=\">\" >\n"
         data += "    <form>\n"
         data += "  </td>"
       else:
-	data += "    <td>" + COMP + "</td>"
+	data += "    <td style=\"text-align:left;\">" + COMP + "</td>"
         l_use_build = True
       data += "    </tr>"
 
 # Set Build Info
 
       if l_use_build:
-	branch = "trunk+icon-dev"
-	st,b_list = create_BuildList(EXP,REV,d_list,branch,COMP)
+#	BRANCH = "trunk+icon-dev"
+	st,b_list = create_BuildList(EXP,REV,d_list,BRANCH.replace('/','+'),COMP)
 	if not st:
           data = "<div id=\"div_ref\" >"
           data += "<h1>Replace Reference Plot</h1>\n"
@@ -240,9 +298,9 @@ class MainPage(HtmlResource):
           return data
 
       data += "  <tr>\n"
-      data += "    <td>Build Nr.:</td>\n"
+      data += "    <td>Build:</td>\n"
       if not lb:
-        data += "  <td>"
+        data += "  <td style=\"text-align:left;\">"
         data += "    <form name=\"reference_build\" method=\"POST\" action=\"reference?exp=" + EXP
         if not l_use_build:
 #          data += "&rev=" + REV 
@@ -250,6 +308,7 @@ class MainPage(HtmlResource):
           data += "      <select name=\"build\" disabled=\"disabled\">\n"
         else:
           data += "&rev=" + REV
+          data += "&branch=" + BRANCH
           data += "&comp=" + COMP
           data += "\" class=\"command replace\">\n"
           data += "      <select name=\"build\">\n"
@@ -261,19 +320,19 @@ class MainPage(HtmlResource):
         data += "    <form>\n"
         data += "  </td>"
       else:
-	data += "<td>" + BUILD + "</td>"
+	data += "<td style=\"text-align:left;\">" + BUILD + "</td>"
 
       data += "  </tr>"
 
-      if le and lr and lc and lb:
-	DATE = get_Date(EXP,REV,branch,COMP,BUILD)
+      if le and lr and lc and lb and lbr:
+	DATE = get_Date(EXP,REV,BRANCH.replace('/','+'),COMP,BUILD)
         data += "  <tr>"
         data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference/save_cancel\"  class=\"command replace\">\n"
         
         data += "      <input type=\"hidden\" name=\"date\" value=\""+ DATE + "\">\n"
         data += "      <input type=\"hidden\" name=\"exp\" value=\""+ EXP + "\">\n"
         data += "      <input type=\"hidden\" name=\"rev\" value=\""+ REV + "\">\n"
-        data += "      <input type=\"hidden\" name=\"branch\" value=\""+ branch + "\">\n"
+        data += "      <input type=\"hidden\" name=\"branch\" value=\""+ BRANCH + "\">\n"
         data += "      <input type=\"hidden\" name=\"comp\" value=\""+ COMP + "\">\n"
         data += "      <input type=\"hidden\" name=\"build\" value=\""+ BUILD + "\">\n"
         data += "      <td><input type=\"submit\" name=\"button\" value=\"ok\" ></td>\n"
@@ -283,23 +342,23 @@ class MainPage(HtmlResource):
       data += "  </table>"
       
       data += "</div>"	
-      if le and lr and lc and lb:
+      if le and lr and lc and lb and lbr:
         data += "<div>"	
-	DATE = get_Date(EXP,REV,branch,COMP,BUILD)
-	p = "public_html/archive/" + DATE + "/buildbot/" + REV + "/" + branch + "/" + COMP + "/" + BUILD + "/" + EXP + "/plots/"
+	DATE = get_Date(EXP,REV,BRANCH.replace('/','+'),COMP,BUILD)
+	p = "public_html/archive/" + DATE + "/buildbot/" + REV + "/" + BRANCH.replace('/','+') + "/" + COMP + "/" + BUILD + "/" + EXP + "/plots/"
 	for f in os.listdir(p):
           data += "<br>\n"
-	  data += "<img src=\"archive/"+DATE+"/buildbot/"+REV+"/"+branch+"/"+COMP+"/"+BUILD+"/"+EXP+"/plots/" + f + "\"/>\n"
+	  data += "<img src=\"archive/"+DATE+"/buildbot/"+REV+"/"+BRANCH.replace('/','+')+"/"+COMP+"/"+BUILD+"/"+EXP+"/plots/" + f + "\"/>\n"
 	  
         data += "</div>"	
       return data
 
 
     def save_cancel(self, req):
-      print "=== save_cancel ======="
-      print req
-      print req.args
-      print "=== save_cancel ======="
+#      print "=== save_cancel ======="
+#      print req
+#      print req.args
+#      print "=== save_cancel ======="
       if "button" in req.args:
         try:
           CONTROL = req.args["button"][0]
@@ -350,7 +409,7 @@ class MainPage(HtmlResource):
 	save_time = time.strftime("%Y-%m-%d-%H-%M", time.localtime(util.now()))
 	tmpname   = "/" + DATE + "/buildbot"
 	tmpname  += "/" + REV
-	tmpname  += "/" + BRANCH
+	tmpname  += "/" + BRANCH.replace('/','+')
 	tmpname  += "/" + COMP
 	tmpname  += "/" + BUILD
 	
