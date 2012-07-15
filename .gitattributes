@@ -744,7 +744,9 @@ scripts/buildbot_scripts/buildbot.tac_master -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/public_html/archive.css -text
 scripts/buildbot_scripts/public_html/buildbot.css -text
+scripts/buildbot_scripts/public_html/closed.gif -text
 scripts/buildbot_scripts/public_html/index.html -text
+scripts/buildbot_scripts/public_html/open.gif -text
 scripts/buildbot_scripts/py/MainPage.py -text
 scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
