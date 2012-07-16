@@ -2811,9 +2811,26 @@ R&0,90& &
 \hline 
 \end{longtab}
 
+\paragraph{Variable Groups:} 
+Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
+sets of common variables can be added to the output:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+\texttt{group:atmo\_ml\_vars}          \>      basic atmospheric variables on model levels                          \\
+\texttt{group:atmo\_pl\_vars}, 
+\texttt{group:atmo\_zl\_vars}          \>      same set as atmo\_ml\_vars, but except pres and height, respectively \\
+\texttt{group:nh\_prog\_vars}          \>      additional prognostic variables of the nonhydrostatic model          \\
+\texttt{group:atmo\_derived\_vars}     \>      derived atmospheric variables                                        \\
+\texttt{group:rad\_vars}               \>                                                                           \\
+\texttt{group:precip\_vars}            \>                                                                           \\
+\texttt{group:cloud\_diag}             \>                                                                           \\
+\texttt{group:pbl\_vars}               \>                                                                           \\
+\texttt{group:phys\_tendencies}        \>                                                                           \\
+\texttt{group:land\_vars}              \>                                                                           \\
+\texttt{group:multisnow\_vars}         \>     tile-averaged variables                                               
+\end{tabbing}
+
 Defined and used in: src/namelists/mo\_name\_list\_output.f90
-
-
 
 %------------------------------------------------------------------------------
 % meteogram_output_nml:
