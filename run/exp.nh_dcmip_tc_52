@@ -49,7 +49,7 @@ rescale_factor=$(echo "scale=9; 1 / ${X} " | bc) # the model needs 1/X
 atmo_namelist=NAMELIST_${EXPNAME}
 #
 start_date="2008-09-01T00:00:00Z"
-  end_date="2008-09-11T00:00:00Z"
+  end_date="2008-09-01T00:16:00Z"
 #
 dt_restart=$(    echo "scale=9; 10 * ${one_day}  * ${rescale_factor} " | bc )
 #
@@ -70,7 +70,7 @@ dtime=120
 #
 dt_checkpoint=$( echo "scale=9; 10 * ${one_day}  * ${rescale_factor} " | bc )
 #dt_data=$(       echo "scale=9;  6 * ${one_hour} * ${rescale_factor} " | bc )
-dt_data=$(       echo "scale=9;      ${dtime}    * ${rescale_factor} " | bc )
+dt_data=$(       echo "scale=9;  4 * ${dtime}    * ${rescale_factor} " | bc )
 dt_diag=$(       echo "scale=9;      ${one_day}  * ${rescale_factor} " | bc )
 dt_file=$(       echo "scale=9; 10 * ${one_day}  * ${rescale_factor} " | bc )
 #
@@ -147,9 +147,9 @@ cat > ${atmo_namelist} << EOF
  irad_cfc12       = 0        ! switch off cfc12
  irad_aero        = 2        ! switch off aerosols
 /
-&nh_pzlev_nml
- nplev            = 1
- plevels          = 85000.
+!off!&nh_pzlev_nml
+!off! nplev            = 1
+!off! plevels          = 85000.
 /
 &output_nml
  namespace        = 'DWD'
@@ -158,21 +158,22 @@ cat > ${atmo_namelist} << EOF
  output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
  remap            = 0                           ! 0 = output on model grid
  output_grid      = .TRUE.
- pl_varlist       = 'u','v','temp'
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','omega_z','z_mc'
+!off! ml_varlist       = 'w','rho','theta_v','exner','rhotheta_v','qv','u','v','omega_z','pres_sfc','temp','tempv','pres','div','z_mc'
+!off! pl_varlist       = 'u','v','temp'
 /
-&output_nml
- namespace        = 'DWD'
- output_filename  = '${EXPNAME}'                ! file name base
- output_time_unit = 1                           ! 1 = second
- output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
- remap            = 1                           ! 1 = output on lat-lon grid
- remap_internal   = .TRUE.                      ! remap internally
- reg_lat_def      = -90.,1.,90.                 ! latitude grid
- reg_lon_def      = -180.,1.,180.               ! lpngitude grid
- output_grid      = .TRUE.
- pl_varlist       = 'u','v','temp'
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc'
+!off!&output_nml
+!off! namespace        = 'DWD'
+!off! output_filename  = '${EXPNAME}'                ! file name base
+!off! output_time_unit = 1                           ! 1 = second
+!off! output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
+!off! remap            = 1                           ! 1 = output on lat-lon grid
+!off! remap_internal   = .TRUE.                      ! remap internally
+!off! reg_lat_def      = -90.,1.,90.                 ! latitude grid
+!off! reg_lon_def      = -180.,1.,180.               ! lpngitude grid
+!off! output_grid      = .TRUE.
+!off! pl_varlist       = 'u','v','temp'
+!off! ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc'
 /
 EOF
 #

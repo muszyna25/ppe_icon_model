@@ -238,7 +238,7 @@ CONTAINS
     ! Now allocate memory for the states
     DO k_jg=1,n_dom
       l_pres_msl(k_jg) = is_any_output_nml_active(first_output_name_list, &
-        &                                   dtime=dtime, var_name="pres_msl")
+        &                                   dtime=dtime, iadv_rcf=iadv_rcf, var_name="pres_msl")
     END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl)
@@ -249,7 +249,7 @@ CONTAINS
     IF(iforcing == inwp) THEN
       DO k_jg=1,n_dom
         l_rh(k_jg) = is_any_output_nml_active(first_output_name_list, &
-          &                                   dtime=dtime, var_name="rh")
+          &                                   dtime=dtime, iadv_rcf=iadv_rcf, var_name="rh")
       END DO
       CALL construct_nwp_phy_state( p_patch(1:), l_rh )
     ENDIF

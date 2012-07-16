@@ -89,18 +89,18 @@ MODULE mo_nh_dcmip_tc
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, iqv
+  USE mo_run_config,          ONLY: iqv
   !
   ! interpolation
   USE mo_intp,                ONLY: cells2edges_scalar
-  USE mo_sync,                ONLY: sync_patch_array, sync_e
 
 
   ! items for the computations
   ! --------------------------
   !
   USE mo_grid_config,         ONLY: grid_rescale_factor ,& ! (m/m)     Small planet scaling factor (=1/x)
-    &                               grid_sphere_radius     ! (m)       Earth radius/x
+    &                               grid_sphere_radius  ,& ! (m)       Earth radius/x
+    &                               grid_angular_velocity  ! (1/s)     Earth rotation*x
   ! 
   USE mo_math_constants,      ONLY: deg2rad                ! (rad/deg) Convert degree to radian
   !
@@ -208,17 +208,13 @@ CONTAINS
     ! --------------------------
     REAL(wp), POINTER     :: p(:,:,:)          !< (Pa)    pressure
     REAL(wp), POINTER     :: ps(:,:)           !< (Pa)    pressure at surface
-    REAL(wp), POINTER     :: t(:,:,:)          !< (K)     temperature
     REAL(wp), POINTER     :: tv(:,:,:)         !< (K)     virtual temperature
-    !
-    REAL(wp), POINTER     :: u(:,:,:)          !< (m/s)   zonal wind
-    REAL(wp), POINTER     :: v(:,:,:)          !< (m/s)   meridional wind
 
 
     ! auxiliary variables
     ! -------------------
     REAL(wp)              :: rp                !< (m)     scaled radius for ps, rp1/x
-    REAL(wp), POINTER     :: f(:,:)            !< (1/s)   scaled Coriolis parameter, f*x
+    REAL(wp)              :: f                 !< (1/s)   scaled Coriolis parameter at cen_lat, f*x
     !
     REAL(wp), ALLOCATABLE :: gr(:,:)           !< (m)     great circle distance to center of vortex
     !
@@ -237,7 +233,8 @@ CONTAINS
     REAL(wp)              :: ptrop             !< (Pa)    pressure at tropopause
 
     ! auxiliary constants
-    rp = rp1 * grid_rescale_factor
+    rp       = rp1 * grid_rescale_factor
+    f        = 2._wp*grid_angular_velocity*SIN(cen_lat)
     exponent = rd*gamma/grav
     t0       = ts0*(1.0_wp+consttv*q0)
     ttrop    = t0 - gamma*ztrop
@@ -274,16 +271,10 @@ CONTAINS
     ! --------------------------
     p          => p_nh_diag%pres
     ps         => p_nh_diag%pres_sfc
-    t          => p_nh_diag%temp
     tv         => p_nh_diag%tempv
-    !
-    u          => p_nh_diag%u
-    v          => p_nh_diag%v
     !
     ! auxiliary variables
     ! -------------------
-    f          => p_patch%cells%f_c
-    !
     ALLOCATE( gr   (nproma,nblks_c) )
     !
     ALLOCATE( d1   (nproma,nblks_c) )
@@ -340,7 +331,7 @@ CONTAINS
         d1(jc,jb) =  SIN(cen_lat)*COS(lat(jc,jb))                         &
           &         -COS(cen_lat)*SIN(lat(jc,jb))*COS(lon(jc,jb)-cen_lon)
         d2(jc,jb) =  COS(cen_lat)*SIN(lon(jc,jb)-cen_lon)
-        d (jc,jb) =  MAX(epsilon, SQRT(d1(jc,jb)*d1(jc,jb)+d2(jc,jb)*d2(jc,jb)))
+        d (jc,jb) =  MAX(epsilon, SQRT(d1(jc,jb)**2+d2(jc,jb)**2))
 
         ufac(jc,jb) = d1(jc,jb)/d(jc,jb)
         vfac(jc,jb) = d2(jc,jb)/d(jc,jb)
@@ -393,8 +384,8 @@ CONTAINS
 
             ! tangential wind of cyclone                                    (eq.108)
             !-----------------------------------------------------------------------
-            vtc_c(jc,jk,jb) = -f(jc,jb)*gr(jc,jb)/2.0_wp                                                    &
-              &               +SQRT( (f(jc,jb)*gr(jc,jb)/2.0_wp)**2.0_wp                                    &
+            vtc_c(jc,jk,jb) = -f*gr(jc,jb)/2.0_wp                                                           &
+              &               +SQRT( (f*gr(jc,jb)/2.0_wp)**2                                                &
               &                     - ( exppr*(gr(jc,jb)/rp)**exppr*rd*(t0-gamma*z(jc,jk,jb)))              &
               &                      /( 1.0_wp+exppz*rd*(t0-gamma*z(jc,jk,jb))*z(jc,jk,jb)/(grav*zp**exppz) &
               &                        -p00/dp*EXP((gr(jc,jb)/rp)**exppr+(z(jc,jk,jb)/zp)**exppz)))
@@ -419,16 +410,6 @@ CONTAINS
           !-----------------------------------------------------------------------
           rhotheta_v(jc,jk,jb) = rho(jc,jk,jb)*theta_v(jc,jk,jb)
 
-          ! temperature                                           (eqs.93,104,105)
-          !-----------------------------------------------------------------------
-          t(jc,jk,jb) = tv(jc,jk,jb)/(1.0_wp+consttv*q(jc,jk,jb))
-
-          ! horizontal wind
-          !-----------------------------------------------------------------------
-          u(jc,jk,jb) = vtc_c(jc,jk,jb)*ufac(jc,jb)
-          v(jc,jk,jb) = vtc_c(jc,jk,jb)*vfac(jc,jb)
-
-
           ! vertical velocity
           !-----------------------------------------------------------------------
           w(jc,jk,jb) = 0.0_wp
@@ -439,7 +420,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    ! Is this needed?
     CALL diagnose_pres_temp ( p_metrics, p_nh_prog,   &
       &                       p_nh_prog, p_nh_diag,   &
       &                       p_patch               )
@@ -457,8 +437,6 @@ CONTAINS
     CALL cells2edges_scalar(vtc_c,                 &
       &                     p_patch,p_int%c_lin_e, &
       &                     vtc_e                  )
-
-    CALL sync_patch_array(sync_e,p_patch,vtc_e)
 
     DEALLOCATE(vtc_c)
 
@@ -517,7 +495,7 @@ CONTAINS
         d1(je,jb) =  SIN(cen_lat)*COS(lat(je,jb))                             &
           &         -COS(cen_lat)*SIN(lat(je,jb))*COS(lon(je,jb)-cen_lon)
         d2(je,jb) =  COS(cen_lat)*SIN(lon(je,jb)-cen_lon)
-        d (je,jb) =  MAX(epsilon, SQRT(d1(je,jb)**2.0_wp + d2(je,jb)**2.0_wp))
+        d (je,jb) =  MAX(epsilon, SQRT(d1(je,jb)**2+d2(je,jb)**2))
 
         ufac(je,jb) = d1(je,jb)/d(je,jb)
         vfac(je,jb) = d2(je,jb)/d(je,jb)
