@@ -196,11 +196,15 @@ class MainPage(HtmlResource):
       data += "<h1>Replace Reference Plot</h1>\n"
       
       if not le:
-        data += "<br><br><br><h2>Pleace use ?exp=exp_name \n"
+        data += "<br><br><br><h2>Pleace use ?exp=exp_name </h2>\n"
         return data
 	
-      data += "<h2>" + EXP + "</h1>\n"
+      data += "<h2>" + EXP + "</h2>\n"
       data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"300\">"
+      data += "  <colgroup>"
+      data += "    <col width=\"100\">"
+      data += "    <col width=\"200\">"
+      data += "  </colgroup>\n"
 
 # Set Revision Info
 
@@ -326,31 +330,32 @@ class MainPage(HtmlResource):
 
       if le and lr and lc and lb and lbr:
 	DATE = get_Date(EXP,REV,BRANCH.replace('/','+'),COMP,BUILD)
-        data += "  <tr>"
+        data += "  <tr><td></td><td style=\"text-align:left;\">"
         data += "    <form name=\"replace_save\" method=\"POST\" action=\"reference/save_cancel\"  class=\"command replace\">\n"
-        
         data += "      <input type=\"hidden\" name=\"date\" value=\""+ DATE + "\">\n"
         data += "      <input type=\"hidden\" name=\"exp\" value=\""+ EXP + "\">\n"
         data += "      <input type=\"hidden\" name=\"rev\" value=\""+ REV + "\">\n"
         data += "      <input type=\"hidden\" name=\"branch\" value=\""+ BRANCH + "\">\n"
         data += "      <input type=\"hidden\" name=\"comp\" value=\""+ COMP + "\">\n"
         data += "      <input type=\"hidden\" name=\"build\" value=\""+ BUILD + "\">\n"
-        data += "      <td><input type=\"submit\" name=\"button\" value=\"ok\" ></td>\n"
-        data += "      <td><input type=\"submit\" name=\"button\" value=\"cancel\" ></td>\n"
+        data += "      <input type=\"submit\" name=\"button\" value=\"ok\" >&nbsp;&nbsp;&nbsp;\n"
+        data += "      <input type=\"submit\" name=\"button\" value=\"cancel\" >\n"
         data += "    <form>"
-        data += "  </tr>"
+        data += "  </td></tr>"
       data += "  </table>"
       
-      data += "</div>"	
       if le and lr and lc and lb and lbr:
-        data += "<div>"	
+        data += "  <br \>\n"
+        data += "  <table>\n"
 	DATE = get_Date(EXP,REV,BRANCH.replace('/','+'),COMP,BUILD)
 	p = "public_html/archive/" + DATE + "/buildbot/" + REV + "/" + BRANCH.replace('/','+') + "/" + COMP + "/" + BUILD + "/" + EXP + "/plots/"
 	for f in os.listdir(p):
+          data += "  <tr><td style=\"text-align:left;\">"
           data += "<br>\n"
 	  data += "<img src=\"archive/"+DATE+"/buildbot/"+REV+"/"+BRANCH.replace('/','+')+"/"+COMP+"/"+BUILD+"/"+EXP+"/plots/" + f + "\"/>\n"
+          data += "  </td></tr>"
 	  
-        data += "</div>"	
+        data += "  </table>"
       return data
 
 
