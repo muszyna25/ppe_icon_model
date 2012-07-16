@@ -1340,6 +1340,12 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     IF (itype_comm == 2) THEN
+      IF (timers_level > 5) THEN
+!$OMP MASTER
+        CALL timer_stop(timer_solve_nh_p1)
+        CALL timer_start(timer_solve_nh_exch)
+!$OMP END MASTER
+      ENDIF
       ! use OpenMP-parallelized communication using global memory for buffers
       IF (istep == 1) THEN
         IF (idiv_method == 1) THEN
@@ -1352,15 +1358,21 @@ MODULE mo_solve_nonhydro
       ELSE
         CALL sync_patch_array_gm(SYNC_E,p_patch,1,bufr%send_e1,bufr%recv_e1,p_nh%prog(nnew)%vn)
       ENDIF
+      IF (timers_level > 5) THEN
+!$OMP MASTER
+        CALL timer_stop(timer_solve_nh_exch)
+        CALL timer_start(timer_solve_nh_p2)
+!$OMP END MASTER
+      ENDIF
     ENDIF
 
 !$OMP END PARALLEL
 
-    IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_p1)
-      CALL timer_start(timer_solve_nh_exch)
-    ENDIF
     IF (itype_comm == 1) THEN
+      IF (timers_level > 5) THEN
+        CALL timer_stop(timer_solve_nh_p1)
+        CALL timer_start(timer_solve_nh_exch)
+      ENDIF
       IF (istep == 1) THEN
         IF (idiv_method == 1) THEN
           CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e)
@@ -1370,10 +1382,10 @@ MODULE mo_solve_nonhydro
       ELSE
         CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
       ENDIF
-    ENDIF
-    IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_exch)
-      CALL timer_start(timer_solve_nh_p2)
+      IF (timers_level > 5) THEN
+        CALL timer_stop(timer_solve_nh_exch)
+        CALL timer_start(timer_solve_nh_p2)
+      ENDIF
     ENDIF
 
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
@@ -1968,8 +1980,13 @@ MODULE mo_solve_nonhydro
 
     ENDIF
 
-
     IF (itype_comm == 2) THEN
+      IF (timers_level > 5) THEN
+!$OMP MASTER
+        CALL timer_stop(timer_solve_nh_p2)
+        CALL timer_start(timer_solve_nh_exch)
+!$OMP END MASTER
+      ENDIF
       ! use OpenMP-parallelized communication using global memory for buffers
       IF (istep == 1) THEN ! Only w is updated in the predictor step
         CALL sync_patch_array_gm(SYNC_C,p_patch,1,bufr%send_c1,bufr%recv_c1,p_nh%prog(nnew)%w)
@@ -1978,15 +1995,21 @@ MODULE mo_solve_nonhydro
         CALL sync_patch_array_gm(SYNC_C,p_patch,3,bufr%send_c3,bufr%recv_c3,                &
                                  p_nh%prog(nnew)%rho,p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
       ENDIF
+      IF (timers_level > 5) THEN
+!$OMP MASTER
+        CALL timer_stop(timer_solve_nh_exch)
+        IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
+!$OMP END MASTER
+      ENDIF
     ENDIF
 
 !$OMP END PARALLEL
 
-    IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_p2)
-      CALL timer_start(timer_solve_nh_exch)
-    ENDIF
     IF (itype_comm == 1) THEN
+      IF (timers_level > 5) THEN
+        CALL timer_stop(timer_solve_nh_p2)
+        CALL timer_start(timer_solve_nh_exch)
+      ENDIF
       IF (istep == 1) THEN ! Only w is updated in the predictor step
         CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
       ELSE IF (istep == 2) THEN
@@ -1994,10 +2017,10 @@ MODULE mo_solve_nonhydro
         CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho,  &
                                    p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
       ENDIF
-    ENDIF
-    IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_exch)
-      IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
+      IF (timers_level > 5) THEN
+        CALL timer_stop(timer_solve_nh_exch)
+        IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
+      ENDIF
     ENDIF
 
     ENDDO ! istep-loop

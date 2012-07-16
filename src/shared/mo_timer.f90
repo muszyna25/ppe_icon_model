@@ -51,7 +51,7 @@ MODULE mo_timer
   PUBLIC :: init_timer                          !< procedure of this module
 
   PUBLIC :: timer_total                         !< IDs of timers
-  PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+  PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync  
   PUBLIC :: timer_barrier  
@@ -147,7 +147,7 @@ MODULE mo_timer
 
   ! ID of timer for total model integration time
   INTEGER :: timer_total
-  INTEGER :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+  INTEGER :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   INTEGER :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   INTEGER :: timer_icon_comm_sync
   INTEGER :: timer_barrier
@@ -260,15 +260,16 @@ CONTAINS
     ! major timers
     timer_total        = new_timer("total")
 
+    timer_barrier  = new_timer("mpi_barrier")
     timer_exch_data = new_timer("exch_data")
     timer_exch_data_rv = new_timer("exch_data_rv")
     timer_exch_data_async = new_timer("exch_data_async")
+    timer_exch_data_wait = new_timer("exch_data.wait")
     timer_global_sum = new_timer("global_sum")
     timer_omp_global_sum = new_timer("omp_global_sum")
     timer_ordglb_sum = new_timer("ordglb_sum")
 !     timer_omp_ordglb_sum = new_timer("omp_ordglb_sum")
     timer_icon_comm_sync = new_timer("icon_comm_sync")
-    timer_barrier  = new_timer("barrier")
       
     timer_coupling      = new_timer("coupling")
     timer_write_output  = new_timer("wrt_output")

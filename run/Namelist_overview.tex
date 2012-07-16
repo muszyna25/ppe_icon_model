@@ -1007,9 +1007,31 @@ if .TRUE., use fast (not processor-configuration-invariant) global summation&
 \tabularnewline
 
 \hline 
+use\_dycore\_barrier &
+L & .FALSE.& &
+if .TRUE., set an MPI barrier at the beginning of the nonhydrostatic solver (do not use for production runs!)&
+\tabularnewline
+
+\hline 
+use\_exch\_barrier &
+L & .FALSE.& &
+if .TRUE., set an MPI barrier at the beginning of each MPI exchange call (do not use for production runs!)&
+\tabularnewline
+
+\hline 
 iorder\_sendrecv &
 I & 1& &
-Sequence of send/receive calls: 1 = irecv/send; 2 = isend/recv; 3 = isend/irecv &
+Sequence of send/receive calls: \\
+ 1 = irecv/send \\
+ 2 = isend/recv  \\
+ 3 = isend/irecv \\
+ 4 = irecv/send with message size blocking  &
+\tabularnewline
+
+\hline 
+exch\_msgsize &
+I & 8192 & &
+Blocking size of exchange messages & iorder\_sendrecv = 4
 \tabularnewline
 
 \hline 

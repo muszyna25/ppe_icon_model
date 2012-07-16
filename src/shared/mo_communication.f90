@@ -51,10 +51,11 @@ USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & my_process_is_mpi_seq,                             &
      & p_pe_work, p_n_work, get_my_mpi_work_communicator, &
      & get_my_mpi_work_comm_size, get_my_mpi_work_id,     &
-     & p_gather, p_gatherv
-USE mo_parallel_config, ONLY: iorder_sendrecv, nproma
+     & p_gather, p_gatherv, work_mpi_barrier
+USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, use_exch_barrier, exch_msgsize
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
-  & timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+  & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
+  & timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
 
 
@@ -762,7 +763,19 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 
    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
 
+   ! Variables required for message size blocking
+   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
+              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
+              maxblks, maxsend, maxrecv, jb
+
    !-----------------------------------------------------------------------
+
+   IF (use_exch_barrier) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
+   ENDIF
+
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    IF(my_process_is_mpi_seq()) &
@@ -869,9 +882,73 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
      ENDDO
    ENDIF
 
-   ! Wait for all outstanding requests to finish
+   IF (iorder_sendrecv == 4) THEN ! use irecv/send with message size blocking
 
-   CALL p_wait
+     iblksize = exch_msgsize/ndim2 ! number of grid point columns fitting into the message size
+
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+       nblks_send(np)  = (p_pat%send_count(np)-1)/iblksize+1
+       npromz_send(np) = (p_pat%send_count(np)-iblksize*(nblks_send(np)-1))*ndim2
+     ENDDO
+
+     DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+       nblks_recv(np)  = (p_pat%recv_count(np)-1)/iblksize+1
+       npromz_recv(np) = (p_pat%recv_count(np)-iblksize*(nblks_recv(np)-1))*ndim2
+     ENDDO
+
+     maxsend = MAXVAL(nblks_send)
+     maxrecv = MAXVAL(nblks_recv)
+     maxblks = MAX(maxsend,maxrecv)
+     
+     DO jb = 1, maxblks
+
+       DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+         IF (jb > nblks_recv(np)) CYCLE
+
+         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+         irs    = p_pat%recv_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_recv(np)) THEN
+           icount = iblksize*ndim2
+         ELSE
+           icount = npromz_recv(np)
+         ENDIF
+
+         CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+         IF (jb > nblks_send(np)) CYCLE
+
+         pid    = p_pat%pelist_send(np) ! ID of sender PE
+         iss    = p_pat%send_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_send(np)) THEN
+           icount = iblksize*ndim2
+         ELSE
+           icount = npromz_send(np)
+         ENDIF
+
+         CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       IF (jb > maxrecv) CYCLE
+
+       ! Wait for all outstanding requests to finish
+       IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+       CALL p_wait
+       IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+     ENDDO
+
+   ELSE
+     ! Wait for all outstanding requests to finish
+     IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+     CALL p_wait
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+   ENDIF
 
    ! Fill in receive buffer
 
@@ -966,7 +1043,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
 
    ndim2 = SIZE(recv,2)
 
-   IF((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+   IF((iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
      ! Set up irecv's for receive buffers
      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
 
@@ -1050,7 +1127,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
 
      ENDDO
-   ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
+   ELSE IF (iorder_sendrecv >= 3) THEN ! use irecv/isend
      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
 
        pid    = p_pat%pelist_send(np) ! ID of sender PE
@@ -1156,7 +1233,7 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
 
    ndim2 = SIZE(recv,2)
 
-   IF((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+   IF((iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
      ! Set up irecv's for receive buffers
      DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
 
@@ -1241,7 +1318,7 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
          CALL p_recv(recv_buf(1,irs), np, 1, p_count=(ire-irs+1)*ndim2, comm=p_comm_work)
 
      ENDDO
-   ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
+   ELSE IF (iorder_sendrecv >= 3) THEN ! use irecv/isend
      DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
        iss = p_pat%send_limits(np)+1
@@ -1338,7 +1415,7 @@ SUBROUTINE exchange_data_reverse_3(p_pat, recv, send)
 
    ndim2 = SIZE(recv,2)
 
-   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
      ! Set up irecv's for receive buffers
      DO np = 1, p_pat%np_send ! loop over PEs from where to receive the data
 
@@ -1415,7 +1492,7 @@ SUBROUTINE exchange_data_reverse_3(p_pat, recv, send)
        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
 
      ENDDO
-   ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
+   ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/irecv
      DO np = 1, p_pat%np_recv ! loop over PEs where to send the data
 
        pid    = p_pat%pelist_recv(np) ! ID of sender PE
@@ -1510,7 +1587,18 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend, ladd, l_par
 
+   ! Variables required for message size blocking
+   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
+              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
+              maxblks, maxsend, maxrecv
+
 !-----------------------------------------------------------------------
+
+   IF (use_exch_barrier) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
+   ENDIF
 
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
@@ -1731,9 +1819,73 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      ENDDO
    ENDIF
 
-   ! Wait for all outstanding requests to finish
+   IF (iorder_sendrecv == 4) THEN ! use irecv/send with message size blocking
 
-   CALL p_wait
+     iblksize = exch_msgsize/ndim2tot ! number of grid point columns fitting into the message size
+
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+       nblks_send(np)  = (p_pat%send_count(np)-1)/iblksize+1
+       npromz_send(np) = (p_pat%send_count(np)-iblksize*(nblks_send(np)-1))*ndim2tot
+     ENDDO
+
+     DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+       nblks_recv(np)  = (p_pat%recv_count(np)-1)/iblksize+1
+       npromz_recv(np) = (p_pat%recv_count(np)-iblksize*(nblks_recv(np)-1))*ndim2tot
+     ENDDO
+
+     maxsend = MAXVAL(nblks_send)
+     maxrecv = MAXVAL(nblks_recv)
+     maxblks = MAX(maxsend,maxrecv)
+     
+     DO jb = 1, maxblks
+
+       DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+         IF (jb > nblks_recv(np)) CYCLE
+
+         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+         irs    = p_pat%recv_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_recv(np)) THEN
+           icount = iblksize*ndim2tot
+         ELSE
+           icount = npromz_recv(np)
+         ENDIF
+
+         CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+         IF (jb > nblks_send(np)) CYCLE
+
+         pid    = p_pat%pelist_send(np) ! ID of sender PE
+         iss    = p_pat%send_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_send(np)) THEN
+           icount = iblksize*ndim2tot
+         ELSE
+           icount = npromz_send(np)
+         ENDIF
+
+         CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       IF (jb > maxrecv) CYCLE
+
+       ! Wait for all outstanding requests to finish
+       IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+       CALL p_wait
+       IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+     ENDDO
+
+   ELSE
+     ! Wait for all outstanding requests to finish
+     IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+     CALL p_wait
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+   ENDIF
 
    ! Fill in receive buffer
 
@@ -1834,7 +1986,18 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
    INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend
 
+   ! Variables required for message size blocking
+   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
+              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
+              maxblks, maxsend, maxrecv
+
 !-----------------------------------------------------------------------
+   IF (use_exch_barrier) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
+   ENDIF
+
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    IF (PRESENT(send)) THEN
@@ -1946,9 +2109,73 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
      ENDDO
    ENDIF
 
-   ! Wait for all outstanding requests to finish
+   IF (iorder_sendrecv == 4) THEN ! use irecv/send with message size blocking
 
-   CALL p_wait
+     iblksize = exch_msgsize/ndim2tot ! number of grid point columns fitting into the message size
+
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+       nblks_send(np)  = (p_pat%send_count(np)-1)/iblksize+1
+       npromz_send(np) = (p_pat%send_count(np)-iblksize*(nblks_send(np)-1))*ndim2tot
+     ENDDO
+
+     DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+       nblks_recv(np)  = (p_pat%recv_count(np)-1)/iblksize+1
+       npromz_recv(np) = (p_pat%recv_count(np)-iblksize*(nblks_recv(np)-1))*ndim2tot
+     ENDDO
+
+     maxsend = MAXVAL(nblks_send)
+     maxrecv = MAXVAL(nblks_recv)
+     maxblks = MAX(maxsend,maxrecv)
+     
+     DO jb = 1, maxblks
+
+       DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+         IF (jb > nblks_recv(np)) CYCLE
+
+         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+         irs    = p_pat%recv_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_recv(np)) THEN
+           icount = iblksize*ndim2tot
+         ELSE
+           icount = npromz_recv(np)
+         ENDIF
+
+         CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+         IF (jb > nblks_send(np)) CYCLE
+
+         pid    = p_pat%pelist_send(np) ! ID of sender PE
+         iss    = p_pat%send_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_send(np)) THEN
+           icount = iblksize*ndim2tot
+         ELSE
+           icount = npromz_send(np)
+         ENDIF
+
+         CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       IF (jb > maxrecv) CYCLE
+
+       ! Wait for all outstanding requests to finish
+       IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+       CALL p_wait
+       IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+     ENDDO
+
+   ELSE
+     ! Wait for all outstanding requests to finish
+     IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+     CALL p_wait
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+   ENDIF
 
    ! Fill in receive buffer
 
@@ -2022,7 +2249,21 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend, ladd
 
+   ! Variables required for message size blocking
+   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
+              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
+              maxblks, maxsend, maxrecv
+
 !-----------------------------------------------------------------------
+   IF (use_exch_barrier) THEN
+!$OMP MASTER
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
+!$OMP END MASTER
+!$OMP BARRIER
+   ENDIF
+
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    lsend     = .FALSE.
@@ -2207,9 +2448,73 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
      ENDDO
    ENDIF
 
-   ! Wait for all outstanding requests to finish
+   IF (iorder_sendrecv == 4) THEN ! use irecv/send with message size blocking
 
-   CALL p_wait
+     iblksize = exch_msgsize/ndim2tot ! number of grid point columns fitting into the message size
+
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+       nblks_send(np)  = (p_pat%send_count(np)-1)/iblksize+1
+       npromz_send(np) = (p_pat%send_count(np)-iblksize*(nblks_send(np)-1))*ndim2tot
+     ENDDO
+
+     DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+       nblks_recv(np)  = (p_pat%recv_count(np)-1)/iblksize+1
+       npromz_recv(np) = (p_pat%recv_count(np)-iblksize*(nblks_recv(np)-1))*ndim2tot
+     ENDDO
+
+     maxsend = MAXVAL(nblks_send)
+     maxrecv = MAXVAL(nblks_recv)
+     maxblks = MAX(maxsend,maxrecv)
+     
+     DO jb = 1, maxblks
+
+       DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+         IF (jb > nblks_recv(np)) CYCLE
+
+         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+         irs    = p_pat%recv_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_recv(np)) THEN
+           icount = iblksize*ndim2tot
+         ELSE
+           icount = npromz_recv(np)
+         ENDIF
+
+         CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+         IF (jb > nblks_send(np)) CYCLE
+
+         pid    = p_pat%pelist_send(np) ! ID of sender PE
+         iss    = p_pat%send_startidx(np) + (jb-1)*iblksize
+         IF (jb < nblks_send(np)) THEN
+           icount = iblksize*ndim2tot
+         ELSE
+           icount = npromz_send(np)
+         ENDIF
+
+         CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+       ENDDO
+
+       IF (jb > maxrecv) CYCLE
+
+       ! Wait for all outstanding requests to finish
+       IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+       CALL p_wait
+       IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+     ENDDO
+
+   ELSE
+     ! Wait for all outstanding requests to finish
+     IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+     CALL p_wait
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+   ENDIF
 
 !$OMP END MASTER
 !$OMP BARRIER
@@ -2535,12 +2840,18 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
 !-----------------------------------------------------------------------
 
+   IF (use_exch_barrier) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
+   ENDIF
+
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    npats = SIZE(p_pat)  ! Number of communication patterns provided on input
 
    ! Set up irecv's for receive buffers
-   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
 
      ioffset = 0
      DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
@@ -2755,7 +3066,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
        ioffset = isum
 
      ENDDO
-   ELSE IF (iorder_sendrecv == 3) THEN ! use isend/recv
+   ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
      ioffset = 0
      DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
@@ -2781,7 +3092,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    ENDIF
 
    ! Wait for all outstanding requests to finish
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
    CALL p_wait
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
 
    ! Copy exchanged data back to receive buffer
    ioffset = 0

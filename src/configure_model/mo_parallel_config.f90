@@ -48,10 +48,10 @@ MODULE mo_parallel_config
   PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
        &    division_file_name, l_log_checks, l_fast_sum,             &
-       &    p_test_run, l_test_openmp,                                &
+       &    p_test_run, l_test_openmp, exch_msgsize,                  &
        &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
-       &    use_dycore_barrier, use_sp_output
+       &    use_dycore_barrier, use_exch_barrier, use_sp_output
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -85,7 +85,10 @@ MODULE mo_parallel_config
   ! model whereas the other PEs do a real parallelized run
   LOGICAL :: p_test_run = .false.
 
-  LOGICAL :: use_dycore_barrier = .false. ! put an mpi barrier before the dycore to eliminate imbalances
+  LOGICAL :: use_dycore_barrier = .false. ! put an mpi barrier before the dycore
+                                          ! to synchronize MPI tasks
+  LOGICAL :: use_exch_barrier = .false. ! put an mpi barrier at the beginning of 
+                                        ! exchange calls to synchronize MPI tasks
   
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
@@ -113,7 +116,12 @@ MODULE mo_parallel_config
   ! Order of send/receive sequence in exchange routines
   ! 1 = irecv, send
   ! 2 = isend, recv
+  ! 3 = irecv, isend
+  ! 4 = irecv, send with message blocking (maximum message size is given by exch_msgsize)
   INTEGER :: iorder_sendrecv = 1
+
+  ! maximum message size if iorder_sendrecv = 4
+  INTEGER :: exch_msgsize = 8192 ! 64 KB with REAL*8
 
   INTEGER :: radiation_ompthreads   = 1
   INTEGER :: nh_stepping_ompthreads = 1
