@@ -938,8 +938,7 @@ CONTAINS
       CASE ( TASK_INTP_SYNC )
         CALL pp_task_sync()
       CASE ( TASK_INTP_MSL )
-        CALL finish(routine, "Not yet implemented!")
-        ! CALL pp_task_intp_msl(ptr_task) ! mean sea level pressure
+        CALL pp_task_intp_msl(ptr_task) ! mean sea level pressure
       CASE ( TASK_COMPUTE_RH )
         call pp_task_compute_field(ptr_task)
       CASE DEFAULT

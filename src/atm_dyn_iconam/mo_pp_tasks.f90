@@ -56,7 +56,8 @@ MODULE mo_pp_tasks
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list, &
     &                                   t_lon_lat_intp, p_int_state
   USE mo_nh_vert_interp,          ONLY: prepare_vert_interp, &
-    &                                   lin_intp, uv_intp, qv_intp 
+    &                                   lin_intp, uv_intp, qv_intp, &
+    &                                   pressure_intp_msl
   USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
     &                                   t_nh_metrics
   USE mo_nonhydro_state,          ONLY: p_nh_state
@@ -671,6 +672,8 @@ CONTAINS
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables    
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_intp_msl")
+    LOGICAL, PARAMETER :: lpres_msl_gme = .TRUE.
+
     REAL(wp), ALLOCATABLE              :: z_temp(:,:,:), z_tracer_iqv(:,:,:),  &
       &                                   z_tot_cld_iqv(:,:,:), z_pres(:,:,:)
     REAL(wp), POINTER                  :: z_0(:,:,:)
@@ -697,7 +700,6 @@ CONTAINS
     sea_lev = 1
     nplev   = 0
 
-
     ! patch, state, and metrics
     jg             =  ptr_task%data_input%jg
     p_patch        => ptr_task%data_input%p_patch
@@ -714,8 +716,7 @@ CONTAINS
     in_var            => ptr_task%data_input%var
     out_var           => ptr_task%data_output%var
 
-    l_only_p2z     = (TRIM(p_info%name) == "pres")
-    IF ((dbg_level >= 10) .AND. l_only_p2z)  CALL message(routine, "pressure interpolation")
+    IF (TRIM(p_info%name) /= "pres")  CALL message(routine, "Invalid input field!")
 
     ! interpolation flags + parameters
     pzlev_flags => in_var%info%vert_interp
@@ -738,51 +739,48 @@ CONTAINS
     out_var_idx = 1
     IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
 
-    ! First create a 1-level 3D variable for output  (nproma, nlevs, nblks):
-    dim1 = p_info%used_dimensions(1)
-    dim2 = p_info%used_dimensions(3)
-    ALLOCATE(tmp_var_out(dim1, nzlev, dim2), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
+    IF (.NOT. lpres_msl_gme) THEN
+      ! First create a 1-level 3D variable for output  (nproma, nlevs, nblks):
+      dim1 = p_info%used_dimensions(1)
+      dim2 = p_info%used_dimensions(3)
+      ALLOCATE(tmp_var_out(dim1, nzlev, dim2), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
 
-    ! allocate temporary variables for temperature, etc.
-    ALLOCATE(z_temp(dim1, nzlev, dim2), z_tracer_iqv(dim1, nzlev, dim2),  &
-      &      z_tot_cld_iqv(dim1, nzlev, dim2), z_pres(dim1, nzlev, dim2), &
-      &      z_0(dim1, nzlev, dim2), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
+      ! allocate temporary variables for temperature, etc.
+      ALLOCATE(z_temp(dim1, nzlev, dim2), z_tracer_iqv(dim1, nzlev, dim2),  &
+        &      z_tot_cld_iqv(dim1, nzlev, dim2), z_pres(dim1, nzlev, dim2), &
+        &      z_0(dim1, nzlev, dim2), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
 
-    ! initialize trivial height field:
-    z_0(:,sea_lev,:) = 0._wp
+      ! initialize trivial height field:
+      z_0(:,sea_lev,:) = 0._wp
 
-    ! build data structure "vcoeff" containing coefficient tables
-    CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev, & ! in
-      &           z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres,                & ! inout
-      &           p_z3d_out=z_0, p_metrics=p_metrics,                         & ! in
-      &           vcoeff_z=vcoeff, l_only_p2z=l_only_p2z )                 ! inout, in
-    
-    ! skip the rest, if only pressure interpolation was demanded:
-    IF (.NOT. l_only_p2z) THEN
-      CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    &
-        &           tmp_var_out,                                         & ! inout, out
-        &           nblks, npromz, nzlev, nzlev,                         & ! in
-        &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & ! in
-        &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & ! in
-        &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & ! in
-        &           l_loglin=l_loglin, l_extrapol=l_extrapol,            & ! in
-        &           l_pd_limit=l_pd_limit, lower_limit=lower_limit )       ! in
-      ! copy back:
-      out_var%r_ptr(:,:,out_var_idx,1,1) = tmp_var_out(:,sea_lev,:)
-    ELSE
+      ! build data structure "vcoeff" containing coefficient tables
+      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev, & ! in
+        &           z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres,                & ! inout
+        &           p_z3d_out=z_0, p_metrics=p_metrics,                         & ! in
+        &           vcoeff_z=vcoeff, l_only_p2z=.TRUE. )                          ! inout, in
+
       ! copy back pressure:
       out_var%r_ptr(:,:,out_var_idx,1,1) = z_pres(:,sea_lev,:)
-    END IF
 
-    ! clean up:
-    DEALLOCATE(tmp_var_out, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
-    DEALLOCATE(z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres, z_0, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
-    ! deallocate coefficient tables:
-    CALL vcoeff_deallocate(vcoeff)
+      ! clean up:
+      DEALLOCATE(tmp_var_out, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+      DEALLOCATE(z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres, z_0, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+      ! deallocate coefficient tables:
+      CALL vcoeff_deallocate(vcoeff)
+
+    ELSE
+
+      ! Interpolate pressure on z-levels
+      CALL pressure_intp_msl(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
+        &                    p_metrics%z_ifc,                           &  ! in
+        &                    out_var%r_ptr(:,:,out_var_idx,1,1),        &  ! out
+        &                    nblks, npromz, p_patch%nlev )                 ! in
+      
+    END IF
 
   END SUBROUTINE pp_task_intp_msl
 

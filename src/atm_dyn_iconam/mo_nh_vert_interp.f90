@@ -84,6 +84,7 @@ MODULE mo_nh_vert_interp
   PUBLIC :: prepare_lin_intp
   PUBLIC :: prepare_vert_interp
   PUBLIC :: lin_intp, uv_intp, qv_intp, temperature_intp
+  PUBLIC :: pressure_intp_msl
 
 CONTAINS
 
@@ -2784,5 +2785,148 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE qv_intp
+
+
+  !------------------------------------------------------------------
+  !> SUBROUTINE pressure_intp_msl
+  !  Compute mean sea level pressure from the surface pressure.
+  !
+  ! @par Revision History
+  ! Initial version by F. Prill, DWD (2012-07-16)
+  !
+  ! Based on GME's "pp_extrap.f90" which is a modified GM routine by
+  ! J.Haseler (ECMWF).
+  !
+  ! Cf. also
+  ! Trenberth, K.E., Berry, J.C., Buja, L.E. 1993: 
+  ! "Vertical Interpolation and Truncation of Model-coordinate Data."
+  !
+  ! We assume an atmosphere in hydrostatic equilibrium and having
+  ! a constant lapse rate.
+  !
+  ! Method
+  !
+  ! For temperature, geopotential and mean sea-level pressure, the
+  ! surface temperature, "ztstar", and the msl temperature, "ztmsl"
+  ! are calculated, assuming a lapse rate of 6.5 degrees *C/km.  If
+  ! both "ztstar" and "ztmsl" are greater than 290.5, "ztmsl" is
+  ! corrected according to the formula:
+  !
+  !    ztmsl = 290.5-0.005*(ztstar-290.5)**2
+  !
+  ! Comment on this method (from Trenberth et al.):
+  ! "The above method seems to work reasonably well as long as the
+  ! surface height is less than about 2000m elevation. Problems remain
+  ! especially in the Himalayan-Tibetan Plateau region. At very high
+  ! elevations, the critical dependence on the local surface
+  ! temperature that is used to set the temperature of the whole
+  ! artificial below-ground column becomes amplified and leads to
+  ! considerable noise in the mean sea level pressure."
+  !
+  SUBROUTINE pressure_intp_msl(pres3d_in, pres_sfc_in, temp3d_in, z3d_in, pres_out, &
+    &                          nblks, npromz, nlevs_in)
+
+    ! Input fields
+    REAL(wp), INTENT(IN)  :: pres3d_in   (:,:,:) ! pressure field of input data
+    REAL(wp), INTENT(IN)  :: pres_sfc_in (:,:)   ! surface pressure field (input data)
+    REAL(wp), INTENT(IN)  :: temp3d_in   (:,:,:) ! temperature of input data
+    REAL(wp), INTENT(IN)  :: z3d_in      (:,:,:) ! 3D height coordinate field of input data
+
+    ! Output
+    REAL(wp), INTENT(OUT) :: pres_out   (:,:)    ! mean sea level pressure field
+
+    ! Dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
+    
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:pressure_intp_msl")
+    REAL(wp), PARAMETER :: zthird = 1._wp/3._wp, &
+      &                    zlapse = 6.5E-3_wp
+    INTEGER             :: nlev, nlevp1, nlen, jb, jc
+    REAL(wp)            :: zrg, ztstar, ztmsl, zalph, zprt, zprtal, &
+      &                    geop_sfc, temp_in, pres_in, pres_sfc
+
+    !  INITIALISATION
+    !  --------------
+
+    nlev   = nlevs_in
+    nlevp1 = nlev + 1
+    zrg    = 1.0_wp/grav
+    
+    ! TEMPERATURE-RELATED FIELDS
+    ! --------------------------
+
+    ! initialize output field
+    pres_out(:,nblks) = 0._wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jc,geop_sfc,temp_in,pres_in,pres_sfc,ztstar,ztmsl,zalph,zprt,zprtal) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, nblks
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+      ENDIF
+      
+      DO jc = 1, nlen
+
+        geop_sfc = z3d_in(jc,nlevp1,jb)*grav    ! surface geopotential
+        temp_in  = temp3d_in(jc,nlev,jb)        ! temperature at lowest (full) model level
+        pres_in  = pres3d_in(jc,nlev,jb)        ! pressure at lowest (full) level
+        pres_sfc = pres_sfc_in(jc,jb)           ! surface pressure
+
+        ! Surface pressure is given on half levels, temperature is given
+        ! on full levels. Therefore extrapolate temperature with
+        ! zlapse=6.5E-3 to model surface.
+        !
+        ! This formula follows from a Taylor series expansion of
+        !   temp/ztstar  =  (pres_sfc/pres_in)**(R*lapse/grav)
+        ! for small increments of p:
+        ztstar = ( 1._wp + zlapse*rd*zrg*(pres_sfc/pres_in-1._wp) )*temp_in
+
+        ! slight modifications for exceptionally warm or cold
+        ! conditions:
+        IF ( ztstar < 255._wp) THEN
+          ztstar = 0.5_wp*(255._wp+ztstar)
+        END IF
+
+        ztmsl = ztstar + zlapse*zrg*geop_sfc
+
+        IF ( ztmsl > 290.5_wp) THEN
+          IF ( ztstar > 290.5_wp ) THEN
+            ztstar = 0.5_wp*(290.5_wp+ztstar)
+            ztmsl  = ztstar
+          ELSE
+            ztmsl  = 290.5_wp
+          END IF
+        END IF
+
+        IF ( ABS(ztmsl-ztstar) < 1.E-6_wp) THEN
+          zalph = 0._wp
+        ELSE IF ( ABS(zrg*geop_sfc) > 1.E-4_wp) THEN
+          zalph= rd*(ztmsl-ztstar)/geop_sfc
+        ELSE
+          zalph= rd*zlapse*zrg
+        END IF
+
+        ! MEAN SEA LEVEL PRESSURE
+        ! -----------------------
+
+        ! The formula
+        !   pres_msl = pres_sfc ( 1 + (zalph*geop_sfc)/(rd*ztstar) )**(1/zalph)
+        ! is approximated (using the log-power series) as follows:
+        zprt   = geop_sfc/(rd*ztstar)
+        zprtal = zprt*zalph
+        pres_out(jc,jb) = pres_in*EXP( zprt * ( 1.0_wp-zprtal*(0.5_wp-zthird*zprtal) ) )
+
+      END DO ! jc
+    END DO ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      
+  END SUBROUTINE pressure_intp_msl
+
 
 END MODULE mo_nh_vert_interp
