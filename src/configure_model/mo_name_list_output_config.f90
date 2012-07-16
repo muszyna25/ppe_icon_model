@@ -266,7 +266,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER          :: first_output_name_list   !< head output namelist list
     REAL(wp),            INTENT(IN), OPTIONAL  :: sim_time   !< elapsed simulation time
     REAL(wp),            INTENT(IN)            :: dtime      !< [s] length of a time step
-    INTEGER,             INTENT(IN), OPTIONAL  :: iadv_rcf   !< calling freq. of adv., phys.
+    INTEGER,             INTENT(IN)            :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL  :: last_step
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL  :: var_name   !< variable name
     ! local variables
@@ -298,7 +298,7 @@ CONTAINS
     TYPE(t_output_file), INTENT(IN), TARGET   :: of         !< output file
     REAL(wp),            INTENT(IN), OPTIONAL :: sim_time   !< elapsed simulation time
     REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
-    INTEGER,             INTENT(IN), OPTIONAL :: iadv_rcf   !< calling freq. of adv., phys.
+    INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL :: last_step
     INTEGER,             INTENT(IN), OPTIONAL :: idom       !< logical domain index 
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
@@ -315,7 +315,7 @@ CONTAINS
     END IF
 
     ! check if output file is active
-    IF (PRESENT(sim_time) .AND. PRESENT(iadv_rcf)) THEN
+    IF (PRESENT(sim_time)) THEN
       retval = retval .AND. &
         &      is_output_nml_active(of%name_list, sim_time, dtime, iadv_rcf, last_step)
     END IF
@@ -349,7 +349,7 @@ CONTAINS
     TYPE(t_output_file), TARGET               :: of_list(:) !< list of output files
     REAL(wp),            INTENT(IN), OPTIONAL :: sim_time   !< elapsed simulation time
     REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
-    INTEGER,             INTENT(IN), OPTIONAL :: iadv_rcf   !< calling freq. of adv., phys.
+    INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL :: last_step
     INTEGER,             INTENT(IN), OPTIONAL :: idom       !< logical domain index 
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
