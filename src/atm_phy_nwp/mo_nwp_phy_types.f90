@@ -105,6 +105,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_phy),ALLOCATABLE :: cfh_ptr(:)  !< pointer array: average of cfh
     TYPE(t_ptr_phy),ALLOCATABLE :: z0m_ptr(:)  !< pointer array: average of z0m
     TYPE(t_ptr_phy),ALLOCATABLE :: tra_rate_ptr(:)   !< pointer array: tracer rates
+    TYPE(t_ptr_phy),ALLOCATABLE :: albvisdif_t_ptr(:)!< pointer array: tile-specific albedo
     TYPE(t_ptr_phy),ALLOCATABLE :: swflxsfc_t_ptr(:) !< pointer array: shortwave net flux at surface
     TYPE(t_ptr_phy),ALLOCATABLE :: lwflxsfc_t_ptr(:) !< pointer array: longwave net flux at surface
     TYPE(t_ptr_phy),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum

@@ -667,11 +667,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d, lrestart=.FALSE.,                                    &
-          & in_group=groups("rad_vars") )
+          & ldims=shape2d, in_group=groups("rad_vars") )
 
 
-        ! These variables only make sense, if the land-surface scheme is switched on.
+        ! These variables only make sense if the land-surface scheme is switched on.
         IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN
 
           !        diag%albvisdif_t    (nproma, nblks, nsfc_subs),          &
@@ -679,8 +678,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           grib2_desc = t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-            & ldims=(/nproma,kblks,nsfc_subs/), lcontainer=.TRUE., lrestart=.FALSE. )
+            & ldims=(/nproma,kblks,nsfc_subs/), lcontainer=.TRUE., lrestart=.FALSE., &
+            & loutput=.FALSE.)
 
+          ! fill the seperate variables belonging to the container albvisdif_t
+          ALLOCATE(diag%albvisdif_t_ptr(nsfc_subs))
+          DO jsfc = 1,nsfc_subs
+            WRITE(csfc,'(i1)') jsfc 
+            CALL add_ref( diag_list, 'albvisdif_t',                            &
+               & 'albvisdif_t_'//TRIM(ADJUSTL(csfc)),                          &
+               & diag%albvisdif_t_ptr(jsfc)%p_2d,                              &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+               & t_cf_var('albvisdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+               & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
+               & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.               )
+          ENDDO
 
           ! &      diag%swflxsfc_t(nproma,nblks_c,nsfc_subs)
           cf_desc    = t_cf_var('SOB_S_T', 'W m-2', 'tile-based shortwave net flux at surface', &
