@@ -84,7 +84,7 @@ MODULE mo_nh_vert_interp
   PUBLIC :: prepare_lin_intp
   PUBLIC :: prepare_vert_interp
   PUBLIC :: lin_intp, uv_intp, qv_intp, temperature_intp
-  PUBLIC :: pressure_intp_msl
+  PUBLIC :: diagnose_pmsl, diagnose_pmsl_gme
 
 CONTAINS
 
@@ -775,6 +775,7 @@ CONTAINS
       &                vcoeff_z%wfac_lin,    vcoeff_z%idx0_lin,        & !in
       &                vcoeff_z%bot_idx_lin, vcoeff_z%wfacpbl1,        & !in
       &                vcoeff_z%kpbl1 )                                  !in
+
     ! SKIP THE REST of this subroutine, if only pressure interpolation
     ! was demanded:
     IF (PRESENT(l_only_p2z)) THEN
@@ -2788,7 +2789,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------
-  !> SUBROUTINE pressure_intp_msl
+  !> SUBROUTINE diagnose_pmsl_gme
   !  Compute mean sea level pressure from the surface pressure.
   !
   ! @par Revision History
@@ -2823,7 +2824,7 @@ CONTAINS
   ! artificial below-ground column becomes amplified and leads to
   ! considerable noise in the mean sea level pressure."
   !
-  SUBROUTINE pressure_intp_msl(pres3d_in, pres_sfc_in, temp3d_in, z3d_in, pres_out, &
+  SUBROUTINE diagnose_pmsl_gme(pres3d_in, pres_sfc_in, temp3d_in, z3d_in, pres_out, &
     &                          nblks, npromz, nlevs_in)
 
     ! Input fields
@@ -2926,7 +2927,178 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
       
-  END SUBROUTINE pressure_intp_msl
+  END SUBROUTINE diagnose_pmsl_gme
+
+  !-------------
+  !>
+  !! SUBROUTINE diagnose_pmsl
+  !! Diagnoses sea-level pressure 
+  !!
+  !! Required input fields: pressure, virtual temperature and 3D height coordinate field
+  !! Output: sea-level pressure
+  !!
+  !! Method: stepwise analytical integration of the hydrostatic equation
+  !!  step 1: from surface level of input data 500 m (zpbl1) upward
+  !!  step 2: from there to zpbl1 meters above sea level
+  !!  step 3: from there down to sea level
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2012-07-17)
+  !!
+  !!
+  !!
+  SUBROUTINE diagnose_pmsl(pres_in, tempv_in, z3d_in, pmsl_out, nblks, npromz, nlevs_in, &
+                           wfacpbl1, kpbl1, wfacpbl2, kpbl2, z_target, extrapol_dist)
+
+
+    ! Input fields
+    REAL(wp), INTENT(IN)  :: pres_in  (:,:,:) ! pressure field on main levels
+    REAL(wp), INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature on main levels
+    REAL(wp), INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of main levels
+
+    ! Output
+    REAL(wp), INTENT(OUT) :: pmsl_out (:,:) ! sea-level pressure
+
+    ! Dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
+
+    ! Coefficients
+    INTEGER , INTENT(IN) :: kpbl1(:,:)     ! index of model level immediately above (by default) 500 m AGL
+    REAL(wp), INTENT(IN) :: wfacpbl1(:,:)  ! corresponding interpolation coefficient
+    INTEGER , INTENT(IN) :: kpbl2(:,:)     ! index of model level immediately above (by default) 1000 m AGL
+    REAL(wp), INTENT(IN) :: wfacpbl2(:,:)  ! corresponding interpolation coefficient
+
+    REAL(wp), INTENT(IN) :: z_target       ! target height of pressure diagnosis (usually 0 m = sea level)
+    REAL(wp), INTENT(IN) :: extrapol_dist  ! maximum extrapolation distance up to which the local vertical 
+                                           ! temperature gradient is used
+
+    ! LOCAL VARIABLES
+
+    INTEGER  :: jb, jc
+    INTEGER  :: nlen
+    REAL(wp), DIMENSION(nproma) :: tempv1, tempv2, vtgrad_pbl_in, vtgrad_up, zdiff_inout, &
+                                   sfc_inv, tempv_out_pbl1, vtgrad_up_out, tempv_out,     &
+                                   vtgrad_pbl_out, p_pbl1, p_pbl1_out
+    REAL(wp) :: dtvdz_thresh, vtgrad_standardatm
+
+!-------------------------------------------------------------------------
+
+    ! Standard atmosphere vertical temperature gradient used for large extrapolation distances
+    vtgrad_standardatm = -6.5e-3_wp
+
+    ! Threshold for switching between analytical formulas for constant temperature and
+    ! constant vertical gradient of temperature, respectively
+    dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
+
+!$OMP PARALLEL
+
+!$OMP DO PRIVATE(jb,jc,nlen,tempv1,tempv2,vtgrad_pbl_in,vtgrad_up,zdiff_inout,sfc_inv, &
+!$OMP            tempv_out_pbl1,vtgrad_up_out,tempv_out,vtgrad_pbl_out,p_pbl1,         &
+!$OMP            p_pbl1_out) ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = 1, nblks
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        pmsl_out(nlen+1:nproma,jb)  = 0.0_wp
+      ENDIF
+
+      DO jc = 1, nlen
+        ! Virtual temperature at height zpbl1
+        tempv1(jc) = wfacpbl1(jc,jb) *tempv_in(jc,kpbl1(jc,jb),jb  ) + &
+              (1._wp-wfacpbl1(jc,jb))*tempv_in(jc,kpbl1(jc,jb)+1,jb)
+
+        ! Virtual temperature at height zpbl2
+        tempv2(jc) = wfacpbl2(jc,jb) *tempv_in(jc,kpbl2(jc,jb),jb  ) + &
+              (1._wp-wfacpbl2(jc,jb))*tempv_in(jc,kpbl2(jc,jb)+1,jb)
+
+        ! Vertical gradient between surface level zpbl1
+        vtgrad_pbl_in(jc) = (tempv1(jc) - tempv_in(jc,nlevs_in,jb))/zpbl1
+
+        ! Vertical gradient between zpbl1 and zpbl2
+        vtgrad_up(jc) = (tempv2(jc) - tempv1(jc))/(zpbl2 - zpbl1)
+
+        ! Set reasonable limits
+        vtgrad_up(jc) = MAX(vtgrad_up(jc),-8.5e-3_wp)
+        vtgrad_up(jc) = MIN(vtgrad_up(jc),-1.5e-3_wp)
+
+        ! height distance between lowest input level
+        ! (negative if model grid point lies above z_target)
+        zdiff_inout(jc) = z_target - z3d_in(jc,nlevs_in,jb) 
+
+        ! "surface inversion", defined by the difference between the extrapolated
+        ! extrapolated temperature from above and the original input temperature
+        sfc_inv(jc) = tempv1(jc)-vtgrad_up(jc)*zpbl1 - tempv_in(jc,nlevs_in,jb)
+
+        ! Reduction of the surface inversion depending on the extrapolation
+        ! distance. The surface inversion is fully restored for extrapolation distances
+        ! up to zpbl1 and disregarded for distances larger than 4*zpbl1
+        IF (ABS(zdiff_inout(jc)) > 4._wp*zpbl1) THEN
+          sfc_inv(jc) = 0._wp
+        ELSE IF (ABS(zdiff_inout(jc)) > zpbl1) THEN
+          sfc_inv(jc) = sfc_inv(jc)*(1._wp - (ABS(zdiff_inout(jc))-zpbl1)/(3._wp*zpbl1))
+        ENDIF
+
+        ! Linear extrapolation to zpbl1 above target height using the upper temperature gradient
+        ! extrapol_dist is the maximum extrapolation distance up to which the local
+        ! vertical gradient is considered; for larger distance, the standard atmosphere
+        ! vertical gradient is taken
+        IF (zdiff_inout(jc) > extrapol_dist) THEN
+          tempv_out_pbl1(jc) = tempv1(jc) + zdiff_inout(jc)*vtgrad_up(jc)
+          vtgrad_up_out(jc)  = vtgrad_up(jc)
+        ELSE
+          tempv_out_pbl1(jc) = tempv1(jc) + extrapol_dist*vtgrad_up(jc) +   &
+                            (zdiff_inout(jc)-extrapol_dist)*vtgrad_standardatm
+          ! Averaged vertical temperature gradient
+          vtgrad_up_out(jc) = (tempv_out_pbl1(jc) - tempv1(jc))/zdiff_inout(jc)
+        ENDIF
+
+        ! Final extrapolation of temperature to target height, including restored surface inversion
+        tempv_out(jc) = tempv_out_pbl1(jc) - vtgrad_up_out(jc)*zpbl1 - sfc_inv(jc)
+
+        ! Boundary-layer vertical gradient of extrapolation profile
+        vtgrad_pbl_out(jc) = (tempv_out_pbl1(jc)-tempv_out(jc))/zpbl1
+
+
+        ! Three-step vertical integration of pressure
+        ! step 1: from surface level of input data to zpbl1 (to get rid of surface inversion)
+
+        IF (ABS(vtgrad_pbl_in(jc)) > dtvdz_thresh) THEN
+          p_pbl1(jc) = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*vtgrad_pbl_in(jc))* &
+                       LOG(tempv1(jc)/tempv_in(jc,nlevs_in,jb)) )
+        ELSE
+          p_pbl1(jc) = pres_in(jc,nlevs_in,jb)*EXP(-grav*zpbl1 / &
+                      (rd*0.5_wp*(tempv1(jc)+tempv_in(jc,nlevs_in,jb))) )
+        ENDIF
+
+        ! step 2: from zpbl1 of input data to zpbl1 above target level
+        IF (ABS(vtgrad_up_out(jc)) > dtvdz_thresh) THEN
+          p_pbl1_out(jc) = p_pbl1(jc)*EXP(-grav/(rd*vtgrad_up_out(jc))* &
+                           LOG(tempv_out_pbl1(jc)/tempv1(jc)) )
+        ELSE
+          p_pbl1_out(jc) = p_pbl1(jc)*EXP(-grav*zdiff_inout(jc)/ &
+                          (rd*0.5_wp*(tempv1(jc)+tempv_out_pbl1(jc))) )
+        ENDIF
+
+        ! step 3: from zpbl1 above target level to target level
+        IF (ABS(vtgrad_pbl_out(jc)) > dtvdz_thresh) THEN
+          pmsl_out(jc,jb) = p_pbl1_out(jc)*EXP(-grav/(rd*vtgrad_pbl_out(jc))* &
+                            LOG(tempv_out(jc)/tempv_out_pbl1(jc)) )
+        ELSE
+          pmsl_out(jc,jb) = p_pbl1_out(jc)*EXP(grav*zpbl1/ &
+                           (rd*0.5_wp*(tempv_out(jc)+tempv_out_pbl1(jc))) )
+        ENDIF
+
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE diagnose_pmsl
 
 
 END MODULE mo_nh_vert_interp

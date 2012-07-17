@@ -57,7 +57,7 @@ MODULE mo_pp_tasks
     &                                   t_lon_lat_intp, p_int_state
   USE mo_nh_vert_interp,          ONLY: prepare_vert_interp, &
     &                                   lin_intp, uv_intp, qv_intp, &
-    &                                   pressure_intp_msl
+    &                                   diagnose_pmsl, diagnose_pmsl_gme
   USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
     &                                   t_nh_metrics
   USE mo_nonhydro_state,          ONLY: p_nh_state
@@ -779,7 +779,7 @@ CONTAINS
     ELSE
 
       ! Interpolate pressure on z-levels
-      CALL pressure_intp_msl(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
+      CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    out_var%r_ptr(:,:,out_var_idx,1,1),        &  ! out
         &                    nblks, npromz, p_patch%nlev )                 ! in
