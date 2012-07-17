@@ -463,7 +463,7 @@ CONTAINS
         min_node_idx(jc,jb,1:2) = vmin_node_idx(1:2)
 
         p_old(1:icoord_dim)     = p_new(1:icoord_dim)
-        min_dist_old = vmin_dist
+        min_dist_old            = vmin_dist
 
       END DO
     END DO
@@ -486,12 +486,15 @@ CONTAINS
 
     ! Local parameters
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_insert_mt")
+
+    ! reordering parameter (for permuting points before insertion):
+    INTEGER, PARAMETER :: nstrides = 7
     INTEGER                    :: root ! index pointer 
     INTEGER                    :: idx(2,nproc), work(nproc), depth(nproc)
     INTEGER                    :: node_proc(nproc) ! index pointer
     INTEGER                    :: free_node(nproc) ! short list of available nodes
     REAL(gk)                   :: p(icoord_dim,nproc)
-    INTEGER                    :: j, new_idx(2)
+    INTEGER                    :: j, new_idx(2), jb, jc
     INTEGER                    :: iproc
     LOGICAL                    :: lcomplete
     TYPE (t_geographical_coordinates) :: pcoord
@@ -500,6 +503,8 @@ CONTAINS
       &                           i_startidx, i_endidx, &
       &                           rl_start, rl_end, i_nchdom
     LOGICAL                    :: l_loop_end
+    INTEGER, ALLOCATABLE       :: cell_indices(:,:), permutation(:) ! 1D array of cell points
+    INTEGER                    :: ntotal, errstat, icount
 
     IF (dbg_level > 10) THEN
         WRITE(message_text,*) "Running with ", nproc, "thread(s)."
@@ -514,14 +519,32 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)    
 
-    ! initialize cell counter
-    CALL get_indices_c(p_patch, i_startblk,  &
-      &                i_startblk, i_endblk, &
-      &                i_startidx, i_endidx, &
-      &                rl_start, rl_end)
-    new_idx    =  (/ i_startidx, i_startblk /)
-
     count_dist = 1
+
+    ! create a 1D list of cell indices:
+    ALLOCATE(cell_indices(2,p_patch%n_patch_cells), &
+      &      permutation(p_patch%n_patch_cells),STAT=errstat)
+    IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
+    ntotal = 0
+    DO jb=i_startblk,i_endblk
+      CALL get_indices_c(p_patch, jb,  &
+        &                i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, &
+        &                rl_start, rl_end)
+      DO jc=i_startidx,i_endidx
+        ntotal = ntotal + 1
+        cell_indices(1,ntotal) = jc
+        cell_indices(2,ntotal) = jb
+      END DO
+    END DO
+    icount = 0
+
+    DO jb=1,nstrides
+      DO jc=jb,ntotal,nstrides
+        icount = icount + 1
+        permutation(icount) = jc
+      END DO
+    END DO
 
     ! create a root node
     CALL resize_node_storage()
@@ -538,6 +561,8 @@ CONTAINS
     depth(:)     =  0
     tree_depth   =  0  ! maximum tree depth
     free_node(:) = UNASSOCIATED
+    icount       =  1
+    new_idx(1:2) = cell_indices(1:2,permutation(1))    
     
     ! Short description of parallel processing:
 
@@ -594,33 +619,21 @@ CONTAINS
 
       IF (j<=nproc) THEN
         ! insert next point for this proc
-        IF (new_idx(2) <= i_endblk) THEN
-          new_idx(1) = new_idx(1) + 1   ! increase index
-          IF (new_idx(1) > i_endidx) THEN
-            new_idx(2) = new_idx(2) + 1 ! increase block
-
-            CALL get_indices_c(p_patch, new_idx(2),  &
-              &                i_startblk, i_endblk, &
-              &                i_startidx, i_endidx, &
-              &                rl_start, rl_end)
-
-            new_idx(1) = i_startidx
-          END IF
-          
-          IF ((new_idx(2) <= i_endblk) .AND.  &
-            & (new_idx(1) <= i_endidx)) THEN
-            pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
-            p(1,j)       = REAL( pcoord%lon, gk)
-            p(2,j)       = REAL( pcoord%lat, gk)
-            idx(1:2,j)   = new_idx(1:2)
-            work(j)      = work(j) + 1
-            tree_depth   = MAX(tree_depth, depth(j))
-            depth(j)     = 0
-            node_proc(j) = root
-          END IF
+        icount = icount + 1
+        IF (icount <= ntotal) THEN 
+          new_idx(1:2) = cell_indices(1:2,permutation(icount))
+          new_idx(1:2) = cell_indices(1:2,icount)
+          pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
+          p(1,j)       = REAL( pcoord%lon, gk)
+          p(2,j)       = REAL( pcoord%lat, gk)
+          idx(1:2,j)   = new_idx(1:2)
+          work(j)      = work(j) + 1
+          tree_depth   = MAX(tree_depth, depth(j))
+          depth(j)     = 0
+          node_proc(j) = root
         END IF
       END IF
-      IF ((new_idx(2) > i_endblk) .AND. (ALL(idx(1,:) == -1))) THEN
+      IF ((icount > ntotal) .AND. (ALL(idx(1,:) == -1))) THEN
         !EXIT POINTS
         l_loop_end = .TRUE.
       END IF
@@ -649,6 +662,9 @@ CONTAINS
         &                   ", maximum tree depth:", tree_depth
       CALL message(routine, TRIM(message_text))
     END IF
+
+    DEALLOCATE(cell_indices, permutation, STAT=errstat)
+    IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
 
   END SUBROUTINE gnat_insert_mt
 
