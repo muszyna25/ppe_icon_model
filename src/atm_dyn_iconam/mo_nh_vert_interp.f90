@@ -2920,7 +2920,7 @@ CONTAINS
         ! is approximated (using the log-power series) as follows:
         zprt   = geop_sfc/(rd*ztstar)
         zprtal = zprt*zalph
-        pres_out(jc,jb) = pres_in*EXP( zprt * ( 1.0_wp-zprtal*(0.5_wp-zthird*zprtal) ) )
+        pres_out(jc,jb) = pres_sfc*EXP( zprt * ( 1.0_wp-zprtal*(0.5_wp-zthird*zprtal) ) )
 
       END DO ! jc
     END DO ! jb
