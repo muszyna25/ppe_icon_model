@@ -1402,7 +1402,7 @@ MODULE mo_solve_nonhydro
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (idiv_method == 1 .AND. lhdiff_rcf .AND. istep == 1) THEN
+      IF (idiv_method == 1 .AND. istep == 1) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
@@ -1459,7 +1459,7 @@ MODULE mo_solve_nonhydro
            ENDDO
         ENDDO
 
-      ELSE IF (lhdiff_rcf .AND. istep == 1) THEN ! idiv_method = 2
+      ELSE IF (istep == 1) THEN ! idiv_method = 2
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
