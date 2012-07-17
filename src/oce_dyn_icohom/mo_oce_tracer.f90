@@ -486,7 +486,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('after AdvDiffHorz: trac_old',trac_old                 ,str_module,idt_src)
-  CALL dbg_print('after AdvDiffHorz: trac_new',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffHorz: trac_new',trac_new                 ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   ! without tracer advection/diffusion - should be controlled by namelist
