@@ -66,8 +66,8 @@ MODULE mo_pp_scheduler
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
     & max_dom, max_var_ml, max_var_pl, max_var_hl,                    &
     & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
-    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PZLEV, TASK_INTP_SYNC,      &
-    & TASK_INTP_MSL, TASK_COMPUTE_RH     
+    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
+    & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
@@ -495,7 +495,8 @@ CONTAINS
     REAL(wp), POINTER                  :: p_opt_field_r3d(:,:,:)
     TYPE(t_list_element),      POINTER :: element, new_element
     ! variable lists (for all domains + output name lists):
-    INTEGER                            :: nvars_pl, nvars_hl, nvars, nvars_predef
+    INTEGER                            :: nvars_pl, nvars_hl, nvars, nvars_predef, &
+      &                                   job_type
     CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: pl_varlist(:), hl_varlist(:)
     CHARACTER(LEN=vname_len), POINTER  :: varlist(:)
     CHARACTER(LEN=vname_len)           :: varlist_predef(5)
@@ -734,6 +735,7 @@ CONTAINS
           nlev    =  nh_pzlev_config(jg)%nzlev
           vgrid   =  ZAXIS_ALTITUDE
           p_opt_diag_list => p_opt_diag_list_z
+          job_type = TASK_INTP_VER_ZLEV
         END IF
         IF (iaxis == 2) THEN
           prefix  =  "p-level"
@@ -742,6 +744,7 @@ CONTAINS
           nlev    =  nh_pzlev_config(jg)%nplev
           vgrid   =  ZAXIS_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
+          job_type = TASK_INTP_VER_PLEV
         END IF
         
         DO ivar=1,nvars
@@ -816,7 +819,7 @@ CONTAINS
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
                 &  //", DOM "//TRIM(int2string(jg))
-              task%job_type        =  TASK_INTP_VER_PZLEV
+              task%job_type        =  job_type
               task%activity        =  new_simulation_status(l_output_step=.TRUE.)
               task%data_input%jg               =  jg 
               task%data_input%p_patch          => p_patch(jg)          
@@ -933,7 +936,7 @@ CONTAINS
         CALL pp_task_pzlev_setup(ptr_task)
       CASE ( TASK_INTP_HOR_LONLAT )
         CALL pp_task_lonlat(ptr_task)
-      CASE ( TASK_INTP_VER_PZLEV )
+      CASE ( TASK_INTP_VER_PLEV, TASK_INTP_VER_ZLEV )
         CALL pp_task_pzlev(ptr_task)
       CASE ( TASK_INTP_SYNC )
         CALL pp_task_sync()

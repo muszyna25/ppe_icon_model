@@ -466,11 +466,12 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_FINALIZE_PZ       = 3  !< task: deallocate pz-interpolation
   !------ interpolation tasks:
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_PZLEV    = 5  !< task: vertical p or z-levels
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 6  !< task: synchronizes halo regions
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_MSL          = 7  !< task: intp. to mean sea level
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_PLEV     = 5  !< task: vertical p or z-levels
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_ZLEV     = 6  !< task: vertical p or z-levels
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 7  !< task: synchronizes halo regions
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_MSL          = 8  !< task: intp. to mean sea level
   !------ computation of optional diagnostic fields
-  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 8  !< task: compute relative humidity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 9  !< task: compute relative humidity
 
 
 !--------------------------------------------------------------------

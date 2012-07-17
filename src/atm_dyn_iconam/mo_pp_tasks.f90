@@ -46,8 +46,8 @@ MODULE mo_pp_tasks
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
     & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
-    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PZLEV, TASK_INTP_SYNC,      &
-    & TASK_COMPUTE_RH     
+    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
+    & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -444,6 +444,7 @@ CONTAINS
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INIT_VER_PZ )
       ! build data structure "vcoeff" containing coefficient tables
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
       CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
         &                      p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,         & ! inout
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
@@ -455,6 +456,7 @@ CONTAINS
       !
     CASE ( TASK_INIT_VER_Z )
       ! build data structure "vcoeff" containing coefficient tables
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
       CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
         &                      p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,         & ! inout
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
@@ -486,7 +488,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_pzlev")
     INTEGER                            :: &
-      &  vert_intp_type, vert_intp_method, jg,  &
+      &  vert_intp_method, jg,                  &
       &  in_var_idx, out_var_idx, nlev, nlevp1, &
       &  nzlev, nplev, npzlev, npromz, nblks,   &
       &  dim2, ierrstat
@@ -525,7 +527,6 @@ CONTAINS
       out_var_idx = ptr_task%data_output%var%info%ncontained
 
     !--- load some items from input/output data structures
-    vert_intp_type   = p_info%vert_interp%vert_intp_type
     vert_intp_method = p_info%vert_interp%vert_intp_method
 
     ! patch, state, and metrics
@@ -544,17 +545,20 @@ CONTAINS
     nplev             = nh_pzlev_config%nplev
 
     ! pz-level interpolation data
-    IF ( vert_intp_type == VINTP_TYPE_Z) THEN
+    SELECT CASE ( ptr_task%job_type )
+    CASE ( TASK_INTP_VER_ZLEV )
       ! vertical levels for z-level interpolation
       npzlev  =   nzlev
       vcoeff  =>  p_diag_pz%vcoeff_z
       p_z3d   =>  nh_pzlev_config%z3d
-    ELSE
+    CASE ( TASK_INTP_VER_PLEV )
       ! vertical levels for p-level interpolation
       npzlev  =   nplev
       vcoeff  =>  p_diag_pz%vcoeff_p
       p_z3d   =>  p_diag_pz%p_geopot
-    END IF
+    CASE DEFAULT
+      CALL finish(routine, "Unknown post-processing job.")
+    END SELECT
                      
     ! interpolation flags + parameters
     pzlev_flags => in_var%info%vert_interp
