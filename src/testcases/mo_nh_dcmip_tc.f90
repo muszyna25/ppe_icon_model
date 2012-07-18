@@ -340,6 +340,10 @@ CONTAINS
 
       ! initialize atmosphere ...
       !-----------------------------------------------------------------------
+
+      ! tracers
+      x(:,:,jb,:) = 0.0_wp
+
       levels_c: DO jk = 1, nlev
 
         cells_3d: DO jc = i_startidx, i_endidx
@@ -354,9 +358,8 @@ CONTAINS
             !-----------------------------------------------------------------------
             tv(jc,jk,jb) = ttrop
 
-            ! tracers and specific humidity                                  (eq.91)
+            ! specific humidity                                              (eq.91)
             !-----------------------------------------------------------------------
-            x(jc,jk,jb,:) = 0.0_wp
             q(jc,jk,jb)   = qtrop
 
             ! tangential wind of cyclone                                    (eq.108)
@@ -368,7 +371,7 @@ CONTAINS
             ! pressure                                                   (eqs.94+98)
             !-----------------------------------------------------------------------
             p(jc,jk,jb) = (p00-dp*EXP(-(gr(jc,jb)/rp)**exppr-(z(jc,jk,jb)/zp)**exppz)) &
-              &          *((t0-gamma*z(jc,jk,jb))/t0)**(1/exponent)
+              &          *((t0-gamma*z(jc,jk,jb))/t0)**(1.0_wp/exponent)
 
             ! virtual temperature                                       (eqs.92,102)
             !-----------------------------------------------------------------------
@@ -377,9 +380,8 @@ CONTAINS
               &                      /(grav*zp**exppz*(1.0_wp-p00/dp*EXP( (gr(jc,jb)/rp)**exppr        &
               &                                                          +(z(jc,jk,jb)/zp)**exppz) )))
 
-            ! tracers and specific humidity                                  (eq.91)
+            ! specific humidity                                              (eq.91)
             !-----------------------------------------------------------------------
-            x(jc,jk,jb,:) = 0.0_wp
             q(jc,jk,jb)   = q0*EXP(-(z(jc,jk,jb)/zq1)-(z(jc,jk,jb)/zq2)**exppz)
 
             ! tangential wind of cyclone                                    (eq.108)
