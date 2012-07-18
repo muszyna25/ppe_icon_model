@@ -111,6 +111,7 @@ MODULE mo_nh_dcmip_tc
 
   USE mo_nh_diagnose_pres_temp,ONLY:diagnose_pres_temp
 
+  USE mo_sync,                ONLY: SYNC_E, sync_patch_array
 
   IMPLICIT NONE
 
@@ -439,6 +440,8 @@ CONTAINS
     CALL cells2edges_scalar(vtc_c,                 &
       &                     p_patch,p_int%c_lin_e, &
       &                     vtc_e                  )
+
+    CALL sync_patch_array(SYNC_E,p_patch,vtc_e)
 
     DEALLOCATE(vtc_c)
 
