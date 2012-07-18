@@ -263,7 +263,7 @@ CONTAINS
 !                &/delta_z)
 
                 z_temp(jc,jk,jb)= trac_old(jc,jk,jb)*(delta_z/delta_z2)&
-                & -(delta_t/delta_z2)*(z_div_adv_v(jc,jk,jb)&!-bc_top_tracer(jc,jb)&
+                & -(delta_t/delta_z2)*(z_div_adv_v(jc,jk,jb)-bc_top_tracer(jc,jb)&
                 & - flux_horz(jc,jk,jb))
 !      write(204060,*)'data',jc,jk,jb,&
 !      &z_temp(jc,jk,jb), trac_old(jc,jk,jb)*(delta_z/delta_z2),&
