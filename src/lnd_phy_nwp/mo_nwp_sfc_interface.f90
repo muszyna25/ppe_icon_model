@@ -623,13 +623,13 @@ CONTAINS
 
          IF(lsnowtile) THEN      ! snow is considered as separate tiles
            DO isubs = 1, nsfc_stat
-!              CALL update_snow_index_list(i_count = ext_data%atm%gp_count_t(jb,isubs),                  &
-!                                          i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat), &
-!                                          idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
-!                                          idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
-!                                          lsnowpres = (lnd_prog_new%w_snow_t(:,jb,isubs).GT.1.E-06_wp), &
-!                                          lc_class = lc_class_t(:,jb,isubs),                            &
-!                                          sntile_lcc = ext_data%atm%snowtile_lcc(:))
+             CALL update_snow_index_list(i_count = ext_data%atm%gp_count_t(jb,isubs),                  &
+                                         i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat), &
+                                         idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
+                                         idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
+                                         lsnowpres = (lnd_prog_new%w_snow_t(:,jb,isubs).GT.1.E-06_wp), &
+                                         lc_class = lc_class_t(:,jb,isubs),                            &
+                                         sntile_lcc = ext_data%atm%snowtile_lcc(:))
            ENDDO
          END IF
        ENDIF     ! with or without tiles
