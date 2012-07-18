@@ -1871,29 +1871,14 @@ IF(l_RIGID_LID)THEN
   pw_c(:,1,:) = 0.0_wp
 ENDIF
 CALL sync_patch_array(SYNC_C,p_patch,pw_c)
- DO jk = 1,n_zlev+1
- write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,
-! !&maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:))
- END DO
-! !write(*,*)'bc',maxval(bot_bc_w), minval(bot_bc_w)
-! write(*,*)'details vert veloc',&
-! &maxval(z_div_int_c),minval(z_div_int_c),&
-! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
-! &minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime)
-! write(*,*)'difference',&
-! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
-! &/dtime-z_div_int_c),&
-! &minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
-! &/dtime-z_div_int_c)
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
-idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('vertical velocity'           ,pw_c                     ,str_module,idt_src)
 idt_src=4  ! output print level (1-5, fix)
-CALL dbg_print('div velocity'                ,z_div_c                  ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMimTD: z_vn'      ,z_vn                     ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMimTD: div(v)_c'  ,z_div_c                  ,str_module,idt_src)
+idt_src=3  ! output print level (1-5, fix)
+CALL dbg_print('CalcVertVelMimTD: pw_c'      ,pw_c                     ,str_module,idt_src)
 !---------------------------------------------------------------------
-
-
 
 END SUBROUTINE calc_vert_velocity_mim_topdown
 !-------------------------------------------------------------------------
