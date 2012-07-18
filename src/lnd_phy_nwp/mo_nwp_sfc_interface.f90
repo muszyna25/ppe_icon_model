@@ -95,7 +95,7 @@ CONTAINS
                         & p_tiles                         ) !>in
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
-    TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
+    TYPE(t_external_data),       INTENT(inout):: ext_data      !< external data
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag        !< diag vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag      !< atm phys vars
