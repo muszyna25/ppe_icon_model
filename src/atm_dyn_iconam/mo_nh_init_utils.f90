@@ -798,20 +798,30 @@ CONTAINS
                    'allocation of vct failed')
     ENDIF
 
-    z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
-      &     REAL(nlev,wp)**stretch_fac))
+    IF (min_lay_thckn > 0.01_wp) THEN
+      z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
+        &     REAL(nlev,wp)**stretch_fac))
 
-    ! Set up distribution of coordinate surfaces according to the analytical formula
-    ! vct = h_top*(2/pi*arccos(jk-1/nlev))**z_exp (taken from the COSMO model, src_artifdata)
-    ! z_exp has been calculated above in order to return min_lay_thckn as thickness
-    ! of the lowest model layer
-    DO jk = 1, nlevp1
-      vct_a(jk)      = top_height*(2._wp/pi*ACOS(REAL(jk-1,wp)**stretch_fac/ &
-        &              REAL(nlev,wp)**stretch_fac))**z_exp
-      vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
-      vct(jk)        = vct_a(jk)
-      vct(jk+nlevp1) = vct_b(jk)
-    ENDDO
+      ! Set up distribution of coordinate surfaces according to the analytical formula
+      ! vct = h_top*(2/pi*arccos(jk-1/nlev))**z_exp (taken from the COSMO model, src_artifdata)
+      ! z_exp has been calculated above in order to return min_lay_thckn as thickness
+      ! of the lowest model layer
+      DO jk = 1, nlevp1
+        vct_a(jk)      = top_height*(2._wp/pi*ACOS(REAL(jk-1,wp)**stretch_fac/ &
+          &              REAL(nlev,wp)**stretch_fac))**z_exp
+        vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
+        vct(jk)        = vct_a(jk)
+        vct(jk+nlevp1) = vct_b(jk)
+      ENDDO
+    ELSE
+     ! Use constant layer thicknesses determined by nlev and top_height
+      DO jk = 1, nlevp1
+        vct_a(jk) = top_height*(REAL(nlevp1,wp)-REAL(jk,wp))/REAL(nlev,wp)
+        vct_b(jk) = EXP(-vct_a(jk)/5000._wp)
+        vct(jk)        = vct_a(jk)
+        vct(jk+nlevp1) = vct_b(jk)
+      ENDDO
+    ENDIF
 
     ! Determine nflat (first model level for which coordinate surfaces have a
     ! terrain-following component)
