@@ -158,15 +158,21 @@ CONTAINS
     ! in zml_soil. zml_soil provides soil layer full level heights.
     nlev_soil = SIZE(zml_soil)-1  !< currently 7
 
+    ! number of tiles
+    IF(lsnowtile) THEN
+      nsfc_subs = nsfc_stat + nsfc_stat
+    ELSE
+      nsfc_subs = nsfc_stat
+    END IF  
 
 
     ! setup tile arrays
     !
-    ALLOCATE (p_tiles(n_dom, nsfc_subs), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_tiles failed')
-    ENDIF
-    CALL construct_tiles_arrays (p_patch, p_tiles, n_dom, nproma)
+!    ALLOCATE (p_tiles(n_dom, nsfc_subs), stat=ist)
+!    IF (ist /= success) THEN
+!      CALL finish(TRIM(routine),'allocation for p_tiles failed')
+!    ENDIF
+!    CALL construct_tiles_arrays (p_patch, p_tiles, n_dom, nproma)
 
 !    DO jg = 1, n_dom
 !      DO isubs = 1, nsfc_subs - nsfc_snow

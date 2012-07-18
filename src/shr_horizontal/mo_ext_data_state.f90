@@ -64,7 +64,7 @@ MODULE mo_ext_data_state
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_lnd_nwp_config,     ONLY: nsfc_subs, frac_thresh
+  USE mo_lnd_nwp_config,     ONLY: nsfc_subs, frac_thresh, nsfc_stat, lsnowtile
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
@@ -2673,10 +2673,9 @@ CONTAINS
                ext_data(jg)%atm%gp_count_t(jb,1)         = i_count
 
              ELSE    
-
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
 ! JH
-               DO i_lu = 1, nsfc_subs !- nsfc_snow
+               DO i_lu = 1, nsfc_stat
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)
                  IF (tile_frac(lu_subs) >= frac_thresh) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1
@@ -2690,6 +2689,15 @@ CONTAINS
                    ! The land cover classes are also stored on the ordinary grid; 
                    ! they are not needed during runtime
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
+                   IF(lsnowtile) THEN
+                     IF(ext_data(jg)%atm%snowtile_lcc(lu_subs) .EQ. 1) THEN  ! snow tile is considered
+                       it_count(i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat) + 1
+                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu + nsfc_stat),jb,i_lu + nsfc_stat) = jc
+                       ext_data(jg)%atm%gp_count_t(jb,i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat)
+                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu + nsfc_stat)  = 0._wp ! should be snow fraction
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu + nsfc_stat) = lu_subs
+                     END IF
+                   END IF
                  ELSE
                    EXIT ! no more land cover classes exceeding the threshold
                  ENDIF

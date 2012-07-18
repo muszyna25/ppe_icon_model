@@ -56,7 +56,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
-    &                               lseaice, llake, lmulti_snow, nsfc_stat
+    &                               lseaice, llake, lmulti_snow, nsfc_stat, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_snow_index_list
@@ -621,20 +621,18 @@ CONTAINS
     !          ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
          ENDDO
 
-         DO isubs = 1, nsfc_stat
-
-           i_count      = ext_data%atm%gp_count_t(jb,isubs) 
-           i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat) 
-
-!           CALL update_snow_index_list(i_count, i_count_snow,                                        &
-!                                       idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
-!                                       idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
-!                                       lsnowpres = (lnd_prog_new%w_snow_t(:,jb,isubs).GT.1.E-06_wp), &
-!                                       lc_class = lc_class_t(:,jb,isubs),                            &
-!                                       sntile_lcc = ext_data%atm%snowtile_lcc(:))
-         ENDDO
-
-       ENDIF
+         IF(lsnowtile) THEN      ! snow is considered as separate tiles
+           DO isubs = 1, nsfc_stat
+             CALL update_snow_index_list(i_count = ext_data%atm%gp_count_t(jb,isubs),                  &
+                                         i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat), &
+                                         idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
+                                         idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
+                                         lsnowpres = (lnd_prog_new%w_snow_t(:,jb,isubs).GT.1.E-06_wp), &
+                                         lc_class = lc_class_t(:,jb,isubs),                            &
+                                         sntile_lcc = ext_data%atm%snowtile_lcc(:))
+           ENDDO
+         END IF
+       ENDIF     ! with or without tiles
    
     
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 
