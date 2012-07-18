@@ -189,17 +189,6 @@ CONTAINS
         ENDDO
       END DO
     END DO
-!     DO jk = 1, n_zlev
-!         write(*,*)'vertical adv:',jk,minval(z_adv_flux_v(:,jk,:)),&
-!         &maxval(z_adv_flux_v(:,jk,:))
-!     END DO
-!     DO jk = 1, n_zlev
-!       write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
-!       &maxval(z_div_adv_v(:,jk,:))
-!     END DO
-
-
-
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
@@ -261,18 +250,13 @@ CONTAINS
         END DO
       END DO
 
-!       DO jk = 1, n_zlev
-!         write(*,*)'before impl-diff: max/min:',jk,&
-!         &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:))
-!       END DO
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=5  ! output print level (1-5, fix)
       CALL dbg_print('AdvDifVert: bef.impl.diff' ,z_temp ,str_module,idt_src)
       !---------------------------------------------------------------------
 
       !calculate vert diffusion impicit: result is stored in trac_out
-        CALL tracer_diffusion_vert_impl_hom( p_patch,         &
+      CALL tracer_diffusion_vert_impl_hom( p_patch,           &
                                      & z_temp,                &
                                      & p_os%p_prog(nnew(1))%h,&
                                      & A_v,                   &
@@ -353,46 +337,44 @@ CONTAINS
     z_temp         = 0.0_wp
     z_h            = 1.0_wp  !  division by z_h in tracer_diffusion_vert_expl
 
-  jk = 1
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-        delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
-                &*v_base%wet_c(jc,jk,jb)
-
-        p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-
-        cell_thick_intermed_c(jc,jk,jb)&
-        & = delta_z-delta_t*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-        & -delta_t*(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
-        & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))
-      ENDIF
-    END DO
-  END DO
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 2, n_zlev
-      delta_z = v_base%del_zlev_m(jk)
+    jk = 1
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
+                  &*v_base%wet_c(jc,jk,jb)
+   
           p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-
-          cell_thick_intermed_c(jc,jk,jb)= &
-          & delta_z-delta_t*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-          & -delta_t*(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
+   
+          cell_thick_intermed_c(jc,jk,jb)&
+          & = delta_z-delta_t*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+          & -delta_t*(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
           & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))
         ENDIF
       END DO
     END DO
-  END DO
+   
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jk = 2, n_zlev
+        delta_z = v_base%del_zlev_m(jk)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            p_os%p_diag%depth_c(jc,jk,jb) = delta_z
+   
+            cell_thick_intermed_c(jc,jk,jb)= &
+            & delta_z-delta_t*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+            & -delta_t*(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
+            & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))
+          ENDIF
+        END DO
+      END DO
+    END DO
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=5  ! output print level (1-5, fix)
-    !CALL dbg_print('AdvVert: adv_flux h_tmp_c' ,z_h_tmp_c                ,str_module,idt_src)
     CALL dbg_print('AdvVert: div_adv_v'        ,z_div_adv_v              ,str_module,idt_src)
-    !CALL dbg_print('AdvVert: dummy_h_c_new'    ,dummy_h_c_new            ,str_module,idt_src)
     !---------------------------------------------------------------------
 
 
@@ -438,18 +420,6 @@ CONTAINS
       END DO
     END DO
 
-    DO jk = 1, n_zlev
- !     IF (ldbg) THEN
-        write(*,*)'vertical adv:',jk,minval(z_adv_flux_v(:,jk,:)),&
-        &maxval(z_adv_flux_v(:,jk,:))
-  !    ENDIF
-    END DO
-    DO jk = 1, n_zlev
- !    IF (ldbg) THEN
-      write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
-      &maxval(z_div_adv_v(:,jk,:))
-  !   ENDIF
-    END DO
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('AdvVert: adv_flux_v'       ,z_adv_flux_v             ,str_module,idt_src)
@@ -508,13 +478,6 @@ CONTAINS
         END DO
       END DO
 
-      !IF (ldbg) THEN
-        DO jk = 1, n_zlev
-          write(*,*)'before impl-diff: max/min:',jk,&
-          &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:))
-        END DO
-      !ENDIF
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=5  ! output print level (1-5, fix)
       CALL dbg_print('AdvVert: bef.impl.diff:temp',z_temp                   ,str_module,idt_src)
@@ -522,7 +485,7 @@ CONTAINS
       !---------------------------------------------------------------------
 
       !calculate vert diffusion impicit: result is stored in trac_out
-        CALL tracer_diffusion_vert_impl_hom( p_patch,         &
+      CALL tracer_diffusion_vert_impl_hom( p_patch,           &
                                      & z_temp,                &
                                      & p_os%p_prog(nnew(1))%h,&
                                      & A_v,                   &
@@ -535,9 +498,10 @@ CONTAINS
 
     !vertival diffusion is calculated explicitely
     ELSEIF(expl_vertical_tracer_diff==0)THEN
+
       CALL finish("advect_diffuse_vertical", &
       &"xplicit vertical tracer mixing currently not supported -  change namlist option")
-    !ENDIF!(lvertical_diff_implicit)THEN
+
 !      ! #slo# 2012-06-11: ATTENTION: z_h is used for division in explicit tracer diffusion
 !      !                              but z_h is not calculated!
 !      CALL tracer_diffusion_vert_expl( p_patch,       &
@@ -625,6 +589,7 @@ CONTAINS
       !---------------------------------------------------------------------
 
     ENDIF ! lvertical_diff_implicit
+
     IF (ltimer) CALL timer_stop(timer_dif_vert)
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_out)

@@ -488,6 +488,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('after AdvDiffHorz: trac_old',trac_old                 ,str_module,idt_src)
   CALL dbg_print('after AdvDiffHorz: trac_new',trac_new                 ,str_module,idt_src)
+  CALL dbg_print('after AdvDiffHorz: flux_hor',flux_horz                ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   ! without tracer advection/diffusion - should be controlled by namelist
@@ -503,10 +504,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
 !                              & trac_new, timestep, delta_t,    &
 !                              & z_cellthick_intmed,             &
 !                              & FLUX_CALCULATION_VERT, tracer_id)
-! DO jk=1,n_zlev
-! write(*,*)'TRACER FLUX horz',jk,&
-! &minval(flux_horz(:,jk,:)),maxval(flux_horz(:,jk,:))
-! END DO
+
        CALL advect_diffuse_flux_vertical(p_patch, flux_horz, trac_old, &
                             & p_os,                           &
                             & bc_top_tracer, bc_bot_tracer,   &
@@ -520,12 +518,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
     trac_new = trac_tmp
 
   ENDIF
-
-DO jk=1,n_zlev
-write(*,*)'TRACER old:new',jk,&
-&minval(trac_old(:,jk,:)),maxval(trac_old(:,jk,:)),&
-&minval(trac_new(:,jk,:)),maxval(trac_new(:,jk,:))
-END DO
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
