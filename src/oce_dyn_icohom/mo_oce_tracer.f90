@@ -389,10 +389,11 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
 
         p_os%p_diag%depth_c(jc,jk,jb) = delta_z
 
-        z_cellthick_intmed(jc,jk,jb)&
-        & = delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-        & +(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
-        & - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
+        z_cellthick_intmed(jc,jk,jb)= v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)&
+                &*v_base%wet_c(jc,jk,jb)!delta_z!&
+        !& = delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+        !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
+        !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
       ENDIF
     END DO
   END DO
@@ -405,16 +406,16 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           p_os%p_diag%depth_c(jc,jk,jb) = delta_z
 
-          z_cellthick_intmed(jc,jk,jb)= &
-          & delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-          & +(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
-          & - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
+          z_cellthick_intmed(jc,jk,jb)= delta_z!&
+          !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+          !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
+          !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
         ENDIF
       END DO
     END DO
   END DO
 
-  p_os%p_diag%depth_c=z_cellthick_intmed
+  !p_os%p_diag%depth_c=z_cellthick_intmed
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=4  ! output print level (1-5, fix)
@@ -502,7 +503,10 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
 !                              & trac_new, timestep, delta_t,    &
 !                              & z_cellthick_intmed,             &
 !                              & FLUX_CALCULATION_VERT, tracer_id)
-
+! DO jk=1,n_zlev
+! write(*,*)'TRACER FLUX horz',jk,&
+! &minval(flux_horz(:,jk,:)),maxval(flux_horz(:,jk,:))
+! END DO
        CALL advect_diffuse_flux_vertical(p_patch, flux_horz, trac_old, &
                             & p_os,                           &
                             & bc_top_tracer, bc_bot_tracer,   &
@@ -516,6 +520,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
     trac_new = trac_tmp
 
   ENDIF
+
+DO jk=1,n_zlev
+write(*,*)'TRACER old:new',jk,&
+&minval(trac_old(:,jk,:)),maxval(trac_old(:,jk,:)),&
+&minval(trac_new(:,jk,:)),maxval(trac_new(:,jk,:))
+END DO
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)

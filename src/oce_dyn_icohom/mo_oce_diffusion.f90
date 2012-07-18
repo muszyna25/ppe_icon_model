@@ -1207,6 +1207,132 @@ SUBROUTINE tracer_diffusion_vert_expl( p_patch,        &
   !---------------------------------------------------------------------
 
 END SUBROUTINE tracer_diffusion_vert_expl
+! !-------------------------------------------------------------------------  
+! !
+! !!Subroutine implements implicit vertical diffusion for scalar fields.
+! !>
+! !! sbr identical to sbr above but now with homogeneous boundary conditions
+! !!
+! !! @par Revision History
+! !! Developed  by  Peter Korn, MPI-M (2011).
+! !!
+! !! mpi parallelized, no sync required
+! SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
+!                                 & field_column,   &
+!                                 & h_c,            &
+!                                 & A_v,            &
+!                                 & diff_column)
+! 
+!   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+!   REAL(wp), INTENT(inout)           :: field_column(:,:,:)
+!   REAL(wp), INTENT(IN)              :: h_c(:,:)           !surface height, relevant for thickness of first cell 
+!   REAL(wp), INTENT(in)              :: A_v(:,:,:)
+!   REAL(wp), INTENT(out)             :: diff_column(:,:,:)
+!   !
+!   !Local variables
+!   INTEGER :: slev
+!   INTEGER :: jc, jk, jb
+!   INTEGER :: i_startidx_c, i_endidx_c
+!   REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
+!   REAL(wp) :: z_tmp
+!   REAL(wp) :: inv_zinv_i(1:n_zlev)
+!   REAL(wp) :: inv_zinv_m(1:n_zlev)
+!   !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
+!   !REAL(wp) :: z_c1(nproma,1,p_patch%nblks_c)
+!   INTEGER  :: z_dolic
+!   TYPE(t_subset_range), POINTER :: all_cells
+!   ! CHARACTER(len=max_char_length), PARAMETER :: &
+!   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
+!   !-----------------------------------------------------------------------
+!   slev    = 1
+!   !A_v    = 0.0001_wp
+! 
+!   diff_column(:,:,:)      = field_column(:,:,:)
+!   a(slev:n_zlev)          = 0.0_wp
+!   b(slev:n_zlev)          = 0.0_wp
+!   c(slev:n_zlev)          = 0.0_wp
+!   !bet(slev:n_zlev)       = 1.0_wp
+!   !gam(slev:n_zlev)       = 0.0_wp
+!   inv_zinv_i(slev:n_zlev) = 0.0_wp
+!   inv_zinv_m(slev:n_zlev) = 0.0_wp
+! 
+!   all_cells => p_patch%cells%all
+! 
+!   DO jb = all_cells%start_block, all_cells%end_block
+!     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!     DO jc = i_startidx_c, i_endidx_c
+!       z_dolic = v_base%dolic_c(jc,jb)
+! 
+!       IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+!         IF ( z_dolic >=MIN_DOLIC ) THEN
+! 
+!           inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
+!           inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
+! 
+!            !inv_zinv_i(1) = 1.0_wp/(v_base%del_zlev_i(1)+h_c(jc,jb))
+!            !inv_zinv_m(1) = 1.0_wp/(v_base%del_zlev_m(1)+h_c(jc,jb))
+!           !inv_zinv_i(:) = 1.0_wp/h_c(jc,:,jb)
+!           !inv_zinv_m(:) = 1.0_wp/h_c(jc,:,jb)
+! 
+!           !Fill triangular matrix
+!           !b is diagonal a and c are upper and lower band
+!           DO jk = slev+1, z_dolic-1
+!             a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
+!             c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)*dtime
+!             b(jk) = 1.0_wp-a(jk)-c(jk)
+!           END DO
+! 
+!           ! The first row
+!           c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
+!           a(slev) = 0.0_wp           
+!           b(slev) = 1.0_wp- c(slev) - a(slev) 
+! 
+!           ! The last row
+!           a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)*dtime
+!           c(z_dolic) = 0.0_wp
+!           b(z_dolic) = 1.0_wp - a(z_dolic) - c(z_dolic)
+! 
+!           DO jk=slev, z_dolic-1
+!             IF(b(jk)/=0.0_wp)THEN
+!               a(jk) = a(jk)/b(jk)
+!               c(jk) = c(jk)/b(jk)
+!               field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
+!               b(jk)=1.0_wp
+!             ENDIF
+!           END DO
+! 
+!           DO jk=slev+1, z_dolic-1
+!             b(jk)                  = b(jk)-a(jk)*c(jk-1)
+!             field_column(jc,jk,jb) = field_column(jc,jk,jb)&
+!                           &-a(jk)*field_column(jc,jk-1,jb)
+!             c(jk)                  = c(jk)/b(jk)
+!             field_column(jc,jk,jb) = field_column(jc,jk,jb)/b(jk)
+!             b(jk)                  = 1.0_wp
+!           END DO
+! 
+!           z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
+!           z_tmp = (field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
+! 
+!           field_column(jc,z_dolic,jb) = z_tmp
+!           DO jk = z_dolic-1,1,-1
+!             field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
+!           END DO
+!           DO jk = 1,z_dolic!-1
+!             diff_column(jc,jk,jb) = field_column(jc,jk,jb)
+!           END DO
+!         ELSEIF ( z_dolic < MIN_DOLIC ) THEN
+!           diff_column(jc,:,jb) = 0.0_wp
+!           field_column(jc,:,jb)= 0.0_wp
+!         ENDIF
+!       ELSEIF( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+!         diff_column(jc,:,jb) = field_column(jc,:,jb)
+!       ENDIF
+! 
+! 
+!     END DO
+!   END DO
+! 
+! END SUBROUTINE tracer_diffusion_vert_impl_hom
 !-------------------------------------------------------------------------  
 !
 !!Subroutine implements implicit vertical diffusion for scalar fields.
@@ -1237,6 +1363,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
   REAL(wp) :: z_tmp
   REAL(wp) :: inv_zinv_i(1:n_zlev)
   REAL(wp) :: inv_zinv_m(1:n_zlev)
+  REAL(wp) :: dt_inv
   !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
   !REAL(wp) :: z_c1(nproma,1,p_patch%nblks_c)
   INTEGER  :: z_dolic
@@ -1246,13 +1373,13 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
   !-----------------------------------------------------------------------
   slev    = 1
   !A_v    = 0.0001_wp
+  dt_inv = 1.0_wp/dtime
 
-  diff_column(:,:,:)      = field_column(:,:,:)
+  field_column=field_column*dt_inv
+
   a(slev:n_zlev)          = 0.0_wp
   b(slev:n_zlev)          = 0.0_wp
   c(slev:n_zlev)          = 0.0_wp
-  !bet(slev:n_zlev)       = 1.0_wp
-  !gam(slev:n_zlev)       = 0.0_wp
   inv_zinv_i(slev:n_zlev) = 0.0_wp
   inv_zinv_m(slev:n_zlev) = 0.0_wp
 
@@ -1277,20 +1404,20 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
           !Fill triangular matrix
           !b is diagonal a and c are upper and lower band
           DO jk = slev+1, z_dolic-1
-            a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
-            c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)*dtime
-            b(jk) = 1.0_wp-a(jk)-c(jk)
+            a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)!*dtime
+            c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)!*dtime
+            b(jk) = dt_inv-a(jk)-c(jk)
           END DO
 
           ! The first row
-          c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
+          c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)!*dtime
           a(slev) = 0.0_wp           
-          b(slev) = 1.0_wp- c(slev) !- a(slev) 
+          b(slev) = dt_inv- c(slev)! - a(slev) 
 
           ! The last row
-          a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)*dtime
+          a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)!*dtime
           c(z_dolic) = 0.0_wp
-          b(z_dolic) = 1.0_wp - a(z_dolic)! - c(z_dolic)
+          b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
           DO jk=slev, z_dolic-1
             IF(b(jk)/=0.0_wp)THEN
@@ -1362,6 +1489,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
   REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
   !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
   REAL(wp) :: z_tmp
+  REAL(wp) :: dt_inv
   INTEGER  :: z_dolic
   REAL(wp) :: inv_zinv_i(1:n_zlev)
   REAL(wp) :: inv_zinv_m(1:n_zlev)
@@ -1372,6 +1500,9 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
   !-----------------------------------------------------------------------
   slev = 1
+  dt_inv=1.0_wp/dtime
+
+  field_column=field_column*dt_inv
 
   !gam(1:n_zlev)          = 0.0_wp
   a(slev:n_zlev)          = 0.0_wp
@@ -1380,7 +1511,6 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
   !bet(slev:n_zlev)       = 1.0_wp
   inv_zinv_i(slev:n_zlev) = 0.0_wp
   inv_zinv_m(slev:n_zlev) = 0.0_wp
-  diff_column             = field_column
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=5  ! output print level (1-5, fix)
@@ -1405,20 +1535,20 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
           !Fill triangular matrix
           !b is diagonal a and c are upper and lower band
           DO jk = slev+1, z_dolic-1
-            a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
-            c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)*dtime
-            b(jk) = 1.0_wp-a(jk)-c(jk)
+            a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)!*dtime
+            c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)!*dtime
+            b(jk) = dt_inv-a(jk)-c(jk)
           END DO
 
           ! The first row
-           c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
+           c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)!*dtime
            a(slev) = 0.0_wp           
-           b(slev) = 1.0_wp- c(slev) !- a(slev) 
+           b(slev) = dt_inv- c(slev) !- a(slev) 
 
           ! The last row
-          a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+          a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)!*dtime
           c(z_dolic) = 0.0_wp
-          b(z_dolic) = 1.0_wp - a(z_dolic)! - c(z_dolic)
+          b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
           DO jk=slev, z_dolic-1
             IF(b(jk)/=0.0_wp)THEN

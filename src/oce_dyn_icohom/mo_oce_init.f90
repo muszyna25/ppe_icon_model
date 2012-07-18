@@ -2097,28 +2097,7 @@ ELSEIF( iswm_oce == 1 )THEN
       write(*,*)'max/min tracer at initial time',&
       &maxval( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
       &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
-      IF(idisc_scheme==1)THEN
-        CALL calc_scalar_product_veloc_3D( ppatch,                 &
-          &                                p_os%p_prog(nold(1))%vn,&
-          &                                p_os%p_prog(nold(1))%vn,&
-          &                                p_os%p_diag%h_e,        &
-          &                                p_os%p_diag, p_op_coeff)
-        CALL grad_fd_norm_oce_2D_3D( p_os%p_diag%kin(:,1,:), &
-                             & ppatch,        &
-                             & p_op_coeff%grad_coeff,&
-                             & p_os%p_diag%grad(:,1,:) )
-      ENDIF
-! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
-!                           & ppatch,                &
-!                           & p_int,                  &
-!                           & p_os%p_diag%vt,         &
-!                           & opt_slev=1, opt_elev=n_zlev)
-! CALL rbf_vec_interpol_cell( p_os%p_prog(nold(1))%vn,&
-!                           & ppatch,&
-!                           & p_int,&
-!                           & p_os%p_diag%u,  &
-!                           & p_os%p_diag%v, &
-!                           & opt_slev=1, opt_elev=n_zlev)
+
     CASE(29)!State at rest, forced by wind
 
           p_os%p_prog(nold(1))%h         = 0.0_wp

@@ -147,36 +147,6 @@ CONTAINS
     z_diff_flux_v  = 0.0_wp
     z_temp         = 0.0_wp
 
-! !   jk = 1
-! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-! !     DO jc = i_startidx_c, i_endidx_c
-! !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !         delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
-! !                 &*v_base%wet_c(jc,jk,jb)
-! !         p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-! !         cell_thick_intermed_c(jc,jk,jb)&
-! !         & = delta_z-delta_t*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-! !         & -delta_t*(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
-! !         & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))
-! !       ENDIF
-! !     END DO
-! !   END DO 
-! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-! !     DO jk = 2, n_zlev
-! !       delta_z = v_base%del_zlev_m(jk)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !           p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-! !           cell_thick_intermed_c(jc,jk,jb)= &
-! !           & delta_z-delta_t*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-! !           & -delta_t*(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
-! !           & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))
-! !         ENDIF
-! !       END DO
-! !     END DO
-! !   END DO
 
     ! Initialize timer for horizontal advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
@@ -256,14 +226,10 @@ CONTAINS
             z_dolic = v_base%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              delta_z =v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-              delta_z2=v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
-!                z_temp(jc,jk,jb)= trac_in(jc,jk,jb)&
-!                & -delta_t*((z_div_adv_v(jc,jk,jb)-bc_top_tracer(jc,jb))&
-!                &/delta_z)
+              delta_z =v_base%del_zlev_m(jk)!+p_os%p_prog(nold(1))%h(jc,jb)
 
-                z_temp(jc,jk,jb)= trac_old(jc,jk,jb)*(delta_z/delta_z2)&
-                & -(delta_t/delta_z2)*(z_div_adv_v(jc,jk,jb)-bc_top_tracer(jc,jb)&
+                z_temp(jc,jk,jb)= trac_old(jc,jk,jb) &
+                & -(delta_t/delta_z)*(z_div_adv_v(jc,jk,jb)-bc_top_tracer(jc,jb)&
                 & - flux_horz(jc,jk,jb))
 !      write(204060,*)'data',jc,jk,jb,&
 !      &z_temp(jc,jk,jb), trac_old(jc,jk,jb)*(delta_z/delta_z2),&
@@ -691,7 +657,7 @@ CONTAINS
         END WHERE
       ELSEIF(temperature_relaxation==0)THEN
        WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = 0.0_wp
+        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)!0.0_wp
        END WHERE
       ENDIF
     !salinity has tracer_id=2 
@@ -702,7 +668,7 @@ CONTAINS
        END WHERE
       ELSEIF(irelax_2d_S==0)THEN
        WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = 0.0_wp
+        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)!0.0_wp
        END WHERE
       ENDIF
     ENDIF

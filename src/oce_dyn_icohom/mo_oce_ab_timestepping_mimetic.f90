@@ -1748,32 +1748,27 @@ IF(l_EDGE_BASED)THEN
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx
-
       z_dolic = v_base%dolic_c(jc,jb)
-      IF ( z_dolic>=MIN_DOLIC)THEN !
+      IF ( z_dolic>=MIN_DOLIC)THEN
 
-        !use bottom boundary condition for vertical velocity at bottom
-        !of prism
-        !delta_z = v_base%del_zlev_m(z_dolic)
-        pw_c(jc,z_dolic,jb) = top_bc_w(jc,jb) - z_div_c(jc,z_dolic,jb)!*delta_z
+        !Top layer
+        pw_c(jc,1,jb)=-sum(z_div_c(jc,:,jb))
 
-         DO jk = z_dolic-1, 1, -1
+        DO jk = 2,z_dolic
           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          !delta_z = v_base%del_zlev_m(jk)
-          !IF (jk == 1)THEN 
-          ! !at surface level (toplev) add surface elevation h_c
-          !delta_z = v_base%del_zlev_m(jk) + ph_c(jc,jb)
-          !ENDIF
-
-          ! vertical velocity is integrated from bottom to top
-          ! vertical velocity is negative for positive divergence
-          ! of horizontal velocity
-          pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)!*delta_z
+          pw_c(jc,jk,jb)     = pw_c(jc,jk-1,jb) + z_div_c(jc,jk-1,jb)
           ENDIF
         END DO
+        IF(v_base%lsm_oce_c(jc,z_dolic,jb) <= sea_boundary ) THEN
+          pw_c(jc,z_dolic+1,jb) = pw_c(jc,z_dolic,jb) + z_div_c(jc,z_dolic,jb)
+        ENDIF
+
       END IF
     END DO
   END DO
+  !write(*,*)'max/min difference',&
+  ! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
+
 
 ELSE
 !CALL sync_patch_array(SYNC_C,p_patch,pw_c)
@@ -1817,8 +1812,6 @@ ELSE
 !                      & level=1, subset_range=cells_in_domain )
 ! 
 !        div_z_c_3D_accum(:,1,:)=div_z_c_3D_accum(:,1,:)-div_z_c_2D(:,:)
-! 
-! 
 !    CALL map_cell2edges_3D(p_patch,z_u_depth_int_cc,z_e,p_op_coeff, level=1) 
 !    CALL div_oce_3d( z_e, p_patch,p_op_coeff%div_coeff, div_z_c_2D,&
 !                 & level=1, subset_range=cells_in_domain )
@@ -1847,11 +1840,6 @@ ELSE
   CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
 !  CALL sync_patch_array(SYNC_C,p_patch,z_div_c)
 
-  WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-     pw_c(:,1,:) =(p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime 
-     !pw_c(:,1,:) =- div_z_c_2D(:,:)
-  END WHERE
-!write(*,*)'max/min vert veloc lay 1',maxval(pw_c(:,1,:)),minval(pw_c(:,1,:))
 
   ! !Note we are summing from top to bottom.
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
@@ -1860,27 +1848,24 @@ ELSE
 
       z_dolic = v_base%dolic_c(jc,jb)
       IF(z_dolic>0)THEN
- !WRITE(1234,*)'----------------------',z_dolic 
-          DO jk = z_dolic,1,-1
-            IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            z_pw_bottom_up(jc,jk,jb) = z_pw_bottom_up(jc,jk+1,jb) - z_div_c(jc,jk,jb)
-          ! z_pw_bottom_up(jc,jk,jb) = div_z_c_3D_accum(jc,jk,jb)!z_div_c(jc,jk,jb)
-           !z_div_int_c(jc,jb) = z_div_int_c(jc,jb)-z_div_c(jc,jk,jb)
-           !pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)
-           ENDIF
-         END DO
-!z_pw_bottom_up(jc,1,jb)=(p_os%p_prog(nnew(1))%h(jc,jb)-p_os%p_prog(nold(1))%h(jc,jb))/dtime
-         !z_div_int_c(jc,jb)=z_div_int_c(jc,jb)-z_div_c(jc,1,jb)
+!            !WRITE(1234,*)'----------------------',z_dolic 
+!           DO jk = z_dolic,1,-1
+!             IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!             z_pw_bottom_up(jc,jk,jb) = z_pw_bottom_up(jc,jk+1,jb) - z_div_c(jc,jk,jb)
+!           ! z_pw_bottom_up(jc,jk,jb) = div_z_c_3D_accum(jc,jk,jb)!z_div_c(jc,jk,jb)
+!            !z_div_int_c(jc,jb) = z_div_int_c(jc,jb)-z_div_c(jc,jk,jb)
+!            !pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)
+!            ENDIF
+!          END DO
+
+         !Top
+         pw_c(jc,1,jb)=-sum(z_div_c(jc,:,jb))
+
          DO jk = 2,z_dolic
           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           pw_c(jc,jk,jb)     = pw_c(jc,jk-1,jb) + z_div_c(jc,jk-1,jb)
-          !z_div_int_c(jc,jb) = z_div_int_c(jc,jb)-z_div_c(jc,jk,jb)
           ENDIF
         END DO
-        IF(v_base%lsm_oce_c(jc,z_dolic,jb) <= sea_boundary ) THEN
-          pw_c(jc,z_dolic+1,jb) = pw_c(jc,z_dolic,jb) + z_div_c(jc,z_dolic,jb)
-        ENDIF
-
 !          DO jk = 1,z_dolic
 !           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 ! write(1234,*)'details',jc,jk,jb, z_pw_bottom_up(jc,jk,jb),pw_c(jc,jk,jb),&
@@ -1897,54 +1882,16 @@ ELSE
     END DO
   END DO
 
-!write(*,*)'max-min d_t h - w',maxval(
-!----------------------------------------------------------------------------------
-! !   CALL map_edges2cell_3D( p_patch, p_diag%vn_time_weighted,p_op_coeff, z_vn_c)!, ph_e)
-! !     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-! !       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-! !         DO jc = i_startidx, i_endidx
-! !           z_dolic = v_base%dolic_c(jc,jb)
-! !           DO jk = 1,n_zlev!z_dolic
-! !           IF (v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !             delta_z = v_base%del_zlev_m(jk)
-! !             IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + p_os%p_prog(nold(1))%h(jc,jb)
-! !              z_vn_c(jc,jk,jb)%x=delta_z*z_vn_c(jc,jk,jb)%x
-! !           END IF
-! !         END DO
-! !       END DO
-! !     END DO
-! !   CALL map_cell2edges( p_patch, z_vn_c, z_vn)
-! !   CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
-! !   ! !Note we are summing from top to bottom.
-! !   !z_div_int_c= pw_c(:,1,:)
-! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-! !     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-! !     DO jc = i_startidx, i_endidx
-! ! 
-! !       z_dolic = v_base%dolic_c(jc,jb)
-! !          DO jk = 2,z_dolic
-! !           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !           ! vertical velocity is negative for positive divergence
-! !           ! of horizontal velocity
-! !           pw_c(jc,jk,jb) = pw_c(jc,jk-1,jb) + z_div_c(jc,jk-1,jb)
-! !           !pw_c(jc,jk,jb)=z_div_int_c(jc,jb)
-! !           IF(jk>=1)&
-! !           &z_div_int_c(jc,jb)=z_div_int_c(jc,jb)-z_div_c(jc,jk,jb)
-! !           ENDIF
-! !         END DO
-! !       !END IF
-! !     END DO
-! !   END DO
 ENDIF
 
 IF(l_RIGID_LID)THEN
   pw_c(:,1,:) = 0.0_wp
 ENDIF
 CALL sync_patch_array(SYNC_C,p_patch,pw_c)
-! DO jk = 1,n_zlev+1
-! write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,
+ DO jk = 1,n_zlev+1
+ write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,
 ! !&maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:))
-! END DO
+ END DO
 ! !write(*,*)'bc',maxval(bot_bc_w), minval(bot_bc_w)
 ! write(*,*)'details vert veloc',&
 ! &maxval(z_div_int_c),minval(z_div_int_c),&
@@ -1963,7 +1910,7 @@ idt_src=4  ! output print level (1-5, fix)
 CALL dbg_print('div velocity'                ,z_div_c                  ,str_module,idt_src)
 !---------------------------------------------------------------------
 
-!pw_c=z_pw_bottom_up
+
 
 END SUBROUTINE calc_vert_velocity_mim_topdown
 !-------------------------------------------------------------------------

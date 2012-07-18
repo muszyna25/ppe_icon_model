@@ -1346,7 +1346,7 @@ CONTAINS
     CASE(51)
 
       CALL message(TRIM(routine), &
-      &  'Testcase (44) - stationary lat/lon wind forcing &
+      &  'Testcase (51) - stationary lat/lon wind forcing &
       &and eventually relax. to T perturbation')
       y_length = basin_height_deg * deg2rad
       DO jb = all_cells%start_block, all_cells%end_block
