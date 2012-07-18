@@ -1626,30 +1626,13 @@ ENDIF
 
 CALL sync_patch_array(SYNC_C, p_patch, pw_c)
 
-
-DO jk = 1,n_zlev
-write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:))!,&
-END DO
-
-! !  DO jk = 1,n_zlev
-! write(*,*)'bc',maxval(bot_bc_w), minval(bot_bc_w)
-!   write(*,*)'max/min vert veloc',jk,&! maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&
-! !  &maxval(z_div_c(:,jk,:)), minval(z_div_c(:,jk,:)),&
-! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
-! &minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime),&
-! &maxval(z_div_int_c), minval(z_div_int_c)
-! write(*,*)'difference',&
-! &maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
-! &/dtime+z_div_int_c),&
-! &minval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)&
-! &/dtime+z_div_int_c)
-
 !---------DEBUG DIAGNOSTICS-------------------------------------------
 idt_src=4  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVel: z_vn'           ,z_vn                     ,str_module,idt_src)
-CALL dbg_print('CalcVertVel: div(v)'         ,z_div_c                  ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMim: z_vn'        ,z_vn                     ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMim: div(v)_c'    ,z_div_c                  ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMim: div_int_c'   ,z_div_int_c              ,str_module,idt_src)
 idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVel: pw_c'           ,pw_c                     ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMim: pw_c'        ,pw_c                     ,str_module,idt_src)
 !---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mimetic
