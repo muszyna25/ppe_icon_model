@@ -124,7 +124,7 @@ cat > ${atmo_namelist} << EOF
   ctracer_list    = '12345'
 /
 &nwp_phy_nml
- inwp_gscp        = 1
+ inwp_gscp        = 10
  inwp_convection  = 1
  inwp_cldcover    = 3
  inwp_radiation   = 1
