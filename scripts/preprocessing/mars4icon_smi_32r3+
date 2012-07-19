@@ -34,6 +34,8 @@
 
 # --- argument list ---
 
+set -x
+
 pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
 step=${2:-0}              # forecast step (in hours)
 res="${3:-255}"           # resolution
@@ -52,7 +54,7 @@ datconv=${DATCONVCMD:-datconv}
 cymdg=$(${datconv} -Cy ${pdatin})
 typeset -L8 cymd=${cymdg}
 typeset -R2 hh=${cymdg}
-cymdg_fc=$(${DATCONVCMD} -Cy ${pdatin} -d ${step})
+cymdg_fc=$(${datconv} -Cy ${pdatin} -d ${step})
 
 if [ ${step} -eq 0 ]; then
   type=an
