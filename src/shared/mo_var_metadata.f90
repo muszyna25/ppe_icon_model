@@ -10,7 +10,7 @@ MODULE mo_var_metadata
   PRIVATE
 
   ! maximum string length for variable names
-  INTEGER, PARAMETER :: varname_len = 31
+  INTEGER, PARAMETER :: varname_len = 32
 
   ! list of variable groups
   CHARACTER(len=varname_len), PARAMETER :: var_groups(15) = &
