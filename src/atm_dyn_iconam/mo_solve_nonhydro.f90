@@ -774,6 +774,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
       ELSE IF (iadv_rhotheta == 3) THEN
 
         lcompute =.TRUE.
@@ -1217,6 +1218,7 @@ MODULE mo_solve_nonhydro
           nlen_gradp = nproma_gradp
         ENDIF
 
+
 !CDIR NODEP,VOVERTAKE,VOB
         DO je = 1, nlen_gradp
           ie = (jb-1)*nproma_gradp+je
@@ -1312,7 +1314,6 @@ MODULE mo_solve_nonhydro
       ENDDO
 !$OMP END DO
     ENDIF
-
 
     ! Boundary update of horizontal velocity
     IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
@@ -1540,7 +1541,6 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 
     ENDIF
-
     ! It turned out that it is sufficient to compute the contravariant correction in the
     ! predictor step at time level n+1; repeating the calculation in the corrector step
     ! has negligible impact on the results
@@ -2098,7 +2098,6 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 #endif
     ENDIF
-
     rl_start = min_rlcell_int - 1
     rl_end   = min_rlcell
 
@@ -2131,7 +2130,6 @@ MODULE mo_solve_nonhydro
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #endif
-
    IF (ltimer) CALL timer_stop(timer_solve_nh)
 
   END SUBROUTINE solve_nh

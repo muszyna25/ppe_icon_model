@@ -86,7 +86,7 @@ MODULE mo_nonhydro_state
   USE mo_art_config,           ONLY: t_art_config,art_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-
+  USE mo_art_tracer_interface, ONLY: art_tracer_interface
   IMPLICIT NONE
 
   PRIVATE
@@ -101,12 +101,6 @@ MODULE mo_nonhydro_state
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
   PUBLIC :: bufr
   
-  PUBLIC :: add_tracer_ref
-
-
-  INTERFACE add_tracer_ref
-    MODULE PROCEDURE add_var_list_reference_tracer
-  END INTERFACE add_tracer_ref
   TYPE (t_buffer_memory), POINTER :: bufr(:)
 
   TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
@@ -2400,63 +2394,6 @@ MODULE mo_nonhydro_state
     ENDIF
 
   END SUBROUTINE new_nh_metrics_list
-
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! create (allocate) a new table entry
-  ! reference to an existing pointer to a 3D tracer field
-  ! optionally overwrite some default meta data 
-  !
-  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name, &
-    &        tracer_idx, ptr_arr, cf, grib2, ldims, loutput, lrestart,          &
-    &        tlev_source, tracer_info)
-
-    TYPE(t_var_list)    , INTENT(inout)        :: this_list
-    CHARACTER(len=*)    , INTENT(in)           :: target_name
-    CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-    INTEGER             , INTENT(inout)        :: tracer_idx          ! index in 4D tracer container
-    TYPE(t_ptr_nh)      , INTENT(inout)        :: ptr_arr(:)
-    TYPE(t_cf_var)      , INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var)   , INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
-    LOGICAL             , INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL             , INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    INTEGER             , INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta) , INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
-
-    ! Local variables:
-    TYPE(t_list_element), POINTER :: target_element  
-    TYPE(t_var_metadata), POINTER :: target_info
-
-    CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
-  !------------------------------------------------------------------
-
-    ! get pointer to target element (in this case 4D tracer container)
-    target_element => find_list_element (this_list, target_name)
-    ! get tracer field metadata
-    target_info => target_element%field%info
-
-    ! get index of current field in 4D container and set 
-    ! tracer index accordingly.
-    ! Note that this will be repeated for each patch. Otherwise it may happen that 
-    ! some MPI-processes miss this assignment.
-    !
-    tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
-
-    WRITE (message_text,'(a,i3,a,a)')                                            &
-      & "tracer index ", tracer_idx," assigned to tracer field ", TRIM(tracer_name)
-    CALL message(TRIM(routine),message_text)
-
-
-    ! create new table entry reference including additional tracer metadata
-    CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
-       &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
-       &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
-       &          tlev_source=tlev_source, tracer_info=tracer_info )
-
-
-  END SUBROUTINE add_var_list_reference_tracer
 
 END MODULE mo_nonhydro_state
 

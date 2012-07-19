@@ -136,8 +136,9 @@ MODULE mo_nh_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
-  USE mo_art_emission_interface, ONLY: art_emission_interface
-  USE mo_art_config,          ONLY: art_config
+  USE mo_art_emission_interface,  ONLY:art_emission_interface
+  USE mo_art_sedi_interface,  ONLY:art_sedi_interface
+  USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest
 
@@ -1006,7 +1007,8 @@ MODULE mo_nh_stepping
             &                  p_lnd_state(jg)%diag_lnd,           &
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-            &                  p_tiles(jg,:)                       ) !in
+            &                  p_tiles(jg,:)                      ,& !in
+            &                  p_nh_state(jg)%prog_list(n_now_rcf) ) 
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
 
@@ -1051,7 +1053,7 @@ MODULE mo_nh_stepping
           ENDIF
         ENDIF
 
-
+WRITE(0,*) 'K.L. after time ctrl physics'
         IF (p_patch(jg)%cell_type == 3) THEN
 
           IF (jg > 1 .AND. .NOT. lfeedback(jg)) THEN
@@ -1162,7 +1164,7 @@ MODULE mo_nh_stepping
                 CALL art_emission_interface( p_patch(jg), &!in
      &          dtadv_loc,                                &!in
      &          datetime,                                 &!in   
-     &          p_nh_state(jg)%prog(n_now_rcf)%rho,        &!in
+     &          p_nh_state(jg)%prog(n_new)%rho,           &!in 
      &          p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
               ENDIF   
 
@@ -1224,7 +1226,8 @@ MODULE mo_nh_stepping
             &                  p_lnd_state(jg)%diag_lnd,           &
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
             &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
-            &                  p_tiles(jg,:)                       ) !in
+            &                  p_tiles(jg,:),                      & !in
+            &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)

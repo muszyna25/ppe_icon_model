@@ -85,7 +85,6 @@ CONTAINS
  
 #ifdef __ICON_ART
    
-!      CALL art_tracer() 
       CALL art_tracer(p_patch,p_prog_list,vname_prefix,ptr_arr,timelev,ldims,tlev_source) 
 
 

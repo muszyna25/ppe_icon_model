@@ -73,7 +73,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! - Call modified for emission of volcanic ash
-  SUBROUTINE art_emission_interface( p_patch,p_dtime,datetime,p_rho_now,p_tracer_now)
+  SUBROUTINE art_emission_interface( p_patch,p_dtime,datetime,p_rho,p_tracer_now)
 
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
@@ -81,21 +81,15 @@ CONTAINS
     REAL(wp), INTENT(IN) ::p_dtime
      TYPE(t_datetime), INTENT(IN)::datetime
 
-    REAL(wp), INTENT(INOUT) ::  &  !<density of air 
-      &  p_rho_now(:,:,:)          !< at current time level n (before transport)
-                                   !< [kg/m3]
+    REAL(wp), INTENT(INOUT) ::  &  !< density of air 
+      &  p_rho(:,:,:)              !< [kg/m3] 
                                    !< dim: (nproma,nlev,nblks_c)
-    REAL(wp), INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
-      &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
-                                        !< [kg/kg]
-                                        !< dim: (nproma,nlev,nblks_c,ntracer)
-!    REAL(wp), INTENT(IN) ::          &  !< cell height defined at full levels for
-!      &  p_cellhgt_mc_now(:,:,:)        !< time step n
-!                                        !< NH: \Delta z       [m]
-!                                        !< HA: \Delta p       [Pa]
-!                                        !< dim: (nproma,nlev,nblks_c)
-!
 
+    REAL(wp), INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
+      &  p_tracer_now(:,:,:,:)     !< at current time level n (before transport)
+                                   !< [kg/kg]
+                                   !< dim: (nproma,nlev,nblks_c,ntracer)
+    
     INTEGER  :: jg                !< loop index
 
     !-----------------------------------------------------------------------
@@ -104,8 +98,8 @@ CONTAINS
     
     jg  = p_patch%id
      
-     IF (art_config(jg)%lart_volc) THEN
-      CALL art_organize_emission_volc(p_patch,p_dtime,datetime,p_rho_now,p_tracer_now) 
+     IF (art_config(jg)%lart_volcano .AND. art_config(jg)%lart_emis_volcano) THEN
+      CALL art_organize_emission_volc(p_patch,p_dtime,datetime,p_rho,p_tracer_now) 
      ENDIF
 
 

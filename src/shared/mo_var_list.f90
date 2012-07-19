@@ -26,6 +26,7 @@ MODULE mo_var_list
     &                            HINTP_TYPE_LONLAT,                 &
     &                            max_var_lists, vname_len
   USE mo_fortran_tools,    ONLY: assign_if_present
+ USE mo_nonhydro_types,       ONLY: t_ptr_nh
 
   IMPLICIT NONE
 
@@ -58,7 +59,9 @@ MODULE mo_var_list
   PUBLIC :: groups                    ! group array constructor
   PUBLIC :: collect_group             ! obtain variables in a group
   
-  INTERFACE add_var  ! create a new list entry
+  PUBLIC :: add_tracer_ref            ! add new tracer component
+ 
+ INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_r5d
     MODULE PROCEDURE add_var_list_element_r4d
     MODULE PROCEDURE add_var_list_element_r3d 
@@ -81,6 +84,10 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_reference_r2d
   END INTERFACE add_ref
 
+
+  INTERFACE add_tracer_ref
+    MODULE PROCEDURE add_var_list_reference_tracer
+  END INTERFACE add_tracer_ref
 
 
   INTERFACE get_var  ! obtain reference to a list entry
@@ -531,7 +538,7 @@ CONTAINS
   ! 
   FUNCTION create_tracer_metadata(lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, &
     &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
-    &                            lwash_tracer) RESULT(tracer_meta)
+    &                            lwash_tracer,rdiameter_tracer, rrho_tracer) RESULT(tracer_meta)
 
     LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer    ! method for horizontal transport
@@ -541,6 +548,8 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: ldep_tracer     ! dry deposition (TRUE/FALSE)  
     LOGICAL, INTENT(IN), OPTIONAL :: lconv_tracer    ! convection  (TRUE/FALSE)
     LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
+    REAL(wp), INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
+    REAL(wp), INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
 
     TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
 
@@ -598,6 +607,20 @@ CONTAINS
       tracer_meta%lwash_tracer = lwash_tracer
     ELSE
       tracer_meta%lwash_tracer = .FALSE.
+    ENDIF
+
+    ! rdiameter_tracer
+    IF ( PRESENT(rdiameter_tracer) ) THEN
+      tracer_meta%rdiameter_tracer = rdiameter_tracer
+    ELSE
+      tracer_meta%rdiameter_tracer = 1.0e-6_wp  ! particle diameter in m
+    ENDIF
+
+    ! rrho_tracer
+    IF ( PRESENT(rrho_tracer) ) THEN
+      tracer_meta%rrho_tracer = rrho_tracer
+    ELSE
+      tracer_meta%rrho_tracer = 1000.0_wp       ! particle density in kg m^-3
     ENDIF
 
   END FUNCTION create_tracer_metadata
@@ -3388,6 +3411,18 @@ CONTAINS
           ELSE
             CALL message('', 'Washout                                     : no.')
           ENDIF
+
+          WRITE (message_text,'(a,e20.12)') &
+             'Particle diameter in m                 : ', &
+             this_list_element%field%info%tracer%rdiameter_tracer
+          CALL message('', message_text)
+
+          WRITE (message_text,'(a,e20.12)') &
+             'particle density in kg m^-3                 : ', &
+             this_list_element%field%info%tracer%rrho_tracer
+          CALL message('', message_text)
+
+
         ELSE
           CALL message('', 'Tracer field                                : no.')
         ENDIF
@@ -3568,4 +3603,60 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_hor_interp
   !------------------------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
+  !
+  ! create (allocate) a new table entry
+  ! reference to an existing pointer to a 3D tracer field
+  ! optionally overwrite some default meta data
+  !
+  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name, &
+    &        tracer_idx, ptr_arr, cf, grib2, ldims, loutput, lrestart,          &
+    &        tlev_source, tracer_info)
+
+    TYPE(t_var_list)    , INTENT(inout)        :: this_list
+    CHARACTER(len=*)    , INTENT(in)           :: target_name
+    CHARACTER(len=*)    , INTENT(in)           :: tracer_name
+    INTEGER             , INTENT(inout)        :: tracer_idx          ! index in 4D tracer container
+    TYPE(t_ptr_nh)      , INTENT(inout)        :: ptr_arr(:)
+    TYPE(t_cf_var)      , INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var)   , INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
+    LOGICAL             , INTENT(in), OPTIONAL :: loutput             ! output flag
+    LOGICAL             , INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    INTEGER             , INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta) , INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
+
+    ! Local variables:
+    TYPE(t_list_element), POINTER :: target_element
+    TYPE(t_var_metadata), POINTER :: target_info
+
+    CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
+  !------------------------------------------------------------------
+
+    ! get pointer to target element (in this case 4D tracer container)
+    target_element => find_list_element (this_list, target_name)
+    ! get tracer field metadata
+    target_info => target_element%field%info
+
+    ! get index of current field in 4D container and set
+    ! tracer index accordingly.
+    ! Note that this will be repeated for each patch. Otherwise it may happen that
+    ! some MPI-processes miss this assignment.
+    !
+    tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
+
+    WRITE (message_text,'(a,i3,a,a)')                                            &
+      & "tracer index ", tracer_idx," assigned to tracer field ", TRIM(tracer_name)
+    CALL message(TRIM(routine),message_text)
+
+
+    ! create new table entry reference including additional tracer metadata
+    CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
+       &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
+       &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
+       &          tlev_source=tlev_source, tracer_info=tracer_info )
+
+
+  END SUBROUTINE add_var_list_reference_tracer
+
 END MODULE mo_var_list

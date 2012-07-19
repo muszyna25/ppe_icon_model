@@ -105,6 +105,9 @@ MODULE mo_nh_interface_nwp
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, cells_not_in_domain,&
      & is_ready, until_sync, cells_one_edge_in_domain
 !  USE mo_communication,      ONLY: time_sync
+  USE mo_art_washout_interface,  ONLY:art_washout_interface
+  USE mo_art_config,          ONLY:art_config
+  USE mo_linked_list,         ONLY: t_var_list
 
   IMPLICIT NONE
 
@@ -134,7 +137,8 @@ CONTAINS
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend,lnd_diag,     &
                             & lnd_prog_now, lnd_prog_new,          & !inout
-                            & pt_tiles                             ) !in  
+                            & pt_tiles,                            & !in
+                            & p_prog_list                             ) !in  
 
     !>
     ! !INPUT PARAMETERS:
@@ -170,6 +174,8 @@ CONTAINS
     TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now, lnd_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
     TYPE(t_tiles),              INTENT(in   ) :: pt_tiles(:)
+
+    TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
 
     ! !OUTPUT PARAMETERS:            !<variables induced by the whole physics
     ! Local array bounds:
@@ -573,6 +579,17 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
     ENDIF
+
+      IF (art_config(jg)%lart) THEN
+
+       CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+                  &          pt_patch,                           & !>in
+                  &          p_prog_list,                        & !>in
+                  &          prm_diag%tracer_rate,               & !>in      
+                  &          pt_prog%rho,                        & !>in               
+                  &          pt_prog_rcf%tracer)                   !>inout             
+
+      ENDIF !lart    
 
     IF (lcall_phy_jg(itsfc)) THEN
 

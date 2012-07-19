@@ -72,23 +72,27 @@ MODULE mo_art_nml
 
  TYPE (t_list_volcanoes) :: art_volclist_tot(MAX_NUM_VOLC) !>list of volcanoes
  
-  LOGICAL :: lart                 !< main switch for running the ART-package
-                                  !< .TRUE.: switch ON
-                                  !<.FALSE.: switch OFF
+    LOGICAL :: lart                        !< main switch for using the ART-package
+                                           !< .TRUE.: switch ON
+                                           !< .FALSE.: switch OFF
 
-  LOGICAL :: lart_volc            !< Emission of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_volcano                !< Treatment of volcanic ash (TRUE/FALSE)
 
-  LOGICAL :: lart_conv         !< Convection of tracers (TRUE/FALSE)
+    LOGICAL :: lart_emis_volcano           !< Emission of volcanic ash (TRUE/FALSE)
 
-  LOGICAL :: lart_wash         !< Washout of tracers (TRUE/FALSE)
+    LOGICAL :: lart_conv_volcano           !< Convection of volcanic ash (TRUE/FALSE)
 
-  LOGICAL :: lart_rad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_wash_volcano           !< Washout of volcanic ash (TRUE/FALSE)
 
-  LOGICAL :: lart_cld          !< Impact on clouds (TRUE/FALSE)
+    LOGICAL :: lart_rad_volcano            !< Radiative impact of volcanic ash (TRUE/FALSE)
 
+    LOGICAL :: lart_cloud_volcano          !< Cloud volcanic ash interaction (TRUE/FALSE)
 
-  NAMELIST/art_nml/ lart, lart_volc, lart_conv, lart_wash, &
-    &               lart_rad_volc, lart_cld , art_volclist_tot
+    INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
+
+  LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
+  NAMELIST/art_nml/ lart, lart_volcano, lart_emis_volcano,lart_conv_volcano, lart_wash_volcano, &
+    &               lart_rad_volcano, lart_cloud_volcano, nart_emis_volcano_update,art_volclist_tot, lart_volclist
 
 
 CONTAINS
@@ -124,12 +128,16 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lart          = .FALSE.        ! ART-package switched off
-    lart_volc     = .FALSE.        ! Emission of volcanic ash
-    lart_conv     = .FALSE.        ! Convection of tracers
-    lart_wash     = .FALSE.        ! Washout of tracers
-    lart_rad_volc = .FALSE.        ! Radiative impact of volcanic ash
-    lart_cld  = .FALSE.        ! Impact on clouds
+    lart                = .FALSE.        ! ART-package switched off
+    lart_volcano        = .FALSE.        ! Treatment of volcanic ash
+    lart_emis_volcano   = .FALSE.        ! Emission of volcanic ash
+    lart_conv_volcano   = .FALSE.        ! Convection of volcanic ash
+    lart_wash_volcano   = .FALSE.        ! Washout of volcanic ash 
+    lart_rad_volcano    = .FALSE.        ! Radiative impact of volcanic ash
+    lart_cloud_volcano  = .FALSE.        ! Impact on clouds
+
+    nart_emis_volcano_update= 0._wp      ! Time interval for reading emission file
+    lart_volclist=.FALSE.
     art_volclist_tot(:)%lon   = -1._wp     ! Longitude coordinate of each volcano. 
                                            !-1 is used for creating the list of volcanoes.  
     art_volclist_tot(:)%lat   = 0._wp     ! Latitude coordinate of each volcano
@@ -178,34 +186,36 @@ CONTAINS
       nvolc=nvolc-1
     DO jg= 0,max_dom
       art_config(jg)%lart          = lart
-      art_config(jg)%lart_volc     = lart_volc
-      art_config(jg)%lart_conv  = lart_conv
-      art_config(jg)%lart_wash  = lart_wash
-      art_config(jg)%lart_rad_volc     = lart_rad_volc
-      art_config(jg)%lart_cld   = lart_cld
+      art_config(jg)%lart_volcano     = lart_volcano
+      art_config(jg)%lart_emis_volcano     = lart_emis_volcano
+      art_config(jg)%lart_conv_volcano  = lart_conv_volcano
+      art_config(jg)%lart_wash_volcano  = lart_wash_volcano
+      art_config(jg)%lart_rad_volcano     = lart_rad_volcano
+      art_config(jg)%lart_cloud_volcano   = lart_cloud_volcano
+      art_config(jg)%nart_emis_volcano_update   = nart_emis_volcano_update 
+      art_config(jg)%lart_volclist=lart_volclist
       art_config(jg)%nvolc         = nvolc
       
       nblks=nvolc/nproma+1
       npromz=nvolc-nproma*(nblks-1)
       art_config(jg)%nblks         = nblks   ! 
       art_config(jg)%npromz        = npromz  !  
-     ALLOCATE(art_config(jg)%volclist(nproma,nblks))
-     jc=0
-     jb=1
-      DO ivolc=1,nvolc
-         jc=jc+1
-         IF (jc>nproma) THEN
-           jc = 1
-           jb = jb + 1
-         ENDIF
-         art_config(jg)%volclist(jc,jb)%zname=art_volclist_tot(ivolc)%zname
-         art_config(jg)%volclist(jc,jb)%location%lat=art_volclist_tot(ivolc)%lat
-         art_config(jg)%volclist(jc,jb)%location%lon=art_volclist_tot(ivolc)%lon
-!       WRITE(0,*) 'K.L. in art_nml. volclist_name:', art_config(jg)%volclist(jc,jb)%zname
-!       WRITE(0,*) 'K.L. in art_nml. volclist_lat:', art_config(jg)%volclist(jc,jb)%location%lon
-!       WRITE(0,*) 'K.L. in art_nml. volclist_lon:', art_config(jg)%volclist(jc,jb)%location%lat
-      ENDDO
-    ENDDO
+
+      ALLOCATE(art_config(jg)%volclist(nproma,nblks))
+
+      jc=0
+      jb=1
+       DO ivolc=1,nvolc
+          jc=jc+1
+          IF (jc>nproma) THEN
+            jc = 1
+            jb = jb + 1
+          ENDIF
+          art_config(jg)%volclist(jc,jb)%zname=art_volclist_tot(ivolc)%zname
+          art_config(jg)%volclist(jc,jb)%location%lat=art_volclist_tot(ivolc)%lat
+          art_config(jg)%volclist(jc,jb)%location%lon=art_volclist_tot(ivolc)%lon
+       ENDDO !nvolc
+    ENDDO !jg
 
 
 

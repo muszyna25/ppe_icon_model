@@ -12,7 +12,7 @@
 !!
 !! @par Revision History
 !! Initial revision by Daniel Reinert, DWD (2011-12-08)
-!!
+!! Modifications by Kristina Lundgren, KIT (2012-07-03)
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -68,19 +68,26 @@ MODULE mo_art_config
 
     ! namelist variables
     !    
-    LOGICAL :: lart                 !< main switch for using the ART-package
-                                    !< .TRUE.: switch ON
-                                    !<.FALSE.: switch OFF
+    LOGICAL :: lart                        !< main switch for using the ART-package
+                                           !< .TRUE.: switch ON
+                                           !< .FALSE.: switch OFF
 
-    LOGICAL :: lart_volc            !< Emission of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_volcano                !< Treatment of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_conv         !< Convection of tracers (TRUE/FALSE)
+    LOGICAL :: lart_emis_volcano           !< Emission of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_wash         !< Washout of tracers (TRUE/FALSE)
+    LOGICAL :: lart_conv_volcano           !< Convection of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_rad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_wash_volcano           !< Washout of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_cld          !< Impact on clouds (TRUE/FALSE)
+    LOGICAL :: lart_rad_volcano            !< Radiative impact of volcanic ash (TRUE/FALSE)
+
+    LOGICAL :: lart_cloud_volcano          !< Cloud volcanic ash interaction (TRUE/FALSE)
+
+    INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
+
+    LOGICAL :: lart_volclist    !< Use list of volcanoes from namelist (TRUE/FALSE)
+
    !For specification of valcano locations.
    INTEGER                     :: nvolc             !< Number ov volcanoes
    TYPE(t_volc_list), POINTER  :: volclist(:,:)    !< (idx,blk)

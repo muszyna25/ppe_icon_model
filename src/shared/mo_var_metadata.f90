@@ -50,6 +50,8 @@ MODULE mo_var_metadata
     LOGICAL :: lconv_tracer       ! convection  (TRUE/FALSE)
     LOGICAL :: lwash_tracer       ! washout (TRUE/FALSE)
     !
+    REAL(wp) :: rdiameter_tracer   ! particle diameter in m
+    REAL(wp) :: rrho_tracer        ! particle density in kg m^-3
   END TYPE t_tracer_meta
 
 
