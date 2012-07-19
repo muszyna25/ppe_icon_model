@@ -9,7 +9,7 @@
 icongrid=$1
 
 model=icon-mpi-dwd
-case=52
+case=51
 levels=L30
 grid=tri
 eqs=nonhydro

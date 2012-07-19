@@ -672,6 +672,7 @@ run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
 run/jsbach_test_ape -text
 run/mapfile_vlist.txt -text
+run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
