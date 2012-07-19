@@ -104,7 +104,7 @@ MODULE mo_pp_tasks
   INTEGER, PARAMETER, PUBLIC  :: LOW_PRIORITY      =  100  
 
   ! level of output verbosity
-  INTEGER, PUBLIC :: dbg_level = 10
+  INTEGER, PUBLIC :: dbg_level = 0
 
   ! functions and subroutines
   PUBLIC :: pp_task_lonlat
