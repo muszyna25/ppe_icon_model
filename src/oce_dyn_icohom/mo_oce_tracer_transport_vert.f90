@@ -45,8 +45,9 @@ MODULE mo_oce_tracer_transport_vert
 USE mo_kind,                      ONLY: wp
 !USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary, MIN_DOLIC
-USE mo_ocean_nml,                 ONLY: n_zlev, expl_vertical_tracer_diff, ab_const, irelax_2d_S,&
-  &                                     temperature_relaxation!, ab_gam
+USE mo_ocean_nml,                 ONLY: n_zlev, expl_vertical_tracer_diff, ab_const, &
+  &                                     temperature_relaxation, irelax_2d_S,         &
+  &                                     upwind, central, mimetic, mimetic_miura
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
@@ -84,11 +85,6 @@ PRIVATE :: upwind_vflux_ppm
 PRIVATE :: v_ppm_slimiter_mo
 PRIVATE :: apply_tracer_flux_top_layer_oce
 
-
-INTEGER, PARAMETER :: UPWIND = 1
-INTEGER, PARAMETER :: CENTRAL= 2
-INTEGER, PARAMETER :: MIMETIC= 3
-INTEGER, PARAMETER :: MIMETIC_MIURA= 4
 
 CONTAINS
 

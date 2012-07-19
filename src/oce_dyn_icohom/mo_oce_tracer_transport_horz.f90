@@ -52,8 +52,8 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea,&
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
-  &                                     iswm_oce, UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA  
+  &                                     ab_const, expl_vertical_tracer_diff, iswm_oce, &
+  &                                     upwind, central, mimetic, mimetic_miura
 USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
