@@ -27,15 +27,23 @@ echo "POST_ARCHIVE.SMS"
 
 ldeldata=1
 
-# change directory ----------------------------
-#smsevent change_dir
 
-# change directory ----------------------------
-smsevent copy_files
+#-----------------------------------------------------------------------------
+# directories
+
+gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
+ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%"
+emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
 # archive plots and tranfer to DWD by ectrans
+
+tar cvfz metplots_%SUITE%_%YMD%%INIHOUR%.tgz metplots
+ecp      metplots_%SUITE%_%YMD%%INIHOUR%.tgz $ecfsdir
+
+tar cvfz meteogram_%SUITE%_%YMD%%INIHOUR%.tgz meteo
+ecp      meteogram_%SUITE%_%YMD%%INIHOUR%.tgz $ecfsdir
 
 
 #-----------------------------------------------------------------------------

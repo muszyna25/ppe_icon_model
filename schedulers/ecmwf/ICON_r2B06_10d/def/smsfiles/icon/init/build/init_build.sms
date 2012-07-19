@@ -24,7 +24,6 @@
 echo "INIT_BUILD.SMS"
 
 # Change directory ----------------------------
-smsevent change_dir
 cd %SCBASEDIR%/%SUITE_NAME%/cluster/
 ls -lrt
 
@@ -33,18 +32,18 @@ then
 
 # [1] SVN UPDATE =================================
 
-cd icon-dev
+  cd icon-dev
 
 else
 
 # [2] EXPORTED TARBALL FROM ECGATE ===============
 
 # Extract tar file with current trunk version -
-smsevent uncompress
-rm -rf icon-dev
-tar xvf icon-dev.tar.gz
-rm icon-dev.tar.gz
-cd icon-dev
+  rm -rf icon-dev
+  tar xvf icon-dev.tar.gz
+  rm icon-dev.tar.gz
+  smsevent uncompress
+  cd icon-dev
 
 fi
 
@@ -53,13 +52,13 @@ fi
 module swap fortran fortran/xlf/13.1.0.9
 
 # Run configure script ------------------------
-smsevent configure
 ./configure --with-openmp # --with-flags=hiopt
+smsevent configure
 
 # Submit ''Make'' -----------------------------
-smsevent make
 export LDR_CNTRL=MAXDAT=0xD000000DSA
 gmake -j%SCTOTALTASKS%
+smsevent make
 
 # -------------------------------------------------
 

@@ -27,15 +27,22 @@ echo "EOM_ARCHIVE.SMS"
 
 ldeldata=0
 
-# change directory ----------------------------
-#smsevent change_dir
 
-# change directory ----------------------------
-smsevent copy_files
+#-----------------------------------------------------------------------------
+# directories
+
+YYYYMM=`echo %YMD% | cut -c 1-6`
+EXPDIR="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/$YYYYMM"
+cd ${EXPDIR}
+ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/$YYYYMM"
 
 
 #-----------------------------------------------------------------------------
-# archive ...
+# archive plots to ecfs
+
+tar cvfz metplots_%SUITE%_$YYYYMM.tgz metplots
+ecp      metplots_%SUITE%_$YYYYMM.tgz $ecfsdir
+
 
 #-----------------------------------------------------------------------------
 # delete grib data

@@ -215,10 +215,10 @@ cat > ${atmo_namelist} << EOF
                       60.00,  80.00, 'Snow Test Russia',
 /
 &nwp_phy_nml
- inwp_gscp                    = 1
+ inwp_gscp                    = 1   ! 1: default, or 10
  inwp_convection              = 1
  inwp_radiation               = 1
- inwp_cldcover                = 1
+ inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
  inwp_turb                    = 1
  inwp_satad                   = 1
  inwp_sso                     = 1

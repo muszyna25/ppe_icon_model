@@ -34,6 +34,15 @@ outdir="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/"
 gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
 rsh ecgate mkdir -p ${gatedir}
 cd ${outdir}
+ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%"
+emkdir -p $ecfsdir
+
+
+#-----------------------------------------------------------------------------
+# namelist: copy to ecgate
+
+rcp    NAMELIST_%SUITE_NAME% ecgate:${gatedir}
+ecp -o NAMELIST_%SUITE_NAME% $ecfsdir
 
 
 #-----------------------------------------------------------------------------
@@ -43,8 +52,7 @@ outfile_mtg1=${outdir}"METEOGRAM_patch001.nc"
 outfile_mtg2=${outdir}%SUITE%"_meteogram.nc"
 mv $outfile_mtg1 $outfile_mtg2 || true
 rcp $outfile_mtg2 ecgate:${gatedir}
-emkdir -p            icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
-ecp -o $outfile_mtg2 ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
+ecp -o $outfile_mtg2 $ecfsdir
 
 
 #-----------------------------------------------------------------------------
@@ -54,7 +62,7 @@ for levtype in ML PL HL ; do
   outfile1=${outdir}%SUITE%_%SUITE_NAME%_DOM01_${levtype}_0001.grb
   outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
   mv ${outfile1} ${outfile2} || true
-  ecp -o $outfile2 ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
+  ecp -o $outfile2 $ecfsdir
 done
 
 

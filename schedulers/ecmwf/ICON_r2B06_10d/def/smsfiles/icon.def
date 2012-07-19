@@ -26,7 +26,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "002"                #---experiment number---
+set EXPNUM        "003"                #---experiment number---
 set FIRST_DATE    20120601
 set LAST_DATE     20120901
 
@@ -106,7 +106,7 @@ define on_hpc_serial {
 suite icon_${EXPNUM}
 
     # initial hour: could be cycled later
-    edit INIHOUR 00
+    edit INIHOUR 12
 
     # init local variables:
     set ENABLE_INIT               1
@@ -209,7 +209,6 @@ suite icon_${EXPNUM}
                 endif
                 event svn_update
                 event make_distclean
-                event change_dir
                 event svn_export
                 event tarfile
                 event clear_directory
@@ -227,7 +226,6 @@ suite icon_${EXPNUM}
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0)) then
                     label status "skipped"
                 endif
-                event change_dir
                 event uncompress
                 event configure
                 event make
@@ -273,7 +271,7 @@ suite icon_${EXPNUM}
         endfamily
 
         task model
-            trigger (prepare/dumpstate == complete)
+            trigger (prepare == complete)
             complete ($ENABLE_MODEL == 0)
             on_hpc_parallel
             edit SCWALLCLOCKLIMIT 02:00:00
@@ -329,8 +327,6 @@ suite icon_${EXPNUM}
                trigger metview_1==complete and metview_2==complete \
                    and metview_3==complete and metview_4==complete
                on_ecgate_submit
-               event change_dir
-               event copy_files
    
        endfamily
     endif
@@ -367,8 +363,6 @@ suite icon_${EXPNUM}
             trigger eom_metview_1==complete and eom_metview_2==complete \
                 and eom_metview_3==complete and eom_metview_4==complete
             on_ecgate_submit
-            event change_dir
-            event copy_files
    
     endfamily
 
