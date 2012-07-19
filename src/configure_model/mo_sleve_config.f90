@@ -51,6 +51,7 @@ MODULE mo_sleve_config
   PRIVATE
   PUBLIC :: min_lay_thckn, stretch_fac, top_height
   PUBLIC :: decay_scale_1, decay_scale_2, decay_exp, flat_height
+  PUBLIC :: lread_smt
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
   !>
@@ -74,6 +75,10 @@ MODULE mo_sleve_config
     REAL(wp):: flat_height    ! Height above which the coordinate surfaces are exactly flat
                               ! additional feature not available in the standard
                               ! SLEVE definition
+
+    ! c) Parameter for reading in smoothed topography
+    LOGICAL :: lread_smt
+
   !END TYPE t_sleve_config
   !>
   !!

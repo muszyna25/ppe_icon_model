@@ -58,6 +58,7 @@ MODULE mo_vertical_grid
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
+  USE mo_sleve_config,          ONLY: lread_smt
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell
@@ -169,7 +170,7 @@ MODULE mo_vertical_grid
       ENDIF
 
       ! Compute smooth topography when SLEVE coordinate is used
-      IF (ivctype == 2) THEN
+      IF ( ivctype == 2 .AND. .NOT. lread_smt ) THEN
         CALL compute_smooth_topo(p_patch(jg), p_int(jg), ext_data(jg)%atm%topography_c, &
                       ext_data(jg)%atm%topography_smt_c, ext_data(jg)%atm%topography_v, &
                       ext_data(jg)%atm%topography_smt_v                                 )

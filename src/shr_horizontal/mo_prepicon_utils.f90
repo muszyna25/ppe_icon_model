@@ -52,6 +52,7 @@ MODULE mo_prepicon_utils
     &                               generate_extpar_filename => generate_filename
   USE mo_dynamics_config,     ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_nonhydrostatic_config,ONLY: ivctype
+  USE mo_sleve_config,        ONLY: lread_smt
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
@@ -995,7 +996,7 @@ MODULE mo_prepicon_utils
       ENDIF
 
       ! Compute smooth topography when SLEVE coordinate is used
-      IF (ivctype == 2) THEN
+      IF (ivctype == 2  .AND. .NOT. lread_smt ) THEN
         CALL compute_smooth_topo(p_patch(jg), p_int(jg),            &
           prepicon(jg)%topography_c, prepicon(jg)%topography_c_smt, &
           prepicon(jg)%topography_v, prepicon(jg)%topography_v_smt  )

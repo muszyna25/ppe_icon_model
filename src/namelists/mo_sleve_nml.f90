@@ -48,7 +48,8 @@ MODULE mo_sleve_nml
     &                               config_decay_scale_2 => decay_scale_2, &
     &                               config_decay_exp     => decay_exp    , &
     &                               config_flat_height   => flat_height  , &
-    &                               config_stretch_fac   => stretch_fac
+    &                               config_stretch_fac   => stretch_fac  , &
+    &                               config_lread_smt     => lread_smt 
 
   IMPLICIT NONE
   PRIVATE
@@ -73,8 +74,12 @@ MODULE mo_sleve_nml
   REAL(wp):: flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
                                     ! (not available in the standard SLEVE definition)
 
+  ! c) Parameter for reading in smoothed topography
+  LOGICAL :: lread_smt
+ 
   NAMELIST /sleve_nml/ min_lay_thckn, top_height, decay_scale_1,           &
-                       decay_scale_2, decay_exp, flat_height, stretch_fac
+                       decay_scale_2, decay_exp, flat_height, stretch_fac, &
+                       lread_smt
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -118,6 +123,9 @@ CONTAINS
     flat_height     = 16000._wp   ! Height above which the coordinate surfaces are 
                                       ! flat
 
+    ! c) parameter to switch on/off internal topography smoothing
+    lread_smt       = .FALSE.     ! read smoothed topography from file (TRUE/FALSE)
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -149,6 +157,7 @@ CONTAINS
     config_decay_exp     = decay_exp
     config_flat_height   = flat_height
     config_stretch_fac   = stretch_fac
+    config_lread_smt     = lread_smt
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
