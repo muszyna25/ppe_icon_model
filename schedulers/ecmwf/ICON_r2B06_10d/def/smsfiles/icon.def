@@ -212,6 +212,8 @@ suite icon_${EXPNUM}
                 event svn_export
                 event tarfile
                 event clear_directory
+                meter revision 0 20000 20000
+
 
             task init_build
                 trigger (init_svn == complete)
