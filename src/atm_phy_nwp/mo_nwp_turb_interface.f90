@@ -415,6 +415,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           i_count = ext_data%atm%gp_count_t(jb,jt) 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
 
