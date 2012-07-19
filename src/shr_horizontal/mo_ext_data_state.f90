@@ -2588,7 +2588,7 @@ CONTAINS
     LOGICAL  :: tile_mask(num_lcc) = .true. 
     REAL(wp) :: tile_frac(num_lcc), sum_frac
     INTEGER  :: lu_subs, it_count(nsfc_subs)
-    INTEGER  :: npoints, npoints_sea, npoints_lake
+    INTEGER  :: npoints, npoints_sea, npoints_lake, ntiles_lnd
     INTEGER  :: i_lc_water
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
@@ -2602,6 +2602,11 @@ CONTAINS
       &  'Index list generation - number of tiles: ', nsfc_subs
     CALL message('', TRIM(message_text))
 
+    IF (lsnowtile) THEN
+      ntiles_lnd = nsfc_stat
+    ELSE
+      ntiles_lnd = nsfc_subs
+    ENDIF
 
     DO jg = 1, n_dom 
 
@@ -2675,7 +2680,7 @@ CONTAINS
              ELSE    
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
 ! JH
-               DO i_lu = 1, nsfc_stat
+               DO i_lu = 1, ntiles_lnd
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)
                  IF (tile_frac(lu_subs) >= frac_thresh) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1

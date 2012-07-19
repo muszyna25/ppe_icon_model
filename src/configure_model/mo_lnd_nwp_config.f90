@@ -161,8 +161,8 @@ CONTAINS
     ! number of tiles
     IF(lsnowtile) THEN
       nsfc_subs = nsfc_stat + nsfc_stat
-    ELSE
-      nsfc_subs = nsfc_stat
+!    ELSE
+!      nsfc_subs = nsfc_stat
     END IF  
 
 
