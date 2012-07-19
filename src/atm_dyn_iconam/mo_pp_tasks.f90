@@ -47,22 +47,25 @@ MODULE mo_pp_tasks
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
     & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
-    & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV
+    & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,                            &
+    & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
   USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
   USE mo_intp,                    ONLY: verts2cells_scalar
-  USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list, &
+  USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
-  USE mo_nh_vert_interp,          ONLY: prepare_vert_interp, &
-    &                                   lin_intp, uv_intp, qv_intp, &
-    &                                   diagnose_pmsl, diagnose_pmsl_gme
-  USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
+  USE mo_nh_vert_interp,          ONLY: prepare_vert_interp,                &
+    &                                   lin_intp, uv_intp, qv_intp,         &
+    &                                   diagnose_pmsl, diagnose_pmsl_gme,   &
+    &                                   prepare_extrap
+  USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
     &                                   t_nh_metrics
   USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
-    &                                   vcoeff_deallocate, p_nh_opt_diag
+    &                                   vcoeff_allocate, vcoeff_deallocate,    &
+    &                                   p_nh_opt_diag
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
@@ -78,11 +81,12 @@ MODULE mo_pp_tasks
     &                                   DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
-  USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl, &
+  USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl,                  &
     &                                   rbf_vec_interpol_lonlat_nl
   USE mo_sync,                    ONLY: sync_patch_array,                        &
     &                                   SYNC_C, SYNC_E, SYNC_V
   USE mo_util_phys,               ONLY: compute_field_rel_hum
+  USE mo_io_config,               ONLY: itype_pres_msl
 
   IMPLICIT NONE
 
@@ -668,41 +672,24 @@ CONTAINS
   !  This routine is completely independent from the data structures
   !  used for pz-level interpolation.
   !
-  !  @note It could save computational capacity, if the temporary
-  !        fields for temperature etc. would be allocated once and
-  !        destroyed once for each task.
-  !
   SUBROUTINE pp_task_intp_msl(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables    
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_intp_msl")
-    LOGICAL, PARAMETER :: lpres_msl_gme = .TRUE.
+    INTEGER,  PARAMETER :: nzlev         =        1     ! just a single z-level... 
+    REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
+      &                    EXTRAPOL_DIST = -500._wp
 
-    REAL(wp), ALLOCATABLE              :: z_temp(:,:,:), z_tracer_iqv(:,:,:),  &
-      &                                   z_tot_cld_iqv(:,:,:), z_pres(:,:,:)
-    REAL(wp), POINTER                  :: z_0(:,:,:)
-    REAL(wp)                           :: lower_limit
-    INTEGER                            :: nzlev, nplev, nblks, npromz, jg,     &
-      &                                   in_var_idx, out_var_idx, dim1, dim2, &
-      &                                   ierrstat, sea_lev
-    LOGICAL                            :: l_extrapol, l_pd_limit, l_loglin,    &
-      &                                   l_only_p2z
+    INTEGER                            :: nblks, npromz, jg,            &
+      &                                   in_var_idx, out_var_idx, nlev
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     TYPE(t_vcoeff)                     :: vcoeff
-    TYPE(t_vert_interp_meta),  POINTER :: pzlev_flags
     TYPE (t_var_list_element), POINTER :: in_var, out_var
     TYPE(t_var_metadata),      POINTER :: p_info
-    REAL(wp), ALLOCATABLE              :: tmp_var_out(:,:,:)
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
-    TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
-
-    ! just a single z-level... 
-    nzlev   = 1
-    sea_lev = 1
-    nplev   = 0
 
     ! patch, state, and metrics
     jg             =  ptr_task%data_input%jg
@@ -710,7 +697,6 @@ CONTAINS
     p_metrics      => ptr_task%data_input%p_nh_state%metrics
     p_prog         => ptr_task%data_input%p_nh_state%prog(nnow(jg))
     p_diag         => ptr_task%data_input%p_nh_state%diag
-    prm_diag       => ptr_task%data_input%prm_diag
 
     ! pz-level interpolation data
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
@@ -722,69 +708,48 @@ CONTAINS
 
     IF (TRIM(p_info%name) /= "pres")  CALL message(routine, "Invalid input field!")
 
-    ! interpolation flags + parameters
-    pzlev_flags => in_var%info%vert_interp
-    l_loglin       = pzlev_flags%l_loglin          
-    l_extrapol     = pzlev_flags%l_extrapol        
-    l_pd_limit     = pzlev_flags%l_pd_limit
-    lower_limit    = pzlev_flags%lower_limit       
-
-    SELECT CASE ( p_info%hgrid )
-    CASE (GRID_UNSTRUCTURED_CELL) 
-      nblks  = p_patch%nblks_c
-      npromz = p_patch%npromz_c
-    CASE (GRID_UNSTRUCTURED_VERT) 
-      nblks  = p_patch%nblks_v
-      npromz = p_patch%npromz_v
-    END SELECT
-
+    nlev   = p_patch%nlev
+    nblks  = p_patch%nblks_c
+    npromz = p_patch%npromz_c
+    
     in_var_idx  = 1
     IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
     out_var_idx = 1
     IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
 
-    IF (.NOT. lpres_msl_gme) THEN
-      ! First create a 1-level 3D variable for output  (nproma, nlevs, nblks):
-      dim1 = p_info%used_dimensions(1)
-      dim2 = p_info%used_dimensions(3)
-      ALLOCATE(tmp_var_out(dim1, nzlev, dim2), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
+    SELECT CASE (itype_pres_msl)
+    CASE (PRES_MSL_METHOD_SAI) ! stepwise analytical integration 
 
-      ! allocate temporary variables for temperature, etc.
-      ALLOCATE(z_temp(dim1, nzlev, dim2), z_tracer_iqv(dim1, nzlev, dim2),  &
-        &      z_tot_cld_iqv(dim1, nzlev, dim2), z_pres(dim1, nzlev, dim2), &
-        &      z_0(dim1, nzlev, dim2), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
-
-      ! initialize trivial height field:
-      z_0(:,sea_lev,:) = 0._wp
-
-      ! build data structure "vcoeff" containing coefficient tables
-      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev, & ! in
-        &           z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres,                & ! inout
-        &           p_z3d_out=z_0, p_metrics=p_metrics,                         & ! in
-        &           vcoeff_z=vcoeff, l_only_p2z=.TRUE. )                          ! inout, in
-
-      ! copy back pressure:
-      out_var%r_ptr(:,:,out_var_idx,1,1) = z_pres(:,sea_lev,:)
-
-      ! clean up:
-      DEALLOCATE(tmp_var_out, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
-      DEALLOCATE(z_temp, z_tracer_iqv, z_tot_cld_iqv, z_pres, z_0, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+      IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_SAI: stepwise analytical integration")
+      ! allocate coefficient table:
+      CALL vcoeff_allocate(nblks, NZLEV, vcoeff)
+      ! compute extrapolation coefficients:
+      CALL prepare_extrap(p_metrics%z_mc,                               & !in
+        &                 nblks, npromz, nlev,                          & !in
+        &                 vcoeff%kpbl1, vcoeff%wfacpbl1,                & !out
+        &                 vcoeff%kpbl2, vcoeff%wfacpbl2   )               !out
+      ! Interpolate pressure on z-level "0": 
+      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_ifc,    &
+        &                out_var%r_ptr(:,:,out_var_idx,1,1),            &
+        &                nblks, npromz, p_patch%nlev,                   &
+        &                vcoeff%wfacpbl1, vcoeff%kpbl1,                 &
+        &                vcoeff%wfacpbl2, vcoeff%kpbl2,                 &
+        &                ZERO_HEIGHT, EXTRAPOL_DIST)
       ! deallocate coefficient tables:
       CALL vcoeff_deallocate(vcoeff)
 
-    ELSE
+    CASE (PRES_MSL_METHOD_GME) ! GME-type extrapolation
 
-      ! Interpolate pressure on z-levels
+      IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_GME")
+      ! Interpolate pressure on z-level "0":
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    out_var%r_ptr(:,:,out_var_idx,1,1),        &  ! out
         &                    nblks, npromz, p_patch%nlev )                 ! in
-      
-    END IF
+
+    CASE DEFAULT
+      CALL finish(routine, 'Internal error!')
+    END SELECT
 
   END SUBROUTINE pp_task_intp_msl
 

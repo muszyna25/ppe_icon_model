@@ -2443,6 +2443,7 @@ Note that if the value of dt\_checkpoint resulting from
 model default or user's specification is longer than time\_nml:dt\_restart, 
 it will be reset (by the model) to dt\_restart so 
 that at least one restart file is generated during the restart cycle. 
+&
 \tabularnewline
 
 \hline 
@@ -2575,6 +2576,15 @@ if .TRUE. the output fluxes are average values\\
  TOT\_PREC that would be accumulated &
 iequations=3\\
 iforcing=3
+\tabularnewline
+
+\hline 
+itype\_pres\_msl&
+I& 1. & &
+Specifies method for computation of mean sea level pressure. \\
+1: GME-type extrapolation, \\
+2: stepwise analytical integration 
+&
 \tabularnewline
 
 \hline 

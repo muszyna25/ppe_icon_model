@@ -83,6 +83,7 @@ MODULE mo_nh_vert_interp
   PUBLIC :: intp_to_p_and_z_levels_prepicon
   PUBLIC :: prepare_lin_intp
   PUBLIC :: prepare_vert_interp
+  PUBLIC :: prepare_extrap
   PUBLIC :: lin_intp, uv_intp, qv_intp, temperature_intp
   PUBLIC :: diagnose_pmsl, diagnose_pmsl_gme
 
@@ -2928,6 +2929,7 @@ CONTAINS
 !$OMP END PARALLEL
       
   END SUBROUTINE diagnose_pmsl_gme
+
 
   !-------------
   !>

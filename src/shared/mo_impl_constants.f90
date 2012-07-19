@@ -455,6 +455,12 @@ MODULE mo_impl_constants
     max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
 
+  ! Method for computation of mean sea level pressure:
+  INTEGER, PARAMETER :: &
+    PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
+    PRES_MSL_METHOD_SAI = 2       ! stepwise analytical integration 
+
+
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !
   !-----------------------------------!

@@ -43,7 +43,8 @@ MODULE mo_io_nml
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom
+  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom, &
+    &                              PRES_MSL_METHOD_GME
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio, p_n_work
@@ -76,7 +77,8 @@ MODULE mo_io_nml
                                  & config_inextra_3d              => inextra_3d       , &
                                  & config_lflux_avg               => lflux_avg        , &
                                  & config_lwrite_dblprec          => lwrite_dblprec   , &
-                                 & config_lwrite_decomposition    => lwrite_decomposition
+                                 & config_lwrite_decomposition    => lwrite_decomposition, &
+                                 & config_itype_pres_msl          => itype_pres_msl
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
 
@@ -122,6 +124,7 @@ MODULE mo_io_nml
                                         ! if .TRUE. the output fluxex are average values 
                                         !  from the beginning of the run, except of 
                                         !  TOT_PREC that would be accumulated
+  INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,             &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,             &
@@ -131,7 +134,7 @@ MODULE mo_io_nml
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,     &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
     &              lwrite_extra, inextra_2d, inextra_3d,                 &
-    &              lflux_avg, lwrite_oce_timestepping
+    &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl
   
 CONTAINS
   !>
@@ -187,6 +190,7 @@ CONTAINS
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .FALSE.
     lwrite_oce_timestepping = .FALSE.
+    itype_pres_msl          = PRES_MSL_METHOD_GME
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -263,6 +267,7 @@ CONTAINS
     config_lwrite_dblprec          = lwrite_dblprec
     config_lwrite_decomposition    = lwrite_decomposition
     config_lwrite_oce_timestepping = lwrite_oce_timestepping
+    config_itype_pres_msl          = itype_pres_msl
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

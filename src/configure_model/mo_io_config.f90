@@ -96,6 +96,7 @@ MODULE mo_io_config
                                           !  from the beginning of the run, except of 
                                           !  TOT_PREC that would be accumulated
     LOGICAL :: lwrite_oce_timestepping    ! if .true. write intermediate ocean variables
+    INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
 
     ! derived variables
