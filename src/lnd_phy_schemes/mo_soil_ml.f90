@@ -4019,7 +4019,9 @@ END SUBROUTINE message
         t_so_new  (i,0)  = t_so_new(i,1)
         w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
         w_i_new   (i)  = w_i_now(i) + zdt*zdwidt   (i)/rho_w
-  
+
+        ! *** Provisional fix for numerical instabilities in the presence of very
+        !     small amounts of snow *** !
         ! melting-point adjustment of snow: if snow temp is above freezing and a non-negligible
         ! amount of snow is available, then melt as much snow as needed to get snow temp
         ! back to t0_melt while conserving energy
@@ -4027,11 +4029,23 @@ END SUBROUTINE message
           w_snow_new(i) = MAX(w_snow_new(i)*(1._ireals-(t_snow_new(i)-t0_melt) &
             *chc_i/lh_f), 0.0_ireals)
           t_snow_new(i) = t0_melt
-        ELSE IF (w_snow_new(i) <= zepsi) THEN
-          ! if the amount of snow is negligible, then just remove it
+        ELSE IF (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 
+          t(i) > t0_melt+15.0_ireals .AND. t_so_new(i,2) > t0_melt+15.0_ireals) THEN
+          ! if the amount of snow is negligible, or the environment is very warm, then just remove it
           w_snow_new(i) = 0.0_ireals
+          ! If the snow has just melted, limit soil temperature increment to 2.5 deg C
+          ! in order to avoid nonsensically large temperature jumps
+          IF (w_snow_now(i) > zepsi) THEN
+!CDIR EXPAND=7
+            t_so_new(i,1:7) = MIN(t_so_now(i,1:7)+2.5_ireals,t_so_new(i,1:7))
+            t_so_new(i,1:7) = MAX(t_so_now(i,1:7)-2.5_ireals,t_so_new(i,1:7))
+            t_so_new(i,0) = t_so_new(i,1)
+            t_s_new(i)    = t_so_new(i,1)
+          ENDIF
           t_snow_new(i) = t_so_new(i,0)
         ENDIF
+        ! *** End of provisional stability fix *** !
+
         IF (w_i_new(i) <= zepsi) w_i_new(i) = 0.0_ireals
 !      END IF          ! land-points only
   END DO
@@ -4298,7 +4312,7 @@ END SUBROUTINE message
   IF (msg_level >= 14) THEN
         DO i = istarts, iends
              IF (w_snow_new(i) > zepsi .AND. (t_snow_new(i)<180. &
-                 & .OR. t_snow_new(i)>280.)) THEN 
+                 & .OR. t_snow_new(i)>280.) .OR. t_so_new(i,1)>350. ) THEN 
 !                & .OR. w_i_new(i)*1000. > 0.1_ireals ) THEN
               write(0,*) "SFC-DIAGNOSIS TERRA ",i,dt,nsubs1!,ntstep
               write(0,*)" nztlev ",               nztlev   
@@ -4324,7 +4338,7 @@ END SUBROUTINE message
               write(0,*) "t_g",t_g(i)
               write(0,*) "t_s",t_s_now(i),t_s_new(i)
               write(0,*) "t_snow",t_snow_now(i),t_snow_new(i)
-              write(0,*) "w_snow",w_snow_now(i),w_snow_now(i)
+              write(0,*) "w_snow",w_snow_now(i),w_snow_new(i)
               write(0,*) "h_snow",h_snow_now(i),h_snow_new(i)
               write(0,*) "qv_s",qv_s(i)
               write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
