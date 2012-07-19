@@ -45,6 +45,7 @@ MODULE mo_oce_diagnostics
 ! 
 USE mo_kind,                      ONLY: wp, i8
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
+USE mo_mpi,                       ONLY: my_process_is_stdio
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_math_constants,            ONLY: rad2deg
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &
@@ -60,7 +61,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
   &                                     set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_exception,                 ONLY: message, finish!, message_text
+USE mo_exception,                 ONLY: message, finish, message_text
 USE mo_loopindices,               ONLY: get_indices_c!, get_indices_e
 !USE mo_oce_math_operators,        ONLY: height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
@@ -563,7 +564,7 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
 
   TYPE(t_subset_range), POINTER :: dom_cells
   
-  !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
+  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
 
   !-----------------------------------------------------------------------
 
@@ -644,7 +645,7 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     END DO
   END DO
 
-  !IF (p_pe==p_io) THEN
+  !IF (my_process_is_stdio()) THEN
     DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
 
         global_moc(lbr,:)=global_moc(lbr+1,:)+global_moc(lbr,:)
@@ -653,9 +654,11 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
 
     END DO
 
-    ! write out in extra format - integer*8
+    ! write out MOC in extra format, file opened in mo_hydro_ocean_run  - integer*8
     idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
-    write(82,*) 'global MOC at iyear, idate:',datetime%year, idate
+    ! write(82,*) 'global MOC at iyear, idate:',datetime%year, idate
+    WRITE(message_text,*) 'Write MOC at iyear, idate:',datetime%year, idate
+    CALL message (TRIM(routine), message_text)
     DO jk=1,n_zlev
       i1=int(idate,i8)
       i2=int(777,i8)
@@ -670,8 +673,6 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
       write(77) i1,i2,i3,i4
       write(77) (pacind_moc(lbr,jk),lbr=1,180)
 
-  !   write(82,*) 'jk=',jk
-  !   write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
     END DO
   !END IF
 
@@ -722,7 +723,7 @@ SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
 
   TYPE(t_subset_range), POINTER :: all_cells, dom_cells
   
-  !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
+  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
   !-----------------------------------------------------------------------
 
@@ -755,6 +756,7 @@ SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
   IF (idiag_psi == 1) RETURN
 
   ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
+  !     this code is not mature yet
 
   ! in domain: count all cells only once
   DO jb = dom_cells%start_block, dom_cells%end_block

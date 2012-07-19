@@ -203,9 +203,11 @@ CONTAINS
   ! open file for MOC - extraordinary at this time
   CALL datetime_to_string(datestring, datetime)
   moc_fname='MOC.'//TRIM(datestring)
+  !IF (my_process_is_stdio()) THEN
   OPEN (77,file=moc_fname,form='unformatted')
   WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
   CALL message (TRIM(routine), message_text)
+  !END IF
 
   ! call of MOC before time loop
   !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
