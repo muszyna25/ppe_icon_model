@@ -935,7 +935,8 @@ MODULE mo_nonhydro_state
 
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
     !
-    cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical vorticity', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('atmosphere_relative_vorticity', 'm s-1', 'vertical vorticity', &
+      &          DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 10, ibits, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
