@@ -174,7 +174,7 @@ CONTAINS
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
             & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level                            ,    &
+            & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
           
 
@@ -205,7 +205,7 @@ CONTAINS
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
             & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level                            ,    &
+            & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
 
         CASE(4)  ! two-moment scheme 
@@ -231,7 +231,7 @@ CONTAINS
             & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & ! in:  rain water
             & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & ! out: precipitation rate of rain
-            & idbg   =msg_level                         ,    &
+            & idbg   =msg_level/2                       ,    &
             & l_cv    =.TRUE. )
 
 
@@ -258,7 +258,7 @@ CONTAINS
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
             & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level                            ,    &
+            & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
 
 
