@@ -1053,7 +1053,6 @@ MODULE mo_nh_stepping
           ENDIF
         ENDIF
 
-WRITE(0,*) 'K.L. after time ctrl physics'
         IF (p_patch(jg)%cell_type == 3) THEN
 
           IF (jg > 1 .AND. .NOT. lfeedback(jg)) THEN
