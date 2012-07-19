@@ -1,0 +1,77 @@
+#=============================================================================
+#
+# 1. Add global attributes for compliance with DCMIP standard
+# 2. Change variable names (if needed)
+# 3. Remap from ICON grid to regular longitude latitude grid (if needed)
+#
+#-----------------------------------------------------------------------------
+
+igrid=$1
+
+# 1. Add global attributes
+# ========================
+
+dcmip_setgattr=../scripts/postprocessing/tools/dcmip_setgattr.sh
+
+expdir=../experiments/nh_dcmip_tc_52_$igrid
+desc="icongrid:$igrid, user:$USER"
+
+if [ "$igrid" == "r2b4" ]
+then
+   res=medium
+fi
+
+if [ "$igrid" == "r5b4" ]
+then
+   res=high
+fi
+
+echo "Set DCMIP global attributes for files in $expdir"
+echo "  test case  : 52"
+echo "  resolution : $res"
+echo "  levels     : L30"
+echo "  grid       : tri"
+echo "  description: $desc"
+
+for file in $expdir/icon-mpi-dwd.52.$res.L30.tri.nonhydro_DOM01_?L_????.nc
+do
+  echo "  file       : $file"
+  $dcmip_setgattr -f $file -c 52 -r $res -l L30 -g tri -d $desc
+done
+
+
+#off2# # 2. Change variable names
+#off2# # ========================
+#off2# # to be checked
+#off2# # if necessary this can be done by:
+#off2# # cdo chname,oldname,newname,... ifile ofile
+#off2# 
+#off2# for ifile in $expdir/icon-mpi-dwd.52.$res.L30.tri.nonhydro_DOM01_?L_????.nc
+#off2# do
+#off2#   ofile=${ifile}_tmp
+#off2#   cdo chname,oldname,newname,... $ifile $ofile
+#off2#   mv $ofile $ifile
+#off2# done
+
+
+#off3# # 3. Remap to longitude latitude file
+#off3# # ===================================
+#off3# 
+#off3# if [ "$igrid" == "r2b4" ]
+#off3# then
+#off3#   ogrid=r360x180
+#off3# fi
+#off3# 
+#off3# if [ "$1" == "r5b4" ]
+#off3# then
+#off3#   ogrid=r720x360
+#off3# fi
+#off3# 
+#off3# weights=../grids/weights_dis_${igrid}_${ogrid}.nc
+#off3# 
+#off3# for ifile in $expdir/icon-mpi-dwd.52.$res.L30.tri.nonhydro_DOM01_?L_????.nc
+#off3# do
+#off3#    ofile=...
+#off3#    cdo remap,${ogrid},${weights} $ifile $ofile
+#off3#    $dcmip_setgattr -f $file -c 52 -r $res -l L30 -g latlon -d $desc
+#off3# done
