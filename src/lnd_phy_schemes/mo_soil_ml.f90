@@ -3217,7 +3217,9 @@ END SUBROUTINE message
 !                               (7.750E-05_ireals*rho_snow(i,nx) + &
 !                                1.105E-06_ireals*prho_snow(i,nx)**2)
 
-          zgsb(i) = zalas*(ztsnow(i) - zts(i))/zdz_snow_fl(i)
+!          zgsb(i) = zalas*(ztsnow(i) - zts(i))/zdz_snow_fl(i)
+          zgsb(i) = zalas*(ztsnow(i) - zts(i))/MAX(zdz_snow_fl(i)*zf_snow(i),cdsmin)
+!          zgsb(i) = zalas*(ztsnow(i) - zts(i))/MAX(h_snow_now(i),zepsi)
         END IF
 
         ! total forcing for uppermost soil layer
@@ -3654,8 +3656,7 @@ END SUBROUTINE message
             IF (ztsnown(i) > t0_melt .AND. t_so_new(i,1) < t0_melt ) THEN
               zdwsnm(i)    = zwsnew(i)*.5_ireals*(ztsnown(i) - (t0_melt - zepsi))/ &
                                (.5_ireals* (zts(i) - (t0_melt - zepsi)) - lh_f/chc_i)
-!em              zdwsnm(i)    = zdwsnm(i)*z1d2dt*rho_w 
-              zdwsnm(i)    = zdwsnm(i)*z1d2dt*rho_w*zf_snow(i) 
+              zdwsnm(i)    = zdwsnm(i)*z1d2dt*rho_w 
               zdwsndt(i)   = zdwsndt (i) + zdwsnm(i)
               ztsnownew    = t0_melt - zepsi
               zdtsnowdt(i) = zdtsnowdt(i) + (ztsnownew - ztsnown(i))*z1d2dt
@@ -3687,8 +3688,7 @@ END SUBROUTINE message
                 ! else it contributes to surface run-off;
                 ! fractional water content of the first soil layer determines
                 ! a reduction factor which controls additional run-off
-!em                zdwsnm(i)   = zfr_melt*zwsnew(i)*z1d2dt*rho_w  ! available water
-                zdwsnm(i)   = zfr_melt*zwsnew(i)*z1d2dt*rho_w*zf_snow(i)  ! available water
+                zdwsnm(i)   = zfr_melt*zwsnew(i)*z1d2dt*rho_w  ! available water
                 zdwsndt(i)  = zdwsndt (i) - zdwsnm(i)
                 zdwgme        = zdwsnm(i)*zrock(i)             ! contribution to w_so
                 zro           = (1._ireals - zrock(i))*zdwsnm(i)      ! surface runoff
@@ -4202,6 +4202,7 @@ END SUBROUTINE message
         ELSE !JH
           rho_snow_new(i) = 250._ireals ! workaround need to be inspected!!
         END IF
+        t_snow_new(i) = t_snow_mult_new (i,1)
 !      END IF          ! land-points only
     END DO
 
@@ -4283,15 +4284,9 @@ END SUBROUTINE message
   
   ! computation of the temperature at the boundary soil/snow-atmosphere
   IF (ldiag_tg) THEN
-    IF(lmulti_snow) THEN
-      CALL tgcom ( t_g(:), t_snow_mult_new(:,1), t_s_new(:), &
-                   w_snow_new(:), zf_snow(:), ie, cf_snow,  &
-                   istarts, iends )
-    ELSE
-      CALL tgcom ( t_g(:), t_snow_new(:), t_s_new(:),       &
-                   w_snow_new(:), zf_snow(:), ie, cf_snow, &
-                   istarts, iends )
-    ENDIF
+    CALL tgcom ( t_g(:), t_snow_new(:), t_s_new(:),       &
+                 w_snow_new(:), zf_snow(:), ie, cf_snow, &
+                 istarts, iends )
   ENDIF
 !  END DO
 
