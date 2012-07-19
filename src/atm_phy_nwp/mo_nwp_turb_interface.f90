@@ -289,9 +289,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       ! First call of turbtran for all grid points (water points with > 50% water
       ! fraction and tile 1 of the land points)
- !     IF (nsfc_subs == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
-! **** tile usage not yet activated **** !
-      IF (nsfc_subs <= 100) THEN ! tile approach not used; use tile-averaged fields from extpar
+      IF (nsfc_subs == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
         CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                     &
           & ie=nproma, ke=nlev, ke1=nlevp1,                                                     &
