@@ -104,7 +104,7 @@ MODULE mo_pp_tasks
   INTEGER, PARAMETER, PUBLIC  :: LOW_PRIORITY      =  100  
 
   ! level of output verbosity
-  INTEGER, PUBLIC :: dbg_level = 0
+  INTEGER, PUBLIC :: dbg_level = 10
 
   ! functions and subroutines
   PUBLIC :: pp_task_lonlat
@@ -442,8 +442,8 @@ CONTAINS
     ! pz-level interpolation data
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
 
-    nzlev             =  nh_pzlev_config%nzlev
-    nplev             =  nh_pzlev_config%nplev
+    nzlev          =  nh_pzlev_config%nzlev
+    nplev          =  nh_pzlev_config%nplev
                       
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INIT_VER_PZ )
@@ -460,15 +460,14 @@ CONTAINS
       !
     CASE ( TASK_INIT_VER_Z )
       ! build data structure "vcoeff" containing coefficient tables
-      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_Z")
       CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
         &                      p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,         & ! inout
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
-        &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
-        &                      p_diag_pz%p_temp,                                 & ! inout
-        &                      nh_pzlev_config%p3d, nh_pzlev_config%z3d,         & ! in
-        &                      p_metrics,                                        & ! in
-        &                      vcoeff_z=p_diag_pz%vcoeff_z )                                ! inout
+        &                      p_diag_pz%z_pres,                                 & ! inout
+        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
+        &                      p_metrics=p_metrics,                              & ! in
+        &                      vcoeff_z=p_diag_pz%vcoeff_z )                       ! inout
       !
     CASE ( TASK_FINALIZE_PZ )
       ! deallocate coefficient tables:

@@ -655,7 +655,7 @@ CONTAINS
     &                            temp_z_out, tracer_z_qv_out, tot_cld_z_qv_out,   &
     &                            pres_z_out, geopot_p_out, temp_p_out,            &
     &                            p_p3d_out, p_z3d_out,                            &
-    &                            p_metrics, vcoeff_z, vcoeff_p, l_only_p2z)
+    &                            p_metrics, vcoeff_z, vcoeff_p)
 
     TYPE(t_patch),       TARGET,       INTENT(IN)    :: p_patch
     TYPE(t_nh_prog),     POINTER                     :: p_prog
@@ -675,7 +675,6 @@ CONTAINS
     ! if parameter "vcoeff_p" is not present, only z-interpolation is initialized
     TYPE(t_vcoeff),   INTENT(INOUT), OPTIONAL  :: vcoeff_p
     ! Flag. If .TRUE., only pressure is extrapolated onto z-levels
-    LOGICAL,          INTENT(IN),    OPTIONAL  :: l_only_p2z
 
     ! LOCAL VARIABLES
     CHARACTER(*), PARAMETER :: routine = &
@@ -768,7 +767,7 @@ CONTAINS
       z_tempv_in(:,:,:) = p_diag%temp(:,:,:)
       z_tempv(:,:,:)    = temp_z_out
     END IF
-    
+
     ! Interpolate pressure on z-levels
     CALL pressure_intp(p_diag%pres, z_tempv_in, p_metrics%z_mc,        & !in
       &                pres_z_out, z_tempv, p_z3d_out,                 & !out,in,in
@@ -776,12 +775,6 @@ CONTAINS
       &                vcoeff_z%wfac_lin,    vcoeff_z%idx0_lin,        & !in
       &                vcoeff_z%bot_idx_lin, vcoeff_z%wfacpbl1,        & !in
       &                vcoeff_z%kpbl1 )                                  !in
-
-    ! SKIP THE REST of this subroutine, if only pressure interpolation
-    ! was demanded:
-    IF (PRESENT(l_only_p2z)) THEN
-      IF (l_only_p2z) RETURN
-    END IF
 
     IF (  iforcing == inwp  ) THEN
       ! Final interpolation of prognostic QV, without supersaturation limiting

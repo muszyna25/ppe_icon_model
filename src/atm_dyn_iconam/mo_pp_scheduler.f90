@@ -529,7 +529,7 @@ CONTAINS
       NML_LOOP_P : DO
         IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP_P
 
-        IF (dbg_level >= 10)  WRITE (0,*) p_onl%pl_varlist 
+        IF (dbg_level >= 15)  WRITE (0,*) p_onl%pl_varlist 
 
         ! If dom(:) was not specified in namelist input, it is set
         ! completely to -1.  In this case all domains are wanted in
