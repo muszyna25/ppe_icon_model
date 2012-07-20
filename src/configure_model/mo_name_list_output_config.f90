@@ -48,7 +48,7 @@ MODULE mo_name_list_output_config
   USE mo_io_units,              ONLY: filename_max
   USE mo_impl_constants,        ONLY: max_phys_dom, max_bounds,          &
     &                                 vname_len, max_var_ml, max_var_pl, &
-    &                                 max_var_hl, max_levels
+    &                                 max_var_hl, max_var_il, max_levels
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
@@ -107,6 +107,8 @@ MODULE mo_name_list_output_config
     REAL(wp) :: p_levels(max_levels)                      ! pressure levels [hPa]
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
     REAL(wp) :: h_levels(max_levels)                      ! height levels
+    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
+    REAL(wp) :: i_levels(max_levels)                      ! isentropic levels
     INTEGER  :: remap               ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
     LOGICAL  :: remap_internal      ! do interpolations online in the model or external (including triggering)
     
@@ -249,6 +251,11 @@ CONTAINS
       DO ivar=1,max_var_hl
         IF (p_onl%hl_varlist(ivar) == ' ') CYCLE
         IF (toupper(TRIM(p_onl%hl_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
+        IF (retval) EXIT
+      END DO
+      DO ivar=1,max_var_il
+        IF (p_onl%il_varlist(ivar) == ' ') CYCLE
+        IF (toupper(TRIM(p_onl%il_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
         IF (retval) EXIT
       END DO
     END IF

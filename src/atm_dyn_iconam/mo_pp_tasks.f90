@@ -45,9 +45,10 @@ MODULE mo_pp_tasks
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,               &
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
-    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
+    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z,                   &
+    & TASK_INIT_VER_IZ, TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ,         &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
-    & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,                            &
+    & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
@@ -109,8 +110,8 @@ MODULE mo_pp_tasks
   ! functions and subroutines
   PUBLIC :: pp_task_lonlat
   PUBLIC :: pp_task_sync
-  PUBLIC :: pp_task_pzlev_setup
-  PUBLIC :: pp_task_pzlev
+  PUBLIC :: pp_task_ipzlev_setup
+  PUBLIC :: pp_task_ipzlev
   PUBLIC :: pp_task_intp_msl
   PUBLIC :: pp_task_compute_field
   ! variables
@@ -414,11 +415,11 @@ CONTAINS
   !
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
-  SUBROUTINE pp_task_pzlev_setup(ptr_task)
+  SUBROUTINE pp_task_ipzlev_setup(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_pzlev_setup")
-    INTEGER                            :: jg, nzlev, nplev
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev_setup")
+    INTEGER                            :: jg, nzlev, nplev, nilev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
 
@@ -439,62 +440,100 @@ CONTAINS
     p_diag_pz      => ptr_task%data_input%p_nh_opt_diag%diag_pz
     prm_diag       => ptr_task%data_input%prm_diag
 
-    ! pz-level interpolation data
+    ! ipz-level interpolation data
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
 
     nzlev          =  nh_pzlev_config%nzlev
     nplev          =  nh_pzlev_config%nplev
+    nilev          =  nh_pzlev_config%nilev
                       
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INIT_VER_PZ )
       ! build data structure "vcoeff" containing coefficient tables
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
       CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
-        &                      p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,         & ! inout
+        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
         &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
-        &                      p_diag_pz%p_temp,                                 & ! inout
-        &                      nh_pzlev_config%p3d, nh_pzlev_config%z3d,         & ! in
-        &                      p_metrics,                                        & ! in
-        &                      vcoeff_z=p_diag_pz%vcoeff_z, vcoeff_p=p_diag_pz%vcoeff_p )            ! inout
+        &                      p_diag_pz%p_temp,                                 & ! in
+        &                      p_p3d_out=nh_pzlev_config%p3d,                    & ! in
+        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
+        &                      p_i3d_out=nh_pzlev_config%i3d,                    & ! in
+        &                      p_metrics=p_metrics,                              & ! in
+        &                      vcoeff_z=p_diag_pz%vcoeff_z,                      & ! inout
+        &                      vcoeff_p=p_diag_pz%vcoeff_p)                        ! inout
+      !
+    CASE ( TASK_INIT_VER_IPZ )
+      ! build data structure "vcoeff" containing coefficient tables
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
+      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
+        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
+        &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
+        &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
+        &                      p_diag_pz%p_temp, p_diag_pz%i_geopot,             & ! inout
+        &                      p_diag_pz%i_temp,                                 & ! inout
+        &                      p_p3d_out=nh_pzlev_config%p3d,                    & ! in
+        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
+        &                      p_i3d_out=nh_pzlev_config%i3d,                    & ! in
+        &                      p_metrics=p_metrics,                              & ! in
+        &                      vcoeff_z=p_diag_pz%vcoeff_z,                      & ! inout
+        &                      vcoeff_p=p_diag_pz%vcoeff_p,                      & ! inout
+        &                      vcoeff_i=p_diag_pz%vcoeff_i                       ) ! inout
+      !
+    CASE ( TASK_INIT_VER_IZ )
+      ! build data structure "vcoeff" containing coefficient tables
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
+      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
+        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
+        &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
+        &                      p_diag_pz%z_pres,                                 & ! inout
+        &                      geopot_i_out=p_diag_pz%i_geopot,                  & ! inout
+        &                      temp_i_out=p_diag_pz%i_temp,                      & ! inout
+        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
+        &                      p_i3d_out=nh_pzlev_config%i3d,                    & ! in
+        &                      p_metrics=p_metrics,                              & ! in
+        &                      vcoeff_z=p_diag_pz%vcoeff_z,                      & ! inout
+        &                      vcoeff_i=p_diag_pz%vcoeff_i                       ) ! inout
       !
     CASE ( TASK_INIT_VER_Z )
       ! build data structure "vcoeff" containing coefficient tables
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_Z")
       CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
-        &                      p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,         & ! inout
+        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
         &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
         &                      p_diag_pz%z_pres,                                 & ! inout
         &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
         &                      p_metrics=p_metrics,                              & ! in
         &                      vcoeff_z=p_diag_pz%vcoeff_z )                       ! inout
       !
-    CASE ( TASK_FINALIZE_PZ )
+    CASE ( TASK_FINALIZE_IPZ )
       ! deallocate coefficient tables:
       CALL vcoeff_deallocate(p_diag_pz%vcoeff_z)
       CALL vcoeff_deallocate(p_diag_pz%vcoeff_p)
+      CALL vcoeff_deallocate(p_diag_pz%vcoeff_i)
       !
     CASE DEFAULT
       CALL finish(routine, "Internal error.")
     END SELECT ! vert_intp_method
 
-  END SUBROUTINE pp_task_pzlev_setup
+  END SUBROUTINE pp_task_ipzlev_setup
 
 
   !---------------------------------------------------------------
-  !> Performs vertical interpolation of a variable onto p/z-levels.
+  !> Performs vertical interpolation of a variable onto i/p/z-levels.
   !
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
-  SUBROUTINE pp_task_pzlev(ptr_task)
+  !
+  SUBROUTINE pp_task_ipzlev(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_pzlev")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev")
     INTEGER                            :: &
       &  vert_intp_method, jg,                  &
       &  in_var_idx, out_var_idx, nlev, nlevp1, &
-      &  nzlev, nplev, npzlev, npromz, nblks,   &
-      &  dim2, ierrstat
+      &  nzlev, nplev, nilev, n_ipzlev, npromz,   &
+      &  nblks, dim2, ierrstat
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -546,19 +585,25 @@ CONTAINS
     nlevp1            = p_patch%nlevp1
     nzlev             = nh_pzlev_config%nzlev
     nplev             = nh_pzlev_config%nplev
+    nilev             = nh_pzlev_config%nilev
 
     ! pz-level interpolation data
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INTP_VER_ZLEV )
       ! vertical levels for z-level interpolation
-      npzlev  =   nzlev
+      n_ipzlev  =   nzlev
       vcoeff  =>  p_diag_pz%vcoeff_z
       p_z3d   =>  nh_pzlev_config%z3d
     CASE ( TASK_INTP_VER_PLEV )
       ! vertical levels for p-level interpolation
-      npzlev  =   nplev
+      n_ipzlev  =   nplev
       vcoeff  =>  p_diag_pz%vcoeff_p
       p_z3d   =>  p_diag_pz%p_geopot
+    CASE ( TASK_INTP_VER_ILEV )
+      ! vertical levels for isentropic-level interpolation
+      n_ipzlev  =   nilev
+      vcoeff  =>  p_diag_pz%vcoeff_i
+      p_z3d   =>  p_diag_pz%i_geopot
     CASE DEFAULT
       CALL finish(routine, "Unknown post-processing job.")
     END SELECT
@@ -607,7 +652,7 @@ CONTAINS
       CALL uv_intp(tmp_var(:,:,:),                                       & !in
         &          out_var%r_ptr(:,:,:,out_var_idx,1),                   & !out
         &          p_metrics%z_mc, p_z3d,                                & !in
-        &          nblks, npromz, nlev, npzlev,                          & !in
+        &          nblks, npromz, nlev, n_ipzlev,                        & !in
         &          vcoeff%coef1, vcoeff%coef2,                           & !in
         &          vcoeff%coef3, vcoeff%wfac_lin,                        & !in
         &          vcoeff%idx0_cub, vcoeff%idx0_lin,                     & !in
@@ -621,7 +666,7 @@ CONTAINS
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
       CALL lin_intp(tmp_var(:,:,:),                                      & !inout
         &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-        &           nblks, npromz, nlev, npzlev,                         & !in
+        &           nblks, npromz, nlev, n_ipzlev,                       & !in
         &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & !in
         &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & !in
         &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & !in
@@ -633,7 +678,7 @@ CONTAINS
       IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
       CALL lin_intp(tmp_var(:,:,:),                                      & !inout
         &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-        &           nblks, npromz, nlevp1, npzlev,                       & !in
+        &           nblks, npromz, nlevp1, n_ipzlev,                     & !in
         &           vcoeff%wfac_lin_nlevp1, vcoeff%idx0_lin_nlevp1,      & !in
         &           vcoeff%bot_idx_lin_nlevp1,                           & !in
         &           vcoeff%wfacpbl1_nlevp1, vcoeff%kpbl1_nlevp1,         & !in
@@ -648,7 +693,7 @@ CONTAINS
         &          out_var%r_ptr(:,:,:,out_var_idx,1),                 & !out
         &          p_metrics%z_mc, p_z3d, p_diag%temp,                 & !in
         &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d, & !in
-        &          nblks, npromz, nlev, npzlev,                        & !in
+        &          nblks, npromz, nlev, n_ipzlev,                      & !in
         &          vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,           & !in
         &          vcoeff%wfac_lin, vcoeff%idx0_cub, vcoeff%idx0_lin,  & !in
         &          vcoeff%bot_idx_cub, vcoeff%bot_idx_lin,             & !in
@@ -662,7 +707,7 @@ CONTAINS
     DEALLOCATE(tmp_var, STAT=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
 
-  END SUBROUTINE pp_task_pzlev
+  END SUBROUTINE pp_task_ipzlev
 
 
   !---------------------------------------------------------------

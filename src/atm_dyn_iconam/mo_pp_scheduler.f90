@@ -60,20 +60,22 @@ MODULE mo_pp_scheduler
 
   USE mo_kind,                    ONLY: wp
   USE mo_exception,               ONLY: message, message_text, finish
-  USE mo_impl_constants,          ONLY: SUCCESS,                      &
-    & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,               &
-    & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
-    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
-    & max_dom, max_var_ml, max_var_pl, max_var_hl,                    &
-    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ, &
-    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
-    & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV
+  USE mo_impl_constants,          ONLY: SUCCESS,                       &
+    & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,                &
+    & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,              &     
+    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,     &
+    & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
+    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_INIT_VER_IZ,  &
+    & TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ,                            &
+    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,        &
+    & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,              &
+    & TASK_INTP_VER_ILEV
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
     &                                   nvar_lists, var_lists
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
-    &                                   level_type_pl, level_type_hl
+    &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list, &
     &                                   t_lon_lat_intp, p_int_state
@@ -97,15 +99,15 @@ MODULE mo_pp_scheduler
     &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
     &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16
+    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZAXIS_ISENTROPIC
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
-  USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_pzlev_setup, &
-    &                                   pp_task_pzlev, pp_task_compute_field,              &
+  USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
+    &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl,                                   & 
-    &                                   t_data_input, t_data_output,                       &
-    &                                   t_simulation_status, t_job_queue, job_queue,       &
-    &                                   MAX_NAME_LENGTH, HIGH_PRIORITY,                    &
-    &                                   DEFAULT_PRIORITY0, DEFAULT_PRIORITY1,              &
+    &                                   t_data_input, t_data_output,                        &
+    &                                   t_simulation_status, t_job_queue, job_queue,        &
+    &                                   MAX_NAME_LENGTH, HIGH_PRIORITY,                     &
+    &                                   DEFAULT_PRIORITY0, DEFAULT_PRIORITY1,               &
     &                                   DEFAULT_PRIORITY2, LOW_PRIORITY, dbg_level
   USE mo_fortran_tools,           ONLY: assign_if_present
 
@@ -192,9 +194,9 @@ CONTAINS
     ENDDO ! i = 1,nvar_lists
 
     !-------------------------------------------------------------
-    !--- setup of vertical interpolation onto p/z-levels
+    !--- setup of vertical interpolation onto i/p/z-levels
 
-    CALL pp_scheduler_init_pz(l_init_prm_diag)
+    CALL pp_scheduler_init_ipz(l_init_prm_diag)
 
     !-------------------------------------------------------------
     !-- horizontal interpolation regular lon-lat grids
@@ -257,8 +259,8 @@ CONTAINS
       IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
 
       ! do the same for the three level types: model levels (ml),
-      ! height levels (hl), and pressure levels (pl):
-      DO ilev=1,3
+      ! height levels (hl), pressure levels (pl) and isentropic levels (il):
+      DO ilev=1,4
    
         SELECT CASE(ilev)
         CASE (1) 
@@ -272,6 +274,10 @@ CONTAINS
         CASE (3)
           varlist => p_onl%hl_varlist
           ilev_type  =  level_type_hl
+          max_var    =  max_var_hl
+        CASE (4)
+          varlist => p_onl%il_varlist
+          ilev_type  =  level_type_il
           max_var    =  max_var_hl
         END SELECT
         IF (varlist(1) == ' ') CYCLE
@@ -372,6 +378,8 @@ CONTAINS
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_p
           CASE (level_type_hl)
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_z
+          CASE (level_type_il)
+            p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_i
           END SELECT
 
           ! set local values for "nblks" and "npromz"
@@ -469,21 +477,21 @@ CONTAINS
 
 
   !---------------------------------------------------------------
-  !> Setup of pz-level interpolation tasks.
+  !> Setup of i/p/z-level interpolation tasks.
   !
   ! See SUBROUTINE pp_scheduler_init for further details.
   !
-  SUBROUTINE pp_scheduler_init_pz(l_init_prm_diag)
+  SUBROUTINE pp_scheduler_init_ipz(l_init_prm_diag)
     LOGICAL, INTENT(IN) :: l_init_prm_diag
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
-      &  TRIM("mo_pp_scheduler:pp_scheduler_init_pz")
+      &  TRIM("mo_pp_scheduler:pp_scheduler_init_ipz")
     INTEGER                            :: &
       &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
       &  iaxis, vgrid, nlev
     LOGICAL                            :: &
-      &  l_jg_active, l_intp_p, l_intp_z, found
+      &  l_jg_active, l_intp_p, l_intp_z, l_intp_i, found
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE(t_job_queue),         POINTER :: task
     INTEGER                            :: shape3d(3)
@@ -491,13 +499,14 @@ CONTAINS
     TYPE(t_grib2_var)                  :: grib2_desc
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
     TYPE(t_var_list),          POINTER :: p_opt_diag_list_p, p_opt_diag_list_z, &
-      &                                   p_opt_diag_list
+      &                                   p_opt_diag_list_i, p_opt_diag_list
     REAL(wp), POINTER                  :: p_opt_field_r3d(:,:,:)
     TYPE(t_list_element),      POINTER :: element, new_element
     ! variable lists (for all domains + output name lists):
-    INTEGER                            :: nvars_pl, nvars_hl, nvars, nvars_predef, &
-      &                                   job_type
-    CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: pl_varlist(:), hl_varlist(:)
+    INTEGER                            :: nvars_pl, nvars_hl, nvars_il, nvars, &
+         &                                nvars_predef, job_type
+    CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: &
+         &                                pl_varlist(:), hl_varlist(:), il_varlist(:)
     CHARACTER(LEN=vname_len), POINTER  :: varlist(:)
     CHARACTER(LEN=vname_len)           :: varlist_predef(5)
     CHARACTER(LEN=10)                  :: prefix
@@ -513,13 +522,16 @@ CONTAINS
     !   executed ahead of interpolation tasks)
     ! - for each variable: register post-processing task
 
-    ALLOCATE(pl_varlist(ndom*max_var_pl), hl_varlist(ndom*max_var_hl), STAT=ierrstat)
+    ALLOCATE(pl_varlist(ndom*max_var_pl), &
+         &   hl_varlist(ndom*max_var_hl), &
+         &   il_varlist(ndom*max_var_il), &
+         &   STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     DOM_LOOP : DO jg=1,ndom
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
 
-      !-- check if any output name list requests p- or z-level
+      !-- check if any output name list requests p- or z- or i-level 
       !-- interpolation for this domain, collect the list of variables
 
       ! loop in search of pressure-level interpolation      
@@ -595,6 +607,42 @@ CONTAINS
         p_onl => p_onl%next
       END DO NML_LOOP_H
 
+      ! loop in search of i-level interpolation
+      p_onl => first_output_name_list
+      nvars_il = 0
+      l_intp_i = .FALSE.
+      NML_LOOP_I : DO
+        IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP_I
+      
+        ! If dom(:) was not specified in namelist input, it is set
+        ! completely to -1.  In this case all domains are wanted in
+        ! the output
+        l_jg_active = (ANY(p_onl%dom(:) == jg) .OR. p_onl%dom(1) <= 0)
+        ! Selection criteria: 
+        ! - domain is requested
+        ! - i-level interpolation is requested
+        IF (l_jg_active .AND. (p_onl%il_varlist(1) /= ' ')) THEN
+          ! check, if "all" variables are desired:
+          IF (toupper(TRIM(p_onl%il_varlist(1))) == 'ALL') THEN
+            IF (dbg_level > 8)  CALL message(routine, "ALL vars for i-level")
+            CALL get_all_var_names(il_varlist, nvars_il, &
+              &                    opt_vert_intp_type=VINTP_TYPE_Z,       &
+              &                    opt_vert_intp_type2=VINTP_TYPE_P_OR_Z, &
+              &                    opt_loutput=.TRUE.)
+            IF (nvars_il > 0) l_intp_i = .TRUE.
+            EXIT NML_LOOP_I
+          END IF
+
+          l_intp_i = .TRUE.
+          DO ivar=1,max_var_il
+            IF (p_onl%il_varlist(ivar) == ' ') CYCLE
+            nvars_il=nvars_il+1
+            il_varlist(nvars_il) = p_onl%il_varlist(ivar)
+          END DO
+        END IF
+        p_onl => p_onl%next
+      END DO NML_LOOP_I
+
       ! some debugging output...
       IF (dbg_level > 8)  THEN
         DO i=1,nvars_pl
@@ -605,22 +653,28 @@ CONTAINS
           WRITE (message_text,*) "h var list: ", TRIM(hl_varlist(i))
           CALL message(routine, message_text)
         END DO
+        DO i=1,nvars_il
+          WRITE (message_text,*) "i var list: ", TRIM(il_varlist(i))
+          CALL message(routine, message_text)
+        END DO
       END IF
       ! now, we have total variables lists "hl_varlist(1:nvars_hl)"
-      ! and "pl_varlist(1:nvars_pl)"
+      ! and "pl_varlist(1:nvars_pl)" and "il_varlist(1:nvars_il)"
       
       ! skip domain if no p/z-interpolation requested:
-      IF (.NOT. (l_intp_z .OR. l_intp_p)) CYCLE DOM_LOOP
+      IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) CYCLE DOM_LOOP
 
       ! remove duplicates from variable lists
       CALL remove_duplicates(pl_varlist, nvars_pl)
       CALL remove_duplicates(hl_varlist, nvars_hl)
+      CALL remove_duplicates(il_varlist, nvars_il)
 
       !-- First, add some diagnostic variables which are essential for
       !-- p/z-level interpolation, e.g. temp_z, pres_z:
       p_diag_pz         => p_nh_opt_diag(jg)%diag_pz
       p_opt_diag_list_z => p_nh_opt_diag(jg)%opt_diag_list_z
       p_opt_diag_list_p => p_nh_opt_diag(jg)%opt_diag_list_p
+      p_opt_diag_list_i => p_nh_opt_diag(jg)%opt_diag_list_i
       ibits     = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
       ! predefined array shapes
@@ -681,6 +735,21 @@ CONTAINS
           & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
           & ldims=shape3d )
       END IF
+      IF (l_intp_i) THEN
+        shape3d = (/ nproma, nh_pzlev_config(jg)%nilev, nblks_c /)
+        ! GEOPOT
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_geopot,             &
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_ISENTROPIC, cf_desc, grib2_desc,      &
+          & ldims=shape3d )
+        ! temp
+        cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_i, 'temp', p_diag_pz%i_temp,            &
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_ISENTROPIC, cf_desc, grib2_desc,      &
+          & ldims=shape3d )
+      END IF
 
       !-- register interpolation setup as a post-processing task
 
@@ -697,7 +766,16 @@ CONTAINS
       END IF
       task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
-      IF (l_intp_p) THEN
+
+      IF (l_intp_i) THEN
+        IF (l_intp_p) THEN
+          task%job_name = "Init: ipz-level interpolation, DOM "//TRIM(int2string(jg))
+          task%job_type = TASK_INIT_VER_IPZ
+        ELSE
+          task%job_name = "Init: iz-level interpolation, DOM "//TRIM(int2string(jg))
+          task%job_type = TASK_INIT_VER_IZ
+        END IF
+      ELSE IF (l_intp_p) THEN
         task%job_name = "Init: pz-level interpolation, DOM "//TRIM(int2string(jg))
         task%job_type = TASK_INIT_VER_PZ
       ELSE
@@ -711,7 +789,7 @@ CONTAINS
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
       task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
       task%job_name     = "Clean-up: pz-level interpolation, level "//TRIM(int2string(jg))
-      task%job_type     = TASK_FINALIZE_PZ
+      task%job_type     = TASK_FINALIZE_IPZ
       task%data_input%p_int_state      => NULL()
       task%data_input%jg               =  jg           
       task%data_input%p_patch          => p_patch(jg)
@@ -724,10 +802,12 @@ CONTAINS
       CALL difference(hl_varlist, nvars_hl, varlist_predef, nvars_predef)
       IF (l_intp_p) &
         CALL difference(pl_varlist, nvars_pl, (/ "gh  ", "temp" /), 2)
+      IF (l_intp_i) &
+        CALL difference(il_varlist, nvars_il, (/ "gh  ", "temp" /), 2)
 
-      !-- loop over requested p- and z-level variables, add variables
+      !-- loop over requested p-, z-, and i-level variables, add variables
       !-- ("add_var") and register interpolation tasks:
-      DO iaxis=1,2
+      DO iaxis=1,3
         IF (iaxis == 1) THEN
           prefix  =  "z-level"
           varlist => hl_varlist
@@ -745,6 +825,15 @@ CONTAINS
           vgrid   =  ZAXIS_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
           job_type = TASK_INTP_VER_PLEV
+        END IF
+        IF (iaxis == 3) THEN
+          prefix  =  "i-level"
+          varlist => il_varlist
+          nvars   =  nvars_il
+          nlev    =  nh_pzlev_config(jg)%nilev
+          vgrid   =  ZAXIS_ISENTROPIC
+          p_opt_diag_list => p_opt_diag_list_i
+          job_type = TASK_INTP_VER_ILEV
         END IF
         
         DO ivar=1,nvars
@@ -784,6 +873,9 @@ CONTAINS
                   & (info%vert_interp%vert_intp_type/=VINTP_TYPE_P_OR_Z)) CYCLE
               END IF
               IF (iaxis == 2) THEN
+                IF (info%vert_interp%vert_intp_type/=VINTP_TYPE_P_OR_Z) CYCLE
+              END IF
+              IF (iaxis == 3) THEN
                 IF (info%vert_interp%vert_intp_type/=VINTP_TYPE_P_OR_Z) CYCLE
               END IF
               IF (info%vert_interp%vert_intp_type==VINTP_TYPE_NONE) CYCLE
@@ -845,15 +937,15 @@ CONTAINS
             CALL finish(routine,TRIM(prefix)//" interpolation: No feasible variable found: "&
             &                   //TRIM(varlist(ivar)))
         END DO ! ivar
-      END DO ! height/pressure axis
+      END DO ! height/pressure/isentropic axis
     END DO DOM_LOOP  ! jg
     
-    DEALLOCATE(pl_varlist, hl_varlist, STAT=ierrstat)
+    DEALLOCATE(pl_varlist, hl_varlist, il_varlist,STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
-  END SUBROUTINE pp_scheduler_init_pz
+  END SUBROUTINE pp_scheduler_init_ipz
 
 
   !---------------------------------------------------------------
@@ -932,12 +1024,13 @@ CONTAINS
       END IF
 
       SELECT CASE ( ptr_task%job_type )
-      CASE ( TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_FINALIZE_PZ)
-        CALL pp_task_pzlev_setup(ptr_task)
+      CASE ( TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_INIT_VER_IZ, &
+           & TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ)
+        CALL pp_task_ipzlev_setup(ptr_task)
       CASE ( TASK_INTP_HOR_LONLAT )
         CALL pp_task_lonlat(ptr_task)
-      CASE ( TASK_INTP_VER_PLEV, TASK_INTP_VER_ZLEV )
-        CALL pp_task_pzlev(ptr_task)
+      CASE ( TASK_INTP_VER_PLEV, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV )
+        CALL pp_task_ipzlev(ptr_task)
       CASE ( TASK_INTP_SYNC )
         CALL pp_task_sync()
       CASE ( TASK_INTP_MSL )

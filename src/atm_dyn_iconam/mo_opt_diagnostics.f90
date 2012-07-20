@@ -56,7 +56,7 @@ MODULE mo_opt_diagnostics
   USE mo_var_list,             ONLY: default_var_list_settings,     &
     &                                new_var_list, delete_var_list
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
-    &                                level_type_hl
+    &                                level_type_hl, level_type_il
   USE mo_cdi_constants,        ONLY: FILETYPE_NC2
 
 
@@ -131,12 +131,15 @@ MODULE mo_opt_diagnostics
       &  z_tot_cld_iqv(:,:,:), & ! total cloud variables (cc,qv,qc,qi)        [kg/kg]
       ! fields that are essential for p-level interpolation only:
       &  p_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
-      &  p_temp(:,:,:)           ! temperature (nproma,nlev,nblks_c)          [K]
+      &  p_temp(:,:,:),        & ! temperature (nproma,nlev,nblks_c)          [K]
+      ! fields that are essential for interpolation on isentropes only:
+      &  i_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
+      &  i_temp(:,:,:)           ! temperature (nproma,nlev,nblks_c)          [K]
 
     ! coefficient tables for vertical interpolation. There exist to
     ! different kinds of coefficients: For p- and for
     ! z-level-interpolation.
-    TYPE(t_vcoeff) :: vcoeff_z, vcoeff_p
+    TYPE(t_vcoeff) :: vcoeff_z, vcoeff_p, vcoeff_i
 
   END TYPE t_nh_diag_pz
 
@@ -153,7 +156,8 @@ MODULE mo_opt_diagnostics
     !
     ! The "opt_diag_list_*" lists contain all variables that have been
     ! interpolated onto p/z-levels
-    TYPE(t_var_list)   :: opt_diag_list, opt_diag_list_p, opt_diag_list_z
+    TYPE(t_var_list)   :: opt_diag_list, opt_diag_list_p, opt_diag_list_z, &
+      &                   opt_diag_list_i
 
   END TYPE t_nh_opt_diag
 
@@ -203,6 +207,12 @@ CONTAINS
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
         & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
+
+      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_i_of_domain_',jg
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, TRIM(listname), &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_il )
+      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_i,    &
+        & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
     ENDDO ! jg
 
   END SUBROUTINE construct_opt_diag
@@ -221,6 +231,7 @@ CONTAINS
     DO jg = 1, n_dom
       CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_z )
       CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_p )
+      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_i )
       CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list   )
     ENDDO ! jg
 

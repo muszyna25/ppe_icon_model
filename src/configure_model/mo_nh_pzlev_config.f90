@@ -1,7 +1,7 @@
 !>
-!! @brief configuration setup for z/p-level output
+!! @brief configuration setup for z/i/p-level output
 !!
-!! configuration setup for z/p-level output
+!! configuration setup for z/i/p-level output
 !!
 !! <Details of procedures are documented below with their definitions.>
 !! <Include any applicable external references inline as module::procedure,>
@@ -65,15 +65,20 @@ MODULE mo_nh_pzlev_config
 
     INTEGER :: nplev                 !< number of p-levels
 
+    INTEGER :: nilev                 !< number of isentropes
+
     REAL(wp):: zlevels(100)          !< zlevel heights [m] 
 
     REAL(wp):: plevels(100)          !< plevel heights [Pa] 
+
+    REAL(wp):: ilevels(100)          !< isentropes [K] 
 
     ! derived variables
     !
     REAL(wp), POINTER ::      &
       &  p3d(:,:,:),          & !< 3D pressure level target field for output on p-levels
-      &  z3d(:,:,:)             !< 3D height level target field for output on z-levels
+      &  z3d(:,:,:),          & !< 3D height level target field for output on z-levels
+      &  i3d(:,:,:)             !< 3D theta level target field for output on isentropes
 
   END TYPE t_nh_pzlev_config
 
@@ -85,9 +90,10 @@ MODULE mo_nh_pzlev_config
 CONTAINS
 
   !>
-  !! setup components for output on pressure/height levels
+  !! setup components for output on pressure/height levels and isentropes
   !!
-  !! Setup of additional control variables for output on pressure/height levels.  
+  !! Setup of additional control variables for output on pressure/height levels 
+  !! and isentropes.  
   !! These may depend on the nh_pzlev-namelist and potentially other namelists. 
   !! This routine is called, after all namelists have been read and a synoptic 
   !! consistency check has been done.
@@ -105,20 +111,22 @@ CONTAINS
     ! Local variables
     INTEGER :: ist
     INTEGER :: nlen
-    INTEGER :: z_nplev, z_nzlev
+    INTEGER :: z_nplev, z_nzlev, z_nilev
     INTEGER :: jb, jk           ! loop indices
     !-----------------------------------------------------------------------
 
     z_nplev = nh_pzlev_config(jg)%nplev
     z_nzlev = nh_pzlev_config(jg)%nzlev
+    z_nilev = nh_pzlev_config(jg)%nilev
 
 
     ! allocate 3D pressure and z-level fields
     ALLOCATE(nh_pzlev_config(jg)%p3d(nproma,z_nplev,nblks_c),          &
-      &      nh_pzlev_config(jg)%z3d(nproma,z_nzlev,nblks_c), STAT=ist )
+      &      nh_pzlev_config(jg)%z3d(nproma,z_nzlev,nblks_c),          &
+      &      nh_pzlev_config(jg)%i3d(nproma,z_nzlev,nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_pzlev_nml: configure_nh_pzlev',       &
-        &      'allocation of p3d, z3d failed' )
+        &      'allocation of p3d, z3d, i3d failed' )
     ENDIF
 
 
@@ -141,6 +149,10 @@ CONTAINS
 
       DO jk = 1, nh_pzlev_config(jg)%nzlev
         nh_pzlev_config(jg)%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
+      ENDDO
+
+      DO jk = 1, nh_pzlev_config(jg)%nilev
+        nh_pzlev_config(jg)%i3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%ilevels(jk)
       ENDDO
 
     ENDDO

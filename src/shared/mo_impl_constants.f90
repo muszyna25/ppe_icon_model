@@ -431,6 +431,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_TYPE_NONE    = 0
   INTEGER, PARAMETER :: VINTP_TYPE_Z       = 1
   INTEGER, PARAMETER :: VINTP_TYPE_P_OR_Z  = 2
+! To Do: Not yet implemented for isentropes
+!
+!  INTEGER, PARAMETER :: VINTP_TYPE_I       = 3
   !-----  horizontal interpolation: type of interpolation
   INTEGER, PARAMETER :: HINTP_TYPE_NONE    = 0
   INTEGER, PARAMETER :: HINTP_TYPE_LONLAT  = 1
@@ -451,6 +454,7 @@ MODULE mo_impl_constants
     max_var_ml     = 400, & ! maximum number of output model-level variables
     max_var_pl     = 100, & ! maximum number of pressure-level variables
     max_var_hl     = 100, & ! maximum number of height-level variables
+    max_var_il     = 100, & ! maximum number of variables on isentropes
     max_bounds     = 100, & ! maximum number of output_bounds
     max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
@@ -467,17 +471,20 @@ MODULE mo_impl_constants
 
   INTEGER, PARAMETER, PUBLIC :: TASK_NONE              = 0 
   !------ setup tasks (coefficients,...)
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_PZ       = 1  !< task: setup pz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 2  !< task: setup only z-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_FINALIZE_PZ       = 3  !< task: deallocate pz-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_IPZ      = 1  !< task: setup ipz-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_IZ       = 2  !< task: setup iz-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_PZ       = 3  !< task: setup pz-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 4  !< task: setup only z-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_FINALIZE_IPZ      = 5  !< task: deallocate ipz-interpolation
   !------ interpolation tasks:
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_PLEV     = 5  !< task: vertical p or z-levels
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_ZLEV     = 6  !< task: vertical p or z-levels
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 7  !< task: synchronizes halo regions
-  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_MSL          = 8  !< task: intp. to mean sea level
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_HOR_LONLAT   = 6  !< task: lon-lat
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_PLEV     = 7  !< task: vertical p-levels
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_ZLEV     = 8  !< task: vertical z-levels
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_ILEV     = 9  !< task: vertical isentropic levels
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 10 !< task: synchronizes halo regions
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_MSL          = 11 !< task: intp. to mean sea level
   !------ computation of optional diagnostic fields
-  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 9  !< task: compute relative humidity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 12 !< task: compute relative humidity
 
 
 !--------------------------------------------------------------------

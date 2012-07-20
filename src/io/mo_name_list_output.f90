@@ -31,7 +31,8 @@ MODULE mo_name_list_output
   USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
     &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT, &
-    &                                 min_rlcell_int, min_rledge_int, min_rlvert
+    &                                 min_rlcell_int, min_rledge_int, min_rlvert,     &
+    &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_grid_levels,           ONLY: check_orientation
@@ -44,7 +45,8 @@ MODULE mo_name_list_output
   USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
     &                                 new_var_list, get_all_var_names,          &
     &                                 total_number_of_variables, collect_group
-  USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
+  USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
+    &                                 level_type_il
   USE mo_util_uuid,             ONLY: t_uuid
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
@@ -92,9 +94,6 @@ MODULE mo_name_list_output
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
   &                                     use_async_name_list_io,  &
   &                                     l_output_phys_patch,     &
-  &                                     max_var_ml,              &
-  &                                     max_var_pl,              &
-  &                                     max_var_hl,              &
   &                                     max_bounds,              &
   &                                     max_levels,              &
   &                                     vname_len,               &  
@@ -142,10 +141,11 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER, PUBLIC      :: ZA_height              =  9
   INTEGER, PARAMETER, PUBLIC      :: ZA_altitude            = 10
   INTEGER, PARAMETER, PUBLIC      :: ZA_meansea             = 11
+  INTEGER, PARAMETER, PUBLIC      :: ZA_isentropic          = 12
   ! Ocean
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 12
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 13
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 14
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 13
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 14
+  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 15
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6) :: GRP_PREFIX = "group:"
@@ -303,9 +303,11 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: ready_directory
     CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)
     CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)
-    REAL(wp) :: p_levels(max_levels)
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)
+    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_il)
+    REAL(wp) :: p_levels(max_levels)
     REAL(wp) :: h_levels(max_levels)
+    REAL(wp) :: i_levels(max_levels)
     INTEGER  :: remap
     LOGICAL  :: remap_internal
     REAL(wp) :: reg_lon_def(3)
@@ -332,9 +334,11 @@ CONTAINS
       ready_directory,    &
       ml_varlist,         &
       pl_varlist,         &
-      p_levels,           &
       hl_varlist,         &
+      il_varlist,         &
+      p_levels,           &
       h_levels,           &
+      i_levels,           &
       remap,              &
       remap_internal,     &
       reg_lon_def,        &
@@ -382,9 +386,11 @@ CONTAINS
       ready_directory    = ' '
       ml_varlist(:)      = ' '
       pl_varlist(:)      = ' '
-      p_levels(:)        = 0._wp
       hl_varlist(:)      = ' '
+      il_varlist(:)      = ' '
+      p_levels(:)        = 0._wp
       h_levels(:)        = 0._wp
+      i_levels(:)        = 0._wp
       remap              = 0
       remap_internal     = .FALSE.
       reg_lon_def(:)     = 0._wp
@@ -495,9 +501,11 @@ CONTAINS
       p_onl%ready_directory  = ready_directory
       p_onl%ml_varlist(:)    = ml_varlist(:)
       p_onl%pl_varlist(:)    = pl_varlist(:)
-      p_onl%p_levels         = p_levels
       p_onl%hl_varlist(:)    = hl_varlist(:)
+      p_onl%il_varlist(:)    = il_varlist(:)
+      p_onl%p_levels         = p_levels
       p_onl%h_levels         = h_levels
+      p_onl%i_levels         = i_levels
       p_onl%remap            = remap
       p_onl%remap_internal   = remap_internal
       p_onl%lonlat_id        = -1
@@ -589,12 +597,13 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
       
-      ! process i_typ=ml_varlist, pl_varlist, hl_varlist:
-      DO i_typ = 1, 3
+      ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
+      DO i_typ = 1, 4
 
         IF (i_typ == 1)  in_varlist => p_onl%ml_varlist
         IF (i_typ == 2)  in_varlist => p_onl%pl_varlist
         IF (i_typ == 3)  in_varlist => p_onl%hl_varlist
+        IF (i_typ == 4)  in_varlist => p_onl%il_varlist
 
         ! Get the number of variables in varlist
         nvars = 1
@@ -643,7 +652,8 @@ CONTAINS
         IF (i_typ == 1)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars) 
         IF (i_typ == 2)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == 3)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
-      END DO ! i_typ = 1,3
+        IF (i_typ == 4)  p_onl%il_varlist(1:nvars) = varlist(1:nvars)
+      END DO ! i_typ = 1,4
       p_onl => p_onl%next
       
     END DO ! p_onl
@@ -910,11 +920,12 @@ CONTAINS
             'Illegal domain number ',p_onl%dom(i),' in name list input'
           CALL finish(routine,message_text)
         ENDIF
-        DO i_typ = 1, 3
+        DO i_typ = 1, 4
           ! Check if name_list has variables of corresponding type
           IF(i_typ == 1 .AND. p_onl%ml_varlist(1) == ' ') CYCLE
           IF(i_typ == 2 .AND. p_onl%pl_varlist(1) == ' ') CYCLE
           IF(i_typ == 3 .AND. p_onl%hl_varlist(1) == ' ') CYCLE
+          IF(i_typ == 4 .AND. p_onl%il_varlist(1) == ' ') CYCLE
           nfiles = nfiles+1
         ENDDO
       ENDDO
@@ -950,12 +961,13 @@ CONTAINS
 
         ! Loop over model/pressure/height levels
 
-        DO i_typ = 1, 3
+        DO i_typ = 1, 4
 
           ! Check if name_list has variables of corresponding type
           IF(i_typ == 1 .AND. p_onl%ml_varlist(1) == ' ') CYCLE
           IF(i_typ == 2 .AND. p_onl%pl_varlist(1) == ' ') CYCLE
           IF(i_typ == 3 .AND. p_onl%hl_varlist(1) == ' ') CYCLE
+          IF(i_typ == 4 .AND. p_onl%il_varlist(1) == ' ') CYCLE
 
           nfiles = nfiles+1
           p_of => output_file(nfiles)
@@ -964,6 +976,7 @@ CONTAINS
             CASE(1); lev_type = 'ML'; ilev_type=level_type_ml
             CASE(2); lev_type = 'PL'; ilev_type=level_type_pl
             CASE(3); lev_type = 'HL'; ilev_type=level_type_hl
+            CASE(4); lev_type = 'IL'; ilev_type=level_type_il
           END SELECT
 
           ! Set prefix of output_file name
@@ -1033,6 +1046,14 @@ CONTAINS
                   &                               all_varlist(1:n_allvars))
               ELSE
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
+              END IF
+            CASE(4)
+              IF (toupper(TRIM(p_onl%il_varlist(1))) == "ALL") THEN
+                IF (n_allvars > 0) &
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
+                  &                               all_varlist(1:n_allvars))
+              ELSE
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
               END IF
           END SELECT
 
@@ -1832,7 +1853,7 @@ CONTAINS
 
     TYPE(t_output_file), INTENT(INOUT) :: of
 
-    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, i_dom
+    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, i_dom
     INTEGER :: ll_dim(2)
     INTEGER :: gridtype
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
@@ -2082,10 +2103,11 @@ CONTAINS
       DEALLOCATE(levels)
 
 
-      ! Define axes for output on p- and z-levels
+      ! Define axes for output on p-, i- and z-levels
       !
       lwrite_pzlev = (of%name_list%pl_varlist(1) /= ' ')  .OR.  &
-        &            (of%name_list%hl_varlist(1) /= ' ')
+        &            (of%name_list%hl_varlist(1) /= ' ')  .OR.  &
+        &            (of%name_list%il_varlist(1) /= ' ')
       IF (lwrite_pzlev) THEN
         !
         ! p-axis
@@ -2116,6 +2138,7 @@ CONTAINS
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_height), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_height), nzlev, levels)
         DEALLOCATE(levels)
+
         !
         ! Altitude above mean sea level
         !
@@ -2127,6 +2150,19 @@ CONTAINS
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_altitude), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_altitude), nzlev, levels)
+        DEALLOCATE(levels)
+
+        !
+        ! i-axis (isentropes)
+        !
+        nilev = nh_pzlev_config(of%log_patch_id)%nilev
+        of%cdiZaxisID(ZA_isentropic) = zaxisCreate(ZAXIS_ISENTROPIC, nilev)
+        ALLOCATE(levels(nilev))
+        DO k = 1, nilev
+          levels(k) = nh_pzlev_config(of%log_patch_id)%ilevels(k)
+        END DO
+        CALL zaxisDefLevels(of%cdiZaxisID(ZA_isentropic), levels)
+        CALL zaxisDefVct(of%cdiZaxisID(ZA_isentropic), nilev, levels)
         DEALLOCATE(levels)
       ENDIF
 
@@ -2723,6 +2759,8 @@ CONTAINS
       CASE (ZAXIS_ALTITUDE)
         info%cdiZaxisID =  of%cdiZaxisID(ZA_altitude)
 
+      CASE (ZAXIS_ISENTROPIC)
+        info%cdiZaxisID =  of%cdiZaxisID(ZA_isentropic)
 
       CASE DEFAULT
         WRITE (message_text,'(a,a,a,i0)') &

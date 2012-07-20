@@ -66,13 +66,17 @@ MODULE mo_nh_pzlev_nml
 
   INTEGER :: nplev                 !< number of p-levels
 
+  INTEGER :: nilev                 !< number of isentropic-levels
+
   REAL(wp):: zlevels(100)          !< zlevel heights [m] 
 
   REAL(wp):: plevels(100)          !< plevel heights [Pa] 
 
+  REAL(wp):: ilevels(100)          !< isentropes [K] 
 
-  NAMELIST/nh_pzlev_nml/ nzlev, nplev,   &
-    &                    zlevels, plevels
+
+  NAMELIST/nh_pzlev_nml/ nzlev, nplev, nilev,  &
+    &                    zlevels, plevels, ilevels
 
 CONTAINS
 
@@ -84,7 +88,7 @@ CONTAINS
   !! Read Namelist for output on pressure/height levels 
   !!
   !! This subroutine 
-  !! - reads the Namelist for output on p/z-levels
+  !! - reads the Namelist for output on p/i/z-levels
   !! - sets default values
   !! - potentially overwrites the defaults by values used in a 
   !!   previous integration (if this is a resumed run)
@@ -116,6 +120,7 @@ CONTAINS
     !-----------------------
     nzlev       = 10
     nplev       = 10
+    nilev       = 3
 
     ! set height and pressure levels - attention: ordering of the levels must be top-down 
     ! as for the model levels
@@ -140,6 +145,9 @@ CONTAINS
       plevels(nplev+1-jk) = plevels(nplev+2-jk) - delp
     ENDDO
 
+    ! standard isentropes (ordering from TOA to bottom)
+    !
+    ilevels(1:3) =(/340._wp, 320._wp, 300._wp/) 
 
 
     !------------------------------------------------------------------
@@ -178,8 +186,10 @@ CONTAINS
     DO jg= 0,max_dom
       nh_pzlev_config(jg)%nzlev       = nzlev
       nh_pzlev_config(jg)%nplev       = nplev
+      nh_pzlev_config(jg)%nilev       = nilev
       nh_pzlev_config(jg)%zlevels     = zlevels
       nh_pzlev_config(jg)%plevels     = plevels
+      nh_pzlev_config(jg)%ilevels     = ilevels
     ENDDO
 
 

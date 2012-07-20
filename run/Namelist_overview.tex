@@ -2754,28 +2754,45 @@ C&None& &
 \tabularnewline
 
 \hline
- p\_levels(:) &
-R&None& &
- pressure levels [hPa] \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
- 
-&
-\tabularnewline
-
-\hline
  hl\_varlist(:) &
 C&None& &
  Name of height level fields to be output -- or 'all'.
 &
 \tabularnewline
 
+
+\hline
+ il\_varlist(:) &
+C&None& &
+ Name of isentropic level fields to be output -- or 'all'.
+&
+\tabularnewline
+
+\hline
+ p\_levels(:) &
+R&None& hPa &
+ pressure levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
+
+&
+\tabularnewline
+
 \hline
  h\_levels(:) &
-R&None& &
+R&None& m &
  height levels \\
  {\color{red} Not yet implemented.} \\
  {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+\hline
+ i\_levels(:) &
+R&None& K &
+ isentropic levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The isentropic levels are currently always taken from array ilevels in namelist nh\_pzlev\_nml. }
 &
 \tabularnewline
 
@@ -2925,6 +2942,13 @@ iequations=3\\
 \tabularnewline
 
 \hline 
+nilev &
+I& 3 & &
+number of isentropes&
+iequations=3\\
+\tabularnewline
+
+\hline 
 zlevels &
 R& 10000,\\ 9000,\\...,\\1000,\\0 & m&
 array of height levels&
@@ -2936,6 +2960,14 @@ iequations=3\\
 plevels &
 R&  100000,\\ 90000,\\ 80000,\\...,\\10000& Pa &
 array of pressure levels&
+iequations=3\\
+\textcolor{red}{level ordering from TOA to bottom}
+\tabularnewline
+
+\hline 
+ilevels &
+R&  340,\\ 320,\\ 300 & K &
+array of isentropic levels&
 iequations=3\\
 \textcolor{red}{level ordering from TOA to bottom}
 \tabularnewline

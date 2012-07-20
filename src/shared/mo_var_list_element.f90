@@ -8,12 +8,13 @@ MODULE mo_var_list_element
   PRIVATE
 
   ! export index constants: model/pressure/height levels
-  PUBLIC level_type_ml, level_type_pl, level_type_hl
+  PUBLIC level_type_ml, level_type_pl, level_type_hl, level_type_il
 
   ! constants defining level type:
   INTEGER, PARAMETER             :: level_type_ml = 1
   INTEGER, PARAMETER             :: level_type_pl = 2
   INTEGER, PARAMETER             :: level_type_hl = 3
+  INTEGER, PARAMETER             :: level_type_il = 4
 
   TYPE t_var_list_element
     REAL(dp), POINTER    :: r_ptr(:,:,:,:,:)   ! pointer to 4D-field
