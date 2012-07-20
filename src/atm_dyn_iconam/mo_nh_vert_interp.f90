@@ -3290,12 +3290,27 @@ CONTAINS
         ELSE
           tempv_out_pbl1(jc) = tempv1(jc) + extrapol_dist*vtgrad_up(jc) +   &
                             (zdiff_inout(jc)-extrapol_dist)*vtgrad_standardatm
+
+          ! Artificial limitation analogous to GME method
+          IF (tempv_out_pbl1(jc) < 255._wp) THEN
+            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+255._wp)
+          ELSE IF (tempv_out_pbl1(jc) > 290.5_wp) THEN
+            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+290.5_wp)
+          ENDIF
+
           ! Averaged vertical temperature gradient
           vtgrad_up_out(jc) = (tempv_out_pbl1(jc) - tempv1(jc))/zdiff_inout(jc)
         ENDIF
 
         ! Final extrapolation of temperature to target height, including restored surface inversion
         tempv_out(jc) = tempv_out_pbl1(jc) - vtgrad_up_out(jc)*zpbl1 - sfc_inv(jc)
+
+        ! Artificial limitation analogous to GME method
+        IF (tempv_out(jc) < 255._wp) THEN
+          tempv_out(jc) = 0.5_wp*(tempv_out(jc)+255._wp)
+        ELSE IF (tempv_out(jc) > 290.5_wp) THEN
+          tempv_out(jc) = 0.5_wp*(tempv_out(jc)+290.5_wp)
+        ENDIF
 
         ! Boundary-layer vertical gradient of extrapolation profile
         vtgrad_pbl_out(jc) = (tempv_out_pbl1(jc)-tempv_out(jc))/zpbl1
