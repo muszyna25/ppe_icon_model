@@ -56,7 +56,7 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
     &                                VINTP_METHOD_LIN, VINTP_TYPE_Z,     &
     &                                VINTP_METHOD_LIN_NLEVP1,            &
-    &                                TASK_INTP_MSL
+    &                                TASK_INTP_MSL, HINTP_TYPE_NONE
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -77,7 +77,8 @@ MODULE mo_nonhydro_state
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
     &                                add_ref, new_var_list, delete_var_list, &
     &                                create_tracer_metadata, add_var_list_reference, &
-    &                                create_vert_interp_metadata, groups
+    &                                create_vert_interp_metadata,            &
+    &                                create_hor_interp_metadata, groups
   USE mo_linked_list,          ONLY: t_list_element, find_list_element
   USE mo_var_metadata,         ONLY: t_var_metadata, t_tracer_meta
   USE mo_cf_convention,        ONLY: t_cf_var
@@ -924,7 +925,8 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 35, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'vt', p_diag%vt,                                 &
                 & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_e )
+                & ldims=shape3d_e,                                              &
+                & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_NONE ))
 
 
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
