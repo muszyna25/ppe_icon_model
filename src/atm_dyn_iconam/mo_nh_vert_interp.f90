@@ -833,6 +833,10 @@ CONTAINS
         &               p_p3d_out, geopot_p_out, nblks,               & !in,out,in
         &               npromz, nlev, nzlev, nplev                    ) !in
       
+!      CALL z_at_theta_levels(p_prog%theta_v, p_metrics%z_mc, p_p3d_out, geopot_p_out, vcoeff_z%wfacpbl1, vcoeff_z%kpbl1, &                & !in
+!      &                   vcoeff_z%wfacpbl2, vcoeff_z%kpbl2, nblks, npromz, nlev, nplev)
+
+
       ! Prepare again interpolation coefficients (now for pressure levels)
       CALL prepare_lin_intp(p_metrics%z_mc, geopot_p_out,                   & !in
         &                   nblks, npromz, nlev, nplev,                     & !in
@@ -1768,6 +1772,175 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE z_at_plevels
+
+
+  !-------------
+  !>
+  !! SUBROUTINE z_at_theta_levels
+  !! Computes height for a given set of potential temperature levels  
+  !! The purpose of this is to prepare diagnostic output on isentropic levels.
+  !!
+  !! Required input fields: potential temperature and 3D height coordinate
+  !! on model levels, coefficients for computing the boundary layer temperature gradients
+  !! Output: 3D height field of potential temperature levels
+  !!
+  !! Method: linear vertical interpolation / extrapolation
+  !!
+  !! Note: this routine should not be used for large extrapolation distances below
+  !! the model orography. The target values of the interpolation (theta_thl) 
+  !! must be in descending order. It the input theta field does not increase monotonically
+  !! with height, the first occurrence of the target value - scanning from top to bottom - is selected
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2012-07-19)
+  !!
+  !!
+  SUBROUTINE z_at_theta_levels(theta_ml, z3d_ml, theta_thl, z3d_thl, wfacpbl1, kpbl1, &
+                               wfacpbl2, kpbl2, nblks, npromz, nlevs_ml, nlevs_thl)
+
+
+    ! Input fields
+    REAL(wp), INTENT(IN)  :: theta_ml (:,:,:) ! potential temperature on model levels
+    REAL(wp), INTENT(IN)  :: z3d_ml   (:,:,:) ! 3D height coordinate field on model levels
+    REAL(wp), INTENT(IN)  :: theta_thl(:,:,:) ! Potential temperature on theta levels
+                                              ! (target field of interpolation)
+
+    ! Comment: for theta_thl, a 1D field would actually be sufficient, but having
+    ! everything as 3D fields simplifies programming
+
+    ! Input coefficients
+    INTEGER , INTENT(IN) :: kpbl1(:,:)      ! index of model level immediately above (by default) 500 m AGL
+    REAL(wp), INTENT(IN) :: wfacpbl1(:,:)   ! corresponding interpolation coefficient
+    INTEGER , INTENT(IN) :: kpbl2(:,:)      ! index of model level immediately above (by default) 1000 m AGL
+    REAL(wp), INTENT(IN) :: wfacpbl2(:,:)   ! corresponding interpolation coefficient
+
+    ! Output
+    REAL(wp), INTENT(OUT)  :: z3d_thl  (:,:,:) ! 3D height coordinate field on theta levels
+
+    ! Dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlevs_ml   ! Number of model levels
+    INTEGER , INTENT(IN) :: nlevs_thl  ! Number of theta levels
+
+    ! LOCAL VARIABLES
+
+
+    INTEGER  :: jb, jkm, jkt, jc, jkm_start
+    INTEGER  :: nlen, ierror(nblks)
+    INTEGER , DIMENSION(nproma)          :: bot_idx_ml
+    INTEGER , DIMENSION(nproma,nlevs_thl) :: idx0_ml
+
+    REAL(wp), DIMENSION(nproma,nlevs_thl) :: wfac_ml
+
+    REAL(wp) :: theta1, theta2, vthgrad
+
+    LOGICAL :: l_found(nproma),lfound_all
+
+!-------------------------------------------------------------------------
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jkm,jkt,jc,nlen,jkm_start,bot_idx_ml,idx0_ml,wfac_ml,theta1,theta2,vthgrad, &
+!$OMP            l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = 1, nblks
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        z3d_thl(nlen+1:nproma,:,jb)  = 0.0_wp
+      ENDIF
+      ierror(jb) = 0
+
+      ! Compute coefficients for those target levels/points for which interpolation
+      ! between model-level data is possible
+      jkm_start = 1
+      bot_idx_ml(:) = 0
+      DO jkt = 1, nlevs_thl
+        l_found(:) = .FALSE.
+        lfound_all = .FALSE.
+        DO jkm = jkm_start,nlevs_ml-1
+          DO jc = 1, nlen
+            IF (theta_thl(jc,jkt,jb) <= theta_ml(jc,jkm,jb) .AND. &
+                theta_thl(jc,jkt,jb) >  theta_ml(jc,jkm+1,jb)) THEN
+              idx0_ml(jc,jkt) = jkm
+              wfac_ml(jc,jkt) = (theta_thl(jc,jkt,jb)-theta_ml(jc,jkm+1,jb))/&
+                                (theta_ml(jc,jkm,jb) -theta_ml(jc,jkm+1,jb))
+              bot_idx_ml(jc) = jkt
+              l_found(jc) = .TRUE.
+            ! The second criterion here is needed to prevent running into the extrapolation branch
+            ! if a pair of levels fulfiling the interpolation condition has already been found
+            ! (relevant if theta does not increase monotonically with height)
+            ELSE IF (theta_thl(jc,jkt,jb) <= theta_ml(jc,nlevs_ml,jb) .AND. bot_idx_ml(jc) < jkt ) THEN
+              l_found(jc) = .TRUE.
+              idx0_ml(jc,jkt) = nlevs_ml
+              ! Store "extrapolation distance" on wfac_ml if target point is below the 
+              ! surface of the input data
+              wfac_ml(jc,jkt) = theta_thl(jc,jkt,jb)-theta_ml(jc,nlevs_ml,jb)
+            ELSE IF (theta_thl(jc,jkt,jb) > theta_ml(jc,1,jb)) THEN
+              idx0_ml(jc,jkt) = 1
+              wfac_ml(jc,jkt) = (theta_thl(jc,jkt,jb)-theta_ml(jc,2,jb))/&
+                                (theta_ml (jc,1  ,jb)-theta_ml(jc,2,jb))
+              bot_idx_ml(jc) = jkt
+              l_found(jc) = .TRUE.
+            ENDIF
+          ENDDO
+          IF (ALL(l_found(1:nlen))) THEN
+            lfound_all = .TRUE.
+            EXIT
+          ENDIF
+        ENDDO
+        IF (lfound_all) THEN
+          jkm_start = MIN(MINVAL(idx0_ml(1:nlen,jkt)),nlevs_ml-1)
+        ELSE
+          ierror(jb) = ierror(jb) + 1
+        ENDIF
+      ENDDO
+
+      IF (ierror(jb) > 0) CALL finish("z_at_theta_levels:",&
+        "Calculation of interpolation coefficients failed")
+
+      DO jkt = 1, nlevs_thl
+        DO jc = 1, nlen
+          IF (jkt <= bot_idx_ml(jc)) THEN
+
+            ! linear interpolation
+            z3d_thl(jc,jkt,jb) = wfac_ml(jc,jkt)*z3d_ml(jc,idx0_ml(jc,jkt),jb) + &
+              (1._wp-wfac_ml(jc,jkt))*z3d_ml(jc,idx0_ml(jc,jkt)+1,jb)
+
+          ELSE
+
+            ! linear extrapolation, using the gradient between (by default) 1000 m and 500 m AGL
+
+            ! Potential temperature at height zpbl1
+            theta1 = wfacpbl1(jc,jb) *theta_ml(jc,kpbl1(jc,jb),jb  ) + &
+              (1._wp-wfacpbl1(jc,jb))*theta_ml(jc,kpbl1(jc,jb)+1,jb)
+
+            ! Potential temperature at height zpbl2
+            theta2 = wfacpbl2(jc,jb) *theta_ml(jc,kpbl2(jc,jb),jb  ) + &
+              (1._wp-wfacpbl2(jc,jb))*theta_ml(jc,kpbl2(jc,jb)+1,jb)
+
+            ! Vertical gradient between zpbl1 and zpbl2
+            vthgrad = (theta2 - theta1)/(zpbl2 - zpbl1)
+
+            ! Set reasonable limits
+            vthgrad = MAX(vthgrad,3.0e-3_wp)
+            vthgrad = MIN(vthgrad,8.5e-3_wp)
+
+            ! wfac carries the theta difference in this case
+            z3d_thl(jc,jkt,jb) = z3d_ml(jc,nlevs_ml,jb) + wfac_ml(jc,jkt)/vthgrad
+
+          ENDIF
+
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE z_at_theta_levels
 
 
   !-------------
