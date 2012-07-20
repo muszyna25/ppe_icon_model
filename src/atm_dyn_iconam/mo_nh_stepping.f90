@@ -137,7 +137,6 @@ MODULE mo_nh_stepping
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface,  ONLY:art_emission_interface
-  USE mo_art_sedi_interface,  ONLY:art_sedi_interface
   USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest
