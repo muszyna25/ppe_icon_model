@@ -163,7 +163,7 @@ cat > ${atmo_namelist} << EOF
  ntracer                      = 5
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
- msg_level                    = 5
+ msg_level                    = 5           ! default: 5, much more: 20
  ldump_states                 = ${ldump_states}
  lrestore_states              = ${lrestore_states}
  ltimer                       = .FALSE.
@@ -224,6 +224,7 @@ cat > ${atmo_namelist} << EOF
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
+ itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  latm_above_top               = .TRUE.
  efdt_min_raylfric            = 7200.
 /

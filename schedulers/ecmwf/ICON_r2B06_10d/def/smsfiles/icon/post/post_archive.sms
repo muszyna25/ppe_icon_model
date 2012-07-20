@@ -43,16 +43,19 @@ emkdir -p $ecfsdir
 tar cvf metplots_%SUITE%_%YMD%%INIHOUR%.tar metplots
 gzip    metplots_%SUITE%_%YMD%%INIHOUR%.tar
 ecp     metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+\rm -rf metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz
 
 tar cvf meteogram_%SUITE%_%YMD%%INIHOUR%.tar meteo
 gzip    meteogram_%SUITE%_%YMD%%INIHOUR%.tar
 ecp     meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+\rm -rf meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz
 
 
 #-----------------------------------------------------------------------------
 # delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
+  \rm -rf met.job.*
   \rm -rf grb_data 
 fi
 

@@ -338,7 +338,7 @@ suite icon_${EXPNUM}
 
     family endofmonth
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (post==complete)
+        trigger (forecast:YMD gt endofmonth:YMD)
 
         task testday
             on_ecgate
