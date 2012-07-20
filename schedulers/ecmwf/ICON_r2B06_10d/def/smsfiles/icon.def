@@ -26,7 +26,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "003"                #---experiment number---
+set EXPNUM        "001"                #---experiment number---
 set FIRST_DATE    20120601
 set LAST_DATE     20120901
 
@@ -106,7 +106,7 @@ define on_hpc_serial {
 suite icon_${EXPNUM}
 
     # initial hour: could be cycled later
-    edit INIHOUR 12
+    edit INIHOUR 00
 
     # init local variables:
     set ENABLE_INIT               1

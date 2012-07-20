@@ -32,6 +32,7 @@ ldeldata=1
 # directories
 
 gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
+cd $gatedir
 ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%"
 emkdir -p $ecfsdir
 
@@ -39,19 +40,19 @@ emkdir -p $ecfsdir
 #-----------------------------------------------------------------------------
 # archive plots and tranfer to DWD by ectrans
 
-tar cvfz metplots_%SUITE%_%YMD%%INIHOUR%.tgz metplots
-ecp      metplots_%SUITE%_%YMD%%INIHOUR%.tgz $ecfsdir
+tar cvf metplots_%SUITE%_%YMD%%INIHOUR%.tar metplots
+gzip    metplots_%SUITE%_%YMD%%INIHOUR%.tar
+ecp     metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 
-tar cvfz meteogram_%SUITE%_%YMD%%INIHOUR%.tgz meteo
-ecp      meteogram_%SUITE%_%YMD%%INIHOUR%.tgz $ecfsdir
+tar cvf meteogram_%SUITE%_%YMD%%INIHOUR%.tar meteo
+gzip    meteogram_%SUITE%_%YMD%%INIHOUR%.tar
+ecp     meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 
 
 #-----------------------------------------------------------------------------
 # delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
-  gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
-  cd $gatedir
   \rm -rf grb_data 
 fi
 
