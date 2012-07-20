@@ -170,7 +170,7 @@ ZG=RG              !    gravitational constant              (m/s2)
 ZPARZI=1000._JPRB  !    BL height for convective scaling    (m)
 ZEPDU2=0.01_JPRB   !    security constant for velocity**2   (m2/s2)
 ZEPUST=0.0001_JPRB !    security constant for velocity      (m/s)
-ZROADRW=ZROA/ZROW         ! Density ratio                      (-)
+ZROADRW=ZROA/ZROW  !    Density ratio                      (-)
 
 ZROC=ZROW*ZCPW
 ZCONM13=-1._JPRB/3._JPRB

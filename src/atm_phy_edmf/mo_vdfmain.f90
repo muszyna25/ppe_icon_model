@@ -736,7 +736,7 @@ ELSE
   ZEXTSHF(:) = 0.0_JPRB
   ZEXTLHF(:) = 0.0_JPRB
 ENDIF
-LLTERRA = .false.
+LLTERRA = .TRUE.
 
 !amk  turn on specified surface fluxes everywhere globally
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
@@ -886,8 +886,8 @@ DO JL=KIDIA,KFDIA
     ZEXTLHF(JL) = ZEXTLHF(JL) + subsfrac_ex(JL,JT) *           &
       ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
         LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
-    ZEXTSHF(JL) = 0.0_JPRB  ! testing???
-    ZEXTLHF(JL) = 0.0_JPRB  ! - " -
+   !ZEXTSHF(JL) = 0.0_JPRB  ! testing???
+   !ZEXTLHF(JL) = 0.0_JPRB  ! - " -
     ZKMFL(JL)   = 0.0_JPRB  ! - " -
     ENDDO
 ENDDO
