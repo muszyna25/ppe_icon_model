@@ -24,7 +24,8 @@ MODULE mo_var_list
   USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: VINTP_TYPE_NONE, VINTP_METHOD_LIN, &
     &                            HINTP_TYPE_LONLAT,                 &
-    &                            max_var_lists, vname_len
+    &                            max_var_lists, vname_len,          &
+    &                            STR_HINTP_TYPE, STR_VINTP_TYPE
   USE mo_fortran_tools,    ONLY: assign_if_present
  USE mo_nonhydro_types,       ONLY: t_ptr_nh
 
@@ -3271,7 +3272,7 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: this_list_element
     CHARACTER(len=32) :: dimension_text, dtext
-    INTEGER :: i
+    INTEGER :: i, igrp
    
     CALL message('','')
     CALL message('','')
@@ -3421,14 +3422,40 @@ CONTAINS
              'particle density in kg m^-3                 : ', &
              this_list_element%field%info%tracer%rrho_tracer
           CALL message('', message_text)
-
-
         ELSE
           CALL message('', 'Tracer field                                : no.')
         ENDIF
 
+        ! 
+        ! print groups, to which this variable belongs:
+        IF (ANY(this_list_element%field%info%in_group(:))) THEN
+          WRITE (message_text,'(a)')  'Variable group(s)                           :'
+          DO igrp=1,SIZE(var_groups)
+            IF (this_list_element%field%info%in_group(igrp)) THEN
+              IF (igrp == 1) THEN
+                message_text = TRIM(message_text)//" "//TRIM(var_groups(igrp))
+              ELSE
+                message_text = TRIM(message_text)//", "//TRIM(var_groups(igrp))
+              END IF
+            ENDIF
+          END DO
+          CALL message('', message_text)
+        END IF
+
+        !
+        ! print horizontal and vertical interpolation method:
+        WRITE (message_text,'(a)')  &
+          &  'Horizontal interpolation                    : '//  &
+          &  TRIM(STR_HINTP_TYPE(this_list_element%field%info%hor_interp%hor_intp_type))
+        CALL message('', message_text)
+        WRITE (message_text,'(a)')  &
+          &  'Vertical interpolation                      : '//  &
+          &  TRIM(STR_VINTP_TYPE(this_list_element%field%info%vert_interp%vert_intp_type))
+        CALL message('', message_text)
+          
         CALL message('', '')
       ENDIF
+
       !
       ! select next element in linked list 
       !

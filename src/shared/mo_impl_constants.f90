@@ -428,15 +428,24 @@ MODULE mo_impl_constants
   !--------------------------!
 
   !-----  vertical interpolation: type of interpolation
-  INTEGER, PARAMETER :: VINTP_TYPE_NONE    = 0
-  INTEGER, PARAMETER :: VINTP_TYPE_Z       = 1
-  INTEGER, PARAMETER :: VINTP_TYPE_P_OR_Z  = 2
+  CHARACTER(len=32), PARAMETER :: STR_VINTP_TYPE(3) = &
+    (/ "VINTP_TYPE_NONE  ",  &
+    &  "VINTP_TYPE_Z     ",  &
+    &  "VINTP_TYPE_P_OR_Z" /)
+  INTEGER, PARAMETER :: VINTP_TYPE_NONE    = 1
+  INTEGER, PARAMETER :: VINTP_TYPE_Z       = 2
+  INTEGER, PARAMETER :: VINTP_TYPE_P_OR_Z  = 3
 ! To Do: Not yet implemented for isentropes
 !
 !  INTEGER, PARAMETER :: VINTP_TYPE_I       = 3
+
   !-----  horizontal interpolation: type of interpolation
-  INTEGER, PARAMETER :: HINTP_TYPE_NONE    = 0
-  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT  = 1
+  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(2) = &
+    (/ "HINTP_TYPE_NONE  ",  &
+    &  "HINTP_TYPE_LONLAT" /)
+  INTEGER, PARAMETER :: HINTP_TYPE_NONE    = 1
+  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT  = 2
+
   !-----  vertical interpolation algorithms
   INTEGER, PARAMETER :: VINTP_METHOD_UV    = 1
   INTEGER, PARAMETER :: VINTP_METHOD_LIN   = 2
