@@ -413,10 +413,10 @@ class EXP_plot(HtmlResource):
 	  min_Revision = Archive_Button_Dict['rev'][0]
 	  max_Revision = Archive_Button_Dict['rev'][-1]
 	  
-	  if Rev_from < min_Revision:
+	  if Rev_from <= min_Revision:
 	    Rev_from = min_Revision
 	    
-	  if Rev_to > max_Revision:
+	  if Rev_to >= max_Revision:
 	    Rev_to   = max_Revision
 	    
 	
@@ -534,7 +534,7 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "&nbsp; to &nbsp"
 	  data += "    <input name=\"rev_to\" type=\"text\" value=\"" + Rev_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
-#	  data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
+	  data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
 
 	data += "  </td>\n"
 	data += "</tr>\n"
@@ -567,6 +567,9 @@ class EXP_plot(HtmlResource):
 
 #     ----------    Computer     ----------   
 
+	if not Comp_Dict.has_key(selected_builder):
+	  selected_builder = "all"
+	  
         data += "<tr>\n"
 	data += "  <td style=\"text-align:left;\" ><b>Builder:</b></td>\n"
 	data += "  <td style=\"text-align:left;\">\n"
@@ -593,12 +596,13 @@ class EXP_plot(HtmlResource):
 #     ----------    Build Nr.     ----------   
         if selected_builder != "all":
 	  t_build = []
-	  for Da in Comp_Dict[selected_builder]:
+          for Da in Comp_Dict[selected_builder]:
             for Re in Comp_Dict[selected_builder][Da]:
 	      for Br in Comp_Dict[selected_builder][Da][Re]:
 	        for Bu in Comp_Dict[selected_builder][Da][Re][Br]:
 		  t_build.append(Bu)
-	  Archive_Button_Dict['build'] = list(sorted(t_build))
+		    
+          Archive_Button_Dict['build'] = list(sorted(t_build))
 
         data += "<tr>\n"
 	data += "  <td style=\"text-align:left;\" ><b>Build:</b></td>\n"
@@ -1027,15 +1031,73 @@ class EXP_plot(HtmlResource):
     
     def select(self, req):
       global selected_builder
-#      print "======  select ====="
-#      print req
-#      print req.args
-#      print "======  select ====="
+#------------------------------------------------------------------------------------------
+# This routine is used to fined the start- and end-date of the revision range which is given
+# by the to values rf and rt.
+# If no date is found
+#------------------------------------------------------------------------------------------
+      def get_Dates (rf,rt):
+        print "get_Dates " + rf + " " + rt
+	df    = "9999-12-31"
+	dt    = "0000-01-01"
+	left_rev  = "00000000000"
+	right_rev = "99999999999"
+	
+	p = "public_html/archive/"
+	for d in os.listdir(p):
+	  pd = p + d + "/buildbot/"
+	  for r in os.listdir(pd):
+	    if (r >= rf) and (r <= rt):
+	      if df > d:
+	        df = d        
+	      if dt < d:
+	        dt = d
+
+            if left_rev < r and r < rf :
+	      left_rev = r        
+	    if right_rev > r and r > rt:
+	      right_rev = r
+#            print "right_rev2 " + left_rev + " " + right_rev + " " + r + " " + rf + " " + rt     
+
+
+        print "right_rev " + left_rev + " " + right_rev      
+	if dt == "0000-01-01" or df == "9999-12-31":
+#	  return get_Dates (left_rev,right_rev)
+	  return (df,dt,left_rev,right_rev)
+	        
+        print "df,dt " + df + " " + dt
+        return (df,dt,rf,rt)        
+#------------------------------------------------------------------------------------------
+      def get_Rev (df,dt):
+	rf = "99999999"
+	rt = "00000000"
+	
+	p = "public_html/archive/"
+	for d in os.listdir(p):
+	  if (d >= df) and (d <= dt):
+	    pd = p + d + "/buildbot/"
+	    for r in os.listdir(pd):
+	      if rf > r:
+	        rf = r
+	      if rt < r:
+	        rt = r
+        print "rf,rt " + rf + " " + rt
+        return (rf,rt)        
+#------------------------------------------------------------------------------------------
+      print "======  select ====="
+      print req
+      print req.args
+      print "======  select ====="
       m       = req.args.get("modus",[None])[0]
       e       = req.args.get("exp",[None])[0]
       f       = req.args.get("file",[None])[0]
       builder = req.args.get("builder",[None])[0]
       build   = req.args.get("build",[None])[0]
+      fRev    = "0000"
+      tRev    = "0000"
+      lRev    = False
+      
+      Rev_button_pushed = False
       
       Redirect_Info = "../plot?exp=" + e  + "&modus=" + m
       
@@ -1043,47 +1105,82 @@ class EXP_plot(HtmlResource):
         Redirect_Info += "&file=" + f
 
       Redirect_Info += "&build=" + build
-      
+
+#     Check if information all is given in the html-call
       if builder != "all":
 	Redirect_Info += "&builder=" + builder
 	if selected_builder != builder:
           build = "all"
           
-      if "date_from" in req.args:
-        try:
-          fDate = req.args["date_from"][0]
-          Redirect_Info += "&date_from=" + fDate      
-        except ValueError:
-          pass
-      
-      if "date_to" in req.args:
-        try:
-          tDate = req.args["date_to"][0]
-          Redirect_Info += "&date_to=" + tDate      
-        except ValueError:
-          pass
-      
+#     Check if the start revision number is given in the html-call
       if "rev_from" in req.args:
         try:
           fRev = req.args["rev_from"][0]
-          Redirect_Info += "&rev_from=" + fRev      
+          lRev = True
         except ValueError:
           pass
       
+#     Check if the end revision number is given in the html-call
       if "rev_to" in req.args:
         try:
           tRev = req.args["rev_to"][0]
-          Redirect_Info += "&rev_to=" + tRev      
+          lRev = True
+        except ValueError:
+          pass
+
+#     Check if the start date is given in the html-call
+      if "date_from" in req.args:
+        try:
+          fDate = req.args["date_from"][0]
+          lDate = True
         except ValueError:
           pass
       
+#     Check if the end date is given in the html-call
+      if "date_to" in req.args:
+        try:
+          tDate = req.args["date_to"][0]
+          lDate = True
+        except ValueError:
+          pass
+
+#     Check if the revision- or date-button was pressed
+      if "Rev_button" in req.args:
+	Rev_button_pushed = True
+        lDate = True
+        fDate,tDate,fRev,tRev = get_Dates(fRev,tRev)
+        
+        if fDate == "9999-12-31" or tDate == "0000-01-01":
+          fDate,tDate,fRev,tRev = get_Dates(fRev,tRev)
+          
+        print "fDate,tDate " + fDate + " " + tDate
+        print "fRev,tRev " + fRev + " " + tRev
+        
+      if "Date_button" in req.args:
+	Date_button_pushed = True
+        lRev = True
+        fRev,tRev = get_Rev(fDate,tDate)
+            
+#     Include the revision start/end values into the new html-call
+      if lRev:
+        Redirect_Info += "&rev_from=" + fRev      
+        Redirect_Info += "&rev_to="   + tRev      
+	
+#     Include the new start/end date into the new html-call
+      if lDate:
+        Redirect_Info += "&date_from=" + fDate      
+        Redirect_Info += "&date_to=" + tDate
+        
+#     Include the selected branch info  into the new html-call
       if "branch" in req.args:
         try:
           tBranch = req.args["branch"][0]
           Redirect_Info += "&branch=" + tBranch.replace('+', '/')
         except ValueError:
           pass
+	
 
+#     Redirect to the new build html-call
       return Redirect(Redirect_Info)
 #      return Redirect("../plot?exp=" + e + "&file=" + f + "&modus=")
 
