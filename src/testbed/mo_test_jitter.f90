@@ -203,12 +203,6 @@ CONTAINS
       !---------------------------------------------------------------------
     
       !---------------------------------------------------------------------
-      ! print something to avoid optimization misfortunes
-      suma = SUM(a(:,:,:))
-      sumb = SUM(b(:,:,:))
-      sumc = SUM(c(:,:,:))
-      write(0,*) "sums=", suma, sumb, sumc
-      !---------------------------------------------------------------------
       ! print the timers
       CALL print_timer()
       CALL cleanup_timer(timer_calculate)
@@ -218,6 +212,13 @@ CONTAINS
       
     ENDDO !iter=1, testbed_iterations
              
+    !---------------------------------------------------------------------
+    ! print something to avoid optimization misfortunes
+    suma = SUM(a(:,:,:))
+    sumb = SUM(b(:,:,:))
+    sumc = SUM(c(:,:,:))
+    write(0,*) "sums=", suma, sumb, sumc
+    !---------------------------------------------------------------------
 
   END SUBROUTINE test_jitter_iter
   !-------------------------------------------------------------------------
