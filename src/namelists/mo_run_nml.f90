@@ -55,7 +55,7 @@ MODULE mo_run_nml
                          & config_output          => output,          &
                          & config_output_mode     => output_mode,     &
                          & config_check_epsilon   => check_epsilon,   &
-                         & config_testbed_mode    => testbed_mode,    &
+                         & config_test_mode       => test_mode,       &
                          & config_dump_filename   => dump_filename,   &
                          & config_lonlat_dump_filename => lonlat_dump_filename, &
                          & config_dd_filename     => dd_filename,     &
@@ -125,8 +125,9 @@ MODULE mo_run_nml
 
   REAL(wp) :: check_epsilon ! small value for checks
 
-  INTEGER :: testbed_mode  ! if =0 then run the standard version, otherwise
-                           ! run using testbed methods
+  INTEGER :: test_mode  ! if =0 then run the standard version,
+                        ! otherwise special setup for (performance) tests, see Namelist_overview
+                            
 
   !> output mode (logicals)
   !  one or multiple of "none", "vlist", "nml", "totint"
@@ -148,7 +149,7 @@ MODULE mo_run_nml
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
                      msg_level, check_epsilon,      &
-                     testbed_mode,                  &
+                     test_mode,                  &
                      dump_filename, dd_filename,    &
                      lonlat_dump_filename, output,  &
                      msg_timestamp
@@ -199,7 +200,7 @@ CONTAINS
     msg_level            = 10
     msg_timestamp        = .FALSE.
     check_epsilon        = 1.e-6_wp
-    testbed_mode         = 0
+    test_mode         = 0
 
     output(:) = " "
     output(1) = "default"
@@ -284,7 +285,7 @@ CONTAINS
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon
-    config_testbed_mode    = testbed_mode
+    config_test_mode    = test_mode
 
     config_dump_filename   = dump_filename
     config_dd_filename     = dd_filename

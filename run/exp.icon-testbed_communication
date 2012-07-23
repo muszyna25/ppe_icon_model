@@ -70,7 +70,7 @@ create_namelist()
 namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
-  testbed_mode        = 2  ! test the communication
+  testbed_model       = 2  ! test the communication
   testbed_iterations  = 10000
   calculate_iterations  = 0
 /

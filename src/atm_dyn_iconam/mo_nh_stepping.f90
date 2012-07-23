@@ -59,7 +59,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level, testbed_mode, output_mode
+    &                                msg_level, test_mode, output_mode
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                               timer_total, timer_model_init, timer_nudging,    &
     &                               timer_bdy_interp, timer_feedback, timer_nesting, &
@@ -413,7 +413,7 @@ MODULE mo_nh_stepping
 
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
   ! MPI communication from now on. 
-  IF (testbed_mode > 0) iorder_sendrecv = 0
+  IF (test_mode > 0) iorder_sendrecv = 0
 
   TIME_LOOP: DO jstep = 1, nsteps
 
@@ -1098,7 +1098,7 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-  !          IF (testbed_mode > 0) THEN            
+  !          IF (test_mode > 0) THEN
   !            CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),     &
   !              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
   !          ELSE
@@ -1393,7 +1393,7 @@ MODULE mo_nh_stepping
 
       ENDIF
 
-      IF (testbed_mode <= 0) THEN ! ... normal execution of time stepping
+      IF (test_mode <= 0) THEN ! ... normal execution of time stepping
         ! Finally, switch between time levels now and new for next time step
         n_temp   = nnow(jg)
         nnow(jg) = nnew(jg)

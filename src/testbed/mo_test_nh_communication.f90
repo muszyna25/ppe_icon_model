@@ -65,7 +65,7 @@ MODULE mo_test_nh_communication
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level, testbed_mode
+    &                                msg_level
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                               timer_model_init, timer_nudging,                 &
     &                               timer_bdy_interp, timer_feedback, timer_nesting, &

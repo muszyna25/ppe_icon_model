@@ -53,7 +53,7 @@ MODULE mo_run_config
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !K.L. Running index for Volcanic Ash in ICON-ART 
-  PUBLIC :: check_epsilon, testbed_mode
+  PUBLIC :: check_epsilon, test_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
@@ -89,7 +89,7 @@ MODULE mo_run_config
     LOGICAL :: activate_sync_timers
   
     REAL(wp):: check_epsilon   !< small value for checks
-    INTEGER :: testbed_mode
+    INTEGER :: test_mode
 
     INTEGER :: msg_level       !< how much printout is generated during runtime
  

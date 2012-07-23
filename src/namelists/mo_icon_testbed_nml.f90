@@ -41,10 +41,10 @@ MODULE mo_icon_testbed_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: filename_max
   USE mo_icon_testbed_config, ONLY: &
-    & config_testbed_mode         => testbed_mode,       &
-    & config_testbed_iterations   => testbed_iterations, &
+    & config_testbed_model        => testbed_model,       &
+    & config_testbed_iterations   => testbed_iterations,  &
     & config_calculate_iterations => calculate_iterations, &
-    & null_mode
+    & null_model
     
   IMPLICIT NONE
   PRIVATE
@@ -65,12 +65,12 @@ MODULE mo_icon_testbed_nml
   SUBROUTINE read_icon_testbed_namelist( filename )
 
     ! ------------------------------------------------------------------------
-    INTEGER :: testbed_mode
+    INTEGER :: testbed_model
     INTEGER :: testbed_iterations
     INTEGER :: calculate_iterations
 
     
-    NAMELIST /testbed_nml/ testbed_mode, testbed_iterations, calculate_iterations
+    NAMELIST /testbed_nml/ testbed_model, testbed_iterations, calculate_iterations
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -80,7 +80,7 @@ MODULE mo_icon_testbed_nml
     !--------------------------------------------
     ! set default values
     !--------------------------------------------
-    testbed_mode         = null_mode
+    testbed_model         = null_model
     testbed_iterations   = 1
     calculate_iterations = 0
     !--------------------------------------------------------------------
@@ -96,7 +96,7 @@ MODULE mo_icon_testbed_nml
     
     !-----------------------------------------------------
     ! fill_config_testbed
-    config_testbed_mode         = testbed_mode
+    config_testbed_model         = testbed_model
     config_testbed_iterations   = testbed_iterations
     config_calculate_iterations = calculate_iterations
     

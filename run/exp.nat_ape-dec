@@ -48,7 +48,8 @@ division_method=${division_method:=0}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
-output=${output:='"vlist","totint"'}
+#output=${output:='"vlist","totint"'}
+output=${output:='"none"'}
 out_diag_hours=${out_diag_hours:=6}         # global integral output each 6 hours
 out_data_hours=${out_data_hours:=6}         # write output every 6 hours
 dt_diag=`expr ${out_diag_hours} \* 3600  `   
@@ -101,7 +102,6 @@ lrestore_states=".false."
 
 #-----------------------------------------------------------------------------
 use_barrier=${use_barrier:=".false."}
-testbed_mode=${testbed_mode:=0}
 use_icon_comm=${use_icon_comm:=".true."}
 #-----------------------------------------------------------------------------
 
@@ -158,7 +158,6 @@ cat >> ${atmo_namelist} << EOF
  ltimer = ${ltimer}
  timers_level = ${timers_level}
  activate_sync_timers = ${activate_sync_timers}
- testbed_mode = ${testbed_mode}
  output       = ${output}
 /
 &dynamics_nml
@@ -272,7 +271,7 @@ run_atmo="true"
 null_namelist="NAMELIST_null_${EXPNAME}"
 cat > ${null_namelist} << EOF
 &testbed_nml
-  testbed_mode = 0
+  testbed_model = 0
 /
 EOF
 #-----------------------------------------------------------------------------

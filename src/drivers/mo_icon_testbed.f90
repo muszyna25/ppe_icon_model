@@ -36,11 +36,10 @@ MODULE mo_icon_testbed
 
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: global_mpi_barrier
-  USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
-                                    get_my_model_no
+  USE mo_master_control,      ONLY: get_my_process_name
 
-  USE mo_icon_testbed_config, ONLY: testbed_mode, null_mode, test_coupler_mode, &
-    & test_communication_mode
+  USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
+    & test_communication_model
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
   USE mo_test_coupler,        ONLY: test_coupler
@@ -67,20 +66,20 @@ CONTAINS
     
     CALL read_icon_testbed_namelist(testbed_namelist_filename)
     
-    SELECT CASE(testbed_mode)
+    SELECT CASE(testbed_model)
     
-    CASE(null_mode)
+    CASE(null_model)
       ! do nothing
       RETURN
 
-    CASE(test_coupler_mode)
+    CASE(test_coupler_model)
       CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
 
-    CASE(test_communication_mode)
+    CASE(test_communication_model)
       CALL test_communication(testbed_namelist_filename,shr_namelist_filename)
 
     CASE default
-      CALL finish(method_name, "Unrecognized testbed_mode")
+      CALL finish(method_name, "Unrecognized testbed_model")
 
     END SELECT    
    
