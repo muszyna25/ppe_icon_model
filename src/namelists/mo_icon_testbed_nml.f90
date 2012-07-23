@@ -43,7 +43,9 @@ MODULE mo_icon_testbed_nml
   USE mo_icon_testbed_config, ONLY: &
     & config_testbed_model        => testbed_model,       &
     & config_testbed_iterations   => testbed_iterations,  &
-    & config_calculate_iterations => calculate_iterations, &
+    & config_calculate_iterations => calculate_iterations,&
+    & config_no_of_blocks         => no_of_blocks,        &
+    & config_no_of_layers         => no_of_layers,        &
     & null_model
     
   IMPLICIT NONE
@@ -68,9 +70,11 @@ MODULE mo_icon_testbed_nml
     INTEGER :: testbed_model
     INTEGER :: testbed_iterations
     INTEGER :: calculate_iterations
+    INTEGER  :: no_of_blocks, no_of_layers
 
     
-    NAMELIST /testbed_nml/ testbed_model, testbed_iterations, calculate_iterations
+    NAMELIST /testbed_nml/ testbed_model, testbed_iterations, calculate_iterations, &
+      & no_of_blocks, no_of_layers
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -81,8 +85,10 @@ MODULE mo_icon_testbed_nml
     ! set default values
     !--------------------------------------------
     testbed_model         = null_model
-    testbed_iterations   = 1
-    calculate_iterations = 0
+    testbed_iterations   = 10
+    calculate_iterations = 10
+    no_of_blocks         = 16
+    no_of_layers         = 80
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes) 
     !--------------------------------------------------------------------
@@ -96,9 +102,11 @@ MODULE mo_icon_testbed_nml
     
     !-----------------------------------------------------
     ! fill_config_testbed
-    config_testbed_model         = testbed_model
+    config_testbed_model        = testbed_model
     config_testbed_iterations   = testbed_iterations
     config_calculate_iterations = calculate_iterations
+    config_no_of_blocks         = no_of_blocks
+    config_no_of_layers         = no_of_layers
     
   END SUBROUTINE read_icon_testbed_namelist
   !-------------------------------------------------------------------------

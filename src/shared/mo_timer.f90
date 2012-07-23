@@ -37,7 +37,7 @@ MODULE mo_timer
        &                   timer_start,                      &
        &                   timer_stop,                       &
        &                   print_timer   => timer_report,    &
-       &                   cleanup_timer => timer_reset_all, &
+       &                   cleanup_timer => timer_reset, &
        &                   delete_timer => del_timer
 
    USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers

@@ -39,11 +39,12 @@ MODULE mo_icon_testbed
   USE mo_master_control,      ONLY: get_my_process_name
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
-    & test_communication_model
+    & test_communication_model, test_jitter_model
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
   USE mo_test_coupler,        ONLY: test_coupler
   USE mo_test_communication,  ONLY: test_communication
+  USE mo_test_jitter,         ONLY: test_jitter
 
 !-------------------------------------------------------------------------
   IMPLICIT NONE
@@ -77,6 +78,9 @@ CONTAINS
 
     CASE(test_communication_model)
       CALL test_communication(testbed_namelist_filename,shr_namelist_filename)
+
+    CASE(test_jitter_model)
+      CALL test_jitter(testbed_namelist_filename,shr_namelist_filename)
 
     CASE default
       CALL finish(method_name, "Unrecognized testbed_model")
