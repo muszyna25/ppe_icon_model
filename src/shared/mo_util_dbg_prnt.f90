@@ -322,8 +322,13 @@ CONTAINS
   INTEGER           ::  slev, elev, elev_val, elev_mxmn
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
+  !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
+  !INTEGER           ::  i_startidx, i_endidx, jb
+  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
 
   IF (ltimer) CALL timer_start(timer_dbg_prnt)
+
+  !cells_in_domain => ppatch%cells%in_domain
 
 #ifdef __SX__
   ! valid g-format without offset of decimal point
@@ -456,12 +461,22 @@ CONTAINS
     ! print out maximum and minimum value
     DO jk = slev, elev_mxmn
     
+      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
+      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
+
+      ! find max/min out of active indices only
+   !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+   !     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+   !     ctrxind(jb)=maxval(p_array(1:i_startidx,jk,1:i_endidx))
+   !     ctrnind(jb)=minval(p_array(1:i_startidx,jk,1:i_endidx))
+   !   END DO  
+   !   ctrx=maxval(ctrxind(:))
+   !   ctrn=minval(ctrxind(:))
+
       ! parallelize:
       p_test_run_bac = p_test_run
       p_test_run = .false.
-      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
       glbmx=global_max(ctrx)
-      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
       glbmn=global_min(ctrn)
       p_test_run = p_test_run_bac
     
@@ -499,9 +514,14 @@ CONTAINS
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
-  REAL(wp)          ::  ctr, glbmx, glbmn
+  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
+  !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
+  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
+  !INTEGER           ::  i_startidx, i_endidx, jb
 
-  !IF (ltimer) CALL timer_start(timer_dbg_mxmn)
+  IF (ltimer) CALL timer_start(timer_dbg_prnt)
+
+  !cells_in_domain => ppatch%cells%in_domain
 
   ! dimensions - first dimension is nproma
   ndimblk = SIZE(p_array,2)
@@ -517,7 +537,7 @@ CONTAINS
   END DO
 
   ! if str_mod_src not found in str_mod_tst - no output
-  !IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_mxmn)
+  IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
   IF (icheck_str_mod == 0 ) RETURN
 
 #ifdef __SX__
@@ -577,14 +597,24 @@ CONTAINS
 
   IF (idbg_mxmn >= idetail_src ) THEN
 
+    ctrx=maxval(p_array(1:nproma,1:ndimblk))
+    ctrn=minval(p_array(1:nproma,1:ndimblk))
+
+    ! find max/min out of active indices only
+ !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+ !     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+ !     ctrxind(jb)=maxval(p_array(1:i_startidx,1:i_endidx))
+ !     ctrnind(jb)=minval(p_array(1:i_startidx,1:i_endidx))
+ !   END DO  
+ !   ctrx=maxval(ctrxind(:))
+ !   ctrn=minval(ctrxind(:))
+
     ! print out maximum and minimum value
     ! parallelize:
     p_test_run_bac = p_test_run
     p_test_run = .false.
-    ctr=maxval(p_array(1:nproma,1:ndimblk))
-    glbmx=global_max(ctr)
-    ctr=minval(p_array(1:nproma,1:ndimblk))
-    glbmn=global_min(ctr)
+    glbmx=global_max(ctrx)
+    glbmn=global_min(ctrn)
     p_test_run = p_test_run_bac
    
     IF (my_process_is_stdio()) &
@@ -592,7 +622,7 @@ CONTAINS
 
   END IF
 
-  !IF (ltimer) CALL timer_stop(timer_dbg_mxmn)
+  IF (ltimer) CALL timer_stop(timer_dbg_prnt)
 
   END SUBROUTINE dbg_print_2d
 
