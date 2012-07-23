@@ -1589,16 +1589,27 @@
           DO jc = i_startidx, i_endidx
 #endif
 
-!CDIR EXPAND=10
-            grad_x(jc,jk,jb) =  SUM( &
-              & (/ ( ptr_coeff(i, 1, jc, jb) * &
-              &      p_cell_in(iidx(i,jc,jb), jk,              &
-              &                iblk(i,jc,jb)) , i=1,10 ) /) )
-!CDIR EXPAND=10
-            grad_y(jc,jk,jb) =  SUM( &
-              & (/ ( ptr_coeff(i, 2, jc, jb) * &
-              &      p_cell_in(iidx(i,jc,jb), jk,              &
-              &                iblk(i,jc,jb)) , i=1,10 ) /) )
+            grad_x(jc,jk,jb) = ptr_coeff(1, 1,jc,jb) * p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) &
+              &              + ptr_coeff(2, 1,jc,jb) * p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) &
+              &              + ptr_coeff(3, 1,jc,jb) * p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) &
+              &              + ptr_coeff(4, 1,jc,jb) * p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) &
+              &              + ptr_coeff(5, 1,jc,jb) * p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) &
+              &              + ptr_coeff(6, 1,jc,jb) * p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) &
+              &              + ptr_coeff(7, 1,jc,jb) * p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) &
+              &              + ptr_coeff(8, 1,jc,jb) * p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) &
+              &              + ptr_coeff(9, 1,jc,jb) * p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) &
+              &              + ptr_coeff(10,1,jc,jb) * p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))
+
+            grad_y(jc,jk,jb) = ptr_coeff(1, 2,jc,jb) * p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) &
+              &              + ptr_coeff(2, 2,jc,jb) * p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) &
+              &              + ptr_coeff(3, 2,jc,jb) * p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) &
+              &              + ptr_coeff(4, 2,jc,jb) * p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) &
+              &              + ptr_coeff(5, 2,jc,jb) * p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) &
+              &              + ptr_coeff(6, 2,jc,jb) * p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) &
+              &              + ptr_coeff(7, 2,jc,jb) * p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) &
+              &              + ptr_coeff(8, 2,jc,jb) * p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) &
+              &              + ptr_coeff(9, 2,jc,jb) * p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) &
+              &              + ptr_coeff(10,2,jc,jb) * p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))
             
           ENDDO
         ENDDO
@@ -1877,19 +1888,19 @@
 
         ! extrapolate: f(x_0i) = f(x_c) + (x_0i-x_c)*d_1 + (y_0i - y_c)*d_2
         DO jb=1,nblks_lonlat
+          i_startidx = 1
+          i_endidx   = nproma
+          IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+!CDIR UNROLL=5
           DO jk=slev,elev
-
-            i_startidx = 1
-            i_endidx   = nproma
-            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
-            FORALL (jc=i_startidx:i_endidx)
+            DO jc=i_startidx,i_endidx
 
               p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
                 &                                ptr_int%tri_idx(2,jc,jb))     &
                 &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &
                 &           +  ptr_int%rdist(2,jc,jb) * grad_y(jc,jk,jb)
 
-            END FORALL
+            END DO
           END DO
         END DO
 
