@@ -52,7 +52,7 @@ USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_pe_work, p_n_work, get_my_mpi_work_communicator, &
      & get_my_mpi_work_comm_size, get_my_mpi_work_id,     &
      & p_gather, p_gatherv, work_mpi_barrier
-USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, use_exch_barrier, exch_msgsize
+USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, itype_exch_barrier, exch_msgsize
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
   & timer_exch_data_wait
@@ -770,7 +770,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 
    !-----------------------------------------------------------------------
 
-   IF (use_exch_barrier) THEN
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
      CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
      CALL timer_stop(timer_barrier)
@@ -943,11 +943,29 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 
      ENDDO
 
-   ELSE
+   ELSE IF (iorder_sendrecv > 0) THEN
      ! Wait for all outstanding requests to finish
      IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
      CALL p_wait
      IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+   ELSE IF (iorder_sendrecv == 0) THEN
+     ! dummy mode; just fill the receive buffer with "something reasonable"
+     IF (p_pat%n_send > 0) THEN
+       DO k = 1, ndim2
+         recv_buf(k,:) = send_buf(k,1)
+       ENDDO
+     ELSE
+       DO k = 1, ndim2
+         recv_buf(k,:) = 1._wp
+       ENDDO
+     ENDIF
+   ENDIF
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Fill in receive buffer
@@ -1594,7 +1612,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
 !-----------------------------------------------------------------------
 
-   IF (use_exch_barrier) THEN
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
      CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
      CALL timer_stop(timer_barrier)
@@ -1880,11 +1898,29 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
      ENDDO
 
-   ELSE
+   ELSE IF (iorder_sendrecv > 0) THEN
      ! Wait for all outstanding requests to finish
      IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
      CALL p_wait
      IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+   ELSE IF (iorder_sendrecv == 0) THEN
+     ! dummy mode; just fill the receive buffer with "something reasonable"
+     IF (p_pat%n_send > 0) THEN
+       DO k = 1, ndim2tot
+         recv_buf(k,:) = send_buf(k,1)
+       ENDDO
+     ELSE
+       DO k = 1, ndim2tot
+         recv_buf(k,:) = 1._wp
+       ENDDO
+     ENDIF
+   ENDIF
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Fill in receive buffer
@@ -1992,7 +2028,7 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
               maxblks, maxsend, maxrecv
 
 !-----------------------------------------------------------------------
-   IF (use_exch_barrier) THEN
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
      CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
      CALL timer_stop(timer_barrier)
@@ -2170,11 +2206,29 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
 
      ENDDO
 
-   ELSE
+   ELSE IF (iorder_sendrecv > 0) THEN
      ! Wait for all outstanding requests to finish
      IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
      CALL p_wait
      IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+   ELSE IF (iorder_sendrecv == 0) THEN
+     ! dummy mode; just fill the receive buffer with "something reasonable"
+     IF (p_pat%n_send > 0) THEN
+       DO k = 1, ndim2tot
+         recv_buf(k,:) = send_buf(k,1)
+       ENDDO
+     ELSE
+       DO k = 1, ndim2tot
+         recv_buf(k,:) = 1._wp
+       ENDDO
+     ENDIF
+   ENDIF
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Fill in receive buffer
@@ -2255,7 +2309,7 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
               maxblks, maxsend, maxrecv
 
 !-----------------------------------------------------------------------
-   IF (use_exch_barrier) THEN
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
 !$OMP MASTER
      CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
@@ -2509,11 +2563,29 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
 
      ENDDO
 
-   ELSE
+   ELSE IF (iorder_sendrecv > 0) THEN
      ! Wait for all outstanding requests to finish
      IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
      CALL p_wait
      IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+   ELSE IF (iorder_sendrecv == 0) THEN
+     ! dummy mode; just fill the receive buffer with "something reasonable"
+     IF (p_pat%n_send > 0) THEN
+       DO k = 1, ndim2tot
+         recv_buf(k,:) = send_buf(k,1)
+       ENDDO
+     ELSE
+       DO k = 1, ndim2tot
+         recv_buf(k,:) = 1._wp
+       ENDDO
+     ENDIF
+   ENDIF
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
    ENDIF
 
 !$OMP END MASTER
@@ -2840,7 +2912,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
 !-----------------------------------------------------------------------
 
-   IF (use_exch_barrier) THEN
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
      CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
      CALL timer_stop(timer_barrier)
@@ -2851,7 +2923,10 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    npats = SIZE(p_pat)  ! Number of communication patterns provided on input
 
    ! Set up irecv's for receive buffers
-   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
+   ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
+   ! because there may be PEs receiving but not sending data. Therefore, iorder_sendrecv=0
+   ! is treated as iorder_sendrecv=1 in this routine.
+   IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
 
      ioffset = 0
      DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
@@ -3004,7 +3079,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    ENDDO
 #endif
 
-   IF (iorder_sendrecv == 1) THEN
+   IF (iorder_sendrecv <= 1) THEN
      ! Send our data
      ioffset = 0
      DO np = 0, p_n_work-1 ! loop over PEs where to send the data
@@ -3095,6 +3170,13 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
    CALL p_wait
    IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     CALL timer_stop(timer_barrier)
+   ENDIF
 
    ! Copy exchanged data back to receive buffer
    ioffset = 0

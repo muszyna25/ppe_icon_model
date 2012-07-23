@@ -51,7 +51,7 @@ MODULE mo_parallel_config
        &    p_test_run, l_test_openmp, exch_msgsize,                  &
        &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
-       &    use_dycore_barrier, use_exch_barrier, use_sp_output
+       &    use_dycore_barrier, itype_exch_barrier, use_sp_output
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -87,8 +87,9 @@ MODULE mo_parallel_config
 
   LOGICAL :: use_dycore_barrier = .false. ! put an mpi barrier before the dycore
                                           ! to synchronize MPI tasks
-  LOGICAL :: use_exch_barrier = .false. ! put an mpi barrier at the beginning of 
-                                        ! exchange calls to synchronize MPI tasks
+  INTEGER :: itype_exch_barrier = 0  ! 1: put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
+                                     ! 2: put an mpi barrier after MPI_WAIT to synchronize MPI tasks
+                                     ! 3: 1+2
   
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation

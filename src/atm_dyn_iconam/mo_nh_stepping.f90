@@ -56,7 +56,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
     &                                istime4output
-  USE mo_parallel_config,      ONLY: nproma, itype_comm
+  USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, testbed_mode, output_mode
@@ -410,6 +410,10 @@ MODULE mo_nh_stepping
   IF (ltimer) CALL timer_start(timer_total)
 
   lwrite_checkpoint = .FALSE.
+
+  ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
+  ! MPI communication from now on. 
+  IF (testbed_mode > 0) iorder_sendrecv = 0
 
   TIME_LOOP: DO jstep = 1, nsteps
 
@@ -1094,13 +1098,13 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-            IF (testbed_mode > 0) THEN            
-              CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),     &
-                n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
-            ELSE
+  !          IF (testbed_mode > 0) THEN            
+  !            CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),     &
+  !              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
+  !          ELSE
               CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),          &
                 n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
-            ENDIF
+  !          ENDIF
             
             IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
@@ -1389,19 +1393,21 @@ MODULE mo_nh_stepping
 
       ENDIF
 
-      ! Finally, switch between time levels now and new for next time step
-      n_temp   = nnow(jg)
-      nnow(jg) = nnew(jg)
-      IF (.NOT. l_nest_rcf) nsav1(jg) = nnow(jg)
-      nnew(jg) = n_temp
+      IF (testbed_mode <= 0) THEN ! ... normal execution of time stepping
+        ! Finally, switch between time levels now and new for next time step
+        n_temp   = nnow(jg)
+        nnow(jg) = nnew(jg)
+        IF (.NOT. l_nest_rcf) nsav1(jg) = nnow(jg)
+        nnew(jg) = n_temp
 
-      ! Special treatment for processes (i.e. advection) which can be treated with
-      ! reduced calling frequency. Switch between time levels now and new immediately
-      ! AFTER the last transport timestep.
-      IF (lstep_adv(jg)) THEN
-        n_temp       = nnow_rcf(jg)
-        nnow_rcf(jg) = nnew_rcf(jg)
-        nnew_rcf(jg) = n_temp
+        ! Special treatment for processes (i.e. advection) which can be treated with
+        ! reduced calling frequency. Switch between time levels now and new immediately
+        ! AFTER the last transport timestep.
+        IF (lstep_adv(jg)) THEN
+          n_temp       = nnow_rcf(jg)
+          nnow_rcf(jg) = nnew_rcf(jg)
+          nnew_rcf(jg) = n_temp
+        ENDIF
       ENDIF
 
       ! Check if nested domains have to activated or deactivated

@@ -1013,9 +1013,11 @@ if .TRUE., set an MPI barrier at the beginning of the nonhydrostatic solver (do 
 \tabularnewline
 
 \hline 
-use\_exch\_barrier &
-L & .FALSE.& &
-if .TRUE., set an MPI barrier at the beginning of each MPI exchange call (do not use for production runs!)&
+itype\_exch\_barrier &
+I & 0 & &
+1: set an MPI barrier at the beginning of each MPI exchange call\\
+2: set an MPI barrier after each MPI WAIT call \\
+3: 1+2 (do not use for production runs!) &
 \tabularnewline
 
 \hline 
@@ -1354,6 +1356,15 @@ For values less than 5, only the time step is written.&
 msg\_timestamp&
 L & .FALSE.& &
 If .TRUE., precede output messages by time stamp.&
+\tabularnewline
+
+\hline 
+testbed\_mode&
+I & 0& &
+Setting a value larger than 0 activates a dummy mode in which time stepping is changed
+into just doing iterations, and MPI communication is replaced by copying some value from
+the send buffer into the receive buffer (does not work with nesting and reduced radiation
+grid because the send buffer may then be empty on some PEs) & iequations = 3
 \tabularnewline
 
 \hline 

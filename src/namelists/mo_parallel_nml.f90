@@ -69,7 +69,7 @@ MODULE mo_parallel_nml
     & div_geometric, check_parallel_configuration,          &
     & config_max_sr_buffer_size => max_send_recv_buffer_size, &
     & config_use_dycore_barrier => use_dycore_barrier,        &
-    & config_use_exch_barrier   => use_exch_barrier,        &
+    & config_itype_exch_barrier => itype_exch_barrier,        &
     & config_use_sp_output => use_sp_output
 
   IMPLICIT NONE
@@ -114,8 +114,10 @@ MODULE mo_parallel_nml
     LOGICAL :: p_test_run
 
     LOGICAL :: use_dycore_barrier ! put an mpi barrier before the dycore to synchronize MPI tasks
-    LOGICAL :: use_exch_barrier ! put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
-    
+    INTEGER :: itype_exch_barrier ! 1: put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
+                                  ! 2: put an mpi barrier after MPI_WAIT to synchronize MPI tasks
+                                  ! 3: 1+2
+
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
     ! only 1 thread. This allows for verifying the OpenMP implementation
     LOGICAL :: l_test_openmp
@@ -171,7 +173,7 @@ MODULE mo_parallel_nml
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, use_dycore_barrier, &
-      & use_sp_output, use_exch_barrier, exch_msgsize
+      & use_sp_output, itype_exch_barrier, exch_msgsize
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -200,7 +202,7 @@ MODULE mo_parallel_nml
 
     ! The barriers should be used for dedicated tests only, not for production runs
     use_dycore_barrier = .FALSE.
-    use_exch_barrier   = .FALSE.
+    itype_exch_barrier = 0
     
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
     ! only 1 thread. This allows for verifying the OpenMP implementation
@@ -304,7 +306,7 @@ MODULE mo_parallel_nml
     config_test_parallel_radiation= test_parallel_radiation
     config_max_sr_buffer_size  = max_send_recv_buffer_size
     config_use_dycore_barrier  = use_dycore_barrier
-    config_use_exch_barrier    = use_exch_barrier
+    config_itype_exch_barrier  = itype_exch_barrier
     config_use_sp_output       = use_sp_output
     !-----------------------------------------------------
     CALL check_parallel_configuration()
