@@ -46,6 +46,7 @@ MODULE mo_oce_diagnostics
 USE mo_kind,                      ONLY: wp, i8
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_mpi,                       ONLY: my_process_is_stdio
+USE mo_sync,                      ONLY: global_sum_array
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_math_constants,            ONLY: rad2deg
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &
@@ -544,6 +545,7 @@ END SUBROUTINE destruct_oce_diagnostics
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 ! TODO: calculate the 1 deg resolution meridional distance
+! TODO: calculate in parallel
 !! 
 SUBROUTINE calc_moc (p_patch, w, datetime)
 
@@ -556,7 +558,7 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
   ! INTEGER :: i
   INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
   INTEGER :: jb, jc, jk, i_startidx, i_endidx !, il_e, ib_e
-  INTEGER :: lbrei, lbr, idate
+  INTEGER :: lbrei, lbr, idate, itime
   INTEGER(i8) :: i1,i2,i3,i4
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
@@ -590,8 +592,8 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
           lbrei = NINT(90.0_wp + z_lat_deg)
-          lbrei=MAX(lbrei,1)
-          lbrei=MIN(lbrei,180)
+          lbrei = MAX(lbrei,1)
+          lbrei = MIN(lbrei,180)
 
           ! get neighbor edge for scaling
       !   il_e = p_patch%cells%edge_idx(jc,jb,1)
@@ -609,8 +611,8 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
           !  - not yet parallelized
           DO lbr = -jbrei, jbrei
             lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
-            lbrei=MAX(lbrei,1)
-            lbrei=MIN(lbrei,180)
+            lbrei = MAX(lbrei,1)
+            lbrei = MIN(lbrei,180)
       
             global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
@@ -645,7 +647,12 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     END DO
   END DO
 
-  !IF (my_process_is_stdio()) THEN
+  ! test parallelization:
+  !CALL global_sum_array(global_moc)
+  !CALL global_sum_array(atlant_moc)
+  !CALL global_sum_array(pacind_moc)
+
+  IF (my_process_is_stdio()) THEN
     DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
 
         global_moc(lbr,:)=global_moc(lbr+1,:)+global_moc(lbr,:)
@@ -655,26 +662,29 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     END DO
 
     ! write out MOC in extra format, file opened in mo_hydro_ocean_run  - integer*8
-    idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
-    ! write(82,*) 'global MOC at iyear, idate:',datetime%year, idate
-    WRITE(message_text,*) 'Write MOC at iyear, idate:',datetime%year, idate
+    !  - correct date in extra format - i.e YYYYMMDD - no time info
+    !idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+    idate = datetime%year*10000+datetime%month*100+datetime%day
+    itime = datetime%hour*100+datetime%minute
+    WRITE(message_text,*) 'Write MOC at year =',datetime%year,', date =',idate,' time =', itime
     CALL message (TRIM(routine), message_text)
-    DO jk=1,n_zlev
-      i1=int(idate,i8)
-      i2=int(777,i8)
-      i3=int(v_base%zlev_i(jk),i8)
-      i4=int(180,i8)
+
+    DO jk = 1,n_zlev
+      i1=INT(idate,i8)
+      i2 = INT(777,i8)
+      i3 = INT(v_base%zlev_i(jk),i8)
+      i4 = INT(180,i8)
       write(77) i1,i2,i3,i4
       write(77) (global_moc(lbr,jk),lbr=1,180)
-      i2=int(778,i8)
+      i2 = INT(778,i8)
       write(77) i1,i2,i3,i4
       write(77) (atlant_moc(lbr,jk),lbr=1,180)
-      i2=int(779,i8)
+      i2 = INT(779,i8)
       write(77) i1,i2,i3,i4
       write(77) (pacind_moc(lbr,jk),lbr=1,180)
 
     END DO
-  !END IF
+  END IF
 
 END SUBROUTINE calc_moc
 !-------------------------------------------------------------------------  
@@ -826,13 +836,13 @@ SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
 
 
   ! write out in extra format - integer*8
-  idate = int(datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute,i8)
+  idate = INT(datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute,i8)
   write(0,*) 'write global PSI at iyear, idate:',datetime%year, idate
 
-  iextra(1) = int(idate,i8)
-  iextra(2) = int(780,i8)
-  iextra(3) = int(0,i8)
-  iextra(4) = int(nlon*nlat,i8)
+  iextra(1) = INT(idate,i8)
+  iextra(2) = INT(780,i8)
+  iextra(3) = INT(0,i8)
+  iextra(4) = INT(nlon*nlat,i8)
 
   write(80) (iextra(jb),jb=1,4)
   write(80) ((psi_reg(jln,jlt),jln=1,nlon),jlt=1,nlat)
