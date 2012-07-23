@@ -64,7 +64,7 @@ for levtype in ML PL HL ; do
   mv ${outfile1} ${outfile2} || true
   ecp -o $outfile2 $ecfsdir
 done
-
+smsevent meteogram_data
 
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
