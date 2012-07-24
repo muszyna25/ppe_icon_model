@@ -1444,6 +1444,8 @@ CONTAINS
       CALL def_var('patch.edges.system_orientation',     nf_double, dim_nedges)
       CALL def_var('patch.edges.quad_index',             nf_int   , dim_nedges, dim_4)
       CALL def_var('patch.edges.quad_orientation',       nf_double, dim_nedges, dim_4)
+      CALL def_var('patch.edges.butterfly_idx1',         nf_int   , dim_nedges, dim_2)
+      CALL def_var('patch.edges.butterfly_idx2',         nf_int   , dim_nedges, dim_2)
       CALL def_var('patch.edges.center.lon',             nf_double, dim_nedges)
       CALL def_var('patch.edges.center.lat',             nf_double, dim_nedges)
       CALL def_var('patch.edges.primal_normal.v1',       nf_double, dim_nedges)
@@ -1620,6 +1622,8 @@ CONTAINS
       CALL bvar_io(1,2,'patch.edges.system_orientation',     p%edges%system_orientation)
       CALL bidx_io(1,2,'patch.edges.quad_index',             p%edges%quad_idx,   p%edges%quad_blk)
       CALL bvar_io(1,2,'patch.edges.quad_orientation',       p%edges%quad_orientation)
+      CALL bidx_io(1,2,'patch.edges.butterfly_idx1',         p%edges%butterfly_idx(:,:,:,1), p%edges%butterfly_blk(:,:,:,1))
+      CALL bidx_io(1,2,'patch.edges.butterfly_idx2',         p%edges%butterfly_idx(:,:,:,2), p%edges%butterfly_blk(:,:,:,2))
       CALL bvar_io(1,2,'patch.edges.center.lon',             p%edges%center(:,:)%lon)
       CALL bvar_io(1,2,'patch.edges.center.lat',             p%edges%center(:,:)%lat)
       CALL bvar_io(1,2,'patch.edges.primal_normal.v1',       p%edges%primal_normal(:,:)%v1)
@@ -1842,6 +1846,8 @@ CONTAINS
     ENDIF
     IF( ltransport .OR. iequations == 3) THEN
     CALL def_var('int.pos_on_tplane_e',   nf_double, dim_nedges, dim_8, dim_2) ! nproma,nblks_e,8,2
+    CALL def_var('int.pos_on_tplane_c_edge.lat', nf_double, dim_nedges, dim_2, dim_5) ! nproma,nblks_e,8,2
+    CALL def_var('int.pos_on_tplane_c_edge.lon', nf_double, dim_nedges, dim_2, dim_5) ! nproma,nblks_e,8,2
     CALL def_var('int.tplane_e_dotprod',  nf_double, dim_nedges, dim_4, dim_4) ! nproma,nblks_e,4,4
     CALL def_var('int.lin.lsq_dim_stencil', nf_int,   dim_ncells) ! nproma,nblks_c
     CALL def_var('int.lin.lsq_index_c',     nf_int,   dim_ncells, dim_lsq_dim_c_lin) ! nproma,nblks_c,lsq_dim_c
@@ -1976,6 +1982,8 @@ CONTAINS
     ENDIF
     IF( ltransport .OR. iequations == 3) THEN
     CALL bvar_io(1,2,'int.pos_on_tplane_e',   pi%pos_on_tplane_e  ) ! nproma,nblks_e,8,2
+    CALL bvar_io(1,2,'int.pos_on_tplane_c_edge.lat', pi%pos_on_tplane_c_edge(:,:,:,:)%lat ) ! nproma,nblks_e,2,5
+    CALL bvar_io(1,2,'int.pos_on_tplane_c_edge.lon', pi%pos_on_tplane_c_edge(:,:,:,:)%lon ) ! nproma,nblks_e,2,5
     CALL bvar_io(1,2,'int.tplane_e_dotprod',  pi%tplane_e_dotprod ) ! nproma,nblks_e,4,4
     CALL bvar_io(1,2,'int.lin.lsq_dim_stencil', pi%lsq_lin%lsq_dim_stencil ) ! nproma,nblks_c
     CALL bidx_io(1,2,'int.lin.lsq_index_c',     pi%lsq_lin%lsq_idx_c, pi%lsq_lin%lsq_blk_c) ! nproma,nblks_c,lsq_dim_c
