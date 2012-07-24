@@ -174,7 +174,7 @@ CONTAINS
 !$OMP END PARALLEL
             
       CALL timer_stop(timer_calculate)
-      write(0,*) c(nproma,no_of_layers,no_of_blocks)
+!       write(0,*) c(nproma,no_of_layers,no_of_blocks)
       !---------------------------------------------------------------------
       CALL timer_start(timer_barrier)
       CALL work_mpi_barrier()    
