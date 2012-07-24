@@ -65,9 +65,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
-    ! 3D variables
-    REAL(wp), DIMENSION(nproma,no_of_layers,no_of_blocks) :: a, b, c
         
     INTEGER ::  timer_barrier_init, iter
         
@@ -151,32 +148,33 @@ CONTAINS
           ENDDO
         ENDDO
 !$OMP END DO
-        
+
 !$OMP DO PRIVATE(i,k,j) ICON_OMP_DEFAULT_SCHEDULE
         DO i = 1, no_of_blocks
           DO k = 1, no_of_layers
             DO j = 1, nproma
-              b(j,k,i) = a(j,k,i) + c(j,k,i)
+              b(j,k,i) = c(j,k,i) - a(j,k,i)
             ENDDO
           ENDDO
         ENDDO
 !$OMP END DO
-        
+                
 !$OMP DO PRIVATE(i,k,j) ICON_OMP_DEFAULT_SCHEDULE
         DO i = 1, no_of_blocks
           DO k = 1, no_of_layers
             DO j = 1, nproma
-              c(j,k,i) = a(j,k,i) * b(j,k,i) + c(j,k,i)
+              c(j,k,i) = MAX(a(j,k,i) * b(j,k,i), ABS(b(j,k,i)-a(j,k,i)))
             ENDDO
           ENDDO
         ENDDO
 !$OMP END DO
 
+
       ENDDO !calculate=1,calculate_iterations
 !$OMP END PARALLEL
             
       CALL timer_stop(timer_calculate)
-    
+      write(0,*) c(nproma,no_of_layers,no_of_blocks)
       !---------------------------------------------------------------------
       CALL timer_start(timer_barrier)
       CALL work_mpi_barrier()    
