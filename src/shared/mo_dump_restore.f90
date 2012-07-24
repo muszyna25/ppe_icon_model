@@ -3095,6 +3095,7 @@ CONTAINS
         p_patch_local_parent(jg)%nlevp1 = p_patch(jgp)%nlevp1
         p_patch_local_parent(jg)%nshift = 0
         p_patch_local_parent(jg)%nshift_child = 0
+        p_patch_local_parent(jg)%nshift_total = p_patch(jgp)%nshift_total
       ENDDO
     ENDIF
 
