@@ -235,6 +235,7 @@ CONTAINS
 
 ! Note(DR): This is somewhat inconsistent since for horizontal trajectories
 ! v_n at n+1/2 is used.
+! w_concorr_c at TL n+1
           w_tavg = p_metrics%vwind_expl_wgt(jc,jb)*p_now%w(jc,jk,jb)  &
             &    + p_metrics%vwind_impl_wgt(jc,jb)*p_new%w(jc,jk,jb)  &
             &    - p_nh_diag%w_concorr_c(jc,jk,jb)
