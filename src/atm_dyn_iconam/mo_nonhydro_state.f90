@@ -1030,7 +1030,7 @@ MODULE mo_nonhydro_state
     IF (l_pres_msl) THEN
       cf_desc    = t_cf_var('mean sea level pressure', 'Pa', &
         &                   'mean sea level pressure', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
         &           ldims=shape2d_c, lrestart=.FALSE.,                            &
