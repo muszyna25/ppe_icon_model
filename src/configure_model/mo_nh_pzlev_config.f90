@@ -123,7 +123,7 @@ CONTAINS
     ! allocate 3D pressure and z-level fields
     ALLOCATE(nh_pzlev_config(jg)%p3d(nproma,z_nplev,nblks_c),          &
       &      nh_pzlev_config(jg)%z3d(nproma,z_nzlev,nblks_c),          &
-      &      nh_pzlev_config(jg)%i3d(nproma,z_nzlev,nblks_c), STAT=ist )
+      &      nh_pzlev_config(jg)%i3d(nproma,z_nilev,nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_pzlev_nml: configure_nh_pzlev',       &
         &      'allocation of p3d, z3d, i3d failed' )

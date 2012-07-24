@@ -147,6 +147,7 @@ CONTAINS
 
     ! standard isentropes (ordering from TOA to bottom)
     !
+    ilevels(:)   = 0._wp
     ilevels(1:3) =(/340._wp, 320._wp, 300._wp/) 
 
 
