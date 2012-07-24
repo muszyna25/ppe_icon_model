@@ -15,7 +15,7 @@ testbed_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 nproma=${nproma:=4}
-testbed_iterations=${testbed_iterations:=20}
+testbed_iterations=${testbed_iterations:=1000}
 calculate_iterations=${calculate_iterations:=20}
 no_of_blocks=${no_of_blocks:=64}
 no_of_layers=${no_of_layers:=80}
