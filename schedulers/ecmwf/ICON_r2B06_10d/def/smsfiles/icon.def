@@ -26,7 +26,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "003"                #---experiment number---
+set EXPNUM        "001"                #---experiment number---
 set FIRST_DATE    20120601
 set LAST_DATE     20120901
 
@@ -348,6 +348,7 @@ suite icon_${EXPNUM}
 
         task eom_prepare  
             trigger testday:time_eom
+            complete (testday==complete) and not (testday:time_eom)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 12:00:00
             meter ecget     0 31 31
@@ -360,12 +361,14 @@ suite icon_${EXPNUM}
         loop ii ( $work ) do
             task eom_metview_$ii
                 trigger (eom_prepare == complete)
+                complete (testday==complete) and not (testday:time_eom)
                 on_ecgate_submit
                 edit metproc $ii
            endloop   
         task eom_archive
             trigger eom_metview_1==complete and eom_metview_2==complete \
                 and eom_metview_3==complete and eom_metview_4==complete
+            complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
    
     endfamily
