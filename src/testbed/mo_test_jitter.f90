@@ -69,7 +69,7 @@ CONTAINS
     ! 3D variables
     REAL(wp), DIMENSION(nproma,no_of_layers,no_of_blocks) :: a, b, c
         
-    INTEGER ::  timer_barrier
+    INTEGER ::  timer_barrier_init, iter
         
     CHARACTER(*), PARAMETER :: method_name = "mo_test_jitter:test_jitter"
 
@@ -85,35 +85,16 @@ CONTAINS
     WRITE(message_text,*) "nproma=", nproma, " layers=", no_of_layers, " blocks=", no_of_blocks
     CALL message(" -- ", message_text)
    !-------------------------------------------------------------------------
-    timer_barrier  = new_timer("mpi_barrier")
+    timer_barrier_init  = new_timer("mpi_barrier_init")
     CALL work_mpi_barrier()
     
     !---------------------------------------------------------------------
     ! call some barriers to see how much time it takes
-    CALL timer_start(timer_barrier)
-    CALL work_mpi_barrier()    
-    CALL timer_stop(timer_barrier)
-    CALL print_timer()
-    CALL cleanup_timer(timer_barrier)
-    !---------------------------------------------------------------------
-    CALL timer_start(timer_barrier)
-    CALL work_mpi_barrier()    
-    CALL timer_stop(timer_barrier)
-    CALL print_timer()
-    CALL cleanup_timer(timer_barrier)
-    !---------------------------------------------------------------------
-    CALL timer_start(timer_barrier)
-    CALL work_mpi_barrier()    
-    CALL timer_stop(timer_barrier)
-    CALL print_timer()
-    CALL cleanup_timer(timer_barrier)
-    !---------------------------------------------------------------------
-    CALL timer_start(timer_barrier)
-    CALL work_mpi_barrier()    
-    CALL timer_stop(timer_barrier)
-    CALL print_timer()
-    CALL cleanup_timer(timer_barrier)
-
+    DO iter=1, testbed_iterations
+      CALL timer_start(timer_barrier_init)
+      CALL work_mpi_barrier()    
+      CALL timer_stop(timer_barrier_init)
+    ENDDO
     !---------------------------------------------------------------------
     CALL test_jitter_iter()
     !---------------------------------------------------------------------
@@ -185,7 +166,7 @@ CONTAINS
         DO i = 1, no_of_blocks
           DO k = 1, no_of_layers
             DO j = 1, nproma
-              c(j,k,i) = a(j,k,i) * b(j,k,i)
+              c(j,k,i) = a(j,k,i) * b(j,k,i) + c(j,k,i)
             ENDDO
           ENDDO
         ENDDO
@@ -200,16 +181,9 @@ CONTAINS
       CALL timer_start(timer_barrier)
       CALL work_mpi_barrier()    
       CALL timer_stop(timer_barrier)
-      !---------------------------------------------------------------------
-    
-      !---------------------------------------------------------------------
-      ! print the timers
-      CALL print_timer()
-      CALL cleanup_timer(timer_calculate)
-      CALL cleanup_timer(timer_barrier)
       CALL work_mpi_barrier()    
       !---------------------------------------------------------------------
-      
+          
     ENDDO !iter=1, testbed_iterations
              
     !---------------------------------------------------------------------
@@ -218,6 +192,13 @@ CONTAINS
     sumb = SUM(b(:,:,:))
     sumc = SUM(c(:,:,:))
     write(0,*) "sums=", suma, sumb, sumc
+    !---------------------------------------------------------------------
+    
+    !---------------------------------------------------------------------
+    ! print the timers
+    CALL print_timer()
+    CALL cleanup_timer(timer_calculate)
+    CALL cleanup_timer(timer_barrier)
     !---------------------------------------------------------------------
 
   END SUBROUTINE test_jitter_iter
