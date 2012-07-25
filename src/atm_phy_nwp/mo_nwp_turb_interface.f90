@@ -187,9 +187,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,         &
-!$OMP lc_class,gz0,z_tvs,gz0t,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,     &  
-!$OMP t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,&
+!$OMP DO PRIVATE(jb,jt,jc,jk,ic,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine, &
+!$OMP lc_class,gz0,z_tvs,gz0t,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,        &  
+!$OMP t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,   &
 !$OMP pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,w_t,rcld_t) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
