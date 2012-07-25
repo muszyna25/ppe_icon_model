@@ -400,7 +400,7 @@ MODULE mo_nh_stepping
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_vlist_output, l_nml_output, &
     &                                     l_supervise_total_integrals,  &
-    &                                     lwrite_checkpoint
+    &                                     lwrite_checkpoint, ldom_active(n_dom)
   TYPE(t_simulation_status)            :: simulation_status
   INTEGER                              :: proc_id(2), keyval(2)
 
@@ -549,12 +549,17 @@ MODULE mo_nh_stepping
     l_diagtime = (.NOT. output_mode%l_none) .AND. &
       & ((jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps))
 
+    ! This serves to ensure that postprocessing is executed both immediately after
+    ! activating and immediately after terminating a model domain
+    ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
+
     !--------------------------------------------------------------------------
     !
     ! dynamics stepping
     !
     CALL integrate_nh(datetime, 1, jstep, dtime, dtime_adv, sim_time, 1)
 
+    ldom_active(1:n_dom) = ldom_active(1:n_dom) .OR. p_patch(1:n_dom)%ldom_active
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
@@ -565,7 +570,7 @@ MODULE mo_nh_stepping
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
     simulation_status = new_simulation_status(l_output_step=l_outputtime, l_last_step=(jstep==nsteps), &
-      &                                       l_dom_active=p_patch(1:)%ldom_active)
+      &                                       l_dom_active=ldom_active)
     CALL pp_scheduler_process(simulation_status)
 
     ! output of results
