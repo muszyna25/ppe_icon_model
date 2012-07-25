@@ -437,6 +437,7 @@ CONTAINS
           task%data_input%p_int_state   => p_int_state(jg)
           task%job_type                 =  TASK_INTP_HOR_LONLAT
           task%activity                 =  new_simulation_status(l_output_step=.TRUE.)
+          task%activity%ldom_active(jg) =  .TRUE.
           task%data_input%var           => element%field       ! set input variable
           task%data_output%var          => new_element%field   ! set output variable
           IF (info%hgrid == GRID_UNSTRUCTURED_EDGE) THEN
@@ -469,6 +470,7 @@ CONTAINS
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
+      task%activity%ldom_active(:) = .TRUE.
     END IF
 
     IF (dbg_level > 5)  CALL message(routine, "Done")
@@ -766,6 +768,7 @@ CONTAINS
       END IF
       task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
+      task%activity%ldom_active(jg)    =  .TRUE.
 
       IF (l_intp_i) THEN
         IF (l_intp_p) THEN
@@ -787,6 +790,7 @@ CONTAINS
 
       task => pp_task_insert(LOW_PRIORITY)
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
+      task%activity%ldom_active(jg) =  .TRUE.
       task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
       task%job_name     = "Clean-up: pz-level interpolation, level "//TRIM(int2string(jg))
       task%job_type     = TASK_FINALIZE_IPZ
@@ -911,8 +915,9 @@ CONTAINS
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
                 &  //", DOM "//TRIM(int2string(jg))
-              task%job_type        =  job_type
-              task%activity        =  new_simulation_status(l_output_step=.TRUE.)
+              task%job_type                    =  job_type
+              task%activity                    =  new_simulation_status(l_output_step=.TRUE.)
+              task%activity%ldom_active(jg)    =  .TRUE.
               task%data_input%jg               =  jg 
               task%data_input%p_patch          => p_patch(jg)          
               task%data_input%p_int_state      => p_int_state(jg)
@@ -995,6 +1000,7 @@ CONTAINS
     task%data_output%var             => p_out_var%field
     task%job_type                    =  job_type
     task%activity                    =  new_simulation_status(l_output_step=l_output_step)
+    task%activity%ldom_active(jg)    =  .TRUE.
 
   END SUBROUTINE pp_scheduler_register
 
@@ -1009,6 +1015,9 @@ CONTAINS
       &  TRIM("mo_pp_scheduler:pp_scheduler_process")
     TYPE(t_job_queue), POINTER :: ptr_task
 
+    IF (dbg_level >= 10) THEN
+      CALL message(routine,"Processing task list...")
+    END IF
     ptr_task => job_queue
     ! loop over job queue
     LOOP_JOB : DO
@@ -1082,12 +1091,23 @@ CONTAINS
     TYPE(t_job_queue), POINTER :: ptr_task
     TYPE(t_simulation_status),  INTENT(IN) :: simulation_status
 
+    INTEGER :: i
+
     ! compare simulation status to post-processing tasks activity
     ! flags, then check if any of the activity conditions is
     ! fulfilled:
     pp_task_is_active = .FALSE.
     IF (ANY(ptr_task%activity%status_flags(:)  .AND.  &
       &     simulation_status%status_flags(:))) pp_task_is_active = .TRUE.
+
+    ! check, if current task applies only to domains which are
+    ! "active":
+    DO i=1,SIZE(ptr_task%activity%ldom_active)
+      IF (ptr_task%activity%ldom_active(i) .AND. &
+        & .NOT. simulation_status%ldom_active(i)) THEN
+        pp_task_is_active = .FALSE.
+      END IF
+    END DO
 
   END FUNCTION pp_task_is_active  
 
@@ -1136,19 +1156,32 @@ CONTAINS
   ! Quasi-constructor for "t_simulation_status" variables
   ! 
   ! Fills data structure with default values (unless set otherwise).
-  FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step)  &
+  FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step, &
+    &                            l_dom_active)  &
     RESULT(sim_status)
 
     TYPE(t_simulation_status) :: sim_status
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_output_step, l_first_step, l_last_step
+    LOGICAL, INTENT(IN), OPTIONAL      :: &
+      &  l_dom_active(:)
+    ! local variables
+    INTEGER :: ndom
 
     ! set default values
     sim_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. /)
+
     ! supersede with user definitions
     CALL assign_if_present(sim_status%status_flags(1), l_output_step)
     CALL assign_if_present(sim_status%status_flags(2), l_first_step)
     CALL assign_if_present(sim_status%status_flags(3), l_last_step)
+
+    ! as a default, all domains are "inactive":
+    sim_status%ldom_active(:) = .FALSE.
+    IF  (PRESENT(l_dom_active)) THEN
+      ndom = SIZE(l_dom_active)
+      sim_status%ldom_active(1:ndom) = l_dom_active(1:ndom)
+    END IF
 
   END FUNCTION new_simulation_status
 

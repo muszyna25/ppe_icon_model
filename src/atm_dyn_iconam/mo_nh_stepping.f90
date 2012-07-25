@@ -564,8 +564,8 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
-    simulation_status = new_simulation_status(l_output_step=l_outputtime, &
-      &                                       l_last_step=(jstep==nsteps))
+    simulation_status = new_simulation_status(l_output_step=l_outputtime, l_last_step=(jstep==nsteps), &
+      &                                       l_dom_active=p_patch(1:)%ldom_active)
     CALL pp_scheduler_process(simulation_status)
 
     ! output of results

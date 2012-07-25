@@ -49,7 +49,7 @@ MODULE mo_pp_tasks
     & TASK_INIT_VER_IZ, TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ,         &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
-    & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME
+    & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -177,6 +177,8 @@ MODULE mo_pp_tasks
   TYPE t_simulation_status
     ! l_output_step, l_first_step, l_last_step
     LOGICAL :: status_flags(3)
+    ! active domains
+    LOGICAL :: ldom_active(max_dom)
   END TYPE t_simulation_status
 
 
