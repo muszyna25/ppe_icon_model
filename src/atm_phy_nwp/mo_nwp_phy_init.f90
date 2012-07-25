@@ -257,21 +257,19 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
 
           END DO
-        ELSE ! For real-case simulations, initialize also qv_s
+        ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
           DO jc = i_startidx, i_endidx
             p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
             p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           ENDDO
-          IF (.NOT. is_restart_run()) THEN ! initialize also tile-based fields
-            DO jt = 1, nsfc_subs
-              DO jc = i_startidx, i_endidx
-                p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
-                p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
-                p_diag_lnd%qv_s_t(jc,jb,jt)    =  p_diag_lnd%qv_s(jc,jb)
-              ENDDO
+          DO jt = 1, nsfc_subs
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
+              p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
+              p_diag_lnd%qv_s_t(jc,jb,jt)    =  p_diag_lnd%qv_s(jc,jb)
             ENDDO
-          ENDIF
+          ENDDO
         ENDIF
         
     END DO
@@ -293,9 +291,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &  i_startidx, i_endidx, rl_start, rl_end)
+
         DO jc = i_startidx, i_endidx
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
         ENDDO
+        DO jt = 1, nsfc_subs
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
+          ENDDO
+        ENDDO
+
       ENDDO
 
   END IF
