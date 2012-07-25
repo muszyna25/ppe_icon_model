@@ -698,19 +698,20 @@ MODULE mo_nonhydro_state
         DO jt = 1, ntracer
           ctracer = advconf%ctracer_list(jt:jt)
           WRITE(name,'(A1,A1)') "Q", ctracer
-          CALL add_ref( p_prog_list, 'tracer',                               &
-            & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                &
-            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
-            & t_cf_var(TRIM(name), '','', DATATYPE_FLT32),                   &
-            & t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL),        &
-            & ldims=shape3d_c,                                               &
+          CALL add_ref( p_prog_list, 'tracer',                                  &
+            & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                   &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                             &
+            & t_cf_var(TRIM(name), 'kg/kg','Tracer mixing ratio '//TRIM(name),  &
+            & DATATYPE_FLT32),                                                  &
+            & t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL),           &
+            & ldims=shape3d_c,                                                  &
             & tlev_source=1,     &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(),                          &
-            & vert_interp=create_vert_interp_metadata(                       &
-            &             vert_intp_type=VINTP_TYPE_P_OR_Z,                  &
-            &             vert_intp_method=VINTP_METHOD_LIN,                 &
-            &             l_loglin=.FALSE.,                                  &
-            &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            & tracer_info=create_tracer_metadata(),                             &
+            & vert_interp=create_vert_interp_metadata(                          &
+            &             vert_intp_type=VINTP_TYPE_P_OR_Z,                     & 
+            &             vert_intp_method=VINTP_METHOD_LIN,                    &
+            &             l_loglin=.FALSE.,                                     &
+            &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                &
             &             lower_limit=0._wp  )  )
         END DO
       ENDIF
