@@ -459,7 +459,7 @@ MODULE mo_nh_stepping
 !$OMP END PARALLEL
 
       !--- Get max over all PEs
-      IF (msg_level > 5) THEN
+      IF (msg_level >= 8) THEN
 
         ! print a detailed information on global maxima:
         ! containing the process ID and the level where the
@@ -478,9 +478,15 @@ MODULE mo_nh_stepping
         vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval)
 
         IF (my_process_is_stdio()) THEN
-          WRITE(0,'(a,2(e18.10,a,i5,a,i5,a))') 'MAXABS VN, W ',      &
-            & vmax(1), " (on proc #", proc_id(1), ", level ", keyval(1), "), ", &
-            & vmax(2), " (on proc #", proc_id(2), ", level ", keyval(2), "), "
+          IF (msg_level >= 13) THEN
+            WRITE(0,'(a,2(e18.10,a,i5,a,i5,a))') 'MAXABS VN, W ',      &
+              & vmax(1), " (on proc #", proc_id(1), ", level ", keyval(1), "), ", &
+              & vmax(2), " (on proc #", proc_id(2), ", level ", keyval(2), "), "
+          ELSE
+            WRITE(0,'(a,2(e18.10,a,i5,a))') 'MAXABS VN, W ',      &
+              & vmax(1), ", at level ", keyval(1), ", ", &
+              & vmax(2), ", at level ", keyval(2), ", "
+          ENDIF
         END IF
 
       ELSE
