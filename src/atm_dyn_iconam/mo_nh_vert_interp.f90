@@ -1481,6 +1481,8 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
+    REAL(wp), PARAMETER :: TOL = 1e-12
+
     INTEGER  :: jb, jk, jc, jk1
     INTEGER  :: nlen
     REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_up, dtvdz_down
@@ -1509,16 +1511,26 @@ CONTAINS
         DO jc = 1, nlen
           IF (jk <= bot_idx(jc,jb)) THEN
             jk1 = idx0(jc,jk,jb)
-            dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
-                              (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
 
-            dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
-                                (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
+            IF (ABS(z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+              dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
+                &               (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
+            ELSE
+              dtvdz_up(jc,jk) = 0._wp
+            ENDIF
+
+            ! Paranoia
+            IF (ABS(z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+              dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
+                &                 (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
+            ELSE
+              dtvdz_down(jc,jk) = 0._wp
+            END IF
 
           ELSE ! for downward extrapolation, only dtvdz_down is needed
 
             dtvdz_down(jc,jk) = (tempv_out(jc,jk-1,jb)-tempv_out(jc,jk,jb)) / &
-                                (z3d_out  (jc,jk-1,jb)-z3d_out  (jc,jk,jb))
+              (z3d_out  (jc,jk-1,jb)-z3d_out  (jc,jk,jb))
 
           ENDIF
         ENDDO
@@ -1531,20 +1543,21 @@ CONTAINS
 
             ! interpolation based on piecewise analytical integration of the hydrostatic equation
             jk1 = idx0(jc,jk,jb)
+              
             IF (ABS(dtvdz_up(jc,jk)) > dtvdz_thresh) THEN
               p_up = pres_in(jc,jk1,jb)*EXP(-grav/(rd*dtvdz_up(jc,jk))* &
-                     LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
+                   LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
             ELSE
               p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
-                     (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
+                   (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
             ENDIF
 
             IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
               p_down = pres_in(jc,jk1+1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
-                       LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
+                   LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
             ELSE
               p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
-                       (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
+                   (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
             ENDIF
 
             ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
@@ -1554,7 +1567,7 @@ CONTAINS
             ELSE
               pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
             ENDIF
-
+          
           ELSE ! downward extrapolation
 
             IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
