@@ -3354,10 +3354,16 @@ CONTAINS
                   IF (r_out_recv(i,jk) /= r_out_dp(i,jk)) THEN
                     ! do detailed print-out only for "large" errors:
                     IF (ABS(r_out_recv(i,jk) - r_out_dp(i,jk)) > SYNC_ERROR_PRINT_TOL) THEN
-                      WRITE (message_text,*) 'Sync error test PE/worker PEs for ', TRIM(info%name),     &
-                        &                    ", global pos (", idx_no(i), ",", blk_no(i),               &
-                        &                    "), level", jk, "/", nlevs,                                &
-                        &                    ", vals: ", r_out_recv(i,jk), r_out_dp(i,jk)
+                      WRITE (message_text,*) 'Sync error test PE/worker PEs for ', TRIM(info%name)
+                      CALL tocompact(message_text)
+                      CALL message(routine,message_text)
+                      WRITE (message_text,*) "global pos (", idx_no(i), ",", blk_no(i),")"
+                      CALL tocompact(message_text)
+                      CALL message(routine,message_text)
+                      WRITE (message_text,*) "level", jk, "/", nlevs
+                      CALL tocompact(message_text)
+                      CALL message(routine,message_text)
+                      WRITE (message_text,*) "vals: ", r_out_recv(i,jk), r_out_dp(i,jk)
                       CALL tocompact(message_text)
                       CALL message(routine,message_text)
                     END IF
