@@ -70,9 +70,9 @@ create_dec()
   runname=exp.${exp_name}.run
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
-  atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
-  mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
-  ndays=$ndays use_icon_comm=$use_icon_comm
+    atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
+    mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
+    ndays=$ndays use_icon_comm=$use_icon_comm
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -83,6 +83,43 @@ create_dec()
 
 }
 #==============================================================================
+
+#==============================================================================
+set_default_parameters()
+{
+  name=nat_ape-dec
+  mpi_procs_pernode=32
+  openmp_threads=2
+  nproma=4
+  rrad="false"
+  division_method=1
+  dt_rad=1800
+  use_barrier=".false."
+  testbed_mode=0
+  timers_level=6
+  use_icon_comm=".false."
+  #---------------------------------
+  run="false"
+}
+#==============================================================================
+
+
+#==============================================================================
+create_std_exp_on_blizzard()
+{
+  set_default_parameters
+  mpi_procs_pernode=32
+  dec_size=32  # create a total of 32 mpi procs, ie one node 
+  openmp_threads=2
+  atmo_dyn_gridname="iconR2B04-grid"
+  outname="nat-ape_std"
+  cpu_time="01:00:00"
+  create_dec
+}
+#==============================================================================
+
+create_std_exp_on_blizzard
+exit
 
 #==============================================================================
 create_weak_scaling()
@@ -112,33 +149,32 @@ create_weak_scaling()
   ;;
   esac
  
-  ndays=1
   atmo_dyn_gridname=""
   atmo_rad_gridname=""
 
   dec_size=32
-  create_dec
+#  create_dec
 
   dec_size=92
-  create_dec
+#  create_dec
 
   dec_size=162
-  create_dec
+#  create_dec
 
   dec_size=362
-  create_dec
+#  create_dec
 
   dec_size=642
-  create_dec
+#  create_dec
 
   dec_size=1082
-  create_dec
+#  create_dec
   
   dec_size=1442
-  create_dec
+#  create_dec
   
   dec_size=1922
-  create_dec
+#  create_dec
   
   dec_size=2432
   create_dec
@@ -149,29 +185,20 @@ create_weak_scaling()
 #==============================================================================
 create_weak_scaling_on_blizzard()
 {
-  name=nat_ape-dec
+  set_default_parameters
   cells_per_domain=24
-  mpi_procs_pernode=32
-  openmp_threads=2
-  nproma=4
   division_method=0
-  rrad="false"
   outname="nat-ape_hexdec-24cells"
-  ndays=1
+  ndays=30
   cpu_time="00:10:00"
   dt_rad=1800
   #---------------------------------
   run="true"
-  run="false"
-  use_barrier=".false."
-  testbed_mode=0
-#  nsteps=5000
-  timers_level=6
   #==============================================================================
 
   use_icon_comm=".true."
   outname="nat-ape_hexdec-24cells_30mrad_iconcomm"
-  create_weak_scaling
+  # create_weak_scaling
   #==============================================================================  
   use_icon_comm=".false."
   outname="nat-ape_hexdec-24cells_30mrad_no-iconcomm"
@@ -182,220 +209,60 @@ create_weak_scaling_on_blizzard()
 create_weak_scaling_on_blizzard
 exit
 
-#===================================================================================
-#===================================================================================
-
-
-create_scaling_dec_lowres()
-{
-cpu_time="00:10:00"
-ndays=16
-outname="${outname}_lowres"
-
-atmo_dyn_gridname='iconR2B04_dec-162'
-if [ x$rrad = "xtrue" ]; then
-  atmo_rad_gridname='iconR2B03_dec-162_rrad'
-else
-  atmo_rad_gridname=""
-fi
-dec_size=162
-create_dec
-
-atmo_dyn_gridname='iconR2B05_dec-642'
-if [ x$rrad = "xtrue" ]; then
-  atmo_rad_gridname='iconR2B04_dec-642_rrad'
-else
-  atmo_rad_gridname=""
-fi
-dec_size=642
-create_dec
-
-atmo_dyn_gridname='iconR2B06_dec-1082'
-if [ x$rrad = "xtrue" ]; then
-  atmo_rad_gridname='iconR2B05_dec-1082_rrad'
-else
-  atmo_rad_gridname=""
-fi
-dec_size=1082
-create_dec
-}
-
-
-create_scaling_dec_hires()
-{
-cpu_time="00:20:00"
-ndays=10
-outname="${outname}_hires"
-
-atmo_dyn_gridname='iconR2B05_dec-162'
-if [ x$rrad = "xtrue" ]; then
-  atmo_rad_gridname='iconR2B04_dec-162_rrad'
-else
-  atmo_rad_gridname=""
-fi
-dec_size=162
-create_dec
-
-atmo_dyn_gridname='iconR2B06_dec-642'
-if [ x$rrad = "xtrue" ]; then
-  atmo_rad_gridname='iconR2B05_dec-642_rrad'
-else
-  atmo_rad_gridname=""
-fi
-dec_size=642
-create_dec
-
-atmo_dyn_gridname='iconR2B07_dec-1082'
-if [ x$rrad = "xtrue" ]; then
-  atmo_rad_gridname='iconR2B06_dec-1082_rrad'
-else
-  atmo_rad_gridname=""
-fi
-dec_size=1082
-create_dec
-}
 
 #==============================================================================
+# ignore these
 
-name=nat_ape-dec
-#---------------------------------
-run="true"
-run="false"
-use_barrier=".false."
-testbed_mode=0
-nproma=12
-#==============================================================================
-#=================================
-rrad="true"
-dt_rad=3600
-nproma=4
-#---------------------------------
-division_method=0
-outname=nat_ape-hexdec-rrad_1h_4nproma
-create_scaling_dec_lowres
-exit
-
-division_method=1
-outname=nat_ape-geomdec-rrad-1h
-create_scaling_dec_hires
-
-
-#---------------------------------
-rrad="false"
-dt_rad=1800
-nproma=12
-#---------------------------------
-division_method=0
-outname=nat_ape-hexdec_30min
-create_scaling_dec_hires
-
-division_method=1
-outname=nat_ape-geomdec_30min
-create_scaling_dec_hires
-
-
-#==============================================================================
-rrad="false"
-dt_rad=1800
-#---------------------------------
-division_method=0
-outname=nat_ape-hexdec_30min
-create_scaling_dec_lowres
-
-division_method=1
-outname=nat_ape-geomec_30min
-create_scaling_dec_lowres
-
-exit
-
-dt_rad=3600
-outname=nat_ape-hexdec_1h
-create_scaling_dec_lowres
-
-
-#---------------------------------
-division_method=1
-dt_rad=3600
-outname=nat_ape-geomdec_1h
-create_scaling_dec_lowres
-
-dt_rad=1800
-outname=nat_ape-geomec_30min
-create_scaling_dec_lowres
-
-#==============================================================================
-rrad="true"
-#---------------------------------
-division_method=0
-dt_rad=3600
-outname=nat_ape-hexdec-rrad_1h
-create_scaling_dec_lowres
-
-#---------------------------------
-division_method=1
-dt_rad=3600
-outname=nat_ape-geomdec-rrad_1h
-create_scaling_dec_lowres
-
-
-exit
-
-#==============================================================================
-
-#==============================================================================
-
-
-name=icon-testbed_communication-dec
-run="true"
-#---------------------------------
-use_barrier=".false."
-testbed_mode=0
-
-division_method=0
-outname=icon-testbed_communication-hexdec
-create_scaling_dec_lowres
-
-division_method=1
-outname=icon-testbed_communication-geomdec
-create_scaling_dec_lowres
-
-exit
-
-
-#==============================================================================
-
-#==============================================================================
-# special treatment for exp.icon-testbed_communication
-# this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
-#
-
-run_script="true"
-
-nodes_list=(  10 20 40 60 80 )
-nproma_list=( 37 37 33 29 33 )
-nodes_list_size=${#nodes_list[*]}
-
-name=icon-testbed_communication
-
-j=0
-while [ $j -lt ${nodes_list_size} ]
-do
-  nodes=${nodes_list[$j]}
-  nproma=${nproma_list[$j]}
- 
-  exp_name=${name}.${nodes}nodes
-  runname=exp.${exp_name}.run
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=$exp_name out_script=$runname\
-  grid="iconR2B06-grid.nc"  nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
-
-  if [[ $run_script == "true" ]] ; then
-     cd $input_folder
-     $use_submit ./$runname
-     cd ..
-  fi
-
-  let j=j+1
-done
-#==============================================================================
-
-echo "-----------------------------------------------------------"
+# name=icon-testbed_communication-dec
+# run="true"
+# #---------------------------------
+# use_barrier=".false."
+# testbed_mode=0
+# 
+# division_method=0
+# outname=icon-testbed_communication-hexdec
+# create_scaling_dec_lowres
+# 
+# division_method=1
+# outname=icon-testbed_communication-geomdec
+# create_scaling_dec_lowres
+# 
+# exit
+# 
+# 
+# #==============================================================================
+# 
+# #==============================================================================
+# # special treatment for exp.icon-testbed_communication
+# # this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
+# #
+# 
+# run_script="true"
+# 
+# nodes_list=(  10 20 40 60 80 )
+# nproma_list=( 37 37 33 29 33 )
+# nodes_list_size=${#nodes_list[*]}
+# 
+# name=icon-testbed_communication
+# 
+# j=0
+# while [ $j -lt ${nodes_list_size} ]
+# do
+#   nodes=${nodes_list[$j]}
+#   nproma=${nproma_list[$j]}
+#  
+#   exp_name=${name}.${nodes}nodes
+#   runname=exp.${exp_name}.run
+#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=$exp_name out_script=$runname\
+#   grid="iconR2B06-grid.nc"  nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
+# 
+#   if [[ $run_script == "true" ]] ; then
+#      cd $input_folder
+#      $use_submit ./$runname
+#      cd ..
+#   fi
+# 
+#   let j=j+1
+# done
+# #==============================================================================
+# 

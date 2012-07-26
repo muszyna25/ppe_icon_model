@@ -8,8 +8,8 @@
 #
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
-#
 # atmo_dyn_gridname
+#
 #
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -27,7 +27,7 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #-----------------------------------------------------------------------------
 # model timing
 dtime=${dtime:=60}
-ndays=${ndays:=16}
+ndays=${ndays:=10}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
 dt_conv=${dt_conv:=$dtime}
@@ -44,7 +44,7 @@ else
 fi  
 
 # division_file_name="../../grids/${atmo_grid_filename}.cell_domain_ids"
-division_method=${division_method:=0}
+division_method=${division_method:=1}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
@@ -102,7 +102,7 @@ lrestore_states=".false."
 
 #-----------------------------------------------------------------------------
 use_barrier=${use_barrier:=".false."}
-use_icon_comm=${use_icon_comm:=".true."}
+use_icon_comm=${use_icon_comm:=".false."}
 #-----------------------------------------------------------------------------
 
 
@@ -213,9 +213,8 @@ cat >> ${atmo_namelist} << EOF
  decay_exp       = 1.2
 /
 &nwp_phy_nml
-! inwp_gscp       = 1
+ inwp_gscp       = 10
  inwp_satad      = 1
- inwp_gscp       = 1
  inwp_convection = 1
  inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO
  inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
