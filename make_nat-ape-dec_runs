@@ -98,6 +98,7 @@ set_default_parameters()
   testbed_mode=0
   timers_level=6
   use_icon_comm=".false."
+  ndays=10
   #---------------------------------
   run="false"
 }
@@ -113,6 +114,7 @@ create_std_exp_on_blizzard()
   openmp_threads=2
   atmo_dyn_gridname="iconR2B04-grid"
   outname="nat-ape_std"
+  ndays=10
   cpu_time="01:00:00"
   create_dec
 }
