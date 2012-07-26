@@ -101,6 +101,7 @@ MODULE mo_pp_scheduler
     &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
     &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZAXIS_ISENTROPIC
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
+  USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl,                                   & 
@@ -466,6 +467,8 @@ CONTAINS
     ! If at least one interpolation task has been created, we add a
     ! setup task which synchronizes the halo regions:
     IF (l_horintp) THEN
+      IF (dbg_level >= 10) &
+        CALL message(routine, "Creating synchronization task for horizontal interpolation.")
       task => pp_task_insert(HIGH_PRIORITY)
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
@@ -1102,7 +1105,7 @@ CONTAINS
 
     ! check, if current task applies only to domains which are
     ! "active":
-    DO i=1,SIZE(ptr_task%activity%ldom_active)
+    DO i=1,n_dom
       IF (ptr_task%activity%ldom_active(i) .AND. &
         & .NOT. simulation_status%ldom_active(i)) THEN
         pp_task_is_active = .FALSE.
