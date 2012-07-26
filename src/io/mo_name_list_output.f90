@@ -85,8 +85,9 @@ MODULE mo_name_list_output
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
-  USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword, &
-    &                                 with_keywords, insert_group, MAX_STRING_LEN
+  USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
+    &                                 with_keywords, insert_group, MAX_STRING_LEN, &
+    &                                 tocompact
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
@@ -3167,6 +3168,8 @@ CONTAINS
     TYPE(t_comm_pattern), POINTER :: p_pat
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
+    REAL(wp) :: SYNC_ERROR_PRINT_TOL = 1e-9_wp
+    LOGICAL  :: l_error
 
     ! Offset in memory window for async I/O
     ioff = of%my_mem_win_off
@@ -3341,11 +3344,28 @@ CONTAINS
               ! Send to test PE
               CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
             ELSE
-              ! Receive result from parallel worker PEs and check for correctness
+              ! Receive result from parallel worker PEs
               ALLOCATE(r_out_recv(n_points,nlevs))
               CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
-              IF(ANY(r_out_recv(:,:) /= r_out_dp(:,:))) &
-                CALL finish(routine,'Sync error test PE/worker PEs for '//TRIM(info%name))
+              ! check for correctness
+              l_error = .FALSE.
+              DO jk = 1, nlevs
+                DO i = 1, n_points
+                  IF (r_out_recv(i,jk) /= r_out_dp(i,jk)) THEN
+                    ! do detailed print-out only for "large" errors:
+                    IF (ABS(r_out_recv(i,jk) - r_out_dp(i,jk)) > SYNC_ERROR_PRINT_TOL) THEN
+                      WRITE (message_text,*) 'Sync error test PE/worker PEs for ', TRIM(info%name),     &
+                        &                    ", global pos (", idx_no(i), ",", blk_no(i),               &
+                        &                    "), level", jk, "/", nlevs,                                &
+                        &                    ", vals: ", r_out_recv(i,jk), r_out_dp(i,jk)
+                      CALL tocompact(message_text)
+                      CALL message(routine,message_text)
+                    END IF
+                    l_error = .TRUE.
+                  END IF
+                ENDDO
+              END DO
+              if (l_error)   CALL finish(routine,"Sync error!")
               DEALLOCATE(r_out_recv)
             ENDIF
           ENDIF
