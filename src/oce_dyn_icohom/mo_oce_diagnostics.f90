@@ -43,10 +43,10 @@ MODULE mo_oce_diagnostics
 !  
 !   
 ! 
-USE mo_kind,                      ONLY: wp, i8
+USE mo_kind,                      ONLY: wp, dp, i8
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-USE mo_mpi,                       ONLY: my_process_is_stdio
-USE mo_sync,                      ONLY: global_sum_array
+USE mo_mpi,                       ONLY: my_process_is_stdio, p_field_sum, &
+  &                                     p_comm_work_test, p_comm_work, p_io
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_math_constants,            ONLY: rad2deg
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &
@@ -55,7 +55,7 @@ USE mo_impl_constants,            ONLY: sea_boundary,sea, &
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
 USE mo_dynamics_config,           ONLY: nold,nnew
-USE mo_parallel_config,           ONLY: nproma
+USE mo_parallel_config,           ONLY: nproma, p_test_run
 USE mo_run_config,                ONLY: dtime, nsteps
 USE mo_physical_constants,        ONLY: grav, rho_ref
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
@@ -559,10 +559,12 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
   INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
   INTEGER :: jb, jc, jk, i_startidx, i_endidx !, il_e, ib_e
   INTEGER :: lbrei, lbr, idate, itime
+  INTEGER :: mpi_comm
   INTEGER(i8) :: i1,i2,i3,i4
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
   REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
+  REAL(dp) :: local_moc(180)
 
   TYPE(t_subset_range), POINTER :: dom_cells
   
@@ -570,9 +572,18 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
 
   !-----------------------------------------------------------------------
 
+  IF(p_test_run) THEN
+    mpi_comm = p_comm_work_test
+  ELSE
+    mpi_comm = p_comm_work
+  ENDIF
+
   global_moc(:,:) = 0.0_wp
   pacind_moc(:,:) = 0.0_wp
   atlant_moc(:,:) = 0.0_wp
+
+  ! set barrier:
+  ! CALL MPI_BARRIER(0)
     
   ! with all cells no sync is necessary
   !owned_cells => p_patch%cells%owned
@@ -617,14 +628,6 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
             global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
               &                    REAL(2*jbrei + 1, wp)
-      
-         ! horizontal transports
-         !  IF ( k == 1 ) THEN
-         !    global_hfl(lbrei) = global_hfl(lbrei) &
-         !         - area(i, j) * flum(i, j) / REAL(2*jbrei + 1, wp)
-         !    global_wfl(lbrei) = global_wfl(lbrei) &
-         !         - area(i, j) * pem(i, j) / REAL(2*jbrei + 1, wp)
-         !  END IF
 
             IF (v_base%basin_c(jc,jb) <2) THEN
 
@@ -645,7 +648,22 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
         END IF
       END DO
     END DO
-  END DO
+
+    ! test parallelization:
+    ! new function field_sum_all using mpi_allreduce
+  ! CALL p_field_sum_all(global_moc(:,jk))
+  ! CALL p_field_sum_all(atlant_moc(:,jk))
+  ! CALL p_field_sum_all(pacind_moc(:,jk))
+
+    ! function field_sum using mpi_reduce, then broadcast
+    local_moc(:) = REAL(global_moc(:,jk),dp)
+  ! CALL p_field_sum(local_moc, mpi_comm)
+  ! CALL p_field_sum(global_moc(:,jk), mpi_comm)
+  ! CALL p_field_sum(atlant_moc(:,jk), mpi_comm)
+  ! CALL p_field_sum(pacind_moc(:,jk), mpi_comm)
+  ! CALL p_bcast(global_moc(:,jk), p_io, mpi_comm)
+
+  END DO  ! n_zlev-loop
 
   ! test parallelization:
   !CALL global_sum_array(global_moc)
