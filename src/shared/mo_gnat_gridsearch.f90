@@ -561,7 +561,7 @@ CONTAINS
     depth(:)     =  0
     tree_depth   =  0  ! maximum tree depth
     free_node(:) = UNASSOCIATED
-    icount       =  1
+    icount       =  0
     new_idx(1:2) = cell_indices(1:2,permutation(1))    
     
     ! Short description of parallel processing:
@@ -622,7 +622,6 @@ CONTAINS
         icount = icount + 1
         IF (icount <= ntotal) THEN 
           new_idx(1:2) = cell_indices(1:2,permutation(icount))
-          new_idx(1:2) = cell_indices(1:2,icount)
           pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
           p(1,j)       = REAL( pcoord%lon, gk)
           p(2,j)       = REAL( pcoord%lat, gk)
@@ -959,7 +958,7 @@ CONTAINS
     ! larger lon-lat grid, we have to set some "dummy" indices outside
     ! the domain:
     rl_start = 2
-    rl_end = min_rlcell_int
+    rl_end = min_rlcell_int-1
     i_nchdom     = MAX(1,p_patch%n_childdom)
     dummy_idx(2) = p_patch%cells%start_blk(rl_start,1)
     i_endblk     = p_patch%cells%end_blk(rl_end,i_nchdom)    
