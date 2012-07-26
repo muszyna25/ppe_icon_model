@@ -791,6 +791,8 @@ CONTAINS
       ! 
       ! Mixed boundary conditions (relaxation term plus fluxes) are not yet included
 
+write(*,*)'EFFECTIVE RESTORING PARAMETER',1.0_wp/(relaxation_param*2.592e6_wp)
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -798,6 +800,7 @@ CONTAINS
   !         &       (relaxation_param*2.592e6_wp)
           z_relax = (v_base%del_zlev_m(1)) / &
             &       (relaxation_param*2.592e6_wp)
+
 
           IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
               p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
