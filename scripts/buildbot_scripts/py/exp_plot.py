@@ -1096,7 +1096,8 @@ class EXP_plot(HtmlResource):
       fRev    = "0000"
       tRev    = "0000"
       lRev    = False
-      
+      lDate   = False
+     
       Rev_button_pushed = False
       
       Redirect_Info = "../plot?exp=" + e  + "&modus=" + m
