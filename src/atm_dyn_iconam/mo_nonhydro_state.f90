@@ -1001,7 +1001,7 @@ MODULE mo_nonhydro_state
 
     ! pres_sfc     p_diag%pres_sfc(nproma,nblks_c)
     !
-    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_sfc', p_diag%pres_sfc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
