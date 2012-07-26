@@ -294,7 +294,7 @@ if [ $make_restart_exp = "true" ] ; then
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
     in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"  test_restart="true" \
-    mpi_procs=1 queue="$queue" cpu_time="01:00:00"
+    queue="$queue" cpu_time="01:00:00"
   
 fi
 
