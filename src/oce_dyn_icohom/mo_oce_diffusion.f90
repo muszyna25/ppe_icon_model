@@ -1419,6 +1419,8 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
           c(z_dolic) = 0.0_wp
           b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
+          field_column(jc,:,jb)=field_column(jc,:,jb)*dt_inv
+
           DO jk=slev, z_dolic-1
             IF(b(jk)/=0.0_wp)THEN
               a(jk) = a(jk)/b(jk)
@@ -1444,9 +1446,9 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
           DO jk = z_dolic-1,1,-1
             field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
           END DO
-          DO jk = 1,z_dolic!-1
-            diff_column(jc,jk,jb) = field_column(jc,jk,jb)
-          END DO
+           DO jk = 1,z_dolic!-1
+             diff_column(jc,jk,jb) = field_column(jc,jk,jb)*dtime
+           END DO
         ELSEIF ( z_dolic < MIN_DOLIC ) THEN
           diff_column(jc,:,jb) = 0.0_wp
           field_column(jc,:,jb)= 0.0_wp

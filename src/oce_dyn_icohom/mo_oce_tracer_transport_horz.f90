@@ -51,9 +51,10 @@ USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary, sea,&
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
-  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     ab_const, expl_vertical_tracer_diff, iswm_oce, &
-  &                                     upwind, central, mimetic, mimetic_miura
+  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,&
+  &                                     ab_const, ab_gam, expl_vertical_tracer_diff,l_edge_based,&
+  &                                     iswm_oce, UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA,&
+  &                                     FLUX_CALCULATION_HORZ  
 USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -90,12 +91,14 @@ INTEGER                     :: idt_src       = 1               ! Level of detail
 !
 ! PUBLIC INTERFACE
 !
-PUBLIC :: advect_diffuse_horizontal,advect_diffuse_flux_horz
+PUBLIC :: advect_diffuse_flux_horz
 ! Private implemenation
 !
 
 PRIVATE :: upwind_hflux_oce
 PRIVATE :: central_hflux_oce
+PRIVATE :: upwind_hflux_oce_mimetic
+PRIVATE :: central_hflux_oce_mimetic
 PRIVATE :: mimetic_miura_hflux_oce
 PRIVATE :: hflx_limiter_oce_mo
 PRIVATE :: elad
@@ -111,152 +114,79 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
   !!  mpi parallelized LL
-SUBROUTINE advect_diffuse_flux_horz(p_patch, trac_old,          &
-                                   & p_os,p_op_coeff,            &
-                                   & K_h,                        &
-                                   & flux_horz, timestep, delta_t,&
-                                   & h_e, cell_thick_intermed_c, &
-                                   & FLUX_CALCULATION_HORZ)
+SUBROUTINE advect_diffuse_flux_horz( p_patch,             &
+                                   & trac_old,            &
+                                   & p_os,                &
+                                   & p_op_coeff,          &
+                                   & K_h,                 &
+                                   & flux_horz,           &
+                                   & h_e,                 &
+                                   & cell_thick_intermed_c)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   REAL(wp)                          :: trac_old(:,:,:)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
   REAL(wp), INTENT(in) :: K_h(:,:,:)         !horizontal mixing coeff
   REAL(wp), INTENT(out):: flux_horz(:,:,:)
-  INTEGER , INTENT(in) :: timestep           ! Actual timestep (to distinghuish initial step from others)
-  REAL(wp), INTENT(in) :: delta_t
+ ! INTEGER , INTENT(in) :: timestep           ! Actual timestep (to distinghuish initial step from others)
+ ! REAL(wp), INTENT(in) :: delta_t
   REAL(wp), INTENT(in) :: h_e(nproma,p_patch%nblks_e)
   REAL(wp), INTENT(inout) :: cell_thick_intermed_c(nproma,n_zlev,p_patch%nblks_c)!intermediate cell thickness
-  INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
+  !INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
   !
   !Local variables
-  REAL(wp) :: delta_z, delta_z2, delta_frac
-  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-  INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+  REAL(wp) :: delta_z
+  INTEGER  :: i_startidx_c, i_endidx_c
+  INTEGER  :: i_startidx_e, i_endidx_e
   INTEGER  :: jc, jk, jb, je
-  INTEGER  :: ilc1, ibc1,ilc2, ibc2
-  REAL(wp) ::trac_content_1,trac_content_2
-  !INTEGER  :: z_dolic
+  !REAL(wp) :: max_flux(1:n_zlev),min_flux(1:n_zlev)
+  REAL(wp) :: z_adv_flux_h2(nproma,n_zlev,p_patch%nblks_e) 
   REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective tracer flux
   REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
   REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
   REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
-  REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
-  REAL(wp) :: dummy_h_c2(nproma,n_zlev,p_patch%nblks_c)
   TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain  
-  INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-  !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_tracer_advection:advect_individual_tracer')
   !-------------------------------------------------------------------------------
-
   edges_in_domain => p_patch%edges%in_domain
   cells_in_domain => p_patch%cells%in_domain
-
-  z_adv_flux_h  = 0.0_wp
-  z_div_adv_h   = 0.0_wp
-  z_div_diff_h  = 0.0_wp
-  z_diff_flux_h = 0.0_wp
-!  z_trac_c      = 0.0_wp
-
 
   ! Initialize timer for horizontal advection
   IF (ltimer) CALL timer_start(timer_adv_horz)
 
+  !Horizontal advection
+  IF( l_edge_based)THEN
 
-  !Step 1) Horizontal advection and diffusion
+    SELECT CASE(FLUX_CALCULATION_HORZ)
 
-  SELECT CASE(FLUX_CALCULATION_HORZ)
+    CASE(UPWIND)
 
-  CASE(UPWIND)
+      !upwind estimate of tracer flux
+      CALL upwind_hflux_oce( p_patch,                      &
+                           & trac_old,                     &
+                           & p_os%p_diag%vn_time_weighted, &
+                           & z_adv_flux_h )
+    CASE(CENTRAL)
 
-    !upwind estimate of tracer flux
-    CALL upwind_hflux_oce( p_patch,        &
-                         & trac_old,       &
-                         & p_os%p_diag%vn_time_weighted, &
-                         & z_adv_flux_h )
-  CASE(CENTRAL)
+      !central estimate of tracer flux
+      CALL central_hflux_oce( p_patch,                      &
+                           &  trac_old,                     &
+                           &  p_os%p_diag%vn_time_weighted, &
+                           &  z_adv_flux_h )
+    CASE(MIMETIC_MIURA)
 
-    !central estimate of tracer flux
-    CALL central_hflux_oce( p_patch,       &
-                         &  trac_old,      &
-                         &  p_os%p_diag%vn_time_weighted, &
-                         &  z_adv_flux_h )
-
- CASE(MIMETIC)
-   CALL map_edges2cell_3D( p_patch,                      &
-                         & p_os%p_diag%vn_time_weighted,  &
-                         & p_op_coeff, z_vn_c)
-
-   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-     DO jc = i_startidx_c, i_endidx_c
-       DO jk = 1, n_zlev 
-         IF (v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-           delta_z = v_base%del_zlev_m(jk)
-           IF(jk==1)THEN
-             delta_z=v_base%del_zlev_m(jk) + p_os%p_prog(nold(1))%h(jc,jb)
-           ENDIF
-           z_vn_c(jc,jk,jb)%x = delta_z*trac_old(jc,jk,jb)*z_vn_c(jc,jk,jb)%x
-         ENDIF
-       END DO
-     END DO
-   END DO
-   CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(1))
-   CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(2))
-   CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(3))
-
-   CALL map_cell2edges_3D( p_patch, z_vn_c,z_adv_flux_h,p_op_coeff)
-
-   iilc => p_patch%edges%cell_idx
-    iibc => p_patch%edges%cell_blk
-
-    ! loop through all patch edges (and blocks)
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
-          !
-          ! compute the first order upwind flux; notice
-          ! that multiplication by edge length is avoided to
-          ! compute final conservative update using the discrete
-          ! div operator
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-            z_adv_flux_h(je,jk,jb) =z_adv_flux_h(je,jk,jb)            &
-              &          -0.5_wp*p_os%p_diag%vn_time_weighted(je,jk,jb)&
-              &          *p_os%p_diag%vn_time_weighted(je,jk,jb)*dtime&
-              &          *p_patch%edges%inv_dual_edge_length(je,jb)   &
-              &        *( trac_old(iilc(je,jb,1),jk,iibc(je,jb,1))      &
-              &          -trac_old(iilc(je,jb,2),jk,iibc(je,jb,2)))
-          ENDIF
-        END DO  ! end loop over edges
-      END DO  ! end loop over levels
-    END DO  ! end loop over blocks
-
-
-
- CASE(MIMETIC_MIURA)
-
-    !upwind estimate of tracer flux
-    CALL mimetic_miura_hflux_oce( p_patch,                      &
+      !MIURA-type upwind-biased estimate of tracer flux
+      CALL mimetic_miura_hflux_oce( p_patch,                    &
                                 & trac_old,                     &
                                 & p_os%p_diag%vn_time_weighted, &
                                 & p_os%p_diag%p_vn_mean,        &
                                 & p_op_coeff,                   &
-                                & p_os%p_diag%p_vn_dual,&
                                 & z_adv_flux_h )
-  END SELECT
-!    DO jk = 1, n_zlev
-!    write(*,*)'max/min tracer flux horz',jk,&
-!    &maxval(z_adv_flux_h(:,jk,:)),minval(z_adv_flux_h(:,jk,:))
-!    END DO
-  IF (ltimer) CALL timer_stop(timer_adv_horz)
+    END SELECT
 
-  IF(FLUX_CALCULATION_HORZ /= MIMETIC)THEN
+    !Multiply with height at edges
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO jk = 1, n_zlev
@@ -271,25 +201,121 @@ SUBROUTINE advect_diffuse_flux_horz(p_patch, trac_old,          &
         END DO
       END DO
     END DO
-  ENDIF 
 
-  IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA.OR.FLUX_CALCULATION_HORZ==CENTRAL)THEN
+  ELSEIF(.NOT. l_edge_based)THEN
 
-    IF (ltimer) CALL timer_start(timer_hflx_lim)
+    CALL map_edges2cell_3D( p_patch,                      &
+                          & p_os%p_diag%vn_time_weighted, &
+                          & p_op_coeff, z_vn_c)
 
-    CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
-    CALL hflx_limiter_oce_mo( p_patch,                 &
-                            & trac_old,                &
-                            & p_os%p_diag%mass_flx_e,  &
-                            & z_adv_flux_h,            &
-                            & p_os%p_diag%depth_c,     &
-                            & cell_thick_intermed_c,   &
-                            & p_op_coeff,              &
-                            & p_os%p_diag%h_e)
-     IF (ltimer) CALL timer_stop(timer_hflx_lim)
+    !Multiply with height at cells
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        DO jk = 1, n_zlev 
+          IF (v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            delta_z = v_base%del_zlev_m(jk)
+            IF(jk==1)THEN
+              delta_z=v_base%del_zlev_m(jk) + p_os%p_prog(nold(1))%h(jc,jb)
+            ENDIF
+            z_vn_c(jc,jk,jb)%x = trac_old(jc,jk,jb)*z_vn_c(jc,jk,jb)%x*delta_z
+          ENDIF
+        END DO
+      END DO
+    END DO
+    CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(1))
+    CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(2))
+    CALL sync_patch_array(SYNC_C,p_patch,z_vn_c(:,:,:)%x(3))
 
-  ENDIF
+    SELECT CASE(FLUX_CALCULATION_HORZ)
 
+      CASE(UPWIND)
+
+        CALL upwind_hflux_oce_mimetic( p_patch,                &
+                                &trac_old,                     &
+                                & p_os%p_diag%vn_time_weighted,&
+                                & z_vn_c,                      &
+                                & p_op_coeff,                  &
+                                & z_adv_flux_h)
+
+      CASE(CENTRAL)
+        CALL central_hflux_oce_mimetic( p_patch,               &
+                                & trac_old,                    &
+                                & p_os%p_diag%vn_time_weighted,&
+                                & z_vn_c,p_op_coeff,           &
+                                & z_adv_flux_h)
+
+      CASE(MIMETIC)
+
+        CALL map_cell2edges_3D( p_patch, z_vn_c,z_adv_flux_h,p_op_coeff)
+
+    END SELECT
+  ENDIF!l_edge_bases
+
+  CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
+
+  ! Stop timer for horizontal advection
+  IF (ltimer) CALL timer_stop(timer_adv_horz)
+
+
+  ! Start timer for horizontal flux limitation
+  IF (ltimer) CALL timer_start(timer_hflx_lim)
+
+  !Flux limiting process, dependent on tracer configuration
+  IF( l_edge_based)THEN  
+
+    IF(FLUX_CALCULATION_HORZ/=UPWIND)THEN
+
+      ! DO jk=1,n_zlev
+      ! max_flux(jk)=maxval(z_adv_flux_h(:,jk,:))
+      ! min_flux(jk)=minval(z_adv_flux_h(:,jk,:))
+      ! END DO
+      CALL hflx_limiter_oce_mo( p_patch,                 &
+                              & trac_old,                &
+                              & p_os%p_diag%mass_flx_e,  &
+                              & z_adv_flux_h,            &
+                              & p_os%p_diag%depth_c,     &
+                              & cell_thick_intermed_c,   &
+                              & p_op_coeff,              &
+                              & p_os%p_diag%vn_time_weighted)
+      ! DO jk=1,n_zlev
+      ! write(*,*)'BEFORE/AFTER MAX/MIN LIMITER',jk, &
+      ! &max_flux(jk),maxval(z_adv_flux_h(:,jk,:)), min_flux(jk),minval(z_adv_flux_h(:,jk,:))
+      ! END DO
+    ENDIF
+
+  ELSEIF( .NOT.l_edge_based)THEN  
+    !DO jk=1,n_zlev
+    !  max_flux(jk)=maxval(z_adv_flux_h(:,jk,:))
+    !   min_flux(jk)=minval(z_adv_flux_h(:,jk,:))
+    !END DO
+    IF(FLUX_CALCULATION_HORZ/=UPWIND)THEN
+      CALL hflx_limiter_oce_mo_mimetic( p_patch,           &
+                                  & trac_old,               &
+                                  & p_os%p_diag%mass_flx_e, &
+                                  & z_adv_flux_h,           &
+                                  & z_vn_c,                 &
+                                  & p_op_coeff,             &
+                                  & p_os%p_diag%vn_time_weighted) 
+     ENDIF
+
+!  DO jk=1,n_zlev
+!  !write(*,*)'BEFORE/AFTER MAX/MIN LIMITER',jk, max_flux(jk),&
+!  !&maxval(z_adv_flux_h(:,jk,:)), min_flux(jk),&
+!  !& minval(z_adv_flux_h(:,jk,:))
+!  END DO
+!     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+!       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+!       DO jk = 1, n_zlev
+!         DO je = i_startidx_e, i_endidx_e
+!           write(999,*)'adv-flux:old:new:',je,jk,jb,z_adv_flux_h2(je,jk,jb),z_adv_flux_h(je,jk,jb)
+!         END DO
+!       END DO
+!     END DO
+
+ ENDIF!l_edge_based
+
+  IF (ltimer) CALL timer_stop(timer_hflx_lim)
 
   !The diffusion part: calculate horizontal diffusive flux
   IF (ltimer) CALL timer_start(timer_dif_horz)
@@ -304,29 +330,17 @@ SUBROUTINE advect_diffuse_flux_horz(p_patch, trac_old,          &
 
 
   !Calculate divergence of advective and diffusive fluxes
-   CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
+  CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
      & subset_range=cells_in_domain)
 
-   CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
+  CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
      & subset_range=cells_in_domain)
 
 
-  !Final step: calculate new tracer values
-    jk = 1
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c) 
-      DO jc = i_startidx_c, i_endidx_c
-
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-           flux_horz(jc,jk,jb) = z_div_diff_h(jc,jk,jb)-z_div_adv_h(jc,jk,jb)
-        ENDIF
-      END DO
-    END DO
-
-!z_div_diff_h=0.0_wp
+  !Final step: calculate sum of advective and diffusive horizontal fluxes
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 2, n_zlev
+    DO jk = 1, n_zlev
       delta_z = v_base%del_zlev_m(jk)
 
       DO jc = i_startidx_c, i_endidx_c
@@ -336,306 +350,1140 @@ SUBROUTINE advect_diffuse_flux_horz(p_patch, trac_old,          &
       END DO
     END DO
   END DO
-
-  IF(iswm_oce==1)THEN
-    jk=1
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            delta_z = v_base%del_zlev_m(1)
-            flux_horz(jc,jk,jb)= trac_old(jc,jk,jb)&
-            & +(delta_t/delta_z)*flux_horz(jc,jk,jb)
-          ENDIF
-        END DO
-      END DO
-  ENDIF
 
   CALL sync_patch_array(SYNC_C, p_patch, flux_horz)
 
 END SUBROUTINE advect_diffuse_flux_horz
 !-----------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-!-----------------------------------------------------------------------
-!>
-!! !  SUBROUTINE advects horizontally the tracers present in the ocean model.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2011).
-!!
+!-------------------------------------------------------------------------------
+  !>
+  !! First order upwind scheme for horizontal tracer advection
+  !!
+  !! Calculation of horizontal tracer fluxes using the first
+  !! order Godunov method.
+  !!
+  !! @par Revision History
+  !!
   !!  mpi parallelized LL
-SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
-                                   & p_os,p_op_coeff,            &
-                                   & K_h,                        &
-                                   & trac_new, timestep, delta_t,&
-                                   & h_e, cell_thick_intermed_c, &
-                                   & FLUX_CALCULATION_HORZ)
-  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-  REAL(wp)                          :: trac_old(:,:,:)
-  TYPE(t_hydro_ocean_state), TARGET :: p_os
-  TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
-  REAL(wp), INTENT(in) :: K_h(:,:,:)         !horizontal mixing coeff
-  REAL(wp), INTENT(out):: trac_new(:,:,:)
-  INTEGER , INTENT(in) :: timestep           ! Actual timestep (to distinghuish initial step from others)
-  REAL(wp), INTENT(in) :: delta_t
-  REAL(wp), INTENT(in) :: h_e(nproma,p_patch%nblks_e)
-  REAL(wp), INTENT(inout) :: cell_thick_intermed_c(nproma,n_zlev,p_patch%nblks_c)!intermediate cell thickness
-  INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
-  !
-  !Local variables
-  REAL(wp) :: delta_z, delta_z2, delta_frac
-  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-  INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
-  INTEGER  :: jc, jk, jb, je
-  INTEGER  :: ilc1, ibc1,ilc2, ibc2
-  REAL(wp) ::trac_content_1,trac_content_2
-  !INTEGER  :: z_dolic
-  REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective tracer flux
-  REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
-  REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
-  REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
-  REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
-  REAL(wp) :: dummy_h_c2(nproma,n_zlev,p_patch%nblks_c)
-  TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
-  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-  !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
-  ! CHARACTER(len=max_char_length), PARAMETER :: &
-  !        & routine = ('mo_tracer_advection:advect_individual_tracer')
-  !-------------------------------------------------------------------------------
-  !z_tol= 1.0E-13
-  !trac_old=10.0_wp
-  edges_in_domain => p_patch%edges%in_domain
-  cells_in_domain => p_patch%cells%in_domain
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  SUBROUTINE upwind_hflux_oce_mimetic( p_patch, pvar_c, pvn_e, z_flux_cc,p_op_coeff,&
+                                     & pupflux_e, opt_slev, opt_elev )
 
-  z_adv_flux_h  = 0.0_wp
-  z_div_adv_h   = 0.0_wp
-  z_div_diff_h  = 0.0_wp
-  z_diff_flux_h = 0.0_wp
-!  z_trac_c      = 0.0_wp
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch on which computation is performed
+    REAL(wp), INTENT(IN)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN)  :: pvn_e(:,:,:)       !< normal velocity on edges
+    TYPE(t_cartesian_coordinates):: z_flux_cc(:,:,:)
+    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
+    !EAL(wp), INTENT(INOUT), OPTIONAL :: ph_e (:,:)         !< surface elevation on edges
+    REAL(wp), INTENT(OUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
+    INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
+    INTEGER, INTENT(in), OPTIONAL :: opt_elev    ! optional vertical end level
+    ! local variables
+    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
+    INTEGER  :: slev, elev
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: je, jk, jb, il_c, ib_c         !< index of edge, vert level, block
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    REAL(wp) ::  z_pub_flux_e_up(nproma,n_zlev,p_patch%nblks_e)
+    !-----------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
 
-! !   !calculate (dummy) height consistent with divergence of mass fluxx (UPPERMOST LEVEL)
-  jk = 1
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-        delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = n_zlev
+    END IF
+    iilc => p_patch%edges%cell_idx
+    iibc => p_patch%edges%cell_blk
+    !
+    ! advection is done with 1st order upwind scheme,
+    ! i.e. a piecewise constant approx. of the cell centered values
+    ! is used.
+    !
+    ! for no-slip boundary conditions, boundary treatment for tracer (zero at leteral walls)
+    !is implicit done via velocity boundary conditions
+    !
+    ! line and block indices of two neighboring cells
+    ! loop through all patch edges (and blocks)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 
-        p_os%p_diag%depth_c(jc,jk,jb) = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+          !
+          ! compute the first order upwind flux; notice
+          ! that multiplication by edge length is avoided to
+          ! compute final conservative update using the discrete
+          ! div operator
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
-        cell_thick_intermed_c(jc,jk,jb)=v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
-      ENDIF
-    END DO
-  END DO
+!              z_pub_flux_e_up(je,jk,jb) =v_base%del_zlev_m(jk)*  &
+!              &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
+!              &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
 
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 2, n_zlev
-      delta_z = v_base%del_zlev_m(jk)
-      DO jc = i_startidx_c, i_endidx_c
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-          cell_thick_intermed_c(jc,jk,jb)= delta_z
-        ENDIF
-      END DO
-    END DO
-  END DO
+            il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
+            ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
 
-  ! Initialize timer for horizontal advection
-  IF (ltimer) CALL timer_start(timer_adv_horz)
+            pupflux_e(je,jk,jb)=&
+            & DOT_PRODUCT(z_flux_cc(il_c,jk,ib_c)%x,p_patch%edges%primal_cart_normal(je,jb)%x)
 
-
-  !Step 1) Horizontal advection and diffusion
-
-  SELECT CASE(FLUX_CALCULATION_HORZ)
-
-  CASE(UPWIND)!, MIMETIC)
-
-    !upwind estimate of tracer flux
-    CALL upwind_hflux_oce( p_patch,        &
-                         & trac_old,       &!      z_trac_c,       &
-                         & p_os%p_diag%vn_time_weighted, &
-                         & z_adv_flux_h )
-  CASE(CENTRAL)!,MIMETIC)
-
-    !central estimate of tracer flux
-    CALL central_hflux_oce( p_patch,       &
-                         &  trac_old,      &
-                         &  p_os%p_diag%vn_time_weighted, &
-                         &  z_adv_flux_h )
-
-!   CASE(MIMETIC)
-! 
-!   CALL map_edges2cell( p_patch, p_os%p_diag%vn_time_weighted, z_vn_c)
-!   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-!     DO jc = i_startidx_c, i_endidx_c
-!       DO jk = 1, n_zlev
-!           z_vn_c(jc,jk,jb)%x = trac_old(jc,jk,jb)*z_vn_c(jc,jk,jb)%x
-!       END DO
-!     END DO
-!   END DO
-!   CALL map_cell2edges( p_patch, z_vn_c, z_adv_flux_h)
-
-  CASE(MIMETIC_MIURA,MIMETIC)
-
-    !upwind estimate of tracer flux
-    CALL mimetic_miura_hflux_oce( p_patch,                      &
-                                & trac_old,                     &
-                                & p_os%p_diag%vn_time_weighted, &
-                                & p_os%p_diag%p_vn_mean,        &
-                                & p_op_coeff,                   &
-                                & p_os%p_diag%p_vn_dual,&
-                                & z_adv_flux_h )
-  END SELECT
-!    DO jk = 1, n_zlev
-!    write(*,*)'max/min tracer flux horz',jk,&
-!    &maxval(z_adv_flux_h(:,jk,:)),minval(z_adv_flux_h(:,jk,:))
-!    END DO
-  IF (ltimer) CALL timer_stop(timer_adv_horz)
-
-  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-    DO jk = 1, n_zlev
-      delta_z = v_base%del_zlev_m(jk)
-      DO je = i_startidx_e, i_endidx_e
-        IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
-          IF(jk==1)THEN
-             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)
+!    write(999,*)'upwind flux -h',je,jk,jb,z_pub_flux_e_up(je,jk,jb),pupflux_e(je,jk,jb)&
+!    &, pvn_e(je,jk,jb),&
+!    &pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
+          ELSE
+            pupflux_e(je,jk,jb) = 0.0_wp
           ENDIF
-          z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*delta_z
-        ENDIF
+        END DO  ! end loop over edges
+      END DO  ! end loop over levels
+    END DO  ! end loop over blocks
+
+
+  END SUBROUTINE upwind_hflux_oce_mimetic
+  !-----------------------------------------------------------------------
+  !>
+  !! First order upwind scheme for horizontal tracer advection
+  !!
+  !! Calculation of horizontal tracer fluxes using the first
+  !! order Godunov method.
+  !!
+  !! @par Revision History
+  !!
+  !!  mpi parallelized LL
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  SUBROUTINE central_hflux_oce_mimetic( p_patch, pvar_c, pvn_e, z_flux_cc,p_op_coeff,&
+                                     & pupflux_e, opt_slev, opt_elev )
+
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch on which computation is performed
+    REAL(wp), INTENT(IN)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN)  :: pvn_e(:,:,:)       !< normal velocity on edges
+    TYPE(t_cartesian_coordinates):: z_flux_cc(:,:,:)
+    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
+    REAL(wp), INTENT(OUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
+    INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
+    INTEGER, INTENT(in), OPTIONAL :: opt_elev    ! optional vertical end level
+    ! local variables
+    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
+    INTEGER  :: slev, elev
+    INTEGER  :: i_startidx, i_endidx
+    REAL(wp) :: z_fac
+    INTEGER  :: je, jk, jb      !< index of edge, vert level, block
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_cartesian_coordinates):: dist_vector, coeff_1, coeff_2, flux_sum
+    REAL(wp) :: orientation
+    !-----------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = n_zlev
+    END IF
+    !
+    ! for no-slip boundary conditions, boundary treatment for tracer (zero at leteral walls)
+    !is implicit done via velocity boundary conditions
+    !
+    ! line and block indices of two neighboring cells
+    iilc => p_patch%edges%cell_idx
+    iibc => p_patch%edges%cell_blk
+
+    ! loop through all patch edges (and blocks)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+          !
+          ! compute the first order upwind flux; notice
+          ! that multiplication by edge length is avoided to
+          ! compute final conservative update using the discrete
+          ! div operator
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+
+            flux_sum%x=0.5_wp*(z_flux_cc(iilc(je,jb,1),jk,iibc(je,jb,1))%x&
+                             &+z_flux_cc(iilc(je,jb,2),jk,iibc(je,jb,2))%x)
+
+            pupflux_e(je,jk,jb)=DOT_PRODUCT(flux_sum%x,&
+                               &p_patch%edges%primal_cart_normal(je,jb)%x)
+          ELSE
+            pupflux_e(je,jk,jb) = 0.0_wp
+          ENDIF
+        END DO  ! end loop over edges
+      END DO  ! end loop over levels
+    END DO  ! end loop over blocks
+
+  END SUBROUTINE central_hflux_oce_mimetic
+
+!-------------------------------------------------------------------------------
+  !>
+  !! First order upwind scheme for horizontal tracer advection
+  !!
+  !! Calculation of horizontal tracer fluxes using the first
+  !! order Godunov method.
+  !!
+  !! @par Revision History
+  !! Developed by L.Bonaventura  (2004).
+  !! Adapted to new grid structure by L. Bonaventura, MPI-M, August 2005.
+  !! Modification by Daniel Reinert, DWD (2010-02-09)
+  !! - transferred to separate subroutine
+  !! Modification by Stephan Lorenz, MPI (2010-09-06)
+  !! - adapted to hydrostatic ocean core
+  !!
+  !!  mpi parallelized LL
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  SUBROUTINE upwind_hflux_oce( p_patch, pvar_c, pvn_e, pupflux_e, opt_slev, opt_elev )
+
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch on which computation is performed
+    REAL(wp), INTENT(IN)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN)  :: pvn_e(:,:,:)       !< normal velocity on edges
+    !EAL(wp), INTENT(INOUT), OPTIONAL :: ph_e (:,:)         !< surface elevation on edges
+    REAL(wp), INTENT(OUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
+    INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
+    INTEGER, INTENT(in), OPTIONAL :: opt_elev    ! optional vertical end level
+    ! local variables
+    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
+    INTEGER  :: slev, elev
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: je, jk, jb         !< index of edge, vert level, block
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-----------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = n_zlev
+    END IF
+    !
+    ! advection is done with 1st order upwind scheme,
+    ! i.e. a piecewise constant approx. of the cell centered values
+    ! is used.
+    !
+    ! for no-slip boundary conditions, boundary treatment for tracer (zero at leteral walls)
+    !is implicit done via velocity boundary conditions
+    !
+    ! line and block indices of two neighboring cells
+    iilc => p_patch%edges%cell_idx
+    iibc => p_patch%edges%cell_blk
+
+    ! loop through all patch edges (and blocks)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+          !
+          ! compute the first order upwind flux; notice
+          ! that multiplication by edge length is avoided to
+          ! compute final conservative update using the discrete
+          ! div operator
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+            pupflux_e(je,jk,jb) =  &
+            &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
+            &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+!write(*,*)'upwind flux -h',je,jk,jb,pupflux_e(je,jk,jb), pvn_e(je,jk,jb),&
+!&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
+          ELSE
+            pupflux_e(je,jk,jb) = 0.0_wp
+          ENDIF
+        END DO  ! end loop over edges
+      END DO  ! end loop over levels
+    END DO  ! end loop over blocks
+
+  END SUBROUTINE upwind_hflux_oce
+  !-----------------------------------------------------------------------
+  !>
+  !! Central scheme for horizontal tracer advection
+  !!
+  !! Calculation of horizontal tracer fluxes using central fluxes
+  !!
+  !! @par Revision History
+  !! Peter korn, MPI-M, 2011
+  !!
+  !!  mpi parallelized LL
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  SUBROUTINE central_hflux_oce( p_patch, pvar_c, pvn_e, pupflux_e )
+
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch on which computation is performed
+    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(INOUT)  :: pvn_e(:,:,:)       !< normal velocity on edges
+    !REAL(wp), INTENT(INOUT)  :: ph_e (:,:)         !< surface elevation on edges
+    REAL(wp), INTENT(INOUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
+
+    ! local variables
+    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: je, jk, jb         
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-----------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+
+    ! line and block indices of two neighboring cells
+    iilc => p_patch%edges%cell_idx
+    iibc => p_patch%edges%cell_blk
+
+    ! loop through all patch edges (and blocks)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+      DO jk = 1, n_zlev
+        DO je = i_startidx, i_endidx
+          !
+          ! compute the first order upwind flux; notice
+          ! that multiplication by edge length is avoided to
+          ! compute final conservative update using the discrete
+          ! div operator
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+            pupflux_e(je,jk,jb) =  0.5_wp*pvn_e(je,jk,jb)             &
+              &        *( pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1))      &
+              &          +pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)))     !&
+!               &          +0.5_wp*pvn_e(je,jk,jb)*pvn_e(je,jk,jb)*dtime&
+!               &          * p_patch%edges%inv_dual_edge_length(je,jb)   &
+!               &        *( pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))      &
+!               &          -pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)))
+          ENDIF
+        END DO  ! end loop over edges
+      END DO  ! end loop over levels
+    END DO  ! end loop over blocks
+  END SUBROUTINE central_hflux_oce
+!-------------------------------------------------------------------------------
+
+ !>
+  !! First order scheme for horizontal tracer advection
+  !!
+  !! Calculation of horizontal tracer fluxes using Miura'sapproach with first
+  !! order reconstruction. Miuras approach is described in H. Miura, Monthly
+  !! Weather Review 135, 2007, 4038-4044. The original method has been formulated for
+  !! hexagons and is transfered to triangles and uses the Mimetic capabilities.
+  !!
+  !! @par Revision History
+  !! Developed by P. Korn, (2011).
+  !!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
+  !!
+  SUBROUTINE mimetic_miura_hflux_oce( p_patch, pvar_c, pvn_e, pvn_mean_cc,&
+                                    & p_op_coeff, pflux_e,&
+                                    & opt_slev, opt_elev )
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+    REAL(wp), INTENT(INOUT)           :: pvar_c(:,:,:)!< advected cell centered variable
+    REAL(wp), INTENT(INOUT)           :: pvn_e(:,:,:) !< normal velocity on edges
+    TYPE(t_cartesian_coordinates)     :: pvn_mean_cc(:,:,:)
+    TYPE(t_operator_coeff)            :: p_op_coeff
+    REAL(wp), INTENT(INOUT)           :: pflux_e(:,:,:)!< variable in which the upwind flux is stored
+    INTEGER, INTENT(in), OPTIONAL     :: opt_slev      ! optional vertical start level
+    INTEGER, INTENT(in), OPTIONAL     :: opt_elev      ! optional vertical end level
+
+    ! local variables
+    INTEGER  :: slev, elev
+    INTEGER  :: i_startidx_e, i_endidx_e
+    INTEGER  :: je, jk, jb
+    !INTEGER  :: il_v1, il_v2, ib_v1, ib_v2
+    INTEGER  :: il_c, ib_c
+    REAL(wp)                      :: z_gradC(nproma,n_zlev,p_patch%nblks_e)
+    TYPE(t_cartesian_coordinates) :: z_gradC_cc(nproma,n_zlev,p_patch%nblks_c)
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-----------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = n_zlev
+    END IF
+!------------------------------------------------------------------
+! ! !-------------upwind comparison
+! !     iilc => p_patch%edges%cell_idx
+! !     iibc => p_patch%edges%cell_blk
+! !     ! loop through all patch edges (and blocks)
+! !     DO jb = i_startblk_e, i_endblk_e
+! !       CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,   &
+! !         &                i_startidx_e, i_endidx_e, rl_start,rl_end)
+! !
+! !       DO jk = slev, elev
+! !         DO je = i_startidx_e, i_endidx_e          !
+! !           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+! !              pupflux_e(je,jk,jb) =  &
+! !              &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
+! !              &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+! ! !write(*,*)'upwind miura',je,jk,jb,pupflux_e(je,jk,jb),pflux_e(je,jk,jb), pvn_e(je,jk,jb)!,&
+! ! !&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
+! !           ELSE
+! !             pupflux_e(je,jk,jb) = 0.0_wp
+! !           ENDIF
+! !         END DO  ! end loop over edges
+! !       END DO  ! end loop over levels
+! !     END DO  ! end loop over blocks
+! ! !---------------------------------------------------------------
+
+    !Step3: Local linear subgridcell distribution of tracer is calculated
+    !3a: calculate tracer gradient
+    !3b: map tracer gradient from edge to cell. Result is gradient vector at cell centers
+    !3c: project gradient vector at cell center in direction of vector that points from
+    !    cell center to upwind point C_i from step 2
+    !3a:
+    CALL grad_fd_norm_oce_3D( pvar_c,                 &
+           &                  p_patch,                 &
+           &                  p_op_coeff%grad_coeff,  &
+           &                  z_gradC)
+
+    CALL sync_patch_array(SYNC_E, p_patch, z_gradC)
+    !3b:
+    CALL map_edges2cell_3D( p_patch, z_gradC,p_op_coeff, z_gradC_cc)
+
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+      DO jk = slev, elev
+        DO je =  i_startidx_e, i_endidx_e
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+            il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
+            ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
+
+            pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
+            &*(pvar_c(il_c,jk,ib_c)&
+            &+dot_product(p_op_coeff%moved_edge_position_cc(je,jk,jb)%x  &
+            &            -p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x,&
+            &             z_gradC_cc(il_c,jk,ib_c)%x))
+
+          ENDIF 
+        END DO
       END DO
     END DO
-  END DO
 
-  IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN! .OR. FLUX_CALCULATION_HORZ==MIMETIC)THEN
-    IF (ltimer) CALL timer_start(timer_hflx_lim)
+  END SUBROUTINE mimetic_miura_hflux_oce
+  !-------------------------------------------------------------------------
 
-    CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
-    CALL hflx_limiter_oce_mo( p_patch,                 &
-                            & trac_old,                &
-                            & p_os%p_diag%mass_flx_e,  &
-                            & z_adv_flux_h,            &
-                            & p_os%p_diag%depth_c,     &
-                            & cell_thick_intermed_c,   &
-                            & p_op_coeff,              &
-                            & p_os%p_diag%h_e)
+  !-------------------------------------------------------------------------
+  !>
+  !! Flux limiter for horizontal advection
+  !!
+  !! Zalesak Flux-Limiter (Flux corrected transport)
+  !! The corrected flux is a weighted average of the low order flux and the
+  !! given high order flux. The high order flux is used to the greatest extent
+  !! possible without introducing overshoots and undershoots.
+  !! Note: This limiter is positive definite and almost monotone (but not strictly).
+  !!
+  !! @par Literature:
+  !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
+  !!   Algorithms for Fluids. JCP, 31, 335-362
+  !!
+  !! @par Revision History
+  !! - Inital revision by Daniel Reinert, DWD (2010-03-10)
+  !! Modification by Daniel Reinert, DWD (2010-03-25)
+  !! - adapted for MPI parallelization
+  !!
+  !!  mpi parallelized LL
+  !!  mpi note: compute on domain edges. Results is not synced.
+  !!
+  SUBROUTINE hflx_limiter_oce_mo( p_patch,       &
+                                & p_cc,            &
+                                & p_mass_flx_e,    &
+                                & p_mflx_tracer_h, &
+                                & p_thick_old,     &
+                                & p_thick_new,     &
+                                & p_op_coeff,      &
+                                & vn_time_weighted,&
+                                & opt_slev, opt_elev )
 
-     IF (ltimer) CALL timer_stop(timer_hflx_lim)
-  ENDIF
+    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+      &  p_patch
+
+    REAL(wp), INTENT(INOUT) ::     &    !< advected cell centered variable
+      &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(inout) ::     &    !< horizontal mass flux
+      &  p_mass_flx_e(:,:,:)         !< (provided by dynamical core)
+                                     !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
+      &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp) ::  &    !< old surface elevationm, INTENT(in)
+      &  p_thick_old(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
+
+    REAL(wp) ::  &    !< new surface elevation INTENT(in)
+      &  p_thick_new(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
+
+   TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
+
+   REAL(wp) :: vn_time_weighted(:,:,:)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
 
-  !The diffusion part: calculate horizontal diffusive flux
-  IF (ltimer) CALL timer_start(timer_dif_horz)
-  CALL tracer_diffusion_horz( p_patch,      &
-                            & trac_old,     &
-                            & p_os,         &
-                            & K_h,          &
-                            & z_diff_flux_h,&
-                            & subset_range = edges_in_domain)
-  IF (ltimer) CALL timer_stop(timer_dif_horz)
+!Local variables
+    REAL(wp) ::                 &    !< first order tracer mass flux
+      &  z_mflx_low(nproma,p_patch%nlev,p_patch%nblks_e)
 
-  ! LL: the z_diff_flux_h should not be synced in tracer_diffusion_horz
+    REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
+      &  z_anti(nproma,p_patch%nlev,p_patch%nblks_e)
+
+    REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
+      &  z_mflx_anti(nproma,p_patch%nlev,p_patch%nblks_c,3) !< (units kg/kg)
+
+    REAL(wp) ::                 &    !< flux divergence at cell center
+      &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c)
+
+    REAL(wp) ::                 &    !< new tracer field after hor. transport,
+      &  z_tracer_new_low(nproma,p_patch%nlev,p_patch%nblks_c)
+                                     !< if the low order fluxes are used
+
+    REAL(wp) ::                 &    !< local maximum of current tracer value and low
+      &  z_tracer_max(nproma,p_patch%nlev,p_patch%nblks_c) !< order update
+
+    REAL(wp) ::                 &    !< local minimum of current tracer value and low
+      &  z_tracer_min(nproma,p_patch%nlev,p_patch%nblks_c) !< order update
+
+    REAL(wp) ::                 &    !< fraction which must multiply all in/out fluxes
+      &  r_p(nproma,p_patch%nlev,p_patch%nblks_c),&   !< of cell jc to guarantee
+      &  r_m(nproma,p_patch%nlev,p_patch%nblks_c)     !< no overshoot/undershoot
+
+    REAL(wp) :: r_frac !< computed minimum fraction which must multiply
+                       !< the flux at the edge
+
+    REAL(wp) :: z_min(nproma,p_patch%nlev), & !< minimum/maximum value in cell and neighboring cells
+      &         z_max(nproma,p_patch%nlev)
+    REAL(wp) :: z_signum             !< sign of antidiffusive velocity
+    REAL(wp) :: p_p, p_m             !< sum of antidiffusive fluxes into and out of cell jc
+
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
+      &  cell_of_edge_idx, cell_of_edge_blk                          !< neighbor cells (array)
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of three
+      &  neighbor_cell_idx, neighbor_cell_blk                        !< neighbor cells (array)
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
+      &  edge_of_cell_idx, edge_of_cell_blk                          !< of edges
+
+    INTEGER  :: slev, elev             !< vertical start and end level
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
+
+    TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
+!     REAL(wp), POINTER ::  &
+!     &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
+!                                         !< at cell center
+!     REAL(wp), POINTER ::  &
+!     &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
+!                                         !< at cell center
+  !-------------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+    cells_in_domain => p_patch%cells%in_domain
 
 
-  !Calculate divergence of advective and diffusive fluxes
-   CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
-     & subset_range=cells_in_domain)
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = n_zlev
+    END IF
 
-   CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
-     & subset_range=cells_in_domain)
+    ! these should not be synced here
+    CALL sync_patch_array(SYNC_C, p_patch, p_cc)
+    CALL sync_patch_array(SYNC_E, p_patch, p_mass_flx_e)
+    CALL sync_patch_array(SYNC_E, p_patch, p_mflx_tracer_h)
+
+    ! Set pointers to index-arrays
+    ! line and block indices of two neighboring cells
+    cell_of_edge_idx => p_patch%edges%cell_idx
+    cell_of_edge_blk => p_patch%edges%cell_blk
+    ! line and block indices of edges as seen from cells
+    edge_of_cell_idx => p_patch%cells%edge_idx
+    edge_of_cell_blk => p_patch%cells%edge_blk
+    ! pointers to line and block indices of three neighbor cells
+    neighbor_cell_idx => p_patch%cells%neighbor_idx
+    neighbor_cell_blk => p_patch%cells%neighbor_blk
+    !
+    ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
+    !    antidiffusive fluxes
+    !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
+
+      z_tracer_new_low = 0.0_wp
+      z_tracer_max     = 0.0_wp
+      z_tracer_min     = 0.0_wp
+      r_m              = 0.0_wp
+      r_p              = 0.0_wp
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=5
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+#endif
+!           z_mflx_low(je,jk,jb) = v_base%wet_e(je,jk,jb)* &
+!             & laxfr_upflux( vn_time_weighted(je,jk,jb), &
+!             & p_cc(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)), &
+!             & p_cc(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)) )
+          z_mflx_low(je,jk,jb) = v_base%wet_e(je,jk,jb)* &
+            & laxfr_upflux( p_mass_flx_e(je,jk,jb), &
+            & p_cc(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)), &
+            & p_cc(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)) )
 
 
-!---------------------------------------------------------------
-!  trac_content_1= 0.0_wp
-!   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-!     DO jk = 1, n_zlev
-!       delta_z = v_base%del_zlev_m(jk)
-! 
-!       DO jc = i_startidx_c, i_endidx_c
-!         IF(jk==1)delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-!         !IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
-!         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!          trac_content_1=trac_content_1+delta_z*p_patch%cells%area(jc,jb)*trac_old(jc,jk,jb)
-!        ENDIF
-!         !ENDIF
-!       END DO
-!     END DO
-!   END DO
-!---------------------------------------------------------------
+         ! calculate antidiffusive flux for each edge
+           z_anti(je,jk,jb)     = (p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb)&
+                                & *v_base%wet_e(je,jk,jb))
+        END DO  ! end loop over edges
+      END DO  ! end loop over levels
+    END DO  ! end loop over blocks
+!$OMP END DO
 
-  !Final step: calculate new tracer values
-    jk = 1
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=4
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+          !
+          ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
+          !    between the high order fluxes (given by the FFSL-scheme) and the low order
+          !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
+          !    - positive for outgoing fluxes
+          !    - negative for incoming fluxes
+          !    this sign convention is related to the definition of the divergence operator.
+         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          delta_z =v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-          delta_z2=v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+           z_mflx_anti(jc,jk,jb,1) =                                                  &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / v_base%del_zlev_m(jk)   &!p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
 
-!            trac_new(jc,jk,jb) &
-!            &= trac_old(jc,jk,jb)*(delta_z/delta_z2) &
-!            & -delta_t*((z_div_adv_h(jc,jk,jb)-z_div_diff_h(jc,jk,jb)*delta_z)&
-!            &/delta_z2)
-           trac_new(jc,jk,jb) &
-           &= trac_old(jc,jk,jb)*(delta_z/delta_z2) &
-           & -(delta_t/delta_z2)*(z_div_adv_h(jc,jk,jb)-z_div_diff_h(jc,jk,jb))
+           z_mflx_anti(jc,jk,jb,2) =                                                  &
+             &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) /v_base%del_zlev_m(jk)   &!p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
+
+           z_mflx_anti(jc,jk,jb,3) =                                                  &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) /v_base%del_zlev_m(jk)&  !  p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
+
+           !  compute also divergence of low order fluxes
+           z_fluxdiv_c(jc,jk,jb) =  &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,1) + &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,2) + &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,3)
+         ENDIF
+        ENDDO
+      ENDDO
+      !
+      ! 3. Compute the updated low order solution z_tracer_new_low
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+            z_tracer_new_low(jc,jk,jb) = p_cc(jc,jk,jb)&
+            & - dtime * z_fluxdiv_c(jc,jk,jb)/v_base%del_zlev_m(jk)!p_thick_new(jc,jk,jb)
+
+
+          ! precalculate local maximum/minimum of current tracer value and low order
+          ! updated value
+          z_tracer_max(jc,jk,jb) = MAX(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+          z_tracer_min(jc,jk,jb) = MIN(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+          ELSE
+            z_tracer_new_low(jc,jk,jb) = 0.0_wp
+            z_tracer_max(jc,jk,jb)     = 0.0_wp
+            z_tracer_min(jc,jk,jb)     = 0.0_wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
+    !    field is free of any new extrema.
+    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, z_tracer_max, z_tracer_min)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=2
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          ! max value of cell and its neighbors
+          ! also look back to previous time step
+          z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
+          ! min value of cell and its neighbors
+          ! also look back to previous time step
+          z_min(jc,jk) = MIN( z_tracer_min(jc,jk,jb),                          &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
+          ENDIF
+        ENDDO
+      ENDDO
+
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          ! Sum of all incoming antidiffusive fluxes into cell jc
+          p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
+                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
+                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,3)) )
+          ! Sum of all outgoing antidiffusive fluxes out of cell jc
+          p_m =  MAX(0._wp,z_mflx_anti(jc,jk,jb,1))  &
+            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,2))  &
+            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,3))
+
+          ! fraction which must multiply all fluxes out of cell jc to guarantee no
+          ! undershoot
+          ! Nominator: maximum allowable decrease of q
+          r_m(jc,jk,jb) = (z_tracer_new_low(jc,jk,jb) - z_min(jc,jk))/(p_m + dbl_eps)
+          ! fraction which must multiply all fluxes into cell jc to guarantee no
+          ! overshoot
+          ! Nominator: maximum allowable increase of q
+          r_p(jc,jk,jb) = (z_max(jc,jk) - z_tracer_new_low(jc,jk,jb))/(p_p + dbl_eps)
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+    ! Synchronize r_m and r_p
+    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, r_m, r_p)
+
+    ! 5. Now loop over all edges and determine the minimum fraction which must
+    !    multiply the antidiffusive flux at the edge.
+    !    At the end, compute new, limited fluxes which are then passed to the main
+    !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+#endif
+        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          z_signum = SIGN(1._wp,z_anti(je,jk,jb))
+
+          ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
+          ! but is computationally more efficient
+          r_frac = 0.5_wp*( (1._wp+z_signum)*                &
+             &     MIN(r_m(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)),  &
+             &         r_p(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)))  &
+             &     +  (1._wp-z_signum)*                      &
+             &     MIN(r_m(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)),  &
+             &         r_p(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)))  )
+
+          ! Limited flux
+          p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
+            &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
+          ELSE
+            p_mflx_tracer_h(je,jk,jb)= 0.0_wp
         ENDIF
-      END DO
-    END DO
+        END DO
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+  END SUBROUTINE hflx_limiter_oce_mo
+  !-------------------------------------------------------------------------
+  !>
+  !! Flux limiter for horizontal advection
+  !!
+  !! Zalesak Flux-Limiter (Flux corrected transport)
+  !! The corrected flux is a weighted average of the low order flux and the
+  !! given high order flux. The high order flux is used to the greatest extent
+  !! possible without introducing overshoots and undershoots.
+  !! Note: This limiter is positive definite and almost monotone (but not strictly).
+  !!
+  !! @par Literature:
+  !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
+  !!   Algorithms for Fluids. JCP, 31, 335-362
+  !!
+  !! @par Revision History
+  !! - Inital revision by Daniel Reinert, DWD (2010-03-10)
+  !! Modification by Daniel Reinert, DWD (2010-03-25)
+  !! - adapted for MPI parallelization
+  !!
+  !!  mpi parallelized LL
+  !!  mpi note: compute on domain edges. Results is not synced.
+  !!
+  SUBROUTINE hflx_limiter_oce_mo_mimetic( p_patch, p_cc, p_mass_flx_e, &
+    &                         adv_tracer_flux_h, flux_cc, p_op_coeff,&
+    &                         vn_time_weighted,&
+    &                         opt_slev, opt_elev )
 
+    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+      &  p_patch
 
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 2, n_zlev
-      delta_z = v_base%del_zlev_m(jk)
+    REAL(wp), INTENT(INOUT) ::     &    !< advected cell centered variable
+      &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
 
-      DO jc = i_startidx_c, i_endidx_c
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          trac_new(jc,jk,jb) &
-          &= trac_old(jc,jk,jb)&
-          & -(delta_t/delta_z)*((z_div_adv_h(jc,jk,jb)-z_div_diff_h(jc,jk,jb)))
-        ENDIF
-      END DO
-    END DO
-  END DO
-!CALL elad(p_patch, trac_old, trac_new, p_os)
-  CALL sync_patch_array(SYNC_C, p_patch, trac_new)
-!---------------------------------------------------------------
-!  trac_content_2= 0.0_wp
-!   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-!     DO jk = 1, n_zlev
-!       delta_z = v_base%del_zlev_m(jk)
+    REAL(wp), INTENT(inout) ::     &    !< contravariant horizontal mass flux
+      &  p_mass_flx_e(:,:,:)         !< (provided by dynamical core)
+                                     !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
+      & adv_tracer_flux_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
+
+    TYPE(t_cartesian_coordinates):: flux_cc(:,:,:)
+
+!     REAL(wp) ::  &    !< old surface elevationm, INTENT(in)
+!       &  p_thick_old(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
 ! 
-!       DO jc = i_startidx_c, i_endidx_c
-!         IF(jk==1)delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
-!         !IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
-!         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!          trac_content_2=trac_content_2+delta_z*p_patch%cells%area(jc,jb)*trac_new(jc,jk,jb)
-!        ENDIF
-!         !ENDIF
-!       END DO
-!     END DO
-!   END DO
-! write(*,*)'trac:old:new:frac:',trac_content_1,trac_content_2, trac_content_1/trac_content_2
-!---------------------------------------------------------------
+!     REAL(wp) ::  &    !< new surface elevation INTENT(in)
+!       &  p_thick_new(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
+
+   TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
+
+   REAL(wp) :: vn_time_weighted(:,:,:)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
 
-END SUBROUTINE advect_diffuse_horizontal
-!-----------------------------------------------------------------------
+!Local variables
+    REAL(wp) ::                 &    !< first order tracer mass flux
+      &  z_mflx_low(nproma,p_patch%nlev,p_patch%nblks_e)
+
+    REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
+      &  z_anti(nproma,p_patch%nlev,p_patch%nblks_e)
+
+    REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
+      &  z_mflx_anti(nproma,p_patch%nlev,p_patch%nblks_c,3) !< (units kg/kg)
+
+    REAL(wp) ::                 &    !< flux divergence at cell center
+      &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c)
+
+    REAL(wp) ::                 &    !< new tracer field after hor. transport,
+      &  z_tracer_new_low(nproma,p_patch%nlev,p_patch%nblks_c)
+                                     !< if the low order fluxes are used
+
+    REAL(wp) ::                 &    !< local maximum of current tracer value and low
+      &  z_tracer_max(nproma,p_patch%nlev,p_patch%nblks_c) !< order update
+
+    REAL(wp) ::                 &    !< local minimum of current tracer value and low
+      &  z_tracer_min(nproma,p_patch%nlev,p_patch%nblks_c) !< order update
+
+    REAL(wp) ::                 &    !< fraction which must multiply all in/out fluxes
+      &  r_p(nproma,p_patch%nlev,p_patch%nblks_c),&   !< of cell jc to guarantee
+      &  r_m(nproma,p_patch%nlev,p_patch%nblks_c)     !< no overshoot/undershoot
+
+    REAL(wp) :: r_frac !< computed minimum fraction which must multiply
+                       !< the flux at the edge
+
+    REAL(wp) :: z_min(nproma,p_patch%nlev), & !< minimum/maximum value in cell and neighboring cells
+      &         z_max(nproma,p_patch%nlev)
+    REAL(wp) :: z_signum             !< sign of antidiffusive velocity
+    REAL(wp) :: p_p, p_m             !< sum of antidiffusive fluxes into and out of cell jc
+
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
+      &  cell_of_edge_idx, cell_of_edge_blk                          !< neighbor cells (array)
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of three
+      &  neighbor_cell_idx, neighbor_cell_blk                        !< neighbor cells (array)
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
+      &  edge_of_cell_idx, edge_of_cell_blk                          !< of edges
+
+    INTEGER  :: slev, elev             !< vertical start and end level
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: je, jk, jb, jc, il_c, ib_c         !< index of edge, vert level, block, cell
+    TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
+  !-------------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+    cells_in_domain => p_patch%cells%in_domain
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = n_zlev
+    END IF
+
+    ! these should not be synced here
+    CALL sync_patch_array(SYNC_C, p_patch, p_cc)
+    CALL sync_patch_array(SYNC_E, p_patch, p_mass_flx_e)
+    CALL sync_patch_array(SYNC_E, p_patch, adv_tracer_flux_h)
+
+    ! Set pointers to index-arrays
+    ! line and block indices of two neighboring cells
+    cell_of_edge_idx => p_patch%edges%cell_idx
+    cell_of_edge_blk => p_patch%edges%cell_blk
+    ! line and block indices of edges as seen from cells
+    edge_of_cell_idx => p_patch%cells%edge_idx
+    edge_of_cell_blk => p_patch%cells%edge_blk
+    ! pointers to line and block indices of three neighbor cells
+    neighbor_cell_idx => p_patch%cells%neighbor_idx
+    neighbor_cell_blk => p_patch%cells%neighbor_blk
+    !
+    ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
+    !    antidiffusive fluxes
+    !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
+      z_tracer_new_low = 0.0_wp
+      z_tracer_max     = 0.0_wp
+      z_tracer_min     = 0.0_wp
+      r_m              = 0.0_wp
+      r_p              = 0.0_wp
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=5
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+#endif
+          il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
+          ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
+
+          z_mflx_low(je,jk,jb) = v_base%wet_e(je,jk,jb)* &
+          & laxfr_upflux( p_mass_flx_e(je,jk,jb), &
+          & p_cc(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)), &
+          & p_cc(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)) )
+            !z_mflx_low(je,jk,jb) = v_base%wet_e(je,jk,jb)* &
+            !&dot_product(p_patch%edges%primal_cart_normal(je,jb)%x,&
+            !&flux_cc(il_c,jk,ib_c)%x)
+
+          !calculate antidiffusive flux for each edge
+          z_anti(je,jk,jb)     = (adv_tracer_flux_h(je,jk,jb) - z_mflx_low(je,jk,jb)&
+                                & *v_base%wet_e(je,jk,jb))
+
+        END DO  ! end loop over edges
+      END DO  ! end loop over levels
+    END DO  ! end loop over blocks
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=4
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+          !
+          ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
+          !    between the high order fluxes (given by the FFSL-scheme) and the low order
+          !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
+          !    - positive for outgoing fluxes
+          !    - negative for incoming fluxes
+          !    this sign convention is related to the definition of the divergence operator.
+         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+           z_mflx_anti(jc,jk,jb,1) =                                                  &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / v_base%del_zlev_m(jk)   &!p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
+
+           z_mflx_anti(jc,jk,jb,2) =                                                  &
+             &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) /v_base%del_zlev_m(jk)   &!p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
+
+           z_mflx_anti(jc,jk,jb,3) =                                                  &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) /v_base%del_zlev_m(jk)&  !  p_thick_new(jc,jk,jb)  &
+             &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
+
+           !  compute also divergence of low order fluxes
+           z_fluxdiv_c(jc,jk,jb) =  &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,1) + &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,2) + &
+             & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * &
+             & p_op_coeff%div_coeff(jc,jk,jb,3)
+         ENDIF
+        ENDDO
+      ENDDO
+      !
+      ! 3. Compute the updated low order solution z_tracer_new_low
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+            z_tracer_new_low(jc,jk,jb) = p_cc(jc,jk,jb)&
+            & - dtime * z_fluxdiv_c(jc,jk,jb)/v_base%del_zlev_m(jk)!p_thick_new(jc,jk,jb)
+
+            ! precalculate local maximum/minimum of current tracer value and low order
+            ! updated value
+            z_tracer_max(jc,jk,jb) = MAX(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+            z_tracer_min(jc,jk,jb) = MIN(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+          ELSE
+            z_tracer_new_low(jc,jk,jb) = 0.0_wp
+            z_tracer_max(jc,jk,jb)     = 0.0_wp
+            z_tracer_min(jc,jk,jb)     = 0.0_wp
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
+    !    field is free of any new extrema.
+    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, z_tracer_max, z_tracer_min)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=2
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          ! max value of cell and its neighbors
+          ! also look back to previous time step
+          z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
+          ! min value of cell and its neighbors
+          ! also look back to previous time step
+          z_min(jc,jk) = MIN( z_tracer_min(jc,jk,jb),                          &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
+          ENDIF
+        ENDDO
+      ENDDO
+
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          ! Sum of all incoming antidiffusive fluxes into cell jc
+          p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
+                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
+                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,3)) )
+          ! Sum of all outgoing antidiffusive fluxes out of cell jc
+          p_m =  MAX(0._wp,z_mflx_anti(jc,jk,jb,1))  &
+            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,2))  &
+            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,3))
+
+          ! fraction which must multiply all fluxes out of cell jc to guarantee no
+          ! undershoot
+          ! Nominator: maximum allowable decrease of q
+          r_m(jc,jk,jb) = (z_tracer_new_low(jc,jk,jb) - z_min(jc,jk))/(p_m + dbl_eps)
+          ! fraction which must multiply all fluxes into cell jc to guarantee no
+          ! overshoot
+          ! Nominator: maximum allowable increase of q
+          r_p(jc,jk,jb) = (z_max(jc,jk) - z_tracer_new_low(jc,jk,jb))/(p_p + dbl_eps)
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+    ! Synchronize r_m and r_p
+    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, r_m, r_p)
+
+    ! 5. Now loop over all edges and determine the minimum fraction which must
+    !    multiply the antidiffusive flux at the edge.
+    !    At the end, compute new, limited fluxes which are then passed to the main
+    !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+#endif
+        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          z_signum = SIGN(1._wp,z_anti(je,jk,jb))
+
+          ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
+          ! but is computationally more efficient
+          r_frac = 0.5_wp*( (1._wp+z_signum)*                &
+             &     MIN(r_m(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)),  &
+             &         r_p(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)))  &
+             &     +  (1._wp-z_signum)*                      &
+             &     MIN(r_m(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)),  &
+             &         r_p(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)))  )
+
+          ! Limited flux
+          adv_tracer_flux_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
+            &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
+        ELSE
+          adv_tracer_flux_h(je,jk,jb)= 0.0_wp
+        ENDIF
+        END DO
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE hflx_limiter_oce_mo_mimetic
+!-----------------------------------------------------------------------------------------
 !>
 !! !  SUBROUTINE advects horizontally the tracers present in the ocean model.
 !!
@@ -884,913 +1732,498 @@ END DO ITERATION_LOOP
 !    END DO
 !  END DO
 END SUBROUTINE elad
-!-------------------------------------------------------------------------------
-  !>
-  !! First order upwind scheme for horizontal tracer advection
-  !!
-  !! Calculation of horizontal tracer fluxes using the first
-  !! order Godunov method.
-  !!
-  !! @par Revision History
-  !! Developed by L.Bonaventura  (2004).
-  !! Adapted to new grid structure by L. Bonaventura, MPI-M, August 2005.
-  !! Modification by Daniel Reinert, DWD (2010-02-09)
-  !! - transferred to separate subroutine
-  !! Modification by Stephan Lorenz, MPI (2010-09-06)
-  !! - adapted to hydrostatic ocean core
-  !!
-  !!  mpi parallelized LL
-  !!  mpi note: the result is not synced. Should be done in the calling method if required
-  SUBROUTINE upwind_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e, opt_slev, opt_elev )
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(IN)  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(IN)  :: pvn_e(:,:,:)       !< normal velocity on edges
-    !EAL(wp), INTENT(INOUT), OPTIONAL :: ph_e (:,:)         !< surface elevation on edges
-    REAL(wp), INTENT(OUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
-    INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
-    INTEGER, INTENT(in), OPTIONAL :: opt_elev    ! optional vertical end level
-    ! local variables
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
-    INTEGER  :: slev, elev
-    INTEGER  :: i_startidx, i_endidx
-    INTEGER  :: je, jk, jb         !< index of edge, vert level, block
-    TYPE(t_subset_range), POINTER :: edges_in_domain
-    !-----------------------------------------------------------------------
-    edges_in_domain => ppatch%edges%in_domain
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = n_zlev
-    END IF
-    !
-    ! advection is done with 1st order upwind scheme,
-    ! i.e. a piecewise constant approx. of the cell centered values
-    ! is used.
-    !
-    ! for no-slip boundary conditions, boundary treatment for tracer (zero at leteral walls)
-    !is implicit done via velocity boundary conditions
-    !
-    ! line and block indices of two neighboring cells
-    iilc => ppatch%edges%cell_idx
-    iibc => ppatch%edges%cell_blk
-
-    ! loop through all patch edges (and blocks)
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
-          !
-          ! compute the first order upwind flux; notice
-          ! that multiplication by edge length is avoided to
-          ! compute final conservative update using the discrete
-          ! div operator
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-            pupflux_e(je,jk,jb) =  &
-            &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-!write(*,*)'upwind flux -h',je,jk,jb,pupflux_e(je,jk,jb), pvn_e(je,jk,jb),&
-!&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
-          ELSE
-            pupflux_e(je,jk,jb) = 0.0_wp
-          ENDIF
-        END DO  ! end loop over edges
-      END DO  ! end loop over levels
-    END DO  ! end loop over blocks
-
-  END SUBROUTINE upwind_hflux_oce
-  !-----------------------------------------------------------------------
-  !>
-  !! Central scheme for horizontal tracer advection
-  !!
-  !! Calculation of horizontal tracer fluxes using central fluxes
-  !!
-  !! @par Revision History
-  !! Peter korn, MPI-M, 2011
-  !!
-  SUBROUTINE central_hflux_oce_orig( ppatch, pvar_c, pvn_e, pupflux_e )
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pvn_e(:,:,:)       !< normal velocity on edges
-    !REAL(wp), INTENT(INOUT)  :: ph_e (:,:)         !< surface elevation on edges
-    REAL(wp), INTENT(INOUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
-
-    ! local variables
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
-    INTEGER  :: je, jk, jb         !< index of edge, vert level, block
-    !-----------------------------------------------------------------------
-    IF (my_process_is_mpi_parallel()) &
-      & CALL finish("central_hflux_oce_orig", "is not mpi parallelized")
-
-    rl_start   = 1
-    rl_end     = min_rledge
-    i_startblk = ppatch%edges%start_blk(rl_start,1)
-    i_endblk   = ppatch%edges%end_blk(rl_end,1)
-
-    ! line and block indices of two neighboring cells
-    iilc => ppatch%edges%cell_idx
-    iibc => ppatch%edges%cell_blk
-
-    ! loop through all patch edges (and blocks)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(ppatch, jb, i_startblk, i_endblk,&
-                   & i_startidx, i_endidx, rl_start, rl_end)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO jk = 1, n_zlev
-        DO je = i_startidx, i_endidx
-          !
-          ! compute the first order upwind flux; notice
-          ! that multiplication by edge length is avoided to
-          ! compute final conservative update using the discrete
-          ! div operator
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-            pupflux_e(je,jk,jb) =  0.5_wp*pvn_e(je,jk,jb)        &
-              &        *( pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)) &
-              &          +pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-          ENDIF
-        END DO  ! end loop over edges
-      END DO  ! end loop over levels
-    END DO  ! end loop over blocks
-  END SUBROUTINE central_hflux_oce_orig
-  !-----------------------------------------------------------------------
-  !>
-  !! Central scheme for horizontal tracer advection
-  !!
-  !! Calculation of horizontal tracer fluxes using central fluxes
-  !!
-  !! @par Revision History
-  !! Peter korn, MPI-M, 2011
-  !!
-  !!  mpi parallelized LL
-  !!  mpi note: the result is not synced. Should be done in the calling method if required
-  SUBROUTINE central_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e )
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pvn_e(:,:,:)       !< normal velocity on edges
-    !REAL(wp), INTENT(INOUT)  :: ph_e (:,:)         !< surface elevation on edges
-    REAL(wp), INTENT(INOUT)  :: pupflux_e(:,:,:)   !< variable in which the upwind flux is stored
-
-    ! local variables
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
-    INTEGER  :: je, jk, jb         !< index of edge, vert level, block
-    TYPE(t_subset_range), POINTER :: edges_in_domain
-    !-----------------------------------------------------------------------
-    edges_in_domain => ppatch%edges%in_domain
-
-    ! line and block indices of two neighboring cells
-    iilc => ppatch%edges%cell_idx
-    iibc => ppatch%edges%cell_blk
-
-    ! loop through all patch edges (and blocks)
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO jk = 1, n_zlev
-        DO je = i_startidx, i_endidx
-          !
-          ! compute the first order upwind flux; notice
-          ! that multiplication by edge length is avoided to
-          ! compute final conservative update using the discrete
-          ! div operator
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-            pupflux_e(je,jk,jb) =  0.5_wp*pvn_e(je,jk,jb)             &
-              &        *( pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1))      &
-              &          +pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)))     &
-              &          -0.5_wp*pvn_e(je,jk,jb)*pvn_e(je,jk,jb)*dtime&
-              &          * ppatch%edges%inv_dual_edge_length(je,jb)   &
-              &        *( pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1))      &
-              &          -pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)))
-          ENDIF
-        END DO  ! end loop over edges
-      END DO  ! end loop over levels
-    END DO  ! end loop over blocks
-  END SUBROUTINE central_hflux_oce
-!-------------------------------------------------------------------------------
-
- !>
-  !! First order scheme for horizontal tracer advection
-  !!
-  !! Calculation of horizontal tracer fluxes using Miura'sapproach with first
-  !! order reconstruction. Miuras approach is described in H. Miura, Monthly
-  !! Weather Review 135, 2007, 4038-4044. The original method has been formulated for
-  !! hexagons and is transfered to triangles and uses the Mimetic capabilities.
-  !!
-  !! @par Revision History
-  !! Developed by P. Korn, (2011).
-  !!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
-  !!
-  SUBROUTINE mimetic_miura_hflux_oce( ppatch, pvar_c, pvn_e, pvn_mean_cc,&
-                                    & p_op_coeff, pvn_dual_cc,pflux_e,&
-                                    & opt_slev, opt_elev )
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
-    REAL(wp), INTENT(INOUT)           :: pvar_c(:,:,:)!< advected cell centered variable
-    REAL(wp), INTENT(INOUT)           :: pvn_e(:,:,:) !< normal velocity on edges
-    TYPE(t_cartesian_coordinates)     :: pvn_dual_cc(:,:,:)
-    TYPE(t_cartesian_coordinates)     :: pvn_mean_cc(:,:,:)
-    TYPE(t_operator_coeff)            :: p_op_coeff
-    REAL(wp), INTENT(INOUT)           :: pflux_e(:,:,:)!< variable in which the upwind flux is stored
-    INTEGER, INTENT(in), OPTIONAL     :: opt_slev      ! optional vertical start level
-    INTEGER, INTENT(in), OPTIONAL     :: opt_elev      ! optional vertical end level
-
-    ! local variables
-    INTEGER  :: slev, elev
-    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start, rl_end
-    INTEGER  :: je, jk, jb
-    INTEGER  :: il_v1, il_v2, ib_v1, ib_v2
-    INTEGER  :: il_c, ib_c
-    REAL(wp)                      :: z_gradC(nproma,n_zlev,ppatch%nblks_e)
-    TYPE(t_cartesian_coordinates) :: z_gradC_cc(nproma,n_zlev,ppatch%nblks_c)
-    TYPE(t_subset_range), POINTER :: edges_in_domain
-    !-----------------------------------------------------------------------
-    edges_in_domain => ppatch%edges%in_domain
-
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = n_zlev
-    END IF
-
-!------------------------------------------------------------------
-
-! ! !-------------upwind comparison
-! !     iilc => ppatch%edges%cell_idx
-! !     iibc => ppatch%edges%cell_blk
-! !     ! loop through all patch edges (and blocks)
-! !     DO jb = i_startblk_e, i_endblk_e
-! !       CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,   &
-! !         &                i_startidx_e, i_endidx_e, rl_start,rl_end)
-! !
+! !   !-------------------------------------------------------------------------
+! !   !>
+! !   !! Positive definite flux limiter for horizontal advection
+! !   !!
+! !   !! Positive definite Zalesak Flux-Limiter (Flux corrected transport).
+! !   !! Only outward fluxes are re-scaled, in order to maintain positive
+! !   !! definiteness.
+! !   !!
+! !   !! @par Literature:
+! !   !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
+! !   !!   Algorithms for Fluids. JCP, 31, 335-362
+! !   !! - Harris, L. M. and P. H. Lauritzen (2010): A flux-form version of the
+! !   !!   Conservative Semi-Lagrangian Multi-tracer transport scheme (CSLAM) on
+! !   !!   the cubed sphere grid. JCP, in press
+! !   !!
+! !   !! @par Revision History
+! !   !! - Inital revision by Daniel Reinert, DWD (2010-10-06)
+! !   !!
+! !   SUBROUTINE hflx_limiter_sm( p_patch, p_dtime, p_cc,  p_op_coeff,  &
+! !     &                         p_mflx_tracer_h, opt_slev, opt_elev )
+! ! 
+! !     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+! !       &  p_patch
+! ! 
+! !     REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable
+! !       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
+! !                                      !< [kg kg^-1]
+! !     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
+! ! 
+! !     REAL(wp), INTENT(IN) ::     &    !< time step [s]
+! !       &  p_dtime
+! ! 
+! !     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
+! !       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
+! !                                      !< [kg m^-2 s^-1]
+! ! 
+! ! !     REAL(wp), INTENT(IN), TARGET, OPTIONAL :: &!< density (\rho \Delta z)
+! ! !       &  opt_rho(:,:,:)                !< dim: (nproma,nlev,nblks_c)
+! ! !                                        !< [kg m^-2]
+! ! 
+! !     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+! !       &  opt_slev
+! ! 
+! !     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+! !       &  opt_elev
+! ! 
+! ! 
+! !     !
+! !     !Local variables
+! !     !
+! !     !< tracer mass flux ( total mass crossing the edge )
+! !     REAL(wp) :: z_mflx(nproma,p_patch%nlev,p_patch%nblks_c,p_patch%cell_type) !< [kg m^-3]
+! ! 
+! !     !< fraction which must multiply all outgoing fluxes of cell jc to guarantee
+! !     !< positive definiteness
+! !     REAL(wp) :: r_m(nproma,p_patch%nlev,p_patch%nblks_c) 
+! !     !< sign of mass flux 0: out; <0: in
+! !     REAL(wp) :: z_signum  
+! !     !< sum of fluxes out of cell < [kg m^-3]
+! !     REAL(wp) :: p_m(nproma,p_patch%nlev,p_patch%nblks_c)                           
+! !     REAL(wp) :: z_mflx_old(nproma,n_zlev,p_patch%nblks_e)
+! !     INTEGER, DIMENSION(:,:,:), POINTER :: iilc, iibc
+! !     INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
+! ! 
+! !     INTEGER  :: slev, elev                   
+! !     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
+! !     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c
+! !     INTEGER  :: je, jk, jb, jc         
+! !     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
+! !   !-------------------------------------------------------------------------
+! !     ! Check for optional arguments
+! !     IF ( PRESENT(opt_slev) ) THEN
+! !       slev = opt_slev
+! !     ELSE
+! !       slev = 1
+! !     END IF
+! !     IF ( PRESENT(opt_elev) ) THEN
+! !       elev = opt_elev
+! !     ELSE
+! !       elev = n_zlev
+! !     END IF
+! !     edges_in_domain=> p_patch%edges%in_domain
+! !     cells_in_domain => p_patch%cells%in_domain
+! ! 
+! ! z_mflx_old=p_mflx_tracer_h
+! ! 
+! !     !
+! !     ! Set pointers to index-arrays
+! !     !
+! !     ! line and block indices of two neighboring cells
+! !     iilc => p_patch%edges%cell_idx
+! !     iibc => p_patch%edges%cell_blk
+! ! 
+! !     ! line and block indices of edges as seen from cells
+! !     iidx => p_patch%cells%edge_idx
+! !     iblk => p_patch%cells%edge_blk
+! ! 
+! ! 
+! !       ! 1. Reformulate all fluxes in terms of the total mass [kg m^-3]
+! !       !    that crosses each of the CV-edges and store them in a cell-based structure.
+! !       !    z_mflx > 0: outward
+! !       !    z_mflx < 0: inward
+! !       !
+! ! 
+! !    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! !       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+! ! #ifdef __LOOP_EXCHANGE
+! !       DO jc = i_startidx, i_endidx
+! !         DO jk = slev, elev
+! ! #else
+! ! !CDIR UNROLL=4
 ! !       DO jk = slev, elev
-! !         DO je = i_startidx_e, i_endidx_e          !
-! !           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-! !              pupflux_e(je,jk,jb) =  &
-! !              &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-! !              &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-! ! !write(*,*)'upwind miura',je,jk,jb,pupflux_e(je,jk,jb),pflux_e(je,jk,jb), pvn_e(je,jk,jb)!,&
-! ! !&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
-! !           ELSE
-! !             pupflux_e(je,jk,jb) = 0.0_wp
+! !         DO jc = i_startidx, i_endidx
+! ! #endif
+! !             z_mflx(jc,jk,jb,1) = p_op_coeff%div_coeff(jc,jk,jb,1) * p_dtime &
+! !               & * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+! ! 
+! !             z_mflx(jc,jk,jb,2) = p_op_coeff%div_coeff(jc,jk,jb,2) * p_dtime &
+! !               & * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+! ! 
+! !             z_mflx(jc,jk,jb,3) = p_op_coeff%div_coeff(jc,jk,jb,3) * p_dtime &
+! !               & * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+! ! 
+! !         ENDDO
+! !       ENDDO
+! ! 
+! !       !
+! !       ! 2. Compute total outward mass
+! !       !
+! !       DO jk = slev, elev
+! !         DO jc = i_startidx, i_endidx
+! ! 
+! !           ! Sum of all outgoing fluxes out of cell jc
+! !           p_m(jc,jk,jb) =  MAX(0._wp,z_mflx(jc,jk,jb,1))  &
+! !                       &  + MAX(0._wp,z_mflx(jc,jk,jb,2))  &
+! !                       &  + MAX(0._wp,z_mflx(jc,jk,jb,3))
+! ! 
+! !           ! fraction which must multiply all fluxes out of cell jc to guarantee no
+! !           ! undershoot
+! !           ! Nominator: maximum allowable decrease of \rho q
+! ! !           r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
+! ! !             &                        /(p_m + dbl_eps) )
+! !            !r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*v_base%del_zlev_m(jk))&
+! !            !                           &/(p_m(jc,jk,jb) + dbl_eps) )
+! !           IF(p_cc(jc,jk,jb)/=0.0_wp)THEN
+! !             IF(p_cc(jc,jk,jb)*v_base%del_zlev_m(jk)<=p_m(jc,jk,jb))THEN
+! !               r_m(jc,jk,jb) = (p_cc(jc,jk,jb)*v_base%del_zlev_m(jk))/(p_m(jc,jk,jb) + dbl_eps)
+! !             ELSE IF(p_cc(jc,jk,jb)*v_base%del_zlev_m(jk)>p_m(jc,jk,jb))THEN
+! !               r_m(jc,jk,jb) = 1.0_wp
+! !             ENDIF
+! ! 
+! !          ELSEIF(p_cc(jc,jk,jb)==0.0_wp)THEN
+! !            r_m(jc,jk,jb) = 1.0_wp
+! !          ENDIF
+! ! ! IF(p_m(jc,jk,jb)/=0.0_wp.OR.p_cc(jc,jk,jb)/=0.0_wp)THEN
+! ! ! write(123456,*)'in-out p_m',jc,jk,jb,r_m(jc,jk,jb),&
+! ! ! &p_m(jc,jk,jb),p_cc(jc,jk,jb)*v_base%del_zlev_m(jk)
+! ! ! ENDIF
+! !         ENDDO
+! !       ENDDO
+! !     ENDDO
+! ! !$OMP END DO
+! ! 
+! ! ! write(*,*)'max/min r_m', maxval(r_m), minval(r_m),&
+! ! ! & maxval(p_m), minval(p_m),&
+! ! ! & maxval(p_cc(:,1,:)*v_base%del_zlev_m(1)), minval(p_cc(:,1,:)*v_base%del_zlev_m(1))
+! !     ! synchronize r_m
+! !     CALL sync_patch_array(SYNC_C1,p_patch,r_m)
+! ! 
+! ! 
+! !     !
+! !     ! 3. Limit outward fluxes
+! !     !    The inward ones remain untouched.
+! !     !
+! !     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+! !       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+! ! #ifdef __LOOP_EXCHANGE
+! !       DO je = i_startidx, i_endidx
+! !         DO jk = slev, elev
+! ! #else
+! ! !CDIR UNROLL=3
+! !       DO jk = slev, elev
+! !         DO je = i_startidx, i_endidx
+! ! #endif
+! !             ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
+! !             ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
+! !             z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb))
+! ! 
+! ! !             p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb)                 &
+! ! !             &* 0.5_wp *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
+! ! !                     &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+! !             IF(p_mflx_tracer_h(je,jk,jb)>=0.0_wp)THEN
+! ! 
+! !               p_mflx_tracer_h(je,jk,jb)&
+! !               & = p_mflx_tracer_h(je,jk,jb)* r_m(iilc(je,jb,1),jk,iibc(je,jb,1))
+! ! 
+! !             ELSEIF(p_mflx_tracer_h(je,jk,jb)<0.0_wp)THEN
+! ! 
+! !               p_mflx_tracer_h(je,jk,jb)&
+! !               & = p_mflx_tracer_h(je,jk,jb)* r_m(iilc(je,jb,2),jk,iibc(je,jb,2))
+! ! 
+! !             ENDIF
+! ! !p_mflx_tracer_h(je,jk,jb)=p_mflx_tracer_h(je,jk,jb)*v_base%del_zlev_m(jk)
+! ! 
+! ! ! IF(p_mflx_tracer_h(je,jk,jb)/=0.0_wp.or.z_mflx_old(je,jk,jb)/=0.0_wp)THEN
+! ! !  write(123456,*)'in-out',p_mflx_tracer_h(je,jk,jb),z_mflx_old(je,jk,jb),&
+! ! !  &(1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
+! ! !  &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),&
+! ! !  & (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)), &
+! ! !  &(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),& 
+! ! !  &r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),r_m(iilc(je,jb,1),jk,iibc(je,jb,2))
+! ! ! ENDIF
+! !           ENDDO
+! !         ENDDO
+! !       ENDDO
+! ! !$OMP END DO
+! ! !$OMP END PARALLEL
+! ! !write(*,*)'max dev', maxval(p_mflx_tracer_h-z_mflx_old), minval(p_mflx_tracer_h-z_mflx_old)
+! ! 
+! !   END SUBROUTINE hflx_limiter_sm
+! !   !-------------------------------------------------------------------------
+! ! !-----------------------------------------------------------------------
+! ! !>
+! ! !! !  SUBROUTINE advects horizontally the tracers present in the ocean model.
+! ! !!
+! ! !! @par Revision History
+! ! !! Developed  by  Peter Korn, MPI-M (2011).
+! ! !!
+! !   !!  mpi parallelized LL
+! ! SUBROUTINE advect_diffuse_horizontal(p_patch, trac_old,          &
+! !                                    & p_os,p_op_coeff,            &
+! !                                    & K_h,                        &
+! !                                    & trac_new, timestep, delta_t,&
+! !                                    & h_e, cell_thick_intermed_c, &
+! !                                    & FLUX_CALCULATION_HORZ)
+! !   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+! !   REAL(wp)                          :: trac_old(:,:,:)
+! !   TYPE(t_hydro_ocean_state), TARGET :: p_os
+! !   TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
+! !   REAL(wp), INTENT(in) :: K_h(:,:,:)         !horizontal mixing coeff
+! !   REAL(wp), INTENT(out):: trac_new(:,:,:)
+! !   INTEGER , INTENT(in) :: timestep           ! Actual timestep (to distinghuish initial step from others)
+! !   REAL(wp), INTENT(in) :: delta_t
+! !   REAL(wp), INTENT(in) :: h_e(nproma,p_patch%nblks_e)
+! !   REAL(wp), INTENT(inout) :: cell_thick_intermed_c(nproma,n_zlev,p_patch%nblks_c)!intermediate cell thickness
+! !   INTEGER , INTENT(in) :: FLUX_CALCULATION_HORZ
+! !   !
+! !   !Local variables
+! !   REAL(wp) :: delta_z, delta_z2, delta_frac
+! !   INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
+! !   INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+! !   INTEGER  :: jc, jk, jb, je
+! !   INTEGER  :: ilc1, ibc1,ilc2, ibc2
+! !   REAL(wp) ::trac_content_1,trac_content_2
+! !   !INTEGER  :: z_dolic
+! !   REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective tracer flux
+! !   REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
+! !   REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
+! !   REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
+! !   REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
+! !   REAL(wp) :: dummy_h_c2(nproma,n_zlev,p_patch%nblks_c)
+! !   TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
+! !   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+! !   !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
+! !   ! CHARACTER(len=max_char_length), PARAMETER :: &
+! !   !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+! !   !-------------------------------------------------------------------------------
+! !   !z_tol= 1.0E-13
+! !   !trac_old=10.0_wp
+! !   edges_in_domain => p_patch%edges%in_domain
+! !   cells_in_domain => p_patch%cells%in_domain
+! ! 
+! !   z_adv_flux_h  = 0.0_wp
+! !   z_div_adv_h   = 0.0_wp
+! !   z_div_diff_h  = 0.0_wp
+! !   z_diff_flux_h = 0.0_wp
+! ! !  z_trac_c      = 0.0_wp
+! ! 
+! ! ! !   !calculate (dummy) height consistent with divergence of mass fluxx (UPPERMOST LEVEL)
+! !   jk = 1
+! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! !     DO jc = i_startidx_c, i_endidx_c
+! !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !         delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+! ! 
+! !         p_os%p_diag%depth_c(jc,jk,jb) = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+! ! 
+! !         cell_thick_intermed_c(jc,jk,jb)=v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+! !       ENDIF
+! !     END DO
+! !   END DO
+! ! 
+! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! !     DO jk = 2, n_zlev
+! !       delta_z = v_base%del_zlev_m(jk)
+! !       DO jc = i_startidx_c, i_endidx_c
+! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !           p_os%p_diag%depth_c(jc,jk,jb) = delta_z
+! !           cell_thick_intermed_c(jc,jk,jb)= delta_z
+! !         ENDIF
+! !       END DO
+! !     END DO
+! !   END DO
+! ! 
+! !   ! Initialize timer for horizontal advection
+! !   IF (ltimer) CALL timer_start(timer_adv_horz)
+! ! 
+! ! 
+! !   !Step 1) Horizontal advection and diffusion
+! ! 
+! !   SELECT CASE(FLUX_CALCULATION_HORZ)
+! ! 
+! !   CASE(UPWIND)!, MIMETIC)
+! ! 
+! !     !upwind estimate of tracer flux
+! !     CALL upwind_hflux_oce( p_patch,        &
+! !                          & trac_old,       &!      z_trac_c,       &
+! !                          & p_os%p_diag%vn_time_weighted, &
+! !                          & z_adv_flux_h )
+! !   CASE(CENTRAL)!,MIMETIC)
+! ! 
+! !     !central estimate of tracer flux
+! !     CALL central_hflux_oce( p_patch,       &
+! !                          &  trac_old,      &
+! !                          &  p_os%p_diag%vn_time_weighted, &
+! !                          &  z_adv_flux_h )
+! ! 
+! ! !   CASE(MIMETIC)
+! ! ! 
+! ! !   CALL map_edges2cell( p_patch, p_os%p_diag%vn_time_weighted, z_vn_c)
+! ! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! ! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! ! !     DO jc = i_startidx_c, i_endidx_c
+! ! !       DO jk = 1, n_zlev
+! ! !           z_vn_c(jc,jk,jb)%x = trac_old(jc,jk,jb)*z_vn_c(jc,jk,jb)%x
+! ! !       END DO
+! ! !     END DO
+! ! !   END DO
+! ! !   CALL map_cell2edges( p_patch, z_vn_c, z_adv_flux_h)
+! ! 
+! !   CASE(MIMETIC_MIURA,MIMETIC)
+! ! 
+! !     !upwind estimate of tracer flux
+! !     CALL mimetic_miura_hflux_oce( p_patch,                      &
+! !                                 & trac_old,                     &
+! !                                 & p_os%p_diag%vn_time_weighted, &
+! !                                 & p_os%p_diag%p_vn_mean,        &
+! !                                 & p_op_coeff,                   &
+! !                                 & z_adv_flux_h )
+! !   END SELECT
+! ! !    DO jk = 1, n_zlev
+! ! !    write(*,*)'max/min tracer flux horz',jk,&
+! ! !    &maxval(z_adv_flux_h(:,jk,:)),minval(z_adv_flux_h(:,jk,:))
+! ! !    END DO
+! !   IF (ltimer) CALL timer_stop(timer_adv_horz)
+! ! 
+! !   IF(FLUX_CALCULATION_HORZ/=MIMETIC)THEN
+! !     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+! !       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+! !       DO jk = 1, n_zlev
+! !         delta_z = v_base%del_zlev_m(jk)
+! !         DO je = i_startidx_e, i_endidx_e
+! !           IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
+! !             IF(jk==1)THEN
+! !               delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)
+! !             ENDIF
+! !             z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*delta_z
 ! !           ENDIF
-! !         END DO  ! end loop over edges
-! !       END DO  ! end loop over levels
-! !     END DO  ! end loop over blocks
+! !         END DO
+! !       END DO
+! !     END DO
+! !   ENDIF
+! ! 
+! !   IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN! .OR. FLUX_CALCULATION_HORZ==MIMETIC)THEN
+! !     IF (ltimer) CALL timer_start(timer_hflx_lim)
+! ! 
+! !     CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
+! !     CALL hflx_limiter_oce_mo( p_patch,                 &
+! !                             & trac_old,                &
+! !                             & p_os%p_diag%mass_flx_e,  &
+! !                             & z_adv_flux_h,            &
+! !                             & p_os%p_diag%depth_c,     &
+! !                             & cell_thick_intermed_c,   &
+! !                             & p_op_coeff,              &
+! !                             & p_os%p_diag%vn_time_weighted)
+! ! 
+! !      IF (ltimer) CALL timer_stop(timer_hflx_lim)
+! !   ENDIF
+! ! 
+! ! 
+! !   !The diffusion part: calculate horizontal diffusive flux
+! !   IF (ltimer) CALL timer_start(timer_dif_horz)
+! !   CALL tracer_diffusion_horz( p_patch,      &
+! !                             & trac_old,     &
+! !                             & p_os,         &
+! !                             & K_h,          &
+! !                             & z_diff_flux_h,&
+! !                             & subset_range = edges_in_domain)
+! !   IF (ltimer) CALL timer_stop(timer_dif_horz)
+! ! 
+! !   ! LL: the z_diff_flux_h should not be synced in tracer_diffusion_horz
+! ! 
+! ! 
+! !   !Calculate divergence of advective and diffusive fluxes
+! !    CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
+! !      & subset_range=cells_in_domain)
+! ! 
+! !    CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
+! !      & subset_range=cells_in_domain)
+! ! 
+! ! 
 ! ! !---------------------------------------------------------------
-
-    !Step3: Local linear subgridcell distribution of tracer is calculated
-    !3a: calculate tracer gradient
-    !3b: map tracer gradient from edge to cell. Result is gradient vector at cell centers
-    !3c: project gradient vector at cell center in direction of vector that points from
-    !    cell center to upwind point C_i from step 2
-    !3a:
-
-    z_gradC = 0.0_wp
-    CALL grad_fd_norm_oce_3D( pvar_c,                 &
-           &                  ppatch,                 &
-           &                  p_op_coeff%grad_coeff,  &
-           &                  z_gradC)
-
-    CALL sync_patch_array(SYNC_E, ppatch, z_gradC)
-    !3b:
-
-    CALL map_edges2cell_3D( ppatch, z_gradC,p_op_coeff, z_gradC_cc)
-
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO jk = slev, elev
-        DO je =  i_startidx_e, i_endidx_e
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
-            il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
-            ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
-
-            pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
-            &*(pvar_c(il_c,jk,ib_c)&
-            &-dot_product(p_op_coeff%moved_edge_position_cc(je,jk,jb)%x  &
-            &            -p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x,&
-            &             z_gradC_cc(il_c,jk,ib_c)%x))
-          ENDIF 
-        END DO
-      END DO
-    END DO
-
-  END SUBROUTINE mimetic_miura_hflux_oce
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Flux limiter for horizontal advection
-  !!
-  !! Zalesak Flux-Limiter (Flux corrected transport)
-  !! The corrected flux is a weighted average of the low order flux and the
-  !! given high order flux. The high order flux is used to the greatest extent
-  !! possible without introducing overshoots and undershoots.
-  !! Note: This limiter is positive definite and almost monotone (but not strictly).
-  !!
-  !! @par Literature:
-  !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
-  !!   Algorithms for Fluids. JCP, 31, 335-362
-  !!
-  !! @par Revision History
-  !! - Inital revision by Daniel Reinert, DWD (2010-03-10)
-  !! Modification by Daniel Reinert, DWD (2010-03-25)
-  !! - adapted for MPI parallelization
-  !!
-  !!  mpi parallelized LL
-  !!  mpi note: compute on domain edges. Results is not synced.
-  !!
-  SUBROUTINE hflx_limiter_oce_mo( ptr_patch, p_cc, p_mass_flx_e, &
-    &                         p_mflx_tracer_h, p_thick_old, p_thick_new, p_op_coeff,height_e,&
-    &                         opt_slev, opt_elev )
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
-      &  ptr_patch
-
-    REAL(wp), INTENT(INOUT) ::     &    !< advected cell centered variable
-      &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(inout) ::     &    !< contravariant horizontal mass flux
-      &  p_mass_flx_e(:,:,:)         !< (provided by dynamical core)
-                                     !< dim: (nproma,nlev,nblks_e)
-
-    REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
-      &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
-
-    REAL(wp) ::  &    !< old surface elevationm, INTENT(in)
-      &  p_thick_old(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
-
-    REAL(wp) ::  &    !< new surface elevation INTENT(in)
-      &  p_thick_new(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
-
-   TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
-   REAL(wp) :: height_e(:,:)
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
-
-
-!Local variables
-    REAL(wp) ::                 &    !< first order tracer mass flux
-      &  z_mflx_low(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
-
-    REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
-      &  z_anti(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
-
-    REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
-      &  z_mflx_anti(nproma,ptr_patch%nlev,ptr_patch%nblks_c,3) !< (units kg/kg)
-
-    REAL(wp) ::                 &    !< flux divergence at cell center
-      &  z_fluxdiv_c(nproma,ptr_patch%nlev,ptr_patch%nblks_c)
-
-    REAL(wp) ::                 &    !< new tracer field after hor. transport,
-      &  z_tracer_new_low(nproma,ptr_patch%nlev,ptr_patch%nblks_c)
-                                     !< if the low order fluxes are used
-
-    REAL(wp) ::                 &    !< local maximum of current tracer value and low
-      &  z_tracer_max(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< order update
-
-    REAL(wp) ::                 &    !< local minimum of current tracer value and low
-      &  z_tracer_min(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< order update
-
-    REAL(wp) ::                 &    !< fraction which must multiply all in/out fluxes
-      &  r_p(nproma,ptr_patch%nlev,ptr_patch%nblks_c),&   !< of cell jc to guarantee
-      &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c)     !< no overshoot/undershoot
-
-    REAL(wp) :: r_frac !< computed minimum fraction which must multiply
-                       !< the flux at the edge
-
-    REAL(wp) :: z_min(nproma,ptr_patch%nlev), & !< minimum/maximum value in cell and neighboring cells
-      &         z_max(nproma,ptr_patch%nlev)
-    REAL(wp) :: z_signum             !< sign of antidiffusive velocity
-    REAL(wp) :: p_p, p_m             !< sum of antidiffusive fluxes into and out of cell jc
-
-    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
-      &  cell_of_edge_idx, cell_of_edge_blk                          !< neighbor cells (array)
-    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of three
-      &  neighbor_cell_idx, neighbor_cell_blk                        !< neighbor cells (array)
-    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
-      &  edge_of_cell_idx, edge_of_cell_blk                          !< of edges
-
-    INTEGER  :: slev, elev             !< vertical start and end level
-    INTEGER  :: i_startidx, i_endidx
-    INTEGER  :: i_rlstart_c, i_rlend_c
-    INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
-
-    TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
-!     REAL(wp), POINTER ::  &
-!     &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
-!                                         !< at cell center
-!     REAL(wp), POINTER ::  &
-!     &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
-!                                         !< at cell center
-  !-------------------------------------------------------------------------
-    ! Check for optional arguments
-    edges_in_domain => ptr_patch%edges%in_domain
-    cells_in_domain => ptr_patch%cells%in_domain
-
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = n_zlev
-    END IF
-
-    ! these should not be synced here
-    CALL sync_patch_array(SYNC_C, ptr_patch, p_cc)
-    CALL sync_patch_array(SYNC_E, ptr_patch, p_mass_flx_e)
-    CALL sync_patch_array(SYNC_E, ptr_patch, p_mflx_tracer_h)
-
-    ! Set pointers to index-arrays
-    ! line and block indices of two neighboring cells
-    cell_of_edge_idx => ptr_patch%edges%cell_idx
-    cell_of_edge_blk => ptr_patch%edges%cell_blk
-    ! line and block indices of edges as seen from cells
-    edge_of_cell_idx => ptr_patch%cells%edge_idx
-    edge_of_cell_blk => ptr_patch%cells%edge_blk
-    ! pointers to line and block indices of three neighbor cells
-    neighbor_cell_idx => ptr_patch%cells%neighbor_idx
-    neighbor_cell_blk => ptr_patch%cells%neighbor_blk
-    !
-    ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
-    !    antidiffusive fluxes
-    !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
-
-      z_tracer_new_low = 0.0_wp
-      z_tracer_max     = 0.0_wp
-      z_tracer_min     = 0.0_wp
-      r_m              = 0.0_wp
-      r_p              = 0.0_wp
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-#ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
-!CDIR UNROLL=5
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
-#endif
-          z_mflx_low(je,jk,jb) = v_base%wet_e(je,jk,jb)* &
-            & laxfr_upflux( p_mass_flx_e(je,jk,jb), &
-            & p_cc(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)), &
-            & p_cc(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)) )
-
-         ! calculate antidiffusive flux for each edge
-           z_anti(je,jk,jb)     = (p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb))&
-                                & *v_base%wet_e(je,jk,jb)
-
-        END DO  ! end loop over edges
-      END DO  ! end loop over levels
-    END DO  ! end loop over blocks
-!$OMP END DO
-
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
-!CDIR UNROLL=4
-      DO jk = slev, elev
-        DO jc = i_startidx, i_endidx
-#endif
-          !
-          ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
-          !    between the high order fluxes (given by the FFSL-scheme) and the low order
-          !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
-          !    - positive for outgoing fluxes
-          !    - negative for incoming fluxes
-          !    this sign convention is related to the definition of the divergence operator.
-         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-
-           z_mflx_anti(jc,jk,jb,1) =                                                  &
-             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / p_thick_new(jc,jk,jb)  &
-             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
-
-           z_mflx_anti(jc,jk,jb,2) =                                                  &
-             &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) / p_thick_new(jc,jk,jb)  &
-             &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
-
-           z_mflx_anti(jc,jk,jb,3) =                                                  &
-             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) / p_thick_new(jc,jk,jb)  &
-             &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
-
-           !  compute also divergence of low order fluxes
-           z_fluxdiv_c(jc,jk,jb) =  &
-             & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * &
-             & p_op_coeff%div_coeff(jc,jk,jb,1) + &
-             & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * &
-             & p_op_coeff%div_coeff(jc,jk,jb,2) + &
-             & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * &
-             & p_op_coeff%div_coeff(jc,jk,jb,3)
-         ENDIF
-        ENDDO
-      ENDDO
-      !
-      ! 3. Compute the updated low order solution z_tracer_new_low
-      DO jk = slev, elev
-        DO jc = i_startidx, i_endidx
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            z_tracer_new_low(jc,jk,jb) =                         &
-              &      ( p_cc(jc,jk,jb) * p_thick_old(jc,jk,jb)    &
-              &      - dtime * z_fluxdiv_c(jc,jk,jb) )           &
-              &      / p_thick_new(jc,jk,jb)
-
-          ! precalculate local maximum/minimum of current tracer value and low order
-          ! updated value
-          z_tracer_max(jc,jk,jb) = MAX(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
-          z_tracer_min(jc,jk,jb) = MIN(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
-          ELSE
-            z_tracer_new_low(jc,jk,jb) = 0.0_wp
-            z_tracer_max(jc,jk,jb)     = 0.0_wp
-            z_tracer_min(jc,jk,jb)     = 0.0_wp
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-    ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
-    !    field is free of any new extrema.
-    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, z_tracer_max, z_tracer_min)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
-!CDIR UNROLL=2
-      DO jk = slev, elev
-        DO jc = i_startidx, i_endidx
-#endif
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          ! max value of cell and its neighbors
-          ! also look back to previous time step
-          z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
-            & z_tracer_max(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
-            & z_tracer_max(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
-            & z_tracer_max(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
-          ! min value of cell and its neighbors
-          ! also look back to previous time step
-          z_min(jc,jk) = MIN( z_tracer_min(jc,jk,jb),                          &
-            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
-            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
-            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
-          ENDIF
-        ENDDO
-      ENDDO
-
-      DO jk = slev, elev
-        DO jc = i_startidx, i_endidx
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          ! Sum of all incoming antidiffusive fluxes into cell jc
-          p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
-                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
-                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,3)) )
-          ! Sum of all outgoing antidiffusive fluxes out of cell jc
-          p_m =  MAX(0._wp,z_mflx_anti(jc,jk,jb,1))  &
-            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,2))  &
-            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,3))
-
-          ! fraction which must multiply all fluxes out of cell jc to guarantee no
-          ! undershoot
-          ! Nominator: maximum allowable decrease of q
-          r_m(jc,jk,jb) = (z_tracer_new_low(jc,jk,jb) - z_min(jc,jk))/(p_m + dbl_eps)
-          ! fraction which must multiply all fluxes into cell jc to guarantee no
-          ! overshoot
-          ! Nominator: maximum allowable increase of q
-          r_p(jc,jk,jb) = (z_max(jc,jk) - z_tracer_new_low(jc,jk,jb))/(p_p + dbl_eps)
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-    ! Synchronize r_m and r_p
-    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
-
-    ! 5. Now loop over all edges and determine the minimum fraction which must
-    !    multiply the antidiffusive flux at the edge.
-    !    At the end, compute new, limited fluxes which are then passed to the main
-    !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-#ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
-!CDIR UNROLL=3
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
-#endif
-        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          z_signum = SIGN(1._wp,z_anti(je,jk,jb))
-
-          ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
-          ! but is computationally more efficient
-          r_frac = 0.5_wp*( (1._wp+z_signum)*                &
-             &     MIN(r_m(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)),  &
-             &         r_p(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)))  &
-             &     +  (1._wp-z_signum)*                      &
-             &     MIN(r_m(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)),  &
-             &         r_p(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)))  )
-
-          ! Limited flux
-! IF(p_mflx_tracer_h(je,jk,jb)/=0.0_wp)THEN
-! write(*,*)'inside',p_mflx_tracer_h(je,jk,jb),z_mflx_low(je,jk,jb),&
-! &z_mflx_low(je,jk,jb)+ MIN(1._wp,r_frac) * z_anti(je,jk,jb)
-! ENDIF
-          p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
-            &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
-          ELSE
-            p_mflx_tracer_h(je,jk,jb)= 0.0_wp
-        ENDIF
-        END DO
-      ENDDO
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-  END SUBROUTINE hflx_limiter_oce_mo
-
-!   !-------------------------------------------------------------------------
-!   !>
-!   !! Positive definite flux limiter for horizontal advection
-!   !!
-!   !! Positive definite Zalesak Flux-Limiter (Flux corrected transport).
-!   !! Only outward fluxes are re-scaled, in order to maintain positive
-!   !! definiteness.
-!   !!
-!   !! @par Literature:
-!   !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
-!   !!   Algorithms for Fluids. JCP, 31, 335-362
-!   !! - Harris, L. M. and P. H. Lauritzen (2010): A flux-form version of the
-!   !!   Conservative Semi-Lagrangian Multi-tracer transport scheme (CSLAM) on
-!   !!   the cubed sphere grid. JCP, in press
-!   !!
-!   !! @par Revision History
-!   !! - Inital revision by Daniel Reinert, DWD (2010-10-06)
-!   !! - Adaption for hexagonal model by Almut Gassmann, MPI-M (2010-11-18)
-!   !!
-!   SUBROUTINE hflx_limiter_sm( ptr_patch, ptr_int, p_dtime, p_cc,        &
-!     &                         p_mflx_tracer_h, opt_rho, opt_rlstart,    &
-!     &                         opt_rlend, opt_slev, opt_elev )
-!
-!     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
-!       &  ptr_patch
-!
-!     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for
-!       &  ptr_int                               !< interpolation
-!
-!     REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable
-!       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
-!                                      !< [kg kg^-1]
-!
-!     REAL(wp), INTENT(IN) ::     &    !< time step [s]
-!       &  p_dtime
-!
-!     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
-!       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
-!                                      !< [kg m^-2 s^-1]
-!
-!     REAL(wp), INTENT(IN), TARGET, OPTIONAL :: &!< density (\rho \Delta z)
-!       &  opt_rho(:,:,:)                !< dim: (nproma,nlev,nblks_c)
-!                                        !< [kg m^-2]
-!
-!     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-!      &  opt_rlstart                    !< only valid for calculation of 'edge value'
-!
-!     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-!      &  opt_rlend                      !< (to avoid calculation of halo points)
-!
-!     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-!       &  opt_slev
-!
-!     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-!       &  opt_elev
-!
-!     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
-!       &  z_mflx(nproma,ptr_patch%nlev,ptr_patch%nblks_c,ptr_patch%cell_type) !< [kg m^-3]
-!
-!     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
-!       &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< of cell jc to guarantee
-!                                                       !< positive definiteness
-!
-!     REAL(wp) :: z_signum                     !< sign of mass flux
-!                                              !< >0: out; <0: in
-!     REAL(wp) :: p_m                          !< sum of fluxes out of cell jc
-!                                              !< [kg m^-3]
-!
-!     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
-!       &  iilc, iibc                          !< neighbor cells (array)
-!
-!     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
-!       &  iidx, iblk                          !< of edges
-!
-!     REAL(wp), DIMENSION(:,:,:), POINTER:: &  !< pointer to density field (nnow)
-!       &  ptr_rho
-!
-!     INTEGER  :: slev, elev                   !< vertical start and end level
-!     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-!     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c, i_nchdom
-!     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
-!
-!   !-------------------------------------------------------------------------
-!
-!     ! Check for optional arguments
-!     IF ( PRESENT(opt_slev) ) THEN
-!       slev = opt_slev
-!     ELSE
-!       slev = 1
-!     END IF
-!     IF ( PRESENT(opt_elev) ) THEN
-!       elev = opt_elev
-!     ELSE
-!       elev = ptr_patch%nlev
-!     END IF
-!
-!     IF ( PRESENT(opt_rlstart) ) THEN
-!       i_rlstart = opt_rlstart
-!     ELSE
-!       i_rlstart = grf_bdywidth_e
-!     ENDIF
-!
-!     IF ( PRESENT(opt_rlend) ) THEN
-!       i_rlend = opt_rlend
-!     ELSE
-!       i_rlend = min_rledge_int - 1
-!     ENDIF
-!
-!     IF ( PRESENT(opt_rho) ) THEN
-!       ptr_rho => opt_rho
-!     ELSE
-!       ptr_rho => ptr_delp_mc_now
-!     ENDIF
-!
-!     ! number of child domains
-!     i_nchdom = MAX(1,ptr_patch%n_childdom)
-!
-!
-!     IF (p_test_run) THEN
-!       r_m = 0._wp
-!     ENDIF
-!
-!     !
-!     ! Set pointers to index-arrays
-!     !
-!     ! line and block indices of two neighboring cells
-!     iilc => ptr_patch%edges%cell_idx
-!     iibc => ptr_patch%edges%cell_blk
-!
-!     ! line and block indices of edges as seen from cells
-!     iidx => ptr_patch%cells%edge_idx
-!     iblk => ptr_patch%cells%edge_blk
-!
-!
-! !$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
-!
-!       i_rlstart_c = grf_bdywidth_c
-!       i_rlend_c   = min_rlcell_int
-!       i_startblk  = ptr_patch%cells%start_blk(i_rlstart_c,1)
-!       i_endblk    = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
-!
-!       !
-!       ! 1. Reformulate all fluxes in terms of the total mass [kg m^-3]
-!       !    that crosses each of the CV-edges and store them in a cell-based structure.
-!       !
-!       !    z_mflx > 0: outward
-!       !    z_mflx < 0: inward
-!       !
-!
-! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m)
-!       DO jb = i_startblk, i_endblk
-!
-!         CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
-!                            i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
-!
-! #ifdef __LOOP_EXCHANGE
-!         DO jc = i_startidx, i_endidx
-!           DO jk = slev, elev
-! #else
-! !CDIR UNROLL=4
-!         DO jk = slev, elev
-!           DO jc = i_startidx, i_endidx
-! #endif
-!
-!             z_mflx(jc,jk,jb,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
-!               &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
-!
-!             z_mflx(jc,jk,jb,2) = ptr_int%geofac_div(jc,2,jb) * p_dtime &
-!               &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
-!
-!             z_mflx(jc,jk,jb,3) = ptr_int%geofac_div(jc,3,jb) * p_dtime &
-!               &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
-!
-!           ENDDO
-!         ENDDO
-!
-!         !
-!         ! 2. Compute total outward mass
-!         !
-!         DO jk = slev, elev
-!           DO jc = i_startidx, i_endidx
-!
-!             ! Sum of all outgoing fluxes out of cell jc
-!             p_m =  MAX(0._wp,z_mflx(jc,jk,jb,1))  &
-!               &  + MAX(0._wp,z_mflx(jc,jk,jb,2))  &
-!               &  + MAX(0._wp,z_mflx(jc,jk,jb,3))
-!
-!             ! fraction which must multiply all fluxes out of cell jc to guarantee no
-!             ! undershoot
-!             ! Nominator: maximum allowable decrease of \rho q
-!             r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
-!               &                        /(p_m + dbl_eps) )
-!
-!           ENDDO
-!         ENDDO
-!       ENDDO
-! !$OMP END DO
-!
-!
-!     ! synchronize r_m
-!     CALL sync_patch_array(SYNC_C1,ptr_patch,r_m)
-!
-!
-!     !
-!     ! 3. Limit outward fluxes
-!     !    The inward ones remain untouched.
-!     !
-!       i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
-!       i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
-!
-! !$OMP PARALLEL
-! !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum)
-!       DO jb = i_startblk, i_endblk
-!
-!         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
-!                            i_startidx, i_endidx, i_rlstart, i_rlend)
-!
-! #ifdef __LOOP_EXCHANGE
-!         DO je = i_startidx, i_endidx
-!           DO jk = slev, elev
-! #else
-! !CDIR UNROLL=5
-!         DO jk = slev, elev
-!           DO je = i_startidx, i_endidx
-! #endif
-!
-!             ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
-!             ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
-!             z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb))
-!
-!             p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
-!               & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
-!               &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-!
-!           ENDDO
-!         ENDDO
-!       ENDDO
-! !$OMP END DO
-! !$OMP END PARALLEL
-!
-!   END SUBROUTINE hflx_limiter_sm
-!   !-------------------------------------------------------------------------
+! ! !  trac_content_1= 0.0_wp
+! ! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! ! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! ! !     DO jk = 1, n_zlev
+! ! !       delta_z = v_base%del_zlev_m(jk)
+! ! ! 
+! ! !       DO jc = i_startidx_c, i_endidx_c
+! ! !         IF(jk==1)delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+! ! !         !IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
+! ! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! ! !          trac_content_1=trac_content_1+delta_z*p_patch%cells%area(jc,jb)*trac_old(jc,jk,jb)
+! ! !        ENDIF
+! ! !         !ENDIF
+! ! !       END DO
+! ! !     END DO
+! ! !   END DO
+! ! !---------------------------------------------------------------
+! ! 
+! !   !Final step: calculate new tracer values
+! !     jk = 1
+! !     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! !       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! !       DO jc = i_startidx_c, i_endidx_c
+! ! 
+! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !           delta_z =v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+! !           delta_z2=v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+! ! 
+! ! !            trac_new(jc,jk,jb) &
+! ! !            &= trac_old(jc,jk,jb)*(delta_z/delta_z2) &
+! ! !            & -delta_t*((z_div_adv_h(jc,jk,jb)-z_div_diff_h(jc,jk,jb)*delta_z)&
+! ! !            &/delta_z2)
+! !            trac_new(jc,jk,jb) &
+! !            &= trac_old(jc,jk,jb)*(delta_z/delta_z2) &
+! !            & -(delta_t/delta_z2)*(z_div_adv_h(jc,jk,jb)-z_div_diff_h(jc,jk,jb))
+! !         ENDIF
+! !       END DO
+! !     END DO
+! ! 
+! ! 
+! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! !     DO jk = 2, n_zlev
+! !       delta_z = v_base%del_zlev_m(jk)
+! ! 
+! !       DO jc = i_startidx_c, i_endidx_c
+! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !           trac_new(jc,jk,jb) &
+! !           &= trac_old(jc,jk,jb)&
+! !           & -(delta_t/delta_z)*((z_div_adv_h(jc,jk,jb)-z_div_diff_h(jc,jk,jb)))
+! !         ENDIF
+! !       END DO
+! !     END DO
+! !   END DO
+! ! !CALL elad(p_patch, trac_old, trac_new, p_os)
+! !   CALL sync_patch_array(SYNC_C, p_patch, trac_new)
+! ! !---------------------------------------------------------------
+! ! !  trac_content_2= 0.0_wp
+! ! !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+! ! !     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+! ! !     DO jk = 1, n_zlev
+! ! !       delta_z = v_base%del_zlev_m(jk)
+! ! ! 
+! ! !       DO jc = i_startidx_c, i_endidx_c
+! ! !         IF(jk==1)delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+! ! !         !IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
+! ! !         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! ! !          trac_content_2=trac_content_2+delta_z*p_patch%cells%area(jc,jb)*trac_new(jc,jk,jb)
+! ! !        ENDIF
+! ! !         !ENDIF
+! ! !       END DO
+! ! !     END DO
+! ! !   END DO
+! ! ! write(*,*)'trac:old:new:frac:',trac_content_1,trac_content_2, trac_content_1/trac_content_2
+! ! !---------------------------------------------------------------
+! ! 
+! ! 
+! ! END SUBROUTINE advect_diffuse_horizontal
+!-----------------------------------------------------------------------
 
 END MODULE mo_oce_tracer_transport_horz

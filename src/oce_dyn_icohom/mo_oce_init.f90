@@ -2079,7 +2079,7 @@ ELSEIF( iswm_oce == 1 )THEN
             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 0.0_wp
             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 0.0_wp
 
-            p_os%p_prog(nold(1))%h(jc,jb) = 1.0_wp!test5_h( z_lon, z_lat, 0.0_wp)
+            p_os%p_prog(nold(1))%h(jc,jb) = 0.0_wp!test5_h( z_lon, z_lat, 0.0_wp)
 
             z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
               !Local hot perturbation
