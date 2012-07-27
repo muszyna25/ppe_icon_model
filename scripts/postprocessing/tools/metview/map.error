@@ -158,16 +158,19 @@ for nd=1 to ndays do
 # source_pl_ifs ='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb'
 # source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
 
+  mntxt = parse(tailfile, "_")
+
   if lmonth = 0 then
     source_ini_icon = datafile&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb'
     source_ver_icon = datafile&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb'
+    source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
+    source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
   else
     source_ini_icon = datafile&yyyymm&'_0001_'&varfile&'_'&levtype&tailfile
     source_ver_icon = datafile&yyyymm&'_0001_'&varfile&'_'&levtype&tailfile 
+    source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
+    source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
   end if
-
-  source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_20120601-0701.'&varname&'.pl.grb'
-  source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_20120601-0701.sfc.grb'
 
 
 #--- read ICON experiment
