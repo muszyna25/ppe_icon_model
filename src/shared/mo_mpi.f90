@@ -1227,6 +1227,7 @@ CONTAINS
     END IF
 #endif
 
+    process_mpi_all_comm = MPI_COMM_NULL
     IF (PRESENT(global_name)) THEN
       yname = TRIM(global_name)
     ELSE
