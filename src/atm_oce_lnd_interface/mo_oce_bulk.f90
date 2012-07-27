@@ -791,7 +791,7 @@ CONTAINS
       ! 
       ! Mixed boundary conditions (relaxation term plus fluxes) are not yet included
 
-write(*,*)'EFFECTIVE RESTORING PARAMETER',1.0_wp/(relaxation_param*2.592e6_wp)
+  ! write(*,*)'EFFECTIVE RESTORING PARAMETER',1.0_wp/(relaxation_param*2.592e6_wp)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)

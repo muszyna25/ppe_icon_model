@@ -568,11 +568,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                              & flux_vert,         &
                              & z_cellthick_intmed,&
                              & tracer_id)
-DO jk=1,n_zlev
-write(*,*)'FLX:HORZ:VERT',jk,&
-&minval(flux_horz(:,jk,:)),maxval(flux_horz(:,jk,:)),&
-&minval(flux_vert(:,jk,:)),maxval(flux_vert(:,jk,:))
-END DO
+      ! DO jk=1,n_zlev
+      ! write(*,*)'FLX:HORZ:VERT',jk,&
+      ! &minval(flux_horz(:,jk,:)),maxval(flux_horz(:,jk,:)),&
+      ! &minval(flux_vert(:,jk,:)),maxval(flux_vert(:,jk,:))
+      ! END DO
 
     !Case: Implicit Vertical diffusion
     IF(expl_vertical_tracer_diff==1)THEN
@@ -622,11 +622,11 @@ END DO
       CALL dbg_print('AdvDifVert: bef.impl.diff' ,z_temp ,str_module,idt_src)
       !---------------------------------------------------------------------
 
-DO jk=1,n_zlev
-write(*,*)'BEFORE DIFF: TRACER old:new',jk,&
-&minval(trac_old(:,jk,:)),maxval(trac_old(:,jk,:)),&
-&minval(z_temp(:,jk,:)),maxval(z_temp(:,jk,:))
-END DO
+      ! DO jk=1,n_zlev
+      ! write(*,*)'BEFORE DIFF: TRACER old:new',jk,&
+      ! &minval(trac_old(:,jk,:)),maxval(trac_old(:,jk,:)),&
+      ! &minval(z_temp(:,jk,:)),maxval(z_temp(:,jk,:))
+      ! END DO
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
 
@@ -652,11 +652,11 @@ END DO
   ENDIF
 
 
-DO jk=1,n_zlev
-write(*,*)'TRACER old:new',jk,&
-&minval(trac_old(:,jk,:)),maxval(trac_old(:,jk,:)),&
-&minval(trac_new(:,jk,:)),maxval(trac_new(:,jk,:))
-END DO
+      ! DO jk=1,n_zlev
+      ! write(*,*)'TRACER old:new',jk,&
+      ! &minval(trac_old(:,jk,:)),maxval(trac_old(:,jk,:)),&
+      ! &minval(trac_new(:,jk,:)),maxval(trac_new(:,jk,:))
+      ! END DO
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
