@@ -41,12 +41,13 @@ class EXP_plot(HtmlResource):
 	global selected_branch
 	global selected_Date_from
 	global selected_Date_to
+	global ExpPlotError
 	
 	self.get_info(request)
 	
         status = self.getStatus(request)	
         Archive_Button_Dict = {}
-
+        ExpPlotError = 0
 # -----------------------------------------------------------
         def add_file(p,e,Dict):
 	  ret = False
@@ -340,17 +341,32 @@ class EXP_plot(HtmlResource):
           Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
           
           if selected_Date_from != "NotSet":
-	    Date_from = selected_Date_from  
+	    Date_from = selected_Date_from
 	    
           if selected_Date_to != "NotSet":
-	    Date_to = selected_Date_to
-
+	    
+	    if selected_Date_to < time.strftime("%Y-%m-%d",time.localtime(util.now())):
+	      Date_to = selected_Date_to
+            else:
+	      Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
+	      
 	  if selected_Rev_from != "NotSet":
 	    Rev_from = selected_Rev_from  
 	    
           if selected_Rev_to != "NotSet":
 	    Rev_to = selected_Rev_to
+	    
+# Check if from time greater to time. If yes change it.
+          if Date_from > Date_to:
+	    t         = Date_to
+	    Date_to   = Date_from
+	    Date_from = t
 
+# Check if from revision greater to revision. If yes change it.
+          if Rev_from > Rev_to:
+	    t         = Rev_to
+	    Rev_to   = Rev_from
+	    rev_from = t
 #========================================================================================================
 #
 # Begin searching for plots
@@ -387,14 +403,6 @@ class EXP_plot(HtmlResource):
 	  for r in date_Dict[d]:
 	    for b in date_Dict[d][r]:
 	      Comp_add(Comp_Dict,d,r,b,date_Dict[d][r][b])
-        #print "---- date_Dict ----"
-        #print date_Dict
-        #print "---- comp_Dict ----"
-        #print Comp_Dict
-#        print "---- Exp_Dict ----"
-#        print Exp_Dict
-        #print "==== WS ===="
-        #return "Test Stop"
 
         Archive_Button_Dict['date']   = list(sorted(set(Archive_Button_Dict['date'])))
  	Archive_Button_Dict['rev']    = list(sorted(set(Archive_Button_Dict['rev'])))
@@ -405,11 +413,12 @@ class EXP_plot(HtmlResource):
 	Archive_Button_Dict['file']   = list(sorted(set(Archive_Button_Dict['file'])))
 	
         if not Archive_Button_Dict['rev']:
-	  data = "Revision List for this timeperode ist emty"
-	  return data
+	  ExpPlotError = 1
+#err	  data = "Revision List for this timeperode ist emty"
+#err	  return data
 	  
 #	print Archive_Button_Dict['rev']
-        if not l_nightly:
+        if not l_nightly and ExpPlotError == 0:
 	  min_Revision = Archive_Button_Dict['rev'][0]
 	  max_Revision = Archive_Button_Dict['rev'][-1]
 	  
@@ -434,8 +443,10 @@ class EXP_plot(HtmlResource):
         if len(t_file) != 0:
 	  Archive_Button_Dict['file'] = t_file
 	else:
-          date = "<h2> No Plots available for experiment: <h1>" + exp_plot_Info + "</h1></h2>" 
-	  return date
+	  if ExpPlotError == 0:
+	    ExpPlotError = 2
+#          date = "<h2> No Plots available for experiment: <h1>" + exp_plot_Info + "</h1></h2>" 
+#	  return date
 	
 	
 #        print "===== Plot_name_length ===="
@@ -508,7 +519,8 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "&nbsp; to &nbsp"
 	  data += "    <input name=\"date_to\" type=\"text\" value=\"" + Date_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
-	  data += "    <input type=\"submit\" name=\"Date_button\" value=\">\">"
+	  if ExpPlotError == 0:
+	    data += "    <input type=\"submit\" name=\"Date_button\" value=\">\">"
 	
 	data += "  </td>\n"
 	data += "</tr>\n"
@@ -534,7 +546,8 @@ class EXP_plot(HtmlResource):
 	else:
 	  data += "&nbsp; to &nbsp"
 	  data += "    <input name=\"rev_to\" type=\"text\" value=\"" + Rev_to.split(' ')[0] + "\" size=\"10\" maxlength=\"10\">\n"
-	  data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
+	  if ExpPlotError == 0:
+	    data += "    <input type=\"submit\" name=\"Rev_button\" value=\">\">"
 
 	data += "  </td>\n"
 	data += "</tr>\n"
@@ -548,7 +561,11 @@ class EXP_plot(HtmlResource):
         if l_nightly:
 	  data += selected_branch.replace('+', '/')
 	else:
-	  data += "    <select  name=\"branch\" onChange=\"document.date_form.submit()\">\n"
+	  if ExpPlotError == 0:
+	    data += "    <select  name=\"branch\" onChange=\"document.date_form.submit()\">\n"
+	  else:
+	    data += "    <select  disabled=\"disabled\" name=\"branch\" onChange=\"document.date_form.submit()\">\n"
+	    
 	  if selected_branch == "all":
 	    data += "    <option selected> all </option>\n"
 	  else:
@@ -577,7 +594,10 @@ class EXP_plot(HtmlResource):
         if l_nightly:
 	  data += "all"
 	else:
-	  data += "    <select  name=\"builder\" onChange=\"document.date_form.submit()\">\n"
+	  if ExpPlotError == 0:
+	    data += "    <select  name=\"builder\" onChange=\"document.date_form.submit()\">\n"
+	  else:
+	    data += "    <select   disabled=\"disabled\" name=\"builder\" onChange=\"document.date_form.submit()\">\n"
 	  if selected_builder == "all":
 	    data += "    <option selected> all </option>\n"
 	  else:
@@ -611,7 +631,10 @@ class EXP_plot(HtmlResource):
         if l_nightly:
 	  data += "all"
 	else:
-	  data += "    <select  name=\"build\" onChange=\"document.date_form.submit()\">\n"
+	  if ExpPlotError == 0:
+	    data += "    <select  name=\"build\" onChange=\"document.date_form.submit()\">\n"
+	  else:
+	    data += "    <select  disabled=\"disabled\" name=\"build\" onChange=\"document.date_form.submit()\">\n"
 	  if selected_build == "all":
 	    data += "    <option selected> all </option>\n"
 	  else:
@@ -634,9 +657,11 @@ class EXP_plot(HtmlResource):
 	data += "  <td style=\"text-align:left;\" ><b>Experiment:</b></td>\n"
 	data += "  <td style=\"text-align:left;\">\n"
 	
-	data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
-#	data += "    <select  name=\"exp\">\n"
-
+	if ExpPlotError == 0:
+	  data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
+	else:
+	  data += "    <select  disabled=\"disabled\" name=\"exp\" onChange=\"document.date_form.submit()\">\n"
+	  
 #ToDo   Include the correct showing of '_' in experment name and plot-name
 
 	for Ex in Archive_Button_Dict['exp']:
@@ -656,8 +681,11 @@ class EXP_plot(HtmlResource):
 	data += "  <td style=\"text-align:left;\" ><b>Plot:</b></td>\n"
 	data += "  <td style=\"text-align:left;\">\n"
 	
-        data += "    <select  name=\"file\" onChange=\"document.date_form.submit()\">\n"
-	      
+	if ExpPlotError == 0:
+          data += "    <select  name=\"file\" onChange=\"document.date_form.submit()\">\n"
+	else:
+          data += "    <select disabled=\"disabled\"  name=\"file\" onChange=\"document.date_form.submit()\">\n"
+	  
         if exp_file_Info == "NotSet" and len(Archive_Button_Dict['file']) > 0:
 	  exp_file_Info = Archive_Button_Dict['file'][0].strip(".png")
 
@@ -734,7 +762,7 @@ class EXP_plot(HtmlResource):
           
 	      data += "    <a href=\"javascript:anzeigen('branch_" + str(r) 
 	      data += "','bild_1');\" class=\"Ordner\" style=\"text-decoration: None;\">\n"
-	      data += "      <img name=\"bild_1\" src=\"closed.gif\" class=\"Bild\"> <span style=\"color: #000000;\">" 
+	      data += "      <img name=\"bild_1\" src=\"closed.gif\" Brclass=\"Bild\"> <span style=\"color: #000000;\">" 
 	      data += Re + "</span>\n"
 	      data += "    </a><br>\n"
 #------------------------------
@@ -777,6 +805,9 @@ class EXP_plot(HtmlResource):
                       data += "<input type=\"checkbox\" name=\"plot_check\" value=\"" + Fi.strip(".png") + "\" id=\"check1\""
 		      if Fi.strip(".png") == exp_file_Info:
 		        data += "checked=\"checked\""
+		      else:
+			data += "disabled=\"disabled\""
+
 		      
 		      if l_nightly:
 		        data += "disabled=\"disabled\""
@@ -848,43 +879,28 @@ class EXP_plot(HtmlResource):
 	    data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
 	    data += "    <tr>\n    <td>\n"
             data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
-#            data += "        <colgroup>"
-#	    data += "          <col width=\"690\">"
-#	    data += "          <col width=\"100\">"
-#	    data += "          <col width=\"160\">"
-#	    data += "          <col width=\"155\">"
-#	    data += "          <col width=\"80\">"
-#	    data += "          <col width=\"70\">"
-#	    data += "        </colgroup>\n"
             data += "        <tr>\n"
-#            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + ref_date + "</td>\n"
-#            data += "            <td style=\"text-align:left;\"><b>Revision:</b>&nbsp;" 
             data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + ref_date
 	    
             data += "            &nbsp;&nbsp;<b>Revision:</b>&nbsp;" 
             data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + ref_rev + "\">"
             data += ref_rev + "</a>"
 	    
-#ToDo SVN-Branch eintragen lassen
             data += "           &nbsp;&nbsp;<b>Branch:</b>&nbsp;"
-            data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
-            data += "trunk/icon-dev</a>"
-            
+            data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + ref_branch.replace('+', '/') + "\">"
+            data += "trunk/icon-dev</a>"            
             data += "            &nbsp;&nbsp;<b>Builder:</b>&nbsp;" 
             data += "<a href=\"builders/" + ref_comp + "\">"
             data +=              ref_comp +"</a>"
             
 	    data += "            &nbsp;&nbsp;<b>Build:</b>&nbsp;<a href=\"builders/" + ref_comp + "/builds/"+ ref_build + "\">" + ref_build + "</a>\n"
-
 	    data += "</td>\n"
 	    data += "<td style=\"text-align:left;\">\n"
-#            data += " &nbsp;&nbsp;&nbsp;"
 	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
             data += "    <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\" >\n"
             data += "    <input type=\"hidden\" name=\"rev\" value=\""+ ref_rev + "\" >\n"
             data += "    <input type=\"submit\" name=\"Replace\" value=\"Replace\"  maxlength=\"10\">\n"
-	    data += "  </form>\n"
-            
+	    data += "  </form>\n"            
 	    data += "            </td>\n"
 
 	    data += "        </tr>\n      </table>\n"
@@ -905,32 +921,29 @@ class EXP_plot(HtmlResource):
 	    data += "  </table>"
           else:
             data += "<h1>Reference Plot</h1>\n"
-	    data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">"
-            data += "  <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
-            data += "  <input type=\"submit\" name=\"Replace_2\" value=\"Replace\" >\n"
-	    data += "</form>"
+#	    data += "<form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">"
+#            data += "  <input type=\"hidden\" name=\"exp\" value=\""+ exp_plot_Info + "\">\n"
+#            data += "  <input type=\"submit\" name=\"Replace_2\" value=\"Replace\" >\n"
+#	    data += "</form>"
             data += "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
 	    data += "  <tr>\n    <td>"
             data += "      <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"670\">\n"
-            data += "        <colgroup>"
-	    data += "          <col width=\"670\">"
-#	    data += "          <col width=\"100\">"
-#	    data += "          <col width=\"160\">"
-#	    data += "          <col width=\"155\">"
-#	    data += "          <col width=\"80\">"
-#	    data += "          <col width=\"70\">"
-	    data += "        </colgroup>\n<re>\n"
-            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp; xxxx-xx-xx </td>\n"
+#            data += "        <colgroup>"
+#	    data += "          <col width=\"670\">"
+#	    data += "        </colgroup>\n<re>\n"
+            data += "        <tr>\n"
+            data += "            <td style=\"text-align:left;\"><b>Date:</b>&nbsp; xxxx-xx-xx \n"
             data += "            &nbsp;&nbsp;&nbsp;<b>Revision:</b>&nbsp;  ???? \n"
             data += "            &nbsp;&nbsp;&nbsp;<b>Branch:</b>&nbsp;  ???? \n"
             data += "            &nbsp;&nbsp;&nbsp;<b>Builder:</b>&nbsp;  ???? \n"
             data += "            &nbsp;&nbsp;&nbsp;<b>Build:</b>&nbsp;  ???? </td>\n"
-   	    data += "<td style=\"text-align:left;\">\n"
-	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
-            data += "    <input type=\"hidden\" name=\"exp\" value=\"all\" >\n"
-            data += "    <input type=\"hidden\" name=\"rev\" value=\"all\" >\n"
-            data += "    <input type=\"submit\" name=\"Replace\" value=\"Replace\"  maxlength=\"10\">\n"
-	    data += "  </form>\n"
+            data += "        <tr>\n"
+#   	    data += "<td style=\"text-align:left;\">\n"
+#	    data += "  <form name=\"replace_form\" method=\"POST\" action=\"plot/replace\" class=\"command replace\">\n"
+#            data += "    <input type=\"hidden\" name=\"exp\" value=\"all\" >\n"
+#            data += "    <input type=\"hidden\" name=\"rev\" value=\"all\" >\n"
+#            data += "    <input type=\"submit\" name=\"Replace\" value=\"Replace\"  maxlength=\"10\">\n"
+#	    data += "  </form>\n"
             
 	    data += "            </td>\n"
 
@@ -950,69 +963,79 @@ class EXP_plot(HtmlResource):
 
 #===================================================================================
         if l_nightly:
-	  data += "<div id=\"ap_ref\">\n  <h1>Plot Area</h1>\n"
+	  data += "<div id=\"ap_ref\">\n"
 	else:
-	  data += "<div id=\"arch_plots\">\n  <h1>Plot Area</h1>\n"
-	
+	  data += "<div id=\"arch_plots\">\n"
+	  
+	if ExpPlotError == 0:
+	  data += "<h1>Plot Area</h1>\n"
+	else:
+	  print "Error: " + str(ExpPlotError)
+	  data += "<h1><font color=\"#ff0000\">Error</font></h1>\n"
 
-        p = "public_html/archive/" + Date_from + "/buildbot/" + Rev_from + "/"
-        data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
-        
-        for comp in Archive_Button_Dict['comp']:
-	  if comp == selected_builder or selected_builder == "all":
-	    for Da in sorted(Comp_Dict[comp], reverse=True):
-              for Re in sorted(Comp_Dict[comp][Da], reverse=True):
-	        for Br in sorted(Comp_Dict[comp][Da][Re]):
-	          if Br == selected_branch or selected_branch == "all":
-	            for Bu in sorted(Comp_Dict[comp][Da][Re][Br], reverse=True):
-	              if Bu == selected_build or selected_build == "all":
-	                for Ex in Comp_Dict[comp][Da][Re][Br][Bu]:
-		          for Fi in Comp_Dict[comp][Da][Re][Br][Bu][Ex]:
-		            if Fi.strip(".png") == exp_file_Info:
-	                      data += "  <tr><td>\n"
-	                      data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
-            
-	                      data += "        <colgroup>"
-	                      data += "          <col width=\"670\">"
-#	                      data += "          <col width=\"100\">"
-#	                      data += "          <col width=\"160\">"
-#	                      data += "          <col width=\"155\">"
-#	                      data += "          <col width=\"80\">"
-#	                      data += "          <col width=\"70\">"
-	                      data += "        </colgroup>\n"
-               
-	                      data += "      <tr>\n"
-                              data += "        <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + Da + "\n"
-                              data += "        &nbsp;&nbsp;&nbsp;<b>Revision:</b>&nbsp;" 
-                              data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + Re + "\">"
-                              data += Re + "</a> "
-                              
-                              data += "        &nbsp;&nbsp;&nbsp;<b>Branch:</b>&nbsp;" 
-                              data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
-                              data +=  Br.replace('+', '/') + "</a> "
-                              
-		              data += "        &nbsp;&nbsp;&nbsp;<b>Builder:</b>&nbsp;" 
-                              data += "<a href=\"builders/" + comp + "\">"
-		              data +=  comp + "</a>\n"
-			      
-		              data += "        &nbsp;&nbsp;&nbsp;<b>Build:</b>&nbsp;<a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
-		              data += Bu  + "</a>"
-		              
-		              data += "</a></td>\n"
-                              data += "        <td><b>&nbsp</b></td>\n"
-		              data += "</tr>\n"
+	if ExpPlotError > 0:
+	  if ExpPlotError == 1:
+	    data += "<h2>Revision List for this timeperode ist emty</h2>"
+	    
+	  if ExpPlotError == 2:
+	    data += "No Plots available for experiment: <br /><b><i>" + exp_plot_Info + "</i><b>" 
+	else:
+	  p = "public_html/archive/" + Date_from + "/buildbot/" + Rev_from + "/"
+	  data += "  <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
+	  
+	  file_plotted = False
+	  for comp in Archive_Button_Dict['comp']:
+	    if comp == selected_builder or selected_builder == "all":
+	      for Da in sorted(Comp_Dict[comp], reverse=True):
+		for Re in sorted(Comp_Dict[comp][Da], reverse=True):
+		  for Br in sorted(Comp_Dict[comp][Da][Re]):
+		    if Br == selected_branch or selected_branch == "all":
+		      for Bu in sorted(Comp_Dict[comp][Da][Re][Br], reverse=True):
+			if Bu == selected_build or selected_build == "all":
+			  for Ex in Comp_Dict[comp][Da][Re][Br][Bu]:
+			    for Fi in Comp_Dict[comp][Da][Re][Br][Bu][Ex]:
+			      if Fi.strip(".png") == exp_file_Info:
+				file_plotted = True
+				data += "  <tr><td>\n"
+				data += "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"left\" width=\"660\">\n"
+	      
+				data += "        <colgroup>"
+				data += "          <col width=\"670\">"
+				data += "        </colgroup>\n"
 		
-	                      data += "    </table>\n"
-                              data += "  </td></tr>\n"
-                              data += "  <tr><td style=\"text-align:left;\">\n"        
-                              br_path = "public_html/archive/" + Da + "/buildbot/"+ Re + "/" + Br + "/" + comp 
-                              if os.path.isdir(br_path):
-	                        data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + Br + "/" + comp +"/" +  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
-			      else:
-	                        data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/" +  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
-	                      data += "  </td></tr>\n"
-		   
-        data += "</table>\n"
+				data += "      <tr>\n"
+				data += "        <td style=\"text-align:left;\"><b>Date:</b>&nbsp;" + Da + "\n"
+				data += "        &nbsp;&nbsp;&nbsp;<b>Revision:</b>&nbsp;" 
+				data += "<a href=\"https://code.zmaw.de/projects/icon/repository/revisions/" + Re + "\">"
+				data += Re + "</a> "
+				
+				data += "        &nbsp;&nbsp;&nbsp;<b>Branch:</b>&nbsp;" 
+				data += "<a href=\"https://code.zmaw.de/projects/icon/repository/show/" + Br.replace('+', '/') + "\">"
+				data +=  Br.replace('+', '/') + "</a> "
+				
+				data += "        &nbsp;&nbsp;&nbsp;<b>Builder:</b>&nbsp;" 
+				data += "<a href=\"builders/" + comp + "\">"
+				data +=  comp + "</a>\n"
+				
+				data += "        &nbsp;&nbsp;&nbsp;<b>Build:</b>&nbsp;<a href=\"builders/" + comp + "/builds/"+ Bu + "\">" 
+				data += Bu  + "</a>"
+				
+				data += "</a></td>\n"
+				data += "        <td><b>&nbsp</b></td>\n"
+				data += "</tr>\n"
+		  
+				data += "    </table>\n"
+				data += "  </td></tr>\n"
+				data += "  <tr><td style=\"text-align:left;\">\n"        
+				br_path = "public_html/archive/" + Da + "/buildbot/"+ Re + "/" + Br + "/" + comp 
+				if os.path.isdir(br_path):
+				  data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + Br + "/" + comp +"/" +  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+				else:
+				  data += "    <img src=\"archive/" + Da + "/buildbot/"+ Re + "/" + comp +"/" +  Bu + "/" + Ex + "/plots/" + Fi + "\" />\n"
+				data += "  </td></tr>\n"
+          if not file_plotted:
+            data += "<br />No plost available for this archive setting"
+	  data += "</table>\n"
         data += "</div>\n"
         data += "</div>\n"
         data += "</div>\n"
@@ -1117,6 +1140,8 @@ class EXP_plot(HtmlResource):
       if "rev_from" in req.args:
         try:
           fRev = req.args["rev_from"][0]
+          if fRev < "4774":
+              fRev = "4774"
           lRev = True
         except ValueError:
           pass
@@ -1125,6 +1150,8 @@ class EXP_plot(HtmlResource):
       if "rev_to" in req.args:
         try:
           tRev = req.args["rev_to"][0]
+          if tRev < "4774":
+              tRev = "4774"
           lRev = True
         except ValueError:
           pass
@@ -1133,6 +1160,10 @@ class EXP_plot(HtmlResource):
       if "date_from" in req.args:
         try:
           fDate = req.args["date_from"][0]
+          if fDate < "2011-06-19":
+              fDate = "2011-06-19"
+          if fDate > time.strftime("%Y-%m-%d",time.localtime(util.now())):
+              fDate = time.strftime("%Y-%m-%d",time.localtime(util.now()))
           lDate = True
         except ValueError:
           pass
@@ -1141,6 +1172,11 @@ class EXP_plot(HtmlResource):
       if "date_to" in req.args:
         try:
           tDate = req.args["date_to"][0]
+          if tDate < "2011-06-19":
+              tDate = "2011-06-19"
+          if tDate > time.strftime("%Y-%m-%d",time.localtime(util.now())):
+              tDate = time.strftime("%Y-%m-%d",time.localtime(util.now()))
+
           lDate = True
         except ValueError:
           pass
@@ -1305,6 +1341,7 @@ class EXP_plot(HtmlResource):
 	if "date_to" in request.args:
 	  try:
 	    selected_Date_to = request.args["date_to"][0]
+
 	  except ValueError:
 	    pass
 
