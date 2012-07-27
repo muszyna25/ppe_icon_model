@@ -1196,24 +1196,11 @@ CONTAINS
 #endif
     CHARACTER(len=*), PARAMETER :: method_name = 'start_mpi'
 
-    ! set defaults assuming sequential run
-    global_mpi_communicator = MPI_COMM_NULL
-    global_mpi_size  = 1        ! total number of processes in global world
-    my_global_mpi_id = 0        ! process id in global world
-    is_global_mpi_parallel = .false.
-    process_mpi_name = 'uknown'    
-    process_mpi_all_comm = MPI_COMM_NULL
     
-#ifdef _OPENMP
-    global_no_of_threads = 1
-#endif
+! #ifdef _OPENMP
+!     global_no_of_threads = 1
+! #endif
 
-    IF (PRESENT(global_name)) THEN
-      yname = TRIM(global_name)
-    ELSE
-      yname = '(unnamed)'
-    END IF
-    global_mpi_name = TRIM(yname)
     
     ! start MPI
 #ifndef NOMPI
@@ -1222,7 +1209,6 @@ CONTAINS
 #else
     CALL MPI_INIT (p_error)
 #endif
-
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a)') method_name, ' MPI_INIT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
@@ -1240,6 +1226,13 @@ CONTAINS
        STOP
     END IF
 #endif
+
+    IF (PRESENT(global_name)) THEN
+      yname = TRIM(global_name)
+    ELSE
+      yname = '(unnamed)'
+    END IF
+    global_mpi_name = TRIM(yname)
     
     ! create communicator for this process alone before
     ! potentially joining MPI2
@@ -1363,7 +1356,14 @@ CONTAINS
 ! MPI ends here
 #else
 
-  WRITE (nerr,'(a,a)')  method_name, ' No MPI: Single processor run.'
+    WRITE (nerr,'(a,a)')  method_name, ' No MPI: Single processor run.'
+    ! set defaults for sequential run
+    global_mpi_communicator = MPI_COMM_NULL
+    global_mpi_size  = 1        ! total number of processes in global world
+    my_global_mpi_id = 0        ! process id in global world
+    is_global_mpi_parallel = .false.
+    process_mpi_name = 'uknown'    
+    process_mpi_all_comm = MPI_COMM_NULL
 
 #endif
 

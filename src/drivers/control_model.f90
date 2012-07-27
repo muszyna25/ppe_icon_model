@@ -76,29 +76,29 @@ PROGRAM control_model
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
  
   !declaration of OpenMP Runtime Library Routines:
-!$  INTEGER omp_get_max_threads
-!!$  INTEGER omp_get_num_threads
-!$  INTEGER omp_get_num_procs
-!!$  INTEGER omp_get_thread_num
-!$  LOGICAL omp_get_dynamic
-
-!$  INTEGER :: max_threads_omp, num_procs_omp
-!$  LOGICAL :: ldynamic_omp
-
-  !--------------------------------------------------------------------
-  !BOC
-
-  !print out some information about OpenMP parallelization
-!$  max_threads_omp  = omp_get_max_threads()
-!$  num_procs_omp    = omp_get_num_procs()
-!$  ldynamic_omp     = omp_get_dynamic()
-!$  WRITE(message_text,'(A,I3,A,I3)')                &
-!$    & "OpenMP:  MAX_THREADS = ", max_threads_omp,  &
-!$    & ",  NUM_PROCS = ", num_procs_omp
-!$  CALL message('control_model',message_text)
-!$  WRITE(message_text,'(A,L3)')  &
-!$    & "OpenMP:  DYNAMIC = ", ldynamic_omp
-!$  CALL message('control_model',message_text)
+! !$  INTEGER omp_get_max_threads
+! !!$  INTEGER omp_get_num_threads
+! !$  INTEGER omp_get_num_procs
+! !!$  INTEGER omp_get_thread_num
+! !$  LOGICAL omp_get_dynamic
+! 
+! !$  INTEGER :: max_threads_omp, num_procs_omp
+! !$  LOGICAL :: ldynamic_omp
+! 
+!   !--------------------------------------------------------------------
+!   !BOC
+! 
+!   !print out some information about OpenMP parallelization
+! !$  max_threads_omp  = omp_get_max_threads()
+! !$  num_procs_omp    = omp_get_num_procs()
+! !$  ldynamic_omp     = omp_get_dynamic()
+! !$  WRITE(message_text,'(A,I3,A,I3)')                &
+! !$    & "OpenMP:  MAX_THREADS = ", max_threads_omp,  &
+! !$    & ",  NUM_PROCS = ", num_procs_omp
+! !$  CALL message('control_model',message_text)
+! !$  WRITE(message_text,'(A,L3)')  &
+! !$    & "OpenMP:  DYNAMIC = ", ldynamic_omp
+! !$  CALL message('control_model',message_text)
 
 #ifdef __INTEL_COMPILER
   ! Important on Intel: disable underflow exceptions:
