@@ -25,19 +25,21 @@ echo "EOM_PREPARE.SMS"
 module load python
 module load netcdf
 module load grib_api
+cdo='/perm/ms/de/deia/software/cdo-1.5.4_build/bin/cdo'
 
 
-lecget=0
-lsplitdata=0
-lcatdata=0
+lecget=1
+lsplitdata=1
+lcatdata=1
 lcpdata=1
 ldeldata=0
+
 
 #-----------------------------------------------------------------------------
 # loop over level type
 
-#for levtype1 in PL HL ML; do
- for levtype1 in ML      ; do
+for levtype1 in PL HL ML; do
+#for levtype1 in ML      ; do
 
 
 #-----------------------------------------------------------------------------
@@ -45,12 +47,7 @@ ldeldata=0
 
   YYYYMM=`echo %YMD% | cut -c 1-6`
   date01=${YYYYMM}'01'%INIHOUR%
-  date31=%YMD%%INIHOUR%
-  
-  date01=2012060100
-  date31=2012063000
- #date01=2012062000
- #date31=2012062100
+  date31=%YMD%%INIHOUR%              # e.g. 2012063000
   
   ymdh=${date01}
   while (( ${ymdh} <= ${date31} )) ; do
@@ -140,10 +137,11 @@ if [[ $lcatdata = 1 ]] ; then
  #         awk 'BEGIN { FS="_"} ; {print $7"_"$8}'          | \
  #         sed 's/.grb//'`
   varlist=`ls grb_data/%SUITE%_DOM01_${date31}_0001_*_*.grb | \
-      sed "s/grb_data\/%SUITE%_DOM01_${date31}_0001_//"      | \
+      sed "s/grb_data\/%SUITE%_DOM01_${date31}_0001_//"     | \
       sed "s/.grb//"`
 
   for var in $varlist ; do
+    \rm -rf  ${mondir}/tmp_dir
     mkdir -p ${mondir}/tmp_dir
     ymdh=${date01}
     while (( ${ymdh} <= ${date31} )) ; do
@@ -158,10 +156,53 @@ if [[ $lcatdata = 1 ]] ; then
       ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
     done                         # end days
     cd ${mondir}/tmp_dir/
+
+# all times:
+
     cat %SUITE%_DOM01_*_0001_${var}_0.grb \
         %SUITE%_DOM01_*_0001_${var}_24.grb \
         %SUITE%_DOM01_*_0001_${var}_240.grb \
       > ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_24_240.grb
+
+# time mean: (works only from day 11 onwards because of 10 day forecast verification)
+
+    DD=`echo %YMD% | cut -c 7-8`   #e.g. 30 (last day)
+    DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
+    DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
+    cat %SUITE%_DOM01_*_0001_${var}_0.grb   > %SUITE%_DOM01_${YYYYMM}_0001_${var}_0.grb
+    cat %SUITE%_DOM01_*_0001_${var}_24.grb  > %SUITE%_DOM01_${YYYYMM}_0001_${var}_24.grb   
+    cat %SUITE%_DOM01_*_0001_${var}_240.grb > %SUITE%_DOM01_${YYYYMM}_0001_${var}_240.grb
+
+    $cdo timselavg,${DDm1},1,100   %SUITE%_DOM01_${YYYYMM}_0001_${var}_0.grb   ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb
+    $cdo timselavg,${DDm1},0,100   %SUITE%_DOM01_${YYYYMM}_0001_${var}_24.grb  ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb
+    $cdo timselavg,${DDm10},10,100 %SUITE%_DOM01_${YYYYMM}_0001_${var}_0.grb   ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb
+    $cdo timselavg,${DDm10},0,100  %SUITE%_DOM01_${YYYYMM}_0001_${var}_240.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb
+
+    grib_set -s stepRange=0      ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb    out.grb
+                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb
+    grib_set -s stepRange=0      ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb   out.grb
+                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb
+    grib_set -s stepRange=24     ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb   out.grb
+                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb
+    grib_set -s stepRange=240    ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb out.grb
+                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb 
+    grib_set -s date=${YYYYMM}02 ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb    out.grb
+                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb
+    grib_set -s date=${YYYYMM}11 ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb   out.grb
+                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb
+
+    cat ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb     \
+        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb    \
+      > ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_24_mn2-${DD}.grb
+    cat ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb    \
+        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb  \
+      > ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_240_mn11-${DD}.grb
+    \rm -rf \
+        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb     \
+        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb    \
+        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb    \
+        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb
+
     cd ..
     \rm -rf ${mondir}/tmp_dir
   done                           # end var

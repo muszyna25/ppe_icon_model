@@ -356,15 +356,21 @@ suite icon_${EXPNUM}
             meter deldata   0 31 31
             event catdata
             event cpdata
-   
+
+        task eom_getmars
+            trigger testday:time_eom
+            complete (testday==complete) and not (testday:time_eom)
+            on_ecgate_submit
+
         set work "1 2 3 4"
         loop ii ( $work ) do
             task eom_metview_$ii
-                trigger (eom_prepare == complete)
+                trigger (eom_prepare == complete) and (eom_getmars == complete)
                 complete (testday==complete) and not (testday:time_eom)
                 on_ecgate_submit
                 edit metproc $ii
-           endloop   
+        endloop
+
         task eom_archive
             trigger eom_metview_1==complete and eom_metview_2==complete \
                 and eom_metview_3==complete and eom_metview_4==complete

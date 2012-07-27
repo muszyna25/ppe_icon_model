@@ -54,23 +54,27 @@ if [[ $lmetview = 1 ]] ; then
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_DOM01_'
-  export TAILFILE='_0_24_240.grb'
+ #export TAILFILE='_0_24_240.grb'
   export LMONTH=1
   export YYYYMM
   mkdir -p ${PLOTDIR}
 
- #DAYS_MONTH=`echo %YMD% | cut -c 5-6`
-  DAYS_MONTH=30
+  DAYS_MONTH=`echo %YMD% | cut -c 7-8`
+ #DAYS_MONTH=30
 
-  for DAYS_FORC in 1 10 ; do 
+  for DAYS_FC in 1 10 ; do 
     # 24h forecast verification:
     # add one day "-s -1" for verification !!!
     # substract one day from number of days (e.g. 31-1=30)
-    DAYS_ENS=`expr ${DAYS_MONTH} - ${DAYS_FORC}`
-    VERDATEHOUR=`python ${HOME}/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d ${YYYYMM}0100 -s -${DAYS_FORC}`
+    DAYS_ENS=`expr ${DAYS_MONTH} - ${DAYS_FC}`
+    VERDATEHOUR=`python ${HOME}/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d ${YYYYMM}0100 -s -${DAYS_FC}`
     VERDATE=`echo $VERDATEHOUR | cut -c1-8`
     VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
-    ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS r2B06 %SUITE%
+    STEP=`expr ${DAYS_FC} \* 24`
+    DAYS_FC_P1=`expr ${DAYS_FC} + 1`
+    export TAILFILE='_0_'${STEP}'_mn'${DAYS_FC_P1}'-'${DAYS_MONTH}'.grb'
+   #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS r2B06 %SUITE%
+    ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         r2B06 %SUITE%
 %nopp
     awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end
