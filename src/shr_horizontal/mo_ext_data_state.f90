@@ -416,6 +416,12 @@ CONTAINS
     ! number of vertical levels
     nlev = p_patch%nlev
 
+    IF (lsnowtile) THEN
+      nsfc_subs = nsfc_stat + nsfc_stat
+    ELSE
+      nsfc_subs = nsfc_stat
+    ENDIF
+
     ! predefined array shapes
     shape2d_c  = (/ nproma, nblks_c /)
     shape2d_e  = (/ nproma, nblks_e /)
@@ -2587,7 +2593,7 @@ CONTAINS
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(num_lcc) = .true. 
     REAL(wp) :: tile_frac(num_lcc), sum_frac
-    INTEGER  :: lu_subs, it_count(nsfc_subs)
+    INTEGER  :: lu_subs, it_count(nsfc_subs*2)
     INTEGER  :: npoints, npoints_sea, npoints_lake, ntiles_lnd
     INTEGER  :: i_lc_water
 
@@ -2602,11 +2608,11 @@ CONTAINS
       &  'Index list generation - number of tiles: ', nsfc_subs
     CALL message('', TRIM(message_text))
 
-    IF (lsnowtile) THEN
+!    IF (lsnowtile) THEN
       ntiles_lnd = nsfc_stat
-    ELSE
-      ntiles_lnd = nsfc_subs
-    ENDIF
+!    ELSE
+!      ntiles_lnd = nsfc_subs
+!    ENDIF
 
     DO jg = 1, n_dom 
 
@@ -2696,11 +2702,12 @@ CONTAINS
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
                    IF(lsnowtile) THEN
                      IF(ext_data(jg)%atm%snowtile_lcc(lu_subs) .EQ. 1) THEN  ! snow tile is considered
-                       it_count(i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat) + 1
-                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu + nsfc_stat),jb,i_lu + nsfc_stat) = jc
-                       ext_data(jg)%atm%gp_count_t(jb,i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat)
+!em                       it_count(i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat) + 1
+!em                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu + nsfc_stat),jb,i_lu + nsfc_stat) = jc
+!em                       ext_data(jg)%atm%gp_count_t(jb,i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat)
                        ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu + nsfc_stat)  = 0._wp ! should be snow fraction
                        ext_data(jg)%atm%lc_class_t(jc,jb,i_lu + nsfc_stat) = lu_subs
+                       ext_data(jg)%atm%gp_count_t(jb,i_lu + nsfc_stat) = 0
                      END IF
                    END IF
                  ELSE

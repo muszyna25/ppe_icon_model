@@ -51,7 +51,7 @@ MODULE mo_lnd_nwp_nml
 
   USE mo_lnd_nwp_config,      ONLY: config_nztlev      => nztlev        , &
     &                               config_nlev_snow   => nlev_snow     , &
-    &                               config_nsfc_subs   => nsfc_subs     , &
+!    &                               config_nsfc_subs   => nsfc_subs     , &
     &                               config_nsfc_stat   => nsfc_stat     , &
     &                               config_frac_thresh => frac_thresh   , &
     &                               config_lseaice     => lseaice       , &
@@ -81,7 +81,7 @@ MODULE mo_lnd_nwp_nml
 ! --------------------------------------
   INTEGER ::  nztlev            !< time integration scheme
   INTEGER ::  nlev_snow         !< number of snow layers
-  INTEGER ::  nsfc_subs         !< number of TILES   ! should be eliminated
+!  INTEGER ::  nsfc_subs         !< number of TILES   ! should be eliminated
   INTEGER ::  nsfc_stat         !< number of static tiles
   REAL(wp)::  frac_thresh       !< fraction threshold for retaining the respective 
                                 !< tile for a grid point
@@ -111,7 +111,8 @@ MODULE mo_lnd_nwp_nml
 ! nwp forcing (right hand side)
 !--------------------------------------------------------------------
 
-  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_stat   , &
+!  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_stat   , &
+  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_stat   , &
     &               frac_thresh, lseaice, llake, lmelt        , &
     &               lmelt_var, lmulti_snow, itype_gscp        , & 
     &               itype_trvg, idiag_snowfrac                , & 
@@ -164,7 +165,7 @@ MODULE mo_lnd_nwp_nml
 
     nztlev         = 2       ! 2 = default value for time integration scheme
     nlev_snow      = 1       ! 0 = default value for number of snow layers
-    nsfc_subs      = 1       ! 1 = default value for number of TILES
+!    nsfc_subs      = 1       ! 1 = default value for number of TILES
     nsfc_stat      = 1       ! 1 = default value for number of static surface types
     frac_thresh    = 0.05_wp ! fraction threshold for retaining the respective 
                              ! tile for a grid point
@@ -238,7 +239,7 @@ MODULE mo_lnd_nwp_nml
     DO jg = 1,max_dom
       config_nztlev      = nztlev
       config_nlev_snow   = nlev_snow
-      config_nsfc_subs   = nsfc_subs
+!      config_nsfc_subs   = nsfc_subs
       config_nsfc_stat   = nsfc_stat
       config_frac_thresh = frac_thresh
       config_lseaice     = lseaice

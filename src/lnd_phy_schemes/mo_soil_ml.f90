@@ -1507,21 +1507,6 @@ END SUBROUTINE message
   w_so_new(istarts:iends,ke_soil+1) = w_so_now(istarts:iends,ke_soil+1)
   w_so_ice_new(istarts:iends,:)     = w_so_ice_now(istarts:iends,:)
   
-
-!<em subs  
-!w_snow per fraction -> w_snow per unit
-!  DO i = istarts, iends
-!    IF (llandmask(i)) THEN   ! for land-points only
-!      zf_snow  (i, 1) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_now(i, 1)/cf_snow) )* &
-!                        zsf_heav(w_snow_now(i, 1) - zepsi)                               !true snow fraction
-!     zf_snow(i) = MAX(0.01_ireals, snowfrac(i))*zsf_heav(w_snow_now(i) - zepsi)
-!      IF(pt_tiles(ns)%snow_tile .OR. pt_tiles(ns)%snowfree_tile) THEN
-!        w_snow_now(i) = w_snow_now(i)*zf_snow(i, 1)
-!      END IF
-!    END IF
-!  END DO
-!em>
-
   IF (itype_heatcond == 2) THEN
 
 ! heat conductivity dependent on actual soil water content
@@ -2438,15 +2423,6 @@ END SUBROUTINE message
           zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i)
         ENDIF
 
-!em subs
-!!$        IF(pt_tiles(ns)%snowfree_tile) THEN
-!!$          IF(subsfrac(i,pt_tiles(ns)%conjunct).gt.0._ireals) THEN
-!!$            IF((1._ireals-ztsnow_pm(i))*zrs(i) > 0.0_ireals) zrs(i) = 0.0_ireals
-!!$            IF((1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) zrr(i) = 0.0_ireals
-!!$          END IF
-!!$        END IF 
-!em>
-
         ! infiltration and surface run-off
 
         ! ice free fraction of first soil layer scaled by pore volume
@@ -3219,7 +3195,6 @@ END SUBROUTINE message
 
 !          zgsb(i) = zalas*(ztsnow(i) - zts(i))/zdz_snow_fl(i)
           zgsb(i) = zalas*(ztsnow(i) - zts(i))/MAX(zdz_snow_fl(i)*zf_snow(i),cdsmin)
-!          zgsb(i) = zalas*(ztsnow(i) - zts(i))/MAX(h_snow_now(i),zepsi)
         END IF
 
         ! total forcing for uppermost soil layer
@@ -4241,57 +4216,6 @@ END SUBROUTINE message
 !---loop over tiles---
 !END DO
 !---------------------
-
-
-!!$  IF(itype_subs .EQ. 2) THEN           ! tiles
-!!$    DO ns = nsubs0+1, nsubs1, 2        ! 1 - mean, 2 - ocean, 3 - lake, 4 - no snow first
-!!$        DO i = istarts, iends
-!!$          IF (llandmask(i)) THEN  ! for landpoints only  !check is not necessary
-!!$    
-!!$            fact1 = subsfrac(i-1)+subsfrac(i)
-!!$            w_snow_new(i  ) = (w_snow_new(i)  *subsfrac(i) + &
-!!$                                     w_snow_new(i-1)*subsfrac(i-1))/MAX(fact1,zepsi)
-!!$            w_snow_new(i-1) = 0._ireals
-!!$
-!!$            zf_snow_old(i) = subsfrac(i) / (subsfrac(i-1) + subsfrac(i))
-!!$            zf_snow    (i) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_new(i)/cf_snow) )* &
-!!$                               zsf_heav(w_snow_new(i) - zepsi)
-!!$
-!!$            w_snow_new(i  ) = w_snow_new(i)/MAX(zf_snow(i),zepsi)
-!!$
-!!$            subsfrac(i-1) = (1._ireals - zf_snow(i))*fact1
-!!$            subsfrac(i  ) = zf_snow(i)              *fact1
-!!$          END IF  ! land-points only
-!!$        END DO
-!!$      DO kso = 1,ke_soil
-!!$          DO i = istarts, iends
-!!$            IF (llandmask(i)) THEN  ! for landpoints only  !check is not necessary
-!!$
-!!$              fact1 = (MIN(1._ireals - zf_snow_old(i), 1._ireals - zf_snow(i))) &
-!!$                &     /MAX((1._ireals - zf_snow(i)),zepsi) 
-!!$              fact2 = (MAX(zf_snow(i) - zf_snow_old(i), 0._ireals))/MAX(zf_snow(i), zepsi) 
-!!$    
-!!$              tmp1 = t_so_new    (i,kso-1)
-!!$              tmp2 = w_so_new    (i,kso-1)
-!!$              tmp3 = w_so_ice_new(i,kso-1)
-!!$  
-!!$              t_so_new    (i,kso-1) = t_so_new(i,kso-1)*fact1 &
-!!$                &                         + t_so_new(i,kso)*(1._ireals - fact1)
-!!$              w_so_new    (i,kso-1) = w_so_new(i,kso-1)*fact1 &
-!!$                &                         + w_so_new(i,kso)*(1._ireals - fact1)
-!!$              w_so_ice_new(i,kso-1) = w_so_ice_new(i,kso-1)*fact1 &
-!!$                &                         + w_so_ice_new(i,kso)*(1._ireals - fact1)
-!!$  
-!!$              t_so_new    (i,kso) = tmp1*fact2 + t_so_new(i,kso)*(1._ireals-fact2)
-!!$              w_so_new    (i,kso) = tmp2*fact2 + w_so_new(i,kso)*(1._ireals-fact2)
-!!$              w_so_ice_new(i,kso) = tmp3*fact2 + w_so_ice_new(i,kso)*(1._ireals-fact2)
-!!$
-!!$            END IF  ! land-points only
-!!$          END DO
-!!$      END DO        ! soil layers
-!!$    END DO
-!!$ END IF
-
 
 !  DO ns = nsubs0, nsubs1
   !em>
