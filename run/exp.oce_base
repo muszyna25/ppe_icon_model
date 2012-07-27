@@ -137,7 +137,8 @@ cat > ${ocean_namelist} << EOF
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =1                     ! initialize one cell debug output
-  dbg_lat_in=30.0 dbg_lon_in=10.0 ! lat/lon-location of one cell debug output
+  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
   str_mod_tst='all', 'module'     ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
