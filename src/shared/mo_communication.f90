@@ -771,9 +771,9 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
@@ -963,9 +963,9 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    ENDIF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Fill in receive buffer
@@ -1613,9 +1613,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
@@ -1918,9 +1918,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    ENDIF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Fill in receive buffer
@@ -2029,9 +2029,9 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
 
 !-----------------------------------------------------------------------
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
@@ -2226,9 +2226,9 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
    ENDIF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Fill in receive buffer
@@ -2311,9 +2311,9 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
 !-----------------------------------------------------------------------
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
 !$OMP MASTER
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
 !$OMP END MASTER
 !$OMP BARRIER
    ENDIF
@@ -2583,9 +2583,9 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    ENDIF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
 !$OMP END MASTER
@@ -2913,9 +2913,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
@@ -3173,9 +3173,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     CALL timer_start(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
-     CALL timer_stop(timer_barrier)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    ! Copy exchanged data back to receive buffer

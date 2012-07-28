@@ -62,6 +62,8 @@ MODULE mo_gnat_gridsearch
     &                               p_allreduce_minloc, p_comm_work
   USE mo_kind
   USE mo_grid_config,         ONLY: grid_sphere_radius
+  USE mo_run_config,          ONLY: ltimer
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_extra1
 
   IMPLICIT NONE
 
@@ -352,6 +354,7 @@ CONTAINS
     ! note: On the SX it might be cheaper to compute all distances (vectorized)
     ! outside of the following loop (though many won't be needed then)
 #ifdef __SX__
+!CDIR IEXPAND
     CALL dist_vect(tree%p, v, isplit_pts, pdist)
     count_dist = count_dist + isplit_pts
 #endif
@@ -973,8 +976,11 @@ CONTAINS
     in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ total_dim /) )
     in(2,:) = REAL( my_id )
     IF (p_patch%n_patch_cells == 0) in(2,:) = -1.;
-    
+
+    ! Temporarily introduce a timer to facilitate analyzing possible load balance issues
+    IF (ltimer) CALL timer_start(timer_extra1)
     CALL p_allreduce_minloc(in, total_dim, p_comm_work)
+    IF (ltimer) CALL timer_stop(timer_extra1)
 
     ! 2. If we are a working PE, reduce the list of in_points and the
     !    tri_idx array to points which are actually located on this
