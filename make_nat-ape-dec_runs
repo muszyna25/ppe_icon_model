@@ -81,6 +81,8 @@ create_dec()
     cd $base_folder
   fi
 
+  atmo_dyn_gridname=""
+  
 }
 #==============================================================================
 
@@ -130,7 +132,7 @@ create_weak_scaling()
   grid_base_level_dec_92=2
   grid_base_level_dec_162=2
   grid_base_level_dec_362=3
-  grid_base_level_dec_642=3
+  grid_base_level_dec_642=2
   grid_base_level_dec_1082=4
   grid_base_level_dec_1442=4
   grid_base_level_dec_1922=4
@@ -191,8 +193,8 @@ create_weak_scaling_on_blizzard()
   cells_per_domain=24
   division_method=0
   outname="nat-ape_hexdec-24cells"
-  ndays=30
-  cpu_time="00:10:00"
+  ndays=60
+  cpu_time="00:20:00"
   dt_rad=1800
   #---------------------------------
   run="true"

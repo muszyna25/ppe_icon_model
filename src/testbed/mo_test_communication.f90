@@ -38,7 +38,7 @@ MODULE mo_test_communication
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
-    & print_timer
+    & print_timer, activate_sync_timers
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
@@ -70,6 +70,175 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+    
+    CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_communication"
+
+
+    !---------------------------------------------------------------------
+
+    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
+    
+    ltimer = .false.
+    activate_sync_timers = .false.
+    CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
+    CALL prepare_ha_dyn( p_patch(1:) )
+!     CALL construct_icon_communication()
+    !---------------------------------------------------------------------
+        
+    !---------------------------------------------------------------------
+    ! DO the tests
+    ltimer = .true.
+    activate_sync_timers = .true.
+    CALL test_communication_3D()
+    !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! Carry out the shared clean-up processes
+    !---------------------------------------------------------------------
+    CALL destruct_icoham_dyn_state()
+    CALL destruct_atmo_model()
+!     CALL destruct_icon_communication()
+    CALL message(TRIM(method_name),'clean-up finished')
+
+    !---------------------------------------------------------------------
+    ! print the timers
+!    IF (my_process_is_stdio()) THEN
+      CALL message("===================", "=======================")
+      WRITE(message_text,*) "Communication Iterations=", testbed_iterations
+      CALL message(method_name, TRIM(message_text))
+      CALL print_timer()
+!    ENDIF
+    !---------------------------------------------------------------------
+     
+
+  END SUBROUTINE test_communication
+  !-------------------------------------------------------------------------
+    
+  
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_communication_3D()
+    
+    
+    !---------------------------------------------------------------------
+    ! test the 3D sync
+    !---------------------------------------------------------------------
+    itype_comm = 1
+    iorder_sendrecv = 1
+    CALL test_oldsync_cells_3D("sync_1_1")
+    CALL test_oldsync_edges_3D("sync_1_1")
+    
+    itype_comm = 1
+    iorder_sendrecv = 3
+    CALL test_oldsync_cells_3D("sync_1_3")
+    CALL test_oldsync_edges_3D("sync_1_3")
+    
+
+    RETURN
+  END SUBROUTINE test_communication_3D
+  !-------------------------------------------------------------------------
+    
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_oldsync_cells_3D(timer_descr)
+    CHARACTER(len=*), INTENT(in) :: timer_descr
+
+    ! 3D variables
+    REAL(wp), POINTER :: pnt_3D_cells_1(:,:,:), pnt_3D_cells_2(:,:,:), pnt_3D_cells_3(:,:,:), &
+      & pnt_3D_cells_4(:,:,:)
+          
+    INTEGER :: timer_3D_cells_1, timer_3D_cells_2, timer_3D_cells_3, timer_3D_cells_4
+    
+    INTEGER :: timer_sync_1_2_3D_cells
+    
+    
+    INTEGER :: patch_no
+
+    patch_no=1
+    
+    pnt_3D_cells_1 => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
+    pnt_3D_cells_2 => p_hydro_state(patch_no)%diag%qx(:,:,:)
+    pnt_3D_cells_3 => p_hydro_state(patch_no)%diag%u(:,:,:)
+    pnt_3D_cells_4 => p_hydro_state(patch_no)%diag%v(:,:,:)
+    pnt_3D_cells_1(:,:,:) = 0.0_wp
+    pnt_3D_cells_2(:,:,:) = 0.0_wp
+    pnt_3D_cells_3(:,:,:) = 0.0_wp
+    pnt_3D_cells_4(:,:,:) = 0.0_wp
+    
+    timer_3D_cells_1  = new_timer  (timer_descr//"_3dcells_1")
+    CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1, &
+      & timer_id=timer_3D_cells_1, patch_no=patch_no)
+      
+    timer_3D_cells_2  = new_timer  (timer_descr//"_3dcells_2")
+    CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
+      & timer_id=timer_3D_cells_2, patch_no=patch_no)
+      
+    timer_3D_cells_3  = new_timer  (timer_descr//"_3dcells_3")
+    CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
+      & var3=pnt_3D_cells_3, &
+      & timer_id=timer_3D_cells_3, patch_no=patch_no)
+      
+    timer_3D_cells_4  = new_timer  (timer_descr//"_3dcells_4")
+    CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
+      & var3=pnt_3D_cells_3,var4=pnt_3D_cells_4, &
+      & timer_id=timer_3D_cells_4, patch_no=patch_no)
+  
+  END SUBROUTINE test_oldsync_cells_3D
+  !-------------------------------------------------------------------------
+    
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_oldsync_edges_3D(timer_descr)
+    CHARACTER(len=*), INTENT(in) :: timer_descr
+    
+    ! 3D variables
+    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:), &
+      & pnt_3D_edges_4(:,:,:)
+          
+    INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3, timer_3D_edges_4
+        
+    INTEGER :: patch_no
+
+    patch_no=1
+    
+    pnt_3D_edges_1 => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
+    pnt_3D_edges_2 => p_hydro_state(patch_no)%diag%vt(:,:,:)
+    pnt_3D_edges_3 => p_hydro_state(patch_no)%diag%delp_e(:,:,:)
+    pnt_3D_edges_4 => p_hydro_state(patch_no)%diag%mass_flux_e(:,:,:)
+    pnt_3D_edges_1(:,:,:) = 0.0_wp
+    pnt_3D_edges_2(:,:,:) = 0.0_wp
+    pnt_3D_edges_3(:,:,:) = 0.0_wp
+    pnt_3D_edges_4(:,:,:) = 0.0_wp
+    
+    timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
+    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1, &
+      & timer_id=timer_3D_edges_1, patch_no=patch_no)
+      
+    timer_3D_edges_2  = new_timer  (timer_descr//"_3dedges_2")
+    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+      & timer_id=timer_3D_edges_2, patch_no=patch_no)
+      
+    timer_3D_edges_3  = new_timer  (timer_descr//"_3dedges_3")
+    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+      & var3=pnt_3D_edges_3, &
+      & timer_id=timer_3D_edges_3, patch_no=patch_no)
+      
+    timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
+    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+      & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
+      & timer_id=timer_3D_edges_4, patch_no=patch_no)
+  
+  END SUBROUTINE test_oldsync_edges_3D
+  !-------------------------------------------------------------------------
+    
+    
+  !-------------------------------------------------------------------------
+  SUBROUTINE test_communication_2D
 
     ! 2D variables
     REAL(wp), POINTER :: pnt_2D_cells(:,:), pnt_2D_edges(:,:), pnt_2D_verts(:,:)
@@ -90,26 +259,7 @@ CONTAINS
     INTEGER :: timer_iconcom_2D_cells, timer_iconcom_2D_edges, timer_iconcom_2D_verts, &
       & timer_iconcom_2D_all, timer_iconcom_2D_comb, timer_iconcom_2D_keep
 
-    ! 3D variables
-    REAL(wp), POINTER :: pnt_3D_cells(:,:,:), pnt_3D_edges(:,:,:), pnt_3D_verts(:,:,:)
     
-    INTEGER :: timer_sync_1_1_3D_cells, timer_sync_1_1_3D_edges, timer_sync_1_1_3D_verts, &
-      & timer_sync_1_1_3D_all
-    INTEGER :: timer_sync_1_2_3D_cells, timer_sync_1_2_3D_edges, timer_sync_1_2_3D_verts, &
-      & timer_sync_1_2_3D_all
-!     INTEGER :: timer_sync_2_1_3D_cells, timer_sync_2_1_3D_edges, timer_sync_2_1_3D_verts, &
-!       & timer_sync_2_1_3D_all
-!     INTEGER :: timer_sync_2_2_3D_cells, timer_sync_2_2_3D_edges, timer_sync_2_2_3D_verts, &
-!       & timer_sync_2_2_3D_all
-!     INTEGER :: timer_sync_3_1_3D_cells, timer_sync_3_1_3D_edges, timer_sync_3_1_3D_verts, &
-!       & timer_sync_3_1_3D_all
-!     INTEGER :: timer_sync_3_2_3D_cells, timer_sync_3_2_3D_edges, timer_sync_3_2_3D_verts, &
-!       & timer_sync_3_2_3D_all
-    
-    INTEGER :: timer_iconcom_3D_cells, timer_iconcom_3D_edges, timer_iconcom_3D_verts, &
-      & timer_iconcom_3D_all, timer_iconcom_3D_comb, timer_iconcom_3D_keep
-
-
     ! other
     INTEGER :: comm_1, comm_2, comm_3
     
@@ -118,44 +268,12 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_communication"
 
-
-    !---------------------------------------------------------------------
-
-    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
-    
-    !---------------------------------------------------------------------
-
-    ltimer = .false.
-    CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL prepare_ha_dyn( p_patch(1:) )
-!     CALL construct_icon_communication()
-    
-    
     !---------------------------------------------------------------------
     patch_no=1
     
     pnt_2D_cells => p_patch(patch_no)%cells%area(:,:)
     pnt_2D_edges => p_patch(patch_no)%edges%primal_edge_length(:,:)
     pnt_2D_verts => p_patch(patch_no)%verts%dual_area(:,:)
-    
-    pnt_3D_cells => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
-    pnt_3D_edges => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
-    pnt_3D_verts => p_hydro_state(patch_no)%diag%rel_vort(:,:,:)
-
-    
-    !---------------------------------------------------------------------
-    ! Call cmmunication methods
-  ! INTEGER :: itype_comm = 1
-  ! 1 = synchronous communication with local memory for exchange buffers
-  ! 2 = synchronous communication with global memory for exchange buffers
-  ! 3 = asynchronous communication within dynamical core with global memory 
-  !     for exchange buffers (not yet implemented)
-
-  ! Order of send/receive sequence in exchange routines
- ! INTEGER :: iorder_sendrecv = 1
-  ! 1 = irecv, send
-  ! 2 = isend, recv
-    
     !---------------------------------------------------------------------
     ! test the 2D sync
     !---------------------------------------------------------------------
@@ -332,411 +450,54 @@ CONTAINS
     CALL delete_icon_comm_variable(comm_2)
     CALL delete_icon_comm_variable(comm_3)
     !---------------------------------------------------------------------
+  END SUBROUTINE test_communication_2D
+  !-------------------------------------------------------------------------
     
+  !-------------------------------------------------------------------------
+  SUBROUTINE test_oldsync_3D(comm_pattern, var1, var2, var3, var4, timer_id, patch_no)
+    INTEGER :: comm_pattern, timer_id, patch_no
+    REAL(wp) , POINTER:: var1(:,:,:)
+    REAL(wp) , POINTER, OPTIONAL :: var2(:,:,:), var3(:,:,:), var4(:,:,:)
 
-    !---------------------------------------------------------------------
-    ! test the 3D sync
-    !---------------------------------------------------------------------
-    itype_comm = 1
-    iorder_sendrecv = 1
-    timer_sync_1_1_3D_cells  = new_timer  ("sync_1_1_3D_cells")
-    timer_sync_1_1_3D_edges  = new_timer  ("sync_1_1_3D_edges")
-    timer_sync_1_1_3D_verts  = new_timer  ("sync_1_1_3D_verts")
-    timer_sync_1_1_3D_all    = new_timer  ("sync_1_1_3D_all")
+    INTEGER :: i
 
     CALL work_mpi_barrier()
-    CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_1_1_3D_cells)
-    CALL work_mpi_barrier()
-    CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_1_1_3D_edges)
-    CALL work_mpi_barrier()
-    CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_1_1_3D_verts)
-    CALL work_mpi_barrier()
-    CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_1_1_3D_all)
+    
+    IF (.NOT. PRESENT(var2)) THEN
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL sync_patch_array( comm_pattern, p_patch(patch_no), var1 )
+        CALL timer_stop(timer_id)
+      ENDDO
+      RETURN
+    ENDIF
+
+    IF (PRESENT(var4)) THEN
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL sync_patch_array_mult(comm_pattern, p_patch(patch_no), 4, var1, var2, var3, var4)
+        CALL timer_stop(timer_id)
+      ENDDO
         
-    !---------------------------------------------------------------------
-    itype_comm = 1
-    iorder_sendrecv = 2
-    timer_sync_1_2_3D_cells  = new_timer  ("sync_1_2_3D_cells")
-    timer_sync_1_2_3D_edges  = new_timer  ("sync_1_2_3D_edges")
-    timer_sync_1_2_3D_verts  = new_timer  ("sync_1_2_3D_verts")
-    timer_sync_1_2_3D_all    = new_timer  ("sync_1_2_3D_all")
-
-    CALL work_mpi_barrier()
-    CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_1_2_3D_cells)
-    CALL work_mpi_barrier()
-    CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_1_2_3D_edges)
-    CALL work_mpi_barrier()
-    CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_1_2_3D_verts)
-    CALL work_mpi_barrier()
-    CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_1_2_3D_all)
-
-    !---------------------------------------------------------------------
-!     itype_comm = 2
-!     iorder_sendrecv = 1
-!     timer_sync_2_1_3D_cells  = new_timer  ("sync_2_1_3D_cells")
-!     timer_sync_2_1_3D_edges  = new_timer  ("sync_2_1_3D_edges")
-!     timer_sync_2_1_3D_verts  = new_timer  ("sync_2_1_3D_verts")
-!     timer_sync_2_1_3D_all    = new_timer  ("sync_2_1_3D_all")
-! 
-!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_2_1_3D_cells)
-!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_2_1_3D_edges)
-!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_2_1_3D_verts)
-!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_2_1_3D_all)
-!         
-!     !---------------------------------------------------------------------
-!     itype_comm = 2
-!     iorder_sendrecv = 2
-!     timer_sync_2_2_3D_cells  = new_timer  ("sync_2_2_3D_cells")
-!     timer_sync_2_2_3D_edges  = new_timer  ("sync_2_2_3D_edges")
-!     timer_sync_2_2_3D_verts  = new_timer  ("sync_2_2_3D_verts")
-!     timer_sync_2_2_3D_all    = new_timer  ("sync_2_2_3D_all")
-! 
-!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_2_2_3D_cells)
-!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_2_2_3D_edges)
-!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_2_2_3D_verts)
-!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_2_2_3D_all)
-!         
-!     !---------------------------------------------------------------------
-!     itype_comm = 3
-!     iorder_sendrecv = 1
-!     timer_sync_3_1_3D_cells  = new_timer  ("sync_3_1_3D_cells")
-!     timer_sync_3_1_3D_edges  = new_timer  ("sync_3_1_3D_edges")
-!     timer_sync_3_1_3D_verts  = new_timer  ("sync_3_1_3D_verts")
-!     timer_sync_3_1_3D_all    = new_timer  ("sync_3_1_3D_all")
-! 
-!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_3_1_3D_cells)
-!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_3_1_3D_edges)
-!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_3_1_3D_verts)
-!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_3_1_3D_all)
-!         
-!     !---------------------------------------------------------------------
-!     itype_comm = 3
-!     iorder_sendrecv = 2
-!     timer_sync_3_2_3D_cells  = new_timer  ("sync_3_2_3D_cells")
-!     timer_sync_3_2_3D_edges  = new_timer  ("sync_3_2_3D_edges")
-!     timer_sync_3_2_3D_verts  = new_timer  ("sync_3_2_3D_verts")
-!     timer_sync_3_2_3D_all    = new_timer  ("sync_3_2_3D_all")
-! 
-!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_3_2_3D_cells)
-!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_3_2_3D_edges)
-!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_3_2_3D_verts)
-!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_3_2_3D_all)
+   ELSEIF (PRESENT(var3)) THEN
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL sync_patch_array_mult(comm_pattern, p_patch(patch_no), 3, var1, var2, var3)
+        CALL timer_stop(timer_id)
+      ENDDO
+   ELSE
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL sync_patch_array_mult(comm_pattern, p_patch(patch_no), 2, var1, var2)
+        CALL timer_stop(timer_id)
+      ENDDO
+   ENDIF
     
+   CALL work_mpi_barrier()
     
-
-    !---------------------------------------------------------------------
-    ! test the 3D icon_comm_lib
-    !---------------------------------------------------------------------
-    timer_iconcom_3D_cells  = new_timer  ("iconcom_3D_cells")
-    timer_iconcom_3D_edges  = new_timer  ("iconcom_3D_edges")
-    timer_iconcom_3D_verts  = new_timer  ("iconcom_3D_verts")
-    timer_iconcom_3D_all    = new_timer  ("iconcom_3D_all")
-    timer_iconcom_3D_comb   = new_timer  ("iconcom_3D_comb")
-    timer_iconcom_3D_keep   = new_timer  ("iconcom_3D_keep")
-    
-    ! test the 3D iconcom on cells
-    CALL work_mpi_barrier()
-    CALL timer_start(timer_iconcom_3D_cells)
-    DO i=1,testbed_iterations
-      CALL icon_comm_sync(pnt_3D_cells, cells_not_in_domain, p_patch(patch_no))
-      CALL do_calculations()
-    ENDDO
-    CALL timer_stop(timer_iconcom_3D_cells)
-
-    CALL work_mpi_barrier()
-
-    ! test the 3D iconcom on edges
-    CALL work_mpi_barrier()
-    CALL timer_start(timer_iconcom_3D_edges)
-    DO i=1,testbed_iterations
-      CALL icon_comm_sync(pnt_3D_edges, edges_not_owned, p_patch(patch_no))
-      CALL do_calculations()
-    ENDDO
-    CALL timer_stop(timer_iconcom_3D_edges)
-    
-    ! test the 3D iconcom on verts
-    CALL timer_start(timer_iconcom_3D_verts)
-    DO i=1,testbed_iterations
-      CALL icon_comm_sync(pnt_3D_verts, verts_not_owned, p_patch(patch_no))
-      CALL do_calculations()
-    ENDDO
-    CALL timer_stop(timer_iconcom_3D_verts)
-    
-    ! test the 3D iconcom on all
-    CALL work_mpi_barrier()
-    CALL timer_start(timer_iconcom_3D_all)
-    DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_3D_cells, cells_not_in_domain, p_patch(patch_no))
-       CALL icon_comm_sync(pnt_3D_edges, edges_not_owned, p_patch(patch_no))
-       CALL icon_comm_sync(pnt_3D_verts, verts_not_owned, p_patch(patch_no))
-    ENDDO
-    CALL timer_stop(timer_iconcom_3D_all)
-    
-    ! test the 3D iconcom on combined
-    CALL work_mpi_barrier()
-    CALL timer_start(timer_iconcom_3D_comb)
-    DO i=1,testbed_iterations
-    
-      comm_1 = new_icon_comm_variable(pnt_3D_cells, cells_not_in_domain, &
-        & p_patch(patch_no), status=is_ready, scope=until_sync)
-         
-      comm_2 = new_icon_comm_variable(pnt_3D_edges, &
-        & edges_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
-       
-      comm_3 = new_icon_comm_variable(pnt_3D_verts, &
-        & verts_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
-
-      CALL icon_comm_sync_all()
-
-      CALL do_calculations()
-      CALL do_calculations()
-      CALL do_calculations()
-
-    ENDDO
-    CALL timer_stop(timer_iconcom_3D_comb)
-    
-    ! test the 3D iconcom on keeping the communicators
-    comm_1 = new_icon_comm_variable(pnt_3D_cells, cells_not_in_domain, &
-      & p_patch(patch_no))
-    comm_2 = new_icon_comm_variable(pnt_3D_edges, &
-      & edges_not_owned, p_patch(patch_no))
-    comm_3 = new_icon_comm_variable(pnt_3D_verts, &
-      & verts_not_owned, p_patch(patch_no))
-    
-    CALL work_mpi_barrier()
-    CALL timer_start(timer_iconcom_3D_keep)
-    DO i=1,testbed_iterations
-    
-      CALL icon_comm_var_is_ready(comm_1)
-      CALL icon_comm_var_is_ready(comm_2)
-      CALL icon_comm_var_is_ready(comm_3)
-      CALL icon_comm_sync_all()
- 
-      CALL do_calculations()
-      CALL do_calculations()
-      CALL do_calculations()
-        
-    ENDDO
-    CALL timer_stop(timer_iconcom_3D_keep)
-    CALL delete_icon_comm_variable(comm_3)
-    CALL delete_icon_comm_variable(comm_2)
-    CALL delete_icon_comm_variable(comm_1)
-    !---------------------------------------------------------------------
-    
-    
-
-    !---------------------------------------------------------------------
-    ! Carry out the shared clean-up processes
-    !---------------------------------------------------------------------
-    CALL destruct_icoham_dyn_state()
-    CALL destruct_atmo_model()
-!     CALL destruct_icon_communication()
-    CALL message(TRIM(method_name),'clean-up finished')
-
-    !---------------------------------------------------------------------
-    ! print the timers
-!    IF (my_process_is_stdio()) THEN
-      CALL message("===================", "=======================")
-      WRITE(message_text,*) "Communication Iterations=", testbed_iterations
-      CALL message(method_name, TRIM(message_text))
-      CALL print_timer()
-!    ENDIF
-    !---------------------------------------------------------------------
-     
-
-  END SUBROUTINE test_communication
+  END SUBROUTINE test_oldsync_3D
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  !!
-  SUBROUTINE test_nh_communication(namelist_filename,shr_namelist_filename)
-
-    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
-    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
-    ! 2D variables
-    REAL(wp), POINTER :: pnt_2D_cells(:,:), pnt_2D_edges(:,:), pnt_2D_verts(:,:)
-    
-    INTEGER :: timer_sync_1_1_2D_cells, timer_sync_1_1_2D_edges, timer_sync_1_1_2D_verts, &
-      & timer_sync_1_1_2D_all
-    INTEGER :: timer_sync_1_2_2D_cells, timer_sync_1_2_2D_edges, timer_sync_1_2_2D_verts, &
-      & timer_sync_1_2_2D_all
-!     INTEGER :: timer_sync_2_1_2D_cells, timer_sync_2_1_2D_edges, timer_sync_2_1_2D_verts, &
-!       & timer_sync_2_1_2D_all
-!     INTEGER :: timer_sync_2_2_2D_cells, timer_sync_2_2_2D_edges, timer_sync_2_2_2D_verts, &
-!       & timer_sync_2_2_2D_all
-!     INTEGER :: timer_sync_3_1_2D_cells, timer_sync_3_1_2D_edges, timer_sync_3_1_2D_verts, &
-!       & timer_sync_3_1_2D_all
-!     INTEGER :: timer_sync_3_2_2D_cells, timer_sync_3_2_2D_edges, timer_sync_3_2_2D_verts, &
-!       & timer_sync_3_2_2D_all
-    
-    INTEGER :: timer_iconcom_2D_cells, timer_iconcom_2D_edges, timer_iconcom_2D_verts, &
-      & timer_iconcom_2D_all, timer_iconcom_2D_comb, timer_iconcom_2D_keep
-
-    ! 3D variables
-    REAL(wp), POINTER :: pnt_3D_cells(:,:,:), pnt_3D_edges(:,:,:), pnt_3D_verts(:,:,:)
-    
-    INTEGER :: timer_sync_1_1_3D_cells, timer_sync_1_1_3D_edges, timer_sync_1_1_3D_verts, &
-      & timer_sync_1_1_3D_all
-    INTEGER :: timer_sync_1_2_3D_cells, timer_sync_1_2_3D_edges, timer_sync_1_2_3D_verts, &
-      & timer_sync_1_2_3D_all
-!     INTEGER :: timer_sync_2_1_3D_cells, timer_sync_2_1_3D_edges, timer_sync_2_1_3D_verts, &
-!       & timer_sync_2_1_3D_all
-!     INTEGER :: timer_sync_2_2_3D_cells, timer_sync_2_2_3D_edges, timer_sync_2_2_3D_verts, &
-!       & timer_sync_2_2_3D_all
-!     INTEGER :: timer_sync_3_1_3D_cells, timer_sync_3_1_3D_edges, timer_sync_3_1_3D_verts, &
-!       & timer_sync_3_1_3D_all
-!     INTEGER :: timer_sync_3_2_3D_cells, timer_sync_3_2_3D_edges, timer_sync_3_2_3D_verts, &
-!       & timer_sync_3_2_3D_all
-    
-    INTEGER :: timer_iconcom_3D_cells, timer_iconcom_3D_edges, timer_iconcom_3D_verts, &
-      & timer_iconcom_3D_all, timer_iconcom_3D_comb, timer_iconcom_3D_keep
-
-
-    ! other
-    INTEGER :: comm_1, comm_2, comm_3
-    
-    INTEGER :: patch_no, i
-
-    
-    CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_communication"
-
-
-    !---------------------------------------------------------------------
-
-    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
-    
-    !---------------------------------------------------------------------
-
-    ltimer = .false.
-    CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL construct_atmo_nonhydrostatic()
-    
-    
-    !---------------------------------------------------------------------
-    patch_no=1
-    
-    pnt_2D_cells => p_patch(patch_no)%cells%area(:,:)
-    pnt_2D_edges => p_patch(patch_no)%edges%primal_edge_length(:,:)
-    pnt_2D_verts => p_patch(patch_no)%verts%dual_area(:,:)
-    
-    pnt_3D_cells => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
-    pnt_3D_edges => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
-    pnt_3D_verts => p_hydro_state(patch_no)%diag%rel_vort(:,:,:)
-
-    
-    !---------------------------------------------------------------------
-    ! Call cmmunication methods
-  ! INTEGER :: itype_comm = 1
-  ! 1 = synchronous communication with local memory for exchange buffers
-  ! 2 = synchronous communication with global memory for exchange buffers
-  ! 3 = asynchronous communication within dynamical core with global memory 
-  !     for exchange buffers (not yet implemented)
-
-  ! Order of send/receive sequence in exchange routines
- ! INTEGER :: iorder_sendrecv = 1
-  ! 1 = irecv, send
-  ! 2 = isend, recv
-    
-    !---------------------------------------------------------------------
-    ! test the 2D sync
-    !---------------------------------------------------------------------
-    itype_comm = 1
-    iorder_sendrecv = 1
-    timer_sync_1_1_2D_cells  = new_timer  ("sync_1_1_2D_cells")
-    timer_sync_1_1_2D_edges  = new_timer  ("sync_1_1_2D_edges")
-    timer_sync_1_1_2D_verts  = new_timer  ("sync_1_1_2D_verts")
-    timer_sync_1_1_2D_all    = new_timer  ("sync_1_1_2D_all")
-
-    CALL work_mpi_barrier()
-    CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_1_1_2D_cells)
-    CALL work_mpi_barrier()
-    CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_1_1_2D_edges)
-    CALL work_mpi_barrier()
-    CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_1_1_2D_verts)
-    CALL work_mpi_barrier()
-    CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_1_1_2D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 1
-    iorder_sendrecv = 2
-    timer_sync_1_2_2D_cells  = new_timer  ("sync_1_2_2D_cells")
-    timer_sync_1_2_2D_edges  = new_timer  ("sync_1_2_2D_edges")
-    timer_sync_1_2_2D_verts  = new_timer  ("sync_1_2_2D_verts")
-    timer_sync_1_2_2D_all    = new_timer  ("sync_1_2_2D_all")
-
-    CALL work_mpi_barrier()
-    CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_1_2_2D_cells)
-    CALL work_mpi_barrier()
-    CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_1_2_2D_edges)
-    CALL work_mpi_barrier()
-    CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_1_2_2D_verts)
-    CALL work_mpi_barrier()
-    CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_1_2_2D_all)
-
-
-    !---------------------------------------------------------------------
-    ! test the 2D icon_comm_lib
-    !---------------------------------------------------------------------
-    timer_iconcom_2D_cells  = new_timer  ("iconcom_2D_cells")
-    timer_iconcom_2D_edges  = new_timer  ("iconcom_2D_edges")
-    timer_iconcom_2D_verts  = new_timer  ("iconcom_2D_verts")
-    timer_iconcom_2D_all    = new_timer  ("iconcom_2D_all")
-    timer_iconcom_2D_comb   = new_timer  ("iconcom_2D_comb")
-    timer_iconcom_2D_keep   = new_timer  ("iconcom_2D_keep")
-    
-    ! test the 2D iconcom on cells
-    
-    
-    ! test the 2D iconcom on keeping the communicators
-    comm_1 = new_icon_comm_variable(pnt_2D_cells, cells_not_in_domain, &
-      & p_patch(patch_no))
-    comm_2 = new_icon_comm_variable(pnt_2D_edges, &
-      & edges_not_owned, p_patch(patch_no))
-    comm_3 = new_icon_comm_variable(pnt_2D_verts, &
-      & verts_not_owned, p_patch(patch_no))
-    
-    CALL work_mpi_barrier()
-    CALL timer_start(timer_iconcom_2D_keep)
-    DO i=1,testbed_iterations
-    
-       CALL icon_comm_var_is_ready(comm_1)
-       CALL icon_comm_var_is_ready(comm_2)
-       CALL icon_comm_var_is_ready(comm_3)
-       CALL icon_comm_sync_all()
-       
-    ENDDO
-    CALL timer_stop(timer_iconcom_2D_keep)
-    CALL delete_icon_comm_variable(comm_1)
-    CALL delete_icon_comm_variable(comm_2)
-    CALL delete_icon_comm_variable(comm_3)
-    !---------------------------------------------------------------------
-    
-
-    
-
-    !---------------------------------------------------------------------
-    ! Carry out the shared clean-up processes
-    !---------------------------------------------------------------------
-    CALL destruct_atmo_nonhydrostatic()
-    CALL destruct_atmo_model()
-!     CALL destruct_icon_communication()
-    CALL message(TRIM(method_name),'clean-up finished')
-
-    !---------------------------------------------------------------------
-    ! print the timers
-!    IF (my_process_is_stdio()) THEN
-      CALL message("===================", "=======================")
-      WRITE(message_text,*) "Communication Iterations=", testbed_iterations
-      CALL message(method_name, TRIM(message_text))
-      CALL print_timer()
-!    ENDIF
-    !---------------------------------------------------------------------
-     
-
-  END SUBROUTINE test_nh_communication
-  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE test_sync_2D(comm_pattern, var, timer)
@@ -824,6 +585,206 @@ CONTAINS
 
   END SUBROUTINE do_calculations
   !-------------------------------------------------------------------------
+!     pnt_3D_verts_1 => p_hydro_state(patch_no)%diag%rel_vort(:,:,:)
+! 
+!     
+!     !---------------------------------------------------------------------
+!     ! Call cmmunication methods
+!   ! INTEGER :: itype_comm = 1
+!   ! 1 = synchronous communication with local memory for exchange buffers
+!   ! 2 = synchronous communication with global memory for exchange buffers
+!   ! 3 = asynchronous communication within dynamical core with global memory 
+!   !     for exchange buffers (not yet implemented)
+! 
+!   ! Order of send/receive sequence in exchange routines
+!  ! INTEGER :: iorder_sendrecv = 1
+!   ! 1 = irecv, send
+!   ! 2 = isend, recv
+!     
+! 
+!     
+!     timer_sync_1_1_3D_edges  = new_timer  ("sync_1_1_3D_edges")
+!     timer_sync_1_1_3D_verts  = new_timer  ("sync_1_1_3D_verts")
+!     timer_sync_1_1_3D_all    = new_timer  ("sync_1_1_3D_all")
+! 
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D( SYNC_C, pnt_3D_cells_1, timer_sync_1_1_3D_cells)
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D( SYNC_E, pnt_3D_edges_1, timer_sync_1_1_3D_edges)
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D( SYNC_V, pnt_3D_verts_1, timer_sync_1_1_3D_verts)
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D_all(pnt_3D_cells_1, pnt_3D_edges_1, pnt_3D_verts_1, timer_sync_1_1_3D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 1
+!     iorder_sendrecv = 2
+!     timer_sync_1_2_3D_cells  = new_timer  ("sync_1_2_3D_cells")
+!     timer_sync_1_2_3D_edges  = new_timer  ("sync_1_2_3D_edges")
+!     timer_sync_1_2_3D_verts  = new_timer  ("sync_1_2_3D_verts")
+!     timer_sync_1_2_3D_all    = new_timer  ("sync_1_2_3D_all")
+! 
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D( SYNC_C, pnt_3D_cells_1, timer_sync_1_2_3D_cells)
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D( SYNC_E, pnt_3D_edges_1, timer_sync_1_2_3D_edges)
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D( SYNC_V, pnt_3D_verts_1, timer_sync_1_2_3D_verts)
+!     CALL work_mpi_barrier()
+!     CALL test_sync_3D_all(pnt_3D_cells_1, pnt_3D_edges_1, pnt_3D_verts_1, timer_sync_1_2_3D_all)
+! 
+!     !---------------------------------------------------------------------
+! !     itype_comm = 2
+! !     iorder_sendrecv = 1
+! !     timer_sync_2_1_3D_cells  = new_timer  ("sync_2_1_3D_cells")
+! !     timer_sync_2_1_3D_edges  = new_timer  ("sync_2_1_3D_edges")
+! !     timer_sync_2_1_3D_verts  = new_timer  ("sync_2_1_3D_verts")
+! !     timer_sync_2_1_3D_all    = new_timer  ("sync_2_1_3D_all")
+! ! 
+! !     CALL test_sync_3D( SYNC_C, pnt_3D_cells_1, timer_sync_2_1_3D_cells)
+! !     CALL test_sync_3D( SYNC_E, pnt_3D_edges_1, timer_sync_2_1_3D_edges)
+! !     CALL test_sync_3D( SYNC_V, pnt_3D_verts_1, timer_sync_2_1_3D_verts)
+! !     CALL test_sync_3D_all(pnt_3D_cells_1, pnt_3D_edges_1, pnt_3D_verts_1, timer_sync_2_1_3D_all)
+! !         
+! !     !---------------------------------------------------------------------
+! !     itype_comm = 2
+! !     iorder_sendrecv = 2
+! !     timer_sync_2_2_3D_cells  = new_timer  ("sync_2_2_3D_cells")
+! !     timer_sync_2_2_3D_edges  = new_timer  ("sync_2_2_3D_edges")
+! !     timer_sync_2_2_3D_verts  = new_timer  ("sync_2_2_3D_verts")
+! !     timer_sync_2_2_3D_all    = new_timer  ("sync_2_2_3D_all")
+! ! 
+! !     CALL test_sync_3D( SYNC_C, pnt_3D_cells_1, timer_sync_2_2_3D_cells)
+! !     CALL test_sync_3D( SYNC_E, pnt_3D_edges_1, timer_sync_2_2_3D_edges)
+! !     CALL test_sync_3D( SYNC_V, pnt_3D_verts_1, timer_sync_2_2_3D_verts)
+! !     CALL test_sync_3D_all(pnt_3D_cells_1, pnt_3D_edges_1, pnt_3D_verts_1, timer_sync_2_2_3D_all)
+! !         
+! !     !---------------------------------------------------------------------
+! !     itype_comm = 3
+! !     iorder_sendrecv = 1
+! !     timer_sync_3_1_3D_cells  = new_timer  ("sync_3_1_3D_cells")
+! !     timer_sync_3_1_3D_edges  = new_timer  ("sync_3_1_3D_edges")
+! !     timer_sync_3_1_3D_verts  = new_timer  ("sync_3_1_3D_verts")
+! !     timer_sync_3_1_3D_all    = new_timer  ("sync_3_1_3D_all")
+! ! 
+! !     CALL test_sync_3D( SYNC_C, pnt_3D_cells_1, timer_sync_3_1_3D_cells)
+! !     CALL test_sync_3D( SYNC_E, pnt_3D_edges_1, timer_sync_3_1_3D_edges)
+! !     CALL test_sync_3D( SYNC_V, pnt_3D_verts_1, timer_sync_3_1_3D_verts)
+! !     CALL test_sync_3D_all(pnt_3D_cells_1, pnt_3D_edges_1, pnt_3D_verts_1, timer_sync_3_1_3D_all)
+! !         
+! !     !---------------------------------------------------------------------
+! !     itype_comm = 3
+! !     iorder_sendrecv = 2
+! !     timer_sync_3_2_3D_cells  = new_timer  ("sync_3_2_3D_cells")
+! !     timer_sync_3_2_3D_edges  = new_timer  ("sync_3_2_3D_edges")
+! !     timer_sync_3_2_3D_verts  = new_timer  ("sync_3_2_3D_verts")
+! !     timer_sync_3_2_3D_all    = new_timer  ("sync_3_2_3D_all")
+! ! 
+! !     CALL test_sync_3D( SYNC_C, pnt_3D_cells_1, timer_sync_3_2_3D_cells)
+! !     CALL test_sync_3D( SYNC_E, pnt_3D_edges_1, timer_sync_3_2_3D_edges)
+! !     CALL test_sync_3D( SYNC_V, pnt_3D_verts_1, timer_sync_3_2_3D_verts)
+! !     CALL test_sync_3D_all(pnt_3D_cells_1, pnt_3D_edges_1, pnt_3D_verts_1, timer_sync_3_2_3D_all)
+!     
+!     
+! 
+!     !---------------------------------------------------------------------
+!     ! test the 3D icon_comm_lib
+!     !---------------------------------------------------------------------
+!     timer_iconcom_3D_cells  = new_timer  ("iconcom_3D_cells")
+!     timer_iconcom_3D_edges  = new_timer  ("iconcom_3D_edges")
+!     timer_iconcom_3D_verts  = new_timer  ("iconcom_3D_verts")
+!     timer_iconcom_3D_all    = new_timer  ("iconcom_3D_all")
+!     timer_iconcom_3D_comb   = new_timer  ("iconcom_3D_comb")
+!     timer_iconcom_3D_keep   = new_timer  ("iconcom_3D_keep")
+!     
+!     ! test the 3D iconcom on cells
+!     CALL work_mpi_barrier()
+!     CALL timer_start(timer_iconcom_3D_cells)
+!     DO i=1,testbed_iterations
+!       CALL icon_comm_sync(pnt_3D_cells_1, cells_not_in_domain, p_patch(patch_no))
+!       CALL do_calculations()
+!     ENDDO
+!     CALL timer_stop(timer_iconcom_3D_cells)
+! 
+!     CALL work_mpi_barrier()
+! 
+!     ! test the 3D iconcom on edges
+!     CALL work_mpi_barrier()
+!     CALL timer_start(timer_iconcom_3D_edges)
+!     DO i=1,testbed_iterations
+!       CALL icon_comm_sync(pnt_3D_edges_1, edges_not_owned, p_patch(patch_no))
+!       CALL do_calculations()
+!     ENDDO
+!     CALL timer_stop(timer_iconcom_3D_edges)
+!     
+!     ! test the 3D iconcom on verts
+!     CALL timer_start(timer_iconcom_3D_verts)
+!     DO i=1,testbed_iterations
+!       CALL icon_comm_sync(pnt_3D_verts_1, verts_not_owned, p_patch(patch_no))
+!       CALL do_calculations()
+!     ENDDO
+!     CALL timer_stop(timer_iconcom_3D_verts)
+!     
+!     ! test the 3D iconcom on all
+!     CALL work_mpi_barrier()
+!     CALL timer_start(timer_iconcom_3D_all)
+!     DO i=1,testbed_iterations
+!        CALL icon_comm_sync(pnt_3D_cells_1, cells_not_in_domain, p_patch(patch_no))
+!        CALL icon_comm_sync(pnt_3D_edges_1, edges_not_owned, p_patch(patch_no))
+!        CALL icon_comm_sync(pnt_3D_verts_1, verts_not_owned, p_patch(patch_no))
+!     ENDDO
+!     CALL timer_stop(timer_iconcom_3D_all)
+!     
+!     ! test the 3D iconcom on combined
+!     CALL work_mpi_barrier()
+!     CALL timer_start(timer_iconcom_3D_comb)
+!     DO i=1,testbed_iterations
+!     
+!       comm_1 = new_icon_comm_variable(pnt_3D_cells_1, cells_not_in_domain, &
+!         & p_patch(patch_no), status=is_ready, scope=until_sync)
+!          
+!       comm_2 = new_icon_comm_variable(pnt_3D_edges_1, &
+!         & edges_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
+!        
+!       comm_3 = new_icon_comm_variable(pnt_3D_verts_1, &
+!         & verts_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
+! 
+!       CALL icon_comm_sync_all()
+! 
+!       CALL do_calculations()
+!       CALL do_calculations()
+!       CALL do_calculations()
+! 
+!     ENDDO
+!     CALL timer_stop(timer_iconcom_3D_comb)
+!     
+!     ! test the 3D iconcom on keeping the communicators
+!     comm_1 = new_icon_comm_variable(pnt_3D_cells_1, cells_not_in_domain, &
+!       & p_patch(patch_no))
+!     comm_2 = new_icon_comm_variable(pnt_3D_edges_1, &
+!       & edges_not_owned, p_patch(patch_no))
+!     comm_3 = new_icon_comm_variable(pnt_3D_verts_1, &
+!       & verts_not_owned, p_patch(patch_no))
+!     
+!     CALL work_mpi_barrier()
+!     CALL timer_start(timer_iconcom_3D_keep)
+!     DO i=1,testbed_iterations
+!     
+!       CALL icon_comm_var_is_ready(comm_1)
+!       CALL icon_comm_var_is_ready(comm_2)
+!       CALL icon_comm_var_is_ready(comm_3)
+!       CALL icon_comm_sync_all()
+!  
+!       CALL do_calculations()
+!       CALL do_calculations()
+!       CALL do_calculations()
+!         
+!     ENDDO
+!     CALL timer_stop(timer_iconcom_3D_keep)
+!     CALL delete_icon_comm_variable(comm_3)
+!     CALL delete_icon_comm_variable(comm_2)
+!     CALL delete_icon_comm_variable(comm_1)
+    !---------------------------------------------------------------------
 
 END MODULE mo_test_communication
 

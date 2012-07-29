@@ -225,6 +225,7 @@ set_run_target_blizzard()
   if [[ total_threads -ge 64 ]] ; then
     smt_mode="smt"
     task_affinity="cpu($use_openmp_threads)"
+    #@ cpus_per_core=2
   else
     smt_mode="no_smt"
     task_affinity="core($use_openmp_threads)"

@@ -815,11 +815,11 @@ CONTAINS
     ENDIF
     tot_str = time_str(total)
     IF (tid == -1) THEN
-      WRITE (message_text,'(a32,i6,4a12,f11.4)') '    '//srt(it)%text, &
+      WRITE (message_text,'(a32,i6,4a12,f14.5)') '    '//srt(it)%text, &
            rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ELSE
-      WRITE (message_text,'(i2,a32,i6,4a12,f11.4)') tid,': '//srt(it)%text, &
+      WRITE (message_text,'(i2,a32,i6,4a12,f14.5)') tid,': '//srt(it)%text, &
            rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ENDIF
@@ -890,9 +890,9 @@ CONTAINS
     ELSEIF (m > 0) THEN
       x = TRIM(m_str)//'m'//TRIM(s_str)//'s'
     ELSEIF (ts >= 1.0_dp) THEN
-      WRITE(x,'(f6.3,a)') ts, 's'
+      WRITE(x,'(f7.4,a)') ts, 's'
     ELSE
-      WRITE(x,'(f6.5,a)') ts, 's'
+      WRITE(x,'(f7.6,a)') ts, 's'
     ENDIF
     time_str = ADJUSTR(x)
 

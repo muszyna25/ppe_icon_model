@@ -91,7 +91,7 @@ CONTAINS
                              
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch       !<grid/patch info.
-    TYPE(t_external_data), INTENT(IN)    :: ext_data
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
 !    TYPE(t_tiles)        , INTENT(INOUT) :: p_tiles(:)
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
     TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
