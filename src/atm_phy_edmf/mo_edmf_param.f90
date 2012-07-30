@@ -475,7 +475,7 @@ SUBROUTINE SUSVEG
 !          THIS ROUTINE INITIALIZES THE CONSTANTS IN COMMON BLOCK
 !     *YOS_VEG*
 
-USE mo_lnd_nwp_config,       ONLY: NTILES=>nsfc_subs
+USE mo_lnd_nwp_config,       ONLY: NTILES=>ntiles_total
 USE mo_srfrootfr     ,       ONLY: srfrootfr
 USE mo_cuparameters  ,       ONLY: RETV
 

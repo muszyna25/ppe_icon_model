@@ -65,7 +65,7 @@ USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
 USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
-USE mo_lnd_nwp_config,      ONLY: nsfc_subs
+USE mo_lnd_nwp_config,      ONLY: ntiles_total
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 IMPLICIT NONE
@@ -225,7 +225,7 @@ nshift = p_pc%nshift
 js     = nshift
 
 IF (atm_phy_nwp_config(jgp)%inwp_surface > 0 ) THEN
-  ntiles = nsfc_subs
+  ntiles = ntiles_total
 ELSE
   ntiles = 0
 ENDIF
@@ -1204,7 +1204,7 @@ nshift = p_pc%nshift
 js     = nshift
 
 IF (atm_phy_nwp_config(jgp)%inwp_surface > 0 ) THEN
-  ntiles = nsfc_subs
+  ntiles = ntiles_total
 ELSE
   ntiles = 0
 ENDIF

@@ -97,7 +97,7 @@ SUBROUTINE SURFEXCDRIVER    ( &
 USE mo_kind             ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters     ,ONLY : lhook    ,dr_hook           !yomcst  (& yos_exc)
 
-USE mo_lnd_nwp_config   ,ONLY : nlev_soil, nlev_snow, nsfc_subs
+USE mo_lnd_nwp_config   ,ONLY : nlev_soil, nlev_snow, nsfc_subs => ntiles_total
 USE mo_ext_data_types   ,ONLY : t_external_data
 USE mo_edmf_param       ,ONLY : abort_surf
 USE mo_surfexcdriver_ctl,ONLY : surfexcdriver_ctl

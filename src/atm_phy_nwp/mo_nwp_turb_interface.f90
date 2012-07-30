@@ -67,7 +67,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: nsfc_subs
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total
 
   IMPLICIT NONE
 
@@ -136,17 +136,17 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
   ! 2D fields
-  REAL(wp), DIMENSION(nproma,nsfc_subs) :: gz0t, gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
+  REAL(wp), DIMENSION(nproma,ntiles_total) :: gz0t, gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t
 
   ! 3D full-level fields
-  REAL(wp), DIMENSION(nproma,2,nsfc_subs) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
+  REAL(wp), DIMENSION(nproma,2,ntiles_total) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
 
   ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,nsfc_subs) :: z_ifc_t, w_t, rcld_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total) :: z_ifc_t, w_t, rcld_t
 
   ! SQRT(2*TKE)
-  REAL(wp) :: tvs_t(nproma,3,1,nsfc_subs)
+  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total)
 
 
 !--------------------------------------------------------------
@@ -237,7 +237,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! specify land-cover-related roughness length over land points
       ! note:  water points are set in turbdiff
       gz0(:) = 0._wp
-      DO jt = 1, nsfc_subs
+      DO jt = 1, ntiles_total
         DO jc = i_startidx, i_endidx
           IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
             lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
@@ -256,7 +256,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDIF
       ENDDO
     ELSE ! uniform tile-averaged roughness length if SSO contribution is to be included
-      DO jt = 1, nsfc_subs
+      DO jt = 1, ntiles_total
         DO jc = i_startidx, i_endidx
           gz0t(jc,jt) = prm_diag%gz0(jc,jb)
         ENDDO
@@ -289,7 +289,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       ! First call of turbtran for all grid points (water points with > 50% water
       ! fraction and tile 1 of the land points)
-      IF (nsfc_subs == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
+      IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
         CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                     &
           & ie=nproma, ke=nlev, ke1=nlevp1,                                                     &
@@ -331,7 +331,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
         ! Loop over remaining tiles; for those, not all grid points exist in general
 
-        DO  jt = 2, nsfc_subs
+        DO  jt = 2, ntiles_total
           i_count = ext_data%atm%gp_count_t(jb,jt) 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
@@ -410,7 +410,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           prm_diag%v_10m(jc,jb) = v_10m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
 
         ENDDO
-        DO  jt = 2, nsfc_subs
+        DO  jt = 2, ntiles_total
 
           i_count = ext_data%atm%gp_count_t(jb,jt) 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty

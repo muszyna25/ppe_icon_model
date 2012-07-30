@@ -401,7 +401,7 @@ USE mo_edmf_param   ,ONLY : &
                 & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM,& !yomsekf
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFA                                             !fcttre.f
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs => ntiles_total
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl

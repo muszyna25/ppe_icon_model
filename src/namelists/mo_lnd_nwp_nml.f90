@@ -49,10 +49,8 @@ MODULE mo_lnd_nwp_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
-  USE mo_lnd_nwp_config,      ONLY: config_nztlev      => nztlev        , &
-    &                               config_nlev_snow   => nlev_snow     , &
-!    &                               config_nsfc_subs   => nsfc_subs     , &
-    &                               config_nsfc_stat   => nsfc_stat     , &
+  USE mo_lnd_nwp_config,      ONLY: config_nlev_snow   => nlev_snow     , &
+    &                               config_ntiles      => ntiles_lnd    , &
     &                               config_frac_thresh => frac_thresh   , &
     &                               config_lseaice     => lseaice       , &
     &                               config_llake       => llake         , &
@@ -79,10 +77,8 @@ MODULE mo_lnd_nwp_nml
 
 !> Action Variables for physical schemes
 ! --------------------------------------
-  INTEGER ::  nztlev            !< time integration scheme
   INTEGER ::  nlev_snow         !< number of snow layers
-!  INTEGER ::  nsfc_subs         !< number of TILES   ! should be eliminated
-  INTEGER ::  nsfc_stat         !< number of static tiles
+  INTEGER ::  ntiles            !< number of static tiles
   REAL(wp)::  frac_thresh       !< fraction threshold for retaining the respective 
                                 !< tile for a grid point
   INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
@@ -111,8 +107,7 @@ MODULE mo_lnd_nwp_nml
 ! nwp forcing (right hand side)
 !--------------------------------------------------------------------
 
-!  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_stat   , &
-  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_stat   , &
+  NAMELIST/lnd_nml/ nlev_snow, ntiles                         , &
     &               frac_thresh, lseaice, llake, lmelt        , &
     &               lmelt_var, lmulti_snow, itype_gscp        , & 
     &               itype_trvg, idiag_snowfrac                , & 
@@ -163,10 +158,8 @@ MODULE mo_lnd_nwp_nml
     ! 1. default settings   
     !-----------------------
 
-    nztlev         = 2       ! 2 = default value for time integration scheme
     nlev_snow      = 1       ! 0 = default value for number of snow layers
-!    nsfc_subs      = 1       ! 1 = default value for number of TILES
-    nsfc_stat      = 1       ! 1 = default value for number of static surface types
+    ntiles         = 1       ! 1 = default value for number of static surface types
     frac_thresh    = 0.05_wp ! fraction threshold for retaining the respective 
                              ! tile for a grid point
     lmelt          = .TRUE.  ! soil model with melting process
@@ -219,10 +212,6 @@ MODULE mo_lnd_nwp_nml
     !----------------------------------------------------
     ! 4. Sanity check (if necessary)
     !----------------------------------------------------
-!    IF ( nsfc_snow > nsfc_subs ) THEN
-!      CALL finish( TRIM(routine),                                   &
-!        &  'incorrect settings for nsfc_snow. Must be <= nsfc_subs')
-!    ENDIF
 
     !Multi-layer snow model
     !
@@ -237,10 +226,8 @@ MODULE mo_lnd_nwp_nml
     !----------------------------------------------------
 
     DO jg = 1,max_dom
-      config_nztlev      = nztlev
       config_nlev_snow   = nlev_snow
-!      config_nsfc_subs   = nsfc_subs
-      config_nsfc_stat   = nsfc_stat
+      config_ntiles      = ntiles
       config_frac_thresh = frac_thresh
       config_lseaice     = lseaice
       config_llake       = llake

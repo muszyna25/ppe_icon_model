@@ -101,7 +101,7 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init
-  USE mo_lnd_nwp_config,      ONLY: nsfc_subs
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
@@ -263,7 +263,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
             p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           ENDDO
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             DO jc = i_startidx, i_endidx
               p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
               p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
@@ -295,7 +295,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         DO jc = i_startidx, i_endidx
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
         ENDDO
-        DO jt = 1, nsfc_subs
+        DO jt = 1, ntiles_total
           DO jc = i_startidx, i_endidx
             p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
           ENDDO
@@ -689,7 +689,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ! note:  water points are set in turbdiff
         gz0(:) = 0._wp
         
-        DO jt = 1, nsfc_subs
+        DO jt = 1, ntiles_total
           DO jc = i_startidx, i_endidx
             IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults

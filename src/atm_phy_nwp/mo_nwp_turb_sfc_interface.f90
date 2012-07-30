@@ -73,7 +73,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, nsfc_subs, lmulti_snow
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, lmulti_snow
 
   IMPLICIT NONE
 
@@ -193,7 +193,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
   REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil)     , zdummy_vdf_4b(nproma,nlev_soil)
-  REAL(wp) :: zdummy_vdf_5a(nproma,nsfc_subs)
+  REAL(wp) :: zdummy_vdf_5a(nproma,ntiles_total)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6c(nproma,itrac_vdf)
@@ -203,15 +203,15 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zucurr(nproma)                , zvcurr(nproma),                   &
     &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev),      &
     &         zsobeta(nproma,p_patch%nlev)  , &
-    &         shfl_s_t(nproma,nsfc_subs)    , evap_s_t(nproma,nsfc_subs),       &
-    &         tskin_t(nproma,nsfc_subs)     , &
-    &         ustr_s_t(nproma,nsfc_subs)    , vstr_s_t(nproma,nsfc_subs),       &
+    &         shfl_s_t(nproma,ntiles_total)    , evap_s_t(nproma,ntiles_total),       &
+    &         tskin_t(nproma,ntiles_total)     , &
+    &         ustr_s_t(nproma,ntiles_total)    , vstr_s_t(nproma,ntiles_total),       &
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
-    &         zsigflt(nproma)               , zfrti(nproma,nsfc_subs),          &
-    &         tch_ex(nproma,nsfc_subs)      , tcm_ex(nproma,nsfc_subs),         &
-    &         tfv_ex(nproma,nsfc_subs)
+    &         zsigflt(nproma)               , zfrti(nproma,ntiles_total),          &
+    &         tch_ex(nproma,ntiles_total)      , tcm_ex(nproma,ntiles_total),         &
+    &         tfv_ex(nproma,ntiles_total)
   LOGICAL  :: ldummy_vdf_a(nproma)
 
 
@@ -496,7 +496,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 !     TERRA variable initializtion
 
-      DO jt = 1,nsfc_subs
+      DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           lnd_prog_new%t_snow_t  (jc,jb,jt) = lnd_prog_now%t_snow_t  (jc,jb,jt) 
           lnd_prog_new%t_s_t     (jc,jb,jt) = lnd_prog_now%t_s_t     (jc,jb,jt)   
@@ -511,7 +511,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           ENDIF
         ENDDO
       ENDDO
-      DO jt = 1,nsfc_subs
+      DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           IF(lmulti_snow) THEN
             DO jk=1,nlev_snow
@@ -524,7 +524,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           ENDIF
         ENDDO
       ENDDO
-      DO jt = 1,nsfc_subs
+      DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           DO jk=1,nlev_soil+1
             lnd_prog_new%t_so_t    (jc,jk,jb,jt) = lnd_prog_now%t_so_t    (jc,jk,jb,jt)         
@@ -556,7 +556,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
 
-      DO jt = 1,nsfc_subs
+      DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
@@ -616,7 +616,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & KLEV    = p_patch%nlev                               ,&! (IN)   
         & KLEVS   = nlev_soil                                  ,&! (IN)
         & KSTEP   = 0                                          ,&! (IN)  unused: current time step
-        & KTILES  = nsfc_subs                                  ,&! (IN)
+        & KTILES  = ntiles_total                                  ,&! (IN)
         & KTRAC   = itrac_vdf                                  ,&! (IN)  default 0 (itrac?)
         & KLEVSN  = nlev_snow                                  ,&! (IN)  # snow layers (1!)
         & KLEVI   = 1                                          ,&! (IN)  # sea ice layers

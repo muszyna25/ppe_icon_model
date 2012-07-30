@@ -66,7 +66,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_lnd_nwp_config,        ONLY: nsfc_subs, lmulti_snow, nlev_snow, nlev_soil
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, lmulti_snow, nlev_snow, nlev_soil
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -545,7 +545,7 @@ MODULE mo_nh_init_nest_utils
 
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1) THEN
         ! Distribute soil variables
-        DO jt = 1, nsfc_subs
+        DO jt = 1, ntiles_total
           DO jk = 1, nlev_soil+1
             jk1 = 3*(jk-1) + 1
             DO jc = i_startidx, i_endidx
@@ -580,7 +580,7 @@ MODULE mo_nh_init_nest_utils
         ENDDO
 
         jk1 = 3*(nlev_soil+1)+1
-        DO jt = 1, nsfc_subs
+        DO jt = 1, ntiles_total
           DO jc = i_startidx, i_endidx
             p_child_lprog%t_so_t(jc,nlev_soil+2,jb,jt) = lndvars_chi(jc,jk1,jb) + &
               tsfc_ref_c(jc,jb)
@@ -602,7 +602,7 @@ MODULE mo_nh_init_nest_utils
       ENDIF
 
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. lmulti_snow) THEN
-        DO jt = 1, nsfc_subs
+        DO jt = 1, ntiles_total
           DO jk = 1, nlev_snow
             jk1 = 5*(jk-1) + 1
             DO jc = i_startidx, i_endidx

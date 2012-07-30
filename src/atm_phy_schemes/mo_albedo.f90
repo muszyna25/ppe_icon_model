@@ -55,7 +55,7 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
-  USE mo_lnd_nwp_config,       ONLY: nsfc_subs
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
@@ -148,10 +148,10 @@ CONTAINS
         !
         ! - loop over surface tiles
         ! - note that different grid points may have different numbers 
-        !   of active tiles (1<=ntiles<=nsfc_subs). Therefore each tile has a 
+        !   of active tiles (1<=ntiles<=ntiles_total). Therefore each tile has a 
         !   separate index list.
         ! 
-        DO isubs = 1, nsfc_subs
+        DO isubs = 1, ntiles_total
 
           i_count_lnd = ext_data%atm%gp_count_t(jb,isubs)
 
@@ -202,7 +202,7 @@ CONTAINS
         !
         ! Aggregate surface albedo on land points
         !
-        IF (nsfc_subs == 1) THEN 
+        IF (ntiles_total == 1) THEN 
           i_count_lnd = ext_data%atm%gp_count_t(jb,1)
 
           IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
@@ -215,7 +215,7 @@ CONTAINS
           ENDIF  ! i_count_lnd > 0
         ELSE ! aggregate fields over tiles
           prm_diag%albvisdif(i_startidx:i_endidx,jb)  =  0._wp
-          DO isubs = 1,nsfc_subs
+          DO isubs = 1,ntiles_total
             i_count_lnd = ext_data%atm%gp_count_t(jb,isubs)
 
             IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty

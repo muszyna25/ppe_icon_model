@@ -53,16 +53,14 @@ MODULE mo_lnd_nwp_config
 
   PRIVATE
 
-  PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs, nsfc_stat
+  PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_snow
   PUBLIC :: frac_thresh
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
-  PUBLIC :: t_tiles, p_tiles
 
   PUBLIC :: configure_lnd_nwp
-  PUBLIC :: destruct_tiles_arrays
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -73,10 +71,10 @@ MODULE mo_lnd_nwp_config
 !  TYPE t_nwp_lnd_config
 
   ! namelist variables
-  INTEGER ::  nztlev             !< time integration scheme
   INTEGER ::  nlev_snow          !< number of snow layers
-  INTEGER ::  nsfc_subs          !< number of TILES
-  INTEGER ::  nsfc_stat          !< number of static surface types 
+  INTEGER ::  ntiles_total       !< total number of TILES
+  INTEGER ::  ntiles_lnd         !< number of static land surface types
+  INTEGER ::  ntiles_snow        !< number of snow tiles
   REAL(wp)::  frac_thresh        !< fraction threshold for retaining the respective 
                                  !< tile for a grid point
   INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
@@ -109,25 +107,6 @@ MODULE mo_lnd_nwp_config
   !!
 !  TYPE(t_nwp_lnd_config) :: nwp_lnd_config(max_dom)
 
-  TYPE t_tiles
-    INTEGER, ALLOCATABLE :: length(:)    !< dim: nblks_c
-    INTEGER, ALLOCATABLE :: corrsp(:,:)  !< dim: nproma,nblks_c
-
-    LOGICAL :: snow_tile                 !< whether it is a snow tile
-    LOGICAL :: snowfree_tile             !< whether it is a snow-free tile -  
-                                         !< a counterpart to a snow tile
-    INTEGER :: conjunct                  !< index of a counterpart for a given 
-                                         !< tile in the array of tiles
-                                         !< (snow-free for snow tile, snow for 
-                                         !< snow-free tile, itself for tiles-surface 
-                                         !< types for which no explicit snow tile is 
-                                         !< considered
-    LOGICAL :: lake_tile                 !< whether it is a lake tile
-
-  END TYPE t_tiles
-
-  TYPE(t_tiles), TARGET, ALLOCATABLE :: p_tiles(:,:) 
-
 CONTAINS
 
   !>
@@ -158,156 +137,18 @@ CONTAINS
     ! in zml_soil. zml_soil provides soil layer full level heights.
     nlev_soil = SIZE(zml_soil)-1  !< currently 7
 
-    ! number of tiles
+    ! number of tiles; ntiles_lnd is set by the namelist variable ntiles
     IF(lsnowtile) THEN
-      nsfc_subs = nsfc_stat + nsfc_stat
-!    ELSE
-!      nsfc_subs = nsfc_stat
-    END IF  
-
-
-    ! setup tile arrays
-    !
-    ALLOCATE (p_tiles(n_dom, nsfc_subs), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_tiles failed')
-    ENDIF
-    CALL construct_tiles_arrays (p_patch, p_tiles, n_dom, nproma)
-
-!    DO jg = 1, n_dom
-!      DO isubs = 1, nsfc_subs - nsfc_snow
-!        p_tiles(jg,isubs)%snow_tile     = .FALSE.
-!        p_tiles(jg,isubs)%snowfree_tile = .FALSE.
-!        p_tiles(jg,isubs)%conjunct      = isubs
-!      END DO
-!
-!      DO isubs = nsfc_subs - nsfc_snow + 1, nsfc_subs-1, 2
-!        p_tiles(jg,isubs  )%snow_tile     = .FALSE.
-!        p_tiles(jg,isubs+1)%snow_tile     = .TRUE.
-!        p_tiles(jg,isubs  )%snowfree_tile = .TRUE.
-!        p_tiles(jg,isubs+1)%snowfree_tile = .FALSE.
-!        p_tiles(jg,isubs  )%conjunct      = isubs+1
-!        p_tiles(jg,isubs+1)%conjunct      = isubs
-!      END DO
-!!$    p_tiles(jg,:)%lake_tile = .FALSE.
-!!$    IF(nsfc_subs .NE. nsfc_snow) THEN       !temporary
-!!$      p_tiles(jg,2)%lake_tile = .TRUE.
-!!$    END IF
-
-!!$    DO ns = 1, nsfc_subs
-!!$      pt_tiles%length(ns,jb) = 0
-!!$
-!!$      DO jc = i_startidx, i_endidx
-!!$
-!!$        IF(subsfrac(jc,1,ns) > frac_thres) THEN
-!!$          pt_tiles%length(ns,jb) = pt_tiles%length(ns,jb) + 1
-!!$          pt_tiles%corrsp(pt_tiles%length(ns,jb),ns,jb) = jc
-!!$        END IF
-!!$      END DO
-!!$
-!!$    END DO
-!    ENDDO  ! jg
+      ntiles_snow  = ntiles_lnd
+      ntiles_total = ntiles_lnd + ntiles_snow
+    ELSE
+      ntiles_snow  = 0
+      ntiles_total = ntiles_lnd
+    END IF
+    ! Remark (GZ): a separate tile index may be added for lakes in order to facilitate flow control
+    ! of subgrid-scale lakes
 
 
   END SUBROUTINE configure_lnd_nwp
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Construction of tiles arrays.
-  !!
-  !! Initialization of components with zero.
-  !!
-  !! @par Revision History
-  !! Initial release by Ekaterina Machulskaya, DWD (2011-07-26)
-  !!
-  !!
-  SUBROUTINE construct_tiles_arrays (p_patch, p_tiles, n_dom, nproma)
-! 
-    TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch(:)    
-
-    ! arrays of correspondences between tiles and grid points
-    TYPE(t_tiles), TARGET, INTENT(INOUT):: p_tiles(:,:) 
-    INTEGER, INTENT(IN) :: n_dom
-    INTEGER, INTENT(IN) :: nproma  
-
-    INTEGER :: nblks_c, & ! number of cell blocks to allocate
-      &        jg     , & ! index of domain
-      &        ns     , & ! index of tile
-      &        ist        ! status 
-                 
-!-----------------------------------------------------------------------
-
-    DO jg = 1, n_dom
-      DO ns = 1, nsfc_subs
-  
-      !determine size of arrays
-      nblks_c = p_patch(jg)%nblks_c
-  
-      ! length
-      ALLOCATE(p_tiles(jg,ns)%length(nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_lnd_state:construct_tiles_arrays', &
-                    'allocation for length of arrays failed')
-      ENDIF
-      p_tiles(jg,ns)%length(:) = 0
-
-      ! corrsp
-      ALLOCATE(p_tiles(jg,ns)%corrsp(nproma,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_lnd_state:construct_tiles_arrays', &
-                    'allocation for correspondences arrays failed')
-      ENDIF
-      p_tiles(jg,ns)%corrsp(:,:) = 0
-
-      ENDDO !nsfc_subs
-    ENDDO !ndom
-
-  END SUBROUTINE construct_tiles_arrays
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Destruction of tiles arrays.
-  !!
-  !! @par Revision History
-  !! Initial release by Ekaterina Machulskaya, DWD (2011-07-26)
-  !!
-  !!
-  SUBROUTINE destruct_tiles_arrays (p_tiles)
-
-    ! arrays of correspondences between tiles and grid points
-    TYPE(t_tiles), TARGET, INTENT(INOUT):: p_tiles(:,:)
-
-    INTEGER :: jg     , & ! index of domain
-      &        ns     , & ! index of tile
-      &        ist        ! status
-
-    INTEGER :: n_dom
-                 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nwp_lnd_state:destruct_tiles_arrays'
-!-----------------------------------------------------------------------
-
-    ! get number of model domains
-    n_dom = UBOUND(p_tiles,1)
-
-    DO jg = 1, n_dom
-      DO ns = 1, nsfc_subs
-
-        DEALLOCATE(p_tiles(jg,ns)%length, STAT=ist)
-          IF(ist/=SUCCESS)THEN
-            CALL finish (TRIM(routine),  &
-              &  'deallocation of grid points arrays length failed')
-          ENDIF
-        DEALLOCATE(p_tiles(jg,ns)%corrsp, STAT=ist)
-          IF(ist/=SUCCESS)THEN
-            CALL finish (TRIM(routine),  &
-              &  'deallocation of arrays  th the correspondence between &
-              &   grid points and one-dimensional arrays failed')
-          ENDIF
-      ENDDO !nsfc_subs
-    ENDDO !ndom
-
-  END SUBROUTINE destruct_tiles_arrays
 
 END MODULE mo_lnd_nwp_config

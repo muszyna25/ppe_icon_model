@@ -151,7 +151,7 @@ MODULE mo_io_vlist
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_advection_config,      ONLY: advection_config
   USE mo_echam_conv_config,     ONLY: echam_conv_config
-  USE mo_lnd_nwp_config,        ONLY: nsfc_subs, nlev_snow
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, nlev_snow
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
@@ -1497,7 +1497,7 @@ CONTAINS
 
         IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN  ! TERRA
           !--- Weighted temperature at surface---
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "T_GT_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "weighted surface temperature tile ",TRIM(ADJUSTL(cjt))
@@ -1507,7 +1507,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "T_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "temperature of the snow-surface tile ",TRIM(ADJUSTL(cjt))
@@ -1517,7 +1517,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "T_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "temperature of the snow-surface tile ",TRIM(ADJUSTL(cjt))
@@ -1527,7 +1527,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "T_S_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "temperature of ground surface tile ",TRIM(ADJUSTL(cjt))
@@ -1537,7 +1537,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "W_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "water content of snow tile ",TRIM(ADJUSTL(cjt))
@@ -1547,7 +1547,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "RHO_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "snow density tile ",TRIM(ADJUSTL(cjt))
@@ -1557,7 +1557,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "RHO_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "snow density tile ",TRIM(ADJUSTL(cjt))
@@ -1567,7 +1567,7 @@ CONTAINS
             &           k_jg)
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "W_I_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "water content of interception water tile",TRIM(ADJUSTL(cjt))
@@ -1578,7 +1578,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "T_SO_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "soil temperature (main level) tile",TRIM(ADJUSTL(cjt))
@@ -1589,7 +1589,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "W_SO_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "total water content (ice + liquid water) tile", &
@@ -1601,7 +1601,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "W_SO_ICE_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "ice content tile",TRIM(ADJUSTL(cjt))
@@ -1612,7 +1612,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "WLIQ_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "liquid water content in snow tile",TRIM(ADJUSTL(cjt))
@@ -1623,7 +1623,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "WTOT_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "total water content in snow tile",TRIM(ADJUSTL(cjt))
@@ -1634,7 +1634,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "H_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "snow height", &
@@ -1646,7 +1646,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "FRESHSNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "age of snow indicator (top layer)", &
@@ -1658,7 +1658,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "SNOWFRAC_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "snow-cover fraction", &
@@ -1670,7 +1670,7 @@ CONTAINS
 
           ENDDO
 
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "layer thickness between half levels in snow tile", &
@@ -3141,7 +3141,7 @@ CONTAINS
       !
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
 
-      DO jt = 1, nsfc_subs
+      DO jt = 1, ntiles_total
         WRITE(cjt, '(i2)') jt
         WRITE(name,'(A,A)') "T_GT_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN

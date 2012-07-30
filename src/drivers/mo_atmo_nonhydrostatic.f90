@@ -57,8 +57,6 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                output_mode,          &
   &                                msg_level               !    namelist parameter
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
-USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp, nsfc_subs, p_tiles, &
-  &                                destruct_tiles_arrays
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time
@@ -199,7 +197,6 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
     ENDIF
 
-    CALL configure_lnd_nwp(p_patch(1:), n_dom, nproma)
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
       !------------------------------------------------------------------
@@ -500,7 +497,6 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
-      CALL destruct_tiles_arrays(p_tiles)
     ENDIF
     CALL destruct_nwp_lnd_state( p_lnd_state )
 

@@ -65,6 +65,7 @@ USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_a
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,     &
   &                                iadv_rcf, kend_qvsubstep, l_open_ubc, &
   &                                configure_nonhydrostatic
+USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,   ONLY: configure_dynamics, iequations
 USE mo_run_config,        ONLY: configure_run, &
   & ltimer,               & !    :
@@ -693,6 +694,10 @@ CONTAINS
     ALLOCATE (ext_data(n_dom), STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
+    ENDIF
+
+    IF (iequations == inh_atmosphere) THEN ! set dimensions of tile-based variables
+      CALL configure_lnd_nwp(p_patch(1:), n_dom, nproma)
     ENDIF
 
     ! allocate memory for atmospheric/oceanic external data and

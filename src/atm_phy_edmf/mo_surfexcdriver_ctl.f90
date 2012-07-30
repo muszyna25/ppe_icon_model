@@ -110,7 +110,7 @@ USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
       & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
       & FOEEW                                               !fcttrm.h (& fcsttre.h)
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs => ntiles_total
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vupdz0       ,ONLY : vupdz0

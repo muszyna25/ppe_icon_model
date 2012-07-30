@@ -401,13 +401,12 @@ USE mo_cuparameters,       ONLY: rho_w => rhoh2o ! density of liquid water (kg/m
 !
 USE mo_phyparam_soil   
 !
-USE mo_lnd_nwp_config,     ONLY: nztlev, lmelt, lmelt_var, lmulti_snow,  &
+USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_gscp, itype_trvg, itype_evsl,     &
   &                              itype_tran, itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, itype_subs
 !
-USE mo_lnd_nwp_config,     ONLY: t_tiles
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
@@ -571,8 +570,6 @@ END SUBROUTINE message
 !                                  
                   runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
                   runoff_g         , & ! soil water runoff; sum over forecast          (kg/m2)
-!                 ntstep             & ! actual time step
-                  pt_tiles         , & ! tiles structure
 !
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
@@ -702,8 +699,6 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
                   runoff_g             ! soil water runoff; sum over forecast          (kg/m2)
-  TYPE(t_tiles), TARGET,                  INTENT(IN) :: &
-                  pt_tiles(nsubs1)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
@@ -4239,7 +4234,6 @@ END SUBROUTINE message
                  & .OR. t_snow_new(i)>280.) .OR. t_so_new(i,1)>350. ) THEN 
 !                & .OR. w_i_new(i)*1000. > 0.1_ireals ) THEN
               write(0,*) "SFC-DIAGNOSIS TERRA ",i,dt,nsubs1!,ntstep
-              write(0,*)" nztlev ",               nztlev   
         !!$   write(0,*)" lmelt  ",               lmelt    
         !!$   write(0,*)" lmelt_var ",            lmelt_var
         !!$   write(0,*)" lmulti_snow ",          lmulti_snow 

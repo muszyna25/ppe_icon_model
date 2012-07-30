@@ -84,8 +84,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,     ONLY: nsfc_subs
-  USE mo_lnd_nwp_config,     ONLY: t_tiles
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
@@ -137,7 +136,6 @@ CONTAINS
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend,lnd_diag,     &
                             & lnd_prog_now, lnd_prog_new,          & !inout
-                            & pt_tiles,                            & !in
                             & p_prog_list                             ) !in  
 
     !>
@@ -173,7 +171,6 @@ CONTAINS
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
     TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now, lnd_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
-    TYPE(t_tiles),              INTENT(in   ) :: pt_tiles(:)
 
     TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
 
@@ -605,8 +602,7 @@ CONTAINS
                             & pt_diag ,                         & !>inout
                             & prm_diag,                         & !>inout 
                             & lnd_prog_now, lnd_prog_new,       & !>inout
-                            & lnd_diag,                         & !>inout
-                            & pt_tiles                          ) !>input
+                            & lnd_diag                          ) !>input
 
     ENDIF
 
@@ -912,7 +908,7 @@ CONTAINS
           & kbdim=nproma                           ,&! in     loop length and dimension size
           & klev=nlev                              ,&! in     vertical dimension size
           & klevp1=nlevp1                          ,&! in     vertical dimension size
-          & ntiles=nsfc_subs,                       &! in     number of tiles of sfc flux fields
+          & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
           & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]

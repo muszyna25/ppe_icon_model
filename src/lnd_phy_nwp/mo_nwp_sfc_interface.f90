@@ -55,8 +55,8 @@ MODULE mo_nwp_sfc_interface
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
-    &                               lseaice, llake, lmulti_snow, nsfc_stat, lsnowtile
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total,  &
+    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_snow_index_list
@@ -92,8 +92,7 @@ CONTAINS
                         & p_diag ,                        & !>inout
                         & prm_diag,                       & !>inout 
                         & lnd_prog_now, lnd_prog_new,     & !>inout
-                        & lnd_diag,                       & !>inout
-                        & p_tiles                         ) !>in
+                        & lnd_diag                        ) !>inout
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(inout):: ext_data      !< external data
@@ -105,7 +104,6 @@ CONTAINS
     TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag      !< diag vars for sfc
     REAL(wp),                    INTENT(in)   :: tcall_sfc_jg  !< time interval for 
                                                                !< surface
-    TYPE(t_tiles),        TARGET,INTENT(in)   :: p_tiles(:)    !< tiles structure
 
     ! Local array bounds:
     !
@@ -135,82 +133,80 @@ CONTAINS
     REAL(wp) ::          p0_t(nproma,  p_patch%nblks_c)
 
     REAL(wp) ::          sso_sigma_t(nproma,  p_patch%nblks_c)
-    INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, nsfc_subs)
+    INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          t_snow_now_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          t_snow_new_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          t_snow_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          t_snow_new_t (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          t_s_now_t  (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          t_s_new_t  (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          t_s_now_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          t_s_new_t  (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          t_g_t      (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          t_g_now_t  (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          t_g_new_t  (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          qv_s_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          t_g_t      (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          t_g_now_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          t_g_new_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          qv_s_t     (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          w_snow_now_t(nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          w_snow_new_t(nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          w_snow_new_t(nproma, p_patch%nblks_c, ntiles_total)
   
-    REAL(wp) ::          rho_snow_now_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          rho_snow_new_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          rho_snow_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          rho_snow_new_t (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          h_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          h_snow_t (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          w_i_now_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          w_i_new_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          w_i_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          w_i_new_t (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          t_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          u_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          v_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          t_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          u_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          v_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          tch_t      (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          tcm_t      (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          tfv_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          tch_t      (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          tcm_t      (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          tfv_t      (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          sobs_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          thbs_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          pabs_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          sobs_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          thbs_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          pabs_t     (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          runoff_s_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          runoff_g_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          runoff_s_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          runoff_g_t (nproma, p_patch%nblks_c, ntiles_total)
 
     ! local dummy variable for precipitation rate of graupel, grid-scale
     REAL(wp) :: dummy_prg_gsp(nproma)
 
-    REAL(wp) :: t_snow_mult_now_t(nproma, nlev_snow+1, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: t_snow_mult_new_t(nproma, nlev_snow+1, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: t_snow_mult_now_t(nproma, nlev_snow+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_snow_mult_new_t(nproma, nlev_snow+1, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: rho_snow_mult_now_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: rho_snow_mult_new_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: rho_snow_mult_now_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: rho_snow_mult_new_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: wliq_snow_now_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: wliq_snow_new_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: wliq_snow_now_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: wliq_snow_new_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: wtot_snow_now_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: wtot_snow_new_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: wtot_snow_now_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: wtot_snow_new_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: dzh_snow_now_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: dzh_snow_new_t(nproma, nlev_snow, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: dzh_snow_now_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: dzh_snow_new_t(nproma, nlev_snow, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: t_so_now_t(nproma, nlev_soil+2, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: t_so_new_t(nproma, nlev_soil+2, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: t_so_now_t(nproma, nlev_soil+2, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_so_new_t(nproma, nlev_soil+2, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: w_so_now_t(nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: w_so_new_t(nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: w_so_now_t(nproma, nlev_soil+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_so_new_t(nproma, nlev_soil+1, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) :: w_so_ice_now_t(nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: w_so_ice_now_t(nproma, nlev_soil+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil+1, p_patch%nblks_c, ntiles_total)
 
-!!$    REAL(wp) :: lu_class_frac(nsfc_subs), sum_frac 
-!!$    INTEGER  :: i_tile(nproma, nsfc_subs),lu_subs
     INTEGER  :: lu_subs
-    REAL(wp) :: subsfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: subsfrac_t (nproma, p_patch%nblks_c, ntiles_total)
     INTEGER  :: i_count, i_count_snow, ic
     REAL(wp) :: tmp1, tmp2, tmp3, fact1, fact2
     REAL(wp) :: fr_snow(nproma), fr_snow_old(nproma)
-    REAL(wp) :: tracer_rate(nproma, p_patch%nblks_c, 4, nsfc_subs)
+    REAL(wp) :: tracer_rate(nproma, p_patch%nblks_c, 4, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
     LOGICAL  :: lsnowpres(nproma)
 
@@ -223,13 +219,13 @@ CONTAINS
       &         tch_s(nproma), tfv_s(nproma), t_2m_s(nproma), qv_2m_s(nproma),              &
       &         td_2m_s(nproma), rh_2m_s(nproma), u_10m_s(nproma), v_10m_s(nproma),         &
       &         shfl_s_s(nproma), lhfl_s_s(nproma)
-    REAL(wp) ::          qv_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          td_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          rh_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          shfl_s_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          lhfl_s_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          shfl_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) ::          lhfl_snow_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) ::          qv_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          td_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          rh_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
 !--------------------------------------------------------------
 
 
@@ -288,10 +284,9 @@ CONTAINS
 
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
-!---------- Preparations for TERRA in the case if snow tiles are considered
        ! Copy precipitation fields for subsequent downscaling
-       DO isubs = 1,nsfc_subs
-         i_count = ext_data%atm%gp_count_t(jb,isubs)
+       DO isubs = 1,ntiles_total
+         i_count = ext_data%atm%gp_count_t(jb,isubs) 
          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -302,24 +297,25 @@ CONTAINS
          END DO
        END DO
 
+!---------- Preparations for TERRA in the case if snow tiles are considered
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
 
-         DO isubs = 1, nsfc_stat
+         DO isubs = 1, ntiles_lnd
 
-           i_count = ext_data%atm%gp_count_t(jb,isubs+nsfc_stat) 
+           i_count = ext_data%atm%gp_count_t(jb,isubs+ntiles_lnd) 
 
            DO ic = 1, i_count
-             jc = ext_data%atm%idx_lst_t(ic,jb,isubs+nsfc_stat)
+             jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
   
              ! fraction of given land use class (=sum of fractions of snow-covered and snow-free tiles)
-             fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+nsfc_stat)
+             fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
 
              ! snow fraction (with respect to the fraction of given land use class)
-             fr_snow(jc) = ext_data%atm%lc_frac_t(jc,jb,isubs+nsfc_stat) / MAX(fact1,small)
+             fr_snow(jc) = ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
 
              ! snow depth per fraction -> snow depth per surface unit
-             lnd_prog_now%w_snow_t(jc,jb,isubs+nsfc_stat) = &
-               lnd_prog_now%w_snow_t(jc,jb,isubs+nsfc_stat)*fr_snow(jc)
+             lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
+               lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd)*fr_snow(jc)
 
              ! Snow and rain fall onto snow-covered tile surface only, 
              ! if 1) the corresponding snow tile already exists and 
@@ -341,7 +337,7 @@ CONTAINS
 !---------- Copy input fields for each tile
 
 !----------------------------------
-       DO isubs = 1,nsfc_subs
+       DO isubs = 1,ntiles_total
 !----------------------------------
 
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
@@ -351,11 +347,11 @@ CONTAINS
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
-          ps_t(ic,jb)           =  p_diag%pres_sfc     (jc,jb)    
-          prr_con_t(ic,jb)      =  tracer_rate(jc,jb,3,isubs) 
+          ps_t(ic,jb)           =  p_diag%pres_sfc(jc,jb)    
+          prr_con_t(ic,jb)      =  tracer_rate(jc,jb,3,isubs)
           prs_con_t(ic,jb)      =  tracer_rate(jc,jb,4,isubs)
           prr_gsp_t(ic,jb)      =  tracer_rate(jc,jb,1,isubs)
-          prs_gsp_t(ic,jb)      =  tracer_rate(jc,jb,2,isubs) 
+          prs_gsp_t(ic,jb)      =  tracer_rate(jc,jb,2,isubs)
 
           u_t(ic,jb)      =  p_diag%u         (jc,nlev,jb)     
           v_t(ic,jb)      =  p_diag%v         (jc,nlev,jb)     
@@ -442,7 +438,7 @@ CONTAINS
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & ! array dimensions
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
-        &  nsubs0=1,          nsubs1=nsfc_subs               , & ! nsfc_subs
+        &  nsubs0=1,          nsubs1=ntiles_total               , & ! ntiles_total
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  dt=tcall_sfc_jg                                   , &
@@ -531,7 +527,6 @@ CONTAINS
 !
         &  runoff_s      = runoff_s_t(:,jb,isubs)            , & ! surface water runoff; sum over forecast       (kg/m2)
         &  runoff_g      = runoff_g_t(:,jb,isubs)            , & ! soil water runoff; sum over forecast          (kg/m2)
-        &  pt_tiles      = p_tiles(:)                        , & ! tiles structure
 !
         &  zshfl_s       = shfl_s_t   (:,jb,isubs)           , & ! sensible heat flux soil/air interface         (W/m2) 
         &  zlhfl_s       = lhfl_s_t   (:,jb,isubs)           , & ! latent   heat flux soil/air interface         (W/m2) 
@@ -633,7 +628,7 @@ CONTAINS
 
        i_count = ext_data%atm%lp_count(jb)
 
-       IF (nsfc_subs == 1) THEN 
+       IF (ntiles_total == 1) THEN 
 !CDIR NODEP,VOVERTAKE,VOB
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_lp(ic,jb)
@@ -643,7 +638,7 @@ CONTAINS
        ELSE ! aggregate fields over tiles
          t_g_s(:)  =  0._wp
          qv_s_s(:) =  0._wp
-         DO isubs = 1,nsfc_subs
+         DO isubs = 1,ntiles_total
 !CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_lp(ic,jb)
@@ -667,7 +662,7 @@ CONTAINS
          ENDDO
 
          IF(lsnowtile) THEN      ! snow is considered as separate tiles
-           DO isubs = 1, nsfc_stat
+           DO isubs = 1, ntiles_lnd
 
              i_count = ext_data%atm%gp_count_t(jb,isubs) 
 
@@ -679,17 +674,17 @@ CONTAINS
                ! snow has fallen onto the snow-free tile surface -> it should be transferred to the snow tile;
                ! otherwise nothing is done, because in all other cases (snow tile already exists or
                ! there is no snow at all) w_snow_t for snow-free tiles = 0.
-               lnd_prog_new%w_snow_t(jc,jb,isubs+nsfc_stat) = &
-                 lnd_prog_new%w_snow_t(jc,jb,isubs) + lnd_prog_new%w_snow_t(jc,jb,isubs+nsfc_stat)
+               lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
+                 lnd_prog_new%w_snow_t(jc,jb,isubs) + lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd)
                lnd_prog_new%w_snow_t(jc,jb,isubs) = 0._wp
 
-               lsnowpres(ic) = lnd_prog_new%w_snow_t(jc,jb,isubs+nsfc_stat).GT.small 
+               lsnowpres(ic) = lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd).GT.small 
              END DO   
              CALL update_snow_index_list(lsnowpres                                                         , &
                                          i_count                                                           , &
-                                         i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat)      , &
+                                         i_count_snow = ext_data%atm%gp_count_t(jb,isubs + ntiles_lnd)      , &
                                          idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs)               , &
-                                         idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs + nsfc_stat)     , &
+                                         idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs + ntiles_lnd)     , &
                                          lc_class = lc_class_t(:,jb,isubs)                                 , &
                                          sntile_lcc = ext_data%atm%snowtile_lcc(:)                         , &
                                          soiltyp = ext_data%atm%soiltyp_t(:,jb,isubs)                      , &
@@ -699,27 +694,27 @@ CONTAINS
                                          tai = ext_data%atm%tai_t(:,jb,isubs)                              , &
                                          eai = ext_data%atm%eai_t(:,jb,isubs)                              , &
                                          rsmin2d = ext_data%atm%rsmin2d_t(:,jb,isubs)                      , &
-                                         soiltyp_sn = ext_data%atm%soiltyp_t(:,jb,isubs + nsfc_stat)       , &
-                                         plcov_sn = ext_data%atm%plcov_t(:,jb,isubs + nsfc_stat)           , &
-                                         rootdp_sn = ext_data%atm%rootdp_t (:,jb,isubs + nsfc_stat)        , &
-                                         sai_sn = ext_data%atm%sai_t(:,jb,isubs + nsfc_stat)               , &
-                                         tai_sn = ext_data%atm%tai_t(:,jb,isubs + nsfc_stat)               , &
-                                         eai_sn = ext_data%atm%eai_t(:,jb,isubs + nsfc_stat)               , &
-                                         rsmin2d_sn = ext_data%atm%rsmin2d_t(:,jb,isubs + nsfc_stat)         )
+                                         soiltyp_sn = ext_data%atm%soiltyp_t(:,jb,isubs + ntiles_lnd)       , &
+                                         plcov_sn = ext_data%atm%plcov_t(:,jb,isubs + ntiles_lnd)           , &
+                                         rootdp_sn = ext_data%atm%rootdp_t (:,jb,isubs + ntiles_lnd)        , &
+                                         sai_sn = ext_data%atm%sai_t(:,jb,isubs + ntiles_lnd)               , &
+                                         tai_sn = ext_data%atm%tai_t(:,jb,isubs + ntiles_lnd)               , &
+                                         eai_sn = ext_data%atm%eai_t(:,jb,isubs + ntiles_lnd)               , &
+                                         rsmin2d_sn = ext_data%atm%rsmin2d_t(:,jb,isubs + ntiles_lnd)         )
 
-             i_count_snow = ext_data%atm%gp_count_t(jb,isubs+nsfc_stat) 
+             i_count_snow = ext_data%atm%gp_count_t(jb,isubs+ntiles_lnd) 
              DO ic = 1, i_count_snow
-               jc = ext_data%atm%idx_lst_t(ic,jb,isubs+nsfc_stat)
+               jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
          
                ! fraction of given land use class
-               fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+nsfc_stat)
+               fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
 
                ! old snow fraction (with respect to the fraction of given land use class)
-               fr_snow_old(jc) = ext_data%atm%lc_frac_t(jc,jb,isubs+nsfc_stat) / MAX(fact1,small)
+               fr_snow_old(jc) = ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
 
                ! old snow depth per surface unit -> old snow depth per fraction (just returning back, for safety reason)
-               lnd_prog_now%w_snow_t(jc,jb,isubs+nsfc_stat) = &
-                 lnd_prog_now%w_snow_t(jc,jb,isubs+nsfc_stat)/MAX(fr_snow_old(jc),small)
+               lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
+                 lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd)/MAX(fr_snow_old(jc),small)
 
                ! During snow index list update, points with newly formed snow cover have been added to the list;
                ! for the snow-covered tiles of these points "diag_snowfrac_tg" has not been called, 
@@ -728,8 +723,8 @@ CONTAINS
                ! for which "diag_snowfrac_tg" has determined "snowfrac_t" (with respect to surface unit).
                ! In all other cases, "snowfrac_t" for snow-free tiles = 0.
                ! -> it can be transferred to snow-covered tile similar to "w_snow_t".
-               lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat) = &
-                 MAX(lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat), lnd_diag%snowfrac_t(jc,jb,isubs))
+               lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) = &
+                 MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd), lnd_diag%snowfrac_t(jc,jb,isubs))
                lnd_diag%snowfrac_t(jc,jb,isubs) = 0._wp
  
              END DO
@@ -738,49 +733,49 @@ CONTAINS
              ! according to their new fractions, in order to keep heat and moisture balances
              DO jk = 1, nlev_soil+1
                DO ic = 1, i_count_snow
-                 jc = ext_data%atm%idx_lst_t(ic,jb,isubs+nsfc_stat)
+                 jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
 
-                 fact1 = MIN(1._wp - fr_snow_old(jc), 1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat)) / &
-                         MAX(1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat),small)
-                 fact2 = MAX(lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat) - fr_snow_old(jc), 0._wp)/ &
-                         MAX(lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat), small)
+                 fact1 = MIN(1._wp - fr_snow_old(jc), 1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)) / &
+                         MAX(1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd),small)
+                 fact2 = MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) - fr_snow_old(jc), 0._wp)/ &
+                         MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd), small)
 
                  tmp1 = lnd_prog_new%t_so_t(jc,jk,jb,isubs) 
                  tmp2 = lnd_prog_new%w_so_t(jc,jk,jb,isubs)
                  tmp3 = lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs)
   
                  lnd_prog_new%t_so_t    (jc,jk,jb,isubs) = lnd_prog_new%t_so_t    (jc,jk,jb,isubs)*fact1 &
-                   &                         + lnd_prog_new%t_so_t    (jc,jk,jb,isubs+nsfc_stat)*(1._wp - fact1)
+                   &                         + lnd_prog_new%t_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact1)
                  lnd_prog_new%w_so_t    (jc,jk,jb,isubs) = lnd_prog_new%w_so_t    (jc,jk,jb,isubs)*fact1 &
-                   &                         + lnd_prog_new%w_so_t    (jc,jk,jb,isubs+nsfc_stat)*(1._wp - fact1)
+                   &                         + lnd_prog_new%w_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact1)
                  lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs) = lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs)*fact1 &
-                   &                         + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+nsfc_stat)*(1._wp - fact1)
+                   &                         + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact1)
  
-                 lnd_prog_new%t_so_t    (jc,jk,jb,isubs+nsfc_stat) = tmp1*fact2 &
-                   &                         + lnd_prog_new%t_so_t    (jc,jk,jb,isubs+nsfc_stat)*(1._wp - fact2)
-                 lnd_prog_new%w_so_t    (jc,jk,jb,isubs+nsfc_stat) = tmp2*fact2 &
-                   &                         + lnd_prog_new%w_so_t    (jc,jk,jb,isubs+nsfc_stat)*(1._wp - fact2)
-                 lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+nsfc_stat) = tmp3*fact2 &
-                   &                         + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+nsfc_stat)*(1._wp - fact2)
+                 lnd_prog_new%t_so_t    (jc,jk,jb,isubs+ntiles_lnd) = tmp1*fact2 &
+                   &                         + lnd_prog_new%t_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact2)
+                 lnd_prog_new%w_so_t    (jc,jk,jb,isubs+ntiles_lnd) = tmp2*fact2 &
+                   &                         + lnd_prog_new%w_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact2)
+                 lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+ntiles_lnd) = tmp3*fact2 &
+                   &                         + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact2)
                END DO
              END DO        ! soil layers
              DO ic = 1, i_count_snow
-               jc = ext_data%atm%idx_lst_t(ic,jb,isubs+nsfc_stat)
+               jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
                      
                ! fraction of given land use class
-               fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+nsfc_stat)
+               fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
 
                ! new snow depth per surface unit -> new snow depth per fraction
-               lnd_prog_new%w_snow_t(jc,jb,isubs+nsfc_stat) = &
-                 lnd_prog_new%w_snow_t(jc,jb,isubs+nsfc_stat)/MAX(lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat),small)
+               lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
+                 lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd)/MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd),small)
                    
                ! new tiles fractions, snow fractions and t_g
-               ext_data%atm%lc_frac_t(jc,jb,isubs)           = (1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat))*fact1
-               ext_data%atm%lc_frac_t(jc,jb,isubs+nsfc_stat) = lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat)          *fact1
+               ext_data%atm%lc_frac_t(jc,jb,isubs)           = (1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd))*fact1
+               ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) = lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)          *fact1
                lnd_diag%snowfrac_t(jc,jb,isubs)           = 0._wp
-               lnd_diag%snowfrac_t(jc,jb,isubs+nsfc_stat) = 1._wp
+               lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) = 1._wp
                lnd_prog_new%t_g_t(jc,jb,isubs)           = lnd_prog_new%t_s_t   (jc,jb,isubs)
-               lnd_prog_new%t_g_t(jc,jb,isubs+nsfc_stat) = lnd_prog_new%t_snow_t(jc,jb,isubs)
+               lnd_prog_new%t_g_t(jc,jb,isubs+ntiles_lnd) = lnd_prog_new%t_snow_t(jc,jb,isubs)
              END DO
            END DO
          END IF

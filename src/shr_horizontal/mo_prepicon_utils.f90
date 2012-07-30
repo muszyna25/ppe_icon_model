@@ -79,7 +79,7 @@ MODULE mo_prepicon_utils
   USE mo_nh_init_nest_utils,  ONLY: topography_blending, topography_feedback
   USE mo_grid_config,         ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
@@ -816,7 +816,7 @@ MODULE mo_prepicon_utils
         ENDIF
 
         IF ( l_sfc_in .AND. atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
             DO jc = 1, nlen
                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
@@ -853,7 +853,7 @@ MODULE mo_prepicon_utils
           ENDDO
 
           ! Multi-layer surface fields
-          DO jt = 1, nsfc_subs
+          DO jt = 1, ntiles_total
 
             DO js = 0, nlev_soil+1
               jp = js+1 ! indexing for the ICON state field starts at 1
