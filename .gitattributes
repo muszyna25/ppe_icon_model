@@ -698,6 +698,7 @@ schedulers/ecmwf/ICON_r2B06_10d/def/case_setup -text
 schedulers/ecmwf/ICON_r2B06_10d/def/ifs2icon_1279.conf -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/end_job.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/head.h -text
+schedulers/ecmwf/ICON_r2B06_10d/def/include/init_ecgate_large.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/init_ecgate_submit.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/init_icon_job.h -text
 schedulers/ecmwf/ICON_r2B06_10d/def/include/init_job.h -text
@@ -707,6 +708,7 @@ schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/cancel_check_progress -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/dot_cdprc -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon.def -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_archive.sms -text
+schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_data2dwd.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_getmars.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_metview.sms -text
 schedulers/ecmwf/ICON_r2B06_10d/def/smsfiles/icon/endofmonth/eom_prepare.sms -text

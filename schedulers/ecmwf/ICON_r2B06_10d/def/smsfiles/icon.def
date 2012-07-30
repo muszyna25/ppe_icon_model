@@ -346,6 +346,11 @@ suite icon_${EXPNUM}
             on_ecgate
             event time_eom
 
+        task eom_data2dwd
+            trigger testday:time_eom
+            complete (testday==complete) and not (testday:time_eom)
+            on_ecgate_submit
+
         task eom_prepare  
             trigger testday:time_eom
             complete (testday==complete) and not (testday:time_eom)

@@ -40,8 +40,9 @@ ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/$YYYYMM"
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
-tar cvfz metplots_%SUITE%_$YYYYMM.tgz metplots
-ecp      metplots_%SUITE%_$YYYYMM.tgz $ecfsdir
+tar cvf metplots_%SUITE%_$YYYYMM.tar metplots
+gzip    metplots_%SUITE%_$YYYYMM.tar
+ecp     metplots_%SUITE%_$YYYYMM.tar.gz $ecfsdir
 
 
 #-----------------------------------------------------------------------------

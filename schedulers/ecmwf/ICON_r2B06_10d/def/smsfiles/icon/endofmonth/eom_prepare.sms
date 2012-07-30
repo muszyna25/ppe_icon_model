@@ -36,6 +36,13 @@ ldeldata=0
 
 
 #-----------------------------------------------------------------------------
+# ectrans data to DWD from diagnostic plotting by Uli Damrath
+# (script by Helmut Frank, requires to set-up ectrans)
+
+#ICON_VERSION=3 ECTrans_ASSOCIATION=ECtoHPC ~dw7/ICON/iconECFS2DWD -e icon_003_ICON_r2B06_10d/2012060100 -d 2012060100 -d 2012060200
+
+
+#-----------------------------------------------------------------------------
 # loop over level type
 
 for levtype1 in PL HL ML; do
