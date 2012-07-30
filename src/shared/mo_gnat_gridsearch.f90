@@ -46,6 +46,16 @@
 !!
 !! TODO[FP]
 !! - Any beneficiary effects of NOT using REAL(wp) for distance measurements?
+!!
+!! @note Performance optimization:
+!!       -------------------------
+!!       This algorithm is divided into two parts: In the first phase
+!!       we build a search tree containing the cell centers, which is
+!!       then in a second phase traversed by the lat-lon points.
+!!       MERIDIAN CONVERGENCE therefore affects this second phase: The
+!!       MPI process which covers the pole region must handle a larger
+!!       number of search operations.
+!!
 !! -----------------------------------------------------------------------------------
 MODULE mo_gnat_gridsearch
 

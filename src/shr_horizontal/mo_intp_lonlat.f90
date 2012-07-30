@@ -902,6 +902,15 @@
     !! the 9 edges entering into the usual 9-point RBF vector reconstruction at
     !! cell centers, followed by applying the RBF reconstruction.
     !!
+    !! @note Use of a Gradient Limiter:
+    !!       --------------------------
+    !!       In order to avoid over- and undershoots we suggest to
+    !!       employ a gradient limiter (not yet implemented). Because
+    !!       the gradient must be limited wrt. all lon-lat points
+    !!       falling into a given cell, and because the number of
+    !!       these "target points" is not known a priori, it would be
+    !!       efficient to limit the gradient wrt. the cell vertices.
+    !!
     !! @par Revision History
     !! based on
     !!   mo_intp_rbf_coeffs::rbf_compute_coeff_c2grad
