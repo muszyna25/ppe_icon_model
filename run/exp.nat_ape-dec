@@ -43,8 +43,6 @@ else
   lredgrid_phys=".true."
 fi  
 
-# division_file_name="../../grids/${atmo_grid_filename}.cell_domain_ids"
-division_method=${division_method:=1}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
@@ -58,6 +56,8 @@ out_newfile_days=${out_newfile_days:=1}     # 1 day per file
 dt_file=`expr ${out_newfile_days} \* 86400 `
 msg_level=${msg_level:=0}
 
+division_method=${division_method:=1}
+division_file_name=${division_file_name:=""}
 use_icon_comm=${use_icon_comm:=".false."}
 iorder_sendrecv=${iorder_sendrecv:=3}
 test_gw_hines_opt=${test_gw_hines_opt:=0}

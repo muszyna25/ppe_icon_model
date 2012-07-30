@@ -69,7 +69,7 @@ create_dec()
   exp_name=${outname}.${dec_size}.${nodes}nodes.${nproma}nproma.${atmo_dyn_gridname}
   runname=exp.${exp_name}.run
 
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
+  $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm
@@ -89,7 +89,7 @@ create_dec()
 #==============================================================================
 set_default_parameters()
 {
-  name=nat_ape-dec
+  exp_descriptor=nat_ape-dec
   mpi_procs_pernode=32
   openmp_threads=2
   nproma=4
@@ -124,10 +124,28 @@ create_std_exp_on_blizzard()
 
 #create_std_exp_on_blizzard
 #exit
+#==============================================================================
+create_strong_scaling()
+{
+  grid_name=$1
+  outname=$2
+  nodes_list="$3"
+  division_method=1
+
+  for iter_nodes in $nodes_list
+  do
+    dec_size=`expr ${mpi_procs_pernode} \* ${iter_nodes}`
+    atmo_dyn_gridname=$grid_name
+    create_dec
+  done
+}
+
 
 #==============================================================================
 create_weak_scaling()
 {
+  setup_name=$1
+
   grid_base_level_dec_32=1
   grid_base_level_dec_92=2
   grid_base_level_dec_162=2
@@ -153,6 +171,7 @@ create_weak_scaling()
   ;;
   esac
  
+  outname="${setup_name}-${cells_per_domain}cellspd"
   atmo_dyn_gridname=""
   atmo_rad_gridname=""
 
@@ -189,10 +208,10 @@ create_weak_scaling()
 #==============================================================================
 create_weak_scaling_on_blizzard()
 {
+   
   set_default_parameters
   cells_per_domain=24
   division_method=0
-  outname="nat-ape_hexdec-24cells"
   ndays=60
   cpu_time="00:20:00"
   dt_rad=1800
@@ -201,16 +220,43 @@ create_weak_scaling_on_blizzard()
   #==============================================================================
 
   use_icon_comm=".true."
-  outname="nat-ape_hexdec-24cells_30mrad_iconcomm"
-  # create_weak_scaling
-  #==============================================================================  
+  # create_weak_scaling "nat-ape_hexdec_30mrad_iconcomm"
+  #==============================================================================
   use_icon_comm=".false."
-  outname="nat-ape_hexdec-24cells_30mrad_no-iconcomm"
-  create_weak_scaling
+  create_weak_scaling "nat-ape_hexdec_30mrad_no-iconcomm"
 }
 
 
-create_weak_scaling_on_blizzard
+#==============================================================================
+create_comm_test_on_blizzard()
+{
+  set_default_parameters
+  exp_descriptor="icon-testbed_communication"
+  ndays=100
+  cpu_time="00:10:00"
+  dt_rad=1800
+  #---------------------------------
+  # run="true"
+  #==============================================================================
+  create_strong_scaling "iconR2B05-grid" "comm-strongtest" "1 2 4 8 16 32"
+
+  #==============================================================================
+  cells_per_domain=384
+  division_method=0
+  create_weak_scaling "comm-weaktest_hexdec"
+  division_method=1
+  create_weak_scaling "comm-weaktest_geomdec"
+  #==============================================================================
+  cells_per_domain=96
+  division_method=0
+  create_weak_scaling "comm-weaktest_hexdec"
+  division_method=1
+  create_weak_scaling "comm-weaktest_geomdec"
+
+}
+
+create_comm_test_on_blizzard
+#create_weak_scaling_on_blizzard
 exit
 
 

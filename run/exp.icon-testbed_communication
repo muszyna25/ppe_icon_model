@@ -41,8 +41,8 @@ start_date="2008-09-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=600
-ndays=10
+dtime=60
+ndays=${ndays:=10}
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #
 #-----------------------------------------------------------------------------
@@ -58,7 +58,10 @@ nlev=95             # nlev = number of full levels
 atmo_dyn_gridname=${atmo_dyn_gridname:='iconR2B04-grid'}
 atmo_dyn_grids=${atmo_dyn_gridname}.nc
 #-----------------------------------------------------------------------------
-nproma=${nproma:=21}
+nproma=${nproma:=4}
+division_method=${division_method:=1}
+division_file_name=${division_file_name:=""}
+use_icon_comm=${use_icon_comm:=".false."}
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -72,7 +75,7 @@ namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
   testbed_model       = 2  ! test the communication
-  testbed_iterations  = 10000
+  testbed_iterations  = ${nsteps}
   calculate_iterations  = 0
 /
 &parallel_nml
@@ -80,6 +83,8 @@ cat > $namelist_filename << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
+ division_method=${division_method}
+ division_file_name="$division_file_name"
  max_send_recv_buffer_size = 262144
 /
 &grid_nml

@@ -112,6 +112,7 @@ MODULE mo_mpi
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte, p_real_sp_byte
 
+  PUBLIC ::get_mpi_time,ellapsed_mpi_time
 
   ! old fashioned method (MPI-1)
 
@@ -439,6 +440,27 @@ MODULE mo_mpi
   END INTERFACE
 
 CONTAINS
+
+  !------------------------------------------------------------------------------
+  REAL(dp) FUNCTION get_mpi_time()
+#ifdef NOMPI
+    get_mpi_time = 0.0_dp
+#else
+    get_mpi_time = MPI_Wtime()
+#endif    
+  END FUNCTION get_mpi_time
+  !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  REAL(dp) FUNCTION ellapsed_mpi_time(start_time)
+    REAL(dp), INTENT(in) :: start_time
+#ifdef NOMPI
+    ellapsed_mpi_time = 0.0_dp
+#else
+    ellapsed_mpi_time = MPI_Wtime() - start_time
+#endif    
+  END FUNCTION ellapsed_mpi_time
+  !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   SUBROUTINE set_process_mpi_name(name)
