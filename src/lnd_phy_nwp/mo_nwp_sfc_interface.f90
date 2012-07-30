@@ -352,10 +352,10 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
           ps_t(ic,jb)           =  p_diag%pres_sfc     (jc,jb)    
-          prr_con_t(ic,jb)      =  tracer_rate(jc,jb,3,isubs) 
-          prs_con_t(ic,jb)      =  tracer_rate(jc,jb,4,isubs) 
-          prr_gsp_t(ic,jb)      =  tracer_rate(jc,jb,1,isubs) 
-          prs_gsp_t(ic,jb)      =  tracer_rate(jc,jb,2,isubs) 
+          prr_con_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,3) 
+          prs_con_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,4)
+          prr_gsp_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,1)
+          prs_gsp_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,2) 
 
           u_t(ic,jb)      =  p_diag%u         (jc,nlev,jb)     
           v_t(ic,jb)      =  p_diag%v         (jc,nlev,jb)     
