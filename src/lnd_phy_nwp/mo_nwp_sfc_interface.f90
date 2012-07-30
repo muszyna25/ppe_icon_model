@@ -288,6 +288,7 @@ CONTAINS
        DO isubs = 1,ntiles_total
          i_count = ext_data%atm%gp_count_t(jb,isubs) 
          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+!CDIR NODEP,VOVERTAKE,VOB
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
            tracer_rate(jc,jb,1,isubs) = prm_diag%tracer_rate(jc,jb,1)
@@ -304,6 +305,7 @@ CONTAINS
 
            i_count = ext_data%atm%gp_count_t(jb,isubs+ntiles_lnd) 
 
+!CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
   
