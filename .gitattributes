@@ -626,7 +626,6 @@ run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_jitter -text
 run/exp.iconrun -text
 run/exp.nah_jww -text
-run/exp.nat_ape -text
 run/exp.nat_ape-dec -text
 run/exp.nat_jww -text
 run/exp.nat_jww_410 -text

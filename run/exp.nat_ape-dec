@@ -50,14 +50,15 @@ nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
 #output=${output:='"vlist","totint"'}
 output=${output:='"none"'}
-out_diag_hours=${out_diag_hours:=6}         # global integral output each 6 hours
-out_data_hours=${out_data_hours:=6}         # write output every 6 hours
+out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
+out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
 dt_diag=`expr ${out_diag_hours} \* 3600  `   
 dt_data=`expr ${out_data_hours} \* 3600  `
 out_newfile_days=${out_newfile_days:=1}     # 1 day per file
 dt_file=`expr ${out_newfile_days} \* 86400 `
 msg_level=${msg_level:=0}
 
+use_icon_comm=${use_icon_comm:=".false."}
 iorder_sendrecv=${iorder_sendrecv:=3}
 test_gw_hines_opt=${test_gw_hines_opt:=0}
 ltimer=${ltimer:=".true."}
@@ -133,6 +134,8 @@ cat >> ${atmo_namelist} << EOF
 &parallel_nml
  iorder_sendrecv = ${iorder_sendrecv}
  nproma         = ${nproma}
+ use_icon_comm   = ${use_icon_comm}
+ max_send_recv_buffer_size = 262144
  p_test_run     = ${p_test_run}
  l_test_openmp  = ${l_test_openmp}
  l_log_checks   = ${l_log_checks}
