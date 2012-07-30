@@ -156,7 +156,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
 
-  i_lc_si= ext_data%atm%i_lc_snow_ice(1)
+  i_lc_si= ext_data%atm%i_lc_snow_ice
 
   IF (msg_level >= 15) &
         & CALL message('mo_nwp_turb:', 'turbulence')

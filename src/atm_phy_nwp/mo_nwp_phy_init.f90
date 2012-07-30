@@ -194,7 +194,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   nshift = p_patch%nshift_total
 
-  i_lc_si= ext_data%atm%i_lc_snow_ice(1)
+  i_lc_si= ext_data%atm%i_lc_snow_ice
 
   IF (.NOT. is_restart_run())THEN
 

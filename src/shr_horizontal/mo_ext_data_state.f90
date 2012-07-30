@@ -908,9 +908,7 @@ CONTAINS
                 p_ext_atm%rootdmax_lcc(num_lcc),   & ! Maximum root depth each land-cover class
                 p_ext_atm%stomresmin_lcc(num_lcc), & ! Minimum stomata resistance for each land-cover class
                 p_ext_atm%snowalb_lcc(num_lcc),    & ! Albedo in case of snow cover for each land-cover class
-                p_ext_atm%snowtile_lcc(num_lcc),   & ! Specification of snow tiles for land-cover class
-                p_ext_atm%i_lc_snow_ice(1),        & ! Specification of land-use class snow and ice
-                p_ext_atm%i_lc_water(1)            ) ! Specification of land-use class water
+                p_ext_atm%snowtile_lcc(num_lcc)    ) ! Specification of snow tiles for land-cover class
 
 
       !--------------------------------
@@ -1792,8 +1790,8 @@ CONTAINS
         ! Preset parameter fields with the correct table values
         ilu = 0
         IF (i_lctype(jg) == 1) THEN
-          ext_data(jg)%atm%i_lc_snow_ice(1) = 21
-          ext_data(jg)%atm%i_lc_water(1)    = 20
+          ext_data(jg)%atm%i_lc_snow_ice = 21
+          ext_data(jg)%atm%i_lc_water    = 20
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i  )  ! Land-cover related roughness length
@@ -1802,12 +1800,12 @@ CONTAINS
             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_glc2000(i+3)  ! Maximum root depth for each land-cover class
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_glc2000(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_glc2000(i+6)  ! Specification of snow tiles for land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ELSE IF (i_lctype(jg) == 2) THEN
           i_lctype(jg) = 2
-          ext_data(jg)%atm%i_lc_snow_ice(1) = 22
-          ext_data(jg)%atm%i_lc_water(1)    = 21
+          ext_data(jg)%atm%i_lc_snow_ice = 22
+          ext_data(jg)%atm%i_lc_water    = 21
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i  )  ! Land-cover related roughness length
@@ -1816,7 +1814,7 @@ CONTAINS
             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009(i+3)  ! Maximum root depth for each land-cover class
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = lu_gcv2009(i+6)  ! Specification of snow tiles for land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
 
@@ -2622,7 +2620,7 @@ CONTAINS
        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
      
-       i_lc_water = ext_data(jg)%atm%i_lc_water(1)
+       i_lc_water = ext_data(jg)%atm%i_lc_water
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
@@ -2693,25 +2691,15 @@ CONTAINS
                    ! The land cover classes are also stored on the ordinary grid; 
                    ! they are not needed during runtime
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
-                   IF(lsnowtile) THEN
-                     IF(ext_data(jg)%atm%snowtile_lcc(lu_subs) .EQ. 1) THEN  ! snow tile is considered
-!em                       it_count(i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat) + 1
-!em                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu + nsfc_stat),jb,i_lu + nsfc_stat) = jc
-!em                       ext_data(jg)%atm%gp_count_t(jb,i_lu + nsfc_stat) = it_count(i_lu + nsfc_stat)
-                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu + ntiles_lnd)  = 0._wp ! should be snow fraction
-                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu + ntiles_lnd) = lu_subs
-                       ext_data(jg)%atm%gp_count_t(jb,i_lu + ntiles_lnd) = 0
-                     END IF
-                   END IF
                  ELSE
                    EXIT ! no more land cover classes exceeding the threshold
                  ENDIF
 
                END DO
 
-               sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_total))
+               sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
 
-               DO i_lu = 1, ntiles_total 
+               DO i_lu = 1, ntiles_lnd 
 
                  IF ( sum_frac > 0._wp) THEN 
                    ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = &

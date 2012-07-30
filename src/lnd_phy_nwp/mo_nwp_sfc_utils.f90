@@ -1170,7 +1170,7 @@ CONTAINS
     INTEGER , INTENT(IN)    :: idx_lst_nosnow(:)
     LOGICAL , INTENT(IN)    :: lsnowpres(:)
     INTEGER , INTENT(IN)    :: lc_class(:)
-    REAL(wp), INTENT(IN)    :: sntile_lcc(:)    ! why REAL?
+    LOGICAL , INTENT(IN)    :: sntile_lcc(:)
     INTEGER , INTENT(INOUT) :: i_count_snow
     INTEGER , INTENT(INOUT) :: idx_lst_snow(:)
     INTEGER , INTENT(IN)    :: soiltyp(:)
@@ -1197,7 +1197,7 @@ CONTAINS
 
       iminneg = 0
       lu_subs = lc_class(ic)
-      IF(sntile_lcc(lu_subs) .EQ. 1.) THEN  ! snow tile is considered
+      IF(sntile_lcc(lu_subs)) THEN  ! snow tile is considered
 
         iminsize = MIN(i_count_snow, ic)
   
