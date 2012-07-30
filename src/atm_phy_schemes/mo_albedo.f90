@@ -185,7 +185,7 @@ CONTAINS
             ! account for snow cover and plant cover and compute final solar
             ! snow albedo
             !
-            zvege = ext_data%atm%plcov_t(ic,jb,isubs)
+            zvege = ext_data%atm%plcov_t(jc,jb,isubs)
             IF (lnd_prog%w_snow_t(jc,jb,isubs) > 0.0_wp) THEN
               zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,isubs) / cf_snow)
             ENDIF

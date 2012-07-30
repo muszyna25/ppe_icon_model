@@ -174,6 +174,14 @@ CONTAINS
     REAL(wp) ::          runoff_s_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          runoff_g_t (nproma, p_patch%nblks_c, ntiles_total)
 
+    INTEGER  ::          soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          plcov_t   (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          sai_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          tai_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          eai_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          rsmin2d_t (nproma, p_patch%nblks_c, ntiles_total)
+!
     ! local dummy variable for precipitation rate of graupel, grid-scale
     REAL(wp) :: dummy_prg_gsp(nproma)
 
@@ -387,6 +395,14 @@ CONTAINS
           thbs_t(ic,jb,isubs)                =  prm_diag%lwflxsfc_t(jc,jb,isubs) 
           pabs_t(ic,jb,isubs)                =  prm_diag%swflxsfc_t(jc,jb,isubs) 
 
+          soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
+          plcov_t(ic,jb,isubs)               =  ext_data%atm%plcov_t(jc,jb,isubs)
+          rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
+          sai_t(ic,jb,isubs)                 =  ext_data%atm%sai_t(jc,jb,isubs)
+          tai_t(ic,jb,isubs)                 =  ext_data%atm%tai_t(jc,jb,isubs)
+          eai_t(ic,jb,isubs)                 =  ext_data%atm%eai_t(jc,jb,isubs)
+          rsmin2d_t(ic,jb,isubs)             =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
+
           t_so_now_t(ic,nlev_soil+2,jb,isubs) = lnd_prog_now%t_so_t(jc,nlev_soil+2,jb,isubs)
 
           IF(lmulti_snow) THEN
@@ -444,13 +460,13 @@ CONTAINS
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  dt=tcall_sfc_jg                                   , &
-        &  soiltyp_subs = ext_data%atm%soiltyp_t(:,jb,isubs) , & ! type of the soil (keys 0-9)         --
-        &  plcov        = ext_data%atm%plcov_t(:,jb,isubs)   , & ! fraction of plant cover             --
-        &  rootdp       = ext_data%atm%rootdp_t(:,jb,isubs)  , & ! depth of the roots                ( m  )
-        &  sai          = ext_data%atm%sai_t(:,jb,isubs)     , & ! surface area index                  --
-        &  tai          = ext_data%atm%tai_t(:,jb,isubs)     , & ! surface area index                  --
-        &  eai          = ext_data%atm%eai_t(:,jb,isubs)     , & ! surface area index                  --
-        &  rsmin2d      = ext_data%atm%rsmin2d_t(:,jb,isubs) , & ! minimum stomata resistance        ( s/m )
+        &  soiltyp_subs = soiltyp_t(:,jb,isubs)              , & ! type of the soil (keys 0-9)         --
+        &  plcov        = plcov_t(:,jb,isubs)                , & ! fraction of plant cover             --
+        &  rootdp       = rootdp_t(:,jb,isubs)               , & ! depth of the roots                ( m  )
+        &  sai          = sai_t(:,jb,isubs)                  , & ! surface area index                  --
+        &  tai          = tai_t(:,jb,isubs)                  , & ! surface area index                  --
+        &  eai          = eai_t(:,jb,isubs)                  , & ! surface area index                  --
+        &  rsmin2d      = rsmin2d_t(:,jb,isubs)              , & ! minimum stomata resistance        ( s/m )
 !
         &  u  =  u_t(:,jb)                                   , & ! zonal wind speed
         &  v  =  v_t(:,jb)                                   , & ! meridional wind speed 
@@ -552,7 +568,7 @@ CONTAINS
           &  rho_snow  = rho_snow_new_t    (:,jb,isubs), & ! snow depth
           &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
           &  sso_sigma = sso_sigma_t       (:,jb),       & ! sso stdev
-          &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+          &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
           &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
           &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 

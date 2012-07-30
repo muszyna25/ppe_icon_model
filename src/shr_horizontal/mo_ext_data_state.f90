@@ -2655,16 +2655,15 @@ CONTAINS
              IF (ntiles_lnd == 1) THEN 
 
                ! i_lu=1 contains grid-box mean values from EXTPAR!
-               ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-               ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ptr_ndvi_mrat(jc,jb)  &
+               ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
+               ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)  &
                  &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
-               ext_data(jg)%atm%tai_t    (i_count,jb,1)  = ptr_ndvi_mrat(jc,jb)**2  &
+               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)**2  &
                  & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
-               ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
-                 & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
-               ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
-               ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
-               ext_data(jg)%atm%soiltyp_t(i_count,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
+               ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
+               ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil      
+               ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+               ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
                !  Workaround for GLC2000 hole below 60 deg S
@@ -2676,7 +2675,7 @@ CONTAINS
 
              ELSE    
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
-! JH
+
                DO i_lu = 1, ntiles_lnd
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)
                  IF (tile_frac(lu_subs) >= frac_thresh) THEN
@@ -2685,11 +2684,7 @@ CONTAINS
                    ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                    ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
 
-                   ! **ATTENTION: the fractions (for aggregating) are needed on the 
-                   ! ordinary model grid for the time being**
                    ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = tile_frac(lu_subs)
-                   ! The land cover classes are also stored on the ordinary grid; 
-                   ! they are not needed during runtime
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
                  ELSE
                    EXIT ! no more land cover classes exceeding the threshold
@@ -2721,30 +2716,26 @@ CONTAINS
                  IF (lu_subs < 0) CYCLE
 
                  ! root depth
-                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = &
-                   &    ext_data(jg)%atm%rootdmax_lcc(lu_subs)
+                 ext_data(jg)%atm%rootdp_t (jc,jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  =    &
+                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  =    &
                    &         ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
                  ! max leaf area index
-                 ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  =    &
+                 ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  =    &
                    &  ptr_ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)  &
                    &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
                  ! max leaf area index
-                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  =    &
-                   c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
+                 ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
                  ! max leaf area index
-                 ext_data(jg)%atm%eai_t    (it_count(i_lu),jb,i_lu)  = c_soil
+                 ext_data(jg)%atm%eai_t    (jc,jb,i_lu)  = c_soil
 
                  ! minimal stomata resistence
-                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = &
-                   &   ext_data(jg)%atm%stomresmin_lcc(lu_subs)
+                 ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
     
                  ! soil type
-                 ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
-                   ext_data(jg)%atm%soiltyp(jc,jb)
+                 ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
                END DO
              END IF ! nfc_subs
            ELSE  IF (ext_data(jg)%atm%fr_lake(jc,jb)> frlake_thrhld) THEN ! searching for lake-points 
@@ -2753,12 +2744,22 @@ CONTAINS
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
              ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
              ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+             ! Copy values read in from extpar to tile index 1
+             ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
+             ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
+             ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+             ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
            ELSE                                                           ! searching for sea-points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
              ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+             ! Copy values read in from extpar to tile index 1
+             ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
+             ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
+             ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+             ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
            END IF
          END DO ! jc
 

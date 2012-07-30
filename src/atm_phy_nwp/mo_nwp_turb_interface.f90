@@ -67,7 +67,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_lnd
 
   IMPLICIT NONE
 
@@ -137,7 +137,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   ! 2D fields
   REAL(wp), DIMENSION(nproma,ntiles_total) :: gz0t, gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
-   t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t
+   t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t
 
   ! 3D full-level fields
   REAL(wp), DIMENSION(nproma,2,ntiles_total) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
@@ -190,7 +190,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP DO PRIVATE(jb,jt,jc,jk,ic,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine, &
 !$OMP lc_class,gz0,z_tvs,gz0t,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,        &  
 !$OMP t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,   &
-!$OMP pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,w_t,rcld_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,w_t,rcld_t,sai_t) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -237,7 +237,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! specify land-cover-related roughness length over land points
       ! note:  water points are set in turbdiff
       gz0(:) = 0._wp
-      DO jt = 1, ntiles_total
+      DO jt = 1, ntiles_lnd
         DO jc = i_startidx, i_endidx
           IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
             lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
@@ -311,22 +311,22 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       ELSE ! tile approach used; tile 1 exists on all grid points
 
-        CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                   &
-          & ie=nproma, ke=nlev, ke1=nlevp1,                                                   &
-          & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,         &
-          & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                  &
-          & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),         &
-          & sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice(:,jb), ps=p_diag%pres_sfc(:,jb),     &
-          & t_g=lnd_prog_now%t_g_t(:,jb,1), qv_s=lnd_diag%qv_s_t(:,jb,1),                     &
-          & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                       &
-          & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                                   &
-          & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),               &
-          & gz0=gz0t(:,1), tcm=tcm_t(:,1), tch=tch_t(:,1),                                    &
-          & tfm=tfm_t(:,1), tfh=tfh_t(:,1), tfv=tfv_t(:,1),                                   &
-          & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,:,jb),  &!  edr =prm_diag%edr(:,:,jb),     &
-          & tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb),                           &
-          & t_2m=t_2m_t(:,1), qv_2m=qv_2m_t(:,1), td_2m=td_2m_t(:,1),                         &
-          & rh_2m=rh_2m_t(:,1), u_10m=u_10m_t(:,1), v_10m=v_10m_t(:,1),                       &
+        CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                       &
+          & ie=nproma, ke=nlev, ke1=nlevp1,                                                       &
+          & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,             &
+          & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                      &
+          & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),             &
+          & sai=ext_data%atm%sai_t(:,jb,1), h_ice=prm_diag%h_ice(:,jb), ps=p_diag%pres_sfc(:,jb), &
+          & t_g=lnd_prog_now%t_g_t(:,jb,1), qv_s=lnd_diag%qv_s_t(:,jb,1),                         &
+          & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                           &
+          & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                                       &
+          & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),                   &
+          & gz0=gz0t(:,1), tcm=tcm_t(:,1), tch=tch_t(:,1),                                        &
+          & tfm=tfm_t(:,1), tfh=tfh_t(:,1), tfv=tfv_t(:,1),                                       &
+          & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,:,jb),  &!  edr =prm_diag%edr(:,:,jb),         &
+          & tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb),                               &
+          & t_2m=t_2m_t(:,1), qv_2m=qv_2m_t(:,1), td_2m=td_2m_t(:,1),                             &
+          & rh_2m=rh_2m_t(:,1), u_10m=u_10m_t(:,1), v_10m=v_10m_t(:,1),                           &
           & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
         ! Loop over remaining tiles; for those, not all grid points exist in general
@@ -342,6 +342,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             gz0t_t(ic,jt) = gz0t(jc,jt)
             t_g_t(ic,jt)  = lnd_prog_now%t_g_t(jc,jb,jt)
             qv_s_t(ic,jt) = lnd_diag%qv_s_t(jc,jb,jt)
+            sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
             u_t(ic,1:2,jt)     = p_diag%u(jc,nlev-1:nlev,jb)
@@ -362,7 +363,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & istart=1, iend=i_count, istartpar=1, iendpar=i_count,                             &
             & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt),                          &
             & fr_land=fr_land_t(:), depth_lk=depth_lk_t(:),                                     &
-            & sai=ext_data%atm%sai_t(:,jb,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),           &
+            & sai=sai_t(:,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),                           &
             & t_g=t_g_t(:,jt), qv_s=qv_s_t(:,jt), u=u_t(:,:,jt), v=v_t(:,:,jt), w=w_t(:,:,jt),  &
             & T=temp_t(:,:,jt), prs=pres_t(:,:,jt), qv=qv_t(:,:,jt), qc=qc_t(:,:,jt),           &
             & gz0=gz0t_t(:,jt), tcm=tcm_t(:,jt), tch=tch_t(:,jt),                               &

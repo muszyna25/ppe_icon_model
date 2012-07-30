@@ -101,7 +101,7 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
@@ -166,7 +166,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   LOGICAL  :: lland, lglac
   
-  INTEGER :: jb,jc,jt,jg,ist
+  INTEGER :: jb,ic,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1            !< number of full and half levels
   INTEGER :: nshift                  !< shift with respect to global grid
   INTEGER :: rl_start, rl_end
@@ -689,7 +689,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ! note:  water points are set in turbdiff
         gz0(:) = 0._wp
         
-        DO jt = 1, ntiles_total
+        DO jt = 1, ntiles_lnd
           DO jc = i_startidx, i_endidx
             IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
@@ -714,7 +714,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ic,jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -791,6 +791,20 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
 !
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+      ! Copy eai, sai, and tai over water points to tile-index 1 of tile-based variables
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
+        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+      ENDDO
+      DO ic = 1, ext_data%atm%fp_count(jb)
+        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
+        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+      ENDDO
 
     ENDDO
 !$OMP END DO

@@ -126,6 +126,10 @@ CONTAINS
     REAL(wp) :: wtot_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: dzh_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
 
+    INTEGER  ::          soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) ::          tai_t     (nproma, p_patch%nblks_c, ntiles_total)
+
     REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          sso_sigma_t(nproma,  p_patch%nblks_c)
@@ -232,6 +236,10 @@ CONTAINS
           sso_sigma_t(ic,jb)                 = ext_data%atm%sso_stdh(jc,jb)
           lc_class_t(ic,jb,isubs)            = ext_data%atm%lc_class_t(jc,jb,isubs)
           freshsnow_t(ic,jb,isubs)           = p_lnd_diag%freshsnow_t(jc,jb,isubs)
+
+          soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
+          rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
+          tai_t(ic,jb,isubs)                 =  ext_data%atm%tai_t(jc,jb,isubs)
         ENDDO
 
 
@@ -285,9 +293,9 @@ CONTAINS
 !       &  ke=nlev, &! nsubs0=1, nsubs1=ntiles_total               , & ! ntiles_total
         &  ke_soil=nlev_soil, ke_snow=nlev_snow                 , &
         &  czmls=zml_soil                                       , & ! processing soil level structure 
-        &  soiltyp_subs  =  ext_data%atm%soiltyp_t(:,jb,isubs)  , & ! type of the soil (keys 0-9)  --
-        &  rootdp        =  ext_data%atm%rootdp_t(:,jb,isubs)   , & ! depth of the roots                ( m  )
-        &  t_snow_now    =  t_snow_now_t(:,jb,isubs)            , & ! temperature of the snow-surface   (  K  )
+        &  soiltyp_subs      = soiltyp_t(:,jb,isubs)            , & ! type of the soil (keys 0-9)  --
+        &  rootdp            = rootdp_t(:,jb,isubs)             , & ! depth of the roots                ( m  )
+        &  t_snow_now        = t_snow_now_t(:,jb,isubs)         , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
@@ -315,7 +323,7 @@ CONTAINS
           &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
           &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
           &  sso_sigma = sso_sigma_t       (:,jb),       & ! sso stdev
-          &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+          &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
           &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
           &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 
