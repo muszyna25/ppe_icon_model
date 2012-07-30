@@ -289,20 +289,20 @@ CONTAINS
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
 !---------- Preparations for TERRA in the case if snow tiles are considered
-       IF(lsnowtile) THEN      ! snow is considered as separate tiles
-
-         ! Copy precipitation fields for subsequent downscaling
-         DO isubs = 1,nsfc_subs
-           i_count = ext_data%atm%gp_count_t(jb,isubs) 
-           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
-           DO ic = 1, i_count
-             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-             tracer_rate(jc,jb,1,isubs) = prm_diag%tracer_rate(jc,jb,1)
-             tracer_rate(jc,jb,2,isubs) = prm_diag%tracer_rate(jc,jb,2)
-             tracer_rate(jc,jb,3,isubs) = prm_diag%tracer_rate(jc,jb,3)
-             tracer_rate(jc,jb,4,isubs) = prm_diag%tracer_rate(jc,jb,4)
-           END DO
+       ! Copy precipitation fields for subsequent downscaling
+       DO isubs = 1,nsfc_subs
+         i_count = ext_data%atm%gp_count_t(jb,isubs)
+         IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+         DO ic = 1, i_count
+           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+           tracer_rate(jc,jb,1,isubs) = prm_diag%tracer_rate(jc,jb,1)
+           tracer_rate(jc,jb,2,isubs) = prm_diag%tracer_rate(jc,jb,2)
+           tracer_rate(jc,jb,3,isubs) = prm_diag%tracer_rate(jc,jb,3)
+           tracer_rate(jc,jb,4,isubs) = prm_diag%tracer_rate(jc,jb,4)
          END DO
+       END DO
+
+       IF(lsnowtile) THEN      ! snow is considered as separate tiles
 
          DO isubs = 1, nsfc_stat
 
@@ -352,10 +352,10 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
           ps_t(ic,jb)           =  p_diag%pres_sfc     (jc,jb)    
-          prr_con_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,3) 
-          prs_con_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,4)
-          prr_gsp_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,1)
-          prs_gsp_t(ic,jb)      =  prm_diag%tracer_rate(jc,jb,2) 
+          prr_con_t(ic,jb)      =  tracer_rate(jc,jb,3,isubs) 
+          prs_con_t(ic,jb)      =  tracer_rate(jc,jb,4,isubs)
+          prr_gsp_t(ic,jb)      =  tracer_rate(jc,jb,1,isubs)
+          prs_gsp_t(ic,jb)      =  tracer_rate(jc,jb,2,isubs) 
 
           u_t(ic,jb)      =  p_diag%u         (jc,nlev,jb)     
           v_t(ic,jb)      =  p_diag%v         (jc,nlev,jb)     
