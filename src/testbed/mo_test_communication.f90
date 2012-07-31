@@ -89,6 +89,7 @@ CONTAINS
     ! DO the tests
     ltimer = .true.
     activate_sync_timers = .true.
+    CALL init_timer()
     CALL test_communication_3D()
     !---------------------------------------------------------------------
 
