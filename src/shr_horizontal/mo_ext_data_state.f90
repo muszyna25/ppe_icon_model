@@ -64,7 +64,7 @@ MODULE mo_ext_data_state
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_snow, frac_thresh
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_snow, frac_thresh, lsnowtile
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
@@ -2608,7 +2608,7 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_sea, i_count_flk
+    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_sea, i_count_flk, ic, jt, jt_in
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -2652,7 +2652,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,it_count) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -2667,6 +2667,7 @@ CONTAINS
 
          it_count(:)                       = 0 ! counter for tiles
          ext_data(jg)%atm%gp_count_t(jb,:) = 0
+         ext_data(jg)%atm%lp_count_t(jb,:) = 0
 
          DO jc = i_startidx, i_endidx
            IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
@@ -2830,6 +2831,30 @@ CONTAINS
              ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
            END IF
          END DO ! jc
+
+         IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
+           DO jt = ntiles_lnd+1, ntiles_total
+
+             jt_in = jt - ntiles_lnd
+             ext_data(jg)%atm%lp_count_t(jb,jt)     = ext_data(jg)%atm%lp_count_t(jb,jt_in)
+             ext_data(jg)%atm%idx_lst_lp_t(:,jb,jt) = ext_data(jg)%atm%idx_lst_lp_t(:,jb,jt_in)
+
+!CDIR NODEP
+             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+               ext_data(jg)%atm%rootdp_t(jc,jb,jt)   = ext_data(jg)%atm%rootdp_t(jc,jb,jt_in)
+               ext_data(jg)%atm%plcov_t(jc,jb,jt)    = ext_data(jg)%atm%plcov_t(jc,jb,jt_in)
+               ext_data(jg)%atm%tai_t(jc,jb,jt)      = ext_data(jg)%atm%tai_t(jc,jb,jt_in)
+               ext_data(jg)%atm%sai_t(jc,jb,jt)      = ext_data(jg)%atm%sai_t(jc,jb,jt_in)
+               ext_data(jg)%atm%eai_t(jc,jb,jt)      = ext_data(jg)%atm%eai_t(jc,jb,jt_in)
+               ext_data(jg)%atm%rsmin2d_t(jc,jb,jt)  = ext_data(jg)%atm%rsmin2d_t(jc,jb,jt_in)
+               ext_data(jg)%atm%soiltyp_t(jc,jb,jt)  = ext_data(jg)%atm%soiltyp_t(jc,jb,jt_in)
+               ext_data(jg)%atm%lc_class_t(jc,jb,jt) = ext_data(jg)%atm%lc_class_t(jc,jb,jt_in)
+               ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt_in)
+             ENDDO
+
+           ENDDO
+         ENDIF
 
        END DO !jb
 !$OMP END DO NOWAIT

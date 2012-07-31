@@ -639,8 +639,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !------------------------------------------
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
-    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
-      &                   p_prog_lnd_new, p_diag_lnd)
+    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd)
+ ! ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lsnowtile) THEN
+ !   CALL init_snowtile_lists()
   END IF
 
 
@@ -817,6 +818,33 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
 
+  ELSE IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN ! Restart initialization
+
+    rl_start = 1 ! Initialization is done also for nest boundary points
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,    &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      ! Copy eai, sai, and tai over water points to tile-index 1 of tile-based variables
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
+        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+      ENDDO
+      DO ic = 1, ext_data%atm%fp_count(jb)
+        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
+        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+      ENDDO
+    ENDDO
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
 
