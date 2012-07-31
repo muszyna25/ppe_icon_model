@@ -140,6 +140,7 @@ CONTAINS
     REAL(wp), PARAMETER :: small = 1.E-06_wp
     REAL(wp) :: fact1
     LOGICAL  :: lsnowpres(nproma)
+    REAL(wp) :: t_g_s(nproma)
 
   !-------------------------------------------------------------------------
 
@@ -383,6 +384,33 @@ CONTAINS
           ENDDO
         ENDDO
       END DO ! isubs
+
+      IF (nsfc_subs == 1) THEN
+        i_count = ext_data%atm%gp_count_t(jb,1) 
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_t(ic,jb,1)
+          p_prog_lnd_now%t_g(jc,jb) = p_prog_lnd_now%t_g_t(jc,jb,1)
+          p_prog_lnd_new%t_g(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
+        ENDDO
+      ELSE ! aggregate fields over tiles
+        t_g_s(:)  =  0._wp
+        DO isubs = 1,nsfc_subs
+          i_count = ext_data%atm%gp_count_t(jb,isubs) 
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            t_g_s(jc) = t_g_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* &
+              p_prog_lnd_now%t_g_t(jc,jb,isubs)**4
+          ENDDO
+        ENDDO
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_lp(ic,jb)
+          p_prog_lnd_now%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
+          p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
+        ENDDO
+      END IF
 
       IF(lsnowtile) THEN      ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd 
