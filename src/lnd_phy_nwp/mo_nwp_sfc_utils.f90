@@ -385,7 +385,7 @@ CONTAINS
         ENDDO
       END DO ! isubs
 
-      IF (nsfc_subs == 1) THEN
+      IF (ntiles_total == 1) THEN
         i_count = ext_data%atm%gp_count_t(jb,1) 
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
@@ -395,7 +395,7 @@ CONTAINS
         ENDDO
       ELSE ! aggregate fields over tiles
         t_g_s(:)  =  0._wp
-        DO isubs = 1,nsfc_subs
+        DO isubs = 1,ntiles_total
           i_count = ext_data%atm%gp_count_t(jb,isubs) 
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
