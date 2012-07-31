@@ -29,7 +29,7 @@ case "$fortran_compiler" in
       DEBUG_FLAGS = -g -qcheck=all -qstackprotect=all
       BASIC_OPT_FLAGS = -qalias_size -q64 -qmaxmem=-1 -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint -WF,-D__LOOP_EXCHANGE      
       STD_FLAGS = -O2 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"  -qspillsize=32648
-      HIOPT_FLAGS = -O3 -qhot -qstrict=ieeefp -qarch=pwr6 -qtune=balanced -qcache=auto -qxflag=nvectver -qxflag=nsmine -qfloat=fltint -qessl -q64 -qmaxmem=-1  -qlinedebug  -WF,-D__LOOP_EXCHANGE -WF,-DHAVE_FAST_MATH_LIB -WF,-DHAVE_MASS
+      HIOPT_FLAGS = -O3 -qhot -qstrict -qarch=pwr6 -qtune=balanced -qcache=auto -qxflag=nvectver -qxflag=nsmine -qfloat=fltint -qessl -q64 -qmaxmem=-1  -qlinedebug  -WF,-D__LOOP_EXCHANGE -WF,-DHAVE_FAST_MATH_LIB -WF,-DHAVE_MASS
       FFLAGS   = $GENFLAGS -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000  -qessl
       F77      = mpxlf_r
       F77FLAGS = $GENFLAGS -g -qextname  -qessl 
