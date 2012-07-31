@@ -318,10 +318,10 @@ CONTAINS
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
   
              ! fraction of given land use class (=sum of fractions of snow-covered and snow-free tiles)
-             fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
+             fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
 
              ! snow fraction (with respect to the fraction of given land use class)
-             fr_snow(jc) = ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
+             fr_snow(jc) = ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
 
              ! snow depth per fraction -> snow depth per surface unit
              lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
@@ -660,9 +660,9 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_lp(ic,jb)
-             t_g_s(jc) = t_g_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* &
+             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
                lnd_prog_new%t_g_t(jc,jb,isubs)**4
-             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%lc_frac_t(jc,jb,isubs)* & 
+             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* & 
                lnd_diag%qv_s_t(jc,jb,isubs)
            ENDDO
          ENDDO
@@ -725,10 +725,10 @@ CONTAINS
                jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
          
                ! fraction of given land use class
-               fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
+               fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
 
                ! old snow fraction (with respect to the fraction of given land use class)
-               fr_snow_old(jc) = ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
+               fr_snow_old(jc) = ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
 
                ! old snow depth per surface unit -> old snow depth per fraction (just returning back, for safety reason)
                lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
@@ -781,15 +781,15 @@ CONTAINS
                jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
                      
                ! fraction of given land use class
-               fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
+               fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
 
                ! new snow depth per surface unit -> new snow depth per fraction
                lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
                  lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd)/MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd),small)
                    
                ! new tiles fractions, snow fractions and t_g
-               ext_data%atm%lc_frac_t(jc,jb,isubs)           = (1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd))*fact1
-               ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) = lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)          *fact1
+               ext_data%atm%frac_t(jc,jb,isubs)           = (1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd))*fact1
+               ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) = lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)          *fact1
                lnd_diag%snowfrac_t(jc,jb,isubs)           = 0._wp
                lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) = 1._wp
                lnd_prog_new%t_g_t(jc,jb,isubs)           = lnd_prog_new%t_s_t   (jc,jb,isubs)

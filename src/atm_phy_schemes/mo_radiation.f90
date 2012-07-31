@@ -1302,7 +1302,6 @@ CONTAINS
     &                 gp_count_t,      & ! optional: number of land points per tile
     &                 idx_lst_lp,      & ! optional: index list of land points
     &                 idx_lst_t,       & ! optional: index list of land points per tile
-    &                 lc_frac_t,       & ! optional: land cover fraction per tile
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 ptrmsw        ,  &
@@ -1341,8 +1340,7 @@ CONTAINS
       &     ptsfc_t   (kbdim,ntiles),& ! tile-specific surface temperature at t  [K]
       &     cosmu0    (kbdim),       & ! cosine of solar zenith angle
       &     albedo    (kbdim),       & ! grid-box average albedo
-      &     albedo_t  (kbdim,ntiles),& ! tile-specific albedo
-      &     lc_frac_t (kbdim,ntiles)   ! land cover fraction per tile
+      &     albedo_t  (kbdim,ntiles)   ! tile-specific albedo
 
     INTEGER, INTENT(in), OPTIONAL  ::     &
       &     lp_count, gp_count_t(ntiles), &  ! number of land points

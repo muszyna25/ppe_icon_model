@@ -922,7 +922,6 @@ CONTAINS
           & gp_count_t=ext_data%atm%gp_count_t(jb,:), &! in   number of land points per tile
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
-          & lc_frac_t=ext_data%atm%lc_frac_t(:,jb,:), &! in   land cover fraction per tile
           & cosmu0=zcosmu0(:,jb),                   &! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]

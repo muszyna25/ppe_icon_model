@@ -872,16 +872,33 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      ! idx_lst_lp_t        p_ext_atm%idx_lst_lp_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('static land tile point index list', '-', &
+        &                   'static land tile point index list', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'idx_lst_lp_t', p_ext_atm%idx_lst_lp_t, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+
       ! idx_lst_t        p_ext_atm%idx_lst_t(nproma,nblks_c,ntiles_total)
-      cf_desc    = t_cf_var('tile point index list', '-', &
-        &                   'tile point index list', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('dynamic land tile point index list', '-', &
+        &                   'dynamic land tile point index list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'idx_lst_t', p_ext_atm%idx_lst_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+      ! active_flag_t        p_ext_atm%active_flag_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('flag of activity', '-', &
+        &                   'flag of activity', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'active_flag_t', p_ext_atm%active_flag_t, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+
       ! not sure if these dimensions are supported by add_var...
-      ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,ntiles_total))
+      ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
+               p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
       ALLOCATE(p_ext_atm%sp_count(nblks_c),p_ext_atm%fp_count(nblks_c))
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total)
@@ -897,6 +914,14 @@ CONTAINS
         &                   'tile point land cover fraction list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+
+      ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('tile point area fraction list', '-', &
+        &                   'tile point area fraction list', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'frac_t', p_ext_atm%frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
@@ -2604,7 +2629,6 @@ CONTAINS
     CALL message('', TRIM(message_text))
 
 
-
     DO jg = 1, n_dom 
 
        n_lu = nclass_lu(jg)
@@ -2665,13 +2689,20 @@ CONTAINS
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+               ext_data(jg)%atm%frac_t   (jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
                !  Workaround for GLC2000 hole below 60 deg S
                IF (ext_data(jg)%atm%lc_class_t(jc,jb,1) <= 0) &
-                 ext_data(jg)%atm%lc_class_t(jc,jb,1) = 21
+                 ext_data(jg)%atm%lc_class_t(jc,jb,1) = ext_data(jg)%atm%i_lc_snow_ice
 
-               ext_data(jg)%atm%idx_lst_t(i_count,jb,1)  = jc
-               ext_data(jg)%atm%gp_count_t(jb,1)         = i_count
+               ! static index list and corresponding counter
+               ext_data(jg)%atm%idx_lst_lp_t(i_count,jb,1)  = jc
+               ext_data(jg)%atm%lp_count_t(jb,1)            = i_count
+
+               ! initialize dynamic index list (in case of lsnowtile=true) with the same values
+               ext_data(jg)%atm%idx_lst_t(i_count,jb,1) = jc
+               ext_data(jg)%atm%gp_count_t(jb,1)        = i_count
+               ext_data(jg)%atm%active_flag_t(jc,jb,1)  = 1
 
              ELSE    
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
@@ -2681,8 +2712,15 @@ CONTAINS
                  IF (tile_frac(lu_subs) >= frac_thresh) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1
                    tile_mask(lu_subs)= .FALSE.
+
+                   ! static index list and corresponding counter
+                   ext_data(jg)%atm%idx_lst_lp_t(it_count(i_lu),jb,i_lu) = jc
+                   ext_data(jg)%atm%lp_count_t(jb,i_lu)                  = it_count(i_lu)
+
+                   ! initialize dynamic index list (in case of lsnowtile=true) with the same values
                    ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                    ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
+                   ext_data(jg)%atm%active_flag_t(jc,jb,i_lu)         = 1
 
                    ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = tile_frac(lu_subs)
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
@@ -2697,18 +2735,27 @@ CONTAINS
                DO i_lu = 1, ntiles_lnd 
 
                  IF ( sum_frac > 0._wp) THEN 
-                   ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = &
-                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) / sum_frac
+                   ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) / sum_frac
+                   ext_data(jg)%atm%frac_t(jc,jb,i_lu)    = ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)
                  ELSE !  Workaround for GLC2000 hole below 60 deg S
                    IF (i_lu == 1) THEN
                      it_count(i_lu)    = it_count(i_lu) + 1
+                     ! static index list and corresponding counter
+                     ext_data(jg)%atm%idx_lst_lp_t(it_count(i_lu),jb,i_lu) = jc
+                     ext_data(jg)%atm%lp_count_t(jb,i_lu)               = it_count(i_lu)
+
+                     ! initialize dynamic index list (in case of lsnowtile=true) with the same values
                      ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                      ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
-                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = 21
+                     ext_data(jg)%atm%active_flag_t(jc,jb,i_lu)         = 1
+
+                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_snow_ice
                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 1._wp
+                     ext_data(jg)%atm%frac_t(jc,jb,i_lu)    = ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)
                    ELSE
                      ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
+                     ext_data(jg)%atm%frac_t(jc,jb,i_lu)     = 0._wp
                    ENDIF 
                  END IF
 
@@ -2743,7 +2790,7 @@ CONTAINS
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
              ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
-             ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+             ext_data(jg)%atm%frac_t(jc,jb,1)  = 1._wp
              ! Copy values read in from extpar to tile index 1
              ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
              ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
@@ -2754,7 +2801,7 @@ CONTAINS
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
-             ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+             ext_data(jg)%atm%frac_t(jc,jb,1)  = 1._wp
              ! Copy values read in from extpar to tile index 1
              ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
              ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)

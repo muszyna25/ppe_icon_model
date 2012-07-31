@@ -155,22 +155,22 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
       & plcov_mx(:,:)          ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
-      & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+      & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, ntiles_total
 
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)            [ ]
       &  lai_mx(:,:)           ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
-      &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+      &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
-      &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+      &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< earth area (evaporative surface area)          [ ]
       &  eai_t(:,:,:)          !< index (vegetation period)
-                               ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+                               ! index1=1,nproma, index2=1,nblks_c, ntiles_total
 
     REAL(wp), POINTER ::   &   !< root depth                              [m]
       &  rootdp(:,:)           ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< root depth                              [m]
-      &  rootdp_t(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+      &  rootdp_t(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, ntiles_total
 
     REAL(wp), POINTER ::   &   !< ground fraction covered by evergreen forest [ ]
       &  for_e(:,:)            ! index1=1,nproma, index2=1,nblks_c
@@ -184,7 +184,7 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
       &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
-      &  rsmin2d_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
+      &  rsmin2d_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, ntiles_total
 
     REAL(wp), POINTER ::   &   !< annual maximum NDVI                     [ ]
       &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
@@ -201,10 +201,10 @@ MODULE mo_ext_data_types
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
       &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
     ! soiltyp_t refers to the land point index list
-    ! this field is dimensioned with nsfc_subs even though this appears to be
+    ! this field is dimensioned with ntiles_total even though this appears to be
     ! unnecessary in order not to disturb the runtime optimization
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
-      &  soiltyp_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
+      &  soiltyp_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
 
 
 
@@ -236,16 +236,25 @@ MODULE mo_ext_data_types
     INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
       & fp_count(:)           ! index1=1,nblks_c
 
-
-    INTEGER, POINTER ::  &    !< Grid point index list for each block and tile [ ]
-      & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
-    INTEGER, POINTER ::  &    !< Grid point count per block and tile index      [ ]
-      & gp_count_t(:,:)       ! index1=1,nblks_c, index2=nsfc_subs
+    INTEGER, POINTER ::  &    !< Static grid point index list for each block and tile [ ]
+      & idx_lst_lp_t(:,:,:)   ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+    INTEGER, POINTER ::  &    !< Corresponding grid point count per block and tile index      [ ]
+      & lp_count_t(:,:)       ! index1=1,nblks_c, index2=ntiles_total
 
     INTEGER, POINTER ::  &    !< Land cover class for each tile index  [ ]
-      & lc_class_t(:,:,:)     ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
+      & lc_class_t(:,:,:)     ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
     REAL(wp), POINTER ::  &   !< Normalized land cover fraction for each tile index  [ ]
-      & lc_frac_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
+      & lc_frac_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+
+    INTEGER, POINTER ::  &    !< Dynamic grid point index list (if lsnowtile=true) for each block and tile [ ]
+      & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+    INTEGER, POINTER ::  &    !< Corresponding grid point count per block and tile index      [ ]
+      & gp_count_t(:,:)       ! index1=1,nblks_c, index2=ntiles_total
+    INTEGER, POINTER ::  &    !< Flag field indicating if a grid point is active, inactive or newly activated [ ]
+      & active_flag_t(:,:,:)  ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+    REAL(wp), POINTER ::  &   !< Actual area fraction for each tile index  [ ]
+      & frac_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+
 
     ! *** storage for lookup table data for each landuse class ***
     ! (needed to simplify switching between GLC2000 and Globcover2009, which

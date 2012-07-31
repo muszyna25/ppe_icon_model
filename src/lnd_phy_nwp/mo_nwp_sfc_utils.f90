@@ -428,15 +428,15 @@ CONTAINS
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs + ntiles_lnd)
 
             ! fraction of given land use class
-            fact1 = ext_data%atm%lc_frac_t(jc,jb,isubs) + ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd)
+            fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
 
             ! snow depth per surface unit -> snow depth per fraction
             p_prog_lnd_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
               p_prog_lnd_now%w_snow_t(jc,jb,isubs+ntiles_lnd)/MAX(p_lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd),small)
 
             ! tiles fractions, snow fractions and t_g
-            ext_data%atm%lc_frac_t(jc,jb,isubs)           = (1._wp - p_lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd))*fact1
-            ext_data%atm%lc_frac_t(jc,jb,isubs+ntiles_lnd) = p_lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)          *fact1
+            ext_data%atm%frac_t(jc,jb,isubs)           = (1._wp - p_lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd))*fact1
+            ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) = p_lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)          *fact1
             p_lnd_diag%snowfrac_t(jc,jb,isubs)           = 0._wp
             p_lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) = 1._wp
             p_prog_lnd_now%t_g_t(jc,jb,isubs)           = p_prog_lnd_now%t_s_t   (jc,jb,isubs)
@@ -569,7 +569,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp(ic,jb)
-            tilefrac = ext_data%atm%lc_frac_t(jc,jb,isubs)
+            tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
             lnd_diag%t_snow(jc,jb)       = lnd_diag%t_snow(jc,jb) + tilefrac * &
                                            lnd_prog%t_snow_t(jc,jb,isubs)
             lnd_diag%t_s(jc,jb)          = lnd_diag%t_s(jc,jb) + tilefrac * &
@@ -603,7 +603,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count
               jc = ext_data%atm%idx_lst_lp(ic,jb)
-              tilefrac = ext_data%atm%lc_frac_t(jc,jb,isubs)
+              tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
               lnd_diag%t_so(jc,jk,jb)      = lnd_diag%t_so(jc,jk,jb) + tilefrac* &
                                              lnd_prog%t_so_t(jc,jk,jb,isubs)
               lnd_diag%w_so(jc,jk,jb)      = lnd_diag%w_so(jc,jk,jb) + tilefrac * &
@@ -618,7 +618,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
               DO ic = 1, i_count
                 jc = ext_data%atm%idx_lst_lp(ic,jb)
-                tilefrac = ext_data%atm%lc_frac_t(jc,jb,isubs)
+                tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
                 lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_diag%t_snow_mult(jc,jk,jb) + tilefrac * &
                                                    lnd_prog%t_snow_mult_t(jc,jk,jb,isubs)
                 lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_diag%rho_snow_mult(jc,jk,jb) + tilefrac * &

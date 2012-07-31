@@ -223,8 +223,8 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count_lnd
               jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)           &
-                &                       + ext_data%atm%lc_frac_t(jc,jb,isubs) &
+              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)        &
+                &                       + ext_data%atm%frac_t(jc,jb,isubs) &
                 &                       * prm_diag%albvisdif_t(jc,jb,isubs)
             ENDDO
           ENDDO

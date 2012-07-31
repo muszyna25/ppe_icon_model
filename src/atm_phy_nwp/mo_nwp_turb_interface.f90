@@ -385,30 +385,30 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDDO
 
         ! Aggregate tile-based output fields of turbtran over tiles
-        ! Note: the lc_frac_t field, containing the area fraction of each tile, is set
+        ! Note: the frac_t field, containing the area fraction of each tile, is set
         ! to 1 for tile 1 of lake and sea points
 
         jt = 1
         DO jc = i_startidx, i_endidx
           tvs_t(jc,3,1,jt)      = z_tvs(jc,nlevp1,1)
 
-          prm_diag%gz0(jc,jb) = gz0t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tcm(jc,jb) = tcm_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tch(jc,jb) = tch_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tfm(jc,jb) = tfm_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tfh(jc,jb) = tfh_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tfv(jc,jb) = tfv_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          z_tvs(jc,nlevp1,1)  = tvs_t(jc,3,1,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tkvm(jc,nlev,jb) = prm_diag%tkvm(jc,nlev,jb)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tkvh(jc,nlev,jb) = prm_diag%tkvh(jc,nlev,jb)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%rcld(jc,nlevp1,jb)=prm_diag%rcld(jc,nlevp1,jb)*ext_data%atm%lc_frac_t(jc,jb,jt)
+          prm_diag%gz0(jc,jb) = gz0t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tcm(jc,jb) = tcm_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tch(jc,jb) = tch_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfm(jc,jb) = tfm_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfh(jc,jb) = tfh_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfv(jc,jb) = tfv_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          z_tvs(jc,nlevp1,1)  = tvs_t(jc,3,1,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tkvm(jc,nlev,jb) = prm_diag%tkvm(jc,nlev,jb)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tkvh(jc,nlev,jb) = prm_diag%tkvh(jc,nlev,jb)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%rcld(jc,nlevp1,jb)=prm_diag%rcld(jc,nlevp1,jb)*ext_data%atm%frac_t(jc,jb,jt)
 
-          prm_diag%t_2m(jc,jb)  = t_2m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%qv_2m(jc,jb) = qv_2m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%td_2m(jc,jb) = td_2m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%rh_2m(jc,jb) = rh_2m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%u_10m(jc,jb) = u_10m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%v_10m(jc,jb) = v_10m_t(jc,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
+          prm_diag%t_2m(jc,jb)  = t_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%qv_2m(jc,jb) = qv_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%td_2m(jc,jb) = td_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%rh_2m(jc,jb) = rh_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%u_10m(jc,jb) = u_10m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%v_10m(jc,jb) = v_10m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
 
         ENDDO
         DO  jt = 2, ntiles_total
@@ -420,33 +420,33 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
 
-            prm_diag%gz0(jc,jb)=prm_diag%gz0(jc,jb)+gz0t_t(ic,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-            prm_diag%tcm(jc,jb)=prm_diag%tcm(jc,jb)+tcm_t(ic,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-            prm_diag%tch(jc,jb)=prm_diag%tch(jc,jb)+tch_t(ic,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-            prm_diag%tfm(jc,jb)=prm_diag%tfm(jc,jb)+tfm_t(ic,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-            prm_diag%tfh(jc,jb)=prm_diag%tfh(jc,jb)+tfh_t(ic,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
-            prm_diag%tfv(jc,jb)=prm_diag%tfv(jc,jb)+tfv_t(ic,jt)*ext_data%atm%lc_frac_t(jc,jb,jt)
+            prm_diag%gz0(jc,jb)=prm_diag%gz0(jc,jb)+gz0t_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
+            prm_diag%tcm(jc,jb)=prm_diag%tcm(jc,jb)+tcm_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
+            prm_diag%tch(jc,jb)=prm_diag%tch(jc,jb)+tch_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
+            prm_diag%tfm(jc,jb)=prm_diag%tfm(jc,jb)+tfm_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
+            prm_diag%tfh(jc,jb)=prm_diag%tfh(jc,jb)+tfh_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
+            prm_diag%tfv(jc,jb)=prm_diag%tfv(jc,jb)+tfv_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
             z_tvs(jc,nlevp1,1) = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%tkvm(jc,nlev,jb) = prm_diag%tkvm(jc,nlev,jb)+tkvm_t(ic,2,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%tkvh(jc,nlev,jb) = prm_diag%tkvh(jc,nlev,jb)+tkvh_t(ic,2,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%rcld(jc,nlevp1,jb) = prm_diag%rcld(jc,nlevp1,jb)+rcld_t(ic,3,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
 
             prm_diag%t_2m(jc,jb)  = prm_diag%t_2m(jc,jb)+t_2m_t(ic,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%qv_2m(jc,jb) = prm_diag%qv_2m(jc,jb)+qv_2m_t(ic,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%td_2m(jc,jb) = prm_diag%td_2m(jc,jb)+td_2m_t(ic,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%rh_2m(jc,jb) = prm_diag%rh_2m(jc,jb)+rh_2m_t(ic,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt)*&
-              ext_data%atm%lc_frac_t(jc,jb,jt)
+              ext_data%atm%frac_t(jc,jb,jt)
             prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt)*&
-               ext_data%atm%lc_frac_t(jc,jb,jt)
+               ext_data%atm%frac_t(jc,jb,jt)
 
           ENDDO
 
