@@ -250,8 +250,12 @@ MODULE mo_ext_data_types
       & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
     INTEGER, POINTER ::  &    !< Corresponding grid point count per block and tile index      [ ]
       & gp_count_t(:,:)       ! index1=1,nblks_c, index2=ntiles_total
-    INTEGER, POINTER ::  &    !< Flag field indicating if a grid point is active, inactive or newly activated [ ]
-      & active_flag_t(:,:,:)  ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+    INTEGER, POINTER ::  &    !< Snowtile flag field [ ]
+      & snowtile_flag_t(:,:,:)! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
+                              ! -1: no separation between snow tile and snow-free tile
+                              !  0: inactive
+                              !  1: active
+                              !  2: newly activated; initialization from corresponding tile required
     REAL(wp), POINTER ::  &   !< Actual area fraction for each tile index  [ ]
       & frac_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
 

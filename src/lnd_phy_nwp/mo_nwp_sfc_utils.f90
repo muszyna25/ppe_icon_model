@@ -69,7 +69,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: nwp_surface_init
   PUBLIC :: diag_snowfrac_tg
   PUBLIC :: aggregate_landvars
-  PUBLIC :: update_snow_index_list
+  PUBLIC :: update_index_lists
 
 CONTAINS
 
@@ -136,7 +136,7 @@ CONTAINS
     INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, ntiles_total)
 
 !    INTEGER  :: i_tile(nproma,ntiles_total),lu_subs
-    INTEGER  :: i_count, ic, lu_subs, i_count_snow
+    INTEGER  :: i_count, ic, lu_subs, i_count_snow, isubs_snow
     REAL(wp), PARAMETER :: small = 1.E-06_wp
     REAL(wp) :: fact1
     LOGICAL  :: lsnowpres(nproma)
@@ -154,7 +154,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,jk), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,jk,isubs_snow), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -178,34 +178,28 @@ CONTAINS
       ! create index lists for snow tiles (first call)
       IF(lsnowtile) THEN      ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
+          isubs_snow = isubs + ntiles_lnd
+          i_count = ext_data%atm%lp_count_t(jb,isubs)
 
-          i_count = ext_data%atm%gp_count_t(jb,isubs) 
           DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             lsnowpres(ic) = p_prog_lnd_now%w_snow_t(jc,jb,isubs+ntiles_lnd).GT.small
             lc_class_t(ic,jb,isubs)  = ext_data%atm%lc_class_t(jc,jb,isubs)
           END DO
-          CALL update_snow_index_list(lsnowpres                                                         , &
-                                      i_count                                                           , &
-                                      i_count_snow = ext_data%atm%gp_count_t(jb,isubs + ntiles_lnd)      , &
-                                      idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs)               , &
-                                      idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs + ntiles_lnd)     , &
-                                      lc_class = lc_class_t(:,jb,isubs)                                 , &
-                                      sntile_lcc = ext_data%atm%snowtile_lcc(:)                         , &
-                                      soiltyp = ext_data%atm%soiltyp_t(:,jb,isubs)                      , &
-                                      plcov = ext_data%atm%plcov_t(:,jb,isubs)                          , &
-                                      rootdp = ext_data%atm%rootdp_t(:,jb,isubs)                        , &
-                                      sai = ext_data%atm%sai_t(:,jb,isubs)                              , &
-                                      tai = ext_data%atm%tai_t(:,jb,isubs)                              , &
-                                      eai = ext_data%atm%eai_t(:,jb,isubs)                              , &
-                                      rsmin2d = ext_data%atm%rsmin2d_t(:,jb,isubs)                      , &
-                                      soiltyp_sn = ext_data%atm%soiltyp_t(:,jb,isubs + ntiles_lnd)       , &
-                                      plcov_sn = ext_data%atm%plcov_t(:,jb,isubs + ntiles_lnd)           , &
-                                      rootdp_sn = ext_data%atm%rootdp_t(:,jb,isubs + ntiles_lnd)         , &
-                                      sai_sn = ext_data%atm%sai_t(:,jb,isubs + ntiles_lnd)               , &
-                                      tai_sn = ext_data%atm%tai_t(:,jb,isubs + ntiles_lnd)               , &
-                                      eai_sn = ext_data%atm%eai_t(:,jb,isubs + ntiles_lnd)               , &
-                                      rsmin2d_sn = ext_data%atm%rsmin2d_t(:,jb,isubs + ntiles_lnd)         )
+
+          CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+                                   lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
+                                   idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
+                                   gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
+                                   idx_lst_snow       = ext_data%atm%idx_lst_t(:,jb,isubs_snow),       &
+                                   gp_count_snow      = ext_data%atm%gp_count_t(jb,isubs_snow),        &
+                                   lc_frac            = ext_data%atm%lc_frac_t(:,jb,isubs),            &
+                                   partial_frac       = ext_data%atm%frac_t(:,jb,isubs),               &
+                                   partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
+                                   snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
+                                   snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
+                                   snowfrac           = p_lnd_diag%snowfrac_t(:,jb,isubs)              )
+
           i_count_snow = ext_data%atm%gp_count_t(jb,isubs + ntiles_lnd)
           DO ic = 1, i_count_snow
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
@@ -392,7 +386,8 @@ CONTAINS
 
       IF(lsnowtile) THEN      ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd 
-            
+
+          isubs_snow = isubs + ntiles_lnd
           i_count = ext_data%atm%gp_count_t(jb,isubs)
         
           ! update index lists for snow tiles
@@ -400,29 +395,22 @@ CONTAINS
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             lsnowpres(ic) = p_prog_lnd_now%w_snow_t(jc,jb,isubs+ntiles_lnd).GT.small
           END DO
-          CALL update_snow_index_list(lsnowpres                                                         , &
-                                      i_count                                                           , &
-                                      i_count_snow = ext_data%atm%gp_count_t(jb,isubs + ntiles_lnd)      , &
-                                      idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs)               , &
-                                      idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs + ntiles_lnd)     , &
-                                      lc_class = lc_class_t(:,jb,isubs)                                 , &
-                                      sntile_lcc = ext_data%atm%snowtile_lcc(:)                         , &
-                                      soiltyp = ext_data%atm%soiltyp_t(:,jb,isubs)                      , &
-                                      plcov = ext_data%atm%plcov_t(:,jb,isubs)                          , &
-                                      rootdp = ext_data%atm%rootdp_t(:,jb,isubs)                        , &
-                                      sai = ext_data%atm%sai_t(:,jb,isubs)                              , &
-                                      tai = ext_data%atm%tai_t(:,jb,isubs)                              , &
-                                      eai = ext_data%atm%eai_t(:,jb,isubs)                              , &
-                                      rsmin2d = ext_data%atm%rsmin2d_t(:,jb,isubs)                      , &
-                                      soiltyp_sn = ext_data%atm%soiltyp_t(:,jb,isubs + ntiles_lnd)       , &
-                                      plcov_sn = ext_data%atm%plcov_t(:,jb,isubs + ntiles_lnd)           , &
-                                      rootdp_sn = ext_data%atm%rootdp_t (:,jb,isubs + ntiles_lnd)        , &
-                                      sai_sn = ext_data%atm%sai_t(:,jb,isubs + ntiles_lnd)               , &
-                                      tai_sn = ext_data%atm%tai_t(:,jb,isubs + ntiles_lnd)               , &
-                                      eai_sn = ext_data%atm%eai_t(:,jb,isubs + ntiles_lnd)               , &
-                                      rsmin2d_sn = ext_data%atm%rsmin2d_t(:,jb,isubs + ntiles_lnd)         )
 
-          i_count_snow = ext_data%atm%gp_count_t(jb,isubs + ntiles_lnd)
+          CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+                                   lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
+                                   idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
+                                   gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
+                                   idx_lst_snow       = ext_data%atm%idx_lst_t(:,jb,isubs_snow),       &
+                                   gp_count_snow      = ext_data%atm%gp_count_t(jb,isubs_snow),        &
+                                   lc_frac            = ext_data%atm%lc_frac_t(:,jb,isubs),            &
+                                   partial_frac       = ext_data%atm%frac_t(:,jb,isubs),               &
+                                   partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
+                                   snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
+                                   snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
+                                   snowfrac           = p_lnd_diag%snowfrac_t(:,jb,isubs)              )
+
+
+          i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow)
 
           DO ic = 1, i_count_snow
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs + ntiles_lnd)
@@ -1170,98 +1158,77 @@ CONTAINS
 
   END SUBROUTINE diag_snowfrac_tg
 
-  SUBROUTINE update_snow_index_list (lsnowpres, i_count, i_count_snow, idx_lst_nosnow, idx_lst_snow,       &
-                                     lc_class, sntile_lcc, soiltyp, plcov, rootdp, sai, tai, eai, rsmin2d, &
-                                     soiltyp_sn, plcov_sn, rootdp_sn, sai_sn, tai_sn, eai_sn, rsmin2d_sn)
+  SUBROUTINE update_index_lists (idx_lst_lp, lp_count, idx_lst, gp_count, idx_lst_snow, gp_count_snow,  &
+     lc_frac, partial_frac, partial_frac_snow, snowtile_flag, snowtile_flag_snow, snowfrac)
 
-    INTEGER , INTENT(IN)    :: i_count
-    INTEGER , INTENT(IN)    :: idx_lst_nosnow(:)
-    LOGICAL , INTENT(IN)    :: lsnowpres(:)
-    INTEGER , INTENT(IN)    :: lc_class(:)
-    LOGICAL , INTENT(IN)    :: sntile_lcc(:)
-    INTEGER , INTENT(INOUT) :: i_count_snow
-    INTEGER , INTENT(INOUT) :: idx_lst_snow(:)
-    INTEGER , INTENT(IN)    :: soiltyp(:)
-    REAL(wp), INTENT(IN)    :: plcov(:)
-    REAL(wp), INTENT(IN)    :: rootdp(:)
-    REAL(wp), INTENT(IN)    :: sai(:)
-    REAL(wp), INTENT(IN)    :: tai(:)
-    REAL(wp), INTENT(IN)    :: eai(:)
-    REAL(wp), INTENT(IN)    :: rsmin2d(:)
-    INTEGER , INTENT(OUT)   :: soiltyp_sn(:)
-    REAL(wp), INTENT(OUT)   :: plcov_sn(:)
-    REAL(wp), INTENT(OUT)   :: rootdp_sn(:)
-    REAL(wp), INTENT(OUT)   :: sai_sn(:)
-    REAL(wp), INTENT(OUT)   :: tai_sn(:)
-    REAL(wp), INTENT(OUT)   :: eai_sn(:)
-    REAL(wp), INTENT(OUT)   :: rsmin2d_sn(:)
+    ! Index lists and corresponding grid-point counts:
+    ! idx_lst_lp = all land points of a tile index; idx_lst = list of snow-free or mixed points;
+    ! idx_lst_snow = list of snow-covered points for land-cover classes eligible for separate treatment
+    INTEGER , INTENT(IN)    :: idx_lst_lp(:), lp_count 
+    INTEGER , INTENT(INOUT) :: idx_lst(:), gp_count, idx_lst_snow(:), gp_count_snow
 
-    INTEGER :: ic, jc, icc, ic_snow, iminval, iminneg, itmp, iminsize, lu_subs
+    ! flag fields: -1: no separation between snow tile and snow-free tile
+    !               0: inactive
+    !               1: active
+    !               2: newly activated; initialization from corresponding tile required
+    INTEGER , INTENT(INOUT) :: snowtile_flag(:), snowtile_flag_snow(:)
+
+    ! area fractions of land-cover class, snow-free sub-tile and snow-covered sub-tile
+    REAL(wp), INTENT(IN)    :: lc_frac(:)
+    REAL(wp), INTENT(INOUT) ::  partial_frac(:), partial_frac_snow(:)
+
+    ! snow-cover fraction
+    REAL(wp), INTENT(IN) :: snowfrac(:)
+
+    ! Local variables
+    INTEGER  :: ic, jc, icount, icount_snow
+    REAL(wp) :: eps = 1.e-6_wp
 
     !-------------------------------------------------------------------------
 
-    DO ic = 1, i_count
-      jc = idx_lst_nosnow(ic)
+    icount = 0
+    icount_snow = 0
 
-      iminneg = 0
-      lu_subs = lc_class(ic)
-      IF(sntile_lcc(lu_subs)) THEN  ! snow tile is considered
+!CDIR NODEP,VOVERTAKE,VOB
+    DO ic = 1, lp_count
+      jc = idx_lst_lp(ic)
 
-        iminsize = MIN(i_count_snow, ic)
-  
-        ! find if there was snow at the previous time step and if yes, 
-        ! the position of the jc point in the "snow" index list
-        iminval  = jc
-        DO icc = iminsize, 1, -1
-          itmp = jc - idx_lst_snow(icc)
-          IF(ABS(itmp).LT.iminval) THEN
-            iminval = ABS(itmp)
-            IF(itmp.LT.0) THEN
-              iminneg = icc-1
-            ELSE
-              iminneg = icc
-            END IF 
-          END IF
-        END DO
+      IF (snowtile_flag(jc) == -1) THEN
+        icount = icount + 1
+        idx_lst(icount) = jc
+        partial_frac(jc) = lc_frac(jc)
+      ELSE
+        IF (snowfrac(jc) >= eps) THEN ! snow tile is active
+          icount_snow = icount_snow + 1
+          idx_lst_snow(icount_snow) = jc
+          partial_frac_snow(jc) = lc_frac(jc)*snowfrac(jc)
+          IF (snowtile_flag_snow(jc) == 0) THEN
+            snowtile_flag_snow(jc) = 2 ! newly activated, initialization needed
+          ELSE
+            snowtile_flag_snow(jc) = 1
+          ENDIF
+        ELSE
+          snowtile_flag_snow(jc) = 0
+        ENDIF
+        IF (1._wp-snowfrac(jc) >= eps) THEN ! snow-free tile is active
+          icount = icount + 1
+          idx_lst(icount) = jc
+          partial_frac(jc) = lc_frac(jc)*(1._wp-snowfrac(jc))
+          IF (snowtile_flag(jc) == 0) THEN
+            snowtile_flag(jc) = 2 ! newly activated, initialization needed
+          ELSE
+            snowtile_flag(jc) = 1
+          ENDIF
+        ELSE
+          snowtile_flag(jc) = 0
+        ENDIF
+      ENDIF
+    ENDDO
 
-        IF(iminval.EQ.0 .AND. .NOT.lsnowpres(ic)) THEN
-          ! there was snow at the previous time step AND there is no snow at the current time step
-          DO icc = iminneg, i_count_snow-1
-            ! shift indices in the index list filling new gap
-            idx_lst_snow(icc) = idx_lst_snow(icc+1)
-          END DO
-          i_count_snow = i_count_snow - 1
-        ELSEIF(iminval.GT.0 .AND. lsnowpres(ic)) THEN
-          ! there was no snow at the previous time step AND there is snow at the current time step
-          DO icc = i_count_snow,iminneg+1,-1
-            ! shift indices in the index list creating a gap
-            idx_lst_snow(icc+1) = idx_lst_snow(icc)
-          END DO
-          ! insert new index into the index list
-          idx_lst_snow(iminneg+1) = jc
-          i_count_snow = i_count_snow + 1
-        END IF
-      END IF
+    gp_count = icount
+    gp_count_snow = icount_snow
 
-    END DO
-
-    ! find the position of ic_snow point from "snow" index list in the corresponding "no-snow" index list;
-    ! assign values of surface properties to snow points
-    DO ic_snow = 1, i_count_snow
-      DO ic = ic_snow, i_count
-        IF(idx_lst_nosnow(ic) == idx_lst_snow(ic_snow)) THEN
-          soiltyp_sn(ic_snow) = soiltyp(ic)
-          plcov_sn  (ic_snow) = plcov  (ic)
-          rootdp_sn (ic_snow) = rootdp (ic)
-          sai_sn    (ic_snow) = sai    (ic)
-          tai_sn    (ic_snow) = tai    (ic)
-          eai_sn    (ic_snow) = eai    (ic)
-          rsmin2d_sn(ic_snow) = rsmin2d(ic)
-        END IF
-      END DO
-    END DO
-
-  END SUBROUTINE update_snow_index_list
+  END SUBROUTINE update_index_lists
 
 END MODULE mo_nwp_sfc_utils
 

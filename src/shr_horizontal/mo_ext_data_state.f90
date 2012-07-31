@@ -888,11 +888,15 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
-      ! active_flag_t        p_ext_atm%active_flag_t(nproma,nblks_c,ntiles_total)
+      ! snowtile_flag_t   p_ext_atm%snowtile_flag_t(nproma,nblks_c,ntiles_total)
+      ! -1: no separation between snow tile and snow-free tile
+      !  0: inactive
+      !  1: active
+      !  2: newly activated; initialization from corresponding tile required
       cf_desc    = t_cf_var('flag of activity', '-', &
         &                   'flag of activity', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'active_flag_t', p_ext_atm%active_flag_t, &
+      CALL add_var( p_ext_atm_list, 'snowtile_flag_t', p_ext_atm%snowtile_flag_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
@@ -2702,7 +2706,14 @@ CONTAINS
                ! initialize dynamic index list (in case of lsnowtile=true) with the same values
                ext_data(jg)%atm%idx_lst_t(i_count,jb,1) = jc
                ext_data(jg)%atm%gp_count_t(jb,1)        = i_count
-               ext_data(jg)%atm%active_flag_t(jc,jb,1)  = 1
+
+               ! initialize snowtile flag with 1 if the tile is eligible for separate treatment of
+               ! a snow-covered and a snow-free part, otherwise with -1
+               IF (ext_data(jg)%atm%snowtile_lcc(ext_data(jg)%atm%lc_class_t(jc,jb,1))) THEN
+                 ext_data(jg)%atm%snowtile_flag_t(jc,jb,1)  = 1
+               ELSE
+                 ext_data(jg)%atm%snowtile_flag_t(jc,jb,1)  = -1
+               ENDIF
 
              ELSE    
                ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
@@ -2720,7 +2731,14 @@ CONTAINS
                    ! initialize dynamic index list (in case of lsnowtile=true) with the same values
                    ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                    ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
-                   ext_data(jg)%atm%active_flag_t(jc,jb,i_lu)         = 1
+
+                   ! initialize snowtile flag with 1 if the tile is eligible for separate treatment of
+                   ! a snow-covered and a snow-free part, otherwise with -1
+                   IF (ext_data(jg)%atm%snowtile_lcc(ext_data(jg)%atm%lc_class_t(jc,jb,i_lu))) THEN
+                     ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)  = 1
+                   ELSE
+                     ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)  = -1
+                   ENDIF
 
                    ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = tile_frac(lu_subs)
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
@@ -2747,7 +2765,10 @@ CONTAINS
                      ! initialize dynamic index list (in case of lsnowtile=true) with the same values
                      ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                      ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
-                     ext_data(jg)%atm%active_flag_t(jc,jb,i_lu)         = 1
+
+                     ! the snowtile flag is initialized with -1 here because the snow/ice class is not
+                     ! eligible for separate consideration of a snow-free and a snow-covered part
+                     ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)         = -1
 
                      ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_snow_ice
                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 1._wp
