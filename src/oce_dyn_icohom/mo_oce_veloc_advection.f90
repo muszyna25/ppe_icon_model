@@ -259,13 +259,6 @@ CONTAINS
     !-------------------------------------------------------------------------------
 
     !calculate gradient of kinetic energy
-    !The kinetic energy is already calculated at beginning
-    !of actual timestep in sbr "calc_scalar_product_for_veloc"
-    ! CALL grad_fd_norm_oce( p_diag%kin, &
-    !                  & p_patch,    &
-    !                  & p_diag%grad,&
-    !                  & opt_slev=slev,opt_elev=elev )
-
     CALL grad_fd_norm_oce_3d( p_diag%kin, &
       & p_patch,    &
       & p_op_coeff%grad_coeff,&
@@ -325,9 +318,6 @@ CONTAINS
             IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN  !  #slo# <= sea_boundary?
               z_vort_flx_rbf(je,jk,jb) = &
                 & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))
-
-            ELSE
-              z_vort_flx_rbf(je,jk,jb) = 0.0_wp
             ENDIF
           END DO
         END DO
@@ -856,6 +846,7 @@ CONTAINS
         z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
       END DO
     END DO
+
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
     !This requires appropriate boundary conditions
     DO jb = all_cells%start_block, all_cells%end_block

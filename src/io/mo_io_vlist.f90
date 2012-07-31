@@ -3467,7 +3467,7 @@ CONTAINS
       ELSE
         p_sim_time = 1.0_wp
       ENDIF
-      
+
       IF(my_process_is_stdio()) THEN
         CALL taxisDefVdate(taxisID(jg), idate)   ! YYYYMMDD
         CALL taxisDefVtime(taxisID(jg), itime)   ! HHMM
@@ -3522,7 +3522,6 @@ CONTAINS
 
         ELSE
           IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
-
           CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,  &
             &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
 

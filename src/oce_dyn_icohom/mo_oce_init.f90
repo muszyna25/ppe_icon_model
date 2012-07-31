@@ -255,7 +255,6 @@ CONTAINS
                                            &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                                            &sfc_press_bar)
             ENDIF
-
           END DO
         END DO
       END DO
@@ -986,8 +985,6 @@ CONTAINS
             IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
                 &    sin(z_lon*6.0_wp) * cos(z_lat*3.0_wp)
-            ELSE
-              p_os%p_prog(nold(1))%h(jc,jb) = 0.0_wp
             ENDIF
           END DO
         END DO
@@ -1057,7 +1054,7 @@ CONTAINS
 !                                                &sfc_press_bar)
 !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
              ENDIF
-           ELSE
+           !ELSE
            !   p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
            !   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
            !ENDIF ! jk=1
@@ -1065,7 +1062,7 @@ CONTAINS
         END DO
       END DO
     END DO
-p_os%p_prog(nold(1))%tracer=16.0_wp
+
    CASE (34)
    ! Adjusting density front in a basin: vertical wall at basin_center_lon
       CALL message(TRIM(routine), 'Initialization of testcases (34)')
@@ -1763,7 +1760,6 @@ p_os%p_prog(nold(1))%tracer=16.0_wp
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               END IF
             END IF
-
           END DO
         END DO
       END DO
@@ -1785,8 +1781,6 @@ p_os%p_prog(nold(1))%tracer=16.0_wp
           z_lat = ppatch%cells%center(jc,jb)%lat
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
-          ELSE
-            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
           END IF
         END DO
       END DO
@@ -1823,8 +1817,6 @@ p_os%p_prog(nold(1))%tracer=16.0_wp
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
-           !  ELSE
-           !    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
               ENDIF
             END DO
           END DO

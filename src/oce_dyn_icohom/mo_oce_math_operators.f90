@@ -360,10 +360,11 @@ CONTAINS
 #endif
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-
-            grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
-              & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2))-       &
+            IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+              grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
+              & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2))-        &
               & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )
+            ENDIF
           ENDDO
         END DO
       END DO
@@ -379,9 +380,11 @@ CONTAINS
 #endif
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-            grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
-              & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -      &
-              & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )
+            IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+              grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
+                & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -     &
+                & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )
+            ENDIF 
           ENDDO
         END DO
       END DO
