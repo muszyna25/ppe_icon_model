@@ -4006,9 +4006,10 @@ END SUBROUTINE message
           ! If the snow has just melted, limit soil temperature increment to 2.5 deg C
           ! in order to avoid nonsensically large temperature jumps
           IF (w_snow_now(i) > zepsi) THEN
-!CDIR EXPAND=7
+!CDIR BEGIN EXPAND=7
             t_so_new(i,1:7) = MIN(t_so_now(i,1:7)+2.5_ireals,t_so_new(i,1:7))
             t_so_new(i,1:7) = MAX(t_so_now(i,1:7)-2.5_ireals,t_so_new(i,1:7))
+!CDIR END
             t_so_new(i,0) = t_so_new(i,1)
             t_s_new(i)    = t_so_new(i,1)
           ENDIF
