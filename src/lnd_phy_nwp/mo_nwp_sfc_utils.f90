@@ -292,9 +292,9 @@ CONTAINS
                                    snowfrac           = p_lnd_diag%snowfrac_lc_t(:,jb,isubs)           )
 
           ! Set w_snow to zero for grid points having a snow-tile counterpart
-          DO ic = 1, ext_data%atm%gp_count_t(jb,isubs_snow)
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
-            p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
+          DO ic = 1, ext_data%atm%lp_count_t(jb,isubs)
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+            IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) > 0 ) p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
           END DO
 
         END DO
@@ -303,7 +303,7 @@ CONTAINS
 
       DO isubs = 1,ntiles_total
 
-        i_count = ext_data%atm%gp_count_t(jb,isubs)
+        i_count = ext_data%atm%lp_count_t(jb,isubs)
 
         CALL terra_multlay_init(                                  &
         &  ie=nproma,                                             & ! array dimensions
@@ -350,7 +350,7 @@ CONTAINS
 !
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+          jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
           p_prog_lnd_now%t_snow_t(jc,jb,isubs)   = t_snow_now_t(ic,jb,isubs)
           p_prog_lnd_now%t_s_t(jc,jb,isubs)      = t_s_now_t(ic,jb,isubs)  
           p_prog_lnd_new%t_s_t(jc,jb,isubs)      = t_s_new_t(ic,jb,isubs) 
@@ -365,7 +365,7 @@ CONTAINS
         IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
 !CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
           DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)
           ENDDO
         ENDIF
@@ -376,7 +376,7 @@ CONTAINS
           DO jk=1,nlev_snow+1
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count
-              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
               p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) =  t_snow_mult_now_t(ic,jk,jb,isubs)   
             ENDDO
           ENDDO
@@ -385,7 +385,7 @@ CONTAINS
           DO jk=1,nlev_snow
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count
-              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
               p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs) 
               p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)   
               p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
@@ -399,7 +399,7 @@ CONTAINS
         DO jk=1,nlev_soil+2
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_prog_lnd_now%t_so_t(jc,jk,jb,isubs) = t_so_now_t(ic,jk,jb,isubs)          
             p_prog_lnd_new%t_so_t(jc,jk,jb,isubs) = t_so_new_t(ic,jk,jb,isubs)          
           ENDDO
@@ -409,7 +409,7 @@ CONTAINS
         DO jk=1,nlev_soil+1
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_prog_lnd_now%w_so_t(jc,jk,jb,isubs) = w_so_now_t(ic,jk,jb,isubs)        
             p_prog_lnd_new%w_so_t(jc,jk,jb,isubs) = w_so_new_t(ic,jk,jb,isubs)        
             p_prog_lnd_now%w_so_ice_t(jc,jk,jb,isubs) = w_so_ice_now_t(ic,jk,jb,isubs)
@@ -417,6 +417,35 @@ CONTAINS
           ENDDO
         ENDDO
       END DO ! isubs
+
+      i_count = ext_data%atm%lp_count(jb)
+
+      ! Rediagnose t_g - needed for initial calculation of transfer coefficients
+
+      IF (ntiles_total == 1) THEN
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_lp(ic,jb)
+          p_prog_lnd_now%t_g(jc,jb) = p_prog_lnd_now%t_g_t(jc,jb,1)
+          p_prog_lnd_new%t_g(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
+        ENDDO
+      ELSE ! aggregate fields over tiles
+        t_g_s(:)  =  0._wp
+        DO isubs = 1,ntiles_total
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
+            t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
+              p_prog_lnd_now%t_g_t(jc,jb,isubs)**4
+          ENDDO
+        ENDDO
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_lp(ic,jb)
+          p_prog_lnd_now%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
+          p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
+        ENDDO
+      END IF
 
       IF(lsnowtile) THEN      ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd 
@@ -451,37 +480,13 @@ CONTAINS
             p_lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
             p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
 
-            p_prog_lnd_now%t_g_t(jc,jb,isubs)      = p_prog_lnd_now%t_s_t   (jc,jb,isubs)
-            p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) = p_prog_lnd_now%t_snow_t(jc,jb,isubs)
+            IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs) == 1) THEN
+              p_prog_lnd_now%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
+            ENDIF
+            p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) = p_prog_lnd_now%t_snow_t(jc,jb,isubs_snow)
           END DO
-        END DO
-      END IF
 
-      i_count = ext_data%atm%lp_count(jb)
-      
-      IF (ntiles_total == 1) THEN
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          p_prog_lnd_now%t_g(jc,jb) = p_prog_lnd_now%t_g_t(jc,jb,1)
-          p_prog_lnd_new%t_g(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
-        ENDDO
-      ELSE ! aggregate fields over tiles
-        t_g_s(:)  =  0._wp
-        DO isubs = 1,ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
-              p_prog_lnd_now%t_g_t(jc,jb,isubs)**4
-          ENDDO
-        ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          p_prog_lnd_now%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
-          p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
-        ENDDO
+        END DO
       END IF
 
     ENDDO  ! jb loop
