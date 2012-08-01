@@ -232,7 +232,7 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
         iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
         zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-        write(0,*) ' negative temperature at jk =', jk, &
+        write(0,*) ' negative salinity at jk =', jk, &
         &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
         write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
