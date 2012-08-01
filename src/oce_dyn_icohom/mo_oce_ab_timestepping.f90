@@ -46,7 +46,7 @@ MODULE mo_oce_ab_timestepping
 !
 !
 !
-USE mo_ocean_nml,                      ONLY: idisc_scheme,l_edge_based
+USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
@@ -55,7 +55,7 @@ USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
   &                                          calc_normal_velocity_ab_mimetic, &
-  &                                          calc_vert_velocity_mimetic,      &
+  !&                                          calc_vert_velocity_mimetic,      &
   &                                          calc_vert_velocity_mim_topdown
 USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
   &                                          calc_normal_velocity_ab_RBF,     &
@@ -135,7 +135,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
+      CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data)
 
     ELSEIF(idisc_scheme==RBF_TYPE)THEN
 

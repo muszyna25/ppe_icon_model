@@ -51,14 +51,14 @@ USE mo_kind,                      ONLY: wp
 USE mo_parallel_config,           ONLY: nproma
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array
-USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
+!USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
 USE mo_impl_constants,            ONLY: sea_boundary,                                     &
 ! &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length, MIN_DOLIC
 USE mo_dbg_nml,                   ONLY: idbg_mxmn
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip_flop,    &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce,              &
-  &                                     expl_vertical_velocity_diff, iforc_oce, EOS_TYPE, &
+  &                                     expl_vertical_velocity_diff, iforc_oce,           &
   &                                     no_tracer, l_RIGID_LID, l_edge_based,             &
   &                                     FLUX_CALCULATION_HORZ, MIMETIC,CENTRAL,UPWIND
 USE mo_run_config,                ONLY: dtime, ltimer
@@ -79,8 +79,7 @@ USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges_3D,&
   &                                     map_edges2cell_3D, calc_scalar_product_veloc_3D
-USE mo_oce_math_operators,        ONLY: grad_fd_norm_oce_2d, &
-  &                                     div_oce_3D, grad_fd_norm_oce_3D,&
+USE mo_oce_math_operators,        ONLY: div_oce_3D, grad_fd_norm_oce_3D,&
   &                                     grad_fd_norm_oce_2d_3D,  &
   &                                     height_related_quantities
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
@@ -111,7 +110,6 @@ PRIVATE :: fill_rhs4surface_eq_ab
 PRIVATE :: calculate_explicit_term_ab   ! calc_velocity_predictor
 PRIVATE :: lhs_surface_height_ab_mim
 PRIVATE :: inverse_primal_flip_flop
-PRIVATE :: update_column_thickness
 INTEGER, PARAMETER :: top=1
 LOGICAL, PARAMETER :: l_forc_freshw = .FALSE.
 CHARACTER(len=12)  :: str_module = 'oceSTEPmimet'  ! Output of module for 1 line debug
@@ -344,8 +342,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
   INTEGER  :: i_startidx_e, i_endidx_e
 
-  CHARACTER(len=max_char_length), PARAMETER :: &
-    &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
+  !CHARACTER(len=max_char_length), PARAMETER :: &
+  !  &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
   !-----------------------------------------------------------------------  
   !CALL message (TRIM(routine), 'start')        
   edges_in_domain => p_patch%edges%in_domain
@@ -423,7 +421,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         CALL velocity_diffusion_vert_mimetic( p_patch,        &
         &                             p_os%p_diag,            &
         &                             p_os%p_aux,p_op_coeff,  &
-        &                             p_os%p_prog(nold(1))%h, &
+!        &                             p_os%p_prog(nold(1))%h, &
         &                             p_phys_param,           &
         &                             p_os%p_diag%laplacian_vert)
     ENDIF
@@ -762,8 +760,8 @@ REAL(wp) :: div_z_c_2D(nproma,p_patch%nblks_c)
 REAL(wp) :: div_z_c(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates) :: z_u_cc1(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
+!TYPE(t_cartesian_coordinates) :: z_u_cc1(nproma,n_zlev,p_patch%nblks_c)
+!TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,p_patch%nblks_c)
 TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges
 !REAL(wp) :: thick
@@ -1176,24 +1174,23 @@ END FUNCTION lhs_surface_height_ab_mim
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
   !!  mpi parallelized LL
-SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
+SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data)
 !
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
   TYPE(t_external_data), TARGET     :: p_ext_data
-  TYPE (t_ho_params)                :: p_phys_param
+  !TYPE (t_ho_params)                :: p_phys_param
   !
   !  local variables
   INTEGER :: i_startidx_e, i_endidx_e
-  INTEGER :: i_startidx_c, i_endidx_c
-  INTEGER :: je, jk, jb, jc
+  INTEGER :: je, jk, jb
   REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
-  REAL(wp) :: gdt, delta_z
-  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+  REAL(wp) :: gdt
+  TYPE(t_subset_range), POINTER :: edges_in_domain!, cells_in_domain
   !TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
   !TYPE(t_cartesian_coordinates) :: z_u_cc2(nproma,n_zlev,p_patch%nblks_c)
-  REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
+  !REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
   CHARACTER(len=*), PARAMETER ::     &
     &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
 
@@ -1201,7 +1198,8 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   !CALL message (TRIM(routine), 'start')
   !-----------------------------------------------------------------------
   edges_in_domain => p_patch%edges%in_domain
-  cells_in_domain => p_patch%cells%in_domain
+  !cells_in_domain => p_patch%cells%in_domain
+  !----------------------------------------------------------------------
 
   z_grad_h(1:nproma,1:p_patch%nblks_e) = 0.0_wp
 
@@ -1324,105 +1322,6 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
   !CALL message (TRIM(routine), 'end')
 
 END SUBROUTINE calc_normal_velocity_ab_mimetic
-!-------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------
-!>
-!! 
-!! @par Revision History
-!! Developed  by  Peter Korn,   MPI-M (2012).
-!! 
-  !!  mpi parallelized LL
-SUBROUTINE update_column_thickness( p_patch, p_os, p_diag, p_op_coeff, timestep)
-!
-TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
-TYPE(t_hydro_ocean_state)         :: p_os
-TYPE(t_hydro_ocean_diag)          :: p_diag
-TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
-INTEGER                           :: timestep
-
-! Local variables
-INTEGER  :: jc, jk, jb
-INTEGER  :: i_startidx_c, i_endidx_c
-INTEGER  :: i_dolic_c
-!REAL(wp) :: delta_z
-REAL(wp) :: z_thick_c_old(nproma,n_zlev,p_patch%nblks_c)
-REAL(wp) :: z_div_c(nproma,p_patch%nblks_c)
-REAL(wp) :: z_e(nproma,p_patch%nblks_e)
-
-TYPE(t_cartesian_coordinates) :: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates) ::z_u_depth_int_cc(nproma,p_patch%nblks_c)
-TYPE(t_subset_range), POINTER :: cells_in_domain
-CHARACTER(len=*), PARAMETER :: &
-   & method_name = 'mo_oce_ab_timestepping_mimetic:update_column_thickness'
-!-----------------------------------------------------------------------  
-  cells_in_domain => p_patch%cells%in_domain
-
-
-  IF(timestep==1)THEN
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      !DO jk = 1, n_zlev
-        !delta_z = v_base%del_zlev_m(jk)
-        DO jc = i_startidx_c, i_endidx_c
-        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-        !  p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-          p_os%p_diag%cons_thick_c(jc,1,jb)=p_os%p_diag%thick_c(jc,jb)
-        !ENDIF
-        END DO
-      !END DO
-    END DO
-  ENDIF
-  z_thick_c_old = p_os%p_diag%cons_thick_c
-
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      i_dolic_c = v_base%dolic_c(jc,jb)
-      z_u_depth_int_cc(jc,jb)%x(1:3) = 0.0_wp
-      DO jk=1,i_dolic_c
-         z_u_depth_int_cc(jc,jb)%x = z_u_depth_int_cc(jc,jb)%x&
-                                  &+ p_os%p_diag%p_vn(jc,jk,jb)%x&
-                                  &* v_base%del_zlev_m(jk)
-      END DO
-
-     !Add surface elevation
-     !For a linear surface this can be eleminated
-      z_u_depth_int_cc(jc,jb)%x = z_u_depth_int_cc(jc,jb)%x&
-                               &+ p_os%p_diag%p_vn(jc,1,jb)%x&
-                               &* p_os%p_prog(nold(1))%h(jc,jb)
-    ENDDO
-  END DO
-
-  CALL map_cell2edges_3D( p_patch,          &
-                      & z_u_depth_int_cc,   &
-                      & z_e, p_op_coeff,    &
-                      & level=1)
-
-  CALL div_oce_3D( z_e, p_patch,p_op_coeff%div_coeff, z_div_c,&
-               & level=1, subset_range=cells_in_domain )
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-
-      IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-        p_os%p_diag%cons_thick_c(jc,1,jb) = (z_thick_c_old(jc,1,jb)& !p_os%p_prog(nold(1))%h(jc,jb)&
-                                       & - dtime*z_div_c(jc,jb))&
-                                       &  *v_base%wet_c(jc,1,jb)            
-       ENDIF
-    ENDDO
-  END DO
-!write(*,*)'update column thickness', maxval(p_os%p_diag%cons_thick_c),&
-!&minval(p_os%p_diag%cons_thick_c)
-
-
-
-END SUBROUTINE update_column_thickness
-!-------------------------------------------------------------------------
-
 !-------------------------------------------------------------------------
 !>
 !! Computation of new vertical velocity using continuity equation
@@ -1627,37 +1526,35 @@ TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
 TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
 REAL(wp),         INTENT(INOUT)   :: ph_e(:,:)  ! 
-REAL(wp),            INTENT(IN)   :: top_bc_w(:,:) !bottom boundary condition for vertical velocity
-REAL(wp),            INTENT(IN)   :: bot_bc_w(:,:) !bottom boundary condition for vertical velocity
-REAL(wp),         INTENT(INOUT)   :: pw_c (:,:,:)  ! vertical velocity on cells
+REAL(wp),            INTENT(IN)   :: top_bc_w(nproma,p_patch%nblks_c) !bottom boundary condition for vertical velocity
+REAL(wp),            INTENT(IN)   :: bot_bc_w(nproma,p_patch%nblks_c) !bottom boundary condition for vertical velocity
+REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch%nblks_c)  ! vertical velocity on cells
 !
 !
 ! Local variables
 INTEGER :: jc, jk, jb, je
-INTEGER :: z_dolic!jic, jib
-INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk
-INTEGER :: i_startidx_c, i_endidx_c, i_startblk_c, i_endblk_c
-!INTEGER :: rl_start, rl_end
+INTEGER :: z_dolic
+INTEGER :: i_startidx, i_endidx
 REAL(wp) :: delta_z
 REAL(wp) :: z_div_c(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_pw_bottom_up(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_div_int_c(nproma,p_patch%nblks_c)
-REAL(wp) :: div_z_c_2D(nproma,p_patch%nblks_c)
-REAL(wp) :: z_e(nproma,p_patch%nblks_e)
+!REAL(wp) :: div_z_c_2D(nproma,p_patch%nblks_c)
+!REAL(wp) :: z_e(nproma,p_patch%nblks_e)
 INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc 
 !REAL(wp) :: div_z_c_3D_accum(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates):: flux_sum
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates):: z_u_depth_int_cc(nproma,p_patch%nblks_c)
-TYPE(t_subset_range), POINTER:: all_cells, cells_in_domain, edges_in_domain
+TYPE(t_subset_range), POINTER:: cells_in_domain, edges_in_domain
 CHARACTER(len=*), PARAMETER :: &
   & method_name = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
 !-----------------------------------------------------------------------  
-
-  all_cells       => p_patch%cells%all
+  !all_cells       => p_patch%cells%all
   cells_in_domain => p_patch%cells%in_domain
   edges_in_domain => p_patch%edges%in_domain
+!-----------------------------------------------------------------------  
 
 ! due to nag -nan compiler-option:
   pw_c           = 0.0_wp

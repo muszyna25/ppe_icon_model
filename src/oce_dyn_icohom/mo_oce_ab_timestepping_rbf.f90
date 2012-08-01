@@ -377,7 +377,7 @@ IF ( iswm_oce /= 1 ) THEN
     CALL velocity_diffusion_vert_RBF( p_patch,            &
     &                             p_os%p_diag%u,          &
     &                             p_os%p_diag%v,          &
-    &                             p_os%p_prog(nold(1))%h, &
+ !   &                             p_os%p_prog(nold(1))%h, &
     &                             p_os%p_aux%bc_top_u,    &
     &                             p_os%p_aux%bc_top_v,    &
     &                             p_os%p_aux%bc_bot_u,    &
@@ -425,7 +425,6 @@ ENDIF
 ! ! calculate horizontal laplacian of horizontal velocity, provided this term is discretized explicitly
 ! ! IF(horizontal_diffusion_veloc==EXPLICIT)THEN
      CALL velocity_diffusion_horz_RBF( p_patch,             &
-     &                             p_os%p_prog(nold(1))%vn, &
      &                             p_phys_param,            & 
      &                             p_os%p_diag,             &
      &                             p_os%p_diag%laplacian_horz)

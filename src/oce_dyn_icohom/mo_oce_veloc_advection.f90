@@ -1084,7 +1084,7 @@ CONTAINS
     REAL(wp), INTENT(out) :: veloc_adv_horz_e(:,:,:)
     !
     !Interpolation necessary just for testing
-    TYPE(t_int_state),TARGET,INTENT(in), OPTIONAL :: p_int
+    TYPE(t_int_state),TARGET,INTENT(in)  :: p_int
 
 
     INTEGER :: slev, elev     ! vertical start and end level

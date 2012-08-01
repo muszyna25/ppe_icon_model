@@ -44,40 +44,36 @@ MODULE mo_oce_tracer
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gc2cc
-USE mo_math_constants,            ONLY: dbl_eps
-USE mo_impl_constants,            ONLY: sea_boundary, sea, &
-  &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
-USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
+USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+USE mo_impl_constants,            ONLY: sea_boundary, sea
+USE mo_math_constants,            ONLY: pi
+USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     ab_const, ab_gam, expl_vertical_tracer_diff, &
+  &                                     expl_vertical_tracer_diff, &
   &                                     iswm_oce, l_edge_based, &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
   &                                     UPWIND, CENTRAL, MIMETIC, MIMETIC_MIURA
 USE mo_util_dbg_prnt,             ONLY: dbg_print
-USE mo_math_constants,            ONLY: pi
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
+USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
 !USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
+!USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY:  map_cell2edges_3D,map_edges2cell_3D
-USE mo_oce_math_operators,        ONLY: div_oce_3D
-USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
-                                      & tracer_diffusion_vert_impl_hom
-USE mo_intp_data_strc,            ONLY: p_int_state
+!USE mo_oce_math_operators,        ONLY: div_oce_3D
+USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_impl_hom!, tracer_diffusion_vert_expl,&
 USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_flux_horz
 USE mo_oce_tracer_transport_vert, ONLY: advect_flux_vertical 
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-USE mo_sync,                      ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array
-USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert,&
+USE mo_sync,                      ONLY: SYNC_C, SYNC_E, sync_patch_array
+USE mo_timer,                     ONLY: timer_start, timer_stop,&
   &                                     timer_dif_vert
 IMPLICIT NONE
 
@@ -210,41 +206,41 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
     !---------------------------------------------------------------------
 
   END IF
-!Commented out because of NAG-compiler, PK
-!   DO jk = 1, n_zlev
-!     ! Abort if tracer is below threshold
-!     ! Temperature: <-1.9 deg, may be possible, limit set to lower value
-!     IF (minval(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<-4.0_wp) THEN
-!       write(0,*) ' TEMPERATURE BELOW THRESHOLD:'
-!       iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
-!       zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
-!       zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-!       write(0,*) ' negative temperature at jk =', jk, &
-!       &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
-!       write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
-!       write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-!       CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-!         &              'Temperature below threshold')
-!     ENDIF
-!   END DO
+!!Commented out because of NAG-compiler, PK
+  DO jk = 1, n_zlev
+    ! Abort if tracer is below threshold
+    ! Temperature: <-1.9 deg, may be possible, limit set to lower value
+    IF (minval(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<-4.0_wp) THEN
+      write(0,*) ' TEMPERATURE BELOW THRESHOLD:'
+      iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+      zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+      zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+      write(0,*) ' negative temperature at jk =', jk, &
+      &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+      write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+      write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+      CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+        &              'Temperature below threshold')
+    ENDIF
+  END DO
 
-!   IF (no_tracer>=2)THEN
-!     DO jk = 1, n_zlev
-!       ! Abort if salinity is negative:
-!       IF (minval(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<0.0_wp) THEN
-!         write(0,*) ' SALINITY NEGATIVE:'
-!         iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
-!         zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
-!         zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-!         write(0,*) ' negative temperature at jk =', jk, &
-!         &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
-!         write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
-!         write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-!         CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-!         &              'SALINITY NEGATIVE')
-!       ENDIF
-!     END DO
-!   ENDIF
+  IF (no_tracer>=2)THEN
+    DO jk = 1, n_zlev
+      ! Abort if salinity is negative:
+      IF (minval(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<0.0_wp) THEN
+        write(0,*) ' SALINITY NEGATIVE:'
+        iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+        write(0,*) ' negative temperature at jk =', jk, &
+        &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+        &              'SALINITY NEGATIVE')
+      ENDIF
+    END DO
+  ENDIF
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
@@ -561,9 +557,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                                  & p_os,             &
                                  & p_op_coeff,       &
                                  & K_h,              &
-                                 & flux_horz,        &
-                                 & p_os%p_diag%h_e,  &
-                                 & z_cellthick_intmed)
+                                 & flux_horz)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
@@ -685,11 +679,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   ENDIF
 
 
-      ! DO jk=1,n_zlev
-      ! write(*,*)'TRACER old:new',jk,&
-      ! &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-      ! &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
-      ! END DO
+!        DO jk=1,n_zlev
+!        write(*,*)'TRACER old:new',jk,&
+!        &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
+!        &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
+!        END DO
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
