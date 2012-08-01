@@ -2735,7 +2735,7 @@ CONTAINS
 
                    ! initialize snowtile flag with 1 if the tile is eligible for separate treatment of
                    ! a snow-covered and a snow-free part, otherwise with -1
-                   IF (ext_data(jg)%atm%snowtile_lcc(ext_data(jg)%atm%lc_class_t(jc,jb,i_lu))) THEN
+                   IF (ext_data(jg)%atm%snowtile_lcc(lu_subs)) THEN
                      ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)  = 1
                    ELSE
                      ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)  = -1
