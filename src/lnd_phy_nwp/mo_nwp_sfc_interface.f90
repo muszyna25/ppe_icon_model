@@ -803,6 +803,20 @@ CONTAINS
              lnd_prog_new%t_g_t(jc,jb,isubs_snow) = lnd_prog_new%t_snow_t(jc,jb,isubs)
 
            END DO
+
+           IF (lmulti_snow) THEN
+!CDIR UNROLL=nlsnow
+             DO jk=1,nlev_snow
+!CDIR NODEP,VOVERTAKE,VOB
+               DO ic = 1, i_count_snow
+                 jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
+                 lnd_prog_new%wliq_snow_t(jc,jk,jb,isubs) = 0._wp
+                 lnd_prog_new%wtot_snow_t(jc,jk,jb,isubs) = 0._wp
+                 lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs) = 0._wp
+               ENDDO
+             ENDDO
+           ENDIF
+
          END DO
 
        ENDIF  !snow tiles
