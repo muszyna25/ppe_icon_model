@@ -46,7 +46,7 @@ MODULE mo_oce_diagnostics
 USE mo_kind,                      ONLY: wp, dp, i8
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_mpi,                       ONLY: my_process_is_stdio, p_field_sum, &
-  &                                     p_comm_work_test, p_comm_work, p_io
+  &                                     p_comm_work_test, p_comm_work, p_io, p_bcast
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_math_constants,            ONLY: rad2deg
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &
@@ -564,7 +564,7 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
   REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
-  REAL(dp) :: local_moc(180)
+  REAL(dp) :: local_moc(180), res_moc(180)
 
   TYPE(t_subset_range), POINTER :: dom_cells
   
@@ -650,32 +650,35 @@ SUBROUTINE calc_moc (p_patch, w, datetime)
     END DO
 
     ! test parallelization:
-    ! new function field_sum_all using mpi_allreduce
-  ! CALL p_field_sum_all(global_moc(:,jk))
-  ! CALL p_field_sum_all(atlant_moc(:,jk))
-  ! CALL p_field_sum_all(pacind_moc(:,jk))
+    ! new function field_sum_all using mpi_allreduce and working precisions wp
+  ! res_moc(:) = p_field_sum_all_wp(global_moc(:,jk))
+  ! res_moc(:) = p_field_sum_all_wp(atlant_moc(:,jk))
+  ! res_moc(:) = p_field_sum_all_wp(pacind_moc(:,jk))
 
     ! function field_sum using mpi_reduce, then broadcast
-    local_moc(:) = REAL(global_moc(:,jk),dp)
-  ! CALL p_field_sum(local_moc, mpi_comm)
-  ! CALL p_field_sum(global_moc(:,jk), mpi_comm)
-  ! CALL p_field_sum(atlant_moc(:,jk), mpi_comm)
-  ! CALL p_field_sum(pacind_moc(:,jk), mpi_comm)
-  ! CALL p_bcast(global_moc(:,jk), p_io, mpi_comm)
+    local_moc(:)     = REAL(global_moc(:,jk),dp)
+    res_moc(:)       = p_field_sum(local_moc, mpi_comm)
+    CALL p_bcast(res_moc(:), p_io, mpi_comm)
+    global_moc(:,jk) = REAL(res_moc(:),wp)
+
+    local_moc(:)     = REAL(atlant_moc(:,jk),dp)
+    res_moc(:)       = p_field_sum(local_moc, mpi_comm)
+    CALL p_bcast(res_moc(:), p_io, mpi_comm)
+    atlant_moc(:,jk) = REAL(res_moc(:),wp)
+
+    local_moc(:)     = REAL(pacind_moc(:,jk),dp)
+    res_moc(:)       = p_field_sum(local_moc, mpi_comm)
+    CALL p_bcast(res_moc(:), p_io, mpi_comm)
+    pacind_moc(:,jk) = REAL(res_moc(:),wp)
 
   END DO  ! n_zlev-loop
-
-  ! test parallelization:
-  !CALL global_sum_array(global_moc)
-  !CALL global_sum_array(atlant_moc)
-  !CALL global_sum_array(pacind_moc)
 
   IF (my_process_is_stdio()) THEN
     DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
 
         global_moc(lbr,:)=global_moc(lbr+1,:)+global_moc(lbr,:)
-        pacind_moc(lbr,:)=pacind_moc(lbr+1,:)+pacind_moc(lbr,:)
         atlant_moc(lbr,:)=atlant_moc(lbr+1,:)+atlant_moc(lbr,:)
+        pacind_moc(lbr,:)=pacind_moc(lbr+1,:)+pacind_moc(lbr,:)
 
     END DO
 
@@ -751,7 +754,7 @@ SUBROUTINE calc_psi (p_patch, u, h, u_vint, datetime)
 
   TYPE(t_subset_range), POINTER :: all_cells, dom_cells
   
-  CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
+  !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
   !-----------------------------------------------------------------------
 
