@@ -337,7 +337,7 @@ MODULE mo_nwp_lnd_state
 
 
     ! & p_prog_lnd%w_snow_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('w_snow_t', 'm H2O', 'water content of snow', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('w_snow_t', 'm H2O', 'water equivalent of snow', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_snow_t'//suffix, p_prog_lnd%w_snow_t,&
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,            &
@@ -820,7 +820,7 @@ MODULE mo_nwp_lnd_state
 
 !weighted variables
     ! & p_diag_lnd%w_snow(nproma,nblks_c)
-    cf_desc    = t_cf_var('w_snow', 'm H2O', 'weighted water content of snow', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('w_snow', 'm H2O', 'weighted water eqivalent of snow', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_snow', p_diag_lnd%w_snow,          &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,          &
@@ -851,6 +851,13 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_s', p_diag_lnd%t_s,                &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+
+    ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_seasfc', 'K', 'sea surface temperature', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,     &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
+         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
 
     ! & p_diag_lnd%rho_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('rho_snow', 'kg/m**3', 'weighted snow density', DATATYPE_FLT32)
@@ -1041,6 +1048,45 @@ MODULE mo_nwp_lnd_state
                  & ldims=shape2d )
       END DO
 
+    ! & p_diag_lnd%snowfrac_lc_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('snowfrac_lc_t', '- ', 'snow-cover fraction per land-cover class', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'snowfrac_lc_t', p_diag_lnd%snowfrac_lc_t, &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,        &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
+    ! fill the separate variables belonging to the container snowfrac
+    ALLOCATE(p_diag_lnd%snowfrac_lc_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( diag_list, vname_prefix//'snowfrac_lc_t',                  &
+                 & vname_prefix//'snowfrac_lc_t_'//ADJUSTL(TRIM(csfc)),          &
+                 & p_diag_lnd%snowfrac_lc_ptr(jsfc)%p_2d,                        &
+                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+                 & t_cf_var('snowfrac_lc_t_'//csfc, '', '', DATATYPE_FLT32),     &
+                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                 & ldims=shape2d )
+      END DO
+
+    ! & p_diag_lnd%w_snow_eff_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('w_snow_eff_t', '- ', 'effective snow-water equivalent', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'w_snow_eff_t', p_diag_lnd%w_snow_eff_t, &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,        &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
+    ! fill the separate variables belonging to the container snowfrac
+    ALLOCATE(p_diag_lnd%w_snow_eff_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( diag_list, vname_prefix//'w_snow_eff_t',                  &
+                 & vname_prefix//'w_snow_eff_t_'//ADJUSTL(TRIM(csfc)),          &
+                 & p_diag_lnd%w_snow_eff_ptr(jsfc)%p_2d,                        &
+                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+                 & t_cf_var('w_snow_eff_t_'//csfc, '', '', DATATYPE_FLT32),     &
+                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                 & ldims=shape2d, lrestart=.FALSE. )
+      END DO
 
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_s_t', 'kg/m2', &

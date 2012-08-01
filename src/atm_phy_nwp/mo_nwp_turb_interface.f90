@@ -237,14 +237,14 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! specify land-cover-related roughness length over land points
       ! note:  water points are set in turbdiff
       gz0(:) = 0._wp
-      DO jt = 1, ntiles_lnd
+      DO jt = 1, ntiles_total
         DO jc = i_startidx, i_endidx
           IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
             lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
             gz0t(jc,jt) = grav * (                                                  &
              (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class) +  &
               lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
-            gz0(jc) = gz0(jc) + ext_data%atm%lc_frac_t(jc,jb,jt) * gz0t(jc,jt)
+            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * gz0t(jc,jt)
           ELSE
             gz0t(jc,jt) = prm_diag%gz0(jc,jb)
           ENDIF

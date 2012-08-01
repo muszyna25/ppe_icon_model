@@ -551,8 +551,6 @@ END SUBROUTINE message
 !
                   dzh_snow_now     , & ! layer thickness between half levels in snow   (  m  )
                   dzh_snow_new     , & ! layer thickness between half levels in snow   (  m  )
-!
-                  subsfrac         , &
 !                                  
                   prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
@@ -676,8 +674,6 @@ END SUBROUTINE message
                   dzh_snow_now         ! layer thickness between half levels in snow   (  m  )
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(OUT) :: &
                   dzh_snow_new         ! layer thickness between half levels in snow   (  m  )
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  subsfrac
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) ::    &
                   prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
@@ -1303,61 +1299,6 @@ END SUBROUTINE message
   ENDDO
 
 
-!!$  IF(itype_subs .EQ. 2) THEN    ! tiles
-!!$    IF (ntstep == 0) THEN
-!!$      DO ns = nsubs0+1, nsubs1, 2      ! 1 - mean, 2 - ocean, 3 - lake, 4 - no snow first
-!!$          DO i = istarts, iends
-!!$            IF (llandmask(i,ns)) THEN  ! for landpoints only  !check is not necessary
-!!$  
-!!$              zf_snow_old(i) = subsfrac(i,ns)/(subsfrac(i,ns-1)+subsfrac(i,ns))
-!!$  
-!!$              zwsnow(i) = w_snow_now(i,ns)*zf_snow_old(i) + &
-!!$                w_snow_now(i,ns-1)*(1._ireals - zf_snow_old(i))
-!!$              zf_snow(i) = MAX( 0.01_ireals, MIN(1.0_ireals,zwsnow(i)/cf_snow) ) &
-!!$                &            *zsf_heav(zwsnow(i) - zepsi)
-!!$  
-!!$              w_snow_now(i,ns  ) = zwsnow(i)/MAX(zf_snow(i),zepsi)
-!!$              w_snow_now(i,ns-1) = 0._ireals
-!!$  
-!!$              fact1 = subsfrac(i,ns-1)+subsfrac(i,ns)
-!!$              subsfrac(i,ns-1) = (1._ireals - zf_snow(i))*fact1
-!!$              subsfrac(i,ns  ) = zf_snow(i)              *fact1
-!!$  
-!!$  
-!!$            END IF  ! land-points only
-!!$          END DO
-!!$     END DO
-!!$  !    DO ns = nsubs0+1, nsubs1, 2      ! 1 - mean, 2 - ocean, 3 - lake, 4 - no snow first
-!!$  !      DO kso = 1,ke_soil
-!!$  !          DO i = istarts, iends
-!!$  !            IF (llandmask(i,ns)) THEN  ! for landpoints only  !check is not necessary
-!!$  !              fact1 = (MIN(1._ireals - zf_snow_old(i), 1._ireals - zf_snow(i)))/MAX((1._ireals - zf_snow(i)),zepsi)
-!!$  !              fact2 = (MAX(zf_snow(i) - zf_snow_old(i), 0._ireals))/MAX(zf_snow(i),zepsi)
-!!$  
-!!$  !IF(MOD(i,340).eq.0 .and. w_snow_now(i,ns).gt.0) &
-!!$  !print *,i,kso,'snow',w_snow_now(i,ns-1),w_snow_now(i,ns  ),zf_snow    (i),fact1,fact2
-!!$  
-!!$  !              tmp1 = t_so    (i,kso,nx,ns-1)
-!!$  !              tmp2 = w_so    (i,kso,nx,ns-1)
-!!$  !              tmp3 = w_so_ice(i,kso,nx,ns-1)
-!!$  
-!!$  !              t_so    (i,kso,nx,ns-1) = t_so_now(i,kso,ns-1)*fact1 + t_so_now(i,kso,ns)*(1._ireals - fact1)
-!!$  !              w_so    (i,kso,nx,ns-1) = w_so(i,kso,nx,ns-1)*fact1 + w_so(i,kso,nx,ns)*(1._ireals - fact1)
-!!$  !              w_so_ice(i,kso,nx,ns-1) = w_so_ice(i,kso,nx,ns-1)*fact1 + w_so_ice(i,kso,nx,ns)*(1._ireals - fact1)
-!!$    
-!!$  !              t_so    (i,kso,nx,ns) = tmp1 * fact2 + t_so_now(i,kso,ns)*(1._ireals - fact2)
-!!$  !              w_so    (i,kso,nx,ns) = tmp2 * fact2 + w_so(i,kso,nx,ns)*(1._ireals - fact2)
-!!$  !              w_so_ice(i,kso,nx,ns) = tmp3 * fact2 + w_so_ice(i,kso,nx,ns)*(1._ireals - fact2)
-!!$  
-!!$  !IF(MOD(i,340).eq.0 .and. w_snow_now(i,ns).gt.0) &
-!!$  !print *,i,kso,'temp',t_so    (i,kso,nx,ns-1),t_so    (i,kso,nx,ns)
-!!$  !            END IF  ! land-points only
-!!$  !          END DO
-!!$  !      END DO        ! soil layers
-!!$  !    END DO
-!!$    END IF
-!!$  END IF
-  !em>
 
 
 !---loop over tiles---

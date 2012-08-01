@@ -94,7 +94,6 @@ CONTAINS
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
     TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
-!!$    REAL(wp)             , INTENT(IN)   :: subsfrac(nproma,1,ntiles_total)
     
     ! Local array bounds:
     
@@ -247,6 +246,10 @@ CONTAINS
         ENDDO
 
         ! Preliminary diagnosis of snow-cover fraction for initialization of splitted tile index list
+
+! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
+! a segmentation fault otherwise
+!CDIR NOIEXPAND
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
           &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
@@ -264,7 +267,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_t(jc,jb,isubs)    = snowfrac_t(ic,jb,isubs)
+          p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
           p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
         ENDDO
 
@@ -286,7 +289,7 @@ CONTAINS
                                    partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
                                    snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
                                    snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
-                                   snowfrac           = p_lnd_diag%snowfrac_t(:,jb,isubs)              )
+                                   snowfrac           = p_lnd_diag%snowfrac_lc_t(:,jb,isubs)           )
 
           ! Set w_snow to zero for grid points having a snow-tile counterpart
           DO ic = 1, ext_data%atm%gp_count_t(jb,isubs_snow)
@@ -324,9 +327,11 @@ CONTAINS
         &  w_so_ice_new      = w_so_ice_new_t(:,:,jb,isubs)     , & ! ice content                       (m H20)
         &  wliq_snow_now     = wliq_snow_now_t(:,:,jb,isubs)    , & ! liquid water content in the snow  (m H2O)
         &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow (m H2O)
-        &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       & ! layer thickness between half levels in snow  (  m  )
-                                                      )
+        &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       ) ! layer thickness between half levels in snow  (  m  )
 
+! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
+! a segmentation fault otherwise
+!CDIR NOIEXPAND
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
           &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
@@ -351,6 +356,7 @@ CONTAINS
           p_prog_lnd_new%t_s_t(jc,jb,isubs)      = t_s_new_t(ic,jb,isubs) 
           p_prog_lnd_now%w_snow_t(jc,jb,isubs)   = w_snow_now_t(ic,jb,isubs) 
           p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
+          p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
           p_lnd_diag%snowfrac_t(jc,jb,isubs)     = snowfrac_t(ic,jb,isubs)
           p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
           p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
@@ -360,7 +366,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            p_lnd_diag%snowfrac_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_t(jc,jb,isubs)
+            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)
           ENDDO
         ENDIF
 
@@ -428,7 +434,7 @@ CONTAINS
                                    partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
                                    snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
                                    snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
-                                   snowfrac           = p_lnd_diag%snowfrac_t(:,jb,isubs)              )
+                                   snowfrac           = p_lnd_diag%snowfrac_lc_t(:,jb,isubs)           )
 
           i_count = ext_data%atm%gp_count_t(jb,isubs)
           i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow)
@@ -437,13 +443,13 @@ CONTAINS
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
             ! snow depth per surface unit -> snow depth per fraction
-            ! this will go to a diagnostic variable in the future
-      !      p_prog_lnd_now%w_snow_t(jc,jb,isubs_snow) = &
-      !        p_prog_lnd_now%w_snow_t(jc,jb,isubs_snow)/MAX(p_lnd_diag%snowfrac_t(jc,jb,isubs_snow),small)
+            p_lnd_diag%w_snow_eff_t(jc,jb,isubs_snow) = &
+              p_prog_lnd_now%w_snow_t(jc,jb,isubs_snow)/MAX(p_lnd_diag%snowfrac_lc_t(jc,jb,isubs_snow),small)
 
-            ! this also warrants a different variable
-      !      p_lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
-      !      p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
+            ! reset field for actual snow-cover for grid points / land-cover classes for which there
+            ! are seperate snow-free and snow-covered tiles 
+            p_lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
+            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
 
             p_prog_lnd_now%t_g_t(jc,jb,isubs)      = p_prog_lnd_now%t_s_t   (jc,jb,isubs)
             p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) = p_prog_lnd_now%t_snow_t(jc,jb,isubs)

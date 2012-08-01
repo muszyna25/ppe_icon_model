@@ -209,31 +209,20 @@ CONTAINS
     REAL(wp) :: w_so_ice_now_t(nproma, nlev_soil+1, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil+1, p_patch%nblks_c, ntiles_total)
 
-    INTEGER  :: lu_subs
-    REAL(wp) :: subsfrac_t (nproma, p_patch%nblks_c, ntiles_total)
     INTEGER  :: i_count, i_count_snow, ic
-    REAL(wp) :: tmp1, tmp2, tmp3, fact1, fact2
-    REAL(wp) :: fr_snow(nproma), fr_snow_old(nproma)
+    REAL(wp) :: tmp1, tmp2, tmp3
+    REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma)
     REAL(wp) :: tracer_rate(nproma, p_patch%nblks_c, 4, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
-    LOGICAL  :: lsnowpres(nproma)
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
-    REAL(wp) :: t_s_s(nproma), t_snow_s(nproma), t_snow_mult_s(nproma, nlev_snow),          &
-      &         w_snow_s(nproma), wtot_snow_s(nproma, nlev_snow), rho_snow_s(nproma),       &
-      &         rho_snow_mult_s(nproma, nlev_snow),  h_snow_s(nproma), freshsnow_s(nproma), &
-      &         w_i_s(nproma), t_so_s(nproma, nlev_soil+2), w_so_s(nproma, nlev_soil+1),    &
-      &         w_so_ice_s(nproma, nlev_soil+1), runoff_s_s(nproma), runoff_g_s(nproma),    &
-      &         tch_s(nproma), tfv_s(nproma), t_2m_s(nproma), qv_2m_s(nproma),              &
-      &         td_2m_s(nproma), rh_2m_s(nproma), u_10m_s(nproma), v_10m_s(nproma),         &
-      &         shfl_s_s(nproma), lhfl_s_s(nproma)
-    REAL(wp) ::          qv_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          td_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          rh_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: qv_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: td_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: rh_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
 !--------------------------------------------------------------
 
 
@@ -263,8 +252,8 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic, &
-!$OMP            t_g_s,qv_s_s,jk,isubs_snow) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,t_g_s,qv_s_s,isubs_snow,i_count_snow,&
+!$OMP            tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv) ICON_OMP_GUIDED_SCHEDULE
 
     DO jb = i_startblk, i_endblk
 
@@ -311,22 +300,13 @@ CONTAINS
 
          DO isubs = 1, ntiles_lnd
 
-           i_count = ext_data%atm%gp_count_t(jb,isubs+ntiles_lnd) 
+           isubs_snow = isubs + ntiles_lnd
+           i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow) 
 
 !CDIR NODEP,VOVERTAKE,VOB
-           DO ic = 1, i_count
-             jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
+           DO ic = 1, i_count_snow
+             jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
   
-             ! fraction of given land use class (=sum of fractions of snow-covered and snow-free tiles)
-             fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
-
-             ! snow fraction (with respect to the fraction of given land use class)
-             fr_snow(jc) = ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
-
-             ! snow depth per fraction -> snow depth per surface unit
-             lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
-               lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd)*fr_snow(jc)
-
              ! Snow and rain fall onto snow-covered tile surface only, 
              ! if 1) the corresponding snow tile already exists and 
              ! 2) the temperature of snow-free tile is below freezing point.
@@ -382,7 +362,6 @@ CONTAINS
           w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
           freshsnow_t(ic,jb,isubs)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
           snowfrac_t(ic,jb,isubs)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
-          subsfrac_t(ic,jb,isubs)            =  lnd_diag%subsfrac_t(jc,jb,isubs) 
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic,jb,isubs)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           t_2m_t(ic,jb,isubs)                =  prm_diag%t_2m(jc,jb) 
@@ -527,8 +506,6 @@ CONTAINS
         &  dzh_snow_now  = dzh_snow_now_t(:,:,jb,isubs)      , & ! layer thickness between half levels in snow   (  m  )
         &  dzh_snow_new  = dzh_snow_new_t(:,:,jb,isubs)      , & ! layer thickness between half levels in snow   (  m  )
 !
-        &  subsfrac      = subsfrac_t(:,jb,isubs)            , & ! 
-!
         &  prr_con       = prr_con_t(:,jb)                   , & ! precipitation rate of rain, convective        (kg/m2*s)
         &  prs_con       = prs_con_t(:,jb)                   , & ! precipitation rate of snow, convective        (kg/m2*s)
         &  prr_gsp       = prr_gsp_t(:,jb)                   , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
@@ -552,11 +529,6 @@ CONTAINS
         &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)             & ! latent   heat flux snow/air interface         (W/m2) 
         &                                                    )
 
-!em: if snow is considered as separate tiles, diag_snowfrac_tg returns wrong values for snowfrac and t_g
-!    for snow tiles, because snow depth per surface unit is used in TERRA;
-!    however, this value of snowfrac is also needed and is used later; 
-!    after this true values of snowfrac (0 and 1) and t_g (t_s and t_snow) are assigned 
-!    to each pair of tiles (snow-free and snow-covered, respectively)
 
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
@@ -586,9 +558,10 @@ CONTAINS
           lnd_prog_new%rho_snow_t(jc,jb,isubs) = rho_snow_new_t(ic,jb,isubs)        
           lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic,jb,isubs)              
           lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
-          lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic,jb,isubs)   
-          lnd_diag%snowfrac_t    (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs)   
-          lnd_diag%subsfrac_t    (jc,jb,isubs) = subsfrac_t    (ic,jb,isubs)
+          lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic,jb,isubs) 
+          ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
+          lnd_diag%snowfrac_lc_t (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs) 
+          lnd_diag%snowfrac_t    (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs) 
           lnd_diag%runoff_s_t    (jc,jb,isubs) = runoff_s_t    (ic,jb,isubs)  
           lnd_diag%runoff_g_t    (jc,jb,isubs) = runoff_g_t    (ic,jb,isubs)  
 
@@ -600,6 +573,14 @@ CONTAINS
           ENDIF
           t_g_new_t (ic,jb,isubs) = t_g_t (ic,jb,isubs)
         ENDDO
+
+        IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
+!CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
+          ENDDO
+        ENDIF
 
         MSNOWO: IF(lmulti_snow) THEN
 
@@ -683,23 +664,12 @@ CONTAINS
            DO isubs = 1, ntiles_lnd
 
              isubs_snow = isubs + ntiles_lnd
-             i_count = ext_data%atm%gp_count_t(jb,isubs) 
+
+             ! save previous area fractions for subsequent redistribution computations
+             frac_sv(:)      = ext_data%atm%frac_t(:,jb,isubs)
+             frac_snow_sv(:) = ext_data%atm%frac_t(:,jb,isubs_snow)
 
              ! update index lists for snow tiles
-             DO ic = 1, i_count
-               jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-
-               ! if there has been snowfall and no snow was present before, 
-               ! snow has fallen onto the snow-free tile surface -> it should be transferred to the snow tile;
-               ! otherwise nothing is done, because in all other cases (snow tile already exists or
-               ! there is no snow at all) w_snow_t for snow-free tiles = 0.
-               lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
-                 lnd_prog_new%w_snow_t(jc,jb,isubs) + lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd)
-               lnd_prog_new%w_snow_t(jc,jb,isubs) = 0._wp
-
-               lsnowpres(ic) = lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd).GT.small 
-             END DO 
-
              CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
                                       lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
                                       idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
@@ -711,87 +681,93 @@ CONTAINS
                                       partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
                                       snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
                                       snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
-                                      snowfrac           = lnd_diag%snowfrac_t(:,jb,isubs)                )
+                                      snowfrac           = lnd_diag%snowfrac_lc_t(:,jb,isubs)             )
   
+             i_count = ext_data%atm%gp_count_t(jb,isubs) 
+             i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow)
 
-             i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow) 
+!CDIR NODEP,VOVERTAKE,VOB
              DO ic = 1, i_count_snow
-               jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
-         
-               ! fraction of given land use class
-               fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
+               jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-               ! old snow fraction (with respect to the fraction of given land use class)
-               fr_snow_old(jc) = ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) / MAX(fact1,small)
+               IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2) THEN
 
-               ! old snow depth per surface unit -> old snow depth per fraction (just returning back, for safety reason)
-               lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
-                 lnd_prog_now%w_snow_t(jc,jb,isubs+ntiles_lnd)/MAX(fr_snow_old(jc),small)
+                 ! if there has been snowfall and no snow was present before, 
+                 ! snow has fallen onto the snow-free tile surface -> it should be transferred to the snow tile;
+                 ! otherwise nothing is done, because in all other cases (snow tile already exists or
+                 ! there is no snow at all) w_snow_t for snow-free tiles = 0.
+                 lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs)
+                 lnd_prog_new%w_snow_t(jc,jb,isubs) = 0._wp
 
-               ! During snow index list update, points with newly formed snow cover have been added to the list;
-               ! for the snow-covered tiles of these points "diag_snowfrac_tg" has not been called, 
-               ! i.e. "snowfrac_t" is now undefined. However, for such points (which did not contain snow 
-               ! at the previous time step, but do contain now), snow has been accumulated in the snow-free tile, 
-               ! for which "diag_snowfrac_tg" has determined "snowfrac_t" (with respect to surface unit).
-               ! In all other cases, "snowfrac_t" for snow-free tiles = 0.
-               ! -> it can be transferred to snow-covered tile similar to "w_snow_t".
-               lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) = &
-                 MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd), lnd_diag%snowfrac_t(jc,jb,isubs))
-               lnd_diag%snowfrac_t(jc,jb,isubs) = 0._wp
- 
+                 ! During snow index list update, points with newly formed snow cover have been added to the list;
+                 ! for the snow-covered tiles of these points "diag_snowfrac_tg" has not been called, 
+                 ! i.e. "snowfrac_t" is now undefined. However, for such points (which did not contain snow 
+                 ! at the previous time step, but do contain now), snow has been accumulated in the snow-free tile, 
+                 ! for which "diag_snowfrac_tg" has determined "snowfrac_t" (with respect to surface unit).
+                 ! -> it can be transferred to snow-covered tile similar to "w_snow_t".
+                 lnd_diag%snowfrac_lc_t(jc,jb,isubs_snow) = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
+
+               ELSE ! snowtile_flag = 1 - compute factors for redistribution of heat and moisture
+
+                 fact1(jc) = MIN(1._wp,frac_sv(jc)/     MAX(small,ext_data%atm%frac_t(jc,jb,isubs)     ))
+                 fact2(jc) = MIN(1._wp,frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow)))
+
+               ENDIF
              END DO
 
              ! redistribution of heat and moisture between snow-covered and snow-free tiles 
              ! according to their new fractions, in order to keep heat and moisture balances
              DO jk = 1, nlev_soil+1
+!CDIR NODEP,VOVERTAKE,VOB
                DO ic = 1, i_count_snow
-                 jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
+                 jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-                 fact1 = MIN(1._wp - fr_snow_old(jc), 1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)) / &
-                         MAX(1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd),small)
-                 fact2 = MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) - fr_snow_old(jc), 0._wp)/ &
-                         MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd), small)
+                 IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 1 .AND. &
+                     ext_data%atm%snowtile_flag_t(jc,jb,isubs)      == 1) THEN
 
-                 tmp1 = lnd_prog_new%t_so_t(jc,jk,jb,isubs) 
-                 tmp2 = lnd_prog_new%w_so_t(jc,jk,jb,isubs)
-                 tmp3 = lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs)
+                   tmp1 = lnd_prog_new%t_so_t(jc,jk,jb,isubs) 
+                   tmp2 = lnd_prog_new%w_so_t(jc,jk,jb,isubs)
+                   tmp3 = lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs)
   
-                 lnd_prog_new%t_so_t    (jc,jk,jb,isubs) = lnd_prog_new%t_so_t    (jc,jk,jb,isubs)*fact1 &
-                   &                         + lnd_prog_new%t_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact1)
-                 lnd_prog_new%w_so_t    (jc,jk,jb,isubs) = lnd_prog_new%w_so_t    (jc,jk,jb,isubs)*fact1 &
-                   &                         + lnd_prog_new%w_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact1)
-                 lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs) = lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs)*fact1 &
-                   &                         + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact1)
+                   lnd_prog_new%t_so_t    (jc,jk,jb,isubs) = lnd_prog_new%t_so_t    (jc,jk,jb,isubs)*fact1(jc) &
+                     &                       + lnd_prog_new%t_so_t    (jc,jk,jb,isubs_snow)*(1._wp - fact1(jc))
+                   lnd_prog_new%w_so_t    (jc,jk,jb,isubs) = lnd_prog_new%w_so_t    (jc,jk,jb,isubs)*fact1(jc) &
+                     &                       + lnd_prog_new%w_so_t    (jc,jk,jb,isubs_snow)*(1._wp - fact1(jc))
+                   lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs) = lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs)*fact1(jc) &
+                     &                       + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs_snow)*(1._wp - fact1(jc))
  
-                 lnd_prog_new%t_so_t    (jc,jk,jb,isubs+ntiles_lnd) = tmp1*fact2 &
-                   &                         + lnd_prog_new%t_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact2)
-                 lnd_prog_new%w_so_t    (jc,jk,jb,isubs+ntiles_lnd) = tmp2*fact2 &
-                   &                         + lnd_prog_new%w_so_t    (jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact2)
-                 lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+ntiles_lnd) = tmp3*fact2 &
-                   &                         + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs+ntiles_lnd)*(1._wp - fact2)
+                   lnd_prog_new%t_so_t    (jc,jk,jb,isubs_snow) = tmp1*(1._wp - fact2(jc)) &
+                     &              + lnd_prog_new%t_so_t    (jc,jk,jb,isubs_snow)*fact2(jc)
+                   lnd_prog_new%w_so_t    (jc,jk,jb,isubs_snow) = tmp2*(1._wp - fact2(jc)) &
+                     &              + lnd_prog_new%w_so_t    (jc,jk,jb,isubs_snow)*fact2(jc)
+                   lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs_snow) = tmp3*(1._wp - fact2(jc)) &
+                    &               + lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs_snow)*fact2(jc)
+                 ENDIF
+
                END DO
              END DO        ! soil layers
+!CDIR NODEP,VOVERTAKE,VOB
              DO ic = 1, i_count_snow
-               jc = ext_data%atm%idx_lst_t(ic,jb,isubs+ntiles_lnd)
-                     
-               ! fraction of given land use class
-               fact1 = ext_data%atm%frac_t(jc,jb,isubs) + ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd)
+               jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-               ! new snow depth per surface unit -> new snow depth per fraction
-               lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd) = &
-                 lnd_prog_new%w_snow_t(jc,jb,isubs+ntiles_lnd)/MAX(lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd),small)
-                   
-               ! new tiles fractions, snow fractions and t_g
-               ext_data%atm%frac_t(jc,jb,isubs)           = (1._wp - lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd))*fact1
-               ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) = lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd)          *fact1
-               lnd_diag%snowfrac_t(jc,jb,isubs)           = 0._wp
-               lnd_diag%snowfrac_t(jc,jb,isubs+ntiles_lnd) = 1._wp
-               lnd_prog_new%t_g_t(jc,jb,isubs)           = lnd_prog_new%t_s_t   (jc,jb,isubs)
-               lnd_prog_new%t_g_t(jc,jb,isubs+ntiles_lnd) = lnd_prog_new%t_snow_t(jc,jb,isubs)
+               ! snow depth per surface unit -> snow depth per fraction
+               lnd_diag%w_snow_eff_t(jc,jb,isubs_snow) = &
+                 lnd_prog_new%w_snow_t(jc,jb,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs_snow),small)
+
+               ! reset field for actual snow-cover for grid points / land-cover classes for which there
+               ! are seperate snow-free and snow-covered tiles 
+               lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
+               lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
+
+               lnd_prog_new%t_g_t(jc,jb,isubs)      = lnd_prog_new%t_s_t   (jc,jb,isubs)
+               lnd_prog_new%t_g_t(jc,jb,isubs_snow) = lnd_prog_new%t_snow_t(jc,jb,isubs)
+
              END DO
            END DO
-         END IF
-       ENDIF     ! with or without tiles
+
+         ENDIF  !snow tiles
+
+       ENDIF    ! with or without tiles
    
     
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 

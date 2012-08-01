@@ -690,13 +690,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ! note:  water points are set in turbdiff
         gz0(:) = 0._wp
         
-        DO jt = 1, ntiles_lnd
+        DO jt = 1, ntiles_total
           DO jc = i_startidx, i_endidx
             IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-              gz0(jc) = gz0(jc) + ext_data%atm%lc_frac_t(jc,jb,jt) * grav * ( &
+              gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * ( &
                (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+      &
-                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! 21 = snow/ice
+                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
             ENDIF
           ENDDO
         ENDDO
@@ -816,7 +816,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 !$OMP END PARALLEL
 
-    CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
+    CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 
   ELSE IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN ! Restart initialization
 

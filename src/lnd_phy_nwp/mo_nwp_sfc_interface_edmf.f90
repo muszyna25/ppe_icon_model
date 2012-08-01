@@ -539,8 +539,6 @@ CONTAINS
 !
         &  dzh_snow_now  = dzh_snow_now_t(:,:,isubs)         , & ! layer thickness between half levels in snow  (  m  )
         &  dzh_snow_new  = dzh_snow_new_t(:,:,isubs)         , & ! layer thickness between half levels in snow  (  m  )
-!                                                            
-        &  subsfrac      = dummy1(:)                         , & ! ?????? currently not used but FUTURE!!!
 !
         &  prr_con       = prr_con_t(:)                      , & ! precipitation rate of rain, convective       (kg/m2*s)
         &  prs_con       = prs_con_t(:)                      , & ! precipitation rate of snow, convective       (kg/m2*s)
