@@ -146,6 +146,12 @@ create_weak_scaling()
 {
   setup_name=$1
   cells_per_domain=$2
+  dec_size_list="$3"
+  dec_size_list_all="32 92 162 362 642 1082 1442 1922 2432"
+  if [ x$dec_size_list == x ] ;
+  then
+     dec_size_list="$dec_size_list_all"
+  fi
 
   grid_base_level_dec_32=1
   grid_base_level_dec_92=2
@@ -157,8 +163,6 @@ create_weak_scaling()
   grid_base_level_dec_1922=4
   grid_base_level_dec_2432=5
 
-  dec_size_list="32 92 162 362 642 1082 1442 1922 2432"
-  
   case $cells_per_domain in
     "6" )  add_grid_level=0
   ;;
@@ -213,23 +217,23 @@ create_comm_test_on_blizzard()
 {
   set_default_parameters
   exp_descriptor="icon-testbed_communication"
-  ndays=60
-  cpu_time="00:10:00"
+  cpu_time="00:20:00"
   dt_rad=1800
   #---------------------------------
   # run="true"
   #==============================================================================
-  create_strong_scaling "iconR2B05-grid" "comm-strongtest" "1 2 4 8 16 32"
-
+  
+  # ndays=30
+  # create_strong_scaling "iconR2B05-grid" "comm-strongtest" "1 2 4"
   #==============================================================================
-  cells_per_domain=384
+  ndays=30
   division_method=0
-  create_weak_scaling "comm-weaktest_hexdec" 24
+  # create_weak_scaling "comm-weaktest_hexdec" 24
   create_weak_scaling "comm-weaktest_hexdec" 96
-  create_weak_scaling "comm-weaktest_hexdec" 384
+  create_weak_scaling "comm-weaktest_hexdec" 384 
   #==============================================================================
   division_method=1
-  create_weak_scaling "comm-weaktest_geomdec" 96
+  create_weak_scaling "comm-weaktest_hexdec" 96
   create_weak_scaling "comm-weaktest_geomdec" 384
 
 }
