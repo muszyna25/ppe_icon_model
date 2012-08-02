@@ -1265,6 +1265,7 @@ CONTAINS
           ENDIF
         ELSE
           snowtile_flag_snow(jc) = 0
+          partial_frac_snow(jc) = 0._wp
         ENDIF
         IF (1._wp-snowfrac(jc) >= eps) THEN ! snow-free tile is active
           icount = icount + 1
@@ -1277,6 +1278,7 @@ CONTAINS
           ENDIF
         ELSE
           snowtile_flag(jc) = 0
+          partial_frac(jc) = 0._wp
         ENDIF
       ENDIF
     ENDDO
