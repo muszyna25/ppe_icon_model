@@ -4203,6 +4203,13 @@ END SUBROUTINE message
               write(0,*) "qv_s",qv_s(i)
               write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
               write(0,*) "w_so",w_so_now(i,:),w_so_new(i,:)
+              IF (lmulti_snow) THEN
+                write(0,*) "t_snow_mult",t_snow_mult_now(i,:),t_snow_mult_new(i,:)
+                write(0,*) "rho_snow_mult",rho_snow_mult_now(i,:),rho_snow_mult_new(i,:)
+                write(0,*) "wliq_snow",wliq_snow_now(i,:),wliq_snow_new(i,:)
+                write(0,*) "wtot_snow",wtot_snow_now(i,:),wtot_snow_new(i,:)
+                write(0,*) "dzh_snow",dzh_snow_now(i,:),dzh_snow_new(i,:)
+              ENDIF
               write(0,*) "tch_t",tch(i)
               write(0,*) "tcm_t",tcm(i)
               write(0,*) " tfv_t",tfv(i)
