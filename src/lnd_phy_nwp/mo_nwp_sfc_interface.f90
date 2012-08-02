@@ -625,43 +625,6 @@ CONTAINS
 
        END DO ! isubs - loop over tiles
 
-       i_count = ext_data%atm%lp_count(jb)
-
-       IF (ntiles_total == 1) THEN 
-!CDIR NODEP,VOVERTAKE,VOB
-         DO ic = 1, i_count
-           jc = ext_data%atm%idx_lst_lp(ic,jb)
-           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
-           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
-         ENDDO
-       ELSE ! aggregate fields over tiles
-         t_g_s(:)  =  0._wp
-         qv_s_s(:) =  0._wp
-         DO isubs = 1,ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
-           DO ic = 1, i_count
-             jc = ext_data%atm%idx_lst_lp(ic,jb)
-             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
-               lnd_prog_new%t_g_t(jc,jb,isubs)**4
-             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* & 
-               lnd_diag%qv_s_t(jc,jb,isubs)
-           ENDDO
-         ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
-         DO ic = 1, i_count
-           jc = ext_data%atm%idx_lst_lp(ic,jb)
-           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc))) ! &
-    !      ! This does not work in combination with disaggregating the surface radiation flux terms
-    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
-    !          ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
-           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc) ! &
-    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
-    !          ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
-         ENDDO
-
-       ENDIF    ! with or without tiles
-
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
          DO isubs = 1, ntiles_lnd
 
@@ -800,7 +763,7 @@ CONTAINS
              lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
 
              lnd_prog_new%t_g_t(jc,jb,isubs)      = lnd_prog_new%t_s_t   (jc,jb,isubs)
-             lnd_prog_new%t_g_t(jc,jb,isubs_snow) = lnd_prog_new%t_snow_t(jc,jb,isubs)
+             lnd_prog_new%t_g_t(jc,jb,isubs_snow) = lnd_prog_new%t_snow_t(jc,jb,isubs_snow)
 
            END DO
 
@@ -820,7 +783,45 @@ CONTAINS
          END DO
 
        ENDIF  !snow tiles
-   
+
+       ! Final step: aggregate t_g and qv_s
+       i_count = ext_data%atm%lp_count(jb)
+
+       IF (ntiles_total == 1) THEN 
+!CDIR NODEP,VOVERTAKE,VOB
+         DO ic = 1, i_count
+           jc = ext_data%atm%idx_lst_lp(ic,jb)
+           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
+           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
+         ENDDO
+       ELSE ! aggregate fields over tiles
+         t_g_s(:)  =  0._wp
+         qv_s_s(:) =  0._wp
+         DO isubs = 1,ntiles_total
+!CDIR NODEP,VOVERTAKE,VOB
+           DO ic = 1, i_count
+             jc = ext_data%atm%idx_lst_lp(ic,jb)
+             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
+               lnd_prog_new%t_g_t(jc,jb,isubs)**4
+             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* & 
+               lnd_diag%qv_s_t(jc,jb,isubs)
+           ENDDO
+         ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+         DO ic = 1, i_count
+           jc = ext_data%atm%idx_lst_lp(ic,jb)
+           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc))) ! &
+    !      ! This does not work in combination with disaggregating the surface radiation flux terms
+    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
+    !          ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
+           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc) ! &
+    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
+    !          ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
+         ENDDO
+
+       ENDIF    ! with or without tiles
+
     
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 
 
