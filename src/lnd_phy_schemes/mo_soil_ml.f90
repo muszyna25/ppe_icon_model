@@ -572,8 +572,7 @@ END SUBROUTINE message
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
-                  zlhfl_snow         & ! latent   heat flux snow/air interface         (W/m2) 
-                                     )
+                  zlhfl_snow         ) ! latent   heat flux snow/air interface         (W/m2) 
 
 
 !-------------------------------------------------------------------------------
@@ -3036,10 +3035,14 @@ END SUBROUTINE message
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN  ! for landpoints only
         IF (zwsnew(i).GT.zepsi) THEN
-          zgsb(i) = (zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
-                      (-zhm_snow(i,ke_snow)+zdzms(1)) * &
-                      (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
-                      +zdzms(1))
+!           zgsb(i) = (zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
+!                       (-zhm_snow(i,ke_snow)+zdzms(1)) * &
+!                       (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
+!                       +zdzms(1))
+
+          ! GZ: use formulation of single-layer snow model, which is numerically more stable
+          zgsb(i) = zalas_mult(i,ke_snow)*(ztsnow_mult(i,ke_snow) - t_so_now(i,1))/ &
+            MAX(-zhm_snow(i,ke_snow),cdsmin)
 
         END IF
 
@@ -3957,7 +3960,12 @@ END SUBROUTINE message
           t_snow_new(i) = t_so_new(i,0)
         ENDIF
         ! *** End of provisional stability fix *** !
-
+        !
+        ! *** original code *** !
+!         IF (w_snow_new(i) <= zepsi) THEN
+!           w_snow_new(i) = 0.0_ireals
+!           t_snow_new(i) = t_so_new(i,0)
+!         ENDIF
         IF (w_i_new(i) <= zepsi) w_i_new(i) = 0.0_ireals
 !      END IF          ! land-points only
   END DO
@@ -4174,8 +4182,7 @@ END SUBROUTINE message
         DO i = istarts, iends
              IF (w_snow_new(i) > zepsi .AND. (t_snow_new(i)<180. &
                  & .OR. t_snow_new(i)>280.) .OR. t_so_new(i,1)>350. ) THEN 
-!                & .OR. w_i_new(i)*1000. > 0.1_ireals ) THEN
-              write(0,*) "SFC-DIAGNOSIS TERRA ",i,dt,nsubs1!,ntstep
+              write(0,*) "SFC-DIAGNOSIS TERRA ",nsubs0,i,nsubs1!,ntstep
         !!$   write(0,*)" lmelt  ",               lmelt    
         !!$   write(0,*)" lmelt_var ",            lmelt_var
         !!$   write(0,*)" lmulti_snow ",          lmulti_snow 
@@ -4200,6 +4207,7 @@ END SUBROUTINE message
               write(0,*) "t_snow",t_snow_now(i),t_snow_new(i)
               write(0,*) "w_snow",w_snow_now(i),w_snow_new(i)
               write(0,*) "h_snow",h_snow_now(i),h_snow_new(i)
+              write(0,*) "rho_snow",rho_snow_now(i),rho_snow_new(i)
               write(0,*) "qv_s",qv_s(i)
               write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
               write(0,*) "w_so",w_so_now(i,:),w_so_new(i,:)
@@ -4215,7 +4223,7 @@ END SUBROUTINE message
               write(0,*) " tfv_t",tfv(i)
               write(0,*) "zshfl,zlhfl,zradfl,zg1",zshfl(i),zlhfl(i),zradfl(i),zg1(i)
               write(0,*) "zshfl_s,zlhfl_s", zshfl_s(i), zlhfl_s(i)
-              write(0,*) "zshfl_snow,zlhfl_snow,zf_snow",zshfl_snow(i),zlhfl_snow(i), zf_snow(i)  
+              write(0,*) "zshfl_snow,zlhfl_snow,zf_snow,zgsb",zshfl_snow(i),zlhfl_snow(i), zf_snow(i),zgsb(i)
               write(0,*) "soiltyp_t",soiltyp_subs(i)
               write(0,*) "plcov_t",  plcov(i)
               write(0,*) "rootdp_t", rootdp(i)
@@ -4620,24 +4628,28 @@ SUBROUTINE terra_multlay_init (                &
                 dzh_snow_now(i,ksn) = 0.0_ireals
               END DO
             END IF
-          ELSE
-!           adjust soil temperatures in presence of snow
-            zdel_t_so = MAX (0._ireals,t_so_now(i,0)-t0_melt)
-            t_so_now(i,0)=MIN( t0_melt,t_so_now(i,0) )
-            t_so_new(i,0)=MIN( t0_melt,t_so_now(i,0) )
-            DO kso=1,ke_soil
-              IF ( t_so_now(i,kso) > t0_melt) THEN
-                 t_so_now(i,kso) = MAX( t0_melt,                  &
-                                   t_so_now(i,kso) -zdel_t_so    &
-                                   *(zmls(ke_soil+1)-zmls(kso))   &
-                                   /(zmls(ke_soil+1)-zmls( 1 )) )
-                 t_so_new(i,kso) = MAX( t0_melt,                  &
-                                   t_so_now(i,kso) -zdel_t_so    &
-                                   *(zmls(ke_soil+1)-zmls(kso))   &
-                                   /(zmls(ke_soil+1)-zmls( 1 )) )
-              ENDIF
-              IF ( t_so_now(i,kso) <= t0_melt) EXIT
-            ENDDO
+! GZ: this soil temperature adjustment tends to cause more damage than benefit in practice
+! because if there are traces of snow over warm ground, soil heat fluxes can become so large
+! that the scheme becomes numerically unstable if the soil top temperature is artificially 
+! adjusted to freezing temperature
+!           ELSE
+! !           adjust soil temperatures in presence of snow
+!             zdel_t_so = MAX (0._ireals,t_so_now(i,0)-t0_melt)
+!             t_so_now(i,0)=MIN( t0_melt,t_so_now(i,0) )
+!             t_so_new(i,0)=MIN( t0_melt,t_so_now(i,0) )
+!             DO kso=1,ke_soil
+!               IF ( t_so_now(i,kso) > t0_melt) THEN
+!                  t_so_now(i,kso) = MAX( t0_melt,                  &
+!                                    t_so_now(i,kso) -zdel_t_so    &
+!                                    *(zmls(ke_soil+1)-zmls(kso))   &
+!                                    /(zmls(ke_soil+1)-zmls( 1 )) )
+!                  t_so_new(i,kso) = MAX( t0_melt,                  &
+!                                    t_so_now(i,kso) -zdel_t_so    &
+!                                    *(zmls(ke_soil+1)-zmls(kso))   &
+!                                    /(zmls(ke_soil+1)-zmls( 1 )) )
+!               ENDIF
+!               IF ( t_so_now(i,kso) <= t0_melt) EXIT
+!             ENDDO
           ENDIF
 
           t_s_now(i) = t_so_now(i,0)

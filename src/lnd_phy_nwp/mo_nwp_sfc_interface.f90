@@ -435,11 +435,11 @@ CONTAINS
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & ! array dimensions
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
-        &  nsubs0=1,          nsubs1=isubs                   , & ! ntiles_total
+        &  nsubs0=jb,          nsubs1=isubs                  , & ! unused except for optional debug output
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  dt=tcall_sfc_jg                                   , &
-        &  soiltyp_subs = soiltyp_t(:,jb,isubs)              , & ! type of the soil (keys 0-9)         --
+        &  soiltyp_subs = soiltyp_t(:,jb,isubs)              , & ! type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,jb,isubs)                , & ! fraction of plant cover             --
         &  rootdp       = rootdp_t(:,jb,isubs)               , & ! depth of the roots                ( m  )
         &  sai          = sai_t(:,jb,isubs)                  , & ! surface area index                  --
@@ -765,11 +765,23 @@ CONTAINS
              ! are seperate snow-free and snow-covered tiles 
              lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
              lnd_prog_new%w_snow_t(jc,jb,isubs)    = 0._wp
-             lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
+             lnd_prog_new%t_snow_t(jc,jb,isubs)    = lnd_prog_new%t_s_t(jc,jb,isubs)
+             lnd_prog_new%t_g_t(jc,jb,isubs)       = lnd_prog_new%t_s_t(jc,jb,isubs)
 
-             lnd_prog_new%t_g_t(jc,jb,isubs)      = lnd_prog_new%t_s_t   (jc,jb,isubs)
-             lnd_prog_new%t_g_t(jc,jb,isubs_snow) = lnd_prog_new%t_snow_t(jc,jb,isubs_snow)
+             ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
+             ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
+             ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
+             ! time steps when associating traces of snow with a snow-cover fraction of 1)
+             lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)/0.01_wp)
 
+             ! Rediagnose t_g according to the modified snow-cover fraction
+             lnd_prog_new%t_g_t(jc,jb,isubs_snow) =  &
+               lnd_diag%snowfrac_t(jc,jb,isubs_snow) * lnd_prog_new%t_snow_t(jc,jb,isubs_snow) + &
+               (1._wp-lnd_diag%snowfrac_t(jc,jb,isubs_snow))*lnd_prog_new%t_s_t(jc,jb,isubs_snow)
+
+             IF (lmulti_snow) THEN
+               lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)
+             ENDIF
            END DO
 
            IF (lmulti_snow) THEN
@@ -778,6 +790,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
                DO ic = 1, i_count_snow
                  jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
+                 lnd_prog_new%t_snow_mult_t(jc,jk,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)
                  lnd_prog_new%wliq_snow_t(jc,jk,jb,isubs) = 0._wp
                  lnd_prog_new%wtot_snow_t(jc,jk,jb,isubs) = 0._wp
                  lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs) = 0._wp

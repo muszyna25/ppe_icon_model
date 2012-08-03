@@ -477,14 +477,41 @@ CONTAINS
 
             ! reset field for actual snow-cover for grid points / land-cover classes for which there
             ! are seperate snow-free and snow-covered tiles 
-            p_lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
-            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = 1._wp
+            p_lnd_diag%snowfrac_t(jc,jb,isubs)   = 0._wp
+            p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
+            p_prog_lnd_now%t_snow_t(jc,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
+            p_prog_lnd_now%t_g_t(jc,jb,isubs)    = p_prog_lnd_now%t_s_t(jc,jb,isubs)
 
-            IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs) == 1) THEN
-              p_prog_lnd_now%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
-            ENDIF
-            p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) = p_prog_lnd_now%t_snow_t(jc,jb,isubs_snow)
+            ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
+            ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
+            ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
+            ! time steps when associating traces of snow with a snow-cover fraction of 1)
+            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,p_lnd_diag%h_snow_t(jc,jb,isubs_snow)/0.01_wp)
+
+            ! Rediagnose t_g according to the modified snow-cover fraction
+            p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) =  &
+              p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) * p_prog_lnd_now%t_snow_t(jc,jb,isubs_snow) + &
+              (1._wp-p_lnd_diag%snowfrac_t(jc,jb,isubs_snow))*p_prog_lnd_now%t_s_t(jc,jb,isubs_snow)
+
+             IF (lmulti_snow) THEN
+               p_prog_lnd_now%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
+             ENDIF
+
           END DO
+
+          IF (lmulti_snow) THEN
+!CDIR UNROLL=nlsnow
+            DO jk=1,nlev_snow
+!CDIR NODEP,VOVERTAKE,VOB
+              DO ic = 1, i_count_snow
+                jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
+                p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
+                p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = 0._wp
+                p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = 0._wp
+                p_prog_lnd_now%dzh_snow_t (jc,jk,jb,isubs) = 0._wp
+              ENDDO
+            ENDDO
+          ENDIF
 
         END DO
       END IF
