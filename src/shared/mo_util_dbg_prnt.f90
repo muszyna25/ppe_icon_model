@@ -67,6 +67,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
 INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
 LOGICAL :: p_test_run_bac
+!TYPE(t_subset_range) :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
 
 !
 ! PUBLIC INTERFACE
@@ -78,6 +79,7 @@ PUBLIC :: dbg_print
 
 ! Public variables:
 PUBLIC :: c_i, c_b, nc_i, nc_b
+!PUBLIC :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
 
 INTERFACE dbg_print
   MODULE PROCEDURE dbg_print_2d
@@ -109,6 +111,9 @@ CONTAINS
    
     CALL message(TRIM(routine), 'Start' )
    
+    ! fill subset for use in dbg_print without passing the patch in every call
+!    v_subdom_cell = ppatch%cells%in_domain
+
     ! module variables for check of cells/edges/verts
     loc_nblks_c =ppatch%nblks_c
     loc_nblks_e =ppatch%nblks_e
@@ -323,8 +328,8 @@ CONTAINS
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
   !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  !INTEGER           ::  i_startidx, i_endidx, jb
-  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
+  INTEGER           ::  i_startidx, i_endidx, jb
+  REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
 
   IF (ltimer) CALL timer_start(timer_dbg_prnt)
 
@@ -465,13 +470,14 @@ CONTAINS
       ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
 
       ! find max/min out of active indices only
-   !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-   !     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-   !     ctrxind(jb)=maxval(p_array(1:i_startidx,jk,1:i_endidx))
-   !     ctrnind(jb)=minval(p_array(1:i_startidx,jk,1:i_endidx))
-   !   END DO  
-   !   ctrx=maxval(ctrxind(:))
-   !   ctrn=minval(ctrxind(:))
+       !DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+       !DO jb = v_subdom_cell%start_block, v_subdom_cell%end_block
+       !  CALL get_index_range(v_subdom_cell, jb, i_startidx, i_endidx)
+       !  ctrxind(jb)=maxval(p_array(i_startidx:i_endidx,jk,jb))
+       !  ctrnind(jb)=minval(p_array(i_startidx:i_endidx,jk,jb))
+       !END DO  
+       !ctrx=maxval(ctrxind(:))
+       !ctrn=minval(ctrxind(:))
 
       ! parallelize:
       p_test_run_bac = p_test_run
