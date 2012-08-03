@@ -1013,6 +1013,7 @@ src/atm_phy_echam/mo_echam_phy_memory.f90 -text
 src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
+src/atm_phy_echam/mo_jsbach_hydrology.f90 -text
 src/atm_phy_echam/mo_jsbach_interface_icon.f90 -text
 src/atm_phy_echam/mo_soil_icon.f90 -text
 src/atm_phy_echam/mo_ssodrag.f90 -text
@@ -1025,11 +1026,6 @@ src/atm_phy_echam/mo_vdiff_downward_sweep.f90 -text
 src/atm_phy_echam/mo_vdiff_driver.f90 -text
 src/atm_phy_echam/mo_vdiff_solver.f90 -text
 src/atm_phy_echam/mo_vdiff_upward_sweep.f90 -text
-src/atm_phy_echam/soil5layer.f90 -text
-src/atm_phy_echam/update_soiltemp_icon.f90 -text
-src/atm_phy_echam/update_surf_down.f90 -text
-src/atm_phy_echam/update_surf_up.f90 -text
-src/atm_phy_echam/update_surfacetemp_icon.f90 -text
 src/atm_phy_edmf/mo_cuadjtq_2.f90 -text
 src/atm_phy_edmf/mo_edmf_param.f90 -text
 src/atm_phy_edmf/mo_sppcfl.f90 -text
