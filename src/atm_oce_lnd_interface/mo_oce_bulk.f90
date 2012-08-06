@@ -416,14 +416,14 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: OMIP SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP Precip.'      ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP Evaporation'  ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: OMIP Freshw. Flux' ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
         !---------------------------------------------------------------------
 
         ! call of sea ice model
@@ -789,7 +789,7 @@ CONTAINS
       !   dT/dt = Operators + F_T
       ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
       ! 
-      ! Mixed boundary conditions (relaxation term plus fluxes) are not yet included
+      ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
 
   ! write(*,*)'EFFECTIVE RESTORING PARAMETER',1.0_wp/(relaxation_param*2.592e6_wp)
 
@@ -922,6 +922,9 @@ CONTAINS
     ! Apply net surface heat flux to boundary condition
     !  - heat flux is applied alternatively to temperature relaxation for coupling
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
+    !  - with OMIP-forcing and sea_ice=1 we need temperature_relaxation=1
+    !    since there is no forc_hflx over open water when using OMIP-forcing
+    !
 
     IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1) THEN
 
