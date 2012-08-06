@@ -778,17 +778,24 @@ undef("setLevels")
 procedure setLevels(selmode,resource,minvar,maxvar,scalelimit,numlevs,debug)
 begin
   if (selmode .eq. "manual") then
-    resource@cnLevelSelectionMode = "ManualLevels"
-    resource@cnMinLevelValF       = minvar
-    resource@cnMaxLevelValF       = maxvar
-;    diffLog10                 = log10(abs(maxVar-minVar))
-;;   if (diffLog10 .lt. 0) then
-;      resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
-;;   else
-;;     resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
-;;   end if
-    diffspacing               = abs(maxvar-minvar)/(int2flt(numlevs))
-    resource@cnLevelSpacingF      = diffspacing
+    if ( .not. isvar("plotLevs") ) then
+      resource@cnLevelSelectionMode = "ManualLevels"
+      resource@cnMinLevelValF       = minvar
+      resource@cnMaxLevelValF       = maxvar
+  ;    diffLog10                 = log10(abs(maxVar-minVar))
+  ;;   if (diffLog10 .lt. 0) then
+  ;      resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
+  ;;   else
+  ;;     resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
+  ;;   end if
+      diffspacing               = abs(maxvar-minvar)/(int2flt(numlevs))
+      resource@cnLevelSpacingF      = diffspacing
+    else
+      resource@cnLevelSelectionMode = "ExplicitLevels"
+      plotLevels = plotLevs
+      if (debug) print("plotlevels = "+plotLevels) end if
+      resource@cnLevels             = plotLevels
+    end if
   end if
 
   if (selmode .eq. "halflog") then

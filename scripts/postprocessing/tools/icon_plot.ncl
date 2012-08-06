@@ -94,10 +94,10 @@
     print(";                 manual (automatic linear spacing with usage of minVar and maxVar)")
     print(";                 auto (default: let do ncl the spacing)")
     print("; scaleLimit    : Limits the number of decades for levels in selMode-halflog")
-    print("; minVar/maxVar : min/maximal Value to plot for selMode=manual or halflog")
+    print("; minVar/maxVar : min/maximal Value to plot for selMode = 'manual' or 'halflog'")
     print("; numLevs       : set a number of labels for manual selMode only. NumCol=numLevs+2")
     print(";                 (Not set directly, but used for computing the contour level spacing. default=10)")
-    print("; contLevs      : set individual contour levels (not yet)")
+    print("; plotLevs      : set individual contour levels, selMode is set to 'manual' automatically")
     print("; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid), NHps")
     print(";                 and SHps (polar stereographic projections centered at the north and south pole respectively),")
     print(";                 sat (satelite view, use option centerLat, centerLon and satDist)")
@@ -156,16 +156,6 @@
     oFile    = ext@fBase
   end if
   print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
-
-  if(.not. isvar("numLevs")) then
-    numLevs  = NUMLEVS
-  else
-    if (numLevs .lt. 1) then
-      print("WARNING: numLevs must be >= 1")
-      print(ABORTMSG)
-      exit
-    end if
-  end if
 
   if (.not. isvar("DEBUG"))       DEBUG       = False           end if
   if (.not. isvar("showGrid"))    showGrid    = False           end if
@@ -278,6 +268,28 @@
   end if
   ; DETERMINE HORIZONTAL GRID -------------------------------------------------
   horizonalGridType = getHorizGridType(iFile,ivarname,isIcon)
+  ;----------------------------------------------------------------------------
+
+  ; DETERMINE selMode automatically -------------------------------------------
+  if (isvar("minVar") .and. isvar("maxVar"))  then
+    if (selMode .eq. "auto") then
+      selMode = "manual"
+    end if
+  end if
+  if (isvar("plotLevs") )  then
+    if (selMode .eq. "auto") then
+      selMode = "manual"
+    end if
+  end if
+  if(.not. isvar("numLevs")) then
+    numLevs  = NUMLEVS
+  else
+    if (numLevs .lt. 1) then
+      print("WARNING: numLevs must be >= 1")
+      print(ABORTMSG)
+      exit
+    end if
+  end if
   ;----------------------------------------------------------------------------
 
   ; DETERMINE THE PLOTMODE ----------------------------------------------------
@@ -416,12 +428,6 @@
 
     scaleVar(var,scaleFactor)
 
-    ; set selMode automatically
-    if (isvar("minVar") .and. isvar("maxVar"))  then
-      if (selMode .eq. "auto") then
-        selMode = "manual"
-      end if
-    end if
     ; set minVar_maxVar for plotting
     if(.not. isvar("minVar")) minVar = min(var) end if
     if(.not. isvar("maxVar")) maxVar = max(var) end if
