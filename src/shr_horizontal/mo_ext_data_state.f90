@@ -2650,6 +2650,15 @@ CONTAINS
      
        i_lc_water = ext_data(jg)%atm%i_lc_water
 
+       ! Initialization of index list counts - moved here in order to avoid uninitialized elements
+       ! along nest boundaries
+       ext_data(jg)%atm%lp_count(:) = 0
+       ext_data(jg)%atm%sp_count(:) = 0
+       ext_data(jg)%atm%fp_count(:) = 0
+
+       ext_data(jg)%atm%gp_count_t(:,:) = 0
+       ext_data(jg)%atm%lp_count_t(:,:) = 0
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
 !$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in) ICON_OMP_DEFAULT_SCHEDULE
@@ -2659,15 +2668,10 @@ CONTAINS
             & i_startidx, i_endidx, rl_start, rl_end)
 
          i_count                       = 0   ! counter for land points
-         ext_data(jg)%atm%lp_count(jb) = 0
          i_count_sea                   = 0   ! counter for sea points
-         ext_data(jg)%atm%sp_count(jb) = 0
          i_count_flk                   = 0   ! counter for lake points
-         ext_data(jg)%atm%fp_count(jb) = 0
 
-         it_count(:)                       = 0 ! counter for tiles
-         ext_data(jg)%atm%gp_count_t(jb,:) = 0
-         ext_data(jg)%atm%lp_count_t(jb,:) = 0
+         it_count(:)                   = 0 ! counter for tiles
 
          DO jc = i_startidx, i_endidx
            IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
