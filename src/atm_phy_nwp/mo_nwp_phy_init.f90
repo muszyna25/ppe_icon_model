@@ -100,8 +100,8 @@ MODULE mo_nwp_phy_init
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
-  USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd
+  USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
@@ -640,8 +640,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd)
- ! ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lsnowtile) THEN
- !   CALL init_snowtile_lists()
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lsnowtile .AND. is_restart_run()) THEN
+    CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
   END IF
 
 

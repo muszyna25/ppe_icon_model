@@ -69,7 +69,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: nwp_surface_init
   PUBLIC :: diag_snowfrac_tg
   PUBLIC :: aggregate_landvars
-  PUBLIC :: update_index_lists
+  PUBLIC :: update_index_lists, init_snowtile_lists
 
 CONTAINS
 
@@ -804,6 +804,73 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE aggregate_landvars
+
+  !! Driver routine to (re-)initialize the snowtile index lists in the case of a restart
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2012-08-03)
+  !!
+  SUBROUTINE init_snowtile_lists(p_patch, ext_data, p_lnd_diag)
+
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch       !<grid/patch info.
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
+    TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
+    
+    ! Local array bounds:
+    
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< number of child domains
+
+    ! Local scalars:
+
+    INTEGER :: jc,jb,isubs,i_count,isubs_snow
+
+
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+
+    ! exclude nest boundary and halo points
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,isubs_snow), SCHEDULE(guided)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      DO isubs = 1, ntiles_lnd
+        isubs_snow = isubs + ntiles_lnd
+
+        i_count = ext_data%atm%lp_count_t(jb,isubs)
+
+        IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+        CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+                                 lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
+                                 idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
+                                 gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
+                                 idx_lst_snow       = ext_data%atm%idx_lst_t(:,jb,isubs_snow),       &
+                                 gp_count_snow      = ext_data%atm%gp_count_t(jb,isubs_snow),        &
+                                 lc_frac            = ext_data%atm%lc_frac_t(:,jb,isubs),            &
+                                 partial_frac       = ext_data%atm%frac_t(:,jb,isubs),               &
+                                 partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
+                                 snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
+                                 snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
+                                 snowfrac           = p_lnd_diag%snowfrac_lc_t(:,jb,isubs)           )
+
+      ENDDO
+
+    ENDDO    
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE init_snowtile_lists
 
 
   SUBROUTINE subsmean(i_count, t_g_s, qv_s_s, t_s_s, t_snow_s, t_snow_mult_s, &
