@@ -1589,8 +1589,8 @@ ELSEIF(.NOT.l_edge_based)THEN
   END DO
 ENDIF ! l_edge_based
 
-write(*,*)'max/min difference',&
-&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
+!write(*,*)'max/min difference',&
+!&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
 IF(l_RIGID_LID)THEN
   pw_c(:,2,:) = 0.0_wp
 ENDIF
@@ -1799,8 +1799,8 @@ ELSEIF(.NOT.l_EDGE_BASED)THEN
 ENDIF
 ! !-------------------------------------------------------------------------------
 
-write(*,*)'max/min difference',&
-&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
+!write(*,*)'max/min difference',&
+!&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
 
 IF(l_RIGID_LID)THEN
   pw_c(:,1,:) = 0.0_wp

@@ -53,6 +53,7 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea,&
 USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based,ab_gam, &
   &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA,&
   &                                     FLUX_CALCULATION_HORZ  
+USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
@@ -342,10 +343,10 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch,             &
 ! !-------------------------------------------------------------------------------
 
   CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
-  DO jk=1,n_zlev
-  write(*,*)'MAX-MIN-ADVFLUX-h:',jk, &
-  &maxval(z_adv_flux_h(:,jk,:)), minval(z_adv_flux_h(:,jk,:))
-  END DO
+  !DO jk=1,n_zlev
+  !write(*,*)'MAX-MIN-ADVFLUX-h:',jk, &
+  !&maxval(z_adv_flux_h(:,jk,:)), minval(z_adv_flux_h(:,jk,:))
+  !END DO
   ! Stop timer for horizontal advection
   IF (ltimer) CALL timer_stop(timer_adv_horz)
 
@@ -428,6 +429,13 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch,             &
   END DO
 
   CALL sync_patch_array(SYNC_C, p_patch, flux_horz)
+
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=2  ! output print level (1-5, fix)
+  CALL dbg_print('AdvDifHorz: adv_flux_h'    ,z_adv_flux_h                ,str_module,idt_src)
+  CALL dbg_print('AdvDifHorz: flux_horz'     ,flux_horz                   ,str_module,idt_src)
+  !CALL dbg_print('AdvDifHorz: div_mass_flx_c',p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+  !---------------------------------------------------------------------
 
 END SUBROUTINE advect_diffuse_flux_horz
 !-------------------------------------------------------------------------------

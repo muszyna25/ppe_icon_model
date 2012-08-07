@@ -81,8 +81,8 @@ PRIVATE
 
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
-CHARACTER(len=12)  :: str_module = 'oceTracer   '  ! Output of module for 1 line debug
-INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
+CHARACTER(len=12)           :: str_module = 'oceTracer   '  ! Output of module for 1 line debug
+INTEGER                     :: idt_src    = 1               ! Level of detail for 1 line debug
 
 !
 ! PUBLIC INTERFACE
@@ -451,16 +451,15 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   CALL dbg_print('on entry: IndTrac: trac_old',trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c) ,str_module,idt_src)
   !---------------------------------------------------------------------
 
-    CALL advect_diffuse_flux_horz( p_patch,          &
-                                 & trac_old,         &
-                                 & p_os,             &
-                                 & p_op_coeff,       &
-                                 & K_h,              &
-                                 & flux_horz)
+  CALL advect_diffuse_flux_horz( p_patch,          &
+                               & trac_old,         &
+                               & p_os,             &
+                               & p_op_coeff,       &
+                               & K_h,              &
+                               & flux_horz)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('after AdvDiffHorz: flux horz',flux_horz,str_module,idt_src)
   CALL dbg_print('after AdvDiffHorz: flux horz',flux_horz,str_module,idt_src)
   !---------------------------------------------------------------------
 
@@ -491,11 +490,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                              & flux_vert,         &
                              & z_cellthick_intmed,&
                              & tracer_id)
-      DO jk=1,n_zlev
-       write(*,*)'FLX:HORZ:VERT',jk,&
-       &minval(flux_horz(:,jk,:)),maxval(flux_horz(:,jk,:)),&
-       &minval(flux_vert(:,jk,:)),maxval(flux_vert(:,jk,:))
-       END DO
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('after AdvDiffVert: flux vert',flux_vert,str_module,idt_src)
+    !---------------------------------------------------------------------
 
     !Case: Implicit Vertical diffusion
     IF(expl_vertical_tracer_diff==1)THEN
@@ -542,15 +541,16 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
       CALL sync_patch_array(SYNC_C, p_patch, z_temp)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=5  ! output print level (1-5, fix)
-      CALL dbg_print('AdvDifVert: bef.impl.diff' ,z_temp ,str_module,idt_src)
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src)
+      CALL dbg_print('BefImplDiff: z_temp'  ,z_temp  , str_module,idt_src)
       !---------------------------------------------------------------------
 
-        DO jk=1,n_zlev
-        write(*,*)'BEFORE DIFF: TRACER old:new',jk,&
-        &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-        &minval(z_temp(1:nproma,jk,1:p_patch%nblks_c)),maxval(z_temp(1:nproma,jk,1:p_patch%nblks_c))
-        END DO
+      ! DO jk=1,n_zlev
+      ! write(*,*)'BEFORE DIFF: TRACER old:new',jk,&
+      ! &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
+      ! &minval(z_temp(1:nproma,jk,1:p_patch%nblks_c)),maxval(z_temp(1:nproma,jk,1:p_patch%nblks_c))
+      ! END DO
 
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
@@ -564,9 +564,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
 
       CALL sync_patch_array(SYNC_C, p_patch, trac_new)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=5  ! output print level (1-5, fix)
-      CALL dbg_print('AdvDifVert: aft.impl.diff' ,z_temp                   ,str_module,idt_src)
-      CALL dbg_print('AdvDifVert: trac_out'      ,trac_new                 ,str_module,idt_src)
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('AftImplDiff: z_temp'       ,z_temp                   ,str_module,idt_src)
+      CALL dbg_print('AftImplDiff: trac_new'     ,trac_new                 ,str_module,idt_src)
       !---------------------------------------------------------------------
 
     !vertival diffusion is calculated explicitely
@@ -577,17 +577,10 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
     IF (ltimer) CALL timer_stop(timer_dif_vert)
   ENDIF
 
-
-       DO jk=1,n_zlev
-       write(*,*)'TRACER old:new',jk,&
-       &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-       &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
-       END DO
-
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('after AdvDiffVert: trac_old',trac_old                 ,str_module,idt_src)
-  CALL dbg_print('after AdvDiffVert: trac_new',trac_new                 ,str_module,idt_src)
+  idt_src=2  ! output print level (1-5, fix)
+  CALL dbg_print('aft. AdvIndivTrac: trac_old',trac_old                 ,str_module,idt_src)
+  CALL dbg_print('aft. AdvIndivTrac: trac_new',trac_new                 ,str_module,idt_src)
   !---------------------------------------------------------------------
 
 END SUBROUTINE advect_individual_tracer_ab
