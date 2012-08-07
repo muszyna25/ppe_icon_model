@@ -67,7 +67,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_lnd
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water
 
   IMPLICIT NONE
 
@@ -118,7 +118,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   ! Local scalars:
 
-  INTEGER :: jc,jk,jb,jt,jg,ic,i_count      !loop indices
+  INTEGER :: jc,jk,jb,jt,jg,ic,i_count,jt1      !loop indices
 
   ! local variables for turbdiff
 
@@ -131,23 +131,24 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
 
-  REAL(wp) :: gz0(nproma),fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma)
+  REAL(wp) :: gz0(nproma),fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac
 
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
   ! 2D fields
-  REAL(wp), DIMENSION(nproma,ntiles_total) :: gz0t, gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
+  REAL(wp), DIMENSION(nproma,ntiles_total+nlists_water) :: gz0t, gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t
 
   ! 3D full-level fields
-  REAL(wp), DIMENSION(nproma,2,ntiles_total) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
+  REAL(wp), DIMENSION(nproma,2,ntiles_total+nlists_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
 
   ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,ntiles_total) :: z_ifc_t, w_t, rcld_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total+nlists_water) :: z_ifc_t, w_t, rcld_t
 
   ! SQRT(2*TKE)
-  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total)
+  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+nlists_water)
 
+  INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
 
 !--------------------------------------------------------------
 
@@ -177,20 +178,16 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   i_startblk = p_patch%cells%start_blk(rl_start,1)
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-  ! setting for tile indices >= 2: these contain only land points for the time being
-  fr_land_t(:)  = 1._wp
-  depth_lk_t(:) = 0._wp
-  h_ice_t(:)    = 0._wp
   
   IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,ic,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine, &
-!$OMP lc_class,gz0,z_tvs,gz0t,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,        &  
-!$OMP t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,   &
-!$OMP pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,w_t,rcld_t,sai_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jt,jc,jk,ic,jt1,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,&
+!$OMP lc_class,gz0,z_tvs,gz0t,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,  &  
+!$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,   &
+!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -309,40 +306,43 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           & rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
           & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-      ELSE ! tile approach used; tile 1 exists on all grid points
+      ELSE ! tile approach used
 
-        CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                       &
-          & ie=nproma, ke=nlev, ke1=nlevp1,                                                       &
-          & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,             &
-          & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                      &
-          & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),             &
-          & sai=ext_data%atm%sai_t(:,jb,1), h_ice=prm_diag%h_ice(:,jb), ps=p_diag%pres_sfc(:,jb), &
-          & t_g=lnd_prog_now%t_g_t(:,jb,1), qv_s=lnd_diag%qv_s_t(:,jb,1),                         &
-          & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                           &
-          & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                                       &
-          & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),                   &
-          & gz0=gz0t(:,1), tcm=tcm_t(:,1), tch=tch_t(:,1),                                        &
-          & tfm=tfm_t(:,1), tfh=tfh_t(:,1), tfv=tfv_t(:,1),                                       &
-          & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,:,jb),  &!  edr =prm_diag%edr(:,:,jb),         &
-          & tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb),                               &
-          & t_2m=t_2m_t(:,1), qv_2m=qv_2m_t(:,1), td_2m=td_2m_t(:,1),                             &
-          & rh_2m=rh_2m_t(:,1), u_10m=u_10m_t(:,1), v_10m=v_10m_t(:,1),                           &
-          & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+        ! preset variables for land tile indices
+        fr_land_t(:)  = 1._wp
+        depth_lk_t(:) = 0._wp
+        h_ice_t(:)    = 0._wp
 
-        ! Loop over remaining tiles; for those, not all grid points exist in general
+        ! Loop over index lists for land tile points, sea points and lake points
+        DO  jt = 1, ntiles_total + nlists_water
 
-        DO  jt = 2, ntiles_total
-          i_count = ext_data%atm%gp_count_t(jb,jt) 
+          IF (jt <= ntiles_total) THEN ! land tile points
+            jt1 = jt
+            i_count = ext_data%atm%gp_count_t(jb,jt)
+            ilist => ext_data%atm%idx_lst_t(:,jb,jt)
+          ELSE IF (jt == ntiles_total + 1) THEN ! sea points
+            jt1 = 1 ! preliminary setting, to be changed
+            i_count = ext_data%atm%sp_count(jb)
+            ilist => ext_data%atm%idx_lst_sp(:,jb)
+            fr_land_t(:) = 0._wp
+          ELSE ! IF (jt == ntiles_total + 2) THEN ! lake points
+            jt1 = 1 ! preliminary setting, to be changed
+            i_count = ext_data%atm%fp_count(jb)
+            ilist => ext_data%atm%idx_lst_fp(:,jb)
+            ! depth_lk_t(:) = ...
+            ! h_ice_t(:) = ...
+          ENDIF
+
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
           ! Copy input fields to the local re-indexed variables
           ! It remains to be determined which of the model levels are actually needed for non-init calls
           DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
-            gz0t_t(ic,jt) = gz0t(jc,jt)
-            t_g_t(ic,jt)  = lnd_prog_now%t_g_t(jc,jb,jt)
-            qv_s_t(ic,jt) = lnd_diag%qv_s_t(jc,jb,jt)
-            sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt)
+            jc = ilist(ic)
+            gz0t_t(ic,jt) = gz0t(jc,jt1)
+            t_g_t(ic,jt)  = lnd_prog_now%t_g_t(jc,jb,jt1)
+            qv_s_t(ic,jt) = lnd_diag%qv_s_t(jc,jb,jt1)
+            sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt1)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
             u_t(ic,1:2,jt)     = p_diag%u(jc,nlev-1:nlev,jb)
@@ -374,79 +374,69 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & rh_2m=rh_2m_t(:,jt), u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),                    &
             & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-          ! Copy output fields back to the state fields with the regular grid-point order
-          ! (Only applicable for surface TKE when the respective field has been introduced)
-!!CDIR NODEP,VOVERTAKE,VOB
-!          DO ic = 1, i_count
-!            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-!
-!          ENDDO
-
         ENDDO
 
         ! Aggregate tile-based output fields of turbtran over tiles
-        ! Note: the frac_t field, containing the area fraction of each tile, is set
-        ! to 1 for tile 1 of lake and sea points
+        ! i) initialize fields to zero before starting the summation
+        prm_diag%gz0  (:,jb) = 0._wp
+        prm_diag%tcm  (:,jb) = 0._wp
+        prm_diag%tch  (:,jb) = 0._wp
+        prm_diag%tfm  (:,jb) = 0._wp
+        prm_diag%tfh  (:,jb) = 0._wp
+        prm_diag%tfv  (:,jb) = 0._wp
+        prm_diag%t_2m (:,jb) = 0._wp
+        prm_diag%qv_2m(:,jb) = 0._wp
+        prm_diag%td_2m(:,jb) = 0._wp
+        prm_diag%rh_2m(:,jb) = 0._wp
+        prm_diag%u_10m(:,jb) = 0._wp
+        prm_diag%v_10m(:,jb) = 0._wp
 
-        jt = 1
-        DO jc = i_startidx, i_endidx
-          tvs_t(jc,3,1,jt)      = z_tvs(jc,nlevp1,1)
+        z_tvs(:,nlevp1,1)          = 0._wp
+        prm_diag%tkvm(:,nlev,jb)   = 0._wp
+        prm_diag%tkvh(:,nlev,jb)   = 0._wp
+        prm_diag%rcld(:,nlevp1,jb) = 0._wp
 
-          prm_diag%gz0(jc,jb) = gz0t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tcm(jc,jb) = tcm_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tch(jc,jb) = tch_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfm(jc,jb) = tfm_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfh(jc,jb) = tfh_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfv(jc,jb) = tfv_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          z_tvs(jc,nlevp1,1)  = tvs_t(jc,3,1,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tkvm(jc,nlev,jb) = prm_diag%tkvm(jc,nlev,jb)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tkvh(jc,nlev,jb) = prm_diag%tkvh(jc,nlev,jb)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%rcld(jc,nlevp1,jb)=prm_diag%rcld(jc,nlevp1,jb)*ext_data%atm%frac_t(jc,jb,jt)
+        ! ii) loop over index lists
+        DO  jt = 1, ntiles_total + nlists_water
 
-          prm_diag%t_2m(jc,jb)  = t_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%qv_2m(jc,jb) = qv_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%td_2m(jc,jb) = td_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%rh_2m(jc,jb) = rh_2m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%u_10m(jc,jb) = u_10m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%v_10m(jc,jb) = v_10m_t(jc,jt)*ext_data%atm%frac_t(jc,jb,jt)
+          IF (jt <= ntiles_total) THEN ! land tile points
+            jt1 = jt
+            i_count = ext_data%atm%gp_count_t(jb,jt)
+            ilist => ext_data%atm%idx_lst_t(:,jb,jt)
+          ELSE IF (jt == ntiles_total + 1) THEN ! sea points
+            jt1 = 1 ! preliminary setting, to be changed
+            i_count = ext_data%atm%sp_count(jb)
+            ilist => ext_data%atm%idx_lst_sp(:,jb)
+          ELSE ! IF (jt == ntiles_total + 2) THEN ! lake points
+            jt1 = 1 ! preliminary setting, to be changed
+            i_count = ext_data%atm%fp_count(jb)
+            ilist => ext_data%atm%idx_lst_fp(:,jb)
+          ENDIF
 
-        ENDDO
-        DO  jt = 2, ntiles_total
-
-          i_count = ext_data%atm%gp_count_t(jb,jt) 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+            jc = ilist(ic)
+            area_frac = ext_data%atm%frac_t(jc,jb,jt1)
+            prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+gz0t_t(ic,jt)*area_frac
+            prm_diag%tcm(jc,jb) = prm_diag%tcm(jc,jb)+tcm_t(ic,jt) *area_frac
+            prm_diag%tch(jc,jb) = prm_diag%tch(jc,jb)+tch_t(ic,jt) *area_frac
+            prm_diag%tfm(jc,jb) = prm_diag%tfm(jc,jb)+tfm_t(ic,jt) *area_frac
+            prm_diag%tfh(jc,jb) = prm_diag%tfh(jc,jb)+tfh_t(ic,jt) *area_frac
+            prm_diag%tfv(jc,jb) = prm_diag%tfv(jc,jb)+tfv_t(ic,jt) *area_frac
 
-            prm_diag%gz0(jc,jb)=prm_diag%gz0(jc,jb)+gz0t_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tcm(jc,jb)=prm_diag%tcm(jc,jb)+tcm_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tch(jc,jb)=prm_diag%tch(jc,jb)+tch_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tfm(jc,jb)=prm_diag%tfm(jc,jb)+tfm_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tfh(jc,jb)=prm_diag%tfh(jc,jb)+tfh_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tfv(jc,jb)=prm_diag%tfv(jc,jb)+tfv_t(ic,jt)*ext_data%atm%frac_t(jc,jb,jt)
-            z_tvs(jc,nlevp1,1) = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tkvm(jc,nlev,jb) = prm_diag%tkvm(jc,nlev,jb)+tkvm_t(ic,2,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%tkvh(jc,nlev,jb) = prm_diag%tkvh(jc,nlev,jb)+tkvh_t(ic,2,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%rcld(jc,nlevp1,jb) = prm_diag%rcld(jc,nlevp1,jb)+rcld_t(ic,3,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
+            z_tvs(jc,nlevp1,1)          = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)        *area_frac
+            prm_diag%tkvm(jc,nlev,jb)   = prm_diag%tkvm(jc,nlev,jb)+tkvm_t(ic,2,jt)  *area_frac
+            prm_diag%tkvh(jc,nlev,jb)   = prm_diag%tkvh(jc,nlev,jb)+tkvh_t(ic,2,jt)  *area_frac
+            prm_diag%rcld(jc,nlevp1,jb) = prm_diag%rcld(jc,nlevp1,jb)+rcld_t(ic,3,jt)*area_frac
 
-            prm_diag%t_2m(jc,jb)  = prm_diag%t_2m(jc,jb)+t_2m_t(ic,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%qv_2m(jc,jb) = prm_diag%qv_2m(jc,jb)+qv_2m_t(ic,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%td_2m(jc,jb) = prm_diag%td_2m(jc,jb)+td_2m_t(ic,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%rh_2m(jc,jb) = prm_diag%rh_2m(jc,jb)+rh_2m_t(ic,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt)*&
-              ext_data%atm%frac_t(jc,jb,jt)
-            prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt)*&
-               ext_data%atm%frac_t(jc,jb,jt)
+            prm_diag%t_2m(jc,jb)  = prm_diag%t_2m(jc,jb) +t_2m_t(ic,jt) *area_frac
+            prm_diag%qv_2m(jc,jb) = prm_diag%qv_2m(jc,jb)+qv_2m_t(ic,jt)*area_frac
+            prm_diag%td_2m(jc,jb) = prm_diag%td_2m(jc,jb)+td_2m_t(ic,jt)*area_frac
+            prm_diag%rh_2m(jc,jb) = prm_diag%rh_2m(jc,jb)+rh_2m_t(ic,jt)*area_frac
+            prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt)*area_frac
+            prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt)*area_frac
 
           ENDDO
 

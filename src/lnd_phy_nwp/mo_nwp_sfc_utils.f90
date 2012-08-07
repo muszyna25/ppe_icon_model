@@ -1328,7 +1328,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  partial_frac(:), partial_frac_snow(:)
 
     ! snow-cover fraction
-    REAL(wp), INTENT(IN) :: snowfrac(:)
+    REAL(wp), INTENT(INOUT) :: snowfrac(:)
 
     ! Local variables
     INTEGER  :: ic, jc, icount, icount_snow
@@ -1348,7 +1348,12 @@ CONTAINS
         idx_lst(icount) = jc
         partial_frac(jc) = lc_frac(jc)
       ELSE
-        IF (snowfrac(jc) >= eps) THEN ! snow tile is active
+
+        ! Reset snowfrac to 0/1 in case of very small deviations (just to be safe)
+        IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
+        IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
+
+        IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
           icount_snow = icount_snow + 1
           idx_lst_snow(icount_snow) = jc
           partial_frac_snow(jc) = lc_frac(jc)*snowfrac(jc)
@@ -1361,7 +1366,7 @@ CONTAINS
           snowtile_flag_snow(jc) = 0
           partial_frac_snow(jc) = 0._wp
         ENDIF
-        IF (1._wp-snowfrac(jc) >= eps) THEN ! snow-free tile is active
+        IF (snowfrac(jc) < 1._wp) THEN ! snow-free tile is active
           icount = icount + 1
           idx_lst(icount) = jc
           partial_frac(jc) = lc_frac(jc)*(1._wp-snowfrac(jc))

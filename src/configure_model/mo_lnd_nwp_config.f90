@@ -53,7 +53,7 @@ MODULE mo_lnd_nwp_config
 
   PRIVATE
 
-  PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_snow
+  PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water, nlists_water
   PUBLIC :: frac_thresh
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
@@ -74,7 +74,8 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  nlev_snow          !< number of snow layers
   INTEGER ::  ntiles_total       !< total number of TILES
   INTEGER ::  ntiles_lnd         !< number of static land surface types
-  INTEGER ::  ntiles_snow        !< number of snow tiles
+  INTEGER ::  ntiles_water       !< number of extra tiles for ocean and lakes
+  INTEGER ::  nlists_water       !< number of extra index lists for ocean and lakes
   REAL(wp)::  frac_thresh        !< fraction threshold for retaining the respective 
                                  !< tile for a grid point
   INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
@@ -139,15 +140,21 @@ CONTAINS
 
     ! number of tiles; ntiles_lnd is set by the namelist variable ntiles
     IF(lsnowtile) THEN
-      ntiles_snow  = ntiles_lnd
-      ntiles_total = ntiles_lnd + ntiles_snow
+      ntiles_total = 2*ntiles_lnd
     ELSE
-      ntiles_snow  = 0
       ntiles_total = ntiles_lnd
     END IF
-    ! Remark (GZ): a separate tile index may be added for lakes in order to facilitate flow control
-    ! of subgrid-scale lakes
 
+    IF (ntiles_total == 1) THEN 
+      ! no tile approach, thus no extra tile index for water points
+      ntiles_water = 0
+      nlists_water = 0
+    ELSE
+      ! two extra tiles for water points
+      ntiles_water = 2
+      nlists_water = 2 ! currently one for lake and ocean points; will be increased to 3 
+                       ! when sea ice model becomes active
+    ENDIF
 
   END SUBROUTINE configure_lnd_nwp
 
