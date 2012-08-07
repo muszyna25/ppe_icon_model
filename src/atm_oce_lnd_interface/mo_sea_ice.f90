@@ -68,7 +68,7 @@ MODULE mo_sea_ice
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
-!  USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
 
@@ -99,6 +99,7 @@ MODULE mo_sea_ice
   PUBLIC :: upper_ocean_TS
   PUBLIC :: new_ice_growth
   PUBLIC :: calc_atm_fluxes_from_bulk
+  PUBLIC :: calc_bulk_flux_no_seaice
   PUBLIC :: prepareAfterRestart
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -106,8 +107,8 @@ MODULE mo_sea_ice
   !to be put into namelist
   !  INTEGER :: i_no_ice_thick_class = 1
 
-!  CHARACTER(len=12)           :: str_module    = 'SeaIce'  ! Output of module for 1 line debug
-!  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+  CHARACTER(len=12)           :: str_module    = 'SeaIce'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1         ! Level of detail for 1 line debug
 
 
 
@@ -1453,6 +1454,8 @@ CONTAINS
       & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
+
+ !  INTEGER :: testice(nproma,p_patch%nblks_c)
     
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
@@ -1566,16 +1569,6 @@ CONTAINS
       END DO
     END DO
 
-!!$ !---------DEBUG DIAGNOSTICS-------------------------------------------
-!!$    idt_src=1 !3  ! output print level (1-5, fix)
-!!$    CALL dbg_print('calc_atm_fluxes:rhoair'       ,rhoair            ,str_module,idt_src)
-!!$    CALL dbg_print('calc_atm_fluxes:p_as%pao'     ,p_as%pao          ,str_module,idt_src)
-!!$    CALL dbg_print('calc_atm_fluxes:tafoK'        ,tafoK             ,str_module,idt_src)
-!!$    CALL dbg_print('calc_atm_fluxes:p_as%tafo'    ,p_as%tafo          ,str_module,idt_src)
-!!$    CALL dbg_print('calc_atm_fluxes:sphumida'     ,sphumida          ,str_module,idt_src)
-!!$ !---------------------------------------------------------------------
-
-
     fu10lim(:,:)    = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(:,:)) )
     dragl1(:,:)     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim(:,:) &
       &               - 0.6743_wp/(fu10lim(:,:) * fu10lim(:,:)))
@@ -1639,8 +1632,207 @@ CONTAINS
     Qatm%rpreci(:,:) = 0.0_wp
     Qatm%rprecw(:,:) = 0.0_wp
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('CalcBulk: tafoK'           ,tafoK             ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('CalcBulk: Qatm%LWnetw'     ,Qatm%LWnetw       ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%LWnet ice'  ,Qatm%LWnet        ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%sensw'      ,Qatm%sensw        ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%sens ice'   ,Qatm%sens         ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw         ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%lat ice'    ,Qatm%lat          ,str_module,idt_src)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE calc_atm_fluxes_from_bulk
+
+  !-------------------------------------------------------------------------
+  !
+  !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
+  !! Sets the atmospheric bulk fluxes for the update of temperature of open water
+  !! without sea ice for OMIP forcing.
+  !!  - Soon to be merged with calc_atm_fluxes_for_bulk, accordingly
+  !!  - p_ice is not initialized when i_sea_ice=0 !
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2012-08). Originally code written by
+  !! Dirk Notz, following MPIOM. Code transfered to ICON.
+  !
+  SUBROUTINE calc_bulk_flux_no_seaice(p_patch, p_as, p_os, Qatm)
+    TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
+    TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
+    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+
+
+    !Local variables
+    REAL(wp), DIMENSION (nproma,p_patch%nblks_c) ::           &
+      & Tsurf,          &  ! Surface temperature                             [C]
+      & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
+      & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
+      & esta,           &  ! water vapor pressure at 2 m height              [Pa]
+      & esti,           &  ! water vapor pressure at ice surface             [Pa]
+      & estw,           &  ! water vapor pressure at water surface           [Pa]
+      & sphumida,       &  ! Specific humididty at 2 m height 
+      & sphumidi,       &  ! Specific humididty at ice surface
+      & sphumidw,       &  ! Specific humididty at water surface
+      & ftdewC,         &  ! Dew point temperature in Celsius                [C]
+      & rhoair,         &  ! air density                                     [kg/m^3]
+      & dragl0,         &  ! part of dragl                                   
+      & dragl1,         &  ! part of dragl                                   
+      & dragl,          &  ! Drag coefficient for latent   heat flux
+      & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
+      & fakts,          &  ! Effect of cloudiness on LW radiation
+      & humi,           &  ! Effect of air humidity on LW radiation
+      & fa, fw, fi,     &  ! Enhancment factor for vapor pressure
+      & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
+      & destidT,        &  ! Derivative of esti w.r.t. T
+      & dfdT               ! Derivative of f w.r.t. T
+
+ !  INTEGER :: testice(nproma,p_patch%nblks_c)
+    
+    INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
+    REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
+
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_bulk_flux_no_seaice
+    !-------------------------------------------------------------------------
+    !CALL message(TRIM(routine), 'start' )
+
+    Tsurf(:,:)  = p_os%p_prog(nold(1))%tracer(:,1,:,1)  ! set surface temp = mixed layer temp
+    tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
+    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
+
+
+    ! --- standard initialisation
+    
+    ! Tsurf
+    ! tafoK
+    fu10lim        (:,:) = 0.0_wp
+    esta           (:,:) = 0.0_wp
+    esti           (:,:) = 0.0_wp
+    estw           (:,:) = 0.0_wp
+    sphumida       (:,:) = 0.0_wp
+    sphumidi       (:,:) = 0.0_wp
+    sphumidw       (:,:) = 0.0_wp
+    ! ftdewC
+    rhoair         (:,:) = 0.0_wp
+    dragl0         (:,:) = 0.0_wp
+    dragl1         (:,:) = 0.0_wp
+    dragl          (:,:) = 0.0_wp
+    drags          (:,:) = 0.0_wp
+    fakts          (:,:) = 0.0_wp
+    humi           (:,:) = 0.0_wp
+    fa             (:,:) = 0.0_wp
+    fw             (:,:) = 0.0_wp
+    fi             (:,:) = 0.0_wp
+    dsphumididesti (:,:) = 0.0_wp
+    destidT        (:,:) = 0.0_wp
+    dfdT           (:,:) = 0.0_wp
+
+    ! subset range pointer
+    all_cells => p_patch%cells%all 
+
+
+
+    !-----------------------------------------------------------------------
+    ! Compute water vapor pressure and specific humididty in 2m height (esta) 
+    ! and at water surface (estw) according to "Buck Research Manual (1996)
+    ! (see manuals for instruments at http://www.buck-research.com/); 
+    ! updated from Buck, A. L., New equations for computing vapor pressure and 
+    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
+    !-----------------------------------------------------------------------
+
+    aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
+    ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
+
+    AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
+    AAi=2.2e-4_wp; BBi=3.83e-6_wp; CCi=6.4e-10_wp
+
+    alpha=0.62197_wp; beta=0.37803_wp
+
+    fa(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*ftdewC(:,:)**2)
+    esta(:,:) = fa(:,:) * aw*EXP((bw-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+cw))
+    fw(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*Tsurf(:,:) **2)
+    estw(:,:) = fw(:,:) *aw*EXP((bw-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +cw))
+    ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
+   
+    sphumida(:,:)  = alpha * esta(:,:)/(p_as%pao(:,:)-beta*esta(:,:))
+    sphumidw(:,:)  = alpha * estw(:,:)/(p_as%pao(:,:)-beta*estw(:,:))
+
+    !-----------------------------------------------------------------------
+    !  Compute longwave radiation according to 
+    !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
+    !         long-wave radiation of the Earth with consideration of the effect
+    !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
+    !         cited by: Budyko, Climate and Life, 1974.
+    !         Note that for humi, esta is given in [mmHg] in the original
+    !         publication. Therefore, 0.05*sqrt(esta/100) is used rather than
+    !         0.058*sqrt(esta)
+    !  This is the formula used in MPI-OM when using the QLOBERL preprocessing option (currently
+    !  the default usage).
+    !-----------------------------------------------------------------------
+
+    humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
+    fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
+    ! NB: Lwinw and LWoutw is a misleading nomenclature in this case. The seperation is
+    ! artificial, but LWnetw is correct, according to Berliand & Berliand ('52)
+    Qatm%LWin(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4
+
+    Qatm%LWoutw(:,:) = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+    Qatm%LWnetw(:,:) = Qatm%LWin(:,:) - Qatm%LWoutw(:,:)
+
+    Qatm%SWin(:,:) = p_as%fswr(:,:)
+
+    !-----------------------------------------------------------------------
+    !  Calculate bulk equations according to 
+    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
+    !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
+    !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
+    !-----------------------------------------------------------------------  
+    
+    DO jb = 1,p_patch%nblks_c
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      DO jc = i_startidx_c,i_endidx_c
+        
+        rhoair(jc,jb) = p_as%pao(jc,jb)                &
+          &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
+        
+      END DO
+    END DO
+
+    fu10lim(:,:)    = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(:,:)) )
+    dragl1(:,:)     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim(:,:) &
+      &               - 0.6743_wp/(fu10lim(:,:) * fu10lim(:,:)))
+    dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
+      &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
+    dragl(:,:)      = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
+    ! A reasonable maximum and minimum is needed for dragl in case there's a large difference
+    ! between the 2-m and surface temperatures.
+    dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
+    drags(:,:)      = 0.95_wp * dragl(:,:)
+    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) &
+      &               * (p_as%tafo(:,:) -Tsurf(:,:))
+    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) &
+      &               * (sphumida(:,:)-sphumidw(:,:))
+
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('CalcBulk: tafoK'           ,tafoK             ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('CalcBulk: Qatm%LWnetw'     ,Qatm%LWnetw       ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%sensw'      ,Qatm%sensw        ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw         ,str_module,idt_src)
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE calc_bulk_flux_no_seaice
  
   !-------------------------------------------------------------------------
 

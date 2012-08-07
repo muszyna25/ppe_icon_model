@@ -85,8 +85,8 @@ USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, 
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, ice_slow, ice_fast,           &
-   &                              prepareAfterRestart ! ,set_ice_albedo
+USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, calc_bulk_flux_no_seaice,     &
+  &                               ice_slow, ice_fast, prepareAfterRestart ! ,set_ice_albedo
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
@@ -103,6 +103,8 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 CHARACTER(len=12)           :: str_module    = 'oceBulk     '  ! Output of module for 1 line debug
 INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+
+LOGICAL                     :: l_apply_bulk  = .false.         ! apply bulk formula without sea ice
 
 ! Public interface
 PUBLIC  :: update_sfcflx
@@ -333,7 +335,7 @@ CONTAINS
         p_as%pao(:,:)   = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
         !  don't - change units to mb/hPa
-        p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
+        !p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
@@ -493,7 +495,10 @@ CONTAINS
       CALL dbg_print('UpdSfc: Ext data3-t/mon2'  ,z_c2                     ,str_module,idt_src)
       !---------------------------------------------------------------------
 
+      ! bulk formula are calculated globally
+
       IF (i_sea_ice >= 1) THEN
+
         IF (iforc_type == 2 .OR. iforc_type == 5) &
           & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
         
@@ -512,12 +517,49 @@ CONTAINS
         p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
         p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
-      ENDIF
+
+      ELSE   !  no sea ice
+
+        ! bulk formula applied to boundary forcing for ocean model:
+        !  - no sea ice and no temperature relaxation
+        !  - apply net surface heat flux in W/m2
+
+        IF (l_apply_bulk) THEN
+
+          IF (iforc_type == 2 .OR. iforc_type == 5) &
+            & CALL calc_bulk_flux_no_seaice (p_patch, p_as, p_os, Qatm)
+
+          temperature_relaxation = 0   !  hack
+
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+            DO jc = i_startidx_c, i_endidx_c
+         
+              p_sfc_flx%forc_hflx(jc,jb)                 &
+              & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
+              & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
+              & +  Qatm%SWin(jc,jb)                        ! incoming SW radiation flux
+            ENDDO
+          ENDDO
+
+          !---------DEBUG DIAGNOSTICS-------------------------------------------
+          idt_src=3  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
+          idt_src=2  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+          !---------------------------------------------------------------------
+
+        ENDIF
+
+      ENDIF  !  sea ice
 
     CASE (FORCING_FROM_FILE_FIELD)                                    !  13
       ! 1) Read field data from file
       ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
-      ! 3)CALL update_sfcflx_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
+      ! 3) CALL update_sfcflx_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
     CASE (FORCING_FROM_COUPLED_FLUX)                                  !  14
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
@@ -922,11 +964,12 @@ CONTAINS
     ! Apply net surface heat flux to boundary condition
     !  - heat flux is applied alternatively to temperature relaxation for coupling
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
-    !  - with OMIP-forcing and sea_ice=1 we need temperature_relaxation=1
+    !  - with OMIP-forcing and sea_ice=0 we need temperature_relaxation=1
     !    since there is no forc_hflx over open water when using OMIP-forcing
+    !  - l_apply_bulk=.true. provides net surface heat flux globally
     !
 
-    IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1) THEN
+    IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. l_apply_bulk) THEN
 
       ! Heat flux boundary condition for diffusion
       !   D = d/dz(K_v*dT/dz)  where
@@ -973,12 +1016,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !> Takes thermal calc_atm_fluxes_from_bulk to calculate atmospheric surface fluxes:
-  !  heat, freshwater and momentum.
+  !> Takes thermal calc_atm_fluxes_from_bulk to calculate surface fluxes for ocean forcing:
+  !!  heat, freshwater and momentum.
+  !!  not active or tested yet (2012/08)
+  !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
   !
-  SUBROUTINE update_sfcflx_from_atm_flx(ppatch, p_as, p_os, p_ice,Qatm, p_sfc_flx)
+  SUBROUTINE update_sfcflx_from_atm_flx(ppatch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
     TYPE(t_patch),TARGET,         INTENT(IN)    :: ppatch
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
@@ -1013,7 +1058,11 @@ CONTAINS
           !surface heat forcing as sum of sensible, latent, longwave and shortwave heat fluxes
           IF (p_ice% isice(jc,jb,i))THEN
 
-            p_sfc_flx%forc_tracer(jc,jb,1)               &
+    !  ATTENTION - forc_tracer is INCORRECT here
+    !   - forc_tracer is boundary condition in vertical diffusion equation [K*m/s]
+    !   - forc_hflx is net surface heat flux [W/m2]
+    !       p_sfc_flx%forc_tracer(jc,jb,1)               &
+            p_sfc_flx%forc_hflx(jc,jb)                   &
               & =  Qatm%sens(jc,jb,i) + Qatm%lat(jc,jb,i)& ! Sensible + latent heat
               !                                              flux at ice surface
               & +  Qatm%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
@@ -1026,7 +1075,8 @@ CONTAINS
 
           ELSEIF(.NOT.p_ice% isice(jc,jb,i))THEN
 
-            p_sfc_flx%forc_tracer(jc,jb,1)             &
+    !       p_sfc_flx%forc_tracer(jc,jb,1)             &
+            p_sfc_flx%forc_hflx(jc,jb)                 &
             & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
             & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
             & +  Qatm%SWin(jc,jb)                        ! incoming SW radiation flux
