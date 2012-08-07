@@ -60,7 +60,7 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_physics
-USE mo_advection_utils,           ONLY: laxfr_upflux_v
+!USE mo_advection_utils,           ONLY: laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
@@ -86,7 +86,7 @@ PRIVATE :: mimetic_vflux_oce
 PRIVATE :: upwind_vflux_ppm
 PRIVATE :: v_ppm_slimiter_mo
 PRIVATE :: apply_tracer_flux_top_layer_oce
-
+PRIVATE :: laxfr_upflux_v
 
 CONTAINS
 
@@ -188,7 +188,7 @@ CONTAINS
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('AdvDifVert: cell_thk_interm',cell_thick_intermed_c       ,str_module,idt_src)
     CALL dbg_print('AdvDifVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
-    CALL dbg_print('AdvDifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+    !CALL dbg_print('AdvDifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)                             
     CALL dbg_print('AdvDifVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
     CALL dbg_print('AdvDifVert: div_adv_v'      ,flux_div_vert                ,str_module,idt_src)
@@ -271,7 +271,7 @@ CONTAINS
     ! local variables
     ! height based but reversed (downward increasing depth) coordinate system,
     ! grid coefficient is negative (same as pressure based atmospheric coordinate system
-    REAL(wp), PARAMETER :: zcoeff_grid = -1.0_wp
+    !REAL(wp), PARAMETER :: zcoeff_grid = -1.0_wp
     INTEGER             :: z_dolic
     INTEGER             :: i_startidx_c, i_endidx_c
     INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
@@ -292,7 +292,7 @@ CONTAINS
             ! calculate vertical tracer flux using upwind method
              pupflux_i(jc,jk,jb) =                 &
                &  laxfr_upflux_v( pw_c(jc,jk,jb),  &
-               &                  pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb), zcoeff_grid )
+               &                  pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb) )
           ENDIF
           !! no fluxes at bottom boundary !pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
         ENDDO
@@ -521,9 +521,6 @@ CONTAINS
     INTEGER  :: ikm1, ikp1, ikp1_ic,ikp2                        !< vertical level minus and plus one, plus two
     INTEGER  :: i_startidx, i_endidx
     INTEGER  :: jc, jk, jb                                      !< index of cell, vertical level and block
-    REAL(wp), PARAMETER :: coeff_grid=-1                        !< parameter which is used to make the vertical 
-                                                                !< advection scheme applicable to a height      
-                                                                !< based coordinate system (coeff_grid=-1)
     !LOGICAL  :: opt_lout_edge !< optional: output edge value (.TRUE.),
     !                          !< or the flux across the edge   !< (.FALSE./not specified)
     !REAL(wp) :: opt_topflx_tra(nproma,p_patch%nblks_c)  !< vertical tracer flux at upper boundary 
@@ -812,8 +809,7 @@ CONTAINS
           !
           p_upflux(jc,jk,jb) =                                  &
             &  laxfr_upflux_v( p_w(jc,jk,jb),       &
-            &                z_lext_1(jc,jk), z_lext_2(jc,jk),  &
-            &                coeff_grid )
+            &                z_lext_1(jc,jk), z_lext_2(jc,jk))
         ELSE
           p_upflux(jc,jk,jb) = 0.0_wp
         ENDIF
@@ -1065,6 +1061,49 @@ CONTAINS
 
 
   END SUBROUTINE vflx_limiter_pd_oce
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Lax Friedrichs first order upwind flux for vertical advection,.
+  !!
+  !! Generalized Lax Friedrichs first order upwind flux,
+  !! used in conservative vertical advection routines.
+  !! For passive advection, equivalent to any other first
+  !! order upwind flux.
+  !! Applicable to both pressure based and height based vertical
+  !! coordinate systems. Depending on the coordinate system chosen,
+  !! the sign of the second term in the flux equation changes.
+  !! - (-) for pressure based vertical coordinate systems
+  !! - (+) for height based coordinate systems
+  !! In order to get the correct sign, the variable p_coeff_grid
+  !! has been introduced which is =1 for pressure based and =-1
+  !! for height based coordinate systems.
+  !!
+  !! @par Revision History
+  !! Developed  by L.Bonaventura  (2004).
+  !! Modification by Daniel Reinert, DWD (2010-04-23)
+  !! - generalized for p- and z-based vertical coordinate systems
+  !!
+  FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  RESULT(p_upflux)
+    !
+
+    IMPLICIT NONE
+
+    REAL(wp), INTENT(in) :: p_vn
+    REAL(wp), INTENT(in) :: p_psi1, p_psi2
+
+    REAL(wp) :: p_upflux
+
+    !-----------------------------------------------------------------------
+    !p_upflux = 0.5_wp * (                       p_vn  *( p_psi1 + p_psi2 )    &
+    !  &                   - p_coeff_grid * ABS( p_vn )*( p_psi2 - p_psi1 ) )
+    p_upflux = 0.5_wp * (                       p_vn  *( p_psi1 + p_psi2 )    &
+      &                   +  ABS( p_vn )*( p_psi2 - p_psi1 ) )
+  END FUNCTION laxfr_upflux_v
+
+
   !-------------------------------------------------------------------------
 ! !   !! SUBROUTINE advects vertically the tracers present in the ocean model.
 ! !   !!

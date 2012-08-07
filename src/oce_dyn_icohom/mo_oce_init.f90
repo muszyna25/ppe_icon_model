@@ -1753,7 +1753,7 @@ CONTAINS
               ! #slo# 2012-05-02 - for MPIOM comparison - set T/S to 1C/34.8psu
               ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 1.0_wp
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 2.0_wp
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 16.0_wp !5.0_wp
               IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp

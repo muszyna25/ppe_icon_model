@@ -224,6 +224,7 @@ CONTAINS
 
     IF(itestcase_oce==28)THEN
       CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
+      CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg),ptr_op_coeff)
       CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), &
                            &p_phys_param,p_sfc_flx,&
                            & ptr_op_coeff,&

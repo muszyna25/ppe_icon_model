@@ -1652,7 +1652,8 @@ CONTAINS
 
         DO jc = i_startidx, i_endidx
 
-          z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
+!          z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
+          z_delta   = p_face(jc,jk,jb) - p_face(jc,ikp1,jb)
           z_a6i     = 6._wp * (p_cc(jc,jk,jb)                           &
             &       - 0.5_wp * (p_face(jc,jk,jb) + p_face(jc,ikp1,jb)))
 

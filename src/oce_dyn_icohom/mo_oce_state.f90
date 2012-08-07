@@ -322,6 +322,10 @@ MODULE mo_oce_state
       &  p_vn_mean(:,:,:)         ! reconstructed velocity at vertex in cartesian coordinates
                                   ! dimension: (nproma, n_zlev, nblks_v). For mimetic miura scheme
 
+   TYPE(t_cartesian_coordinates), POINTER :: &
+      &  p_mass_flux_sfc_cc(:,:)  ! mass flux at surface in cartesian coordinates
+                                  ! dimension: (nproma, nblks_c). 
+
   END TYPE t_hydro_ocean_diag
 
 !
@@ -1112,7 +1116,10 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn_mean at edges failed')
     END IF
-
+    ALLOCATE(p_os_diag%p_mass_flux_sfc_cc(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine), 'allocation for p_mass_flux_sfc_cc at cells failed')
+    END IF
     ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
     p_os_diag%p_vn     (:,:,:)%x(1)=0.0_wp
     p_os_diag%p_vn     (:,:,:)%x(2)=0.0_wp
@@ -1123,6 +1130,10 @@ CONTAINS
     p_os_diag%p_vn_mean(:,:,:)%x(1)=0.0_wp
     p_os_diag%p_vn_mean(:,:,:)%x(2)=0.0_wp
     p_os_diag%p_vn_mean(:,:,:)%x(3)=0.0_wp
+
+    p_os_diag%p_mass_flux_sfc_cc(:,:)%x(1)=0.0_wp
+    p_os_diag%p_mass_flux_sfc_cc(:,:)%x(2)=0.0_wp
+    p_os_diag%p_mass_flux_sfc_cc(:,:)%x(3)=0.0_wp
 
     !remapped velocity at cell edges
     ALLOCATE(p_os_diag%ptp_vn(nproma,n_zlev,nblks_e), STAT=ist)
