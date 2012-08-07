@@ -542,6 +542,11 @@ CONTAINS
             ENDDO
           ENDDO
 
+          ! for the setup with bulk and without sea ice the threshold for temperature is set to tf
+          WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) .LT. Tf)
+            p_os%p_prog(nold(1))%tracer(:,1,:,1) = Tf
+          ENDWHERE
+
           !---------DEBUG DIAGNOSTICS-------------------------------------------
           idt_src=3  ! output print level (1-5, fix)
           CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
