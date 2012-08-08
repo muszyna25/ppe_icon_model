@@ -136,7 +136,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
   ! 2D fields
-  REAL(wp), DIMENSION(nproma,ntiles_total+nlists_water) :: gz0t, gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
+  REAL(wp), DIMENSION(nproma,ntiles_total+nlists_water) :: gz0t_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t
 
   ! 3D full-level fields
@@ -185,7 +185,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,ic,jt1,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,&
-!$OMP lc_class,gz0,z_tvs,gz0t,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,  &  
+!$OMP lc_class,gz0,z_tvs,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,       &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,   &
 !$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac) ICON_OMP_GUIDED_SCHEDULE
 
@@ -235,27 +235,37 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! note:  water points are set in turbdiff
       gz0(:) = 0._wp
       DO jt = 1, ntiles_total
-        DO jc = i_startidx, i_endidx
-          IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
-            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-            gz0t(jc,jt) = grav * (                                                  &
-             (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class) +  &
-              lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
-            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * gz0t(jc,jt)
-          ELSE
-            gz0t(jc,jt) = prm_diag%gz0(jc,jb)
-          ENDIF
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
+          jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+          lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+          prm_diag%gz0_t(jc,jb,jt) = grav * (                                     &
+           (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class) +  &
+            lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
+          gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * prm_diag%gz0_t(jc,jb,jt)
         ENDDO
       ENDDO
-      DO jc = i_startidx, i_endidx
-        IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
-          prm_diag%gz0(jc,jb) = gz0(jc)
-        ENDIF
+      ! water points - preliminary solution
+      jt = 1
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
+      ENDDO
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, ext_data%atm%fp_count(jb)
+        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
+      ENDDO
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, ext_data%atm%lp_count(jb)
+        jc = ext_data%atm%idx_lst_lp(ic,jb)
+        prm_diag%gz0(jc,jb) = gz0(jc)
       ENDDO
     ELSE ! uniform tile-averaged roughness length if SSO contribution is to be included
       DO jt = 1, ntiles_total
         DO jc = i_startidx, i_endidx
-          gz0t(jc,jt) = prm_diag%gz0(jc,jb)
+          prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
         ENDDO
       ENDDO
     ENDIF
@@ -339,7 +349,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           ! It remains to be determined which of the model levels are actually needed for non-init calls
           DO ic = 1, i_count
             jc = ilist(ic)
-            gz0t_t(ic,jt) = gz0t(jc,jt1)
+            gz0t_t(ic,jt) = prm_diag%gz0_t(jc,jb,jt1)
             t_g_t(ic,jt)  = lnd_prog_now%t_g_t(jc,jb,jt1)
             qv_s_t(ic,jt) = lnd_diag%qv_s_t(jc,jb,jt1)
             sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt1)

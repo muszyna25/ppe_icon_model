@@ -78,7 +78,7 @@ USE mo_grid_config,         ONLY: n_dom
 USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_list_element, t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-USE mo_lnd_nwp_config,      ONLY: ntiles_total
+USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list, &
   &                               add_var_list_reference, create_vert_interp_metadata, &
@@ -257,7 +257,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shape3dsubs(3)
+    INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shape3dsubs(3), shape3dsubsw(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc 
@@ -274,6 +274,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     shape3d    = (/nproma, klev,      kblks            /)
     shape3dkp1 = (/nproma, klevp1,    kblks            /)
     shape3dsubs = (/nproma, kblks,    ntiles_total        /)
+    shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
     IF( atm_phy_nwp_config(k_jg)%inwp_turb == 4) THEN
       shapesfc   = (/nproma,          kblks, nsfc_type /)
@@ -673,17 +674,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ! These variables only make sense if the land-surface scheme is switched on.
         IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN
 
-          !        diag%albvisdif_t    (nproma, nblks, ntiles_total),          &
+          !        diag%albvisdif_t    (nproma, nblks, ntiles_total+ntiles_water),          &
           cf_desc    = t_cf_var('albvisdif_t', '', '', DATATYPE_FLT32)
           grib2_desc = t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-            & ldims=(/nproma,kblks,ntiles_total/), lcontainer=.TRUE., lrestart=.FALSE., &
+            & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
             & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container albvisdif_t
-          ALLOCATE(diag%albvisdif_t_ptr(ntiles_total))
-          DO jsfc = 1,ntiles_total
+          ALLOCATE(diag%albvisdif_t_ptr(ntiles_total+ntiles_water))
+          DO jsfc = 1,ntiles_total+ntiles_water
             WRITE(csfc,'(i1)') jsfc 
             CALL add_ref( diag_list, 'albvisdif_t',                            &
                & 'albvisdif_t_'//TRIM(ADJUSTL(csfc)),                          &
@@ -700,7 +701,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           grib2_desc = t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'SOB_S_T', diag%swflxsfc_t,                       &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-            & ldims=(/nproma,kblks,ntiles_total/), lcontainer=.TRUE., lrestart=.FALSE., &
+            & ldims=shape3dsubs, lcontainer=.TRUE., lrestart=.FALSE., &
             & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container swflxsfc_t
@@ -723,7 +724,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           grib2_desc = t_grib2_var(0, 5, 0, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'THB_S_T', diag%lwflxsfc_t,                        &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,             &
-            & ldims=(/nproma,kblks,ntiles_total/),lcontainer=.TRUE., lrestart=.FALSE.,   &
+            & ldims=shape3dsubs,lcontainer=.TRUE., lrestart=.FALSE.,   &
             & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container lwflxsfc_t
@@ -1293,17 +1294,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-        ! &      diag%gz0_t(nproma,nblks_c,ntiles_total)
+        ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('GZ0_T', 'm2 s-2 ', 'tile-based roughness length times gravity', &
              &                DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'GZ0_T', diag%gz0_t,                                      &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
+        CALL add_var( diag_list, 'GZ0_T', diag%gz0_t,                                       &
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
         ! fill the separate variables belonging to the container gz0_t
-        ALLOCATE(diag%gz0_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
+        ALLOCATE(diag%gz0_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
           WRITE(csfc,'(i1)') jsfc
           CALL add_ref( diag_list, 'GZ0_T',                               &
              & 'GZ0_T_'//TRIM(ADJUSTL(csfc)),                             &

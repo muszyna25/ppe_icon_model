@@ -64,7 +64,7 @@ MODULE mo_ext_data_state
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, lsnowtile, frlnd_thrhld, &
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_time_config,        ONLY: time_config
@@ -398,7 +398,7 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
-    INTEGER :: shape3d_c(3), shape3d_sfc(3), shape3d_nt(3)
+    INTEGER :: shape3d_c(3), shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -423,7 +423,7 @@ CONTAINS
     shape3d_c  = (/ nproma, nlev, nblks_c       /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
     shape3d_nt = (/ nproma, nblks_c, ntiles_total     /) 
-
+    shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /) 
 
 
     !
@@ -731,13 +731,13 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
-      ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total)
+      ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
         &                   'Surface Area Index', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai_t', p_ext_atm%sai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
       ! tai_t       p_ext_atm%tai_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('transpiration_area_index_vegetation_period', '-',&
@@ -920,13 +920,13 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
-      ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total)
+      ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point area fraction list', '-', &
         &                   'tile point area fraction list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'frac_t', p_ext_atm%frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23

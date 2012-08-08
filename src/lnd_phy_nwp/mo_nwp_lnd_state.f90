@@ -71,7 +71,7 @@ MODULE mo_nwp_lnd_state
   USE mo_grid_config,          ONLY: n_dom
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
-    &                                lmulti_snow
+    &                                lmulti_snow, ntiles_water
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, &
     &                               add_var, add_ref,           &
@@ -294,7 +294,7 @@ MODULE mo_nwp_lnd_state
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d_subs(3)
+    INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
     INTEGER :: shape4d_snow_subs(4), shape4d_soil_subs(4)
     INTEGER :: ibits
     INTEGER :: jsfc          !< tile counter
@@ -308,6 +308,7 @@ MODULE mo_nwp_lnd_state
     ! predefined array shapes
     shape2d              = (/nproma,            kblks            /)
     shape3d_subs         = (/nproma,            kblks, ntiles_total /)
+    shape3d_subsw        = (/nproma,            kblks, ntiles_total+ntiles_water /)
     shape4d_snow_subs    = (/nproma, nlev_snow, kblks, ntiles_total /)
     shape4d_soil_subs    = (/nproma, nlev_soil, kblks, ntiles_total /)
 
@@ -360,17 +361,17 @@ MODULE mo_nwp_lnd_state
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0 ) THEN
 
-    ! & p_prog_lnd%t_g_t(nproma,nblks_c,ntiles_total), STAT = ist)
+    ! & p_prog_lnd%t_g_t(nproma,nblks_c,ntiles_total+ntiles_water), STAT = ist)
     cf_desc    = t_cf_var('t_g_t', 'K', 'weighted surface temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_g_t'//suffix, p_prog_lnd%t_g_t,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,        &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+         & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
 
     ! fill the separate variables belonging to the container t_gt
-    ALLOCATE(p_prog_lnd%t_gt_ptr(ntiles_total))
-      DO jsfc = 1,ntiles_total
+    ALLOCATE(p_prog_lnd%t_gt_ptr(ntiles_total+ntiles_water))
+      DO jsfc = 1,ntiles_total+ntiles_water
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( prog_list, vname_prefix//'t_g_t'//suffix,                &
                & vname_prefix//'t_g_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
@@ -751,7 +752,7 @@ MODULE mo_nwp_lnd_state
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d_subs(3)
+    INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
     INTEGER :: ibits
     INTEGER :: jsfc          !< tile counter
 
@@ -760,9 +761,9 @@ MODULE mo_nwp_lnd_state
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
     ! predefined array shapes
-    shape2d      = (/nproma, kblks            /)
-    shape3d_subs = (/nproma, kblks, ntiles_total /)
-
+    shape2d       = (/nproma, kblks            /)
+    shape3d_subs  = (/nproma, kblks, ntiles_total /)
+    shape3d_subsw = (/nproma, kblks, ntiles_total+ntiles_water /)
 
     !
     ! Register a field list and apply default settings
@@ -796,18 +797,18 @@ MODULE mo_nwp_lnd_state
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN
 
-    ! & p_diag_lnd%qv_s_t(nproma,nblks_c,ntiles_total)
+    ! & p_diag_lnd%qv_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('qv_s_t', 'kg/kg', 'specific humidity at the surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'qv_s_t', p_diag_lnd%qv_s_t,        &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,          &
+           & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE.,         &
            & loutput=.FALSE.,                                                  &
            & initval_r=0.001_wp )
 
     ! fill the separate variables belonging to the container qv_s_t
-    ALLOCATE(p_diag_lnd%qv_st_ptr(ntiles_total))
-      DO jsfc = 1,ntiles_total
+    ALLOCATE(p_diag_lnd%qv_st_ptr(ntiles_total+ntiles_water))
+      DO jsfc = 1,ntiles_total+ntiles_water
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( diag_list, vname_prefix//'qv_s_t',                       &
                & vname_prefix//'qv_s_t_'//ADJUSTL(TRIM(csfc)),                 &

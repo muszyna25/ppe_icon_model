@@ -679,7 +679,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jc,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -691,19 +691,19 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         gz0(:) = 0._wp
         
         DO jt = 1, ntiles_total
-          DO jc = i_startidx, i_endidx
-            IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
-              lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-              gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * ( &
-               (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+      &
-                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
-            ENDIF
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
+             (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
+              p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
           ENDDO
         ENDDO
-        DO jc = i_startidx, i_endidx
-          IF (ext_data%atm%fr_land(jc,jb) > 0.5_wp) THEN
-            prm_diag%gz0(jc,jb) = gz0(jc)
-          ENDIF
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data%atm%lp_count(jb)
+          jc = ext_data%atm%idx_lst_lp(ic,jb)
+          prm_diag%gz0(jc,jb) = gz0(jc)
         ENDDO
       ENDIF
     ENDDO
