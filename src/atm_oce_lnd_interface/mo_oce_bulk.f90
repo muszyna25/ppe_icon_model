@@ -1101,9 +1101,15 @@ CONTAINS
         !Now the freshwater flux calculation is finished; this is (65) in Marsland et al.
         !Relaxation of top layer salinity to observed salinity
         !
+        !  Attention, check consistency in the model:
+        !   - salinity relaxation is here in addition to the formulation at the end of update_sfcflx
+        !   - also, according to (65) of Marsland, there is a bug below:
+        !     multiplication with S1 (tracer(2)) is missing
+        !   - has to be checked and merged with salinity boundary condition in update_sfcflx
+        !
         p_sfc_flx%forc_tracer(jc,jb,2) =                 &
           & (v_base%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
-          & /v_base%del_zlev_m(1)                        &
+          & /v_base%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
           & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
 
