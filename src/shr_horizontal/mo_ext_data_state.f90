@@ -64,7 +64,8 @@ MODULE mo_ext_data_state
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, frac_thresh, lsnowtile
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, lsnowtile, frlnd_thrhld, &
+                                   frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
@@ -113,8 +114,6 @@ MODULE mo_ext_data_state
   CHARACTER(len=6)  :: cellname
   CHARACTER(len=5)  :: o3name
   CHARACTER(len=20) :: o3unit
-
-  REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp, frlake_thrhld = 0.5_wp
 
   ! Number of landcover classes provided by external parameter data
   ! Needs to be changed into a variable if landcover classifications 
@@ -2725,7 +2724,7 @@ CONTAINS
 
                DO i_lu = 1, ntiles_lnd
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)
-                 IF (tile_frac(lu_subs) >= frac_thresh) THEN
+                 IF (tile_frac(lu_subs) >= frlndtile_thrhld) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1
                    tile_mask(lu_subs)= .FALSE.
 
@@ -2811,7 +2810,9 @@ CONTAINS
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
                END DO
              END IF ! nfc_subs
-           ELSE  IF (ext_data(jg)%atm%fr_lake(jc,jb)> frlake_thrhld) THEN ! searching for lake-points 
+           ENDIF
+
+           IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN ! searching for lake-points 
              i_count_flk=i_count_flk+1
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
@@ -2822,7 +2823,7 @@ CONTAINS
              ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
              ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
              ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
-           ELSE                                                           ! searching for sea-points 
+           ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN ! searching for sea points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
@@ -2833,7 +2834,8 @@ CONTAINS
              ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
              ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
              ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
-           END IF
+           ENDIF
+
          END DO ! jc
 
          IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points

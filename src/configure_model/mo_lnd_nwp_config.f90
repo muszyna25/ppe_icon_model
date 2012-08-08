@@ -54,7 +54,7 @@ MODULE mo_lnd_nwp_config
   PRIVATE
 
   PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water, nlists_water
-  PUBLIC :: frac_thresh
+  PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
@@ -76,8 +76,11 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  ntiles_lnd         !< number of static land surface types
   INTEGER ::  ntiles_water       !< number of extra tiles for ocean and lakes
   INTEGER ::  nlists_water       !< number of extra index lists for ocean and lakes
-  REAL(wp)::  frac_thresh        !< fraction threshold for retaining the respective 
+  REAL(wp)::  frlnd_thrhld       !< fraction threshold for creating a land grid point
+  REAL(wp)::  frlndtile_thrhld   !< fraction threshold for retaining the respective 
                                  !< tile for a grid point
+  REAL(wp)::  frlake_thrhld      !< fraction threshold for creating a lake grid point
+  REAL(wp)::  frsea_thrhld       !< fraction threshold for creating a sea grid point
   INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg         !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl         !< type of parameterization of bare soil evaporation
