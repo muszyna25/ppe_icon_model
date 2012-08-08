@@ -144,8 +144,8 @@ cat > ${ocean_namelist} << EOF
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =1                     ! initialize one cell debug output
-  dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
-  str_mod_tst='all'               ! define modules to print out in debug mode
+  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
   str_mod_tst='all', 'module'     ! define modules to print out in debug mode
@@ -212,6 +212,9 @@ cat > ${ocean_namelist} << EOF
   expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
   l_edge_based = .TRUE.          !  edge- or cell-based mimetic discretization
+  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  i_apply_bulk          = 1      ! 1=use bulk formula without sea ice
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = sea ice switched on

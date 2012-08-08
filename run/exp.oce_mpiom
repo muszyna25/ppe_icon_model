@@ -144,6 +144,7 @@ cat > ${ocean_namelist} << EOF
   l_edge_based = .TRUE.          !  edge- or cell-based mimetic discretization
   FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  i_apply_bulk          = 1      ! 1=use bulk formula without sea ice
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
@@ -164,7 +165,7 @@ cat > ${ocean_namelist} << EOF
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
-  temperature_relaxation= 1      !  0: no relaxation used
+  temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
