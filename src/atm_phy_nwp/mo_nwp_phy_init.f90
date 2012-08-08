@@ -101,7 +101,7 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
@@ -263,11 +263,18 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
             p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           ENDDO
-          DO jt = 1, ntiles_total
+          ! Water points are initialized with t_seasfc, which so far differs from t_g in having
+          ! a limiter for extremely warm temperatures
+          DO jt = 1, ntiles_total+ntiles_water
             DO jc = i_startidx, i_endidx
-              p_prog_lnd_now%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
-              p_prog_lnd_new%t_g_t(jc,jb,jt) =  p_prog_lnd_now%t_g(jc,jb)
-              p_diag_lnd%qv_s_t(jc,jb,jt)    =  p_diag_lnd%qv_s(jc,jb)
+              IF (p_diag_lnd%t_seasfc(jc,jb) > 10._wp) THEN ! SST is set to zero over land-only points
+                temp = p_diag_lnd%t_seasfc(jc,jb)
+              ELSE ! use t_g over land because qv_sat calculation fails for T = 0 K
+                temp = p_prog_lnd_now%t_g(jc,jb)
+              ENDIF
+              p_prog_lnd_now%t_g_t(jc,jb,jt) =  temp
+              p_prog_lnd_new%t_g_t(jc,jb,jt) =  temp
+              p_diag_lnd%qv_s_t(jc,jb,jt)    =  spec_humi(sat_pres_water(temp),p_diag%pres_sfc(jc,jb))
             ENDDO
           ENDDO
         ENDIF
