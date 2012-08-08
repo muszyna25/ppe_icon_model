@@ -68,7 +68,7 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
-  &                               relaxation_param, wstress_coeff,                         &
+  &                               relaxation_param, wstress_coeff, i_apply_bulk,           &
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
@@ -103,8 +103,6 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 CHARACTER(len=12)           :: str_module    = 'oceBulk     '  ! Output of module for 1 line debug
 INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
-
-LOGICAL                     :: l_apply_bulk  = .false.         ! apply bulk formula without sea ice
 
 ! Public interface
 PUBLIC  :: update_sfcflx
@@ -524,7 +522,7 @@ CONTAINS
         !  - no sea ice and no temperature relaxation
         !  - apply net surface heat flux in W/m2
 
-        IF (l_apply_bulk) THEN
+        IF (i_apply_bulk == 1) THEN
 
           IF (iforc_type == 2 .OR. iforc_type == 5) &
             & CALL calc_bulk_flux_no_seaice (p_patch, p_as, p_os, Qatm)
@@ -971,10 +969,10 @@ CONTAINS
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
     !  - with OMIP-forcing and sea_ice=0 we need temperature_relaxation=1
     !    since there is no forc_hflx over open water when using OMIP-forcing
-    !  - l_apply_bulk=.true. provides net surface heat flux globally
+    !  - i_apply_bulk=1 provides net surface heat flux globally
     !
 
-    IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. l_apply_bulk) THEN
+    IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. i_apply_bulk == 1) THEN
 
       ! Heat flux boundary condition for diffusion
       !   D = d/dz(K_v*dT/dz)  where
