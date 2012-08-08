@@ -1348,11 +1348,17 @@ CONTAINS
         idx_lst(icount) = jc
         partial_frac(jc) = lc_frac(jc)
       ELSE
-
         ! Reset snowfrac to 0/1 in case of very small deviations (just to be safe)
         IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
         IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
+      ENDIF
+    ENDDO
 
+!CDIR NODEP,VOVERTAKE,VOB
+    DO ic = 1, lp_count
+      jc = idx_lst_lp(ic)
+
+      IF (snowtile_flag(jc) /= -1) THEN
         IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
           icount_snow = icount_snow + 1
           idx_lst_snow(icount_snow) = jc
