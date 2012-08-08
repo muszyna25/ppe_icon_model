@@ -715,7 +715,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ic,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ic,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -793,18 +793,15 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-      ! Copy eai, sai, and tai over water points to tile-index 1 of tile-based variables
+      ! Copy sai over water points to the water tile-index of tile-based variables
+      jt = ntiles_total + 1
       DO ic = 1, ext_data%atm%sp_count(jb)
         jc = ext_data%atm%idx_lst_sp(ic,jb)
-        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
-        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
-        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
       ENDDO
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
-        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
-        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
       ENDDO
 
     ENDDO
@@ -831,18 +828,15 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,    &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      ! Copy eai, sai, and tai over water points to tile-index 1 of tile-based variables
+      ! Copy sai over water points to the water tile-index of tile-based variables
+      jt = ntiles_total + 1
       DO ic = 1, ext_data%atm%sp_count(jb)
         jc = ext_data%atm%idx_lst_sp(ic,jb)
-        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
-        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
-        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
       ENDDO
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        ext_data%atm%eai_t(jc,jb,1) = prm_diag%eai(jc,jb)
-        ext_data%atm%sai_t(jc,jb,1) = prm_diag%sai(jc,jb)
-        ext_data%atm%tai_t(jc,jb,1) = prm_diag%tai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
       ENDDO
     ENDDO
 

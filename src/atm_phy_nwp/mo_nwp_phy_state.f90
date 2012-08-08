@@ -1315,67 +1315,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-        ! &      diag%sai_t(nproma,nblks_c,ntiles_total)
-        cf_desc    = t_cf_var('SAI_T', ' ', 'tile-based surface area index', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'SAI_T', diag%sai_t,                                      &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-        ! fill the separate variables belonging to the container sai_t
-        ALLOCATE(diag%sai_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
-          WRITE(csfc,'(i1)') jsfc
-          CALL add_ref( diag_list, 'SAI_T',                               &
-             & 'SAI_T_'//TRIM(ADJUSTL(csfc)),                             &
-             & diag%sai_t_ptr(jsfc)%p_2d,                                 &
-             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
-             & t_cf_var('sai_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-        ENDDO
-
-        ! &      diag%tai_t(nproma,nblks_c,ntiles_total)
-        cf_desc    = t_cf_var('TAI_T', ' ', 'tile-based transpiration area index', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'TAI_T', diag%tai_t,                                      &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-        ! fill the separate variables belonging to the container tai_t
-        ALLOCATE(diag%tai_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
-          WRITE(csfc,'(i1)') jsfc
-          CALL add_ref( diag_list, 'TAI_T',                               &
-             & 'TAI_T_'//TRIM(ADJUSTL(csfc)),                             &
-             & diag%tai_t_ptr(jsfc)%p_2d,                                 &
-             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
-             & t_cf_var('tai_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-        ENDDO
-
-        ! &      diag%eai_t(nproma,nblks_c,ntiles_total)
-        cf_desc    = t_cf_var('EAI_T', ' ', 'tile-based (evaporative) earth area index', &
-             &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'EAI_T', diag%eai_t,                                      &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-        ! fill the separate variables belonging to the container eai_t
-        ALLOCATE(diag%eai_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
-          WRITE(csfc,'(i1)') jsfc
-          CALL add_ref( diag_list, 'EAI_T',                               &
-             & 'EAI_T_'//TRIM(ADJUSTL(csfc)),                             &
-             & diag%eai_t_ptr(jsfc)%p_2d,                                 &
-             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
-             & t_cf_var('eai_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-        ENDDO
-
         ! &      diag%t_2m_t(nproma,nblks_c,ntiles_total)
         cf_desc    = t_cf_var('T_2M_T', 'K ', 'tile-based temperature in 2m', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)

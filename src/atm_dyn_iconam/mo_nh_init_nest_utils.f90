@@ -66,7 +66,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, lmulti_snow, nlev_snow, nlev_soil
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, lmulti_snow, nlev_snow, nlev_soil
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -599,6 +599,13 @@ MODULE mo_nh_init_nest_utils
             p_child_ldiag%freshsnow_t(jc,jb,jt) = MAX(0._wp,MIN(1._wp,lndvars_chi(jc,jk1+7,jb)))
           ENDDO
         ENDDO
+        DO jt = ntiles_total+1, ntiles_total+ntiles_water
+          DO jc = i_startidx, i_endidx
+            p_child_lprog%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
+            p_child_lprog2%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
+          ENDDO
+        ENDDO
+
       ENDIF
 
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. lmulti_snow) THEN

@@ -114,9 +114,6 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_phy),ALLOCATABLE :: tfh_t_ptr(:) !< pointer array: factor of laminar transfer of heat 
     TYPE(t_ptr_phy),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
     TYPE(t_ptr_phy),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
-    TYPE(t_ptr_phy),ALLOCATABLE :: sai_t_ptr(:) !< pointer array: surface area index
-    TYPE(t_ptr_phy),ALLOCATABLE :: tai_t_ptr(:) !< pointer array: transpiration area index
-    TYPE(t_ptr_phy),ALLOCATABLE :: eai_t_ptr(:) !< pointer array: evaporation area index
     TYPE(t_ptr_phy),ALLOCATABLE :: t_2m_t_ptr(:)  !< pointer array: temperature at 2m
     TYPE(t_ptr_phy),ALLOCATABLE :: qv_2m_t_ptr(:) !< pointer array: specific water vapor content at 2m
     TYPE(t_ptr_phy),ALLOCATABLE :: rh_2m_t_ptr(:) !< pointer array: relative humidity at 2m
@@ -226,9 +223,6 @@ MODULE mo_nwp_phy_types
       tfh_t(:,:,:)     ,   & !! factor of laminar transfer of scalars           --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
-      sai_t(:,:,:)     ,   & !! surface area index                            ( 1 )
-      tai_t(:,:,:)     ,   & !! transpiration area index                      ( 1 )
-      eai_t(:,:,:)     ,   & !! (evaporative) earth area index                ( 1 )
       t_2m_t (:,:,:)   ,   & !! temperature at 2m                             (  K  )
       qv_2m_t(:,:,:)   ,   & !! specific water vapor content at 2m            (kg/kg)
       td_2m_t(:,:,:)   ,   & !! dew-point at 2m                               (  K  )

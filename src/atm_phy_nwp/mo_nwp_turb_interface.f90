@@ -67,7 +67,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water, ntiles_water
 
   IMPLICIT NONE
 
@@ -118,7 +118,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   ! Local scalars:
 
-  INTEGER :: jc,jk,jb,jt,jg,ic,i_count,jt1      !loop indices
+  INTEGER :: jc,jk,jb,jt,jg,ic,i_count,jt1,jt2      !loop indices
 
   ! local variables for turbdiff
 
@@ -185,7 +185,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,ic,jt1,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,&
-!$OMP lc_class,gz0,z_tvs,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,       &  
+!$OMP lc_class,gz0,z_tvs,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,jt2,   &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,   &
 !$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac) ICON_OMP_GUIDED_SCHEDULE
 
@@ -245,8 +245,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * prm_diag%gz0_t(jc,jb,jt)
         ENDDO
       ENDDO
-      ! water points - preliminary solution
-      jt = 1
+      ! water points - preliminary implementation
+      jt = ntiles_total + 1
 !CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1, ext_data%atm%sp_count(jb)
         jc = ext_data%atm%idx_lst_sp(ic,jb)
@@ -263,7 +263,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         prm_diag%gz0(jc,jb) = gz0(jc)
       ENDDO
     ELSE ! uniform tile-averaged roughness length if SSO contribution is to be included
-      DO jt = 1, ntiles_total
+      DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
           prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
         ENDDO
@@ -328,15 +328,18 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
           IF (jt <= ntiles_total) THEN ! land tile points
             jt1 = jt
+            jt2 = jt
             i_count = ext_data%atm%gp_count_t(jb,jt)
             ilist => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points
             jt1 = 1 ! preliminary setting, to be changed
+            jt2 = jt
             i_count = ext_data%atm%sp_count(jb)
             ilist => ext_data%atm%idx_lst_sp(:,jb)
             fr_land_t(:) = 0._wp
           ELSE ! IF (jt == ntiles_total + 2) THEN ! lake points
             jt1 = 1 ! preliminary setting, to be changed
+            jt2 = ntiles_total + 1
             i_count = ext_data%atm%fp_count(jb)
             ilist => ext_data%atm%idx_lst_fp(:,jb)
             ! depth_lk_t(:) = ...
@@ -349,10 +352,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           ! It remains to be determined which of the model levels are actually needed for non-init calls
           DO ic = 1, i_count
             jc = ilist(ic)
-            gz0t_t(ic,jt) = prm_diag%gz0_t(jc,jb,jt1)
+            gz0t_t(ic,jt) = prm_diag%gz0_t(jc,jb,jt2)
             t_g_t(ic,jt)  = lnd_prog_now%t_g_t(jc,jb,jt1)
             qv_s_t(ic,jt) = lnd_diag%qv_s_t(jc,jb,jt1)
-            sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt1)
+            sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt2)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
             u_t(ic,1:2,jt)     = p_diag%u(jc,nlev-1:nlev,jb)

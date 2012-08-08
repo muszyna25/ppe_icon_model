@@ -134,7 +134,7 @@ CONTAINS
 
       ! 2D fields that do not require height adjustment
       ! these fields are simply copied
-      ! Note: seaice and land-sea-mask are currently unused
+      ! Note: land-sea-mask is currently unused
       DO jc = 1, nlen
         prepicon%sfc%skinres(jc,jb) = prepicon%sfc_in%skinres(jc,jb)
 
@@ -142,7 +142,7 @@ CONTAINS
         IF (prepicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
           prepicon%sfc%seaice(jc,jb)  = prepicon%sfc_in%seaice(jc,jb) 
         ELSE
-          prepicon%sfc%seaice(jc,jb)  = -0.1_wp 
+          prepicon%sfc%seaice(jc,jb)  = -999.9_wp 
         ENDIF
       ENDDO
 

@@ -65,7 +65,7 @@ USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
 USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
-USE mo_lnd_nwp_config,      ONLY: ntiles_total
+USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 IMPLICIT NONE
@@ -668,6 +668,10 @@ IF (.NOT. l_parallel) THEN
       p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
+    DO jt = 1, ntiles+1, ntiles+ntiles_water
+      p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+    ENDDO
 
     IF (ltransport .AND. l_trac_fbk) THEN ! perform tracer feedback
       IF (iforcing <= 1) THEN
@@ -913,6 +917,10 @@ ENDIF
       p_lndp%t_so_t(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,1,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
       p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+    ENDDO
+    DO jt = 1, ntiles+1, ntiles+ntiles_water
+      p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
 
@@ -1750,6 +1758,11 @@ ENDIF
         p_lndp%t_s_t(jc,jb,jt)    = p_lndp%t_s_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
         p_lndp%t_so_t(jc,1,jb,jt) = p_lndp%t_so_t(jc,1,jb,jt) + relfac*diff_tg(jc,jb)
         p_lndp%t_so_t(jc,2,jb,jt) = p_lndp%t_so_t(jc,2,jb,jt) + relfac*diff_tg(jc,jb)
+      ENDDO
+    ENDDO
+    DO jt = ntiles+1, ntiles+ntiles_water
+      DO jc = i_startidx,i_endidx
+        p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
 

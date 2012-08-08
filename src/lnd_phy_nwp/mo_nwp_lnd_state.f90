@@ -785,14 +785,12 @@ MODULE mo_nwp_lnd_state
            & in_group=groups("land_vars") )      
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
-    ! check restart settings again, once we have a sea ice model
     cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,  &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-           & ldims=shape2d, lrestart=.FALSE.,                                  &
-           & initval_r=0._wp ) 
-
+           & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                   &
+           & initval_r=0._wp )
 
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN

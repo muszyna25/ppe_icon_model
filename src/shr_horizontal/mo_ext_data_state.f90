@@ -2818,22 +2818,12 @@ CONTAINS
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
              ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
              ext_data(jg)%atm%frac_t(jc,jb,1)  = 1._wp
-             ! Copy values read in from extpar to tile index 1
-             ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-             ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
-             ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
-             ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
            ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN ! searching for sea points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
              ext_data(jg)%atm%frac_t(jc,jb,1)  = 1._wp
-             ! Copy values read in from extpar to tile index 1
-             ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-             ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)*ext_data(jg)%atm%plcov_mx(jc,jb)
-             ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
-             ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
            ENDIF
 
          END DO ! jc

@@ -735,7 +735,7 @@ MODULE mo_prepicon_utils
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
-    INTEGER :: jg, jb, jk, jc, je, jt, js, jp
+    INTEGER :: jg, jb, jk, jc, je, jt, js, jp, ic
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -771,7 +771,7 @@ MODULE mo_prepicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js,jp) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js,jp,ic) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -812,6 +812,22 @@ MODULE mo_prepicon_utils
           DO jc = 1, nlen
             p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = prepicon(jg)%sfc%tskin(jc,jb)
             p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
+          ENDDO
+          ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
+          ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
+          ! are indicated with -999.9; non-ocean points are filled with zero for both fields
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb)
+          ENDDO
+          ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
+          ! be used to initialize lake points until something more reasonable becomes available
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
           ENDDO
         ENDIF
 
