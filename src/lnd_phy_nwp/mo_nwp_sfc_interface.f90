@@ -55,7 +55,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total,  &
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
@@ -815,7 +815,7 @@ CONTAINS
        ELSE ! aggregate fields over tiles
          t_g_s(:)  =  0._wp
          qv_s_s(:) =  0._wp
-         DO isubs = 1,ntiles_total
+         DO isubs = 1,ntiles_total+ntiles_water
 !CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_lp(ic,jb)
@@ -825,17 +825,11 @@ CONTAINS
                lnd_diag%qv_s_t(jc,jb,isubs)
            ENDDO
          ENDDO
-
 !CDIR NODEP,VOVERTAKE,VOB
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_lp(ic,jb)
-           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc))) ! &
-    !      ! This does not work in combination with disaggregating the surface radiation flux terms
-    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
-    !          ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
-           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc) ! &
-    !         (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
-    !          ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
+           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
+           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
          ENDDO
 
        ENDIF    ! with or without tiles

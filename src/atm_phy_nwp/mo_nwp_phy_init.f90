@@ -699,8 +699,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         
         DO jt = 1, ntiles_total
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
-            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+          DO ic = 1, ext_data%atm%lp_count(jb)
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
             lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
             gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
              (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
@@ -801,7 +801,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
       ! Copy sai over water points to the water tile-index of tile-based variables
-      jt = ntiles_total + 1
+      jt = ntiles_total + MIN(1,ntiles_water)
       DO ic = 1, ext_data%atm%sp_count(jb)
         jc = ext_data%atm%idx_lst_sp(ic,jb)
         ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
@@ -836,7 +836,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Copy sai over water points to the water tile-index of tile-based variables
-      jt = ntiles_total + 1
+      jt = ntiles_total + MIN(1,ntiles_water)
       DO ic = 1, ext_data%atm%sp_count(jb)
         jc = ext_data%atm%idx_lst_sp(ic,jb)
         ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)

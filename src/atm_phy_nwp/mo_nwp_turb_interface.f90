@@ -131,7 +131,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
 
-  REAL(wp) :: gz0(nproma),fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac
+  REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac
 
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
@@ -185,7 +185,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,ic,jt1,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,&
-!$OMP lc_class,gz0,z_tvs,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,       &  
+!$OMP lc_class,z_tvs,gz0t_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,           &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,   &
 !$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac) ICON_OMP_GUIDED_SCHEDULE
 
@@ -233,7 +233,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
       ! specify land-cover-related roughness length over land points
       ! note:  water points are set in turbdiff
-      gz0(:) = 0._wp
       DO jt = 1, ntiles_total
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
@@ -242,11 +241,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           prm_diag%gz0_t(jc,jb,jt) = grav * (                                     &
            (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class) +  &
             lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
-          gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * prm_diag%gz0_t(jc,jb,jt)
         ENDDO
       ENDDO
       ! water points - preliminary implementation
-      jt = ntiles_total + 1
+      jt = ntiles_total + MIN(1,ntiles_water)
 !CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1, ext_data%atm%sp_count(jb)
         jc = ext_data%atm%idx_lst_sp(ic,jb)
@@ -257,11 +255,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         jc = ext_data%atm%idx_lst_fp(ic,jb)
         prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
       ENDDO
+      IF (ntiles_total == 1) THEN
 !CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, ext_data%atm%lp_count(jb)
-        jc = ext_data%atm%idx_lst_lp(ic,jb)
-        prm_diag%gz0(jc,jb) = gz0(jc)
-      ENDDO
+        DO ic = 1, ext_data%atm%lp_count(jb)
+          jc = ext_data%atm%idx_lst_lp(ic,jb)
+          prm_diag%gz0(jc,jb) = prm_diag%gz0_t(jc,jb,1)
+        ENDDO
+      ENDIF
     ELSE ! uniform tile-averaged roughness length if SSO contribution is to be included
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx

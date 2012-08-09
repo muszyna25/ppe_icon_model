@@ -45,7 +45,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_parallel_config,     ONLY: nproma
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total,  &
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile
   USE mo_soil_ml,             ONLY: terra_multlay_init
@@ -1351,6 +1351,7 @@ CONTAINS
         ! Reset snowfrac to 0/1 in case of very small deviations (just to be safe)
         IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
         IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
+#ifdef __SX__
       ENDIF
     ENDDO
 
@@ -1359,6 +1360,7 @@ CONTAINS
       jc = idx_lst_lp(ic)
 
       IF (snowtile_flag(jc) /= -1) THEN
+#endif
         IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
           icount_snow = icount_snow + 1
           idx_lst_snow(icount_snow) = jc
