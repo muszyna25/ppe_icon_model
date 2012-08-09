@@ -59,8 +59,9 @@ MODULE mo_nwp_lnd_types
   !
   !variables
   PUBLIC :: t_lnd_state  !> state vector for land scheme
-  PUBLIC :: t_lnd_prog   !!       for prognostic variables
-  PUBLIC :: t_lnd_diag   !!       for diagnostic variables
+  PUBLIC :: t_lnd_prog   !!  for prognostic variables
+  PUBLIC :: t_wtr_prog   !!  for prognostic variables related to lake and sea ice models
+  PUBLIC :: t_lnd_diag   !!  for diagnostic variables
   PUBLIC :: t_ptr_lnd
 
   TYPE t_ptr_lnd
@@ -107,6 +108,15 @@ MODULE mo_nwp_lnd_types
 
   END TYPE t_lnd_prog
 
+  TYPE t_wtr_prog
+
+    REAL(wp), POINTER :: &
+    &  t_ice        (:,:)   , & ! temperature of the sea ice          (  K  )
+    &  h_ice        (:,:)   , & ! depth of the sea ice                (  m  )
+    &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice  (  K  )
+    &  h_snow_si    (:,:)       ! depth of the snowon sea ice         (  m  )
+
+  END TYPE t_wtr_prog
 
   !
   ! diagnostic variables state vector
@@ -165,7 +175,9 @@ MODULE mo_nwp_lnd_types
 !
   TYPE t_lnd_state
     TYPE(t_lnd_prog), ALLOCATABLE  :: prog_lnd(:)          ! number of time levels
+    TYPE(t_wtr_prog), ALLOCATABLE  :: prog_wtr(:)          ! number of time levels
     TYPE(t_var_list), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
     TYPE(t_lnd_diag)               :: diag_lnd
     TYPE(t_var_list)               :: lnd_diag_nwp_list
   END TYPE t_lnd_state

@@ -65,13 +65,13 @@ MODULE mo_nwp_lnd_state
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag 
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grid_config,          ONLY: n_dom
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
-    &                                lmulti_snow, ntiles_water
+    &                                lmulti_snow, ntiles_water, lseaice, llake
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, &
     &                               add_var, add_ref,           &
@@ -168,6 +168,14 @@ MODULE mo_nwp_lnd_state
              'allocation of land prognostic state array failed')
       ENDIF
 
+      IF (lseaice .OR. llake) THEN
+        ALLOCATE(p_lnd_state(jg)%prog_wtr(1:ntl), &
+                 p_lnd_state(jg)%wtr_prog_nwp_list(1:ntl),STAT=ist)
+        IF(ist/=SUCCESS)THEN
+          CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+             'allocation of water prognostic state array failed')
+        ENDIF
+      ENDIF
 
       !
       !construct prognostic state
@@ -182,6 +190,16 @@ MODULE mo_nwp_lnd_state
         CALL  new_nwp_lnd_prog_list(jg, nblks_c, TRIM(listname),             &
           &     TRIM(varname_prefix), p_lnd_state(jg)%lnd_prog_nwp_list(jt), &
           &     p_lnd_state(jg)%prog_lnd(jt), jt)
+
+        IF (lseaice .OR. llake) THEN
+          WRITE(listname,'(a,i2.2,a,i2.2)') 'wtr_prog_of_domain_',jg, &
+            &                               '_and_timelev_',jt
+
+          varname_prefix = ''
+          CALL  new_nwp_wtr_prog_list(jg, nblks_c, TRIM(listname),             &
+            &     TRIM(varname_prefix), p_lnd_state(jg)%wtr_prog_nwp_list(jt), &
+            &     p_lnd_state(jg)%prog_wtr(jt), jt)
+        ENDIF
 
       ENDDO
 
@@ -243,6 +261,12 @@ MODULE mo_nwp_lnd_state
         CALL delete_var_list(p_lnd_state(jg)%lnd_prog_nwp_list(jt) )
       ENDDO
 
+      IF (lseaice .OR. llake) THEN
+        DO jt = 1, ntl
+          ! delete prognostic state list elements
+          CALL delete_var_list(p_lnd_state(jg)%wtr_prog_nwp_list(jt) )
+        ENDDO
+      ENDIF
 
       ! delete diagnostic state list elements
       CALL delete_var_list( p_lnd_state(jg)%lnd_diag_nwp_list )
@@ -254,6 +278,16 @@ MODULE mo_nwp_lnd_state
       IF(ist/=SUCCESS)THEN
         CALL finish (TRIM(routine),  &
              'deallocation of land prognostic state array failed')
+      ENDIF
+
+      IF (lseaice .OR. llake) THEN
+        ! destruct state lists and arrays
+        DEALLOCATE(p_lnd_state(jg)%prog_wtr,&
+             &     p_lnd_state(jg)%wtr_prog_nwp_list, STAT=ist)
+        IF(ist/=SUCCESS)THEN
+          CALL finish (TRIM(routine),  &
+               'deallocation of water prognostic state array failed')
+        ENDIF
       ENDIF
 
     ENDDO
@@ -723,6 +757,95 @@ MODULE mo_nwp_lnd_state
     END IF !inwp_surface > 0
 
   END SUBROUTINE new_nwp_lnd_prog_list
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Allocation of components of prognostic lake/seaice state.
+  !!
+  !! Initialization of components with zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Guenther Zaengl, DWD (2012-08-08)
+  !!
+  !!
+  SUBROUTINE new_nwp_wtr_prog_list( p_jg, kblks, listname, vname_prefix, &
+    &                               prog_list, p_prog_wtr, timelev )
+
+    INTEGER,INTENT(IN) ::  kblks !< dimension sizes
+    INTEGER,INTENT(IN) ::  p_jg  !< patch id
+
+    CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
+    CHARACTER(LEN=2)            :: csfc
+
+    TYPE(t_var_list),INTENT(INOUT) :: prog_list
+    TYPE(t_wtr_prog),INTENT(INOUT) :: p_prog_wtr
+
+    INTEGER, INTENT(IN) :: timelev
+
+    ! Local variables
+    !
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: shape2d(2)
+    INTEGER :: ibits
+    INTEGER :: jsfc          !< tile counter
+
+    CHARACTER(len=4) suffix
+
+!-----------------------------------------------------------------------
+
+    ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape2d              = (/nproma, kblks/)
+
+    ! Suffix (mandatory for time level dependent variables)
+
+    WRITE(suffix,'(".TL",i1)') timelev
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
+    CALL default_var_list_settings( prog_list,                 &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
+
+    !------------------------------
+
+
+    ! & p_prog_wtr%t_ice(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_ice', 'K', 'sea ice temperature', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'t_ice'//suffix, p_prog_wtr%t_ice,  &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
+
+
+    ! & p_prog_wtr%h_ice(nproma,nblks_c)
+    cf_desc    = t_cf_var('h_ice', 'K', 'sea ice depth', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'h_ice'//suffix, p_prog_wtr%h_ice,  &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
+
+
+    ! & p_prog_wtr%t_snow_si(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_snow_si', 'K', 'temperature of snow on sea ice', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'t_snow_si'//suffix, p_prog_wtr%t_snow_si,  &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
+
+
+    ! & p_prog_wtr%h_snow_si(nproma,nblks_c)
+    cf_desc    = t_cf_var('h_snow_si', 'K', 'depth of snow on sea ice', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'h_snow_si'//suffix, p_prog_wtr%h_snow_si,  &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
+
+
+  END SUBROUTINE new_nwp_wtr_prog_list
 
 
   !-------------------------------------------------------------------------
