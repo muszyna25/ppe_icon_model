@@ -904,21 +904,21 @@ CONTAINS
                p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
       ALLOCATE(p_ext_atm%sp_count(nblks_c),p_ext_atm%fp_count(nblks_c))
 
-      ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total)
+      ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover class list', '-', &
         &                   'tile point land cover class list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
-      ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,ntiles_total)
+      ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover fraction list', '-', &
         &                   'tile point land cover fraction list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
       ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point area fraction list', '-', &
@@ -2809,21 +2809,28 @@ CONTAINS
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
                END DO
-             END IF ! nfc_subs
+             END IF ! ntiles
            ENDIF
 
+           jt = ntiles_total + MIN(1,ntiles_water)
            IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN ! searching for lake-points 
              i_count_flk=i_count_flk+1
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
-             ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
-             ext_data(jg)%atm%frac_t(jc,jb,1)  = 1._wp
+             ! set land-cover class
+             ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
+             ! set also area fractions
+             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp
+             ext_data(jg)%atm%frac_t(jc,jb,jt)  = 1._wp
            ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN ! searching for sea points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
-             ! Setting the area fraction of tile 1 to 100% is needed for convenience in the turbulence interface
-             ext_data(jg)%atm%frac_t(jc,jb,1)  = 1._wp
+             ! set land-cover class
+             ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
+             ! set also area fractions
+             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp
+             ext_data(jg)%atm%frac_t(jc,jb,jt)  = 1._wp
            ENDIF
 
          END DO ! jc

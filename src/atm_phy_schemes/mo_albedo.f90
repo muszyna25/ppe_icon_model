@@ -55,7 +55,7 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
@@ -103,7 +103,7 @@ CONTAINS
     REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
 
     INTEGER :: jg                      !< patch ID
-    INTEGER :: jb, jc, ic, isubs       !< loop indices
+    INTEGER :: jb, jc, ic, jt          !< loop indices
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -126,7 +126,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,i_startidx,i_endidx,isubs,ist,zvege,zsnow, &
+!$OMP DO PRIVATE(jb,ic,jc,i_startidx,i_endidx,jt,ist,zvege,zsnow, &
 !$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -142,101 +142,13 @@ CONTAINS
       
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
-
         !
-        ! 1. Consider land points only (may have tiles)
-        !
-        ! - loop over surface tiles
-        ! - note that different grid points may have different numbers 
-        !   of active tiles (1<=ntiles<=ntiles_total). Therefore each tile has a 
-        !   separate index list.
-        ! 
-        DO isubs = 1, ntiles_total
-
-          i_count_lnd = ext_data%atm%gp_count_t(jb,isubs)
-
-          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
-
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count_lnd
-
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-
-            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
-
-            ! surface albedo including moisture correction
-            prm_diag%albvisdif_t(jc,jb,isubs) = csalb(ist)&
-              &                         - rad_csalbw(ist)*lnd_prog%w_so_t(jc,1,jb,isubs)
-
-
-            ! Account for Snow cover and vegetation
-            ! -------------------------------------
-            zvege= 0.0_wp
-            zsnow= 0.0_wp
-
-            ! consider effects of aging on solar snow albedo
-            !
-            zsalb_snow = csalb_snow_min + &
-              & lnd_diag%freshsnow_t(jc,jb,isubs)*(csalb_snow_max-csalb_snow_min)
-            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
-              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
-              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
-
-            ! account for snow cover and plant cover and compute final solar
-            ! snow albedo
-            !
-            zvege = ext_data%atm%plcov_t(jc,jb,isubs)
-            IF (lnd_prog%w_snow_t(jc,jb,isubs) > 0.0_wp) THEN
-              zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,isubs) / cf_snow)
-            ENDIF
-
-            prm_diag%albvisdif_t(jc,jb,isubs) = zsnow * zsnow_alb         &
-              &  + (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) &
-              &  * prm_diag%albvisdif_t(jc,jb,isubs))
-
-          ENDDO
-
-        ENDDO  !nsubs
-
-
-        !
-        ! Aggregate surface albedo on land points
-        !
-        IF (ntiles_total == 1) THEN 
-          i_count_lnd = ext_data%atm%gp_count_t(jb,1)
-
-          IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
-
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count_lnd
-              jc = ext_data%atm%idx_lst_t(ic,jb,1)
-              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
-            ENDDO
-          ENDIF  ! i_count_lnd > 0
-        ELSE ! aggregate fields over tiles
-          prm_diag%albvisdif(i_startidx:i_endidx,jb)  =  0._wp
-          DO isubs = 1,ntiles_total
-            i_count_lnd = ext_data%atm%gp_count_t(jb,isubs)
-
-            IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
-
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count_lnd
-              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)        &
-                &                       + ext_data%atm%frac_t(jc,jb,isubs) &
-                &                       * prm_diag%albvisdif_t(jc,jb,isubs)
-            ENDDO
-          ENDDO
-        ENDIF
-
-
-        !
-        ! 2. Consider sea points (no tiles)
+        ! 1. Consider sea points (no tiles)
         !
         ! - loop over sea points
         !
         i_count_sea = ext_data%atm%sp_count(jb)
+        jt = ntiles_total + MIN(1,ntiles_water)
 
         DO ic = 1, i_count_sea
           jc = ext_data%atm%idx_lst_sp(ic,jb)
@@ -249,11 +161,12 @@ CONTAINS
           ENDIF
 
           prm_diag%albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif_t(jc,jb,jt) = prm_diag%albvisdif(jc,jb)
         ENDDO
 
 
         !
-        ! 3. Consider lake points (no tiles)
+        ! 2. Consider lake points (no tiles)
         !
         ! - loop over lake points
         !
@@ -270,8 +183,102 @@ CONTAINS
           ENDIF
 
           prm_diag%albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif_t(jc,jb,jt) = prm_diag%albvisdif(jc,jb)
         ENDDO
 
+
+        !
+        ! 3. Consider land points only (may have tiles)
+        !
+        ! - loop over surface tiles
+        ! - note that different grid points may have different numbers 
+        !   of active tiles (1<=ntiles<=ntiles_total). Therefore each tile has a 
+        !   separate index list.
+        ! 
+        DO jt = 1, ntiles_total
+
+          i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count_lnd
+
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+
+            ! surface albedo including moisture correction
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)&
+              &                         - rad_csalbw(ist)*lnd_prog%w_so_t(jc,1,jb,jt)
+
+
+            ! Account for Snow cover and vegetation
+            ! -------------------------------------
+            zvege= 0.0_wp
+            zsnow= 0.0_wp
+
+            ! consider effects of aging on solar snow albedo
+            !
+            zsalb_snow = csalb_snow_min + &
+              & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+
+            ! account for snow cover and plant cover and compute final solar
+            ! snow albedo
+            !
+            zvege = ext_data%atm%plcov_t(jc,jb,jt)
+            IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
+              zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
+            ENDIF
+
+            prm_diag%albvisdif_t(jc,jb,jt) = zsnow * zsnow_alb            &
+              &  + (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) &
+              &  * prm_diag%albvisdif_t(jc,jb,jt))
+
+          ENDDO
+
+        ENDDO  !ntiles
+
+
+        !
+        ! Aggregate surface albedo on land points
+        !
+        IF (ntiles_total == 1) THEN 
+          i_count_lnd = ext_data%atm%lp_count(jb)
+
+          IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
+
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, i_count_lnd
+              jc = ext_data%atm%idx_lst_lp(ic,jb)
+              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
+            ENDDO
+          ENDIF  ! i_count_lnd > 0
+        ELSE ! aggregate fields over tiles
+          i_count_lnd = ext_data%atm%lp_count(jb)
+
+          IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, i_count_lnd
+              jc = ext_data%atm%idx_lst_lp(ic,jb)
+              prm_diag%albvisdif(jc,jb) = 0._wp
+            ENDDO
+
+            DO jt = 1, ntiles_total+ntiles_water
+!CDIR NODEP,VOVERTAKE,VOB
+              DO ic = 1, i_count_lnd
+                jc = ext_data%atm%idx_lst_lp(ic,jb)
+                prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)     &
+                  &                       + ext_data%atm%frac_t(jc,jb,jt) &
+                  &                       * prm_diag%albvisdif_t(jc,jb,jt)
+              ENDDO
+            ENDDO
+          ENDIF
+
+        ENDIF
 
       ELSE  ! surface model switched OFF
 

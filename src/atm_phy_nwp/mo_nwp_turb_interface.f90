@@ -414,11 +414,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             i_count = ext_data%atm%gp_count_t(jb,jt)
             ilist => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points
-            jt1 = 1 ! preliminary setting, to be changed
+            jt1 = jt
             i_count = ext_data%atm%sp_count(jb)
             ilist => ext_data%atm%idx_lst_sp(:,jb)
           ELSE ! IF (jt == ntiles_total + 2) THEN ! lake points
-            jt1 = 1 ! preliminary setting, to be changed
+            jt1 = ntiles_total + 1
             i_count = ext_data%atm%fp_count(jb)
             ilist => ext_data%atm%idx_lst_fp(:,jb)
           ENDIF
