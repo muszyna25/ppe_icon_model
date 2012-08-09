@@ -51,7 +51,7 @@ init_oce_suff='L20_20-700m.nc'
 #
 #-----------------------------------------------------------------------------
 # surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
-init_relax=1   # 1: use relaxation initialization file
+init_relax=0   # 1: use relaxation initialization file
 #init_rel_suff='50m.nc'  # 50m thickness
 init_rel_suff='20m.nc'  # 20m thickness
 # surface relaxation file must match the thickness of the surface level
@@ -73,7 +73,7 @@ iforc=12
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
 #  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
-iforc_type=1
+iforc_type=2
 iforc_len=12   # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
 # surface flux file must match the length given by iforc_len
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
@@ -90,7 +90,7 @@ start_date="2001-01-01T00:00:00Z"
 nhours_data=240      # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=368     # write restart file interval [days]
-ndays_restart=1430   # stop model for restart [days]
+ndays_restart=732    # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -132,6 +132,8 @@ cat > ${ocean_namelist} << EOF
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
   dbg_lat_in=   30.0              ! latitude location of one cell debug output
   dbg_lon_in=  -30.0              ! longitude location of one cell debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
