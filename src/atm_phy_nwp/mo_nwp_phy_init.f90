@@ -707,6 +707,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
               p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
           ENDDO
         ENDDO
+        DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data%atm%lp_count(jb)
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
+            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
+          ENDDO
+        ENDDO        
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data%atm%lp_count(jb)
           jc = ext_data%atm%idx_lst_lp(ic,jb)

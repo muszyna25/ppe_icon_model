@@ -45,7 +45,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_parallel_config,     ONLY: nproma
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, &
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile
   USE mo_soil_ml,             ONLY: terra_multlay_init
@@ -431,7 +431,7 @@ CONTAINS
         ENDDO
       ELSE ! aggregate fields over tiles
         t_g_s(:)  =  0._wp
-        DO isubs = 1,ntiles_total
+        DO isubs = 1,ntiles_total+ntiles_water
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp(ic,jb)

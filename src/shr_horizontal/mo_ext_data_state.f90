@@ -2697,7 +2697,6 @@ CONTAINS
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
-               ext_data(jg)%atm%frac_t   (jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
                !  Workaround for GLC2000 hole below 60 deg S
                IF (ext_data(jg)%atm%lc_class_t(jc,jb,1) <= 0) &
@@ -2752,14 +2751,18 @@ CONTAINS
 
                END DO
 
+               IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
+                 ! fix for non-dominant land points: reset soil type to sandy loam ...
+                 ext_data(jg)%atm%soiltyp(jc,jb) = 4
+                 ! ... and reset ndvi_mrat to 0.5
+                 ptr_ndvi_mrat(jc,jb) = 0.5_wp
+               ENDIF
+
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
 
                DO i_lu = 1, ntiles_lnd 
 
-                 IF ( sum_frac > 0._wp) THEN 
-                   ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) / sum_frac
-                   ext_data(jg)%atm%frac_t(jc,jb,i_lu)    = ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)
-                 ELSE !  Workaround for GLC2000 hole below 60 deg S
+                 IF ( sum_frac < 1.e-10_wp) THEN !  Workaround for GLC2000 hole below 60 deg S
                    IF (i_lu == 1) THEN
                      it_count(i_lu)    = it_count(i_lu) + 1
                      ! static index list and corresponding counter
@@ -2775,12 +2778,10 @@ CONTAINS
                      ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)         = -1
 
                      ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_snow_ice
-                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 1._wp
-                     ext_data(jg)%atm%frac_t(jc,jb,i_lu)    = ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)
+                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = ext_data(jg)%atm%fr_land(jc,jb)
                    ELSE
                      ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
-                     ext_data(jg)%atm%frac_t(jc,jb,i_lu)     = 0._wp
                    ENDIF 
                  END IF
 
@@ -2820,8 +2821,7 @@ CONTAINS
              ! set land-cover class
              ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp
-             ext_data(jg)%atm%frac_t(jc,jb,jt)  = 1._wp
+             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = ext_data(jg)%atm%fr_lake(jc,jb)
            ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN ! searching for sea points 
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
@@ -2829,11 +2829,26 @@ CONTAINS
              ! set land-cover class
              ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp
-             ext_data(jg)%atm%frac_t(jc,jb,jt)  = 1._wp
+             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp-ext_data(jg)%atm%fr_land(jc,jb)
            ENDIF
 
          END DO ! jc
+
+         ! Normalize land-cover fractions over the land tile indices plus the first water index to a sum of 1
+         IF (ntiles_lnd > 1) THEN
+           DO jc = i_startidx, i_endidx
+             sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
+                            ext_data(jg)%atm%lc_frac_t(jc,jb,ntiles_total+ntiles_water)
+
+             DO jt = 1, ntiles_total+ntiles_water
+               ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
+             ENDDO
+           ENDDO
+         ELSE ! overwrite fractional settings over water points if tile approach is turned off
+           DO jc = i_startidx, i_endidx
+             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1
+           ENDDO
+         ENDIF
 
          IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
            DO jt = ntiles_lnd+1, ntiles_total
@@ -2858,6 +2873,20 @@ CONTAINS
 
            ENDDO
          ENDIF
+
+         ! Initialize frac_t with lc_frac_t on all static grid points
+         ! Recall: frac_t differs from lc_frac_t in the presence of time-dependent sub-lists (snow tiles or sea ice)
+         ! In this case, frac_t refers to the time-dependent sub-tiles.
+         ! ** Aggregation operations always must use frac_t **
+         DO jt = 1, ntiles_lnd
+           DO jc = i_startidx, i_endidx
+             ext_data(jg)%atm%frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
+           ENDDO
+         ENDDO
+         jt = ntiles_total + MIN(1,ntiles_water)
+         DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
+         ENDDO
 
        END DO !jb
 !$OMP END DO NOWAIT

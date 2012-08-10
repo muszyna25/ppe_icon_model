@@ -141,6 +141,13 @@ CONTAINS
     ! in zml_soil. zml_soil provides soil layer full level heights.
     nlev_soil = SIZE(zml_soil)-1  !< currently 7
 
+    IF (ntiles_lnd == 1) THEN ! Reset options that can be used in combination with tile approach
+      lsnowtile     = .FALSE.
+      frlnd_thrhld  = 0.5_wp
+      frlake_thrhld = 0.5_wp
+      frsea_thrhld  = 0.5_wp
+    ENDIF
+
     ! number of tiles; ntiles_lnd is set by the namelist variable ntiles
     IF(lsnowtile) THEN
       ntiles_total = 2*ntiles_lnd

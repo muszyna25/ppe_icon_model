@@ -3697,14 +3697,51 @@ I&
 &
 number of tiles&
 \tabularnewline
+
 \hline
-frac\_thresh &
+lsnowtile &
+L&
+.FALSE.&
+&
+.TRUE.: consider snow-covered and snow-free tiles separately &
+ntiles>1
+\tabularnewline
+
+\hline
+frlnd\_thrhld &
+R&
+0.5&
+&
+fraction threshold for creating a land grid point &
+ntiles>1
+\tabularnewline
+
+\hline
+frlndtile\_thrhld &
 R&
 0.05&
 &
 fraction threshold for retaining the respective tile for a grid point&
 ntiles>1
 \tabularnewline
+
+\hline
+frlake\_thrhld &
+R&
+0.5&
+&
+fraction threshold for creating a lake grid point &
+ntiles>1
+\tabularnewline
+\hline
+frsea\_thrhld &
+R&
+0.5&
+&
+fraction threshold for creating a sea grid point &
+ntiles>1
+\tabularnewline
+
 \hline
 nztlev &
 I&
