@@ -1711,9 +1711,7 @@ CONTAINS
 
     !  surface level and second level of lsm_oce_c defined by gridgenerator, not the current bathymetry
     v_base%lsm_oce_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-
-   IF(n_zlev>=2)&
-   & v_base%lsm_oce_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    IF(n_zlev>=2) v_base%lsm_oce_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
 
     !  first and second level of dolic_c defined by gridgenerator
     WHERE (p_ext_data%oce%lsm_ctr_c(:,:) <= SEA_BOUNDARY) v_base%dolic_c(:,:) = 2
@@ -1797,7 +1795,7 @@ CONTAINS
 
     niter=30
 
-    DO jk=1,n_zlev
+    ZLOOP_COR: DO jk=1,n_zlev
     
       ctr_jk = 0
 
@@ -1882,7 +1880,7 @@ CONTAINS
         CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
         lsm_c(:,:) = INT(z_sync_c(:,:))               
 
-    END DO  ! jk=1,n_zlev
+    END DO ZLOOP_COR ! jk=1,n_zlev
 
     ! restore p_test_run
     p_test_run = is_p_test_run
