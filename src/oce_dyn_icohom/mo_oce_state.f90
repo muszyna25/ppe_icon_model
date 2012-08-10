@@ -1613,11 +1613,13 @@ CONTAINS
     REAL(wp):: z_lat, z_lat_deg, z_north, z_south
     
     TYPE(t_subset_range), POINTER :: owned_cells, all_cells
-    TYPE(t_subset_range), POINTER :: owned_edges
+    TYPE(t_subset_range), POINTER :: owned_edges, all_edges
     INTEGER :: all_nobnd_e, all_nosbd_c, all_nolbd_c
+    INTEGER :: dol_e, dol_c1, dol_c2, lsm_e
 
     LOGICAL :: LIMITED_AREA = .FALSE.
     LOGICAL :: l_vert_step  = .FALSE.
+    LOGICAL :: l_max_bottom = .TRUE.
     LOGICAL :: is_p_test_run
 
     !-----------------------------------------------------------------------------
@@ -1626,6 +1628,7 @@ CONTAINS
     owned_cells => p_patch%cells%owned
     all_cells   => p_patch%cells%all
     owned_edges => p_patch%edges%owned
+    all_edges   => p_patch%edges%all
     
     is_p_test_run = p_test_run
 
@@ -1724,23 +1727,45 @@ CONTAINS
 
       !-----------------------------
       ! set dolic and wet grid points on cells:
+      !  - if bathymetry is deeper than or equal to the top of the coordinate surface,
+      !    (zlev_i(jk)), then grid point is wet; dolic is in that level (l_max_bottom=.true.)
       !  - if bathymetry is deeper than or equal to the coordinate surface (zlev_m)
-      !    then grid point is wet; dolic is in that level
+      !    then grid point is wet; dolic is in that level (l_max_bottom=.false.)
       !  - values for BOUNDARY set below
 
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        DO jc = i_startidx, i_endidx
+      IF (l_max_bottom) THEN
 
-          IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
-            v_base%lsm_oce_c(jc,jk,jb) = SEA
-            v_base%dolic_c(jc,jb)      = jk
-          ELSE IF (p_ext_data%oce%bathymetry_c(jc,jb)>-v_base%zlev_m(jk)) THEN
-            v_base%lsm_oce_c(jc,jk,jb) = LAND
-          END IF
-
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+          DO jc = i_startidx, i_endidx
+      
+            IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_i(jk)) THEN
+              v_base%lsm_oce_c(jc,jk,jb) = SEA
+              v_base%dolic_c(jc,jb)      = jk
+            ELSE
+              v_base%lsm_oce_c(jc,jk,jb) = LAND
+            END IF
+      
+          END DO
         END DO
-      END DO
+
+      ELSE
+
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+          DO jc = i_startidx, i_endidx
+       
+            IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
+              v_base%lsm_oce_c(jc,jk,jb) = SEA
+              v_base%dolic_c(jc,jb)      = jk
+            ELSE
+              v_base%lsm_oce_c(jc,jk,jb) = LAND
+            END IF
+       
+          END DO
+        END DO
+
+      END IF
 
       ! synchronize lsm on cells
       ! LL: this is done on all cells consistently on al procs
@@ -2018,8 +2043,12 @@ CONTAINS
           IF ( v_base%lsm_oce_e(je,jk,jb) == BOUNDARY )      &
             &  nobnd_e(jk)=nobnd_e(jk)+1
 
-          ! set dolic to jk if lsm_oce_e is wet or boundary (maximum depth)
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= BOUNDARY )      &
+      !    ! set dolic to jk if lsm_oce_e is wet or boundary (maximum depth of 2 neighboring cells)
+      !    IF ( v_base%lsm_oce_e(je,jk,jb) <= BOUNDARY )      &
+      !      &  v_base%dolic_e(je,jb) = jk
+
+          ! correction: set dolic to jk if lsm_oce_e is wet (minimum depth of 2 neighboring cells)
+          IF ( v_base%lsm_oce_e(je,jk,jb) < BOUNDARY )      &
             &  v_base%dolic_e(je,jb) = jk
 
           ! counting surface conditions as read from bathymetry - all wet edges, boundary edges
@@ -2183,6 +2212,41 @@ CONTAINS
         &   ' - calculated from bathymetry = ',noct1_e
       CALL message(routine, TRIM(message_text))
     END IF
+
+    ! Test loop for dolic_e:
+    !  - if lsm_e(dolic_e+1) is boundary, then dolic_c1 or c2 > dolic_e
+    !  - more tests? lsm(dolic) is no boundary any more
+
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
+      DO je = i_startidx, i_endidx
+
+        dol_e = v_base%dolic_e(je,jb)
+
+        IF (dol_e > 1 .AND. dol_e < n_zlev) THEN
+
+          lsm_e = v_base%lsm_oce_e(je,dol_e+1,jb)
+
+          ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
+          iic1 = p_patch%edges%cell_idx(je,jb,1)
+          ibc1 = p_patch%edges%cell_blk(je,jb,1)
+          iic2 = p_patch%edges%cell_idx(je,jb,2)
+          ibc2 = p_patch%edges%cell_blk(je,jb,2)
+          dol_c1 = v_base%dolic_c(iic1,ibc1)
+          dol_c2 = v_base%dolic_c(iic2,ibc2)
+          
+          IF (dol_c1 == dol_c2 .AND. lsm_e == 0) THEN
+            WRITE(message_text,'(a,2i3,a,i3)') &
+              &   'WARNING: Found equal dolic_c at edge jb, je=',jb, je, ' below dolic_e=', dol_e
+            CALL message(TRIM(routine), TRIM(message_text))
+          END IF
+
+        END IF
+
+      END DO
+    END DO
+    
+
 
     !-----------------------------
     ! real bathymetry should not be used since individual bottom layer thickness is not implemented
