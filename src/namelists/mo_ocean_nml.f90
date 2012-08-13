@@ -236,6 +236,8 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
                                                  ! false=use a shortcut (faster)
+  LOGICAL  :: l_max_bottom          = .TRUE.     ! wet cell: true=if bathy deeper than top
+                                                 !           false=bathy deeper mid of cell
   LOGICAL  :: l_edge_based          = .TRUE.     ! mimetic discretization based on edges (true) or cells (false)
   LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
@@ -248,7 +250,7 @@ MODULE mo_ocean_nml
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
-    &                 l_edge_based, i_apply_bulk,                          &
+    &                 l_edge_based, i_apply_bulk, l_max_bottom,            &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &

@@ -60,7 +60,7 @@ MODULE mo_oce_state
     &                               success, max_char_length,                          &
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer,                        &
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom,          &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
@@ -1619,7 +1619,6 @@ CONTAINS
 
     LOGICAL :: LIMITED_AREA = .FALSE.
     LOGICAL :: l_vert_step  = .FALSE.
-    LOGICAL :: l_max_bottom = .TRUE.
     LOGICAL :: is_p_test_run
 
     !-----------------------------------------------------------------------------
@@ -2161,7 +2160,7 @@ CONTAINS
     ctr     = global_sum_array( noct1_e )
     noct1_e = ctr
 
-!---------------------------------------------------------------------------------------------
+    !---------------------------------------------------------------------------------------------
     ! Output the levels
     WRITE(message_text,'(a,a)') &
     &     'LEVEL   zlev_m  Thickness   zlev_i  Distance ', &
@@ -2197,6 +2196,9 @@ CONTAINS
     &     '    GLOBAL:',     noglsea_c, nogllnd_c, perc_gllnd_c, &
     &                        noglsea_e, nogllnd_e, noglbnd_e, noglsbd_c, nogllbd_c
     CALL message('', TRIM(message_text))
+
+    !---------------------------------------------------------------------------------------------
+    ! CHECKS
 
     ! Warnings occur if create_ocean_grid parameter mindepth is not half the
     ! depth of the surface level dzlev_m(1) in namelist ocean_ctl (must not be an error)
@@ -2246,8 +2248,6 @@ CONTAINS
       END DO
     END DO
     
-
-
     !-----------------------------
     ! real bathymetry should not be used since individual bottom layer thickness is not implemented
     ! set values of bathymetry to new non-individual dolic values
