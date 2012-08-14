@@ -74,7 +74,7 @@ iforc=12
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
 #  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
 iforc_type=2
-iforc_len=12   # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 # surface flux file must match the length given by iforc_len
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
@@ -144,8 +144,8 @@ cat > ${ocean_namelist} << EOF
   dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
                         180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
   l_edge_based = .TRUE.          !  edge- or cell-based mimetic discretization
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_HORZ = 2      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 2      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   i_apply_bulk          = 1      ! 1=use bulk formula without sea ice
 /
 &ocean_physics_nml

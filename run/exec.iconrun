@@ -205,13 +205,16 @@ if [[ $run_ocean = 'true' ]]; then
      # general filename: OMIP annual file
      if [[ "x$iforc_len" = "x1" ]] ; then
        FORCNAME=omip4icon-R${R}B0${B}-annual.nc
-     # filename for 12 monthly means
+     # filename for OMIP 12 sets of monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
        FORCNAME=omip4icon-R${R}B0${B}-monmean.nc
        # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
        if [[ "x$iforc_type" = "x5" ]] ; then
          FORCNAME=ncep4icon_R${R}B0${B}.nc
        fi
+     # filename for OMIP 365 sets of daily data
+     elif [[ "x$iforc_len" = "x365" ]] ; then
+       FORCNAME=omip4icon-R${R}B0${B}-daily.nc
      fi
      rm ${EXPDIR}/${FLUXNAME}
 
