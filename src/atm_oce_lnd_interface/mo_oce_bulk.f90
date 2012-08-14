@@ -340,9 +340,9 @@ CONTAINS
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-        CALL dbg_print('UpdSfc: Ext mon1'          ,z_c2                     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2                     ,str_module,idt_src)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-        CALL dbg_print('UpdSfc: Ext mon2'          ,z_c2                     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src)
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
         !---------------------------------------------------------------------
 

@@ -2404,6 +2404,7 @@ CONTAINS
         !
         ! get and check number of cells in OMIP data
         !
+     !  CALL nf(nf_inq_dimid(ncid, 'cell', dimid))  !  workaround for r2b2 omip.daily
         CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
 
