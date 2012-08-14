@@ -4,6 +4,9 @@
 #
 #  Author: Stephan Lorenz, MPIfMet, 06/2012
 #
+#  Input : averaged icon-ocean standard output file including variables u_vint and wet_c 
+#  Output: interpolated input/output/plot-files named u_vint/psi.r360x180/nclpsi
+#
 #  Method:
 #   - vertical interpolation is done in the model, variable u_vint
 #   - interpolation done by cdo remapnn, nearest neighbor interpolation
@@ -21,23 +24,37 @@ set -e
 # 1x1 deg resolution
 nlon=360
 nlat=180
-resol=r${nlon}x${nlat}
-avgfile=avg.5y.xom.bliz.r9368.56
-inpfile=uvint.${resol}.avg56
-outfile=psi.${resol}.avg56
-plotfile=nclpsi.avg56
+
+# direct assignment of filenames
+#avgfile=avg.5y.xom.bliz.r9368.45
+#filestr=avg45.2164ym
+#avgfile=timmean_2420-2470
+#filestr=2420-2470ym
+
+# via parameter
+avgfile=${1:-timmean_2420-2470}
+filestr=${2:-2420-2470ym}
 ### input parameter end
 
+# file names
+resol=r${nlon}x${nlat}
+inpfile=uvint.${resol}.$filestr
+outfile=psi.${resol}.$filestr
+plotfile=nclpsi.$filestr
+
+echo " working on files: input: $inpfile ; output: $outfile ; plot: $plotfile"
+
 # select wet_c (lsm) and u_vint (vertical integral of u)
-if [ ! -s $inpfile.nc ]; then
+if [ ! -s $inpfile.srv ]; then
   cdo remapnn,$resol -selvar,u_vint,wet_c $avgfile.nc $inpfile.nc
-fi
 
 # store grid description, convert to service format
-cdo griddes $inpfile.nc > griddes.$resol
-cdo -f srv copy $inpfile.nc $inpfile.srv
+  cdo griddes $inpfile.nc > griddes.$resol
+  cdo -f srv copy $inpfile.nc $inpfile.srv
+  rm $inpfile.nc
+fi
 
-cat >psiread.f90 <<EOF
+cat >scr-psiread.f90 <<EOF
 !-------------------------------------------------------------------------  
 !
 !
@@ -113,14 +130,19 @@ IMPLICIT NONE
 
   do jk=1,nlev
     read (11) isrv
-    write (*,*) isrv
+!   write (*,*) isrv
     read (11) wet_c(:,jk,:)
+
+    IF (jk == 1) THEN
+      write(80) (isrv(jb),jb=1,8)
+      write(80) ((wet_c(jlon,jk,jlat),jlon=1,nlon),jlat=1,nlat)
+    END IF
   enddo
 
   read (11) isrv
   write (*,*) isrv
   read (11) z_uint_reg(:,:)
-  write(*,*) 'jx=',jx,' jy=',jy,' read uvint=',z_uint_reg(jx,jy)
+! write(*,*) 'jx=',jx,' jy=',jy,' read uvint=',z_uint_reg(jx,jy)
 
 
   ! (3) calculate meridional integral on regular grid starting from south pole:
@@ -128,6 +150,9 @@ IMPLICIT NONE
   DO jlat = nlat-1, 1, -1
     z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat+1)
   END DO
+  ! DO jlat = 2, nlat
+  !   z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat-1)
+  ! END DO
   write(*,*) 'jx=',jx,' jy=',jy,' int. uvint=',z_uint_reg(jx,jy)
 
   ! (4) calculate stream function: scale with length of meridional resolution:
@@ -139,9 +164,9 @@ IMPLICIT NONE
   !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
   psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
 
-  write(*,*) 'jx=',jx,' jy=',jy,' wet_c     =',wet_c(jx,1,jy)
-  write(*,*) 'jx=',jx,' jy=',jy,' psi_reg   =',psi_reg(jx,jy)
-  write(*,*) 'write global PSI at idate:', isrv(3)
+! write(*,*) 'jx=',jx,' jy=',jy,' wet_c     =',wet_c(jx,1,jy)
+! write(*,*) 'jx=',jx,' jy=',jy,' psi_reg   =',psi_reg(jx,jy)
+! write(*,*) 'write global PSI at idate:', isrv(3)
 
   write(80) (isrv(jb),jb=1,8)
   write(80) ((psi_reg(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
@@ -161,15 +186,31 @@ END PROGRAM psiread
 !-------------------------------------------------------------------------  
 EOF
 
-gfortran -o psiread.x psiread.f90 
-./psiread.x
+gfortran -o scr-psiread.x scr-psiread.f90 
+./scr-psiread.x
+rm scr-psiread.*
 
 # convert back to netcdf
-cdo -f nc -g griddes.$resol chvar,var4,psi $outfile.srv $outfile.nc
+cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc
+rm $outfile.srv
 
 # plot with nclsh:
-nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=png
+nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
+  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps \
+  -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \
+
+#  -colormap=testcmap \
+#  -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150
+
+# -maxView \
+# -selMode=manual -minVar=-250 -maxVar=250 -numLevs=20
+# -selMode=manual -minVar=-250 -maxVar=200 -numLevs=15
+# -selMode=manual -minVar=-300 -maxVar=150 -numLevs=15
+# -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15
+# -maskName=wet_c -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15 \
+# -maskName=wet_c -selMode=manual -minVar=-100 -maxVar=100 -numLevs=20 \
 
 exit
 
+# -selMode=halflog -scaleLimit=1
 

@@ -10,6 +10,12 @@
 #   - simple splitting of MOC result file and plotting using cdo and ncl
 
 timmnfile=moc.bliz.r9368.2420-2470ym
+timmnfile=moc.loc.r9558.2046.2y
+timmnfile=moc.loc.r9513.2042.2y
+timmnfile=moc.loc.r9558.2061.2y
+
+# via parameter
+timmnfile=${1:-moc.bliz.r9368.2420-2470ym}
 
 cdo -f nc selvar,var777 $timmnfile.ext  scr_moc_glb.nc
 cdo -f nc selvar,var778 $timmnfile.ext  scr_moc_atl.nc
@@ -47,14 +53,15 @@ begin
 
 ;************************************************************************
 ;************************************************************************
- wks = gsn_open_wks("ps","$timmnfile")
-;wks = gsn_open_wks("pdf","$timmnfile")
+  wks = gsn_open_wks("ps","$timmnfile")
+; wks = gsn_open_wks("pdf","$timmnfile")
 
- gsn_define_colormap(wks,"BlWhRe")
+  gsn_define_colormap(wks,"BlWhRe")
 
   res                      = True
 ; res@cnFillMode             = "RasterFill"
   res@tmXBMode 		   = "Explicit"
+; res@gsnPaperOrientation  = "Portrait"
   res@gsnPaperOrientation  = "Landscape"
   res@gsnMaximize          = True 
 
@@ -65,13 +72,14 @@ begin
   res@gsnSpreadColors      = True              ; full color map
 ; res@cnFillMode           = "CellFill"
 
-; res@cnLevelSelectionMode        = "ManualLevels"    ; set manual contour levels
-; res@cnMinLevelValF              = -59               ; set min contour level
-; res@cnMaxLevelValF              = 59                ; set max contour level
-; res@cnLevelSpacingF             = 4                 ; set contour spacing
-  res@cnLevelSelectionMode        = "ExplicitLevels"  ; set explicit contour levels
-  res@cnLevels                    = (/ -150 -100, -50, -30, -20, -15, -10, -7, -5, -2, 0, 2, 5, 7, 10, 15, 20, 50, 100, 150 /)
-; res@cnLevels                    = (/ -200 -150, -100, -50, -30, -20, -15, -10, -7, -5, -2, 0, 2, 5, 7, 10, 15, 20, 50, 100, 150, 200 /)
+  res@cnLevelSelectionMode        = "ManualLevels"    ; set manual contour levels
+  res@cnMinLevelValF              = -19               ; set min contour level
+  res@cnMaxLevelValF              = 19                ; set max contour level
+  res@cnLevelSpacingF             = 2                 ; set contour spacing
+; res@cnLevelSelectionMode        = "ExplicitLevels"  ; set explicit contour levels
+; res@cnLevels                    = (/ -250, -150, -75, -50, -30, -20, -15, -10, -2, 0, 2, 10, 15, 20, 30, 50, 75, 150, 250 /)
+  res@cnLevels                    = (/ -150, -100, -50, -30, -20, -15, -10, -7, -5, -2, 0, 2, 5, 7, 10, 15, 20, 30, 50, 100, 150 /)
+; res@cnLevels                    = (/ -200, -150, -100, -50, -30, -20, -15, -10, -7, -5, -2, 0, 2, 5, 7, 10, 15, 20, 50, 100, 150, 200 /)
 ; res@cnLineLabelsOn              = False             ; contour line labels
 ; res@cnLevelSelectionMode        = "ExplicitLevels"  ; set explicit contour levels
 ; res@cnLevels                    = (/ -100, -20, -10, -5,0,5,10,20,100 /)
@@ -92,7 +100,7 @@ begin
 ; res@pmLabelBarOrthogonalPosF = 0.1           ; move label bar closer
 
 ; vertical levels with higher resolution near surface
-  res@gsnYAxisIrregular2Linear = False         ; true: axis-scaling is linear in Y, false: following resolution
+  res@gsnYAxisIrregular2Linear = True          ; true: axis-scaling is linear in Y, false: following resolution
 
 ;*****************************************
 ;Experiment 014 (gi6)
