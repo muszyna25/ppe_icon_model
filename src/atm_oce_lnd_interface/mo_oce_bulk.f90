@@ -135,7 +135,7 @@ CONTAINS
     !
     ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
-    INTEGER  :: jmon, jdmon, jmon1, jmon2
+    INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
     INTEGER  :: iniyear, curyear, offset
     INTEGER  :: jc, jb, i, no_set, k
     INTEGER  :: i_startidx_c, i_endidx_c
@@ -176,8 +176,10 @@ CONTAINS
       !  - stepping daily in monthly data (preliminary solution)
 
       !  calculate day and month
-      jmon  = datetime%month         ! current month
-      jdmon = datetime%day           ! day in month
+      jmon  = datetime%month         ! integer current month
+      jdmon = datetime%day           ! integer day in month
+      yday  = datetime%yeaday        ! integer current day in year
+      ylen  = datetime%yealen        ! integer days in year (365 or 366)
       dsec  = datetime%daysec        ! real seconds since begin of day
       !ytim  = datetime%yeatim        ! real time since begin of year
 
@@ -268,13 +270,18 @@ CONTAINS
       ELSE
 
         ! - now daily data sets are read in mo_ext_data
-        ! - use rday1, rday2, jmon1 = jmon2 = yeaday for controling correct day in year
+        ! - use rday1, rday2, jmon1 = jmon2 = yday for controling correct day in year
         ! - no interpolation applied, 
-        ! - datetime%yeaday may be 366 for a leap year, e.g. year 2000
-        jmon1 = datetime%yeaday
+        jmon1 = yday
         jmon2 = jmon1
         rday1 = 1.0_wp
         rday2 = 0.0_wp
+
+        ! Leap year: read Feb, 28 twice since only 365 data-sets are available
+        IF (ylen == 366) then
+          IF (yday>59) jmon1=yday-1
+          jmon2=jmon1
+        ENDIF
 
       END IF
 

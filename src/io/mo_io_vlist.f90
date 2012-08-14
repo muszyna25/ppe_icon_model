@@ -117,7 +117,7 @@ MODULE mo_io_vlist
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
-    &                                 irelax_2d_S
+    &                                 irelax_2d_S !, i_apply_bulk
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, nnow_rcf, lcoriolis
@@ -2182,7 +2182,8 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    IF (temperature_relaxation /= 0 .OR. i_sea_ice >= 1 ) THEN
+    !IF (temperature_relaxation /= 0 .OR. i_sea_ice >= 1 .OR. i_apply_bulk==1 ) THEN
+    IF (iforc_oce > 11) THEN   !  e.g. OMIP forcing or coupled
       CALL addVar(TimeVar('forc_hflx',&
       &                   'net surface heat flux',&
       &                   'W/m2',16,128,&

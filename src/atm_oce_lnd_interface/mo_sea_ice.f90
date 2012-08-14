@@ -439,10 +439,12 @@ CONTAINS
       p_sfc_flx%forc_fwfx        (:,:)    = 0.0_wp
       p_sfc_flx%forc_swflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_lwflx       (:,:)    = 0.0_wp
+   !  if (no_tracer>=2) then
       p_sfc_flx%forc_ssflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_slflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_prflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_evflx       (:,:)    = 0.0_wp
+   !  endif
       p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
       p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
     ENDIF
