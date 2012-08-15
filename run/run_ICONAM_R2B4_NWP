@@ -46,23 +46,23 @@ fi
 #-----------------------------------------------------------------------------
 # setup
 
-EDIR="exp57"                               # working directory
+EDIR="exp62"                               # working directory
 EXPNAME="NWP"                              # experiment identifier
 
 #-----------------------------------------------------------------------------
 # initial time
 
-#inidates=2011010100
-inidates=`eval_numlist -d -i 24 2011010100-2011011100`
+inidates=2011010100
+#inidates=`eval_numlist -d -i 24 2011010100-2011011100`
 
 #-----------------------------------------------------------------------------
 # to do list (1=true, 0=false)
 
 lmodel=1
-ldata=0
+ldata=1
 lmeteogram=0
 lecfs=0
-lcpdata=0
+lcpdata=1
 lmetview=0
 
 #-----------------------------------------------------------------------------
@@ -107,7 +107,7 @@ dtime=150                     # time step in seconds (50,60,75,100,150,300,    d
 #dtime=150                    # time step in seconds (45,50,75,150,            dt_conv=600)
 dtconv=1200
 ninc_mtgrm=24  #36            # output interval 3600s
-ndays=5                       # number of days to run
+ndays=1                       # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #nsteps=48
 
@@ -273,8 +273,8 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
 !  'tracer', 'tracer_rate','t_gt','t_snow','t_snow_mult','t_snow_mult_1','t_s','w_snow','rho_snow','rho_snow_mult'
 !  'rho_snow_mult_1','w_i','t_so','w_so','w_so_ice','wliq_snow','wtot_snow','h_snow','dzh_snow'
 !  'tracer_vi','tracer_vi_avg'
- pl_varlist         =  'v','temp','z','qv','qc','qi'      !'u','w', 'qr', 'qs'
- hl_varlist         =  'v','temp','pres','qv','qc','qi'   !'u','w', 'qr', 'qs'
+ pl_varlist         =  'u', 'v','temp','z','qv','qc','qi'      !'u','w', 'qr', 'qs'
+ hl_varlist         =  'u', 'v','temp','pres','qv','qc','qi'   !'u','w', 'qr', 'qs'
 !pl_varlist         =  'all'
 !hl_varlist         =  'all'
  remap              = 1
@@ -313,7 +313,7 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  dtime       = ${dtime}     ! timestep in seconds
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .TRUE.       ! tracer transport
- ntracer     = 6            ! 5, no need to increase for ozone, 6 with var(qt)
+ ntracer     = 5            ! 5, no need to increase for ozone, 6 with var(qt)
  iforcing    = 3            ! 3 NWP forcing
  ltestcase   = .FALSE.      ! true: run testcase, false: run with real data
  msg_level   = 11           ! detailed report during integration (11: little, 15: a lot)
@@ -337,7 +337,7 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  latm_above_top  = .TRUE.   ! radiation above model top
 /
 &lnd_nml
- nsfc_subs        = 1       ! number of tiles
+ ntiles          = 1       ! number of tiles
  lana_rho_snow    = .TRUE.  ! true: initialization of rho_snow and depth_snow, false: set rho_snow to default value 
  lmulti_snow      = .FALSE. ! true: multi-level snow, false: single-level snow
  nlev_snow        = 2       ! 2 for multi-level snow
@@ -352,7 +352,7 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  itime_scheme    = 4        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
  exner_expol     = 0.666    ! exner function extrapolation?
- vwind_offctr    = 0.50     ! off-centering for time differencing (like alpha in turb)
+ vwind_offctr    = 0.60     ! off-centering for time differencing (like alpha in turb)
  damp_height     = 50000.   ! damping height vertical wind (set about 10km below top, 10 levels)
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
  iadv_rcf        = 4        ! microphysics and turb and sat adj every 2 dynamic steps (1,2,3,4,...)

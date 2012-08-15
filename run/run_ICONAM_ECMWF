@@ -221,12 +221,12 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  lwrite_z3         = .TRUE.
  lwrite_omega      = .TRUE.
  lwrite_divergence = .TRUE.
- lwrite_pzlev      = .TRUE. ! pressure and z-level output
+ lwrite_pzlev      = .TRUE.       ! pressure and z-level output
 /
 &lonlat_intp_nml
  llonlat_enabled    = .TRUE.
- lsupersede         = .TRUE.! .TRUE. no output on ICON grid
- lonlat_var_list    = 'all' ! 'all' or 'Q1,Q2'
+ lsupersede         = .TRUE.      ! .TRUE. no output on ICON grid
+ lonlat_var_list    = 'all'       ! 'all' or 'Q1,Q2'
  lat_delta          = 2.0
  lon_delta          = 2.0
  lon_corner1        = 0.0
@@ -267,7 +267,7 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  dt_rad          = 3600
 /
 &lnd_nml
-nsfc_subs   = 1
+ntiles           = 1
 /
 &radiation_nml
  irad_o3         = 7        ! 0: no ozone, 3: aqua-planet ozone??, 6: prescribed simple ozone, 7: GEMS ozone as IFS
