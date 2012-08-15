@@ -62,15 +62,15 @@ for levtype in ML PL HL ; do
   outfile1=${outdir}%SUITE%_%SUITE_NAME%_DOM01_${levtype}_0001.grb
   outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
   mv ${outfile1} ${outfile2} || true
-  ecp -o $outfile2 $ecfsdir
+  ecp -o $outfile2 $ecfsdir  || true
 done
 smsevent meteogram_data
 
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
 
-lsplitdata=1
-lcpdata=1
+lsplitdata=0
+lcpdata=0
 ldeldata=1
 
 if [[ $lsplitdata = 1 ]] ; then
