@@ -69,8 +69,8 @@ smsevent meteogram_data
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
 
-lsplitdata=0
-lcpdata=0
+lsplitdata=1
+lcpdata=1
 ldeldata=1
 
 if [[ $lsplitdata = 1 ]] ; then
