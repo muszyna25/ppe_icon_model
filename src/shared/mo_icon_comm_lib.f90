@@ -1,5 +1,4 @@
 !----------------------------------
-! dsl ready
 #include "dsl_definitions.inc"
 #include "omp_definitions.inc"
 !>
@@ -1447,8 +1446,8 @@ CONTAINS
     
     CALL compute_send_buffer_sizes()    
 
-!ICON_OMP_LOCAL_PARALLEL IF(icon_comm_openmp)
-!ICON_OMP_DO_STD PRIVATE(bfid, comm_var, grid_comm_pattern, np, var_no)
+!ICON_OMP_PARALLEL IF(icon_comm_openmp)
+!ICON_OMP_DO PRIVATE(bfid, comm_var, grid_comm_pattern, np, var_no)
     DO bfid = 1, active_send_buffers
       IF ( send_procs_buffer(bfid)%buffer_size == 0) CYCLE
 
@@ -1477,7 +1476,7 @@ CONTAINS
             
     ENDDO !bfid = 1, active_send_buffers
 !ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_LOCAL_PARALLEL
+!ICON_OMP_END_PARALLEL
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillandsend)
            
   END SUBROUTINE fill_and_send_buffers
