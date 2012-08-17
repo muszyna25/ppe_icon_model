@@ -1226,6 +1226,7 @@ src/grid_generator/mo_statistics_tools.f90 -text
 src/grid_generator/mo_topology.f90 -text
 src/grid_generator/mo_zlayers.f90 -text
 src/grid_generator/partitioner.f90 -text
+src/include/dsl_definitions.inc -text
 src/include/omp_definitions.inc -text
 src/io/mo_cf_convention.f90 -text
 src/io/mo_grib1.f90 -text

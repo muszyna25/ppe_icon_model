@@ -54,6 +54,8 @@ MODULE mo_timer
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync  
+  PUBLIC :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
+    & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend
   PUBLIC :: timer_barrier  
 
   PUBLIC :: timer_integrate_nh
@@ -150,6 +152,8 @@ MODULE mo_timer
   INTEGER :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   INTEGER :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   INTEGER :: timer_icon_comm_sync
+  INTEGER :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
+    & timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend
   INTEGER :: timer_barrier
   INTEGER :: timer_nh_hdiffusion
 
@@ -269,8 +273,14 @@ CONTAINS
     timer_omp_global_sum = new_timer("omp_global_sum")
     timer_ordglb_sum = new_timer("ordglb_sum")
 !     timer_omp_ordglb_sum = new_timer("omp_ordglb_sum")
-    timer_icon_comm_sync = new_timer("icon_comm_sync")
-      
+    timer_icon_comm_sync         = new_timer("icon_comm_sync")
+    timer_icon_comm_fillsend     = new_timer("comm_fillsend")
+    timer_icon_comm_fillandsend  = new_timer("comm_fillandsend")
+    timer_icon_comm_fillrecv     = new_timer("comm_fillrecv")
+    timer_icon_comm_ircv         = new_timer("comm_ircv")
+    timer_icon_comm_isend        = new_timer("comm_isend")    
+    timer_icon_comm_wait         = new_timer("comm_wait")
+          
     timer_coupling      = new_timer("coupling")
     timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")

@@ -51,7 +51,8 @@ MODULE mo_parallel_config
        &    p_test_run, l_test_openmp, exch_msgsize,                  &
        &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
-       &    use_dycore_barrier, itype_exch_barrier, use_sp_output
+       &    use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
+       &    icon_comm_method, icon_comm_openmp
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -102,6 +103,9 @@ MODULE mo_parallel_config
   LOGICAL :: use_icon_comm = .false.
   LOGICAL :: icon_comm_debug= .false.
   INTEGER :: max_send_recv_buffer_size = 131072
+  INTEGER :: icon_comm_method = 1
+  LOGICAL :: icon_comm_openmp = .false.
+  
   ! Type of parallel I/O
   INTEGER :: pio_type = 1
   
@@ -157,6 +161,17 @@ CONTAINS
        & '--> l_test_openmp set to .FALSE.')
     l_test_openmp = .FALSE.
   END IF
+  icon_comm_openmp = .false.
+#else
+    SELECT CASE(icon_comm_method)
+    CASE(2)
+      icon_comm_openmp = .true.
+      icon_comm_method = 1
+    CASE(4)
+      icon_comm_openmp = .true.
+      icon_comm_method = 3
+    END SELECT
+
 #endif
 
     ! check p_test_run and num_io_procs

@@ -1,3 +1,7 @@
+!----------------------------------
+! dsl ready
+#include "dsl_definitions.inc"
+#include "omp_definitions.inc"
 !>
 !! A collection of MPI communication tools
 !!
@@ -40,7 +44,9 @@ MODULE mo_icon_comm_lib
   USE mo_kind,            ONLY: wp
   USE mo_io_units,        ONLY: filename_max
   USE mo_exception,       ONLY: message_text, message, finish, warning
-  USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size
+  USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
+    & icon_comm_method, icon_comm_openmp
+
   USE mo_communication,   ONLY: blk_no, idx_no
   USE mo_model_domain,    ONLY: t_patch
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
@@ -48,8 +54,11 @@ MODULE mo_icon_comm_lib
      & process_mpi_all_comm, work_mpi_barrier, p_stop, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id
-  USE mo_run_config,      ONLY: ltimer
-  USE mo_timer,           ONLY: timer_start, timer_stop, timer_icon_comm_sync
+  USE mo_timer,           ONLY: ltimer, timer_start, timer_stop, timer_icon_comm_sync, &
+    & activate_sync_timers, timer_icon_comm_fillrecv, timer_icon_comm_wait, &
+    & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
+    & timer_icon_comm_isend
+
   USE mo_master_control,  ONLY: get_my_process_name
 #ifndef NOMPI
   USE mpi
@@ -215,13 +224,13 @@ MODULE mo_icon_comm_lib
     INTEGER :: no_of_variables                 ! how many variables stored in the array
                                                  ! if =0 then only one
     
-    INTEGER :: dim_1                           ! should be nproma
-    INTEGER :: dim_2                           ! if 3D: nlevels
-    INTEGER :: dim_3                           !
+!     INTEGER :: dim_1                         ! should be nproma
+    INTEGER :: vertical_layers                 ! if 3D: nlevels
+!     INTEGER :: dim_3                         !
     INTEGER :: dim_4                           ! =no_of_variables
         
     REAL(wp), POINTER :: values_2d(:,:)     ! nproma, nblocks
-    REAL(wp), POINTER :: values_3d(:,:,:)   ! if 3D: nproma, vertical layers, nblocks
+    REAL(wp), GENERAL_3D, POINTER :: values_3d   ! if 3D: nproma, vertical layers, nblocks
     REAL(wp), POINTER :: values_4d(:,:,:,:) ! nproma, vertical layers, nblocks
 
     CHARACTER(len=32) :: name
@@ -281,6 +290,7 @@ MODULE mo_icon_comm_lib
     MODULE PROCEDURE icon_comm_sync_2D_1
     MODULE PROCEDURE icon_comm_sync_3D_1
     MODULE PROCEDURE icon_comm_sync_3D_2
+    MODULE PROCEDURE icon_comm_sync_3D_3
   END INTERFACE
   
   !-------------------------------------------------------------------------
@@ -704,6 +714,7 @@ CONTAINS
  
   END SUBROUTINE setup_grid_comm_pattern
   !-----------------------------------------------------------------------
+  
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE print_grid_comm_stats(grid_comm_pattern)
@@ -824,7 +835,7 @@ CONTAINS
     
   END FUNCTION get_sendbuffer_id_of_pid
   !-----------------------------------------------------------------------
-
+  
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
@@ -921,6 +932,7 @@ CONTAINS
 !       
 !   END FUNCTION new_comm_variable_r3d_target
   !-----------------------------------------------------------------------
+  
 
   !-----------------------------------------------------------------------
   !>
@@ -974,16 +986,16 @@ CONTAINS
     comm_variable(new_comm_variable_r3d)%grid_dim = grid_3D
 
     ! check the dim_1
-    IF( SIZE(var,1) /= nproma ) THEN
-       CALL finish(method_name, 'SIZE(var,1) /= nproma')
-    ENDIF
-    comm_variable(new_comm_variable_r3d)%dim_1 = nproma
+!     IF( SIZE(var,1) /= nproma ) THEN
+!        CALL finish(method_name, 'SIZE(var,1) /= nproma')
+!     ENDIF
+!     comm_variable(new_comm_variable_r3d)%dim_1 = SIZE(var,1)
     
-    ! check the dim_2
-    comm_variable(new_comm_variable_r3d)%dim_2 =  SIZE(var,2)
+    ! check the vertical_layers
+    comm_variable(new_comm_variable_r3d)%vertical_layers =  SIZE(var,LEVELS_POSITION)
     IF ( PRESENT(vertical_layers) ) THEN
-      IF ( vertical_layers <=  comm_variable(new_comm_variable_r3d)%dim_2) THEN
-         comm_variable(new_comm_variable_r3d)%dim_2 = vertical_layers
+      IF ( vertical_layers <=  comm_variable(new_comm_variable_r3d)%vertical_layers) THEN
+         comm_variable(new_comm_variable_r3d)%vertical_layers = vertical_layers
       ELSE
          CALL finish(method_name, "vertical_layers are greater than SIZE(var,2)")
       END IF
@@ -1025,7 +1037,7 @@ CONTAINS
     
 !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
-    INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
 !     TYPE(t_comm_pattern), INTENT(IN), POINTER, OPTIONAL :: comm_pattern
     INTEGER, INTENT(IN), OPTIONAL :: status    
     INTEGER, INTENT(IN), OPTIONAL :: scope
@@ -1062,13 +1074,13 @@ CONTAINS
     comm_variable(new_comm_variable_r2d)%grid_dim = grid_2D
 
     ! check the dim_1
-    IF( SIZE(var,1) /= nproma ) THEN
-       CALL finish(method_name, 'SIZE(var,1) /= nproma')
-    ENDIF
-    comm_variable(new_comm_variable_r2d)%dim_1 = nproma
+!     IF( SIZE(var,1) /= nproma ) THEN
+!        CALL finish(method_name, 'SIZE(var,1) /= nproma')
+!     ENDIF
+!     comm_variable(new_comm_variable_r2d)%dim_1 = nproma
     
-    ! check the dim_2
-    comm_variable(new_comm_variable_r2d)%dim_2 = 1
+    ! check the vertical_layers
+    comm_variable(new_comm_variable_r2d)%vertical_layers = 1
 
     comm_variable(new_comm_variable_r2d)%values_2d => var
     comm_variable(new_comm_variable_r2d)%no_of_variables = 1
@@ -1171,9 +1183,9 @@ CONTAINS
     NULLIFY(comm_variable(id)%p_patch)  
           
     comm_variable(id)%no_of_variables = 0
-    comm_variable(id)%dim_1 = 0
-    comm_variable(id)%dim_2 = 0
-    comm_variable(id)%dim_3 = 0
+!     comm_variable(id)%dim_1 = 0
+    comm_variable(id)%vertical_layers = 0
+!     comm_variable(id)%dim_3 = 0
     comm_variable(id)%dim_4 = 0
           
     NULLIFY(comm_variable(id)%values_2d)
@@ -1260,6 +1272,32 @@ CONTAINS
  
   END SUBROUTINE icon_comm_sync_3D_2
   !-----------------------------------------------------------------------
+          
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE icon_comm_sync_3D_3(var1,  var2, var3, comm_pattern_index, patch)
+    INTEGER, INTENT(IN)       :: comm_pattern_index
+    TYPE(t_patch), INTENT(IN) :: patch
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
+    REAL(wp), POINTER   :: var1(:,:,:)
+    REAL(wp), POINTER   :: var2(:,:,:)
+    REAL(wp), POINTER   :: var3(:,:,:)
+    
+    INTEGER :: comm_var_1, comm_var_2, comm_var_3
+
+    IF(this_is_mpi_sequential) RETURN
+
+    comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, patch, &
+      & status=is_ready, scope=until_sync)
+    comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, patch,&
+      & status=is_ready, scope=until_sync)
+    comm_var_3 = new_icon_comm_variable(var3,  comm_pattern_index, patch,&
+      & status=is_ready, scope=until_sync)
+    CALL icon_comm_sync_all
+ 
+  END SUBROUTINE icon_comm_sync_3D_3
+  !-----------------------------------------------------------------------
         
   
   !-----------------------------------------------------------------------
@@ -1294,10 +1332,23 @@ CONTAINS
     IF (buffer_comm_status == not_active) THEN
       ! no communication steps have been taken
       ! go through the whole process
-      CALL start_recv_active_buffers() 
-      CALL fill_send_buffers()
-      CALL sent_active_buffers()
-      CALL finalize_recv_active_buffers()
+      SELECT CASE(icon_comm_method)
+      
+      CASE(1,2)
+        CALL start_recv_active_buffers() 
+        CALL fill_send_buffers()
+        CALL sent_active_buffers()
+        CALL finalize_recv_active_buffers()
+        
+      CASE(3,4)
+        CALL start_recv_active_buffers() 
+        CALL fill_and_send_buffers
+        CALL finalize_recv_active_buffers()
+
+      CASE DEFAULT
+        CALL finish( method_name,'unknown icon_comm_method.')
+      END SELECT
+      
       CALL clear_comm()
 
     ELSE
@@ -1330,7 +1381,7 @@ CONTAINS
 !       send_procs_buffer(bfid)%buffer_size = 0
 !     ENDDO
 
-    ! go through all variables and celan comm requests
+    ! go through all variables and clean comm requests
     DO comm_var = 1, max_active_comm_variables
       IF (comm_variable(comm_var)%scope == until_sync) THEN
          CALL delete_icon_comm_variable(comm_var)
@@ -1360,14 +1411,6 @@ CONTAINS
   END SUBROUTINE adjust_max_active_variables
   !-----------------------------------------------------------------------
   
-  !-----------------------------------------------------------------------
-  SUBROUTINE fill_and_sent_buffers()
-
-    CALL fill_send_buffers()
-    CALL sent_active_buffers()       
-
-  END SUBROUTINE fill_and_sent_buffers
-  !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   SUBROUTINE fill_send_buffers()
@@ -1375,9 +1418,10 @@ CONTAINS
     INTEGER :: comm_var, var_no    
 !     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
 
-    CALL compute_send_buffer_sizes()    
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillsend)
+    
+    CALL compute_send_buffer_sizes()
 
-    ! go through all variables and compute the requested send sizes
     DO comm_var = 1, max_active_comm_variables
       ! 
       IF ( comm_variable(comm_var)%request /= communicate ) CYCLE
@@ -1387,8 +1431,56 @@ CONTAINS
         END DO  
       
     END DO  
+    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillsend)
        
   END SUBROUTINE fill_send_buffers
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------  
+  SUBROUTINE fill_and_send_buffers()
+        
+    TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
+    INTEGER :: comm_var, var_no, bfid, np    
+!     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
+
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillandsend)
+    
+    CALL compute_send_buffer_sizes()    
+
+!ICON_OMP_LOCAL_PARALLEL IF(icon_comm_openmp)
+!ICON_OMP_DO_STD PRIVATE(bfid, comm_var, grid_comm_pattern, np, var_no)
+    DO bfid = 1, active_send_buffers
+      IF ( send_procs_buffer(bfid)%buffer_size == 0) CYCLE
+
+      DO comm_var = 1, max_active_comm_variables
+        IF ( comm_variable(comm_var)%request /= communicate ) CYCLE
+        grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern        
+!         vertical_layers = comm_variable(comm_var)%vertical_layers
+        
+        ! go through the requested send pids
+        ! and choose the requested
+        DO np = 1, grid_comm_pattern%no_of_send_procs ! loop over PEs where to send the data
+          IF (bfid /= grid_comm_pattern%send(np)%buffer_index) CYCLE
+
+          DO var_no = 1, comm_variable(comm_var)%no_of_variables
+            CALL fill_onepid_send_buffer_var(bfid, comm_var, np, var_no)
+           END DO
+      
+        ENDDO 
+      
+      END DO ! comm_var = 1, max_active_comm_variables
+      
+      CALL p_isend(send_buffer(send_procs_buffer(bfid)%start_index:), &
+        & send_procs_buffer(bfid)%pid, p_tag=halo_tag,                &
+        &  p_count=send_procs_buffer(bfid)%buffer_size,               &
+        & comm=my_work_communicator)
+            
+    ENDDO !bfid = 1, active_send_buffers
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_LOCAL_PARALLEL
+    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillandsend)
+           
+  END SUBROUTINE fill_and_send_buffers
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -1398,7 +1490,7 @@ CONTAINS
     
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     
-    INTEGER :: comm_var, dim_2, np, bfid, total_send_size, buffer_start
+    INTEGER :: comm_var, vertical_layers, np, bfid, total_send_size, buffer_start
     INTEGER :: no_of_variables
     
     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
@@ -1414,14 +1506,14 @@ CONTAINS
       IF ( comm_variable(comm_var)%request /= communicate ) CYCLE
 
       grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
-      dim_2 = comm_variable(comm_var)%dim_2
+      vertical_layers = comm_variable(comm_var)%vertical_layers
       no_of_variables = comm_variable(comm_var)%no_of_variables
       
       ! go through the requested send pids
       DO np = 1, grid_comm_pattern%no_of_send_procs ! loop over PEs where to send the data
         
         total_send_size = &
-          & ((grid_comm_pattern%send(np)%no_of_points * dim_2) &
+          & ((grid_comm_pattern%send(np)%no_of_points * vertical_layers) &
           & + checksum_size) * no_of_variables
           
         bfid = grid_comm_pattern%send(np)%buffer_index
@@ -1456,9 +1548,9 @@ CONTAINS
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp), POINTER :: send_var_2d(:,:)
-    REAL(wp), POINTER :: send_var_3d(:,:,:)
+    REAL(wp), GENERAL_3D, POINTER :: send_var_3d
     
-    INTEGER :: dim_2, np, bfid, var_send_size, current_buffer_index
+    INTEGER :: vertical_layers, np, bfid, var_send_size, current_buffer_index
     INTEGER :: i, k
     
 !     CHARACTER(*), PARAMETER :: method_name = "fill_send_buffers_var"
@@ -1467,7 +1559,7 @@ CONTAINS
 
     p_patch => comm_variable(comm_var)%p_patch
     grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
-    dim_2 = comm_variable(comm_var)%dim_2
+    vertical_layers = comm_variable(comm_var)%vertical_layers
     IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
       send_var_2d => comm_variable(comm_var)%values_2d(:,:)
     ELSEIF ( comm_variable(comm_var)%dim_4 > 0 ) THEN
@@ -1481,7 +1573,7 @@ CONTAINS
 
       bfid = grid_comm_pattern%send(np)%buffer_index
       current_buffer_index = send_procs_buffer(bfid)%current_index
-      var_send_size = grid_comm_pattern%send(np)%no_of_points * dim_2
+      var_send_size = grid_comm_pattern%send(np)%no_of_points * vertical_layers
       ! fill the header
       ! this is the id of the variabkle and the size we sent
       send_buffer(current_buffer_index) = REAL(comm_var,wp)
@@ -1512,13 +1604,13 @@ CONTAINS
       ELSE
       
         ! fill 3d
-!         DO k = 1, dim_2
+!         DO k = 1, vertical_layers
         DO i = 1, grid_comm_pattern%send(np)%no_of_points
-            send_buffer(current_buffer_index : (current_buffer_index + dim_2 - 1)) = &
-               send_var_3d ( grid_comm_pattern%send(np)%index_no(i), 1:dim_2, &
+            send_buffer(current_buffer_index : (current_buffer_index + vertical_layers - 1)) = &
+               send_var_3d ( grid_comm_pattern%send(np)%index_no(i), 1:vertical_layers, &
                   grid_comm_pattern%send(np)%block_no(i) )
 
-            current_buffer_index = current_buffer_index + dim_2
+            current_buffer_index = current_buffer_index + vertical_layers
 !             current_buffer_index = current_buffer_index + 1            
         ENDDO
 !         ENDDO
@@ -1543,12 +1635,99 @@ CONTAINS
   !-----------------------------------------------------------------------
  
   !-----------------------------------------------------------------------
+  SUBROUTINE fill_onepid_send_buffer_var(bfid, comm_var, send_proc_index, var_no)
+    INTEGER, INTENT(in) :: bfid, comm_var, send_proc_index, var_no
+    
+    TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
+    TYPE(t_patch), POINTER :: p_patch
+    REAL(wp), POINTER :: send_var_2d(:,:)
+    REAL(wp), GENERAL_3D, POINTER :: send_var_3d
+    
+    INTEGER :: vertical_layers, np, var_send_size, current_buffer_index
+    INTEGER :: i, k
+    
+!     CHARACTER(*), PARAMETER :: method_name = "fill_send_buffers_var"
+
+    p_patch => comm_variable(comm_var)%p_patch
+    grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
+    vertical_layers = comm_variable(comm_var)%vertical_layers
+    IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
+      send_var_2d => comm_variable(comm_var)%values_2d(:,:)
+    ELSEIF ( comm_variable(comm_var)%dim_4 > 0 ) THEN
+      send_var_3d => comm_variable(comm_var)%values_4d(:,:,:,var_no)
+    ELSE    
+      send_var_3d => comm_variable(comm_var)%values_3d
+    ENDIF
+
+    ! go through the requested send pids
+    np = send_proc_index
+      
+    current_buffer_index = send_procs_buffer(bfid)%current_index
+    var_send_size = grid_comm_pattern%send(np)%no_of_points * vertical_layers
+    ! fill the header
+    ! this is the id of the variabkle and the size we sent
+    send_buffer(current_buffer_index) = REAL(comm_var,wp)
+    send_buffer(current_buffer_index + 1) = REAL(var_send_size,wp)
+    current_buffer_index = current_buffer_index + 2
+
+    ! fill the buffer
+    IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
+      ! fill 2d
+      DO i = 1, grid_comm_pattern%send(np)%no_of_points
+        send_buffer(current_buffer_index) = send_var_2d &
+          & ( grid_comm_pattern%send(np)%index_no(i),   &
+              grid_comm_pattern%send(np)%block_no(i) )
+
+          current_buffer_index = current_buffer_index + 1
+      ENDDO
+
+      IF (icon_comm_debug) THEN
+        DO i = 1, grid_comm_pattern%send(np)%no_of_points
+          write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
+            & send_procs_buffer(bfid)%pid, ":", &
+            & i, send_var_2d( grid_comm_pattern%send(np)%index_no(i), &
+                  grid_comm_pattern%send(np)%block_no(i) )
+        ENDDO
+      ENDIF
+
+    ELSE
+
+      ! fill 3d
+      DO i = 1, grid_comm_pattern%send(np)%no_of_points
+          send_buffer(current_buffer_index : (current_buffer_index + vertical_layers - 1)) = &
+            send_var_3d ( grid_comm_pattern%send(np)%index_no(i), 1:vertical_layers, &
+                grid_comm_pattern%send(np)%block_no(i) )
+
+          current_buffer_index = current_buffer_index + vertical_layers
+      ENDDO
+
+      IF (icon_comm_debug) THEN
+        k=1
+        DO i = 1, grid_comm_pattern%send(np)%no_of_points
+          write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
+            & send_procs_buffer(bfid)%pid, ":", &
+            & i,k, send_var_3d( grid_comm_pattern%send(np)%index_no(i), k, &
+                  grid_comm_pattern%send(np)%block_no(i) )
+        ENDDO
+      ENDIF
+
+    ENDIF ! (comm_variable(comm_var)%grid_dim == grid_2D )
+
+    send_procs_buffer(bfid)%current_index = current_buffer_index
+
+      
+  END SUBROUTINE fill_onepid_send_buffer_var
+  !-----------------------------------------------------------------------
+ 
+  !-----------------------------------------------------------------------
   !>
   SUBROUTINE sent_active_buffers(  )
 
     INTEGER :: bfid, buffer_start, buffer_size
 !     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
 
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_isend)
+    
     DO bfid = 1, active_send_buffers
 
       buffer_start = send_procs_buffer(bfid)%start_index
@@ -1560,6 +1739,8 @@ CONTAINS
       ENDIF
 
     ENDDO
+    
+    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_isend)
           
   END SUBROUTINE sent_active_buffers
   !-----------------------------------------------------------------------
@@ -1571,6 +1752,8 @@ CONTAINS
     INTEGER :: bfid, buffer_start, buffer_size
 
     CALL compute_recv_buffer_sizes()
+    
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_ircv)
      
     ! start recieve
     DO bfid = 1, active_recv_buffers
@@ -1584,6 +1767,7 @@ CONTAINS
       ENDIF
 
     ENDDO
+    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_ircv)
           
   END SUBROUTINE start_recv_active_buffers
   !-----------------------------------------------------------------------
@@ -1598,18 +1782,27 @@ CONTAINS
     ENDDO
   END SUBROUTINE set_recv_current_index
   !-----------------------------------------------------------------------
+
   
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE finalize_recv_active_buffers()
 
-    INTEGER :: comm_var, var_no
+    INTEGER :: comm_var, var_no, bfid
         
-    ! set the current recv index to start
-    CALL set_recv_current_index() 
     
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
     ! Wait for all outstanding requests to finish
     CALL p_wait
+    IF (activate_sync_timers) THEN
+      CALL timer_stop(timer_icon_comm_wait)
+      CALL timer_start(timer_icon_comm_fillrecv)
+    ENDIF
+    
+    ! set the current recv index to start
+    DO bfid = 1, active_recv_buffers
+      recv_procs_buffer(bfid)%current_index = recv_procs_buffer(bfid)%start_index
+    ENDDO
     
     ! go through all active variables and fill from buffer
     DO comm_var = 1, max_active_comm_variables
@@ -1620,6 +1813,7 @@ CONTAINS
         END DO
 
     ENDDO
+    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillrecv)
   
   END SUBROUTINE finalize_recv_active_buffers
   !-----------------------------------------------------------------------
@@ -1631,9 +1825,9 @@ CONTAINS
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp), POINTER :: recv_var_2d(:,:)
-    REAL(wp), POINTER :: recv_var_3d(:,:,:)
+    REAL(wp), GENERAL_3D, POINTER :: recv_var_3d
     
-    INTEGER :: dim_2, np, bfid, var_recv_size, current_buffer_index
+    INTEGER :: vertical_layers, np, bfid, var_recv_size, current_buffer_index
     INTEGER :: recv_var, recv_size
     INTEGER :: i, k
     
@@ -1643,7 +1837,7 @@ CONTAINS
 
     p_patch => comm_variable(comm_var)%p_patch
     grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
-    dim_2 = comm_variable(comm_var)%dim_2
+    vertical_layers = comm_variable(comm_var)%vertical_layers
     IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
       recv_var_2d => comm_variable(comm_var)%values_2d(:,:)
     ELSEIF ( comm_variable(comm_var)%dim_4 > 0 ) THEN
@@ -1657,7 +1851,7 @@ CONTAINS
 
       bfid = grid_comm_pattern%recv(np)%buffer_index
       current_buffer_index = recv_procs_buffer(bfid)%current_index
-      var_recv_size = grid_comm_pattern%recv(np)%no_of_points * dim_2
+      var_recv_size = grid_comm_pattern%recv(np)%no_of_points * vertical_layers
       ! fill the header
       ! this is the id of the variable and the size we sent
       recv_var = INT(recv_buffer(current_buffer_index))
@@ -1693,14 +1887,13 @@ CONTAINS
       
       ELSE
         ! fill 3d
-!         DO k = 1, dim_2
+!         DO k = 1, vertical_layers
         DO i = 1, grid_comm_pattern%recv(np)%no_of_points
-            recv_var_3d &
-              & ( grid_comm_pattern%recv(np)%index_no(i), 1:dim_2, &
+            recv_var_3d( grid_comm_pattern%recv(np)%index_no(i), 1:vertical_layers, &
                   grid_comm_pattern%recv(np)%block_no(i) ) = &
-            recv_buffer(current_buffer_index : (current_buffer_index + dim_2 - 1))
+            recv_buffer(current_buffer_index : (current_buffer_index + vertical_layers - 1))
             
-            current_buffer_index = current_buffer_index + dim_2
+            current_buffer_index = current_buffer_index + vertical_layers
 !             current_buffer_index = current_buffer_index + 1
 !           ENDDO
         ENDDO
@@ -1731,7 +1924,7 @@ CONTAINS
     
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     
-    INTEGER :: comm_var, dim_2, np, bfid, total_recv_size, buffer_start
+    INTEGER :: comm_var, vertical_layers, np, bfid, total_recv_size, buffer_start
     INTEGER :: no_of_variables
     
     CHARACTER(*), PARAMETER :: method_name = "compute_recv_buffer_sizes"
@@ -1747,14 +1940,14 @@ CONTAINS
       IF ( comm_variable(comm_var)%request /= communicate ) CYCLE
 
       grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
-      dim_2 = comm_variable(comm_var)%dim_2
+      vertical_layers = comm_variable(comm_var)%vertical_layers
       no_of_variables = comm_variable(comm_var)%no_of_variables
 
       ! go through the requested recieve pids
       DO np = 1, grid_comm_pattern%no_of_recv_procs ! loop over PEs from where to recieve the data
         
         total_recv_size = &
-          & ((grid_comm_pattern%recv(np)%no_of_points * dim_2) + checksum_size) &
+          & ((grid_comm_pattern%recv(np)%no_of_points * vertical_layers) + checksum_size) &
           & * no_of_variables
         bfid = grid_comm_pattern%recv(np)%buffer_index
         recv_procs_buffer(bfid)%buffer_size = recv_procs_buffer(bfid)%buffer_size &
@@ -1844,6 +2037,5 @@ CONTAINS
 !       
 !   END SUBROUTINE icon_comm_show
   !-----------------------------------------------------------------------
-
 
 END MODULE mo_icon_comm_lib
