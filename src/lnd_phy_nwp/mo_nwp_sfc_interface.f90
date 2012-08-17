@@ -157,7 +157,7 @@ CONTAINS
     REAL(wp) ::          w_i_now_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          w_i_new_t (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          t_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
+!   REAL(wp) ::          t_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          u_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          v_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -364,7 +364,7 @@ CONTAINS
           snowfrac_t(ic,jb,isubs)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic,jb,isubs)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
-          t_2m_t(ic,jb,isubs)                =  prm_diag%t_2m(jc,jb) 
+!         t_2m_t(ic,jb,isubs)                =  prm_diag%t_2m(jc,jb) 
           u_10m_t(ic,jb,isubs)               =  prm_diag%u_10m(jc,jb)
           v_10m_t(ic,jb,isubs)               =  prm_diag%v_10m(jc,jb)  
           tch_t(ic,jb,isubs)                 =  prm_diag%tch(jc,jb)
@@ -491,7 +491,7 @@ CONTAINS
         &  w_so_ice_now  = w_so_ice_now_t(:,:,jb,isubs)      , & ! ice content   (m H20)
         &  w_so_ice_new  = w_so_ice_new_t(:,:,jb,isubs)      , & ! ice content   (m H20)
 !
-        &  t_2m          =  t_2m_t(:,jb,isubs)               , & ! temperature in 2m                  (  K  )
+!       &  t_2m          =  t_2m_t(:,jb,isubs)               , & ! temperature in 2m                  (  K  )
         &  u_10m         =  u_10m_t(:,jb,isubs)              , & ! zonal wind in 10m                  ( m/s )
         &  v_10m         =  v_10m_t(:,jb,isubs)              , & ! meridional wind in 10m            ( m/s )
         &  freshsnow     =  freshsnow_t(:,jb,isubs)          , & ! indicator for age of snow in top of snow layer (  -  )

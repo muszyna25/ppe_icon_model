@@ -271,9 +271,9 @@ USE data_fields     , ONLY :   &
     w_so      ,     & ! total water conent (ice + liquid water)       (m H20)
     swi       ,     & ! soil wetness index                            (  1  )
     w_so_ice  ,     & ! ice content                                   (m H20)
-    t_2m      ,     & ! temperature in 2m                             (  K  )
-!    u_10m     ,     & ! zonal wind in 10m                             ( m/s )
-!    v_10m     ,     & ! meridional wind in 10m                        ( m/s )
+!   t_2m      ,     & ! temperature in 2m                             (  K  )
+!   u_10m     ,     & ! zonal wind in 10m                             ( m/s )
+!   v_10m     ,     & ! meridional wind in 10m                        ( m/s )
     uv_low     ,     & ! wind speed at lowest model level              ( m/s ) 
     freshsnow ,     & ! indicator for age of snow in top of snow layer(  -  )
     wliq_snow ,     & ! liquid water content in the snow              (m H2O)
@@ -537,7 +537,7 @@ END SUBROUTINE message
                   w_so_ice_now     , & ! ice content                                   (m H20)
                   w_so_ice_new     , & ! ice content                                   (m H20)
 !
-                  t_2m             , & ! temperature in 2m                             (  K  )
+!                 t_2m             , & ! temperature in 2m                             (  K  )
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
                   v_10m            , & ! meridional wind in 10m                        ( m/s )
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
@@ -658,7 +658,7 @@ END SUBROUTINE message
                   w_so_new         , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_new         ! ice content                                   (m H20)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  t_2m             , & ! temperature in 2m                             (  K  )
+!                 t_2m             , & ! temperature in 2m                             (  K  )
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
                   v_10m            , & ! meridional wind in 10m                        ( m/s )
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
@@ -2137,8 +2137,11 @@ END SUBROUTINE message
 !              IF (ntstep .EQ. 0 .AND. itype_tran .NE. 2) THEN
 !                t_2m(i)=t(i)
 !              ENDIF
-              zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
-                           (t_2m(i)-t0_melt)*(ctend-t_2m(i))/(ctend-t0_melt)**2))
+!             zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
+!                          (t_2m(i)-t0_melt)*(ctend-t_2m(i))/(ctend-t0_melt)**2)) 
+              ! T at lowest model level used (approximation of leaf height) 
+              zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &   
+                           (t(i)-t0_melt)*(ctend-t(i))/(ctend-t0_melt)**2))
 
               ! Saturation deficit function (function not used, but computations
               ! necessary for determination of  slope of the saturation curve)
@@ -2827,7 +2830,7 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
-!rite(*,*) 'hello mo_soil_ml ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
+!write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
 !'  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
 !'  ......  ', tch(i), tcm(i)
         zsprs  (i) = 0.0_ireals
@@ -3088,6 +3091,9 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
+!write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
+!'  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
+!'  ......  ', tch(i), tcm(i)
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -4230,7 +4236,7 @@ END SUBROUTINE message
               write(0,*) "sai_t",   sai(i) 
               write(0,*) "tai_t",   tai(i) 
               write(0,*) "eai_t",   eai(i) 
-              write(0,*) "t_2m_t",  t_2m(i) 
+!             write(0,*) "t_2m_t",  t_2m(i) 
               write(0,*) "u_10m_t", u_10m(i)   
               write(0,*) "v_10m_t", v_10m(i)    
               write(0,*) "sobs_t",  sobs(i)    

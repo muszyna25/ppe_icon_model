@@ -74,6 +74,9 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, lmulti_snow
+  USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
+                                     SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
+  USE mo_run_config,           ONLY: ntracer
 
   IMPLICIT NONE
 
@@ -99,7 +102,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
-  TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
+  TYPE(t_external_data),       INTENT(inout):: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
   TYPE(t_nh_prog),      TARGET,INTENT(IN)   :: p_prog_now_rcf  !<progs with red.
@@ -202,15 +205,15 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma),                    &
     &         zucurr(nproma)                , zvcurr(nproma),                   &
     &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev),      &
-    &         zsobeta(nproma,p_patch%nlev)  , &
-    &         shfl_s_t(nproma,ntiles_total)    , evap_s_t(nproma,ntiles_total),       &
-    &         tskin_t(nproma,ntiles_total)     , &
-    &         ustr_s_t(nproma,ntiles_total)    , vstr_s_t(nproma,ntiles_total),       &
+    &         zsobeta(nproma,p_patch%nlev)  , zz0h(nproma),                     &
+    &         shfl_s_t(nproma,ntiles_total) , evap_s_t(nproma,ntiles_total),    &
+    &         tskin_t(nproma,ntiles_total)  , &
+    &         ustr_s_t(nproma,ntiles_total) , vstr_s_t(nproma,ntiles_total),    &
     &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
-    &         zsigflt(nproma)               , zfrti(nproma,ntiles_total),          &
-    &         tch_ex(nproma,ntiles_total)      , tcm_ex(nproma,ntiles_total),         &
+    &         zsigflt(nproma)               , zfrti(nproma,ntiles_total),       &
+    &         tch_ex(nproma,ntiles_total)   , tcm_ex(nproma,ntiles_total),      &
     &         tfv_ex(nproma,ntiles_total)
   LOGICAL  :: ldummy_vdf_a(nproma)
 
@@ -269,7 +272,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !$OMP z_omega_p, zchar, &
 !$OMP zucurr,    zvcurr, &
 !$OMP zsoteu,    zsotev, &
-!$OMP zsobeta, &
+!$OMP zsobeta,   zz0h, &
 !$OMP shfl_s_t, &
 !$OMP evap_s_t,  tskin_t, &
 !$OMP ustr_s_t,  vstr_s_t, &
@@ -544,6 +547,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         ztskm1m(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature (prognostic ???)
         ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
         zsigflt(jc) = 0.0_wp   ! just for testing (standard dev. of filtered orogrphy)
+        zz0h   (jc) = 0.0_wp   ! diagnostic z0,h - should be in diagnostic output ???
       ENDDO
 
       DO jk = 1,p_patch%nlev
@@ -569,14 +573,14 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ENDDO
 
       DO jc = i_startidx, i_endidx
-       !zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
-        IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
-          zfrti(jc,3) = 1.0_wp                         ! interception reservoir (???)
-        ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
-          zfrti(jc,1) = 1.0_wp                         ! open ocean
-        ELSE
-          zfrti(jc,2) = 1.0_wp                         ! sea ice
-        END IF
+        zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
+       !IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
+       !  zfrti(jc,3) = 1.0_wp                         ! interception reservoir (???)
+       !ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
+       !  zfrti(jc,1) = 1.0_wp                         ! open ocean
+       !ELSE
+       !  zfrti(jc,2) = 1.0_wp                         ! sea ice
+       !END IF
       ENDDO
 
       DO jk = 1,nlev_soil
@@ -616,7 +620,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & KLEV    = p_patch%nlev                               ,&! (IN)   
         & KLEVS   = nlev_soil                                  ,&! (IN)
         & KSTEP   = 0                                          ,&! (IN)  unused: current time step
-        & KTILES  = ntiles_total                                  ,&! (IN)
+        & KTILES  = ntiles_total                               ,&! (IN)
         & KTRAC   = itrac_vdf                                  ,&! (IN)  default 0 (itrac?)
         & KLEVSN  = nlev_snow                                  ,&! (IN)  # snow layers (1!)
         & KLEVI   = 1                                          ,&! (IN)  # sea ice layers
@@ -676,8 +680,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PSOTEV  = zsotev                                     ,&! (IN)  unused: Explicit part of V-tendency from SSO  
         & PSOBETA = zsobeta                                    ,&! (IN)  unused: Implicit part of subgrid orography
         & PVERVEL = z_omega_p                                  ,&! (IN)   
-        & PZ0M    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,m (reduced for TOFD???) 
-        & PZ0H    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,h (* factor ????)    
+        & PZ0M    = prm_diag%z0m(:,jb)                         ,&! (INOUT) z0,m (calculated in vupdz0) 
+        & PZ0H    = zz0h                                       ,&! (INOUT) z0,h (should be diagnostic output ???)    
         & PVDIS   = zdummy_vdf_1g                              ,&! (OUT) optional out: turbulent dissipation
         & PVDISG  = zdummy_vdf_1h                              ,&! (OUT) optional out: SO dissipation
         & PDISGW3D= zdummy_vdf_2a                              ,&! (OUT) optional out: 3D stoch. phys. dissipation
@@ -686,11 +690,11 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PFWSB   = zdummy_vdf_1k                              ,&! (OUT) optional out: evaporation of snow
         & PBIR    = zdummy_vdf_1l                              ,&! (OUT) optional out: BIR buoyancy flux integral ratio
         & PVAR    = p_prog_rcf%tracer(:,:,jb,iqtvar)           ,&! (INOUT) qt,variance - prognostic advected tracer
-        & PU10M   = prm_diag%u_10m(:,jb)                       ,&! (OUT)  
-        & PV10M   = prm_diag%v_10m(:,jb)                       ,&! (OUT)  
-        & PT2M    = prm_diag%t_2m (:,jb)                       ,&! (OUT)  
-        & PD2M    = prm_diag%td_2m(:,jb)                       ,&! (OUT)  
-        & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  
+        & PU10M   = prm_diag%u_10m(:,jb)                       ,&! (OUT) need to be initialized???
+        & PV10M   = prm_diag%v_10m(:,jb)                       ,&! (OUT)  "-"
+        & PT2M    = prm_diag%t_2m (:,jb)                       ,&! (OUT)  "-"
+        & PD2M    = prm_diag%td_2m(:,jb)                       ,&! (OUT)  "-" 
+        & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  "-" 
         & PZINV   = zdummy_vdf_1m                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
         & KHPBLN  = idummy_vdf_0d                              ,&! (OUT) optional out: PBL top level 
@@ -758,9 +762,9 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , t_so_ex         = lnd_prog_new%t_so_t      (:,:,jb,:) & ! -
         & , w_so_ex         = lnd_prog_new%w_so_t      (:,:,jb,:) & ! -
         & , w_so_ice_ex     = lnd_prog_new%w_so_ice_t  (:,:,jb,:) & ! -
-        & , t_2m_ex         = prm_diag%t_2m            (:,jb)     & ! -
-        & , u_10m_ex        = prm_diag%u_10m           (:,jb)     & ! - 
-        & , v_10m_ex        = prm_diag%v_10m           (:,jb)     & ! -
+!       & , t_2m_ex         = prm_diag%t_2m            (:,jb)     & ! -
+!       & , u_10m_ex        = prm_diag%u_10m           (:,jb)     & ! - 
+!       & , v_10m_ex        = prm_diag%v_10m           (:,jb)     & ! -
         & , freshsnow_ex    = lnd_diag%freshsnow_t     (:,jb,:)   & ! -
         & , snowfrac_ex     = lnd_diag%snowfrac_t      (:,jb,:)   & ! -
         & , subsfrac_ex     = ext_data%atm%lc_frac_t   (:,jb,:)   & ! -
@@ -809,13 +813,31 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         prm_diag%tcm(jc,jb)    = tcm_ex(jc,1)             ! -"-
         prm_diag%tfv(jc,jb)    = tfv_ex(jc,1)             ! -"-
       ENDDO
-
+!write(*,*) 'hello tch: ', minval(tch_ex(i_startidx:i_endidx,1)), maxval(tch_ex(i_startidx:i_endidx,1))
+!write(*,*) 'hello tcm: ', minval(tcm_ex(i_startidx:i_endidx,1)), maxval(tcm_ex(i_startidx:i_endidx,1))
+!write(*,*) 'hello tfv: ', minval(tfv_ex(i_startidx:i_endidx,1)), maxval(tfv_ex(i_startidx:i_endidx,1))
 
     ENDIF !inwp_turb
 
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_prog_rcf%tracer, &
+                          lpart4d=.TRUE.)
+CALL sync_patch_array_mult(SYNC_C, p_patch, 2, p_diag%tempv, p_diag%exner_old)
+CALL sync_patch_array     (SYNC_C, p_patch, p_diag%tempv)
+CALL sync_patch_array_mult(SYNC_C1,p_patch, 2, &
+                          prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
+CALL sync_patch_array_mult(SYNC_C1,p_patch, 2, prm_nwp_tend%ddt_u_turb, &
+                          prm_nwp_tend%ddt_v_turb)
+
+CALL sync_patch_array(SYNC_C, p_patch, prm_diag%rh_2m)
+CALL sync_patch_array(SYNC_C, p_patch, prm_diag%shfl_s)
+CALL sync_patch_array(SYNC_C, p_patch, prm_diag%lhfl_s)
+CALL sync_patch_array(SYNC_C, p_patch, prm_diag%tch)
+CALL sync_patch_array(SYNC_C, p_patch, prm_diag%tcm)
+CALL sync_patch_array(SYNC_C, p_patch, prm_diag%tfv)
 
 END SUBROUTINE nwp_turbulence_sfc
 

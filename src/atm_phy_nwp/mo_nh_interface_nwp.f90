@@ -1190,8 +1190,20 @@ CONTAINS
           & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
       ELSE
         ! Synchronize tracers if any of the updating (fast-physics) processes was active
-        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
-                                lpart4d=.TRUE.)
+         CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
+                                 lpart4d=.TRUE.)
+!        write(*,*) 'hello1'
+!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,1))
+!        write(*,*) 'hello2'
+!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,2))
+!        write(*,*) 'hello3'
+!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,3))
+!        write(*,*) 'hello4'
+!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,4))
+!        write(*,*) 'hello5'
+!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,5))
+!        write(*,*) 'hello6'
+!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,6))
       ENDIF
         
       IF (timers_level > 3) THEN

@@ -52,10 +52,10 @@ MODULE mo_nwp_sfc_interface_edmf
   USE mo_run_config,          ONLY: msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total,  &
-    &                               lseaice, llake, lmulti_snow
+    &                               lseaice, llake, lmulti_snow, nsfc_stat, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
-  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_snow_index_list
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   
   IMPLICIT NONE 
@@ -107,7 +107,7 @@ CONTAINS
                   t_so_ex          , & ! soil temperature (main level)                 (  K  )
                   w_so_ex          , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_ex      , & ! ice content                                   (m H20)
-                  t_2m_ex          , & ! temperature in 2m                             (  K  )
+!                 t_2m_ex          , & ! temperature in 2m                             (  K  )
                   u_10m_ex         , & ! zonal wind in 10m                             ( m/s )
                   v_10m_ex         , & ! meridional wind in 10m                        ( m/s )
 
@@ -180,7 +180,7 @@ CONTAINS
                   w_so_ex          , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_ex          ! ice content                                   (m H20)
   REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
-                  t_2m_ex          , & ! temperature in 2m                             (  K  )
+!                 t_2m_ex          , & ! temperature in 2m                             (  K  )
                   u_10m_ex         , & ! zonal wind in 10m                             ( m/s )
                   v_10m_ex             ! meridional wind in 10m                        ( m/s )
   REAL(wp), DIMENSION(nproma,ntiles_total), INTENT(INOUT) :: &
@@ -218,7 +218,7 @@ CONTAINS
                   shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
                   lhfl_snow_ex         ! latent   heat flux snow/air interface         (W/m2)
 
-  TYPE(t_external_data), INTENT(in) :: ext_data        !< external data
+  TYPE(t_external_data), INTENT(inout) :: ext_data        !< external data
 
 
     ! Local array bounds:
@@ -264,7 +264,7 @@ CONTAINS
     REAL(wp) :: w_i_now_t  (nproma, ntiles_total)
     REAL(wp) :: w_i_new_t  (nproma, ntiles_total)
 
-    REAL(wp) :: t_2m_t     (nproma, ntiles_total)
+!   REAL(wp) :: t_2m_t     (nproma, ntiles_total)
     REAL(wp) :: u_10m_t    (nproma, ntiles_total)
     REAL(wp) :: v_10m_t    (nproma, ntiles_total)
     REAL(wp) :: freshsnow_t(nproma, ntiles_total)
@@ -309,7 +309,7 @@ CONTAINS
     REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil+1, ntiles_total)
 
     REAL(wp) :: subsfrac_t (nproma, ntiles_total)
-    INTEGER  :: i_count, ic
+    INTEGER  :: i_count, i_count_snow, ic
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
     REAL(wp) :: qv_2m_t     (nproma, ntiles_total)
@@ -408,7 +408,7 @@ CONTAINS
           runoff_s_t    (ic,isubs) = runoff_s_ex (jc,isubs) 
           runoff_g_t    (ic,isubs) = runoff_g_ex (jc,isubs)
 
-          t_2m_t (ic,isubs) = t_2m_ex (jc) 
+!         t_2m_t (ic,isubs) = t_2m_ex (jc) 
           u_10m_t(ic,isubs) = u_10m_ex(jc)
           v_10m_t(ic,isubs) = v_10m_ex(jc)  
           tch_t  (ic,isubs) = tch_ex  (jc,isubs)
@@ -468,6 +468,8 @@ CONTAINS
 !---------- END Copy index list fields
 
 
+IF ( .true. ) THEN
+
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & ! array dimensions
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
@@ -525,7 +527,7 @@ CONTAINS
         &  w_so_ice_now  = w_so_ice_now_t(:,:,isubs)         , & ! ice content                       (m H20)
         &  w_so_ice_new  = w_so_ice_new_t(:,:,isubs)         , & ! ice content                       (m H20)
 !
-        &  t_2m          = t_2m_t(:,isubs)                   , & ! temperature in 2m                  (  K  )
+!       &  t_2m          = t_2m_t(:,isubs)                   , & ! temperature in 2m                  (  K  )
         &  u_10m         = u_10m_t(:,isubs)                  , & ! zonal wind in 10m                  ( m/s )
         &  v_10m         = v_10m_t(:,isubs)                  , & ! meridional wind in 10m            ( m/s )
         &  freshsnow     = freshsnow_t(:,isubs)              , & ! indicator for age of snow in top of snow layer (  -  )
@@ -563,45 +565,53 @@ CONTAINS
         &  zlhfl_snow    = lhfl_snow_t(:,isubs)                & ! latent   heat flux snow/air interface         (W/m2) 
         &                                                    )
 
-DO ic = 1, i_count
-  jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-  if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
-       abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
-!    write(*,*) 'mo_nwp_sfc_interface_edmf ', ic, jc, isubs, snowfrac_t(ic,isubs), &
-!      shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
-!      lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
-   endif
-ENDDO
+endif
 
-       IF (lmulti_snow) THEN
-          CALL diag_snowfrac_tg(                        &
-            &  istart = 1, iend = i_count             , & ! start/end indices
-            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
-            &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
-            &  t_snow    = t_snow_mult_new_t (:,2,isubs), & ! snow temp
-            &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
-            &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
-            &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
-            &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
-            &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
-            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
-            &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
-            &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
-        ELSE
-          CALL diag_snowfrac_tg(                        &
-            &  istart = 1, iend = i_count             , & ! start/end indices
-            &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
-            &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
-            &  t_snow    = t_snow_new_t      (:,isubs), & ! snow temp
-            &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
-            &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
-            &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
-            &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
-            &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
-            &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
-            &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
-            &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
-        ENDIF
+
+IF (msg_level >= 15) THEN
+  DO ic = 1, i_count
+    jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+    if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
+         abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
+       write(*,*) 'mo_nwp_sfc_interface_edmf: fluxes ', &
+         ic, jc, isubs, snowfrac_t(jc,isubs), &
+         shfl_s_t(jc,isubs), shfl_snow_t(jc,isubs), &
+         lhfl_s_t(jc,isubs), lhfl_snow_t(jc,isubs)
+    endif
+    DO jk=1,nlev_soil+2
+      if ( abs( t_so_ex(jc,jk,isubs) - t_so_new_t(ic,jk,isubs) ) > 2.0 ) then 
+        write(*,*) 'mo_nwp_sfc_interface_edmf: t_so ', ic, jc, isubs, jk, & 
+          t_so_ex(jc,jk,isubs), t_so_new_t(ic,jk,isubs)
+      endif
+    ENDDO
+    DO jk=1,nlev_soil+1
+      if ( abs( w_so_ex(jc,jk,isubs) - w_so_new_t(ic,jk,isubs) ) > 0.5 ) then 
+        write(*,*) 'mo_nwp_sfc_interface_edmf: w_so ', ic, jc, isubs, jk, &
+          w_so_ex(jc,jk,isubs), w_so_new_t(ic,jk,isubs)
+      endif
+      if ( abs( w_so_ice_ex(jc,jk,isubs) - w_so_ice_new_t(ic,jk,isubs) ) > 0.5 ) then 
+        write(*,*) 'mo_nwp_sfc_interface_edmf: w_so_ice ', ic, jc, isubs, jk, &
+          w_so_ice_ex(jc,jk,isubs), w_so_ice_new_t(ic,jk,isubs)
+      endif
+    ENDDO
+  ENDDO
+ENDIF
+
+if (.true.) then
+        CALL diag_snowfrac_tg(                        &
+          &  istart = 1, iend = i_count             , & ! start/end indices
+          &  z0_lcc    = ext_data%atm%z0_lcc(:)     , & ! roughness length
+          &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
+          &  t_snow    = t_snow_new_t      (:,isubs), & ! snow temp
+          &  t_soiltop = t_s_new_t         (:,isubs), & ! soil top temp
+          &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
+          &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
+          &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
+          &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
+          &  tai       = ext_data%atm%tai_t(:,jb,isubs), & ! effective leaf area index
+          &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
+          &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
+endif
 
 !---------- Copy index list fields back to state fields
 
@@ -649,9 +659,9 @@ ENDDO
 #endif
             t_snow_mult_ex  (jc,jk,isubs) = t_snow_mult_new_t  (ic,jk,isubs)   
             rho_snow_mult_ex(jc,jk,isubs) = rho_snow_mult_new_t(ic,jk,isubs) 
-            wliq_snow_ex    (jc,jk,isubs) = wliq_snow_new_t    (ic,jk,isubs)     
-            wtot_snow_ex    (jc,jk,isubs) = wtot_snow_new_t    (ic,jk,isubs)     
-            dzh_snow_ex     (jc,jk,isubs) = dzh_snow_new_t     (ic,jk,isubs)      
+            wliq_snow_ex    (jc,jk,isubs) = wliq_snow_new_t    (ic,jk,isubs)
+            wtot_snow_ex    (jc,jk,isubs) = wtot_snow_new_t    (ic,jk,isubs)
+            dzh_snow_ex     (jc,jk,isubs) = dzh_snow_new_t     (ic,jk,isubs)
           ENDDO
         ENDDO
         
@@ -707,18 +717,32 @@ ENDDO
     !     ! This does not work in combination with disaggregating the surface radiation flux terms
     !        (1._wp-ext_data%atm%fr_land(jc,jb))*lnd_prog_now%t_g(jc,jb) + &
     !         ext_data%atm%fr_land(jc,jb)*t_g_s(jc)
-          qv_s(jc)     = qv_s_s(jc) ! &
+          qv_s(jc) = qv_s_s(jc) ! &
     !        (1._wp-ext_data%atm%fr_land(jc,jb))*qv_s_ex(jc) + &
     !         ext_data%atm%fr_land(jc,jb)*qv_s_s(jc)
         ENDDO
 
-      ENDIF
-   
+        IF(lsnowtile) THEN      ! snow is considered as separate tiles
+          DO isubs = 1, nsfc_stat
+            CALL update_snow_index_list(i_count = ext_data%atm%gp_count_t(jb,isubs),                  &
+                                        i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat), &
+                                        idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
+                                        idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
+                                        lsnowpres = (w_snow_ex(:,isubs).GT.1.E-06_wp),                &
+                                        lc_class = lc_class_t(:,isubs),                               &
+                                        sntile_lcc = ext_data%atm%snowtile_lcc(:))
+          ENDDO
+        END IF
+      ENDIF     ! with or without tiles
+
+ 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 
 
           !-------------------------------------------------------------------------
           !> ECHAM version 
           !-------------------------------------------------------------------------
+
+
      
     ENDIF !inwp_sfc
 

@@ -86,7 +86,7 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & , jb, jg                                                             & ! -
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
  & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
- & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+ & , t_so_ex, w_so_ex, w_so_ice_ex  &  !, t_2m_ex, u_10m_ex, v_10m_ex   & ! -
  & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
  & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
@@ -401,7 +401,8 @@ USE mo_edmf_param   ,ONLY : &
                 & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM,& !yomsekf
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFA                                             !fcttre.f
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, nsfc_subs => ntiles_total
+USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl
@@ -556,38 +557,38 @@ LOGICAL           ,INTENT(IN)    :: LLDIAG
 
 ! TERRA data
 
-INTEGER          ,INTENT(IN)                                               :: &
+INTEGER          ,INTENT(IN)                                                 :: &
   jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,nsfc_subs)    :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total)   :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total      :: &
   rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,          & 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
   w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil+1,nsfc_subs)  :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil+1,ntiles_total) :: &
   t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,nsfc_subs)    :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,ntiles_total)   :: &
   w_so_ex        ,w_so_ice_ex          
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
+!REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                           :: &
+!  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
   freshsnow_ex   ,snowfrac_ex
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
   subsfrac_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,nsfc_subs)      :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                            :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                 :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
   tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nsfc_subs)                :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
   runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
   t_g            ,qv_s
-TYPE(t_external_data), INTENT(IN)                                          :: &
+TYPE(t_external_data), INTENT(INOUT)                                         :: &
   ext_data
 
 !*         0.2    LOCAL VARIABLES
@@ -682,7 +683,7 @@ LOGICAL ::            LMPBLEQU
 !xxx
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
-REAL(KIND=JPRB), DIMENSION(KLON,nsfc_subs) :: &
+REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total) :: &
                     & shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t   
 
 !amk testing only!!!
@@ -736,7 +737,11 @@ ELSE
   ZEXTSHF(:) = 0.0_JPRB
   ZEXTLHF(:) = 0.0_JPRB
 ENDIF
-LLTERRA = .TRUE.
+!IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+!  LLTERRA = .TRUE.
+!ELSE
+ LLTERRA = .TRUE.
+!ENDIF
 
 !amk  turn on specified surface fluxes everywhere globally
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
@@ -744,6 +749,15 @@ LLTERRA = .TRUE.
 !ZEXTSHF(:) = -15.0_JPRB
 !ZEXTLHF(:) = -60.0_JPRB
 !xxx
+
+
+!*         1.0a First guess of 10m wind (best using a log profile with z0 ???)
+
+DO JL=KIDIA,KFDIA
+  PU10M(JL) = PUM1(JL,KLEV)   ! simple guess using lowest level (~10m)
+  PV10M(JL) = PVM1(JL,KLEV)   ! attention: u/v10m using in TERRA
+ENDDO
+
 
 !*         1.1  Store initial tendencies for flux calculation
 !*              and initialize variable.
@@ -824,7 +838,8 @@ CALL SURFEXCDRIVER( &
    & , jb, jg                                                             & ! -
    & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
    & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
-   & , t_so_ex, w_so_ex, w_so_ice_ex, t_2m_ex, u_10m_ex, v_10m_ex         & ! -
+   & , t_so_ex, w_so_ex, w_so_ice_ex                                      & ! -
+   & , PU10M, PV10M                    &  !, t_2m_ex, u_10m_ex, v_10m_ex  & ! -
    & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
    & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
    & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
@@ -866,30 +881,46 @@ CALL SURFEXCDRIVER( &
    & PBLENDPP=ZBLEND, PCPTSPP=ZZCPTS, PQSAPP=ZZQSA, PBUOMPP=ZZBUOM, &
    & PZDLPP=ZZZDL )
 ! output data, diagnostics
-!dmk   & PDHTLS=PDHTLS, PDHTSS=PDHTSS, PDHTTS=PDHTTS, PDHTIS=PDHTIS &
+!dmk   & PDHTLS=PDHTLS, PDHTSS=PDHTSS, PDHTTS=PDHTTS, PDHTIS=PDTHIS &
 
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
+!DO JL=KIDIA,KFDIA
+!  DO JT=1,ntiles_total
+!    write(*,*) 'hello vdfmain', jl, jt, subsfrac_ex(jl,jt), snowfrac_ex(jl,jt), &
+!      shfl_s_t(jl,jt), shfl_snow_t(jl,jt), lhfl_s_t(jl,jt), lhfl_snow_t(jl,jt)
+!  ENDDO
+!ENDDO
 DO JL=KIDIA,KFDIA
  !ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
  !ZEXTSHF(JL) = ZKHFL(JL) * ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) * ZRHO
  !ZEXTLHF(JL) = ZKQFL(JL) * RLVTT * ZRHO
  !should really be handed over for each tile not mean ???????
-  ZEXTSHF(JL) = 0.0_JPRB
-  ZEXTLHF(JL) = 0.0_JPRB
-  DO JT=1,nsfc_subs
-!write(*,*) 'hello vdfmain', jl, jt, subsfrac_ex(jl,jt), snowfrac_ex(jl,jt), &
-!  shfl_s_t(jl,jt), shfl_snow_t(jl,jt), lhfl_s_t(jl,jt), lhfl_snow_t(jl,jt)
-    ZEXTSHF(JL) = ZEXTSHF(JL) + subsfrac_ex(JL,JT) *           &
-      ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
-        SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
-    ZEXTLHF(JL) = ZEXTLHF(JL) + subsfrac_ex(JL,JT) *           &
-      ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
-        LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
+  ZEXTSHF(JL) = -15.0_JPRB
+  ZEXTLHF(JL) = -60.0_JPRB
+
+ !ZEXTSHF(JL) = 0.0_JPRB
+ !ZEXTLHF(JL) = 0.0_JPRB
+  DO JT=1,ntiles_total
+   !IF (LLTERRA) THEN
+    IF (.false.) THEN
+!write(*,*) 'hh1: ', subsfrac_ex(JL,JT)
+!write(*,*) 'hh2: ', SNOWFRAC_EX(JL,JT)
+!write(*,*) 'hh3: ', SHFL_S_T   (JL,JT)
+!write(*,*) 'hh4: ', SHFL_SNOW_T(JL,JT)
+!write(*,*) 'hh5: ', LHFL_S_T   (JL,JT)
+!write(*,*) 'hh6: ', LHFL_SNOW_T(JL,JT)
+      ZEXTSHF(JL) = ZEXTSHF(JL) + subsfrac_ex(JL,JT) *           &
+        ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
+          SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
+      ZEXTLHF(JL) = ZEXTLHF(JL) + subsfrac_ex(JL,JT) *           &
+        ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
+          LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
+    END IF
    !ZEXTSHF(JL) = 0.0_JPRB  ! testing???
    !ZEXTLHF(JL) = 0.0_JPRB  ! - " -
-    ZKMFL(JL)   = 0.0_JPRB  ! - " -
-    ENDDO
+   !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
+  ENDDO
 ENDDO
 !xxx
 
