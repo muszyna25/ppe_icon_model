@@ -52,10 +52,10 @@ MODULE mo_nwp_sfc_interface_edmf
   USE mo_run_config,          ONLY: msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total,  &
-    &                               lseaice, llake, lmulti_snow, nsfc_stat, lsnowtile
+    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
-  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_snow_index_list
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_index_lists ! update_snow_index_list
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   
   IMPLICIT NONE 
@@ -723,14 +723,30 @@ endif
         ENDDO
 
         IF(lsnowtile) THEN      ! snow is considered as separate tiles
-          DO isubs = 1, nsfc_stat
-            CALL update_snow_index_list(i_count = ext_data%atm%gp_count_t(jb,isubs),                  &
-                                        i_count_snow = ext_data%atm%gp_count_t(jb,isubs + nsfc_stat), &
-                                        idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
-                                        idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+nsfc_stat),  &
-                                        lsnowpres = (w_snow_ex(:,isubs).GT.1.E-06_wp),                &
-                                        lc_class = lc_class_t(:,isubs),                               &
-                                        sntile_lcc = ext_data%atm%snowtile_lcc(:))
+          DO isubs = 1, ntiles_lnd
+
+          ! LL the p_lnd_diag is required for this call, but it's not avaliable
+!           CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+!                                    lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
+!                                    idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
+!                                    gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
+!                                    idx_lst_snow       = ext_data%atm%idx_lst_t(:,jb,isubs_snow),       &
+!                                    gp_count_snow      = ext_data%atm%gp_count_t(jb,isubs_snow),        &
+!                                    lc_frac            = ext_data%atm%lc_frac_t(:,jb,isubs),            &
+!                                    partial_frac       = ext_data%atm%frac_t(:,jb,isubs),               &
+!                                    partial_frac_snow  = ext_data%atm%frac_t(:,jb,isubs_snow),          &
+!                                    snowtile_flag      = ext_data%atm%snowtile_flag_t(:,jb,isubs),      &
+!                                    snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
+!                                    snowfrac           = p_lnd_diag%snowfrac_lc_t(:,jb,isubs)           )
+
+            ! This is the original call
+!             CALL update_snow_index_list(i_count = ext_data%atm%gp_count_t(jb,isubs),                  &
+!                                         i_count_snow = ext_data%atm%gp_count_t(jb,isubs + ntiles_lnd), &
+!                                         idx_lst_nosnow = ext_data%atm%idx_lst_t(:,jb,isubs),          &
+!                                         idx_lst_snow = ext_data%atm%idx_lst_t(:,jb,isubs+ntiles_lnd),  &
+!                                         lsnowpres = (w_snow_ex(:,isubs).GT.1.E-06_wp),                &
+!                                         lc_class = lc_class_t(:,isubs),                               &
+!                                         sntile_lcc = ext_data%atm%snowtile_lcc(:))
           ENDDO
         END IF
       ENDIF     ! with or without tiles

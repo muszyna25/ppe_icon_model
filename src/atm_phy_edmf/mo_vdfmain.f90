@@ -561,7 +561,7 @@ INTEGER          ,INTENT(IN)                                                 :: 
   jb             ,jg                 
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total)   :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total      :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
   rho_snow_mult_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
   t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
