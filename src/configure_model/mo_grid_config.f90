@@ -65,12 +65,16 @@ USE mo_read_netcdf_parallel, ONLY:                &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
 
-   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
+  PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
      & grid_area_rescale_factor, grid_sphere_radius, grid_angular_velocity
+
+  PUBLIC :: namelst_grid_angular_velocity
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
 
+  PUBLIC :: radiation_grid_distribution
+  
   PUBLIC :: n_dom_start, max_childdom     
 
   PUBLIC :: n_phys_dom
@@ -100,7 +104,10 @@ INCLUDE 'netcdf.inc'
 
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
-  LOGICAL  :: l_limited_area            
+  LOGICAL  :: l_limited_area
+   
+  INTEGER  :: radiation_grid_distribution   ! 0=do nothing
+                                       ! 1=redistribute for radiaiton reading from file
 
   LOGICAL  :: lplane                   ! f-plane option
   REAL(wp) :: corio_lat                ! Latitude at which the f-plane is located 
@@ -114,6 +121,7 @@ INCLUDE 'netcdf.inc'
   REAL(wp) :: grid_area_rescale_factor = 0.0_wp
   REAL(wp) :: grid_sphere_radius  = 0.0_wp
   REAL(wp) :: grid_angular_velocity  = 0.0_wp
+  REAL(wp) :: namelst_grid_angular_velocity  = 0.0_wp
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
@@ -195,7 +203,7 @@ CONTAINS
     grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
     grid_length_rescale_factor = grid_rescale_factor
     grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
-    grid_angular_velocity      = grid_angular_velocity /  grid_rescale_factor
+    grid_angular_velocity      = namelst_grid_angular_velocity / grid_rescale_factor
 !     write(0,*) "   nroot = ", nroot
     
 !     write(0,*) "grid_sphere_radius=",grid_sphere_radius
@@ -204,11 +212,21 @@ CONTAINS
 !     write(0,*) "grid_angular_velocity=", grid_angular_velocity
 
     IF (no_of_radiation_grids > 0) THEN
+      IF (radiation_grid_distribution > 0) &
+        & CALL finish( TRIM(method_name), &
+        &  'radiation_grid_distribution > 0 and no_of_radiation_grids > 0')
       n_dom_start = 0
     ELSE
       n_dom_start = 1
       lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
     ENDIF
+    
+    IF (radiation_grid_distribution > 0) THEN
+      radiation_grid_filename(1) = dynamics_grid_filename(1)
+      no_of_radiation_grids = 1
+    ENDIF
+      ! 
+    
     
     !------------------------------------------------------------
     ! Reset lfeedback to false for all model domains if lfeedback(1) = false
@@ -222,9 +240,7 @@ CONTAINS
       CALL finish( TRIM(method_name),&
         & 'wrong cell type specifier, "global_cell_type" must be 3 or 6')
     END SELECT
-    
-
-           
+               
 !     write(0,*) no_of_dynamics_grids
 !     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
 !     write(0,*) dynamics_parent_grid_id(1:no_of_dynamics_grids)
