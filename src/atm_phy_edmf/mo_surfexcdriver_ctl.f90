@@ -73,9 +73,10 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , ext_data                                                           & !in
  & , jb, jg                                                             & ! -
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
- & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+ & , w_snow_ex, w_snow_eff_ex                                           & ! -
+ & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex                   & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex, u_10m_ex, v_10m_ex                  & ! -
- & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
+ & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
  & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
@@ -386,7 +387,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: 
   rho_snow_mult_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
   t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
-  w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
+  w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil+1,ntiles_total) :: &
   t_so_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,ntiles_total)   :: &
@@ -394,9 +395,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,ntiles_total)   :: 
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
   u_10m_ex       ,v_10m_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  freshsnow_ex   ,snowfrac_ex 
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
-  subsfrac_ex
+  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
 REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                            :: &
@@ -717,6 +716,7 @@ IF ( .true. ) THEN
     t_g_ex           = t_g_ex          , & ! surface temperature                           (  K  )
     qv_s_ex          = qv_s_ex         , & ! specific humidity at the surface              (kg/kg)
     w_snow_ex        = w_snow_ex       , & ! water content of snow                         (m H2O)
+    w_snow_eff_ex    = w_snow_eff_ex   , & ! water content of snow, effective              (m H2O)
     rho_snow_ex      = rho_snow_ex     , & ! snow density                                  (kg/m**3)
     rho_snow_mult_ex = rho_snow_mult_ex, & ! snow density                                  (kg/m**3)
     h_snow_ex        = h_snow_ex       , & ! snow height                                   (  m  )
@@ -729,11 +729,11 @@ IF ( .true. ) THEN
     v_10m_ex         = v_10m_ex        , & ! meridional wind in 10m                        ( m/s )
  !  
     freshsnow_ex     = freshsnow_ex    , & ! indicator for age of snow in top of snow layer(  -  )
+    snowfrac_lc_ex   = snowfrac_lc_ex  , & ! snow-cover fraction                           (  -  )
     snowfrac_ex      = snowfrac_ex     , & ! snow-cover fraction                           (  -  )
     wliq_snow_ex     = wliq_snow_ex    , & ! liquid water content in the snow              (m H2O)
     wtot_snow_ex     = wtot_snow_ex    , & ! total (liquid + solid) water content of snow  (m H2O)
     dzh_snow_ex      = dzh_snow_ex     , & ! layer thickness between half levels in snow   (  m  )
-    subsfrac_ex      = subsfrac_ex     , & ! tile fraction                                 (  1  )
  !   
     prr_con_ex       = prr_con_ex      , & ! precipitation rate of rain, convective        (kg/m2*s)
     prs_con_ex       = prs_con_ex      , & ! precipitation rate of snow, convective        (kg/m2*s)

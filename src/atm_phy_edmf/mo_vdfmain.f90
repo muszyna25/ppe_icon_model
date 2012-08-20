@@ -85,9 +85,10 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & , ext_data                                                           & !in
  & , jb, jg                                                             & ! -
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
- & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+ & , w_snow_ex, w_snow_eff_ex                                           & ! -
+ & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex                   & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex  &  !, t_2m_ex, u_10m_ex, v_10m_ex   & ! -
- & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
+ & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
  & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
@@ -565,7 +566,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: 
   rho_snow_mult_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
   t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
-  w_snow_ex      ,rho_snow_ex    ,h_snow_ex      ,w_i_ex               
+  w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil+1,ntiles_total) :: &
   t_so_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,ntiles_total)   :: &
@@ -573,9 +574,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil+1,ntiles_total)   :: 
 !REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                           :: &
 !  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  freshsnow_ex   ,snowfrac_ex
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
-  subsfrac_ex
+  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
 REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                            :: &
@@ -837,10 +836,11 @@ CALL SURFEXCDRIVER( &
    &   ext_data                                                           & !in
    & , jb, jg                                                             & ! -
    & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
-   & , w_snow_ex, rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex        & ! -
+   & , w_snow_ex, w_snow_eff_ex                                           & ! -
+   & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex                   & ! -
    & , t_so_ex, w_so_ex, w_so_ice_ex                                      & ! -
    & , PU10M, PV10M                    &  !, t_2m_ex, u_10m_ex, v_10m_ex  & ! -
-   & , freshsnow_ex, snowfrac_ex, subsfrac_ex                             & ! -
+   & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
    & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
    & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
    & , tch_ex, tcm_ex, tfv_ex                                             & !inout
@@ -910,11 +910,11 @@ DO JL=KIDIA,KFDIA
 !write(*,*) 'hh4: ', SHFL_SNOW_T(JL,JT)
 !write(*,*) 'hh5: ', LHFL_S_T   (JL,JT)
 !write(*,*) 'hh6: ', LHFL_SNOW_T(JL,JT)
-      ZEXTSHF(JL) = ZEXTSHF(JL) + subsfrac_ex(JL,JT) *           &
-        ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
+      ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
+        ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
-      ZEXTLHF(JL) = ZEXTLHF(JL) + subsfrac_ex(JL,JT) *           &
-        ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) + &
+      ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
+        ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
    !ZEXTSHF(JL) = 0.0_JPRB  ! testing???

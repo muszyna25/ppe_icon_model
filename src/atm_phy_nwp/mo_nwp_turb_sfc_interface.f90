@@ -755,6 +755,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , t_g_ex          = lnd_prog_new%t_g_t       (:,jb,:)   & ! - 
         & , qv_s_ex         = lnd_diag%qv_s_t          (:,jb,:)   & ! -
         & , w_snow_ex       = lnd_prog_new%w_snow_t    (:,jb,:)   & ! -
+        & , w_snow_eff_ex   = lnd_diag%w_snow_eff_t    (:,jb,:)   & ! -
         & , rho_snow_ex     = lnd_prog_new%rho_snow_t  (:,jb,:)   & ! -
         & , rho_snow_mult_ex= lnd_prog_new%rho_snow_mult_t(:,:,jb,:) & ! -
         & , h_snow_ex       = lnd_diag%h_snow_t        (:,jb,:)   & ! -
@@ -766,8 +767,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !       & , u_10m_ex        = prm_diag%u_10m           (:,jb)     & ! - 
 !       & , v_10m_ex        = prm_diag%v_10m           (:,jb)     & ! -
         & , freshsnow_ex    = lnd_diag%freshsnow_t     (:,jb,:)   & ! -
+        & , snowfrac_lc_ex  = lnd_diag%snowfrac_lc_t   (:,jb,:)   & ! -
         & , snowfrac_ex     = lnd_diag%snowfrac_t      (:,jb,:)   & ! -
-        & , subsfrac_ex     = ext_data%atm%lc_frac_t   (:,jb,:)   & ! -
         & , wliq_snow_ex    = lnd_prog_new%wliq_snow_t (:,:,jb,:) & ! -
         & , wtot_snow_ex    = lnd_prog_new%wtot_snow_t (:,:,jb,:) & ! -
         & , dzh_snow_ex     = lnd_prog_new%dzh_snow_t  (:,:,jb,:) & ! -
