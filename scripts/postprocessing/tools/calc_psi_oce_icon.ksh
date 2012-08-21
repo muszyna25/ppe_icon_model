@@ -54,7 +54,7 @@ if [ ! -s $inpfile.srv ]; then
     cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c $avgfile $inpfile.nc
   else
     echo "weightfile is given:'$weightfile'. Use remap ..."
-    cdo remap,r360x180,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
+    cdo remap,$resol,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
   fi
 
   # store grid description, convert to service format
@@ -195,8 +195,8 @@ nclsh $ICONPLOT \
   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \
   -selMode=manual -minVar=-60 -maxVar=-10 -numLevs=25 -bStrg=' ' -maskName=wet_c \
   -withLineLabels \
-  -mapLLC=120,10 -mapURC=160,40 #north-atlantic gyre
-# -mapLLC=-77,20 -mapURC=-70,35 #north-atlantic gyre
+ -mapLLC=-77,20 -mapURC=-70,35 #north-atlantic gyre
+#  -mapLLC=120,10 -mapURC=160,40 # japanise WBC
 # -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
 # -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
 # -maxView \
