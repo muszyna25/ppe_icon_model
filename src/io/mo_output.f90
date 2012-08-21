@@ -501,7 +501,7 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-    message_text = get_filename_noext(patch%grid_filename)
+    message_text = TRIM(get_filename_noext(patch%grid_filename))
     WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
 
     CALL open_writing_restart_files( TRIM(string) )

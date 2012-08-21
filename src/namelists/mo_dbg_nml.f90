@@ -114,9 +114,9 @@ CONTAINS
     ! default is 'all' to print out max/min and/or values in all modules
 
     DO i=2, dim_mod_tst
-      str_mod_tst(i) = '                    '
+      str_mod_tst(i) = '            '
     END DO
-    str_mod_tst(1) = 'all                 '
+    str_mod_tst(1) = 'all         '
    
     CALL open_nml(TRIM(filename))
     CALL position_nml ('dbg_index_nml', status=i_status)

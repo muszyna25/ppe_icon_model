@@ -949,7 +949,7 @@ CONTAINS
               meaning = "averaged"
             ELSE 
               sufix = ""
-              meaning = "instantan"     
+              meaning = "instant."     
             END IF
 
             WRITE(name,'(A8,A4)') "swflxsfc", sufix
