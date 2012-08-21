@@ -9,21 +9,20 @@
 #   - written in extra format
 #   - simple splitting of MOC result file and plotting using cdo and ncl
 
-timmnfile=moc.bliz.r9368.2420-2470ym
-timmnfile=moc.loc.r9558.2046.2y
-timmnfile=moc.loc.r9513.2042.2y
-timmnfile=moc.loc.r9558.2061.2y
-timmnfile=$1
+ifile=moc.bliz.r9368.2420-2470ym
+ifile=moc.loc.r9558.2046.2y
+ifile=moc.loc.r9513.2042.2y
+ifile=moc.loc.r9558.2061.2y
+ifile=$1
 
 # check intput:
-echo "Input file is '$timmnfile'"
+echo "Input file is '$ifile'"
 
-# via parameter
-timmnfile=${1:-moc.bliz.r9368.2420-2470ym}
+basename=$(basename $ifile .ext) # ext files expected
 
-cdo -f nc selvar,var777 $timmnfile.ext  scr_moc_glb.nc
-cdo -f nc selvar,var778 $timmnfile.ext  scr_moc_atl.nc
-cdo -f nc selvar,var779 $timmnfile.ext  scr_moc_pac.nc
+cdo -f nc selvar,var777 $ifile scr_moc_glb.nc
+cdo -f nc selvar,var778 $ifile scr_moc_atl.nc
+cdo -f nc selvar,var779 $ifile scr_moc_pac.nc
 
 # run ncl-script
 
@@ -57,8 +56,8 @@ begin
 
 ;************************************************************************
 ;************************************************************************
-  wks = gsn_open_wks("ps","$timmnfile")
-; wks = gsn_open_wks("pdf","$timmnfile")
+  wks = gsn_open_wks("ps","$basename")
+; wks = gsn_open_wks("pdf","$basename")
 
   gsn_define_colormap(wks,"BlWhRe")
 
