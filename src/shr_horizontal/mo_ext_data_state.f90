@@ -887,6 +887,24 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+
+      ! idx_lst_spw      p_ext_atm%idx_lst_spw(nproma,nblks_c)
+      cf_desc    = t_cf_var('sea water point index list', '-', &
+        &                   'sea water point index list', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'idx_lst_spw', p_ext_atm%idx_lst_spw, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+
+      ! idx_lst_spi      p_ext_atm%idx_lst_spi(nproma,nblks_c)
+      cf_desc    = t_cf_var('sea ice point index list', '-', &
+        &                   'sea ice point index list', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'idx_lst_spi', p_ext_atm%idx_lst_spi, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+
+
       ! snowtile_flag_t   p_ext_atm%snowtile_flag_t(nproma,nblks_c,ntiles_total)
       ! -1: no separation between snow tile and snow-free tile
       !  0: inactive
@@ -902,7 +920,12 @@ CONTAINS
       ! not sure if these dimensions are supported by add_var...
       ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
                p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
-      ALLOCATE(p_ext_atm%sp_count(nblks_c),p_ext_atm%fp_count(nblks_c))
+      ALLOCATE(p_ext_atm%sp_count (nblks_c),p_ext_atm%fp_count (nblks_c))
+
+      ! allocate grid point counts per block for dynamic ocean ice/water point 
+      ! index lists
+      ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
+
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover class list', '-', &

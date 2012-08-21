@@ -231,9 +231,9 @@ MODULE mo_ext_data_types
       & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
       & sp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point index list for each block        [ ]
+    INTEGER, POINTER ::  &    !< Lake point index list for each block        [ ]
       & idx_lst_fp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
+    INTEGER, POINTER ::  &    !< Lake point count per block        [ ]
       & fp_count(:)           ! index1=1,nblks_c
 
     INTEGER, POINTER ::  &    !< Static grid point index list for each block and tile [ ]
@@ -250,6 +250,7 @@ MODULE mo_ext_data_types
       & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
     INTEGER, POINTER ::  &    !< Corresponding grid point count per block and tile index      [ ]
       & gp_count_t(:,:)       ! index1=1,nblks_c, index2=ntiles_total
+
     INTEGER, POINTER ::  &    !< Snowtile flag field [ ]
       & snowtile_flag_t(:,:,:)! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
                               ! -1: no separation between snow tile and snow-free tile
@@ -259,6 +260,19 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &   !< Actual area fraction for each tile index  [ ]
       & frac_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
 
+    ! Sub-lists for sea points (idx_lst_sp), in order to distinguish between ice-covered and open
+    ! sea points.
+    ! 
+    INTEGER, POINTER ::  &    !< Dynamic sea water point index list for each block and tile [ ]
+      & idx_lst_spw(:,:)      ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER ::  &    !< Corresponding grid point count per block                   [ ]
+      & spw_count(:)          ! index1=1,nblks_c
+    INTEGER, POINTER ::  &    !< Dynamic sea ice point index list for each block and tile   [ ]
+      & idx_lst_spi(:,:)      ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER ::  &    !< Corresponding grid point count per block                   [ ]
+      & spi_count(:)          ! index1=1,nblks_c
+
+ 
 
     ! *** storage for lookup table data for each landuse class ***
     ! (needed to simplify switching between GLC2000 and Globcover2009, which
