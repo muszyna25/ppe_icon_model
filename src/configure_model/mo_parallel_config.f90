@@ -43,7 +43,7 @@ MODULE mo_parallel_config
   ! Exported variables:
   PUBLIC :: nproma, openmp_threads
   PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
-  PUBLIC :: parallel_radiation_mpi, test_parallel_radiation
+  PUBLIC :: parallel_radiation_mode, test_parallel_radiation
 
   PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
@@ -97,7 +97,7 @@ MODULE mo_parallel_config
   LOGICAL :: l_test_openmp = .false.
 
   LOGICAL :: parallel_radiation_omp = .false.
-  LOGICAL :: parallel_radiation_mpi = .false.
+  INTEGER :: parallel_radiation_mode = 0
   LOGICAL :: test_parallel_radiation = .false.
 
   LOGICAL :: use_icon_comm = .false.

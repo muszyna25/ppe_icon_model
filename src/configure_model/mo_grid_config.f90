@@ -73,7 +73,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
 
-  PUBLIC :: radiation_grid_distribution
+! !   PUBLIC :: radiation_grid_distribution
   
   PUBLIC :: n_dom_start, max_childdom     
 
@@ -106,7 +106,7 @@ INCLUDE 'netcdf.inc'
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
   LOGICAL  :: l_limited_area
    
-  INTEGER  :: radiation_grid_distribution   ! 0=do nothing
+!   INTEGER  :: radiation_grid_distribution   ! 0=do nothing
                                        ! 1=redistribute for radiaiton reading from file
 
   LOGICAL  :: lplane                   ! f-plane option
@@ -212,20 +212,11 @@ CONTAINS
 !     write(0,*) "grid_angular_velocity=", grid_angular_velocity
 
     IF (no_of_radiation_grids > 0) THEN
-      IF (radiation_grid_distribution > 0) &
-        & CALL finish( TRIM(method_name), &
-        &  'radiation_grid_distribution > 0 and no_of_radiation_grids > 0')
       n_dom_start = 0
     ELSE
       n_dom_start = 1
       lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
     ENDIF
-    
-    IF (radiation_grid_distribution > 0) THEN
-      radiation_grid_filename(1) = dynamics_grid_filename(1)
-      no_of_radiation_grids = 1
-    ENDIF
-      ! 
     
     
     !------------------------------------------------------------

@@ -62,7 +62,7 @@ MODULE mo_parallel_nml
     & config_nproma              => nproma,                 &
     & config_openmp_threads      => openmp_threads,         &
     & config_parallel_radiation_omp => parallel_radiation_omp,  &
-    & config_parallel_radiation_mpi => parallel_radiation_mpi,  &
+    & config_parallel_radiation_mode => parallel_radiation_mode,  &
     & config_test_parallel_radiation=> test_parallel_radiation, &
     & config_use_icon_comm       => use_icon_comm,        &
     & config_icon_comm_debug     => icon_comm_debug,        &
@@ -151,9 +151,9 @@ MODULE mo_parallel_nml
 
     !--------------------------------------------
     ! namelist for parallel radiation
-    LOGICAL :: parallel_radiation_omp = .false.
-    LOGICAL :: parallel_radiation_mpi = .false.
-    LOGICAL :: test_parallel_radiation = .false.
+    LOGICAL :: parallel_radiation_omp
+    INTEGER :: parallel_radiation_mode
+    LOGICAL :: test_parallel_radiation
     INTEGER :: radiation_threads
     INTEGER :: nh_stepping_threads
     !--------------------------------------------
@@ -171,7 +171,7 @@ MODULE mo_parallel_nml
       & itype_comm,        iorder_sendrecv,     &
       & radiation_threads, nh_stepping_threads, &
       & nproma, parallel_radiation_omp,         &
-      & parallel_radiation_mpi,  use_icon_comm, &
+      & parallel_radiation_mode,  use_icon_comm, &
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, use_dycore_barrier, &
@@ -242,8 +242,8 @@ MODULE mo_parallel_nml
     openmp_threads = -1 ! < 0 means do not use this value
     
     ! parallel_radiation
+    parallel_radiation_mode = 0
     parallel_radiation_omp = .false.
-    parallel_radiation_mpi = .false.
     test_parallel_radiation = .false.
     radiation_threads = 1
     nh_stepping_threads = 1
@@ -307,7 +307,7 @@ MODULE mo_parallel_nml
     config_icon_comm_debug     = icon_comm_debug
     config_icon_comm_method    = icon_comm_method
     config_parallel_radiation_omp = parallel_radiation_omp
-    config_parallel_radiation_mpi = parallel_radiation_mpi
+    config_parallel_radiation_mode = parallel_radiation_mode
     config_test_parallel_radiation= test_parallel_radiation
     config_max_sr_buffer_size  = max_send_recv_buffer_size
     config_use_dycore_barrier  = use_dycore_barrier

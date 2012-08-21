@@ -69,7 +69,7 @@ MODULE mo_grid_nml
     & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link, &
     & config_grid_rescale_factor          => grid_rescale_factor,          &
     & config_grid_angular_velocity        => namelst_grid_angular_velocity,&
-    & config_radiation_grid_distrib       => radiation_grid_distribution,  &
+!     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
     & check_grid_configuration, max_rad_dom
 
   IMPLICIT NONE
@@ -124,7 +124,7 @@ MODULE mo_grid_nml
     CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
     INTEGER                     :: dynamics_radiation_grid_link(max_dom)
       
-    INTEGER                     :: radiation_grid_distribution
+!     INTEGER                     :: radiation_grid_distribution
     
     REAL(wp) :: grid_rescale_factor, grid_angular_velocity
 
@@ -133,8 +133,8 @@ MODULE mo_grid_nml
       &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,    &
-      &  radiation_grid_filename, dynamics_radiation_grid_link, &
-      &  radiation_grid_distribution
+      &  radiation_grid_filename, dynamics_radiation_grid_link
+!       &  radiation_grid_distribution
 
 
 
@@ -168,7 +168,7 @@ MODULE mo_grid_nml
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
     lredgrid_phys = .FALSE.
-    radiation_grid_distribution = 0
+!     radiation_grid_distribution = 0
 
     !----------------------------------------------------------------
     grid_rescale_factor   = 1.0_wp
@@ -226,7 +226,7 @@ MODULE mo_grid_nml
     config_l_limited_area    = l_limited_area
     config_patch_weight      = patch_weight
     config_lredgrid_phys     = lredgrid_phys
-    config_radiation_grid_distrib  = radiation_grid_distribution
+!     config_radiation_grid_distrib  = radiation_grid_distribution
     config_dynamics_grid_filename  = dynamics_grid_filename
     config_dynamics_parent_grid_id = dynamics_parent_grid_id
     config_radiation_grid_filename = radiation_grid_filename
