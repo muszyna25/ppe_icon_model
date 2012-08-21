@@ -3583,7 +3583,7 @@ END SUBROUTINE message
               runoff_s (i) = runoff_s(i) - zdwsnm(i)*zroffdt
             ENDIF ! melting from above
     
-            IF (t_so_new(i,1) .gt. t0_melt) THEN
+            IF (t_so_new(i,1) >= t0_melt) THEN
               !second case:  temperature of uppermost soil layer > t0_melt. First a
               !-----------   heat redistribution is performed. As a second step,
               !              melting of snow is considered.
@@ -3956,10 +3956,9 @@ END SUBROUTINE message
           ! If the snow has just melted, limit soil temperature increment to 2.5 deg C
           ! in order to avoid nonsensically large temperature jumps
           IF (w_snow_now(i) > zepsi) THEN
-!CDIR BEGIN EXPAND=7
+!CDIR EXPAND=7
             t_so_new(i,1:7) = MIN(t_so_now(i,1:7)+2.5_ireals,t_so_new(i,1:7))
             t_so_new(i,1:7) = MAX(t_so_now(i,1:7)-2.5_ireals,t_so_new(i,1:7))
-!CDIR END
             t_so_new(i,0) = t_so_new(i,1)
             t_s_new(i)    = t_so_new(i,1)
           ENDIF
@@ -4187,7 +4186,7 @@ END SUBROUTINE message
   IF (msg_level >= 14) THEN
         DO i = istarts, iends
              IF (w_snow_new(i) > zepsi .AND. (t_snow_new(i)<180. &
-                 & .OR. t_snow_new(i)>280.) .OR. t_so_new(i,1)>350. ) THEN 
+                 & .OR. t_snow_new(i)>274.) .OR. t_s_new(i)>380. ) THEN 
               write(0,*) "SFC-DIAGNOSIS TERRA ",nsubs0,i,nsubs1!,ntstep
         !!$   write(0,*)" lmelt  ",               lmelt    
         !!$   write(0,*)" lmelt_var ",            lmelt_var
@@ -4242,6 +4241,9 @@ END SUBROUTINE message
               write(0,*) "sobs_t",  sobs(i)    
               write(0,*) "thbs_t",  thbs(i)     
               write(0,*) "pabs_t",  pabs(i)     
+              write(0,*) "prr_gsp, prr_con, prs_gsp, prs_con",prr_gsp(i), prr_con(i), prs_gsp(i), prs_con(i)
+              write(0,*) "zrr, zrs", zrr(i), zrs(i)
+              write(0,*) "zsprs, ztchv, ztchv_max", zsprs(i), ztchv(i), ztchv_max(i), ztchv(i)/MAX(SQRT(u(i)**2+v(i)**2),zepsi)
 !              write(0,*) "llandmask_t",llandmask(i) 
            END IF
          END DO
@@ -4809,6 +4811,19 @@ SUBROUTINE terra_multlay_init (                &
 !---loop over tiles---
 !END DO !ns=nsubs0,nsubs1
 !---------------------
+
+#ifdef __ICON__
+        DO i = istarts, iends
+             IF (w_snow_now(i) > 2.410E-003 .AND. w_snow_now(i) < 2.411E-003 ) THEN
+              write(0,*) "SFC-DIAGNOSIS TERRA INIT",i
+              write(0,*) "t_s",t_s_now(i),t_s_new(i)
+              write(0,*) "t_snow",t_snow_now(i)
+              write(0,*) "w_snow",w_snow_now(i)
+              write(0,*) "h_snow",h_snow_now(i),h_snow_new(i)
+              write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
+           END IF
+         END DO
+#endif
 
 ! End of timestep 0 preparations
 ! ==============================
