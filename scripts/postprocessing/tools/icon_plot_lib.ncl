@@ -835,7 +835,7 @@ begin
   if (withLineLabels ) then
     withLines                       = True
     resource@cnLineLabelsOn         = True
-    resource@cnLineLabelFontHeightF = 0.006
+    resource@cnLineLabelFontHeightF = 0.008
     resource@cnLineLabelFontThicknessF = 0.006
   end if
   if (withLines) resource@cnLinesOn = True end if
