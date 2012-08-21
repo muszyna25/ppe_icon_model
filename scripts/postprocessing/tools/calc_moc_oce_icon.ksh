@@ -14,15 +14,30 @@ ifile=moc.loc.r9558.2046.2y
 ifile=moc.loc.r9513.2042.2y
 ifile=moc.loc.r9558.2061.2y
 ifile=$1
+maskfile=$2
 
 # check intput:
 echo "Input file is '$ifile'"
 
 basename=$(basename $ifile .ext) # ext files expected
 
-cdo -f nc selvar,var777 $ifile scr_moc_glb.nc
-cdo -f nc selvar,var778 $ifile scr_moc_atl.nc
-cdo -f nc selvar,var779 $ifile scr_moc_pac.nc
+if [ -z "$maskfile" ]; then
+  cdo -f nc selvar,var777 $ifile scr_moc_glb.nc 
+  cdo -f nc selvar,var778 $ifile scr_moc_atl.nc
+  cdo -f nc selvar,var779 $ifile scr_moc_pac.nc
+else
+  cdo -f nc selvar,var777 $ifile scr_moc_glb.nc 
+  cdo -div scr_moc_glb.nc -selname,var777 $maskfile tmp.nc
+  mv tmp.nc scr_moc_glb.nc
+
+  cdo -f nc selvar,var778 $ifile scr_moc_atl.nc
+  cdo -div scr_moc_atl.nc -selname,var778 $maskfile tmp.nc
+  mv tmp.nc scr_moc_atl.nc
+
+  cdo -f nc selvar,var779 $ifile scr_moc_pac.nc
+  cdo -div scr_moc_pac.nc -selname,var779 $maskfile tmp.nc
+  mv tmp.nc scr_moc_pac.nc
+fi
 
 # run ncl-script
 
@@ -93,6 +108,15 @@ begin
  
   res@cnLabelMasking             = True		
   res@cnLineLabelBackgroundColor = "transparent"
+  res@cnMissingValFillColor        = "gray30"
+  res@cnMissingValPerimOn          = True
+
+  res@cnMissingValFillPattern      = -1;                set the missing value fill pattern to 5
+  res@cnMissingValFillScaleF       = 0.9;              increase the density of the fill pattern (default   = 1.0)
+;    resource@cnMissingValPerimOn  = True;             already turned on above
+  res@cnMissingValPerimColor       = "black";          change the missing value perimeter to black
+  res@cnMissingValPerimDashPattern = 1;           set the dash pattern of the missing value perimeter to 1
+  res@cnMissingValPerimThicknessF  = 3.0;         increase the thickness of the missing value perimeter 3X
 
   res@gsnRightString	       = "$timmnfile    [Sv]"
   res@trYReverse = True	                 	; reverse the Y-axis
@@ -139,8 +163,8 @@ EOF
 
 
 ncl scr_plot_moc_my.ncl
-rm scr_plot_moc_my.ncl
-rm scr_moc_???.nc
+#rm scr_plot_moc_my.ncl
+#rm scr_moc_???.nc
 
 
 
