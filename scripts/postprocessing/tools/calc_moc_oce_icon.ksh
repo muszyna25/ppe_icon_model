@@ -13,6 +13,10 @@ timmnfile=moc.bliz.r9368.2420-2470ym
 timmnfile=moc.loc.r9558.2046.2y
 timmnfile=moc.loc.r9513.2042.2y
 timmnfile=moc.loc.r9558.2061.2y
+timmnfile=$1
+
+# check intput:
+echo "Input file is '$timmnfile'"
 
 # via parameter
 timmnfile=${1:-moc.bliz.r9368.2420-2470ym}

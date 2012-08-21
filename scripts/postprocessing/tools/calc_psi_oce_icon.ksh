@@ -32,8 +32,11 @@ nlat=180
 #filestr=2420-2470ym
 
 # via parameter
-avgfile=${1:-timmean_2420-2470}
-filestr=${2:-2420-2470ym}
+avgfile=${1}
+filestr=${2}
+
+echo "Input file is '$avgfile'"
+echo "Tag is '$filestr'"
 ### input parameter end
 
 # file names
@@ -46,7 +49,7 @@ echo " working on files: input: $inpfile ; output: $outfile ; plot: $plotfile"
 
 # select wet_c (lsm) and u_vint (vertical integral of u)
 if [ ! -s $inpfile.srv ]; then
-  cdo remapnn,$resol -selvar,u_vint,wet_c $avgfile.nc $inpfile.nc
+  cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c $avgfile $inpfile.nc
 
 # store grid description, convert to service format
   cdo griddes $inpfile.nc > griddes.$resol
