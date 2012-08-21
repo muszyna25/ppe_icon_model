@@ -1876,9 +1876,9 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('geometric_height_at_half_level_center', 'm',         &
       &                   'geometric height at half level center', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf,                                          & 
                 & in_group=groups("atmo_ml_vars", "atmo_pl_vars") )
 
@@ -1890,7 +1890,7 @@ MODULE mo_nonhydro_state
       &                   'geometric height at full level center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'z_mc', p_metrics%z_mc,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
 
