@@ -19,8 +19,6 @@
 set -e
 
 ### input parameter
-#nlon=72
-#nlat=36
 # 1x1 deg resolution
 nlon=360
 nlat=180
@@ -34,9 +32,11 @@ nlat=180
 # via parameter
 avgfile=${1}
 filestr=${2}
+weightfile=${3}
 
 echo "Input file is '$avgfile'"
 echo "Tag is '$filestr'"
+echo "Weightsfile is '$weightfile'"
 ### input parameter end
 
 # file names
@@ -45,19 +45,30 @@ inpfile=uvint.${resol}.$filestr
 outfile=psi.${resol}.$filestr
 plotfile=nclpsi.$filestr
 
-echo " working on files: input: $inpfile ; output: $outfile ; plot: $plotfile"
+echo " working on files: input: $inpfile ; output: $outfile ; plot: $plotfile ; resolution: $resol"
 
 # select wet_c (lsm) and u_vint (vertical integral of u)
 if [ ! -s $inpfile.srv ]; then
-  cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c $avgfile $inpfile.nc
+  if [ -z "$weightfile" ]; then
+    echo "weightfile is not given! Use remapnn ..."
+    cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c $avgfile $inpfile.nc
+  else
+    echo "weightfile is given:'$weightfile'. Use remap ..."
+    cdo remap,r360x180,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
+  fi
 
-# store grid description, convert to service format
+  # store grid description, convert to service format
+  echo "cdo -v griddes $inpfile.nc > griddes.$resol"
   cdo griddes $inpfile.nc > griddes.$resol
+
+  echo "cdo -v -f srv copy $inpfile.nc $inpfile.srv"
   cdo -f srv copy $inpfile.nc $inpfile.srv
   rm $inpfile.nc
+else
+  echo "Use input for the psi-computation:'$inpfile.srv'"
 fi
 
-cat >scr-psiread.f90 <<EOF
+cat > scr-psiread.f90 <<EOF
 !-------------------------------------------------------------------------  
 !
 !
@@ -75,65 +86,60 @@ PROGRAM psiread
 
 IMPLICIT NONE
 
-  INTEGER, PARAMETER ::  rho_ref = 1025.022            ! reference density
+INTEGER, PARAMETER ::  rho_ref = 1025.022            ! reference density
 
-! INTEGER, PARAMETER ::  nlat = 36                     ! meridional dimension of regular grid
-! INTEGER, PARAMETER ::  nlon = 72                     ! zonal dimension of regular grid
-  INTEGER, PARAMETER ::  nlat = $nlat                  ! meridional dimension of regular grid
-  INTEGER, PARAMETER ::  nlon = $nlon                  ! zonal dimension of regular grid
+INTEGER, PARAMETER ::  nlat = $nlat                  ! meridional dimension of regular grid
+INTEGER, PARAMETER ::  nlon = $nlon                  ! zonal dimension of regular grid
 
-  INTEGER, PARAMETER ::  nlev = 20                     ! vertical dimension of experiment
+INTEGER, PARAMETER ::  nlev = 20                     ! vertical dimension of experiment
 
-  ! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
-  INTEGER, PARAMETER ::  jsmth = 3                  
-  INTEGER            :: jb, jc, jk, i_startidx, i_endidx
-  INTEGER            :: jlat, jlon, jx, jy
-  INTEGER            :: isrv(8)
+! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
+INTEGER, PARAMETER ::  jsmth = 3                  
+INTEGER            :: jb, jc, jk, i_startidx, i_endidx
+INTEGER            :: jlat, jlon, jx, jy
+INTEGER            :: isrv(8)
 
 
-  REAL               :: z_lat_dist, erad, pi
-  REAL               :: z_uint_reg(nlon,nlat)     ! vertical integral on regular grid
-  REAL               :: psi_reg(nlon,nlat)        ! horizontal stream function
-  REAL               :: wet_c(nlon,nlev,nlat)     ! slm
+REAL               :: z_lat_dist, erad, pi
+REAL               :: z_uint_reg(nlon,nlat)     ! vertical integral on regular grid
+REAL               :: psi_reg(nlon,nlat)        ! horizontal stream function
+REAL               :: wet_c(nlon,nlev,nlat)     ! slm
 
-  !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
+!CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
-  !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
 
-  psi_reg(:,:)    = 0.0
-  z_uint_reg(:,:) = 0.0
+psi_reg(:,:)    = 0.0
+z_uint_reg(:,:) = 0.0
 
-  ! test calculation - Pacific; note that first row is at Antarctica
-  ! latitude  ~  50S = 40 north of SP
-  ! longitude ~ 270E = 90W
-  jy = 1 + 40*nlat/180
-  jx = 1 + 270*nlat/360
+! test calculation - Pacific; note that first row is at Antarctica
+! latitude  ~  50S = 40 north of SP
+! longitude ~ 270E = 90W
+jy = 1 + 40*nlat/180
+jx = 1 + 270*nlat/360
 
 
-  ! (1) barotropic system - done in ICON ocean model:
-  !     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
- ! u_vint(:,:)     = 0.0_wp
- ! DO jb = all_cells%start_block, all_cells%end_block
- !   CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
- !   DO jk = 1, n_zlev
- !     DO jc = i_startidx, i_endidx
- !       delta_z = v_base%del_zlev_m(jk)
- !       IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + h(jc,jb)
- !       u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
- !     END DO
- !   END DO
- ! END DO
+! (1) barotropic system - done in ICON ocean model:
+!     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
+! u_vint(:,:)     = 0.0_wp
+! DO jb = all_cells%start_block, all_cells%end_block
+!   CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+!   DO jk = 1, n_zlev
+!     DO jc = i_startidx, i_endidx
+!       delta_z = v_base%del_zlev_m(jk)
+!       IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + h(jc,jb)
+!       u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
+!     END DO
+!   END DO
+! END DO
 
-  ! (2) read barotropic system: first wet_c
+! (2) read barotropic system: first wet_c
   open (11,file="$inpfile.srv", form='unformatted')
   open (80,file="$outfile.srv", form='unformatted')
 
-  !open (11,file='uvint.r72x36.avg45.srv', form='unformatted')
-  !open (80,file=  'psi.r72x36.avg45.srv', form='unformatted')
 
   do jk=1,nlev
     read (11) isrv
-!   write (*,*) isrv
     read (11) wet_c(:,jk,:)
 
     IF (jk == 1) THEN
@@ -167,29 +173,16 @@ IMPLICIT NONE
   !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
   psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
 
-! write(*,*) 'jx=',jx,' jy=',jy,' wet_c     =',wet_c(jx,1,jy)
-! write(*,*) 'jx=',jx,' jy=',jy,' psi_reg   =',psi_reg(jx,jy)
-! write(*,*) 'write global PSI at idate:', isrv(3)
 
   write(80) (isrv(jb),jb=1,8)
   write(80) ((psi_reg(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
 
-! write(82,*) (isrv(jb),jb=1,8)
-! do jlat=1,nlat
-!     write(82,*) 'jlat=',jlat
-!     write(82,'(1p10e12.3)') (psi_reg(jlon,jlat),jlon=1,nlon)
-!      write(82,'(1p10e12.3)') (wet_c(jlon,1,jlat),jlon=1,nlon)
-! enddo
-! write(83,*) (isrv(jb),jb=1,8), 'WET(1)'
-! write(83,'(72i1)') ((int(wet_c(jlon,1,jlat)+0.1),jlon=1,nlon),jlat=1,nlat)
-! write(83,*) (isrv(jb),jb=1,8), 'WET(16)'
-! write(83,'(72i1)') ((int(wet_c(jlon,16,jlat)+0.1),jlon=1,nlon),jlat=1,nlat)
 
 END PROGRAM psiread
 !-------------------------------------------------------------------------  
 EOF
 
-gfortran -o scr-psiread.x scr-psiread.f90 
+gfortran -o scr-psiread.x scr-psiread.f90
 ./scr-psiread.x
 rm scr-psiread.*
 
@@ -198,13 +191,14 @@ cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfi
 rm $outfile.srv
 
 # plot with nclsh:
-nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
-  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps \
-  -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \
-
-#  -colormap=testcmap \
-#  -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150
-
+nclsh $ICONPLOT \
+  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \
+  -selMode=manual -minVar=-60 -maxVar=-10 -numLevs=25 -bStrg=' ' -maskName=wet_c \
+  -withLineLabels \
+  -mapLLC=120,10 -mapURC=160,40 #north-atlantic gyre
+# -mapLLC=-77,20 -mapURC=-70,35 #north-atlantic gyre
+# -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
+# -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
 # -maxView \
 # -selMode=manual -minVar=-250 -maxVar=250 -numLevs=20
 # -selMode=manual -minVar=-250 -maxVar=200 -numLevs=15
