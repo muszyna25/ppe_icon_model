@@ -8,6 +8,8 @@
 #   - calculation of global/Atlantic/Pacific+Indian MOC is done in the model
 #   - written in extra format
 #   - simple splitting of MOC result file and plotting using cdo and ncl
+#   - options: give masked file, which can be computed from the input like this:
+#     cdo -setmisstoc,0.0 -div timmean_moc_0185-0190.ext timmean_moc_0185-0190.ext mocMask.nc
 
 ifile=moc.bliz.r9368.2420-2470ym
 ifile=moc.loc.r9558.2046.2y
