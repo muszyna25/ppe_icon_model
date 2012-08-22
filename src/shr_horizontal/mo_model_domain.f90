@@ -677,8 +677,6 @@ MODULE mo_model_domain
     INTEGER :: n_patch_verts
     !
     ! ! number of cells, edges and vertices in the global patch
-    ! ! used only for debugging purposes
-    !
     INTEGER :: n_patch_cells_g
     INTEGER :: n_patch_edges_g
     INTEGER :: n_patch_verts_g
@@ -773,6 +771,16 @@ MODULE mo_model_domain
     TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_e
     TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c_fbk
     TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_e_fbk
+
+    ! Halo comm patterns for the icon_commm_lib
+    INTEGER ::  sync_cells_not_in_domain
+    INTEGER ::  sync_cells_not_owned       ! = cells_not_in_domain
+    INTEGER ::  sync_cells_one_edge_in_domain
+    INTEGER ::  sync_edges_not_owned
+    INTEGER ::  sync_edges_not_in_domain
+    INTEGER ::  sync_verts_not_owned
+    INTEGER ::  sync_verts_not_in_domain
+    
     
   END TYPE t_patch
   

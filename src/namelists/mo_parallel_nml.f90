@@ -48,6 +48,7 @@ MODULE mo_parallel_nml
     & config_n_ghost_rows        => n_ghost_rows,        &
     & config_division_method     => division_method,     &
     & config_division_file_name  => division_file_name,  &
+    & config_rad_division_file_name  => radiation_division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
     & config_l_fast_sum          => l_fast_sum,          &
     & config_p_test_run          => p_test_run,          &
@@ -101,6 +102,7 @@ MODULE mo_parallel_nml
                                 ! div_metis     = 2  ! Use Metis
 
     CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
+    CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if div_from_file
     
     ! Flag if checks in a verification run should be logged
     LOGICAL :: l_log_checks
@@ -174,7 +176,7 @@ MODULE mo_parallel_nml
       & parallel_radiation_mode,  use_icon_comm, &
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
-      & division_file_name, use_dycore_barrier, &
+      & division_file_name, radiation_division_file_name, use_dycore_barrier, &
       & use_sp_output, itype_exch_barrier, exch_msgsize, &
       & icon_comm_method
 
@@ -191,6 +193,7 @@ MODULE mo_parallel_nml
     n_ghost_rows = 1
     division_method = div_geometric
     division_file_name = ""
+    radiation_division_file_name = ""
      
     ! Flag if checks in a verification run should be logged
     l_log_checks = .FALSE.
@@ -289,6 +292,7 @@ MODULE mo_parallel_nml
     config_n_ghost_rows        = n_ghost_rows
     config_division_method     = division_method
     config_division_file_name  = division_file_name
+    config_rad_division_file_name  = radiation_division_file_name
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run

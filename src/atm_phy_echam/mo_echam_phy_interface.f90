@@ -58,8 +58,7 @@ MODULE mo_echam_phy_interface
   USE mo_parallel_config,   ONLY: nproma, use_icon_comm, p_test_run
   
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
-     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, cells_not_in_domain,&
-     & is_ready, until_sync
+     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
   USE mo_radiation_config,  ONLY: dt_rad,izenith
@@ -533,9 +532,9 @@ CONTAINS
 !$OMP END PARALLEL
 
      IF (use_icon_comm) THEN
-       temp_comm = new_icon_comm_variable(dyn_tend%temp, cells_not_in_domain, p_patch, &
+       temp_comm = new_icon_comm_variable(dyn_tend%temp, p_patch%sync_cells_not_in_domain,  &
          & status=is_ready, scope=until_sync, name="echam dyn_tend temp")
-       tracers_comm = new_icon_comm_variable(dyn_tend%tracer, cells_not_in_domain, p_patch, &
+       tracers_comm = new_icon_comm_variable(dyn_tend%tracer, p_patch%sync_cells_not_in_domain, &
          & status=is_ready, scope=until_sync, name="echam dyn_tend tracer")
      ELSE
 !     IF (timers_level > 5) CALL timer_start(timer_echam_sync_temp)
@@ -580,7 +579,7 @@ CONTAINS
       ! Now derive the physics-induced normal wind tendency, and add it to the
       ! total tendency.
       IF (use_icon_comm) THEN
-        CALL icon_comm_sync(zdudt, zdvdt, cells_not_in_domain, p_patch)
+        CALL icon_comm_sync(zdudt, zdvdt, p_patch%sync_cells_not_in_domain)
       ELSE
         CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
       ENDIF

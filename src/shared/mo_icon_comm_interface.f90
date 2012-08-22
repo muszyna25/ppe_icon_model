@@ -75,7 +75,7 @@ CONTAINS
     
     DO grid_id = 1, n_dom
       ! create the communication patterns
-      CALL init_icon_comm_patterns(p_patch(grid_id))
+      CALL init_icon_std_comm_patterns(p_patch(grid_id))
 
       ! create the communicators for major variables
 !       p_hydro_state(grid_id)%tend_phy%temp_comm = &

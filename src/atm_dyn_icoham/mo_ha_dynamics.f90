@@ -70,7 +70,7 @@ MODULE mo_ha_dynamics
     & timer_dyn_temp
    
    USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, &
-     & icon_comm_sync, icon_comm_sync_all, cells_not_in_domain, edges_not_owned, is_ready, &
+     & icon_comm_sync, icon_comm_sync_all,  is_ready, &
      & until_sync
 
   IMPLICIT NONE
@@ -212,9 +212,9 @@ CONTAINS
       ! halo surface proessure has also been calculated in the continuity
 !       pres_sfc_comm = new_icon_comm_variable(pt_tend_dyn%pres_sfc, cells_not_in_domain, pt_patch, &
 !         & status=is_ready, scope=until_sync, name="dyn_temp pres_sfc")
-      temp_comm = new_icon_comm_variable(pt_tend_dyn%temp, cells_not_in_domain, pt_patch, &
+      temp_comm = new_icon_comm_variable(pt_tend_dyn%temp, pt_patch%sync_cells_not_in_domain, &
         & status=is_ready, scope=until_sync, name="dyn_temp temp")
-      vn_comm = new_icon_comm_variable(pt_tend_dyn%vn, edges_not_owned, pt_patch, &
+      vn_comm = new_icon_comm_variable(pt_tend_dyn%vn, pt_patch%sync_edges_not_owned, &
         & status=is_ready, scope=until_sync, name="dyn_temp vn")
       CALL icon_comm_sync_all()
     ELSE
@@ -298,7 +298,7 @@ CONTAINS
    !    is required here.
    IF (use_icon_comm) THEN
 !      p_3d => p_mflux
-     CALL icon_comm_sync(p_mflux, edges_not_owned, pt_patch)
+     CALL icon_comm_sync(p_mflux, pt_patch%sync_edges_not_owned)
    ELSE
      CALL sync_patch_array(SYNC_E, pt_patch, p_mflux)
    ENDIF

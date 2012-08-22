@@ -41,23 +41,30 @@
 
 MODULE mo_rrtm_data_interface
 
-  USE mo_exception,           ONLY: message,  finish !message_tex
+  USE mo_exception,           ONLY: message, get_filename_noext, finish !message_tex
   USE mo_kind,                ONLY: wp
-  USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
+  USE mo_io_units,            ONLY: find_next_free_unit, filename_max
+  
+  USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydro_types,      ONLY: t_nh_diag
   
-  USE mo_parallel_config,     ONLY: parallel_radiation_mode
-  USE mo_mpi,                 ONLY: my_process_is_mpi_seq
-  
+  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name
+  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
+    & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
+    & get_my_mpi_work_communicator, p_bcast
+  USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern
+
+
   IMPLICIT NONE
 
   PRIVATE
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
     
+
   !--------------------------------------------------------------------------
   TYPE t_rrtm_data
 
@@ -70,6 +77,10 @@ MODULE mo_rrtm_data_interface
     TYPE(t_nwp_phy_diag), POINTER :: prm_diag
     TYPE(t_lnd_prog),     POINTER :: lnd_prog_now
 
+    ! communication patterns
+    INTEGER, POINTER :: global_index(:), dynamics_owner(:)    
+    INTEGER :: radiation_recv_comm_pattern, radiation_send_comm_pattern
+    
     !------------------------------------------
     ! grid parameters
     INTEGER   :: no_of_cells
@@ -78,9 +89,7 @@ MODULE mo_rrtm_data_interface
     INTEGER   :: nproma
     INTEGER   :: no_of_blocks, end_index
 
-    ! communication patterns
-    INTEGER :: send_out_data, recv_input_data
-
+    
     !------------------------------------------
     ! INPUT
     REAL(wp)              :: p_sim_time
@@ -138,14 +147,117 @@ CONTAINS
 
   !-----------------------------------------
   !>
-  SUBROUTINE init_rrtm_model_data(no_of_cells, full_levels, half_levels, nproma)
-    INTEGER, INTENT(in) :: no_of_cells, full_levels, half_levels, nproma
+  SUBROUTINE init_rrtm_model_redistributed(patch)
+    TYPE(t_patch), INTENT(in), TARGET :: patch
 
+    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER :: my_radiation_cells
+    
+    INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
+    INTEGER :: return_status, file_id, j
+    
+    CHARACTER(*), PARAMETER :: method_name = "init_rrtm_model_redistributed"
+    
     IF (parallel_radiation_mode <= 0) RETURN
     IF (my_process_is_mpi_seq()) THEN
       parallel_radiation_mode = 0
       RETURN
     ENDIF
+
+    my_mpi_work_id        = get_my_mpi_work_id()
+    my_mpi_work_comm_size = get_my_mpi_work_comm_size()
+    workroot_mpi_id       = get_mpi_all_workroot_id()
+    my_mpi_work_communicator = get_my_mpi_work_communicator()
+
+    ! NOTE: this global array should be eventully replaced by local arrays
+    !       this is a first implementation
+    ALLOCATE(radiation_owner(patch%n_patch_cells_g), STAT=return_status)
+    IF (return_status /= 0 ) &
+      CALL finish (method_name,'ALLOCATE(radiation_owner) failed')
+    
+    ! read the radiation re-distribution from file
+    IF (my_mpi_work_id == workroot_mpi_id) THEN
+
+      ! read all the radiation owners and sent the info to each procs
+        
+      IF (radiation_division_file_name == "") THEN
+        radiation_division_file_name = &
+          & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
+      ENDIF
+        
+      WRITE(0,*) "Read radiation redistribution from file: ", TRIM(radiation_division_file_name), &
+        & " total cells=", patch%n_patch_cells_g
+      file_id = find_next_free_unit(10,900)
+      OPEN(file_id,FILE=TRIM(radiation_division_file_name), STATUS='OLD', IOSTAT=return_status)
+      IF(return_status /= 0) CALL finish(method_name,&
+        & 'Unable to open input file: '//TRIM(radiation_division_file_name))
+        
+      DO j = 1, patch%n_patch_cells_g
+        READ(file_id,*,IOSTAT=return_status) radiation_owner(j)
+        IF(return_status /= 0) CALL finish(method_name,&
+          & 'Error reading: '//TRIM(radiation_division_file_name))
+      ENDDO
+      
+      CLOSE(file_id)
+
+      ! some checks
+      IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
+         & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
+        WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
+        & " MINAVAL=", MINVAL(radiation_owner(:)), &
+          " MAXVAL=",  MAXVAL(radiation_owner(:))
+        CALL finish(method_name,'Invalid redistribution')
+      ENDIF
+      
+    ENDIF
+      
+    CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
+
+    !-------------------------------
+    ! get my radiation cells
+    my_radiation_cells = 0
+    DO j=1, patch%n_patch_cells_g
+      IF (radiation_owner(j) == my_mpi_work_id) THEN
+        my_radiation_cells = my_radiation_cells + 1
+        ! keep the global index in the first part of the radiation_owner
+        radiation_owner(my_radiation_cells) = j
+      ENDIF
+    ENDDO
+    
+    ALLOCATE(rrtm_model_data%global_index(my_radiation_cells), STAT=return_status)
+    IF (return_status /= 0 ) &
+      CALL finish (method_name,'ALLOCATE(global_index) failed')
+    rrtm_model_data%global_index(1:my_radiation_cells) = radiation_owner(1:my_radiation_cells)
+    DEALLOCATE(radiation_owner)
+
+    !-------------------------------
+    ! get the dymamics owners of my radiation cells
+    ALLOCATE(rrtm_model_data%dynamics_owner(my_radiation_cells), STAT=return_status)
+    DO j=1, my_radiation_cells
+      rrtm_model_data%dynamics_owner(j) = &
+      & patch%cells%owner_g(rrtm_model_data%global_index(j))
+    ENDDO
+
+    ! create the receive communicator from the dynamics
+    rrtm_model_data%radiation_recv_comm_pattern =            &
+      & new_icon_comm_pattern(                               &
+      & total_no_of_points = my_radiation_cells,             &
+      & receive_from_owner = rrtm_model_data%dynamics_owner, &
+      & my_global_index = rrtm_model_data%global_index,      &
+      & owners_local_index = patch%cells%loc_index,          &
+      & allow_send_to_myself = .true. ,                      &
+      & name = "radiation_comm" )
+
+    ! create the inverse communicator, from radiation to dynamics
+    
+
+  END SUBROUTINE init_rrtm_model_redistributed
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE init_rrtm_model_data(no_of_cells, full_levels, half_levels, nproma)
+    INTEGER, INTENT(in) :: no_of_cells, full_levels, half_levels, nproma
     
     ! fill the rrtm_data parameters
     rrtm_model_data%no_of_cells = no_of_cells

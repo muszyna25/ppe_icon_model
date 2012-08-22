@@ -101,8 +101,7 @@ MODULE mo_nh_interface_nwp
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
-     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, cells_not_in_domain,&
-     & is_ready, until_sync, cells_one_edge_in_domain
+     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
   USE mo_art_config,          ONLY:art_config
@@ -1186,7 +1185,7 @@ CONTAINS
       IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
 
       IF (use_icon_comm) THEN
-        tracers_comm = new_icon_comm_variable(pt_prog_rcf%tracer, cells_not_in_domain, pt_patch, &
+        tracers_comm = new_icon_comm_variable(pt_prog_rcf%tracer, pt_patch%sync_cells_not_in_domain,  &
           & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
       ELSE
         ! Synchronize tracers if any of the updating (fast-physics) processes was active
@@ -1215,16 +1214,17 @@ CONTAINS
       
       IF (lhdiff_rcf) THEN ! in this case, exner_old also needs to be synchronized
         IF (use_icon_comm) THEN
-          tempv_comm = new_icon_comm_variable(pt_diag%tempv, cells_not_in_domain, pt_patch, &
+          tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
             & status=is_ready, scope=until_sync, name="pt_diag%tempv")
-          exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, cells_not_in_domain, &
-            & pt_patch, status=is_ready, scope=until_sync, name="pt_diag%exner_old")
+          exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
+            & pt_patch%sync_cells_not_in_domain, &
+            & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
         ELSE
           CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_diag%tempv, pt_diag%exner_old)
         ENDIF
       ELSE
         IF (use_icon_comm) THEN
-          tempv_comm = new_icon_comm_variable(pt_diag%tempv, cells_not_in_domain, pt_patch, &
+          tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
             & status=is_ready, scope=until_sync, name="pt_diag%tempv")
         ELSE
           CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
@@ -1243,19 +1243,21 @@ CONTAINS
     
       IF (lcall_phy_jg(itturb) ) THEN
         ddt_u_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_u_turb, &
-          & cells_one_edge_in_domain, pt_patch, status=is_ready, scope=until_sync, &
+          & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
           & name="prm_nwp_tend%ddt_u_turb")
         ddt_v_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_v_turb, &
-          & cells_one_edge_in_domain, pt_patch, status=is_ready, scope=until_sync, &
+          & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
           & name="prm_nwp_tend%ddt_v_turb")
           
         IF ( l_any_slowphys ) THEN
           p_comm_3d => z_ddt_u_tot
-          z_ddt_u_tot_comm = new_icon_comm_variable(p_comm_3d, cells_one_edge_in_domain, &
-            & pt_patch, status=is_ready, scope=until_sync, name="z_ddt_u_tot")
+          z_ddt_u_tot_comm = new_icon_comm_variable(p_comm_3d, &
+            & pt_patch%sync_cells_one_edge_in_domain, &
+            & status=is_ready, scope=until_sync, name="z_ddt_u_tot")
           p_comm_3d => z_ddt_v_tot
-          z_ddt_v_tot_comm = new_icon_comm_variable(p_comm_3d, cells_one_edge_in_domain, &
-            & pt_patch, status=is_ready, scope=until_sync, name="z_ddt_v_tot")
+          z_ddt_v_tot_comm = new_icon_comm_variable(p_comm_3d, &
+            & pt_patch%sync_cells_one_edge_in_domain, &
+            & status=is_ready, scope=until_sync, name="z_ddt_v_tot")
         ENDIF        
       ENDIF
       
