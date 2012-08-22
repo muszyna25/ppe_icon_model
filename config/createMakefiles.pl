@@ -108,9 +108,9 @@ foreach $dir ( @directories ) {
     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
     print MAKEFILE "\n";
 
-    print MAKEFILE "%.obj: %.f90\n";
-    print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
-    print MAKEFILE "\n";
+#     print MAKEFILE "%.obj: %.f90\n";
+#     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
+#     print MAKEFILE "\n";
   
 
 # write all source files but not the program files
@@ -176,8 +176,8 @@ foreach $dir ( @directories ) {
 	    print MAKEFILE "$okey: $value\n";
 	    print MAKEFILE "$key: $okey \$(OBJS)\n";
 	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/\$@ \$< \$(OBJS) \$(LIBS)\n";
-	    print MAKEFILE "$key.exe: \n";
-	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/$key $key.o \$< \$(OBJS) \$(LIBS)\n\n";
+# 	    print MAKEFILE "$key.exe: \n";
+# 	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/$key $key.o \$< \$(OBJS) \$(LIBS)\n\n";
 	}
     }
     
