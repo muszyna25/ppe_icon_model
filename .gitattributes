@@ -641,6 +641,7 @@ run/exp.oce_base -text
 run/exp.oce_channel -text
 run/exp.oce_density_front -text
 run/exp.oce_densityfront -text
+run/exp.oce_diffusion -text
 run/exp.oce_mpiom -text
 run/exp.oce_omip -text
 run/exp.oce_test_numeric -text
