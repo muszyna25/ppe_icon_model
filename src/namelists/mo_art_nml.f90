@@ -136,7 +136,7 @@ CONTAINS
     lart_rad_volcano    = .FALSE.        ! Radiative impact of volcanic ash
     lart_cloud_volcano  = .FALSE.        ! Impact on clouds
 
-    nart_emis_volcano_update= 0._wp      ! Time interval for reading emission file
+    nart_emis_volcano_update= 0          ! Time interval for reading emission file
     lart_volclist=.FALSE.
     art_volclist_tot(:)%lon   = -1._wp     ! Longitude coordinate of each volcano. 
                                            !-1 is used for creating the list of volcanoes.  
