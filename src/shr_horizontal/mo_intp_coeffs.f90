@@ -1197,7 +1197,7 @@ DO iter = 1, niter
   ! Note: the summation needs to be split into 4 loops in order to
   ! allow for vectorization and parallelization
 
-  wgt_loc_sum = 0
+  wgt_loc_sum = 0._wp
 
   rl_start = 2
   rl_end = min_rlcell
