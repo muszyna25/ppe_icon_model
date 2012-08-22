@@ -4738,8 +4738,8 @@ SUBROUTINE terra_multlay_init (                &
 !The sum of wtot_snow, i.e. the "old" total water equivalent depth
         zw_snow_old  (:) = 0.0_ireals
         zrho_snow_old(:) = 0.0_ireals
-        zicount1(:)      = 0.0_ireals
-        zicount2(:)      = 0.0_ireals
+        zicount1(:)      = 0
+        zicount2(:)      = 0
         DO ksn = 1, ke_snow
           DO i = istarts, iends
             zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)
