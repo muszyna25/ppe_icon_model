@@ -621,9 +621,9 @@
           CALL sync_idx(SYNC_C, SYNC_C, ptr_patch, ptr_int_lonlat%rbf_c2l_idx(cnt,:,:), &
             &                                      ptr_int_lonlat%rbf_c2l_blk(cnt,:,:))
         ENDDO
-        z_stencil(:,:) = ptr_int_lonlat%rbf_c2l_stencil(:,:)
+        z_stencil(:,:) = REAL(ptr_int_lonlat%rbf_c2l_stencil(:,:),wp)
         CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
-        ptr_int_lonlat%rbf_c2l_stencil(:,:) = z_stencil(:,:)
+        ptr_int_lonlat%rbf_c2l_stencil(:,:) = NINT(z_stencil(:,:))
 
       ELSE IF (rbf_dim_c2l == rbf_c2grad_dim) THEN
 
@@ -1560,9 +1560,8 @@
 
       ! Local variables
       INTEGER :: slev, elev,               &  ! vertical start and end level
-        &          jc, jb, jk,               &  ! integer over lon-lat points, levels
-        &          i_startidx, i_endidx,     &  ! start/end index
-        &          i
+        &          jc, jb, jk,             &  ! integer over lon-lat points, levels
+        &          i_startidx, i_endidx       ! start/end index
 
       INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
       REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff

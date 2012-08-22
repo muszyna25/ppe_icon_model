@@ -312,9 +312,9 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
                                            & ptr_int%rbf_vec_blk_c(jb,:,:))
   ENDDO
 
-  z_stencil(:,:) = ptr_int%rbf_vec_stencil_c(:,:)
+  z_stencil(:,:) = REAL(ptr_int%rbf_vec_stencil_c(:,:),wp)
   CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
-  ptr_int%rbf_vec_stencil_c(:,:) = z_stencil(:,:)
+  ptr_int%rbf_vec_stencil_c(:,:) = NINT(z_stencil(:,:))
 
 END SUBROUTINE rbf_vec_index_cell
 
@@ -577,9 +577,9 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
                                            & ptr_int%rbf_vec_blk_v(jb,:,:))
   ENDDO
 
-  z_stencil(:,:) = ptr_int%rbf_vec_stencil_v(:,:)
+  z_stencil(:,:) = REAL(ptr_int%rbf_vec_stencil_v(:,:),wp)
   CALL sync_patch_array(SYNC_V,ptr_patch,z_stencil)
-  ptr_int%rbf_vec_stencil_v(:,:) = z_stencil(:,:)
+  ptr_int%rbf_vec_stencil_v(:,:) = NINT(z_stencil(:,:))
 
   jg = ptr_patch%id
   IF ((.NOT. l_limited_area) .AND. (jg == 1) .AND. (ipent /= 12)) THEN
@@ -681,9 +681,9 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_e,1),UBOUND(ptr_int%rbf_vec
   ENDDO
 
   ! Not really necessary, only for the case that rbf_vec_stencil_e should be changed:
-  z_stencil(:,:) = ptr_int%rbf_vec_stencil_e(:,:)
+  z_stencil(:,:) = REAL(ptr_int%rbf_vec_stencil_e(:,:),wp)
   CALL sync_patch_array(SYNC_E,ptr_patch,z_stencil)
-  ptr_int%rbf_vec_stencil_e(:,:) = z_stencil(:,:)
+  ptr_int%rbf_vec_stencil_e(:,:) = NINT(z_stencil(:,:))
 
 END SUBROUTINE rbf_vec_index_edge
 

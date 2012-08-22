@@ -398,9 +398,9 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
                                            & ptr_int_lsq%lsq_blk_c(:,:,cnt))
   ENDDO
 
-  z_stencil(:,:) = ptr_int_lsq%lsq_dim_stencil(:,:)
+  z_stencil(:,:) = REAL(ptr_int_lsq%lsq_dim_stencil(:,:),wp)
   CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
-  ptr_int_lsq%lsq_dim_stencil(:,:) = z_stencil(:,:)
+  ptr_int_lsq%lsq_dim_stencil(:,:) = NINT(z_stencil(:,:))
 
 
 END SUBROUTINE lsq_stencil_create

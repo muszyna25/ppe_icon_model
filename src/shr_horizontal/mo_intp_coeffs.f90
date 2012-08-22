@@ -1176,11 +1176,11 @@ END DO !block loop
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-z_inv_neighbor_id = inv_neighbor_id
+z_inv_neighbor_id = REAL(inv_neighbor_id,wp)
 CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,1))
 CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,2))
 CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,3))
-inv_neighbor_id = z_inv_neighbor_id
+inv_neighbor_id = NINT(z_inv_neighbor_id)
 
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
 
