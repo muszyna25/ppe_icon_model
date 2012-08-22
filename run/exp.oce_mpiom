@@ -147,6 +147,8 @@ cat > ${ocean_namelist} << EOF
   FLUX_CALCULATION_HORZ = 2      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 2      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   i_apply_bulk          = 1      ! 1=use bulk formula without sea ice
+  veloc_diffusion_order = 2      ! biharmonic friction
+  veloc_diffusion_type = 2       ! curl-curl form om laplacian
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
