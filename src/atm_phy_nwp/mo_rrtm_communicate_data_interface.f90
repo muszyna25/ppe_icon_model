@@ -55,7 +55,8 @@ MODULE mo_rrtm_data_interface
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
     & get_my_mpi_work_communicator, p_bcast
-  USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern
+  USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
+    & print_grid_comm_pattern
 
 
   IMPLICIT NONE
@@ -64,7 +65,6 @@ MODULE mo_rrtm_data_interface
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
     
-
   !--------------------------------------------------------------------------
   TYPE t_rrtm_data
 
@@ -246,11 +246,17 @@ CONTAINS
       & my_global_index = rrtm_model_data%global_index,      &
       & owners_local_index = patch%cells%loc_index,          &
       & allow_send_to_myself = .true. ,                      &
-      & name = "radiation_comm" )
+      & name = "radiation_rcv_from_dynamics" )
 
     ! create the inverse communicator, from radiation to dynamics
-    
+    rrtm_model_data%radiation_send_comm_pattern =            &
+      & inverse_of_icon_comm_pattern(                        &
+      &  in_comm_pattern_id = rrtm_model_data%radiation_recv_comm_pattern, &
+      &  name = "radiation_send_to_dynamics" )
 
+    CALL print_grid_comm_pattern(rrtm_model_data%radiation_recv_comm_pattern)
+    CALL print_grid_comm_pattern(rrtm_model_data%radiation_send_comm_pattern)
+    
   END SUBROUTINE init_rrtm_model_redistributed
   !-----------------------------------------
 

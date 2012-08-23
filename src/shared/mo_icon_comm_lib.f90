@@ -79,9 +79,6 @@ MODULE mo_icon_comm_lib
   PRIVATE
 
   ! public constants
-!   PUBLIC :: cells_not_owned, cells_not_in_domain, cells_one_edge_in_domain
-!   PUBLIC :: edges_not_owned, edges_not_in_domain
-!   PUBLIC :: verts_not_owned, verts_not_in_domain
   
   PUBLIC :: is_ready, until_sync
    
@@ -93,6 +90,7 @@ MODULE mo_icon_comm_lib
   PUBLIC :: destruct_icon_comm_lib
   
   PUBLIC :: new_icon_comm_pattern
+  PUBLIC :: inverse_of_icon_comm_pattern
   
   PUBLIC :: new_icon_comm_variable
   PUBLIC :: delete_icon_comm_variable
@@ -101,6 +99,7 @@ MODULE mo_icon_comm_lib
   PUBLIC :: icon_comm_sync
   PUBLIC :: icon_comm_sync_all
 
+  PUBLIC :: print_grid_comm_pattern
 !   PUBLIC :: icon_comm_show
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
@@ -124,20 +123,6 @@ MODULE mo_icon_comm_lib
   INTEGER, PARAMETER ::  communicate = 11
 
   !--------------------------------------------------------------
-  ! grid locations.
-  ! Note that these are used also as indexes for the communication patterns
-
-  ! Halo comm patterns: these will eventually be specialized
-!   INTEGER ::  cells_not_in_domain = -1
-!   INTEGER ::  cells_not_owned = -1          ! = cells_not_in_domain
-!   INTEGER ::  cells_one_edge_in_domain = -1
-!   INTEGER ::  edges_not_owned = -1
-!   INTEGER ::  edges_not_in_domain = -1
-!   INTEGER ::  verts_not_owned = -1
-!   INTEGER ::  verts_not_in_domain = -1
-
-  ! non halo comm patterns, these should eventually go to a different universe
-!   INTEGER :: radiation_repartition
 
   !--------------------------------------------------------------
   INTEGER ::  max_comm_patterns = 0
@@ -228,9 +213,13 @@ MODULE mo_icon_comm_lib
 !     INTEGER :: dim_3                         !
     INTEGER :: dim_4                           ! =no_of_variables
         
-    REAL(wp), POINTER :: values_2d(:,:)     ! nproma, nblocks
-    REAL(wp), GENERAL_3D, POINTER :: values_3d   ! if 3D: nproma, vertical layers, nblocks
-    REAL(wp), POINTER :: values_4d(:,:,:,:) ! nproma, vertical layers, nblocks
+    REAL(wp), POINTER :: recv_values_2d(:,:)     ! nproma, nblocks
+    REAL(wp), GENERAL_3D, POINTER :: recv_values_3d   ! if 3D: nproma, vertical layers, nblocks
+    REAL(wp), POINTER :: recv_values_4d(:,:,:,:) ! nproma, vertical layers, nblocks
+    
+    REAL(wp), POINTER :: send_values_2d(:,:)     ! nproma, nblocks
+    REAL(wp), GENERAL_3D, POINTER :: send_values_3d   ! if 3D: nproma, vertical layers, nblocks
+    REAL(wp), POINTER :: send_values_4d(:,:,:,:) ! nproma, vertical layers, nblocks
 
     CHARACTER(len=32) :: name
     
@@ -280,9 +269,12 @@ MODULE mo_icon_comm_lib
   !-------------------------------------------------------------------------
   INTERFACE new_icon_comm_variable
     MODULE PROCEDURE new_comm_variable_r2d
+    MODULE PROCEDURE new_comm_var_r2d_recv_send
     MODULE PROCEDURE new_comm_variable_r3d
+    MODULE PROCEDURE new_comm_var_r3d_recv_send
 !     MODULE PROCEDURE new_comm_variable_r3d_target
     MODULE PROCEDURE new_comm_variable_r4d
+    MODULE PROCEDURE new_comm_var_r4d_recv_send
   END INTERFACE
   !-------------------------------------------------------------------------
   INTERFACE icon_comm_sync
@@ -455,9 +447,9 @@ CONTAINS
     CALL print_grid_comm_stats(grid_comm_pattern_list(p_patch%sync_edges_not_owned))
     CALL print_grid_comm_stats(grid_comm_pattern_list(p_patch%sync_verts_not_owned))
     IF ( icon_comm_debug) THEN
-      CALL print_grid_comm_pattern(grid_comm_pattern_list(p_patch%sync_cells_not_in_domain))
-      CALL print_grid_comm_pattern(grid_comm_pattern_list(p_patch%sync_edges_not_owned))
-      CALL print_grid_comm_pattern(grid_comm_pattern_list(p_patch%sync_verts_not_owned))
+      CALL print_grid_comm_pattern(p_patch%sync_cells_not_in_domain)
+      CALL print_grid_comm_pattern(p_patch%sync_edges_not_owned)
+      CALL print_grid_comm_pattern(p_patch%sync_verts_not_owned)
     ENDIF    
         
  !   CALL finish("init_icon_std_comm_patterns","ends")
@@ -748,6 +740,99 @@ CONTAINS
  
   END SUBROUTINE setup_grid_comm_pattern
   !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION inverse_of_icon_comm_pattern(in_comm_pattern_id, name)
+
+    INTEGER, INTENT(in) :: in_comm_pattern_id
+    CHARACTER(*), INTENT(in) :: name
+    
+    TYPE(t_grid_comm_pattern), POINTER :: initial_comm_pattern, inverse_comm_pattern
+    TYPE(t_process_comm_pattern), POINTER :: inv_proc_comm_pattern 
+    INTEGER :: no_of_recv_procs, no_of_send_procs, return_status, i, j, no_of_points
+    
+    CHARACTER(*), PARAMETER :: method_name = "inverse_of_icon_comm_pattern"
+
+    max_comm_patterns = max_comm_patterns + 1
+    IF (max_comm_patterns > allocated_comm_patterns) THEN
+      CALL finish("new_icon_comm_pattern","max_comm_patterns > allocated_comm_patterns")
+    ENDIF
+       
+    initial_comm_pattern => grid_comm_pattern_list(in_comm_pattern_id)
+    inverse_comm_pattern => grid_comm_pattern_list(max_comm_patterns)
+     
+    inverse_comm_pattern%id = max_comm_patterns
+    
+    no_of_recv_procs = initial_comm_pattern%no_of_send_procs
+    no_of_send_procs = initial_comm_pattern%no_of_recv_procs
+    inverse_comm_pattern%no_of_recv_procs = no_of_recv_procs
+    inverse_comm_pattern%no_of_send_procs = no_of_send_procs
+    
+    ALLOCATE(inverse_comm_pattern%recv(no_of_recv_procs),stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'ALLOCATE(inverse_comm_pattern%recv()')
+    ALLOCATE(inverse_comm_pattern%send(no_of_send_procs),stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'ALLOCATE(inverse_comm_pattern%send()')
+
+    ! fill recv patterns from the initial sent patterns
+    DO i=1, no_of_recv_procs
+      inv_proc_comm_pattern => inverse_comm_pattern%recv(i)
+      no_of_points = initial_comm_pattern%send(i)%no_of_points
+      
+      inv_proc_comm_pattern%pid = initial_comm_pattern%send(i)%pid
+      inv_proc_comm_pattern%no_of_points = no_of_points
+      inv_proc_comm_pattern%buffer_index = &
+        & get_recvbuffer_id_of_pid(inv_proc_comm_pattern%pid)
+        
+      ALLOCATE(inv_proc_comm_pattern%block_no(no_of_points),     &
+        &      inv_proc_comm_pattern%index_no(no_of_points),     &
+        &      inv_proc_comm_pattern%global_index(no_of_points), &
+        &      stat=return_status)
+      IF (return_status > 0) &
+        CALL finish (method_name, 'ALLOCATE(process_comm_pattern arrays)')
+
+      DO j=1, no_of_points
+        inv_proc_comm_pattern%block_no(j)     = initial_comm_pattern%send(i)%block_no(j)
+        inv_proc_comm_pattern%index_no(j)     = initial_comm_pattern%send(i)%index_no(j)
+        inv_proc_comm_pattern%global_index(j) = initial_comm_pattern%send(i)%global_index(j)
+      ENDDO
+
+    ENDDO ! i=1, no_of_recv_procs
+        
+    ! fill send patterns from the initial receive patterns
+    DO i=1, no_of_send_procs
+      inv_proc_comm_pattern => inverse_comm_pattern%send(i)
+      no_of_points = initial_comm_pattern%recv(i)%no_of_points
+      
+      inv_proc_comm_pattern%pid = initial_comm_pattern%recv(i)%pid
+      inv_proc_comm_pattern%no_of_points = no_of_points
+      inv_proc_comm_pattern%buffer_index = &
+        & get_sendbuffer_id_of_pid(inv_proc_comm_pattern%pid)
+        
+      ALLOCATE(inv_proc_comm_pattern%block_no(no_of_points),     &
+        &      inv_proc_comm_pattern%index_no(no_of_points),     &
+        &      inv_proc_comm_pattern%global_index(no_of_points), &
+        &      stat=return_status)
+      IF (return_status > 0) &
+        CALL finish (method_name, 'ALLOCATE(process_comm_pattern arrays)')
+
+      DO j=1, no_of_points
+        inv_proc_comm_pattern%block_no(j)     = initial_comm_pattern%recv(i)%block_no(j)
+        inv_proc_comm_pattern%index_no(j)     = initial_comm_pattern%recv(i)%index_no(j)
+        inv_proc_comm_pattern%global_index(j) = initial_comm_pattern%recv(i)%global_index(j)
+      ENDDO
+
+    ENDDO ! i=1, no_of_send_procs
+   !--------------------------------------------------------------
+   
+    inverse_comm_pattern%status = active
+    inverse_comm_pattern%name   = TRIM(name)
+    inverse_of_icon_comm_pattern = max_comm_patterns
+
+  END FUNCTION inverse_of_icon_comm_pattern
+  !-----------------------------------------------------------------------
     
   !-----------------------------------------------------------------------
   !>
@@ -791,12 +876,14 @@ CONTAINS
     
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE print_grid_comm_pattern(grid_comm_pattern)
-    TYPE(t_grid_comm_pattern), INTENT(in) :: grid_comm_pattern
+  SUBROUTINE print_grid_comm_pattern(comm_pattern_id)
+    INTEGER, INTENT(in) :: comm_pattern_id
 
+    TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: i
         
     IF ( .NOT. icon_comm_debug) RETURN
+    grid_comm_pattern => grid_comm_pattern_list(comm_pattern_id)
     
     write(log_file_id,*) " === Communication pattern info for ", TRIM(grid_comm_pattern%name), &
       & " id=", grid_comm_pattern%id
@@ -873,11 +960,11 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r4d(var,  comm_pattern_index, vertical_layers, &
+  INTEGER FUNCTION new_comm_variable_r4d(var, comm_pattern_index, vertical_layers, &
     & no_of_variables, status, scope, name )
-    INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
-    REAL(wp), POINTER  :: var(:,:,:,:)
+    REAL(wp), POINTER   :: var(:,:,:,:)
+    INTEGER, INTENT(IN) :: comm_pattern_index
     
      INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
@@ -887,96 +974,121 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
-    REAL(wp), POINTER  :: var_3d(:,:,:)
-    
-    CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r4d"
-
-    
-    IF  (this_is_mpi_sequential) THEN
-      new_comm_variable_r4d = 0
-      RETURN
-    ENDIF
-
-    var_3d => var(:,:,:,1)
-    IF (PRESENT(vertical_layers)) THEN
-      new_comm_variable_r4d = &
-        & new_comm_variable_r3d(var_3d,  comm_pattern_index, vertical_layers)
-    ELSE
-      new_comm_variable_r4d = &
-        & new_comm_variable_r3d(var_3d,  comm_pattern_index)
-    ENDIF
-    
-    comm_variable(new_comm_variable_r4d)%values_4d => var
-    NULLIFY(comm_variable(new_comm_variable_r4d)%values_3d)
-
-    IF (PRESENT(no_of_variables)) THEN   
-      comm_variable(new_comm_variable_r4d)%no_of_variables = no_of_variables
-    ELSE
-      comm_variable(new_comm_variable_r4d)%no_of_variables = SIZE(var,4)
-    ENDIF
-
-    comm_variable(new_comm_variable_r4d)%dim_4 = &
-      comm_variable(new_comm_variable_r4d)%no_of_variables
-
-    IF (PRESENT(status)) THEN
-      IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_variable_r4d)
-    ENDIF
-    
-    IF (PRESENT(scope)) THEN
-      comm_variable(new_comm_variable_r4d)%scope = scope
-    ELSE
-      comm_variable(new_comm_variable_r4d)%scope = global   
-    ENDIF
-    
-    IF (PRESENT(name)) THEN
-      comm_variable(new_comm_variable_r4d)%name = TRIM(name)
-    ELSE
-      comm_variable(new_comm_variable_r4d)%name = ""
-    ENDIF
-        
+    new_comm_variable_r4d = new_comm_var_r4d_recv_send( &
+      & var, var, comm_pattern_index, vertical_layers, &
+      & no_of_variables, status, scope, name )
+            
   END FUNCTION new_comm_variable_r4d
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-!   INTEGER FUNCTION new_comm_variable_r3d_target(var,  comm_pattern_index, p_patch, &
-!     & vertical_layers, status, scope, name)
-!     
-!     INTEGER, INTENT(IN)       :: comm_pattern_index
-!     TYPE(t_patch), INTENT(IN) :: p_patch
-! !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
-!     REAL(wp), TARGET, INTENT(inout) :: var(:,:,:)
-!     
-! !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
-! !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
-!     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
-! !     TYPE(t_comm_pattern), INTENT(IN), POINTER, OPTIONAL :: comm_pattern
-!     INTEGER, INTENT(IN), OPTIONAL :: status    
-!     INTEGER, INTENT(IN), OPTIONAL :: scope
-!     CHARACTER(*), INTENT(IN), OPTIONAL :: name
-!     
-!     REAL(wp), POINTER :: p_var(:,:,:)
-! 
-!     p_var => var
-!     new_comm_variable_r3d_target = &
-!       & new_comm_variable_r3d(p_var, comm_pattern_index, p_patch, &
-!       & vertical_layers, status, scope, name)
-!       
-!   END FUNCTION new_comm_variable_r3d_target
+  INTEGER FUNCTION new_comm_var_r4d_recv_send(recv_var, send_var, comm_pattern_index, &
+    & vertical_layers, no_of_variables, status, scope, name )
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
+    REAL(wp), POINTER  :: recv_var(:,:,:,:)
+    REAL(wp), POINTER  :: send_var(:,:,:,:)
+    INTEGER, INTENT(IN)       :: comm_pattern_index
+    
+     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
+!     INTEGER, INTENT(IN), OPTIONAL :: var_dim
+    INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+!     TYPE(t_comm_pattern), INTENT(IN), POINTER, OPTIONAL :: comm_pattern
+    INTEGER, INTENT(IN), OPTIONAL :: status
+    INTEGER, INTENT(IN), OPTIONAL :: scope
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
+    
+    REAL(wp), POINTER  :: recv_var_3d(:,:,:), send_var_3d(:,:,:)
+    
+    CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r4d"
+
+    
+    IF  (this_is_mpi_sequential) THEN
+      new_comm_var_r4d_recv_send = 0
+      RETURN
+    ENDIF
+
+    recv_var_3d => recv_var(:,:,:,1)
+    send_var_3d => send_var(:,:,:,1)
+            
+    IF (PRESENT(vertical_layers)) THEN
+      new_comm_var_r4d_recv_send = &
+        & new_comm_var_r3d_recv_send(recv_var=recv_var_3d, send_var=send_var_3d, &
+        & comm_pattern_index = comm_pattern_index, vertical_layers = vertical_layers)
+    ELSE
+      new_comm_var_r4d_recv_send = &
+        & new_comm_var_r3d_recv_send(recv_var=recv_var_3d, send_var=send_var_3d, &
+        & comm_pattern_index = comm_pattern_index, vertical_layers = vertical_layers)
+    ENDIF
+    
+    comm_variable(new_comm_var_r4d_recv_send)%recv_values_4d => recv_var
+    comm_variable(new_comm_var_r4d_recv_send)%send_values_4d => send_var
+
+    NULLIFY(comm_variable(new_comm_var_r4d_recv_send)%recv_values_3d)
+    NULLIFY(comm_variable(new_comm_var_r4d_recv_send)%send_values_3d)
+
+    IF (PRESENT(no_of_variables)) THEN   
+      comm_variable(new_comm_var_r4d_recv_send)%no_of_variables = no_of_variables
+    ELSE
+      comm_variable(new_comm_var_r4d_recv_send)%no_of_variables = SIZE(recv_var,4)
+    ENDIF
+
+    comm_variable(new_comm_var_r4d_recv_send)%dim_4 = &
+      comm_variable(new_comm_var_r4d_recv_send)%no_of_variables
+
+    IF (PRESENT(status)) THEN
+      IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_var_r4d_recv_send)
+    ENDIF
+    
+    IF (PRESENT(scope)) THEN
+      comm_variable(new_comm_var_r4d_recv_send)%scope = scope
+    ELSE
+      comm_variable(new_comm_var_r4d_recv_send)%scope = global
+    ENDIF
+    
+    IF (PRESENT(name)) THEN
+      comm_variable(new_comm_var_r4d_recv_send)%name = TRIM(name)
+    ELSE
+      comm_variable(new_comm_var_r4d_recv_send)%name = ""
+    ENDIF
+        
+  END FUNCTION new_comm_var_r4d_recv_send
   !-----------------------------------------------------------------------
-  
+    
 
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r3d(var,  comm_pattern_index,  &
+  INTEGER FUNCTION new_comm_variable_r3d(var, comm_pattern_index,  &
+    & vertical_layers, status, scope, name) 
+    
+    REAL(wp), POINTER   :: var(:,:,:)
+    INTEGER, INTENT(IN) :: comm_pattern_index
+    
+    INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+    INTEGER, INTENT(IN), OPTIONAL :: status
+    INTEGER, INTENT(IN), OPTIONAL :: scope
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
+    
+    new_comm_variable_r3d =  new_comm_var_r3d_recv_send( &
+      & var, var, comm_pattern_index,  &
+      & vertical_layers, status, scope, name)   
+
+  END FUNCTION new_comm_variable_r3d
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  !! Creates a new comm_variable and returns its id.
+  INTEGER FUNCTION new_comm_var_r3d_recv_send(recv_var, send_var, comm_pattern_index,  &
     & vertical_layers, status, scope, name) !, &
    ! & var_dim, no_of_variables, vertical_layers)
     
-    INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
-    REAL(wp), POINTER   :: var(:,:,:)
+    REAL(wp), POINTER   :: recv_var(:,:,:)
+    REAL(wp), POINTER   :: send_var(:,:,:)
+    INTEGER, INTENT(IN) :: comm_pattern_index
     
 !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
@@ -989,31 +1101,23 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r3d"
         
     IF(this_is_mpi_sequential) THEN
-      new_comm_variable_r3d = 0
+      new_comm_var_r3d_recv_send = 0
       RETURN
     ENDIF
 
-    new_comm_variable_r3d = get_new_comm_variable()
-
-    ! where the variable lives
-!     SELECT CASE (comm_pattern_index)
-!     CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
-!       comm_variable(new_comm_variable_r3d)%comm_pattern_index = comm_pattern_index
-!    CASE default
-!       CALL finish(method_name, "Unrecoginzed comm_pattern_index")
-!     END SELECT
+    new_comm_var_r3d_recv_send = get_new_comm_variable()
     
-    comm_variable(new_comm_variable_r3d)%comm_pattern_index = comm_pattern_index
+    comm_variable(new_comm_var_r3d_recv_send)%comm_pattern_index = comm_pattern_index
 
     ! check if comm_pattern is initialized
     IF ( grid_comm_pattern_list(comm_pattern_index)%status == not_active ) &
       CALL finish(method_name, "grid_comm_pattern status = not_active")
     
-    comm_variable(new_comm_variable_r3d)%grid_comm_pattern => &
+    comm_variable(new_comm_var_r3d_recv_send)%grid_comm_pattern => &
         & grid_comm_pattern_list(comm_pattern_index)
     
     ! this is for a 3D variable
-    comm_variable(new_comm_variable_r3d)%grid_dim = grid_3D
+    comm_variable(new_comm_var_r3d_recv_send)%grid_dim = grid_3D
 
     ! check the dim_1
 !     IF( SIZE(var,1) /= nproma ) THEN
@@ -1022,48 +1126,79 @@ CONTAINS
 !     comm_variable(new_comm_variable_r3d)%dim_1 = SIZE(var,1)
     
     ! check the vertical_layers
-    comm_variable(new_comm_variable_r3d)%vertical_layers =  SIZE(var,LEVELS_POSITION)
+    comm_variable(new_comm_var_r3d_recv_send)%vertical_layers =  &
+      & SIZE(recv_var,LEVELS_POSITION)
     IF ( PRESENT(vertical_layers) ) THEN
-      IF ( vertical_layers <=  comm_variable(new_comm_variable_r3d)%vertical_layers) THEN
-         comm_variable(new_comm_variable_r3d)%vertical_layers = vertical_layers
+      IF ( vertical_layers <=  &
+        & comm_variable(new_comm_var_r3d_recv_send)%vertical_layers) THEN
+         comm_variable(new_comm_var_r3d_recv_send)%vertical_layers = vertical_layers
       ELSE
          CALL finish(method_name, "vertical_layers are greater than SIZE(var,2)")
       END IF
     END IF    
 
-    comm_variable(new_comm_variable_r3d)%values_3d => var
-    comm_variable(new_comm_variable_r3d)%no_of_variables = 1
+    comm_variable(new_comm_var_r3d_recv_send)%recv_values_3d => recv_var
+    comm_variable(new_comm_var_r3d_recv_send)%send_values_3d => send_var
     
     IF (PRESENT(status)) THEN
-      IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_variable_r3d )
+      IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_var_r3d_recv_send )
     ENDIF
     
     IF (PRESENT(scope)) THEN
-      comm_variable(new_comm_variable_r3d)%scope = scope
+      comm_variable(new_comm_var_r3d_recv_send)%scope = scope
     ELSE
-      comm_variable(new_comm_variable_r3d)%scope = global
+      comm_variable(new_comm_var_r3d_recv_send)%scope = global
     ENDIF
     
     IF (PRESENT(name)) THEN
-      comm_variable(new_comm_variable_r3d)%name = TRIM(name)
+      comm_variable(new_comm_var_r3d_recv_send)%name = TRIM(name)
     ELSE
-      comm_variable(new_comm_variable_r3d)%name = ""      
+      comm_variable(new_comm_var_r3d_recv_send)%name = ""
     ENDIF
 
-  END FUNCTION new_comm_variable_r3d
+  END FUNCTION new_comm_var_r3d_recv_send
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r2d(var,  comm_pattern_index, &
+  INTEGER FUNCTION new_comm_variable_r2d(var, comm_pattern_index, &
     & vertical_layers, status, scope, name) !, &
    ! & var_dim, no_of_variables, vertical_layers)
     
-    INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
     REAL(wp), POINTER   :: var(:,:)
     
+    INTEGER, INTENT(IN)       :: comm_pattern_index
+
+!     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
+!     INTEGER, INTENT(IN), OPTIONAL :: var_dim
+     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+!     TYPE(t_comm_pattern), INTENT(IN), POINTER, OPTIONAL :: comm_pattern
+    INTEGER, INTENT(IN), OPTIONAL :: status    
+    INTEGER, INTENT(IN), OPTIONAL :: scope
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
+            
+    new_comm_variable_r2d = new_comm_var_r2d_recv_send( &
+      & var, var, comm_pattern_index, &
+      & vertical_layers, status, scope, name)
+  
+  END FUNCTION new_comm_variable_r2d
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  !! Creates a new comm_variable and returns its id.
+  INTEGER FUNCTION new_comm_var_r2d_recv_send(recv_var, send_var, comm_pattern_index, &
+    & vertical_layers, status, scope, name) !, &
+   ! & var_dim, no_of_variables, vertical_layers)
+    
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
+    REAL(wp), POINTER   :: recv_var(:,:)
+    REAL(wp), POINTER   :: send_var(:,:)
+    
+    INTEGER, INTENT(IN) :: comm_pattern_index
+
 !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
      INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
@@ -1075,11 +1210,11 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r2d"
         
     IF(this_is_mpi_sequential) THEN
-      new_comm_variable_r2d = 0
+      new_comm_var_r2d_recv_send = 0
       RETURN
     ENDIF
 
-    new_comm_variable_r2d = get_new_comm_variable()
+    new_comm_var_r2d_recv_send = get_new_comm_variable()
 
     ! where the variable lives
 !     SELECT CASE (comm_pattern_index)
@@ -1088,17 +1223,17 @@ CONTAINS
 !     CASE default
 !       CALL finish(method_name, "Unrecoginzed comm_pattern_index")
 !     END SELECT
-    comm_variable(new_comm_variable_r2d)%comm_pattern_index = comm_pattern_index
+    comm_variable(new_comm_var_r2d_recv_send)%comm_pattern_index = comm_pattern_index
 
     ! check if comm_pattern is initialized
     IF ( grid_comm_pattern_list(comm_pattern_index)%status == not_active ) &
       CALL finish(method_name, "grid_comm_pattern status = not_active")
     
-    comm_variable(new_comm_variable_r2d)%grid_comm_pattern => &
+    comm_variable(new_comm_var_r2d_recv_send)%grid_comm_pattern => &
         & grid_comm_pattern_list(comm_pattern_index)
     
     ! this is for a 3D variable
-    comm_variable(new_comm_variable_r2d)%grid_dim = grid_2D
+    comm_variable(new_comm_var_r2d_recv_send)%grid_dim = grid_2D
 
     ! check the dim_1
 !     IF( SIZE(var,1) /= nproma ) THEN
@@ -1107,28 +1242,29 @@ CONTAINS
 !     comm_variable(new_comm_variable_r2d)%dim_1 = nproma
     
     ! check the vertical_layers
-    comm_variable(new_comm_variable_r2d)%vertical_layers = 1
+    comm_variable(new_comm_var_r2d_recv_send)%vertical_layers = 1
 
-    comm_variable(new_comm_variable_r2d)%values_2d => var
-    comm_variable(new_comm_variable_r2d)%no_of_variables = 1
+    comm_variable(new_comm_var_r2d_recv_send)%recv_values_2d => recv_var
+    comm_variable(new_comm_var_r2d_recv_send)%send_values_2d => send_var
+    comm_variable(new_comm_var_r2d_recv_send)%no_of_variables = 1
     
     IF (PRESENT(status)) THEN
-      IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_variable_r2d )
+      IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_var_r2d_recv_send )
     ENDIF
     
     IF (PRESENT(scope)) THEN
-      comm_variable(new_comm_variable_r2d)%scope = scope
+      comm_variable(new_comm_var_r2d_recv_send)%scope = scope
     ELSE
-      comm_variable(new_comm_variable_r2d)%scope = global
+      comm_variable(new_comm_var_r2d_recv_send)%scope = global
     ENDIF
     
     IF (PRESENT(name)) THEN
-      comm_variable(new_comm_variable_r2d)%name = TRIM(name)
+      comm_variable(new_comm_var_r2d_recv_send)%name = TRIM(name)
     ELSE
-      comm_variable(new_comm_variable_r2d)%name = ""
+      comm_variable(new_comm_var_r2d_recv_send)%name = ""
     ENDIF
 
-  END FUNCTION new_comm_variable_r2d
+  END FUNCTION new_comm_var_r2d_recv_send
   !-----------------------------------------------------------------------
   
 
@@ -1213,9 +1349,12 @@ CONTAINS
 !     comm_variable(id)%dim_3 = 0
     comm_variable(id)%dim_4 = 0
           
-    NULLIFY(comm_variable(id)%values_2d)
-    NULLIFY(comm_variable(id)%values_3d)
-    NULLIFY(comm_variable(id)%values_4d)
+    NULLIFY(comm_variable(id)%recv_values_2d)
+    NULLIFY(comm_variable(id)%send_values_2d)
+    NULLIFY(comm_variable(id)%recv_values_3d)
+    NULLIFY(comm_variable(id)%send_values_3d)
+    NULLIFY(comm_variable(id)%recv_values_4d)
+    NULLIFY(comm_variable(id)%send_values_4d)
   
   END SUBROUTINE clear_comm_variable
   !-----------------------------------------------------------------------
@@ -1580,11 +1719,11 @@ CONTAINS
     grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
     vertical_layers = comm_variable(comm_var)%vertical_layers
     IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
-      send_var_2d => comm_variable(comm_var)%values_2d(:,:)
+      send_var_2d => comm_variable(comm_var)%send_values_2d(:,:)
     ELSEIF ( comm_variable(comm_var)%dim_4 > 0 ) THEN
-      send_var_3d => comm_variable(comm_var)%values_4d(:,:,:,var_no)
+      send_var_3d => comm_variable(comm_var)%send_values_4d(:,:,:,var_no)
     ELSE    
-      send_var_3d => comm_variable(comm_var)%values_3d
+      send_var_3d => comm_variable(comm_var)%send_values_3d
     ENDIF
 
     ! go through the requested send pids
@@ -1669,11 +1808,11 @@ CONTAINS
     grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
     vertical_layers = comm_variable(comm_var)%vertical_layers
     IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
-      send_var_2d => comm_variable(comm_var)%values_2d(:,:)
+      send_var_2d => comm_variable(comm_var)%send_values_2d(:,:)
     ELSEIF ( comm_variable(comm_var)%dim_4 > 0 ) THEN
-      send_var_3d => comm_variable(comm_var)%values_4d(:,:,:,var_no)
+      send_var_3d => comm_variable(comm_var)%send_values_4d(:,:,:,var_no)
     ELSE    
-      send_var_3d => comm_variable(comm_var)%values_3d
+      send_var_3d => comm_variable(comm_var)%send_values_3d
     ENDIF
 
     ! go through the requested send pids
@@ -1854,11 +1993,11 @@ CONTAINS
     grid_comm_pattern => comm_variable(comm_var)%grid_comm_pattern
     vertical_layers = comm_variable(comm_var)%vertical_layers
     IF (comm_variable(comm_var)%grid_dim == grid_2D ) THEN
-      recv_var_2d => comm_variable(comm_var)%values_2d(:,:)
+      recv_var_2d => comm_variable(comm_var)%recv_values_2d(:,:)
     ELSEIF ( comm_variable(comm_var)%dim_4 > 0 ) THEN
-      recv_var_3d => comm_variable(comm_var)%values_4d(:,:,:,var_no)
+      recv_var_3d => comm_variable(comm_var)%recv_values_4d(:,:,:,var_no)
     ELSE
-      recv_var_3d => comm_variable(comm_var)%values_3d
+      recv_var_3d => comm_variable(comm_var)%recv_values_3d
     ENDIF
 
     ! go through the requested recieve pids
