@@ -41,7 +41,7 @@ MODULE mo_nwp_rad_interface
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_omp
+  USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_mode
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
@@ -65,7 +65,7 @@ MODULE mo_nwp_rad_interface
 !  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array
 
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
-   &  nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
+   &  nwp_rrtm_radiation_reduced, nwp_rrtm_radiation_repartition, nwp_rrtm_ozon_aerosol
   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
   USE mo_albedo,               ONLY: sfc_albedo
 
@@ -136,15 +136,22 @@ MODULE mo_nwp_rad_interface
     
       IF ( .NOT. lredgrid ) THEN
 
-        IF (parallel_radiation_omp) THEN
-          CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-            & ext_data, lnd_diag, pt_diag, prm_diag, lnd_prog )
-        ELSE
+        SELECT CASE(parallel_radiation_mode)
+        CASE(1) 
+          CALL nwp_rrtm_radiation_repartition ( p_sim_time,pt_patch, &
+            & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                &
+            & pt_diag, prm_diag, lnd_prog   )
+!         CASE(2)
+!           CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
+!             & ext_data, lnd_diag, pt_diag, prm_diag, lnd_prog )
+          
+        CASE default
           CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
             & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
             & pt_diag, prm_diag, lnd_prog   )
-        ENDIF
-    
+
+       END SELECT
+       
       ELSE 
 
         CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &

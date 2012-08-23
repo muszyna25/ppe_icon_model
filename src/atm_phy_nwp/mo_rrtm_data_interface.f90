@@ -475,10 +475,14 @@ CONTAINS
     INTEGER :: recv_comm_pattern
     INTEGER :: recv_fr_land_smt
     INTEGER :: recv_tmp
+    CHARACTER(*), PARAMETER :: method_name = "recv_rrtm_input"
 
+    IF (patch%id /= 1) &
+      CALL finish(method_name,"patch%id /= 1")
     recv_comm_pattern = rrtm_model_data%radiation_recv_comm_pattern
     rrtm_data => rrtm_model_data
-! -----------------------------------
+   !-----------------------------------
+   
     recv_fr_land_smt = new_icon_comm_variable ( &
       & recv_var = rrtm_data%fr_land_smt, &
       & send_var = zland,                       &
@@ -486,7 +490,6 @@ CONTAINS
       & status   = is_ready,                    &
       & scope    = until_sync,                  &
       & name     = "fr_land" )
-
       
     recv_tmp      = new_icon_comm_variable ( &
       &  recv_var = rrtm_data%fr_glac_smt   , &
@@ -675,7 +678,7 @@ CONTAINS
 
   !-----------------------------------------------------------
   SUBROUTINE send_rrtm_output(        &
-      & rrtm_data               , &
+      & rrtm_data,&
       & lwflxclr, &!< out terrestrial flux, clear sky, net down
       & trsolclr, &!< out sol. transmissivity, clear sky, net down
       & lwflxall, &!< out terrestrial flux, all sky, net down
@@ -698,7 +701,6 @@ CONTAINS
       &  status   = is_ready,                       &
       &  scope    = until_sync,                     &
       &  name     = "lwflxclr" )
-
     
     send_tmp      = new_icon_comm_variable ( &
       &  recv_var = trsolclr,                       &
@@ -707,7 +709,6 @@ CONTAINS
       &  status   = is_ready,                       &
       &  scope    = until_sync,                     &
       &  name     = "trsolclr" )
-
     
     send_tmp      = new_icon_comm_variable ( &
       &  recv_var = lwflxall,                       &
@@ -716,7 +717,6 @@ CONTAINS
       &  status   = is_ready,                       &
       &  scope    = until_sync,                     &
       &  name     = "lwflxall" )
-
     
     send_tmp      = new_icon_comm_variable ( &
       &  recv_var = trsolall,                       &
@@ -729,6 +729,6 @@ CONTAINS
     CALL icon_comm_sync_all()
       
   
-   END SUBROUTINE send_rrtm_output
+  END SUBROUTINE send_rrtm_output
 
 END MODULE mo_rrtm_data_interface

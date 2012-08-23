@@ -78,7 +78,7 @@ MODULE mo_nwp_rrtm_interface
 
 
   PUBLIC ::  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
-
+  PUBLIC ::  nwp_rrtm_radiation_repartition
 
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
 

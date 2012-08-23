@@ -46,8 +46,10 @@ USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
                                   decomposition_statistics
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
+  
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
-  &                               num_io_procs, nproma, use_icon_comm
+  & num_io_procs, nproma, use_icon_comm, parallel_radiation_mode
+  
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
   &                               destroy_lonlat_grid_list
@@ -66,8 +68,8 @@ USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,     &
   &                                iadv_rcf, kend_qvsubstep, l_open_ubc, &
   &                                configure_nonhydrostatic
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
-USE mo_dynamics_config,   ONLY: configure_dynamics, iequations
-USE mo_run_config,        ONLY: configure_run, &
+USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
+USE mo_run_config,           ONLY: configure_run, &
   & ltimer,               & !    :
   & iforcing,             & !    namelist parameter
   & ldump_states,         & ! flag if states should be dumped
@@ -91,13 +93,13 @@ USE mo_impl_constants, ONLY:&
 ! For the coupling
 USE mo_icon_cpl_init,      ONLY: icon_cpl_init
 USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
-USE mo_impl_constants, ONLY: CELLS
-USE mo_coupling_config,   ONLY : is_coupled_run, config_debug_coupler_level
-USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
+USE mo_impl_constants,     ONLY: CELLS
+USE mo_coupling_config,    ONLY : is_coupled_run, config_debug_coupler_level
+USE mo_icon_cpl_def_grid,  ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
-USE mo_icon_cpl_search, ONLY : ICON_cpl_search
-USE mo_alloc_patches,       ONLY : destruct_patches
-USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
+USE mo_icon_cpl_search,    ONLY : ICON_cpl_search
+USE mo_alloc_patches,      ONLY : destruct_patches
+USE mo_icon_cpl_finalize,  ONLY: icon_cpl_finalize
 
 ! Memory
 !
@@ -165,20 +167,21 @@ USE mo_io_restart_namelist,  ONLY: read_restart_namelists, &
   &                                delete_restart_namelists
 USE mo_io_restart_attributes,ONLY: read_restart_attributes
 
-USE mo_read_namelists,     ONLY: read_atmo_namelists
+USE mo_read_namelists,       ONLY: read_atmo_namelists
 USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
 !USE mo_interpol_config,    ONLY: configure_interpolation 
 USE mo_interpol_config
-USE mo_advection_config,   ONLY: configure_advection
-USE mo_diffusion_config,   ONLY: configure_diffusion
+USE mo_advection_config,     ONLY: configure_advection
+USE mo_diffusion_config,     ONLY: configure_diffusion
 
 USE mo_atmo_hydrostatic,    ONLY: atmo_hydrostatic 
 USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic 
   
-USE mo_icon_comm_interface,  ONLY: construct_icon_communication, &
+USE mo_icon_comm_interface, ONLY: construct_icon_communication, &
     & destruct_icon_communication
-
+    
+USE mo_rrtm_data_interface, ONLY: construct_rrtm_model_repart, destruct_rrtm_model_repart
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -715,6 +718,10 @@ CONTAINS
 !     IF (use_icon_comm) THEN
       CALL construct_icon_communication()
 !     ENDIF
+
+    IF (parallel_radiation_mode == 1) THEN
+      CALL construct_rrtm_model_repart(p_patch(1))
+    ENDIF
     
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -776,6 +783,9 @@ CONTAINS
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
+    IF (parallel_radiation_mode == 1) THEN
+      CALL destruct_rrtm_model_repart()
+    ENDIF
 !     IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
 !     ENDIF
