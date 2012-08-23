@@ -157,6 +157,7 @@ CONTAINS
     grid_id = read_new_netcdf_grid(grid_file)
     CALL decompose_metis(grid_id, dec_size, decomposition_id, use_sea_land_mask)
     CALL write_ascii_decomposition(grid_id, decomposition_id, out_ascii_file)
+    CALL write_netcdf_grid(grid_id)
     
     CALL delete_grid(grid_id)    
 

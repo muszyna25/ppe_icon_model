@@ -1155,6 +1155,7 @@ CONTAINS
       & varid_cell_domain_id))
     CALL nf(nf_put_att_text(ncid, varid_cell_domain_id, 'long_name', 32, &
       & 'cell domain id for decomposition'))
+    CALL nf(nf_put_att_text(ncid, varid_cell_domain_id, 'coordinates', 9, 'clon clat'))
     
     CALL nf(nf_def_var(ncid, 'cell_no_of_domains', nf_int, 1, dim_max_decompositions, &
       & varid_cell_no_of_domains))
