@@ -49,12 +49,13 @@ MODULE mo_nh_dcmip_gw
    USE mo_kind,                 ONLY: wp
    USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
    USE mo_math_constants,       ONLY: pi
-   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge
+   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH
    USE mo_parallel_config,      ONLY: nproma
-   USE mo_loopindices,          ONLY: get_indices_c, get_indices_e
+   USE mo_loopindices,          ONLY: get_indices_c, get_indices_e, get_indices_v
    USE mo_model_domain,         ONLY: t_patch
    USE mo_io_config,            ONLY: lwrite_extra
    USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
+   USE mo_dynamics_config,      ONLY: lcoriolis
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_exception,            ONLY: message, finish, message_text
 
@@ -425,7 +426,7 @@ CONTAINS
     REAL(wp) :: temp_pert             !< temperature perturbation         [K]
     REAL(wp) :: rho_pert              !< density perturbation             [kg/m**3]
     REAL(wp) :: temp_b, rho_b
-    INTEGER  :: jc, je, jk, jb        !< loop indices
+    INTEGER  :: jc, je, jv, jk, jb    !< loop indices
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom  
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
@@ -440,6 +441,9 @@ CONTAINS
     REAL(wp), PARAMETER :: phic = 0.0_wp     !< Lat of perturbation center
     REAL(wp), PARAMETER :: q    = 50._wp     !< width of perturbation 
     REAL(wp), PARAMETER :: delta_temp = 0.01_wp !< Max amplitude of perturbation [K]
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_dcmip_gw:init_nh_gw_analyt'
 
     ! Note:
     ! p0ref = 100000.0_wp   !> [Pa]  (mo_physical_constants.f90)   
@@ -593,7 +597,6 @@ CONTAINS
 
 
 
-
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!    II. Add temperature and density perturbation  !!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -650,8 +653,90 @@ CONTAINS
       ENDDO !jk
     ENDDO !jb
 !$OMP END DO
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!    III. Initialize Coriolis parameter, if Coriolis effect is considered !!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    ! f-plane approximation, with f_0 = 2 \Omega SIN(\phi_0)
+    ! \phi_0 = 45 \deg
+    !
+    IF ( lcoriolis ) THEN
+
+      ! center of f-plane
+      z_lat = 0.25_wp * pi
+
+
+      i_rlstart = 1
+      i_rlend   = min_rlcell
+
+      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        DO jc = i_startidx, i_endidx
+          p_patch%cells%f_c(jc,jb) = 2._wp * grid_angular_velocity * SIN(z_lat)
+        ENDDO  ! jc
+      ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+
+      i_rlstart = 1
+      i_rlend   = min_rledge
+
+      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        DO je = i_startidx, i_endidx
+          p_patch%edges%f_e(je,jb) = 2._wp * grid_angular_velocity * SIN(z_lat)
+        ENDDO  ! je
+      ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+
+      i_rlstart = 1
+      i_rlend   = min_rlvert
+
+      i_startblk = p_patch%verts%start_blk(i_rlstart,1)
+      i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jv,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        DO jv = i_startidx, i_endidx
+          p_patch%verts%f_v(jv,jb) = 2._wp * grid_angular_velocity * SIN(z_lat)
+        ENDDO  ! jv
+      ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+    ENDIF  ! lcoriolis
 !$OMP END PARALLEL
 
+
+    ! cross check: analytic solutions are only available for the following setups_
+    ! 1) u0  = 0 and lcorio = .FALSE.
+    ! 2) u0 \= 0 and lcorio = .FALSE.
+    ! 3) u0  = 0 and lcorio = .TRUE.
+    !
+    IF ( (u0 /= 0._wp) .AND. lcoriolis ) THEN
+      CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
+    ENDIF
 
   END SUBROUTINE init_nh_gw_analyt
 
