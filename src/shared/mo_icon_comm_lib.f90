@@ -268,12 +268,12 @@ MODULE mo_icon_comm_lib
   
   !-------------------------------------------------------------------------
   INTERFACE new_icon_comm_variable
-    MODULE PROCEDURE new_comm_variable_r2d
+    MODULE PROCEDURE new_comm_var_r2d
     MODULE PROCEDURE new_comm_var_r2d_recv_send
-    MODULE PROCEDURE new_comm_variable_r3d
+    MODULE PROCEDURE new_comm_var_r3d
     MODULE PROCEDURE new_comm_var_r3d_recv_send
 !     MODULE PROCEDURE new_comm_variable_r3d_target
-    MODULE PROCEDURE new_comm_variable_r4d
+    MODULE PROCEDURE new_comm_var_r4d
     MODULE PROCEDURE new_comm_var_r4d_recv_send
   END INTERFACE
   !-------------------------------------------------------------------------
@@ -960,10 +960,10 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r4d(var, comm_pattern_index, vertical_layers, &
+  INTEGER FUNCTION new_comm_var_r4d(var, comm_pattern_index, vertical_layers, &
     & no_of_variables, status, scope, name )
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
-    REAL(wp), POINTER   :: var(:,:,:,:)
+    REAL(wp), TARGET   :: var(:,:,:,:)
     INTEGER, INTENT(IN) :: comm_pattern_index
     
      INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
@@ -974,11 +974,11 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
-    new_comm_variable_r4d = new_comm_var_r4d_recv_send( &
+    new_comm_var_r4d = new_comm_var_r4d_recv_send( &
       & var, var, comm_pattern_index, vertical_layers, &
       & no_of_variables, status, scope, name )
             
-  END FUNCTION new_comm_variable_r4d
+  END FUNCTION new_comm_var_r4d
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -987,8 +987,8 @@ CONTAINS
   INTEGER FUNCTION new_comm_var_r4d_recv_send(recv_var, send_var, comm_pattern_index, &
     & vertical_layers, no_of_variables, status, scope, name )
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
-    REAL(wp), POINTER  :: recv_var(:,:,:,:)
-    REAL(wp), POINTER  :: send_var(:,:,:,:)
+    REAL(wp), TARGET  :: recv_var(:,:,:,:)
+    REAL(wp), TARGET  :: send_var(:,:,:,:)
     INTEGER, INTENT(IN)       :: comm_pattern_index
     
      INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
@@ -1001,7 +1001,7 @@ CONTAINS
     
     REAL(wp), POINTER  :: recv_var_3d(:,:,:), send_var_3d(:,:,:)
     
-    CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r4d"
+    CHARACTER(*), PARAMETER :: method_name = "new_comm_var_r4d"
 
     
     IF  (this_is_mpi_sequential) THEN
@@ -1060,10 +1060,10 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r3d(var, comm_pattern_index,  &
+  INTEGER FUNCTION new_comm_var_r3d(var, comm_pattern_index,  &
     & vertical_layers, status, scope, name) 
     
-    REAL(wp), POINTER   :: var(:,:,:)
+    REAL(wp), TARGET   :: var(:,:,:)
     INTEGER, INTENT(IN) :: comm_pattern_index
     
     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
@@ -1071,11 +1071,11 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
-    new_comm_variable_r3d =  new_comm_var_r3d_recv_send( &
+    new_comm_var_r3d =  new_comm_var_r3d_recv_send( &
       & var, var, comm_pattern_index,  &
       & vertical_layers, status, scope, name)   
 
-  END FUNCTION new_comm_variable_r3d
+  END FUNCTION new_comm_var_r3d
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -1086,8 +1086,8 @@ CONTAINS
    ! & var_dim, no_of_variables, vertical_layers)
     
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
-    REAL(wp), POINTER   :: recv_var(:,:,:)
-    REAL(wp), POINTER   :: send_var(:,:,:)
+    REAL(wp), TARGET   :: recv_var(:,:,:)
+    REAL(wp), TARGET   :: send_var(:,:,:)
     INTEGER, INTENT(IN) :: comm_pattern_index
     
 !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
@@ -1098,7 +1098,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
-    CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r3d"
+    CHARACTER(*), PARAMETER :: method_name = "new_comm_var_r3d"
         
     IF(this_is_mpi_sequential) THEN
       new_comm_var_r3d_recv_send = 0
@@ -1123,7 +1123,7 @@ CONTAINS
 !     IF( SIZE(var,1) /= nproma ) THEN
 !        CALL finish(method_name, 'SIZE(var,1) /= nproma')
 !     ENDIF
-!     comm_variable(new_comm_variable_r3d)%dim_1 = SIZE(var,1)
+!     comm_variable(new_comm_var_r3d)%dim_1 = SIZE(var,1)
     
     ! check the vertical_layers
     comm_variable(new_comm_var_r3d_recv_send)%vertical_layers =  &
@@ -1162,12 +1162,12 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
-  INTEGER FUNCTION new_comm_variable_r2d(var, comm_pattern_index, &
+  INTEGER FUNCTION new_comm_var_r2d(var, comm_pattern_index, &
     & vertical_layers, status, scope, name) !, &
    ! & var_dim, no_of_variables, vertical_layers)
     
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
-    REAL(wp), POINTER   :: var(:,:)
+    REAL(wp), TARGET   :: var(:,:)
     
     INTEGER, INTENT(IN)       :: comm_pattern_index
 
@@ -1179,13 +1179,37 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
             
-    new_comm_variable_r2d = new_comm_var_r2d_recv_send( &
+    new_comm_var_r2d = new_comm_var_r2d_recv_send( &
       & var, var, comm_pattern_index, &
       & vertical_layers, status, scope, name)
   
-  END FUNCTION new_comm_variable_r2d
+  END FUNCTION new_comm_var_r2d
   !-----------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------
+  !>
+  !! Creates a new comm_variable and returns its id.
+!   INTEGER FUNCTION new_comm_var_r2d_recv_send_t(target_flag, recv_var, send_var, comm_pattern_index, &
+!     & vertical_layers, status, scope, name) !, &
+!     
+!     CHARACTER, INTENT(IN) :: target_flag
+!     REAL(wp), TARGET   :: recv_var(:,:)
+!     REAL(wp), TARGET   :: send_var(:,:)
+!     
+!     INTEGER, INTENT(IN) :: comm_pattern_index
+!     
+!     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+!     INTEGER, INTENT(IN), OPTIONAL :: status
+!     INTEGER, INTENT(IN), OPTIONAL :: scope
+!     CHARACTER(*), INTENT(IN), OPTIONAL :: name
+! 
+!     CALL new_comm_var_r2d_recv_send(recv_var, send_var, comm_pattern_index, &
+!     & vertical_layers, status, scope, name)
+! 
+!    END FUNCTION new_comm_var_r2d_recv_send_t    
+  !-----------------------------------------------------------------------
+  
+
   !-----------------------------------------------------------------------
   !>
   !! Creates a new comm_variable and returns its id.
@@ -1193,21 +1217,19 @@ CONTAINS
     & vertical_layers, status, scope, name) !, &
    ! & var_dim, no_of_variables, vertical_layers)
     
-!     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
-    REAL(wp), POINTER   :: recv_var(:,:)
-    REAL(wp), POINTER   :: send_var(:,:)
+    REAL(wp), TARGET   :: recv_var(:,:)
+    REAL(wp), TARGET   :: send_var(:,:)
+!     REAL(wp), POINTER   :: recv_var(:,:)
+!     REAL(wp), POINTER   :: send_var(:,:)
     
     INTEGER, INTENT(IN) :: comm_pattern_index
 
-!     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
-!     INTEGER, INTENT(IN), OPTIONAL :: var_dim
      INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
-!     TYPE(t_comm_pattern), INTENT(IN), POINTER, OPTIONAL :: comm_pattern
-    INTEGER, INTENT(IN), OPTIONAL :: status    
+    INTEGER, INTENT(IN), OPTIONAL :: status
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
-    CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r2d"
+    CHARACTER(*), PARAMETER :: method_name = "new_comm_var_r2d"
         
     IF(this_is_mpi_sequential) THEN
       new_comm_var_r2d_recv_send = 0
@@ -1219,7 +1241,7 @@ CONTAINS
     ! where the variable lives
 !     SELECT CASE (comm_pattern_index)
 !     CASE ( cells_not_in_domain, cells_one_edge_in_domain, edges_not_owned, verts_not_owned)
-!       comm_variable(new_comm_variable_r2d)%comm_pattern_index = comm_pattern_index
+!       comm_variable(new_comm_var_r2d)%comm_pattern_index = comm_pattern_index
 !     CASE default
 !       CALL finish(method_name, "Unrecoginzed comm_pattern_index")
 !     END SELECT
@@ -1239,7 +1261,7 @@ CONTAINS
 !     IF( SIZE(var,1) /= nproma ) THEN
 !        CALL finish(method_name, 'SIZE(var,1) /= nproma')
 !     ENDIF
-!     comm_variable(new_comm_variable_r2d)%dim_1 = nproma
+!     comm_variable(new_comm_var_r2d)%dim_1 = nproma
     
     ! check the vertical_layers
     comm_variable(new_comm_var_r2d_recv_send)%vertical_layers = 1
@@ -1381,7 +1403,7 @@ CONTAINS
   SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
-    REAL(wp), POINTER   :: var(:,:)
+    REAL(wp), TARGET   :: var(:,:)
     
     INTEGER :: comm_var
 
@@ -1399,7 +1421,7 @@ CONTAINS
   SUBROUTINE icon_comm_sync_3D_1(var,  comm_pattern_index)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
-    REAL(wp), POINTER   :: var(:,:,:)
+    REAL(wp), TARGET   :: var(:,:,:)
     
     INTEGER :: comm_var
 
@@ -1418,8 +1440,8 @@ CONTAINS
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
-    REAL(wp), POINTER   :: var1(:,:,:)
-    REAL(wp), POINTER   :: var2(:,:,:)
+    REAL(wp), TARGET   :: var1(:,:,:)
+    REAL(wp), TARGET   :: var2(:,:,:)
     
     INTEGER :: comm_var_1, comm_var_2
 
@@ -1440,9 +1462,9 @@ CONTAINS
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
-    REAL(wp), POINTER   :: var1(:,:,:)
-    REAL(wp), POINTER   :: var2(:,:,:)
-    REAL(wp), POINTER   :: var3(:,:,:)
+    REAL(wp), TARGET   :: var1(:,:,:)
+    REAL(wp), TARGET   :: var2(:,:,:)
+    REAL(wp), TARGET   :: var3(:,:,:)
     
     INTEGER :: comm_var_1, comm_var_2, comm_var_3
 

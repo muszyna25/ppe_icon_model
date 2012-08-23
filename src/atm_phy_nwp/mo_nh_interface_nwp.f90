@@ -231,7 +231,6 @@ CONTAINS
     ! since they are not treated individualy
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
       & tracers_comm, tempv_comm, exner_old_comm
-    REAL(wp), POINTER :: p_comm_3d(:,:,:)
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -1250,12 +1249,10 @@ CONTAINS
           & name="prm_nwp_tend%ddt_v_turb")
           
         IF ( l_any_slowphys ) THEN
-          p_comm_3d => z_ddt_u_tot
-          z_ddt_u_tot_comm = new_icon_comm_variable(p_comm_3d, &
+          z_ddt_u_tot_comm = new_icon_comm_variable(z_ddt_u_tot, &
             & pt_patch%sync_cells_one_edge_in_domain, &
             & status=is_ready, scope=until_sync, name="z_ddt_u_tot")
-          p_comm_3d => z_ddt_v_tot
-          z_ddt_v_tot_comm = new_icon_comm_variable(p_comm_3d, &
+          z_ddt_v_tot_comm = new_icon_comm_variable(z_ddt_v_tot, &
             & pt_patch%sync_cells_one_edge_in_domain, &
             & status=is_ready, scope=until_sync, name="z_ddt_v_tot")
         ENDIF        

@@ -1,6 +1,5 @@
 !>
-!! This module is the interface between nwp_nh_interface to the radiation schemes
-!! (RRTM or Ritter-Geleyn).
+!! This module is the data communication interface between nwp_rrtm_interface and RRTM
 !!
 !! @author Leonidas Linardakis, MPI-M, 2012-08-21
 !!
@@ -51,17 +50,23 @@ MODULE mo_rrtm_data_interface
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydro_types,      ONLY: t_nh_diag
   
-  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name
+  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, nproma
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
     & get_my_mpi_work_communicator, p_bcast
   USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
-    & print_grid_comm_pattern
+    & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all 
 
 
   IMPLICIT NONE
 
   PRIVATE
+
+  PUBLIC :: t_rrtm_data
+  PUBLIC :: construct_rrtm_model_repart
+  PUBLIC :: destruct_rrtm_model_repart
+  PUBLIC :: recv_radiation_input
+    
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
     
@@ -86,7 +91,7 @@ MODULE mo_rrtm_data_interface
     INTEGER   :: no_of_cells
     INTEGER   :: full_levels, half_levels
     ! blocking parameters
-    INTEGER   :: nproma
+    INTEGER   :: block_size
     INTEGER   :: no_of_blocks, end_index
 
     
@@ -103,8 +108,9 @@ MODULE mo_rrtm_data_interface
     REAL(wp), POINTER ::  cosmu0(:,:)        ! cosine of solar zenith angle
         
     REAL(wp), POINTER ::  albedo_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
-    REAL(wp), POINTER ::  albedo_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+    REAL(wp), POINTER ::  albedo_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
     REAL(wp), POINTER ::  albedo_nir_dif(:,:) !< in surface albedo for visible range, diffuse
+    REAL(wp), POINTER ::  albedo_vis_dif(:,:) !< in surface albedo for visible range, diffuse
     
     REAL(wp), POINTER ::  emis_rad(:,:)      ! lw sfc emissivity
     REAL(wp), POINTER ::  tsfctrad(:,:)      ! surface temperature at trad [K]
@@ -138,7 +144,7 @@ MODULE mo_rrtm_data_interface
   END TYPE t_rrtm_data
   !--------------------------------------------------------------------------
 
-  TYPE(t_rrtm_data) :: rrtm_model_data
+  TYPE(t_rrtm_data), TARGET :: rrtm_model_data
     
 
 CONTAINS
@@ -147,7 +153,7 @@ CONTAINS
 
   !-----------------------------------------
   !>
-  SUBROUTINE init_rrtm_model_redistributed(patch)
+  SUBROUTINE construct_rrtm_model_repart(patch)
     TYPE(t_patch), INTENT(in), TARGET :: patch
 
     INTEGER, POINTER :: radiation_owner(:)
@@ -156,7 +162,7 @@ CONTAINS
     INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
     INTEGER :: return_status, file_id, j
     
-    CHARACTER(*), PARAMETER :: method_name = "init_rrtm_model_redistributed"
+    CHARACTER(*), PARAMETER :: method_name = "construct_rrtm_model_repart"
     
     IF (parallel_radiation_mode <= 0) RETURN
     IF (my_process_is_mpi_seq()) THEN
@@ -256,27 +262,38 @@ CONTAINS
 
     CALL print_grid_comm_pattern(rrtm_model_data%radiation_recv_comm_pattern)
     CALL print_grid_comm_pattern(rrtm_model_data%radiation_send_comm_pattern)
-    
-  END SUBROUTINE init_rrtm_model_redistributed
+
+    ! now allocate the data for the radiation interface
+    CALL init_rrtm_data( &
+      & rrtm_data   = rrtm_model_data   , &
+      & no_of_cells = my_radiation_cells, &
+      & full_levels = patch%nlev,         &
+      & half_levels = patch%nlevp1,       &
+      & block_size  = nproma)
+
+  END SUBROUTINE construct_rrtm_model_repart
   !-----------------------------------------
 
   !-----------------------------------------
   !>
-  SUBROUTINE init_rrtm_model_data(no_of_cells, full_levels, half_levels, nproma)
-    INTEGER, INTENT(in) :: no_of_cells, full_levels, half_levels, nproma
+  SUBROUTINE init_rrtm_data(rrtm_data, no_of_cells, full_levels, half_levels, block_size)
+    INTEGER, INTENT(in) :: no_of_cells, full_levels, half_levels, block_size
+    TYPE(t_rrtm_data), INTENT(inout) :: rrtm_data
     
     ! fill the rrtm_data parameters
-    rrtm_model_data%no_of_cells = no_of_cells
-    rrtm_model_data%full_levels = full_levels 
-    rrtm_model_data%half_levels = half_levels
+    rrtm_data%no_of_cells = no_of_cells
+    rrtm_data%full_levels = full_levels
+    rrtm_data%half_levels = half_levels
     
-    rrtm_model_data%nproma       = nproma
-    rrtm_model_data%no_of_blocks = ( (no_of_cells - 1) / nproma ) + 1
-    rrtm_model_data%end_index    = no_of_cells - ( (rrtm_model_data%no_of_blocks - 1) * nproma )
+    rrtm_data%block_size       = block_size
+    rrtm_data%no_of_blocks = ( (no_of_cells - 1) / block_size ) + 1
+    rrtm_data%end_index    = no_of_cells - ( (rrtm_data%no_of_blocks - 1) * block_size )
     
-    CALL allocate_rrtm_model_data(rrtm_model_data)
-  
-  END SUBROUTINE init_rrtm_model_data
+    CALL allocate_rrtm_model_data(rrtm_data)
+
+    rrtm_data%convection_type(:,:) = 0 ! this is always 0 and will not ber communicated
+      
+  END SUBROUTINE init_rrtm_data
   !-----------------------------------------
 
     
@@ -286,44 +303,45 @@ CONTAINS
 
     TYPE(t_rrtm_data), INTENT(inout) :: rrtm_data
     
-    INTEGER :: no_of_blocks, nproma, full_levels, half_levels
+    INTEGER :: no_of_blocks, block_size, full_levels, half_levels
     INTEGER :: return_status
 
-    nproma       = rrtm_data%nproma
+    block_size   = rrtm_data%block_size
     no_of_blocks = rrtm_data%no_of_blocks
     full_levels  = rrtm_data%full_levels
     half_levels  = rrtm_data%half_levels
     
     !------------------------------------------
     ALLOCATE( &
-      & rrtm_data%convection_type(nproma,            no_of_blocks),   &
-      & rrtm_data%fr_land_smt    (nproma,            no_of_blocks),   &
-      & rrtm_data%fr_glac_smt    (nproma,            no_of_blocks),   &
-      & rrtm_data%cosmu0         (nproma,            no_of_blocks),   &
-      & rrtm_data%albedo_vis_dir (nproma,            no_of_blocks),   &
-      & rrtm_data%albedo_vis_dif (nproma,            no_of_blocks),   &
-      & rrtm_data%albedo_nir_dif (nproma,            no_of_blocks),   &
-      & rrtm_data%emis_rad       (nproma,            no_of_blocks),   &
-      & rrtm_data%tsfctrad       (nproma,            no_of_blocks),   &
-      & rrtm_data%pres_ifc       (nproma,half_levels,no_of_blocks),   &
-      & rrtm_data%pres           (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%temp           (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%qm_vapor       (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%qm_liquid      (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%qm_ice         (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%qm_o3          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%acdnc          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%cld_frc        (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%zaeq1          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%zaeq2          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%zaeq3          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%zaeq4          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%zaeq5          (nproma,full_levels,no_of_blocks),   &
-      & rrtm_data%aclcov         (nproma,            no_of_blocks),   &
-      & rrtm_data%lwflxclr       (nproma,half_levels,no_of_blocks),   &
-      & rrtm_data%trsolclr       (nproma,half_levels,no_of_blocks),   &
-      & rrtm_data%lwflxall       (nproma,half_levels,no_of_blocks),   &
-      & rrtm_data%trsolall       (nproma,half_levels,no_of_blocks),   &
+      & rrtm_data%convection_type(block_size,            no_of_blocks),   &
+      & rrtm_data%fr_land_smt    (block_size,            no_of_blocks),   &
+      & rrtm_data%fr_glac_smt    (block_size,            no_of_blocks),   &
+      & rrtm_data%cosmu0         (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_vis_dir (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_nir_dir (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_vis_dif (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_nir_dif (block_size,            no_of_blocks),   &
+      & rrtm_data%emis_rad       (block_size,            no_of_blocks),   &
+      & rrtm_data%tsfctrad       (block_size,            no_of_blocks),   &
+      & rrtm_data%pres_ifc       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%pres           (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%temp           (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_vapor       (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_liquid      (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_ice         (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_o3          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%acdnc          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%cld_frc        (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq1          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq2          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq3          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq4          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq5          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%aclcov         (block_size,            no_of_blocks),   &
+      & rrtm_data%lwflxclr       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%trsolclr       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%lwflxall       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%trsolall       (block_size,half_levels,no_of_blocks),   &
       & STAT=return_status)
 
     IF (return_status /= 0 ) THEN
@@ -332,6 +350,21 @@ CONTAINS
 
     
   END SUBROUTINE allocate_rrtm_model_data
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE destruct_rrtm_model_repart()
+    
+    IF (parallel_radiation_mode <= 0) RETURN
+    IF (my_process_is_mpi_seq()) THEN
+      parallel_radiation_mode = 0
+      RETURN
+    ENDIF
+
+    CALL deallocate_rrtm_model_data(rrtm_model_data)
+  
+  END SUBROUTINE destruct_rrtm_model_repart
   !-----------------------------------------
 
   !-----------------------------------------
@@ -348,6 +381,7 @@ CONTAINS
       & rrtm_data%fr_glac_smt    ,   &
       & rrtm_data%cosmu0         ,   &
       & rrtm_data%albedo_vis_dir ,   &
+      & rrtm_data%albedo_nir_dir ,   &
       & rrtm_data%albedo_vis_dif ,   &
       & rrtm_data%albedo_nir_dif ,   &
       & rrtm_data%emis_rad       ,   &
@@ -375,5 +409,267 @@ CONTAINS
   END SUBROUTINE deallocate_rrtm_model_data
   !-----------------------------------------
 
+  !-----------------------------------------
+  SUBROUTINE recv_radiation_input( &
+    & zland      ,&!< in     land fraction
+    & zglac      ,&!< in     land glacier fraction
+    & cos_mu0    ,&!< in  cos of zenith angle mu0
+    & alb_vis_dir,&!< in surface albedo for visible range, direct
+    & alb_nir_dir,&!< in surface albedo for near IR range, direct
+    & alb_vis_dif,&!< in surface albedo for visible range, diffuse
+    & alb_nir_dif,&!< in surface albedo for near IR range, diffuse
+    & emis_rad   ,&!< in longwave surface emissivity
+    & tk_sfc     ,&!< in surface temperature
+    & pp_hl      ,&!< in  pres at half levels at t-dt [Pa]
+    & pp_fl      ,&!< in  pres at full levels at t-dt [Pa]
+    & tk_fl      ,&!< in  temperature at full level at t-dt
+    & qm_vap     ,&!< in  water vapor mass mix ratio at t-dt
+    & qm_liq     ,&!< in cloud water mass mix ratio at t-dt
+    & qm_ice     ,&!< in cloud ice mass mixing ratio at t-dt
+    & qm_o3      ,&!< in o3 mass mixing ratio at t-dt
+    & cdnc       ,&!< in  cloud droplet numb conc. [1/m**3]
+    & cld_frc    ,&!< in  cloud fraction [m2/m2]
+    & zaeq1      ,&!< in aerosol continental
+    & zaeq2      ,&!< in aerosol maritime
+    & zaeq3      ,&!< in aerosol urban
+    & zaeq4      ,&!< in aerosol volcano ashes
+    & zaeq5      ,&!< in aerosol stratospheric background
+    & patch      ,&!< in
+    & rrtm_data)   !< pointer out
+    
+    REAL(wp), TARGET ::  zland(:,:)   !< fraction land in a grid element        [ ]
+                                                        !  = smoothed fr_land
+    REAL(wp), TARGET ::  zglac(:,:)   !< fraction land glacier in a grid element [ ]
+                                                        ! = smoothed fr_glac
+    REAL(wp), TARGET ::  cos_mu0(:,:)        ! cosine of solar zenith angle
+
+    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
+    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
+    REAL(wp), TARGET ::  alb_nir_dif(:,:) !< in surface albedo for visible range, diffuse
+    REAL(wp), TARGET ::  alb_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+
+    REAL(wp), TARGET ::  emis_rad(:,:)      ! lw sfc emissivity
+    REAL(wp), TARGET ::  tk_sfc(:,:)      ! surface temperature at trad [K]
+
+    REAL(wp), TARGET ::  pp_hl(:,:,:)    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
+    REAL(wp), TARGET ::  pp_fl(:,:,:)        ! pressure (nproma,nlev,nblks_c)                  [Pa]
+    REAL(wp), TARGET ::  tk_fl(:,:,:)        ! temperature (nproma,nlev,nblks_c)                 [K]
+
+    REAL(wp), TARGET ::  qm_vap(:,:,:)    !< water vapor mass mix ratio at t-dt
+    REAL(wp), TARGET ::  qm_liq(:,:,:)   !< cloud water mass mix ratio at t-dt
+    REAL(wp), TARGET ::  qm_ice(:,:,:)      !< cloud ice mass mixing ratio at t-dt
+
+    REAL(wp), TARGET ::  qm_o3(:,:,:)       ! in o3 mass mixing ratio
+    REAL(wp), TARGET ::  cdnc(:,:,:)       ! cloud droplet number concentration [1/m**3]
+    REAL(wp), TARGET ::  cld_frc(:,:,:)     !< cloud fraction [m2/m2]
+
+    REAL(wp), TARGET ::  zaeq1(:,:,:)       !< in aerosol continental
+    REAL(wp), TARGET ::  zaeq2(:,:,:)       !< in aerosol maritime
+    REAL(wp), TARGET ::  zaeq3(:,:,:)       !< in aerosol urban
+    REAL(wp), TARGET ::  zaeq4(:,:,:)       !< in aerosol volcano ashes
+    REAL(wp), TARGET ::  zaeq5(:,:,:)       !< in aerosol stratospheric background
+
+    TYPE(t_patch) :: patch
+    TYPE(t_rrtm_data), POINTER :: rrtm_data
+
+    INTEGER :: recv_comm_pattern
+    INTEGER :: recv_fr_land_smt
+    INTEGER :: recv_tmp
+
+    recv_comm_pattern = rrtm_model_data%radiation_recv_comm_pattern
+! -----------------------------------
+    recv_fr_land_smt = new_icon_comm_variable ( &
+      & recv_var = rrtm_model_data%fr_land_smt, &
+      & send_var = zland,                       &
+      & comm_pattern_index = recv_comm_pattern, &
+      & status   = is_ready,                    &
+      & scope    = until_sync,                  &
+      & name     = "fr_land" )
+
+      
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%fr_glac_smt   , &
+      &  send_var = zglac,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%cosmu0        , &
+      &  send_var = cos_mu0,                        &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%albedo_vis_dir, &
+      &  send_var = alb_vis_dir,                    &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%albedo_nir_dir, &
+      &  send_var = alb_nir_dir,                    &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+      
+         
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%albedo_vis_dif, &
+      &  send_var = alb_vis_dif,                    &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%albedo_nir_dif, &
+      &  send_var = alb_nir_dif,                    &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%emis_rad      , &
+      &  send_var = emis_rad,                       &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+              
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%tsfctrad      , &
+      &  send_var = tk_sfc,                         &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%pres_ifc      , &
+      &  send_var = pp_hl,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%pres          , &
+      &  send_var = pp_fl,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+     recv_tmp     = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%temp          , &
+      &  send_var = tk_fl,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%qm_vapor      , &
+      &  send_var = qm_vap,                         &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+    
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%qm_liquid     , &
+      &  send_var = qm_liq,                        &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%qm_ice        , &
+      &  send_var = qm_ice,                         &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%qm_o3         , &
+      &  send_var = qm_o3,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( & 
+      &  recv_var = rrtm_model_data%acdnc         , &
+      &  send_var = cdnc,                           &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%cld_frc       , &
+      &  send_var = cld_frc,                        &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%zaeq1         , &
+      &  send_var = zaeq1,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%zaeq2         , &
+      &  send_var = zaeq2,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%zaeq3         , &
+      &  send_var = zaeq3,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%zaeq4         , &
+      &  send_var = zaeq4,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_model_data%zaeq5         , &
+      &  send_var = zaeq5,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+
+    CALL icon_comm_sync_all
+  
+
+  END SUBROUTINE recv_radiation_input
 
 END MODULE mo_rrtm_data_interface
