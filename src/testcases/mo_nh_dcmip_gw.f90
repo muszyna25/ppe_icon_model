@@ -1,0 +1,659 @@
+!>
+!! Subroutine to initialize testcase 31 (gravity wave on a small planet) proposed 
+!! for the DCMIP summer school
+!!
+!! The non-hydrostatic gravity wave test examines the response of models to 
+!! short time-scale wavemotion triggered by a localized perturbation. The 
+!! formulation presented in this document is new, but is based on previous 
+!! approaches by Skamarock et al. (JAS 1994), Tomita and Satoh (FDR 2004), and
+!! Jablonowski et al. (NCAR Tech Report 2008) 
+!!
+!!
+!! @par Revision History
+!! - initial revision by Daniel Reinert, DWD, (2012-05-25)
+!!
+!! @par Literature
+!! - Dynamical Core Model Intercomparison Project (DCMIP) 
+!!   Test Case Document (P. Ullrich et al, 2012)
+!!
+!! @par Copyright
+!! 2002-2012 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!!
+MODULE mo_nh_dcmip_gw
+
+   USE mo_kind,                 ONLY: wp
+   USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
+   USE mo_math_constants,       ONLY: pi
+   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge
+   USE mo_parallel_config,      ONLY: nproma
+   USE mo_loopindices,          ONLY: get_indices_c, get_indices_e
+   USE mo_model_domain,         ONLY: t_patch
+   USE mo_io_config,            ONLY: lwrite_extra
+   USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
+   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+   USE mo_exception,            ONLY: message, finish, message_text
+
+
+   IMPLICIT NONE
+
+
+   PRIVATE
+
+   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+
+   PUBLIC :: init_nh_dcmip_gw
+   PUBLIC :: init_nh_gw_analyt
+
+
+!--------------------------------------------------------------------
+
+CONTAINS
+!-------------------------------------------------------------------------
+!
+
+!-------------------------------------------------------------------------
+!
+  !>
+  !! Initialization of prognostic state vector for the DCMIP nh gravity 
+  !! wave test 
+  !!
+  !! The non-hydrostatic gravity wave test examines the response of models to 
+  !! short time-scale wavemotion triggered by a localized perturbation. The 
+  !! formulation presented in this document is new, but is based on previous 
+  !! approaches by Skamarock et al. (JAS 1994), Tomita and Satoh (FDR 2004), and
+  !! Jablonowski et al. (NCAR Tech Report 2008) 
+  !!
+  !! @par Revision History
+  !! - initial revision by Daniel Reinert, DWD (2012-05-25)
+  !!
+  SUBROUTINE init_nh_dcmip_gw( p_patch, p_nh_prog, p_nh_diag, p_metrics )
+
+    TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
+      &  p_patch
+
+    TYPE(t_nh_prog),      INTENT(INOUT) :: &  !< prognostic state vector
+      &  p_nh_prog
+
+    TYPE(t_nh_diag),      INTENT(INOUT) :: &  !< diagnostic state vector
+      &  p_nh_diag
+
+    TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
+      &  p_metrics
+
+
+    REAL(wp) :: z_lon, z_lat          !< geographical coordinates
+
+    REAL(wp) ::           &           !< surface temperature              [K]
+      & z_tsfc(nproma,p_patch%nblks_c) 
+
+    REAL(wp) ::           &           !< zonal and meridional velocity
+      & zu(nproma), zv(nproma)
+
+
+    REAL(wp) :: dist                  !< great circle distance            [m]
+    REAL(wp) :: shape_func            !< value of horiz. shape function
+    REAL(wp) :: theta_pert            !< theta_perturbation               [K]
+    REAL(wp) :: zsin, zcos
+    INTEGER  :: jc, je, jk, jb        !< loop indices
+    INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
+    INTEGER  :: i_rlstart, i_rlend, i_nchdom  
+    INTEGER  :: nlev, nlevp1          !< number of full and half levels
+
+    REAL(wp) :: brunt2                !< Brunt-Vaisala frequency squared  [s^-1]
+    REAL(wp) :: big_g                 !< auxiliary constant
+
+
+    ! test case parameters
+    !
+    REAL(wp), PARAMETER :: peq = 100000._wp !< reference surface pressure
+                                            !< at the equator             [Pa]
+    REAL(wp), PARAMETER :: teq = 300._wp    !< surface temperature
+                                            !< at the equator             [K]
+    REAL(wp), PARAMETER :: u0  = 20._wp     !< maximum amplitude 
+                                            !< of the zonal wind          [m s^-1]
+    REAL(wp), PARAMETER :: brunt= 0.01_wp   !< Brunt-Vaisala frequency    [s^-1]
+
+    REAL(wp), PARAMETER :: phic = 0.0_wp    !< Lat of perturbation center
+
+    REAL(wp), PARAMETER :: lambdac = 2.0_wp*pi/3.0_wp !< Lon of perturbation center
+
+    REAL(wp), PARAMETER :: width= 5000._wp  !< width for perturbation     [m]
+
+    REAL(wp), PARAMETER :: delta_theta = 1.0_wp  !< Max amplitude of perturbation [K]
+
+    REAL(wp), PARAMETER :: lz = 20000._wp   !< vert. wavelength of perturbation [m]
+     
+!--------------------------------------------------------------------
+!
+
+    ! initialize some constants:
+    !
+    brunt2  = brunt * brunt    ! Brunt-Vaisala frequency squared 
+    big_g   = (grav*grav)/(brunt2*cpd)
+
+
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
+
+    ! number of child domains
+    i_nchdom = MAX(1,p_patch%n_childdom)
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!    I: Init background state     !!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+    !
+    ! Init prognostic variables vn, w
+    !
+!$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
+
+    i_rlstart = 1
+    i_rlend   = min_rledge
+
+    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_lat,zu,zv)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+
+
+          ! get geographical coordinates of edge midpoint
+          !
+          z_lat = p_patch%edges%center(je,jb)%lat
+
+          ! init velocity field
+          !
+          ! zonal velocity
+          zu(je) = u0 * COS(z_lat)
+
+          ! meridional velocity
+          zv(je) = 0._wp
+
+          ! compute normal wind component
+          p_nh_prog%vn(je,jk,jb) = zu(je) * p_patch%edges%primal_normal(je,jb)%v1  &
+            &                    + zv(je) * p_patch%edges%primal_normal(je,jb)%v2
+
+        ENDDO  ! je
+      ENDDO  ! jk
+    ENDDO ! jb
+!$OMP ENDDO NOWAIT
+
+
+    i_rlstart = 1
+    i_rlend   = min_rlcell
+
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
+    !
+    ! Init prognostic variables exner, theta_v and rho
+    !
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_lat)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      DO jc = i_startidx, i_endidx
+
+        ! get geographical coordinates of cell circumcenter
+        !
+        z_lat = p_patch%cells%center(jc,jb)%lat
+
+
+        ! init surface temperature
+        !
+        z_tsfc(jc,jb) = big_g + (teq-big_g) * exp( -(u0*brunt2/(4.0_wp*grav*grav)) &
+          &           *(u0+2.0_wp*grid_angular_velocity*grid_sphere_radius)  &
+          &           * (COS(2.0_wp*z_lat)-1.0_wp) )
+
+
+        ! init surface pressure field
+        !
+        p_nh_diag%pres_sfc(jc,jb) = peq*exp( (u0/(4.0_wp*big_g*rd))                 &
+          &                       * (u0+2.0_wp*grid_angular_velocity*grid_sphere_radius)&
+          &                       * (COS(2.0_wp*z_lat)-1.0_wp))&
+          &                       * (z_tsfc(jc,jb)/teq)**(cpd/rd)
+
+      ENDDO  ! jc
+
+
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+
+          ! init temperature
+          !
+          p_nh_diag%temp(jc,jk,jb) = big_g*(1.0_wp - exp(brunt2*p_metrics%z_mc(jc,jk,jb)/grav)) &
+            &            + z_tsfc(jc,jb)*exp(brunt2*p_metrics%z_mc(jc,jk,jb)/grav)
+
+
+          ! init pressure field
+          !
+          p_nh_diag%pres(jc,jk,jb) = p_nh_diag%pres_sfc(jc,jb)                  &
+            &                      * ( (big_g/z_tsfc(jc,jb))                    &
+            &                      * exp(-brunt2*p_metrics%z_mc(jc,jk,jb)/grav) &
+            &                      + 1.0_wp - (big_g/z_tsfc(jc,jb)) )**(cpd/Rd)
+
+
+          ! init exner pressure
+          !
+          p_nh_prog%exner(jc,jk,jb) = (p_nh_diag%pres(jc,jk,jb)/p0ref)**(rd/cpd)
+
+
+          ! init virtual potential temperature
+          !
+          p_nh_prog%theta_v(jc,jk,jb) = p_nh_diag%temp(jc,jk,jb)/p_nh_prog%exner(jc,jk,jb)
+
+
+          ! store theta_v background state for visualization purposes
+          !
+          IF (lwrite_extra ) THEN
+            p_nh_diag%extra_3d(jc,jk,jb,1) = p_nh_prog%theta_v(jc,jk,jb)
+          ENDIF
+
+
+          ! init density of moist air
+          !
+          p_nh_prog%rho(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref  &
+            &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
+
+        ENDDO !jc
+      ENDDO !jk
+
+
+      DO jk = 1, nlevp1
+        DO jc = i_startidx, i_endidx
+
+          ! vertical velocity
+          !
+          p_nh_prog%w(jc,jk,jb) = 0._wp
+
+        ENDDO
+      ENDDO
+
+    ENDDO !jb
+!$OMP END DO
+
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!    II. Add potential temperature perturbation  !!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_lat,z_lon,zsin,zcos,dist, &
+!$OMP            shape_func,theta_pert)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+          ! get geographical coordinates of cell circumcenter
+          !
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
+
+          zsin = SIN(z_lat) * SIN(phic)
+          zcos = COS(z_lat) * COS(phic)
+
+          ! great circle distance with 'a/X' 
+          dist  = grid_sphere_radius * ACOS (zsin + zcos*COS(z_lon-lambdac)) 
+          shape_func = (width**2)/(width**2 + dist**2)
+
+          theta_pert = delta_theta*shape_func*SIN(2.0_wp*pi*p_metrics%z_mc(jc,jk,jb)/lz)
+
+          ! add perturbation to virtual potential temperature field
+          !
+          p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + theta_pert
+
+
+          ! add perturbation to temperature field 
+          ! (not strictly necessary, only for plotting purposes) 
+          p_nh_diag%temp(jc,jk,jb) = p_nh_diag%temp(jc,jk,jb) + theta_pert    &
+            &                      * (p_nh_diag%pres(jc,jk,jb)/p0ref)**(rd/cpd)
+
+
+! In order to match the equation of state, a perturbation should be added to the density 
+! field as well. However, the DCMIP tets case uses an initially unperturbed density field.
+!          ! add perturbation to density field
+!          p_nh_prog%rho(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref  &
+!            &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
+! end Test
+
+          ! init rho*theta_v
+          !
+          p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) * p_nh_prog%theta_v(jc,jk,jb)
+
+        ENDDO !jc
+      ENDDO !jk
+    ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE init_nh_dcmip_gw
+
+
+
+
+
+  !>
+  !! Initialization of prognostic state vector for the nh gravity 
+  !! wave test. 
+  !!
+  !! The non-hydrostatic gravity wave test examines the response of models to 
+  !! short time-scale wavemotion triggered by a localized perturbation. The 
+  !! formulation presented here is based on work by Baldauf et al. (2012). 
+  !! For this particular setup an analytical reference solution is available.  
+  !!
+  !! @Literature
+  !! - Baldauf, M. et al. (2012): An Analytical Solution for Linear Gravity Waves 
+  !! in a Channel as a Test for Numerical Models using the Non-Hydrostatic, 
+  !! compressible Euler equations
+  !!
+  !! @par Revision History
+  !! - initial revision by Daniel Reinert, DWD (2012-06-26)
+  !!
+  SUBROUTINE init_nh_gw_analyt( p_patch, p_nh_prog, p_nh_diag, p_metrics )
+
+    TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
+      &  p_patch
+
+    TYPE(t_nh_prog),      INTENT(INOUT) :: &  !< prognostic state vector
+      &  p_nh_prog
+
+    TYPE(t_nh_diag),      INTENT(INOUT) :: &  !< diagnostic state vector
+      &  p_nh_diag
+
+    TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
+      &  p_metrics
+
+
+    REAL(wp) :: z_lat                 !< geographical latitude
+
+    REAL(wp) ::           &           !< zonal and meridional velocity
+      & zu(nproma), zv(nproma)
+
+
+    REAL(wp) :: delta
+    REAL(wp) :: rhos                  !< surface density                  [kg/m**3]
+    REAL(wp) :: shape_func            !< shape function
+    REAL(wp) :: temp_pert             !< temperature perturbation         [K]
+    REAL(wp) :: rho_pert              !< density perturbation             [kg/m**3]
+    REAL(wp) :: temp_b, rho_b
+    INTEGER  :: jc, je, jk, jb        !< loop indices
+    INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
+    INTEGER  :: i_rlstart, i_rlend, i_nchdom  
+    INTEGER  :: nlev, nlevp1          !< number of full and half levels
+
+
+
+    ! test case parameters
+    !
+    REAL(wp), PARAMETER :: t0   = 250._wp    !< surface temperature        [K]
+    REAL(wp), PARAMETER :: u0   = 0._wp      !< maximum amplitude 
+                                             !< of the zonal wind          [m s^-1]
+    REAL(wp), PARAMETER :: phic = 0.0_wp     !< Lat of perturbation center
+    REAL(wp), PARAMETER :: q    = 50._wp     !< width of perturbation 
+    REAL(wp), PARAMETER :: delta_temp = 0.01_wp !< Max amplitude of perturbation [K]
+
+    ! Note:
+    ! p0ref = 100000.0_wp   !> [Pa]  (mo_physical_constants.f90)   
+!--------------------------------------------------------------------
+!
+
+    ! initialize some constants:
+    !
+    delta = grav/(rd * t0)
+
+    ! surface density
+    rhos  = p0ref/(rd * t0) 
+
+
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
+
+    ! number of child domains
+    i_nchdom = MAX(1,p_patch%n_childdom)
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!    I: Init background state     !!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+    !
+    ! Init prognostic variables vn, w
+    !
+!$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
+
+    i_rlstart = 1
+    i_rlend   = min_rledge
+
+    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_lat,zu,zv)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+
+
+          ! get geographical coordinates of edge midpoint
+          !
+          z_lat = p_patch%edges%center(je,jb)%lat
+
+          ! init velocity field
+          !
+          ! zonal velocity
+          zu(je) = u0 * cos(z_lat)
+
+          ! meridional velocity
+          zv(je) = 0._wp
+
+          ! compute normal wind component
+          p_nh_prog%vn(je,jk,jb) = zu(je) * p_patch%edges%primal_normal(je,jb)%v1  &
+            &                    + zv(je) * p_patch%edges%primal_normal(je,jb)%v2
+
+        ENDDO  ! je
+      ENDDO  ! jk
+    ENDDO ! jb
+!$OMP ENDDO NOWAIT
+
+
+    i_rlstart = 1
+    i_rlend   = min_rlcell
+
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
+    !
+    ! Init prognostic variables exner, theta_v and rho
+    !
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      DO jc = i_startidx, i_endidx
+
+        ! init surface pressure field (for visualization purposes only)
+        !
+        p_nh_diag%pres_sfc(jc,jb) = p0ref
+
+      ENDDO  ! jc
+
+
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+
+          ! init temperature (background)
+          !
+          p_nh_diag%temp(jc,jk,jb) = t0
+
+
+          ! init pressure field (background)
+          !
+          p_nh_diag%pres(jc,jk,jb) = p0ref * exp(-delta * p_metrics%z_mc(jc,jk,jb))
+
+
+          ! init exner pressure (background)
+          !
+          p_nh_prog%exner(jc,jk,jb) = (p_nh_diag%pres(jc,jk,jb)/p0ref)**(rd/cpd)
+
+
+          ! init virtual potential temperature (background)
+          !
+          p_nh_prog%theta_v(jc,jk,jb) = p_nh_diag%temp(jc,jk,jb)/p_nh_prog%exner(jc,jk,jb)
+
+
+          ! store theta_v background state for visualization purposes
+          !
+          IF (lwrite_extra ) THEN
+            p_nh_diag%extra_3d(jc,jk,jb,1) = p_nh_prog%theta_v(jc,jk,jb)
+          ENDIF
+
+
+          ! init density of moist air (background)
+          !
+          p_nh_prog%rho(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref  &
+            &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
+
+        ENDDO !jc
+      ENDDO !jk
+
+
+      DO jk = 1, nlevp1
+        DO jc = i_startidx, i_endidx
+
+          ! vertical velocity
+          !
+          p_nh_prog%w(jc,jk,jb) = 0._wp
+
+        ENDDO
+      ENDDO
+
+    ENDDO !jb
+!$OMP END DO
+
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!    II. Add temperature and density perturbation  !!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_lat,shape_func,temp_b, &
+!$OMP            temp_pert,rho_b,rho_pert)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+          ! get geographical latitude of cell circumcenter
+          !
+          z_lat = p_patch%cells%center(jc,jb)%lat
+
+          shape_func = (0.5_wp * (1._wp + SIN(z_lat)))**q  &
+            &        * SIN(pi * p_metrics%z_mc(jc,jk,jb)/p_metrics%z_ifc(jc,1,jb))
+
+
+          temp_b   = delta_temp * shape_func
+          temp_pert= temp_b * exp(0.5_wp * delta * p_metrics%z_mc(jc,jk,jb))
+
+
+          rho_b    = - rhos * temp_b/t0
+          rho_pert = rho_b * exp(-0.5_wp * delta * p_metrics%z_mc(jc,jk,jb))
+
+
+          ! add perturbation to temperature field 
+          ! (not strictly necessary, only done for plotting) 
+          p_nh_diag%temp(jc,jk,jb) = p_nh_diag%temp(jc,jk,jb) + temp_pert
+
+
+          ! add perturbation to virtual potential temperature field
+          !
+          p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb)                       &
+            &                         + temp_pert * (p0ref/p_nh_diag%pres(jc,jk,jb))**(rd/cpd)
+
+
+
+          ! In order to match the equation of state, a perturbation should be 
+          ! added to the density field as well. 
+          p_nh_prog%rho(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) + rho_pert
+
+
+          ! init rho*theta_v
+          !
+          p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) * p_nh_prog%theta_v(jc,jk,jb)
+
+        ENDDO !jc
+      ENDDO !jk
+    ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE init_nh_gw_analyt
+
+!--------------------------------------------------------------------
+END MODULE mo_nh_dcmip_gw

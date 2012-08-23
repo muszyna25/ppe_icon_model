@@ -4509,44 +4509,48 @@ nh\_test\_name&
 C& 'jabw'& &
 testcase selection&
 \tabularnewline
-&&&& 'zero': no orography&
+&&&& '\textbf{zero}': no orography&
 \tabularnewline
-&&&& 'bell': bell shaped mountain at 0E,0N&
+&&&& '\textbf{bell}': bell shaped mountain at 0E,0N&
 \tabularnewline
-&&&& 'schaer': hilly mountain at 0E,0N&
+&&&& '\textbf{schaer}': hilly mountain at 0E,0N&
 \tabularnewline
-&&&& 'jabw': Initializes the full Jablonowski Williamson test case.&
+&&&& '\textbf{jabw}': Initializes the full Jablonowski Williamson test case.&
 \tabularnewline
-&&&&'jabw\_s': Initializes the Jablonowski Williamson steady state test case.&
+&&&&'\textbf{jabw\_s}': Initializes the Jablonowski Williamson steady state test case.&
 \tabularnewline
-&&&&'jabw\_m': Initializes the Jablonowski Williamson test case with a mountain instead of the wind perturbation (specify mount\_height).&
+&&&&'\textbf{jabw\_m}': Initializes the Jablonowski Williamson test case with a mountain instead of the wind perturbation (specify mount\_height).&
 \tabularnewline
-&&&&'mrw\_nh': Initializes the full Mountain-induced Rossby wave test case.&
+&&&&'\textbf{mrw\_nh}': Initializes the full Mountain-induced Rossby wave test case.&
 \tabularnewline
-&&&&'mrw2\_nh': Initializes the modified mountain-induced Rossby wave test case.&
+&&&&'\textbf{mrw2\_nh}': Initializes the modified mountain-induced Rossby wave test case.&
 \tabularnewline
-&&&&'mwbr\_const': Initializes the mountain wave with two layers test case. 
+&&&&'\textbf{mwbr\_const}': Initializes the mountain wave with two layers test case. 
 The lower layer is isothermal and the upper layer has constant brunt 
 vaisala frequency. The interface has constant pressure.&
 \tabularnewline
-&&&&'PA': Initializes the pure advection test case.&
+&&&&'\textbf{PA}': Initializes the pure advection test case.&
 \tabularnewline
-&&&&'HS\_nh': Initializes the Held-Suarez test case. At the moment 
+&&&&'\textbf{HS\_nh}': Initializes the Held-Suarez test case. At the moment 
  with an isothermal atmosphere at rest (T=300K, ps=1000hPa, 
 u=v=0, topography=0.0).&
 \tabularnewline
-&&&&'HS\_jw': Initializes the Held-Suarez test case
+&&&&'\textbf{HS\_jw}': Initializes the Held-Suarez test case
 with Jablonowski Williamson initial conditions and zero topography.&
 \tabularnewline
-&&&&'APE\_nh': Initializes the APE experiments. With the 
+&&&&'\textbf{APE\_nh}': Initializes the APE experiments. With the 
 jabw test case, including moisture.&
 \tabularnewline
-&&&&'wk82': Initializes the Weisman Klemp test case&
+&&&&'\textbf{wk82}': Initializes the Weisman Klemp test case&
 l\_limited\_area =.TRUE.
 \tabularnewline
-&&&&'g\_lim\_area': Initializes a series of general limited area test cases:
+&&&&'\textbf{g\_lim\_area}': Initializes a series of general limited area test cases:
  itype\_atmos\_ana determines the atmospheric profile, itype\_anaprof\_uv 
 determines the wind profile and itype\_topo\_ana determines the topography&
+\tabularnewline
+&&&&'\textbf{dcmip\_gw\_31}': nonhydrostatic gravity waves triggered by a localized perturbation (nonlinear)&
+\tabularnewline
+&&&&'\textbf{dcmip\_gw\_32}': nonhydrostatic gravity waves triggered by a localized perturbation (linear)&
 l\_limited\_area =.TRUE. \\
 and lcoriolis = .FALSE.
 \tabularnewline

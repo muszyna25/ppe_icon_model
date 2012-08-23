@@ -84,7 +84,8 @@ MODULE mo_nh_testcases
                                    & init_nh_buble_wk,                            &
                                    & qv_max_wk, u_infty_wk,                       &
                                    & bubctr_lat, bubctr_lon, bubctr_z,            &
-                                   & bub_hor_width, bub_ver_width, bub_amp 
+                                   & bub_hor_width, bub_ver_width, bub_amp
+  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt 
   USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
   USE mo_nh_lim_area_testcases,ONLY: init_nh_atmo_ana_nconstlayers, nlayers_nconst,  &
                                    & p_base_nconst, theta0_base_nconst, h_nconst,    &
@@ -565,6 +566,17 @@ MODULE mo_nh_testcases
 
     END DO
     CALL message(TRIM(routine),'running g_lim_area')
+
+  CASE ('dcmip_gw_31')
+
+    ! The topography has been initialized to 0 
+    CALL message(TRIM(routine),'running the dcmip_gw_31 (small planet gravity wave) test')
+
+  CASE ('dcmip_gw_32')
+
+    ! The topography has been initialized to 0 
+    CALL message(TRIM(routine),'running the dcmip_gw_32 (analyt. small planet gravity wave) test')
+
 
   CASE ('dcmip_tc_51')
     ! itopo == 0 --> The topography is initialized to 0 at the begining of this subroutine
@@ -1056,6 +1068,34 @@ MODULE mo_nh_testcases
   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
+
+
+
+  CASE ('dcmip_gw_31')
+
+    CALL message(TRIM(routine),'setup dcmip_gw_31 (gravity waves on small planet) test')
+
+    DO jg = 1, n_dom
+      CALL init_nh_dcmip_gw( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
+    ENDDO
+
+    CALL message(TRIM(routine),'End setup dcmip_gw_31 test')
+
+
+
+  CASE ('dcmip_gw_32')
+
+    CALL message(TRIM(routine),'setup dcmip_gw_32 (analyt. gravity waves on small planet) test')
+
+    DO jg = 1, n_dom
+      CALL init_nh_gw_analyt( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
+    ENDDO
+
+    CALL message(TRIM(routine),'End setup dcmip_gw_32 test')
+
+
 
   CASE ('dcmip_tc_51','dcmip_tc_52')
 
