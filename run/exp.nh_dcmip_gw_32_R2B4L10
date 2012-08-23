@@ -41,7 +41,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=250
-nsteps=1800
+nsteps=7200
 #ndays=12
 #nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
@@ -106,7 +106,7 @@ cat > ${atmo_namelist} << EOF
  iequations     = ${atmo_model_equations}       ! 1: hydrost. atmosphere
  idiv_method    = 1
  divavg_cntrwgt = 0.50
- lcoriolis      = .FALSE.
+ lcoriolis      = .FALSE.    ! for inertio-gravity waves use .TRUE.
 /
 &nh_testcase_nml
  nh_test_name   = 'dcmip_gw_32'     ! test case identifier
