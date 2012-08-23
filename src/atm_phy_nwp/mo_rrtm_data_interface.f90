@@ -65,7 +65,7 @@ MODULE mo_rrtm_data_interface
   PUBLIC :: t_rrtm_data
   PUBLIC :: construct_rrtm_model_repart
   PUBLIC :: destruct_rrtm_model_repart
-  PUBLIC :: recv_radiation_input
+  PUBLIC :: recv_rrtm_input, send_rrtm_output
     
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
@@ -109,8 +109,8 @@ MODULE mo_rrtm_data_interface
         
     REAL(wp), POINTER ::  albedo_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
     REAL(wp), POINTER ::  albedo_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
-    REAL(wp), POINTER ::  albedo_nir_dif(:,:) !< in surface albedo for visible range, diffuse
     REAL(wp), POINTER ::  albedo_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+    REAL(wp), POINTER ::  albedo_nir_dif(:,:) !< in surface albedo for visible range, diffuse
     
     REAL(wp), POINTER ::  emis_rad(:,:)      ! lw sfc emissivity
     REAL(wp), POINTER ::  tsfctrad(:,:)      ! surface temperature at trad [K]
@@ -409,8 +409,8 @@ CONTAINS
   END SUBROUTINE deallocate_rrtm_model_data
   !-----------------------------------------
 
-  !-----------------------------------------
-  SUBROUTINE recv_radiation_input( &
+  !-----------------------------------------------------------
+  SUBROUTINE recv_rrtm_input( &
     & zland      ,&!< in     land fraction
     & zglac      ,&!< in     land glacier fraction
     & cos_mu0    ,&!< in  cos of zenith angle mu0
@@ -477,9 +477,10 @@ CONTAINS
     INTEGER :: recv_tmp
 
     recv_comm_pattern = rrtm_model_data%radiation_recv_comm_pattern
+    rrtm_data => rrtm_model_data
 ! -----------------------------------
     recv_fr_land_smt = new_icon_comm_variable ( &
-      & recv_var = rrtm_model_data%fr_land_smt, &
+      & recv_var = rrtm_data%fr_land_smt, &
       & send_var = zland,                       &
       & comm_pattern_index = recv_comm_pattern, &
       & status   = is_ready,                    &
@@ -488,7 +489,7 @@ CONTAINS
 
       
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%fr_glac_smt   , &
+      &  recv_var = rrtm_data%fr_glac_smt   , &
       &  send_var = zglac,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -496,7 +497,7 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%cosmu0        , &
+      &  recv_var = rrtm_data%cosmu0        , &
       &  send_var = cos_mu0,                        &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -505,7 +506,7 @@ CONTAINS
 ! 
     
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%albedo_vis_dir, &
+      &  recv_var = rrtm_data%albedo_vis_dir, &
       &  send_var = alb_vis_dir,                    &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -513,7 +514,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%albedo_nir_dir, &
+      &  recv_var = rrtm_data%albedo_nir_dir, &
       &  send_var = alb_nir_dir,                    &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -522,7 +523,7 @@ CONTAINS
       
          
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%albedo_vis_dif, &
+      &  recv_var = rrtm_data%albedo_vis_dif, &
       &  send_var = alb_vis_dif,                    &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -530,7 +531,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%albedo_nir_dif, &
+      &  recv_var = rrtm_data%albedo_nir_dif, &
       &  send_var = alb_nir_dif,                    &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -538,7 +539,7 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%emis_rad      , &
+      &  recv_var = rrtm_data%emis_rad      , &
       &  send_var = emis_rad,                       &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -546,7 +547,7 @@ CONTAINS
       &  name     = "tmp" )
               
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%tsfctrad      , &
+      &  recv_var = rrtm_data%tsfctrad      , &
       &  send_var = tk_sfc,                         &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -554,7 +555,7 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%pres_ifc      , &
+      &  recv_var = rrtm_data%pres_ifc      , &
       &  send_var = pp_hl,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -562,7 +563,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%pres          , &
+      &  recv_var = rrtm_data%pres          , &
       &  send_var = pp_fl,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -570,7 +571,7 @@ CONTAINS
       &  name     = "tmp" )
           
      recv_tmp     = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%temp          , &
+      &  recv_var = rrtm_data%temp          , &
       &  send_var = tk_fl,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -578,7 +579,7 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%qm_vapor      , &
+      &  recv_var = rrtm_data%qm_vapor      , &
       &  send_var = qm_vap,                         &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -587,7 +588,7 @@ CONTAINS
     
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%qm_liquid     , &
+      &  recv_var = rrtm_data%qm_liquid     , &
       &  send_var = qm_liq,                        &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -595,7 +596,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%qm_ice        , &
+      &  recv_var = rrtm_data%qm_ice        , &
       &  send_var = qm_ice,                         &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -603,7 +604,7 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%qm_o3         , &
+      &  recv_var = rrtm_data%qm_o3         , &
       &  send_var = qm_o3,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -611,7 +612,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( & 
-      &  recv_var = rrtm_model_data%acdnc         , &
+      &  recv_var = rrtm_data%acdnc         , &
       &  send_var = cdnc,                           &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -619,7 +620,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%cld_frc       , &
+      &  recv_var = rrtm_data%cld_frc       , &
       &  send_var = cld_frc,                        &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -628,7 +629,7 @@ CONTAINS
 ! 
     
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%zaeq1         , &
+      &  recv_var = rrtm_data%zaeq1         , &
       &  send_var = zaeq1,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -636,7 +637,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%zaeq2         , &
+      &  recv_var = rrtm_data%zaeq2         , &
       &  send_var = zaeq2,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -644,7 +645,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%zaeq3         , &
+      &  recv_var = rrtm_data%zaeq3         , &
       &  send_var = zaeq3,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -652,7 +653,7 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%zaeq4         , &
+      &  recv_var = rrtm_data%zaeq4         , &
       &  send_var = zaeq4,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
@@ -660,16 +661,74 @@ CONTAINS
       &  name     = "tmp" )
           
     recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_model_data%zaeq5         , &
+      &  recv_var = rrtm_data%zaeq5         , &
       &  send_var = zaeq5,                          &
       &  comm_pattern_index = recv_comm_pattern,    &
       &  status   = is_ready,                       &
       &  scope    = until_sync,                     &
       &  name     = "tmp" )
 
-    CALL icon_comm_sync_all
+    CALL icon_comm_sync_all()
   
+  END SUBROUTINE recv_rrtm_input
+  !-----------------------------------------------------------
 
-  END SUBROUTINE recv_radiation_input
+  !-----------------------------------------------------------
+  SUBROUTINE send_rrtm_output(        &
+      & rrtm_data               , &
+      & lwflxclr, &!< out terrestrial flux, clear sky, net down
+      & trsolclr, &!< out sol. transmissivity, clear sky, net down
+      & lwflxall, &!< out terrestrial flux, all sky, net down
+      & trsolall)  !< out solar transmissivity, all sky, net down
+      
+    TYPE(t_rrtm_data), POINTER :: rrtm_data
+    REAL(wp), TARGET :: lwflxclr(:,:,:)!< out terrestrial flux, clear sky, net down
+    REAL(wp), TARGET :: trsolclr(:,:,:)!< out sol. transmissivity, clear sky, net down
+    REAL(wp), TARGET :: lwflxall(:,:,:)!< out terrestrial flux, all sky, net down
+    REAL(wp), TARGET :: trsolall(:,:,:)!< out solar transmissivity, all sky, net down
+
+    INTEGER :: send_comm_pattern, send_tmp
+    
+    send_comm_pattern = rrtm_model_data%radiation_send_comm_pattern
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = lwflxclr,                       &
+      &  send_var = rrtm_data%lwflxclr,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "lwflxclr" )
+
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = trsolclr,                       &
+      &  send_var = rrtm_data%trsolclr,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "trsolclr" )
+
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = lwflxall,                       &
+      &  send_var = rrtm_data%lwflxall,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "lwflxall" )
+
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = trsolall,                       &
+      &  send_var = rrtm_data%trsolall,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "trsolall" )
+
+    CALL icon_comm_sync_all()
+      
+  
+   END SUBROUTINE send_rrtm_output
 
 END MODULE mo_rrtm_data_interface

@@ -70,7 +70,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_srtm_config,          ONLY: jpsw
   USE mo_sync,                 ONLY: global_max, global_min
 
-  USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_radiation_input
+  USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
 
   IMPLICIT NONE
 
@@ -1258,8 +1258,10 @@ CONTAINS
         & test_lwflxclr(:, :, :),  &
         & test_trsolclr(:, :, :),  &
         & test_lwflxall(:, :, :),  &
-        & test_trsolall(:, :, :)
-
+        & test_trsolall(:, :, :)    
+    REAL(wp) :: check_diff
+    
+    CHARACTER(*), PARAMETER :: method_name = "nwp_rrtm_radiation_repartition"
 
     !-------------------------------------------------------------------------
     IF (msg_level >= 12) &
@@ -1395,13 +1397,13 @@ CONTAINS
           & emter_all  = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
           & trsol_all  = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
-       ENDIF
+      ENDIF !test_parallel_radiation
 
-      ENDDO ! blocks
+    ENDDO ! blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      CALL recv_radiation_input( &
+    CALL recv_rrtm_input( &
           & zland      =ext_data%atm%fr_land_smt(:,:)   ,&!< in     land fraction
           & zglac      =ext_data%atm%fr_glac_smt(:,:)   ,&!< in     land glacier fraction
                                 !
@@ -1431,13 +1433,122 @@ CONTAINS
           & patch      = pt_patch                     ,&!< in
           & rrtm_data  = rrtm_data)                     !< out, pointer to rrtm input values
 
+    
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
+    
+      i_endidx = rrtm_data%block_size
+      IF (jb == rrtm_data%no_of_blocks) i_endidx = rrtm_data%end_index
+    
+      CALL radiation(               &
+                              !
+                              ! input
+                              ! -----
+                              !
+                              ! indices and dimensions
+        & jce        = i_endidx              ,&!< in  end   index for loop over block
+        & kbdim      = rrtm_data%block_size  ,&!< in  dimension of block over cells
+        & klev       = rrtm_data%full_levels ,&!< in  number of full levels =  number of layers
+        & klevp1     = rrtm_data%half_levels ,&!< in  number of half levels =  number of layer ifcs
+                              !
+        & ktype      = rrtm_data%convection_type(:,jb) ,&!< in     type of convection
+                              !
+                              ! surface: albedo + temperature
+        & zland      = rrtm_data%fr_land_smt(:,jb)     ,&!< in     land fraction
+        & zglac      = rrtm_data%fr_glac_smt(:,jb)     ,&!< in     land glacier fraction
+                              !
+        & cos_mu0    = rrtm_data%cosmu0         (:,jb) ,&!< in  cos of zenith angle mu0
+        & alb_vis_dir= rrtm_data%albedo_vis_dir (:,jb) ,&!< in surface albedo for visible range, direct
+        & alb_nir_dir= rrtm_data%albedo_nir_dir (:,jb) ,&!< in surface albedo for near IR range, direct
+        & alb_vis_dif= rrtm_data%albedo_vis_dif (:,jb) ,&!< in surface albedo for visible range, diffuse
+        & alb_nir_dif= rrtm_data%albedo_nir_dif (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & emis_rad   = rrtm_data%emis_rad       (:,jb) ,&!< in longwave surface emissivity
+        & tk_sfc     = rrtm_data%tsfctrad       (:,jb) ,&!< in surface temperature
+                              !
+                              ! atmosphere: pressure, tracer mixing ratios and temperature
+        & pp_hl      = rrtm_data%pres_ifc  (:,:,jb)    ,&!< in  pres at half levels at t-dt [Pa]
+        & pp_fl      = rrtm_data%pres      (:,:,jb)    ,&!< in  pres at full levels at t-dt [Pa]
+        & tk_fl      = rrtm_data%temp      (:,:,jb)    ,&!< in  temperature at full level at t-dt
+        & qm_vap     = rrtm_data%qm_vapor  (:,:,jb)    ,&!< in  water vapor mass mix ratio at t-dt
+        & qm_liq     = rrtm_data%qm_liquid (:,:,jb)    ,&!< in cloud water mass mix ratio at t-dt
+        & qm_ice     = rrtm_data%qm_ice    (:,:,jb)    ,&!< in cloud ice mass mixing ratio at t-dt
+        & qm_o3      = rrtm_data%qm_o3     (:,:,jb)    ,&!< in o3 mass mixing ratio at t-dt
+        & cdnc       = rrtm_data%acdnc     (:,:,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
+        & cld_frc    = rrtm_data%cld_frc   (:,:,jb)    ,&!< in  cloud fraction [m2/m2]
+        & zaeq1      = rrtm_data%zaeq1     (:,:,jb)    ,&!< in aerosol continental
+        & zaeq2      = rrtm_data%zaeq2     (:,:,jb)    ,&!< in aerosol maritime
+        & zaeq3      = rrtm_data%zaeq3     (:,:,jb)    ,&!< in aerosol urban
+        & zaeq4      = rrtm_data%zaeq4     (:,:,jb)    ,&!< in aerosol volcano ashes
+        & zaeq5      = rrtm_data%zaeq5     (:,:,jb)    ,&!< in aerosol stratospheric background
+                              ! output
+                              ! ------
+                              !
+        & cld_cvr    = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
+        & emter_clr  = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+        & trsol_clr  = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & emter_all  = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+        & trsol_all  = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & opt_halo_cosmu0 = .FALSE. )
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    CALL send_rrtm_output(        &
+      & rrtm_data               , &
+      & prm_diag%lwflxclr(:,:,:), &!< out terrestrial flux, clear sky, net down
+      & prm_diag%trsolclr(:,:,:), &!< out sol. transmissivity, clear sky, net down
+      & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
+      & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
+
+    
+    IF (test_parallel_radiation) THEN
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          &                         i_startidx, i_endidx, rl_start, rl_end)
+               
+        DO jc = i_startidx, i_endidx
+
+          check_diff = MAXVAL(ABS(prm_diag%lwflxclr(jc,:,jb) - test_lwflxclr(jc,:,jb)))
+          IF (check_diff > 0.0_wp) THEN
+            write(0,*) " jc,jb=", jc,jb
+            write(0,*) " prm_diag%lwflxclr=", prm_diag%lwflxclr(jc,:,jb)
+            write(0,*) " test_lwflxclr=", test_lwflxclr(jc,:,jb)
+            CALL finish(method_name,"lwflxclr differs")
+          ENDIF
+        
+          check_diff = MAXVAL(ABS(prm_diag%trsolclr(jc,:,jb) - test_trsolclr(jc,:,jb)))
+          IF (check_diff > 0.0_wp) THEN
+            write(0,*) " jc,jb=", jc,jb
+            write(0,*) " prm_diag%trsolclr=", prm_diag%trsolclr(jc,:,jb)
+            write(0,*) " test_trsolclr=", test_trsolclr(jc,:,jb)
+            CALL finish(method_name,"trsolclr differs")
+          ENDIF
+        
+          check_diff = MAXVAL(ABS(prm_diag%lwflxall(jc,:,jb) - test_lwflxall(jc,:,jb)))
+          IF (check_diff > 0.0_wp) THEN
+            write(0,*) " jc,jb=", jc,jb
+            write(0,*) " prm_diag%lwflxall=", prm_diag%lwflxall(jc,:,jb)
+            write(0,*) " test_lwflxall=", test_lwflxall(jc,:,jb)
+            CALL finish(method_name,"lwflxall differs")
+          ENDIF
+        
+          check_diff = MAXVAL(ABS(prm_diag%trsolall(jc,:,jb) - test_trsolall(jc,:,jb)))
+          IF (check_diff > 0.0_wp) THEN
+            write(0,*) " jc,jb=", jc,jb
+            write(0,*) " prm_diag%trsolall=", prm_diag%trsolall(jc,:,jb)
+            write(0,*) " test_trsolall=", test_trsolall(jc,:,jb)
+            CALL finish(method_name,"trsolall differs")
+          ENDIF
+        
+       ENDDO
+     ENDDO
+
+     DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
+
+   ENDIF ! test_parallel_radiation
+      
 
   END SUBROUTINE nwp_rrtm_radiation_repartition
   !---------------------------------------------------------------------------------------

@@ -712,9 +712,9 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
-    IF (use_icon_comm) THEN
+!     IF (use_icon_comm) THEN
       CALL construct_icon_communication()
-    ENDIF
+!     ENDIF
     
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -776,9 +776,9 @@ CONTAINS
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
-    IF (use_icon_comm) THEN
+!     IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
-    ENDIF
+!     ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')
     
