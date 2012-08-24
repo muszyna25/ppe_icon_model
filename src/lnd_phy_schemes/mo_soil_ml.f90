@@ -410,6 +410,7 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
+USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 #endif
 
 
@@ -484,7 +485,8 @@ END SUBROUTINE message
                   ldiag_tg         , & ! if true: diagnose t_g and snow-cover fraction with tgcom
                   ke_soil, ke_snow , &
                   czmls            , & ! processing soil level structure 
-                  dt               , &
+                  inwp_turb        , & ! turbulence scheme number
+                  dt               , & ! time step
 !
                   soiltyp_subs     , & ! type of the soil (keys 0-9)                     --
                   plcov            , & ! fraction of plant cover                         --
@@ -592,8 +594,10 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ke_soil+1), INTENT(IN) :: &
                   czmls                ! processing soil level structure 
   LOGICAL, INTENT(IN) :: ldiag_tg      ! if .TRUE., use tgcom to diagnose t_g and snow-cover fraction
+  INTEGER (KIND=iintegers), INTENT(IN)  :: &
+                  inwp_turb            ! turbulence scheme number
   REAL    (KIND = ireals), INTENT(IN)  ::  &
-                  dt                    
+                  dt                   ! time step
 
   INTEGER (KIND=iintegers),DIMENSION(ie), INTENT(IN) :: & 
                   soiltyp_subs         ! type of the soil (keys 0-9)                     --
@@ -1621,12 +1625,14 @@ END SUBROUTINE message
 
         ztchv(i)    = tch(i)*zuv  ! transfer coefficient * velocity
 
-        LIM: IF (ztchv(i) > ztchv_max(i)) THEN
-          tch(i)=ztchv_max(i)/MAX(zuv,1.E-06_ireals)
-!         IF (ntstep > 10) THEN          ! control print only after initial adaptation
-!                                        ! to analysis state
-            limit_tch(i) = .true.      ! set switch for later use
-        END IF LIM
+        IF ( inwp_turb /= 3 ) THEN
+          LIM: IF (ztchv(i) > ztchv_max(i)) THEN
+            tch(i)=ztchv_max(i)/MAX(zuv,1.E-06_ireals)
+!           IF (ntstep > 10) THEN          ! control print only after initial adaptation
+!                                          ! to analysis state
+            limit_tch(i) = .true.          ! set switch for later use
+          END IF LIM
+        ENDIF
 
         ztmch(i) = tch(i)*zuv*g*zrho_atm(i)
 !     ENDIF
@@ -2830,9 +2836,16 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
-!write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
-!'  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
-!'  ......  ', tch(i), tcm(i)
+IF (msg_level >= 14) THEN
+  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
+         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
+      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
+        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
+        '  ......  ', tch(i), tcm(i)
+    ENDIF
+  ENDIF
+ENDIF
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3091,9 +3104,17 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
-!write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
-!'  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
-!'  ......  ', tch(i), tcm(i)
+IF (msg_level >= 14) THEN
+  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_s(i) )  >  500.0  .OR. & 
+         ABS( zlhfl_s(i) )  > 2000.0 ) THEN
+      write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
+        '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
+        '  ...CH,CM...  ', tch(i), tcm(i), &
+        '  ...const...  ', cp_d,lh_v,lh_s
+    ENDIF
+  ENDIF
+ENDIF
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3507,6 +3528,17 @@ END SUBROUTINE message
           zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow(i))
           zlhfl_snow(i) = lh_s*zversn(i)
           zfor_snow     = zrnet_snow + zshfl_snow(i) + zlhfl_snow(i)
+
+IF (msg_level >= 14) THEN
+  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
+         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
+      write(*,*) 'soil: ', zshfl_snow(i), zlhfl_snow(i), '....', &
+        zth_low(i), ztsnow(i), '....', &
+        zwsnow(i), zrr(i), zrs(i), zdwsndt(i) 
+    ENDIF
+  ENDIF
+ENDIF
 
           ! forecast of snow temperature Tsnow
           IF (ztsnow(i) < t0_melt .AND. zwsnew(i) > zepsi) THEN

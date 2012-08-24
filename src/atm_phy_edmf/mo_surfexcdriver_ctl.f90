@@ -441,7 +441,7 @@ REAL(KIND=JPRB) :: ZFRMAX(KLON)   , ZFRLMAX(KLON)  , ZALB(KLON)     , &
                  & ZAQL(KLON)     , ZBQL(KLON)     , ZRHO(KLON)
 
 
-INTEGER(KIND=JPIM) :: JL, JTILE, JT, IITT
+INTEGER(KIND=JPIM) :: JL, JTILE, JT, IITT, isubs
 LOGICAL :: LLINIT
 
 REAL(KIND=JPRB) :: ZDUA, ZZCDN, ZQSSN, ZCOR, ZRG, ZRTMST , &
@@ -450,7 +450,41 @@ REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
 LOGICAL         :: LLAND, LLSICE, LLHISSR(KLON)
 
+! Globcover 2009: tile index used in TESSEL (IFS) (see also mo_ext_data_state.f90)
+
+! Number of landcover classes provided by external parameter data
+! Needs to be changed into a variable if landcover classifications 
+! with a different number of classes become available
+INTEGER, PARAMETER :: num_lcc = 23
+REAL(KIND=JPRB), DIMENSION(num_lcc):: jtessel_gcv2009  ! Tessel index table GlobCover2009
+
+!                      jtessel 
+DATA jtessel_gcv2009 / 4,     & ! irrigated croplands                           
+                   &   4,     & ! rainfed croplands                             
+                   &   4,     & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   4,     & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   6,     & ! closed broadleaved evergreen forest           
+                   &   6,     & ! closed broadleaved deciduous forest           
+                   &   6,     & ! open broadleaved deciduous forest             
+                   &   6,     & ! closed needleleaved evergreen forest          
+                   &   6,     & ! open needleleaved deciduous forest            
+                   &   6,     & ! mixed broadleaved and needleleaved forest     
+                   &   4,     & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   4,     & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   4,     & ! closed to open shrubland                      
+                   &   4,     & ! closed to open herbaceous vegetation          
+                   &   4,     & ! sparse vegetation                             
+                   &   6,     & ! closed to open forest regulary flooded        
+                   &   6,     & ! closed forest or shrubland permanently flooded
+                   &   4,     & ! closed to open grassland regularly flooded    
+                   &   8,     & ! artificial surfaces                           
+                   &   8,     & ! bare areas                                    
+                   &   1,     & ! water bodies                                  
+                   &   5,     & ! permanent snow and ice                        
+                   &   8      / !undefined                                  
+
 ! #include "fcsttre.h"
+
 
 !*         1.     Set up of general quantities
 !                 ----------------------------
@@ -683,14 +717,35 @@ ENDDO
 
 !*         3.2a  CALL TERRA
 
+DO isubs=1,ntiles_total
+  DO jl=KIDIA,KFDIA
+    JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jl,jb,isubs))
+    IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
+      SELECT CASE ( JTILE )
+        CASE (4)
+          JTILE = 5   ! snow over low vegetation
+        CASE (6)
+          JTILE = 7   ! snow over high vegetation
+        CASE (8)
+          JTILE = 5   ! snow over bare ground
+      END SELECT
+    ENDIF
+    IF ( PSST(jl) < 273.0_jprb ) THEN   ! temperature should be ocean freezing T ???
+      JTILE = 2       ! sea ice         ! this may never be active as not LAND
+    ENDIF
+! interception layer (#3) missing ???
 
-DO JTILE=1,ntiles_total
-  DO JL=KIDIA,KFDIA
-    tch_ex(jl,jtile) = ZCH(jl,3) ! 3: interception reservoir, should be proper tile ???
-    tcm_ex(jl,jtile) = ZCM(jl,3) ! 3: interception reservoir, should be proper tile ???
-    tfv_ex(jl,jtile) = 1.0       ! laminar reduction factor for evaporation (Matthias) ????
+! debug: high veg -> low veg (snow or no snow) ???
+    IF (JTILE == 6)  JTILE = 4
+    IF (JTILE == 7)  JTILE = 5
+   !JTILE=2                             !??????????
+
+    tch_ex(jl,isubs) = ZCH(jl,JTILE)
+    tcm_ex(jl,isubs) = ZCM(jl,JTILE)
+    tfv_ex(jl,isubs) = 1.0_JPRB   ! laminar reduction factor for evaporation (Matthias) ????
   ENDDO
 ENDDO
+
 
 !IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 IF ( .true. ) THEN

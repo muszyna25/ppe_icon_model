@@ -438,6 +438,7 @@ CONTAINS
         &  nsubs0=jb,          nsubs1=isubs                  , & ! unused except for optional debug output
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
+        &  inwp_turb=atm_phy_nwp_config(jg)%inwp_turb        , &
         &  dt=tcall_sfc_jg                                   , &
         &  soiltyp_subs = soiltyp_t(:,jb,isubs)              , & ! type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,jb,isubs)                , & ! fraction of plant cover             --

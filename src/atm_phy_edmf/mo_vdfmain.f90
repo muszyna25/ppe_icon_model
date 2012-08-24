@@ -896,14 +896,13 @@ DO JL=KIDIA,KFDIA
  !ZEXTSHF(JL) = ZKHFL(JL) * ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) * ZRHO
  !ZEXTLHF(JL) = ZKQFL(JL) * RLVTT * ZRHO
  !should really be handed over for each tile not mean ???????
-  ZEXTSHF(JL) = -15.0_JPRB
-  ZEXTLHF(JL) = -60.0_JPRB
 
- !ZEXTSHF(JL) = 0.0_JPRB
- !ZEXTLHF(JL) = 0.0_JPRB
+! surface fluxes from TERRA
+
+  ZEXTSHF(JL) = 0.0_JPRB
+  ZEXTLHF(JL) = 0.0_JPRB
   DO JT=1,ntiles_total
-   !IF (LLTERRA) THEN
-    IF (.false.) THEN
+    IF (LLTERRA) THEN
 !write(*,*) 'hh1: ', subsfrac_ex(JL,JT)
 !write(*,*) 'hh2: ', SNOWFRAC_EX(JL,JT)
 !write(*,*) 'hh3: ', SHFL_S_T   (JL,JT)
@@ -917,9 +916,15 @@ DO JL=KIDIA,KFDIA
         ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
+
+! test: fixed surface fluxes
+
+   !ZEXTSHF(JL) = -15.0_JPRB
+   !ZEXTLHF(JL) = -60.0_JPRB
    !ZEXTSHF(JL) = 0.0_JPRB  ! testing???
    !ZEXTLHF(JL) = 0.0_JPRB  ! - " -
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
+
   ENDDO
 ENDDO
 !xxx

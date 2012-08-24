@@ -546,6 +546,7 @@ IF ( .true. ) THEN
         &  nsubs0=jb,         nsubs1=isubs                   , & ! unused except for optional debug output
         &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
+        &  inwp_turb=atm_phy_nwp_config(jg)%inwp_turb        , &
         &  dt=dt                                             , &
         &  soiltyp_subs = soiltyp_t(:,isubs)                 , & ! type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,isubs)                   , & ! fraction of plant cover             --
