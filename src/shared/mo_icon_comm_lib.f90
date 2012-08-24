@@ -100,7 +100,7 @@ MODULE mo_icon_comm_lib
   PUBLIC :: icon_comm_sync
   PUBLIC :: icon_comm_sync_all
 
-  PUBLIC :: print_grid_comm_pattern
+  PUBLIC :: print_grid_comm_pattern, print_grid_comm_stats
 !   PUBLIC :: icon_comm_show
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
@@ -458,9 +458,9 @@ CONTAINS
       & halo_level=p_patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="verts_not_in_domain" )
         
-    CALL print_grid_comm_stats(grid_comm_pattern_list(p_patch%sync_cells_not_in_domain))
-    CALL print_grid_comm_stats(grid_comm_pattern_list(p_patch%sync_edges_not_owned))
-    CALL print_grid_comm_stats(grid_comm_pattern_list(p_patch%sync_verts_not_owned))
+    CALL print_grid_comm_stats(p_patch%sync_cells_not_in_domain)
+    CALL print_grid_comm_stats(p_patch%sync_edges_not_owned)
+    CALL print_grid_comm_stats(p_patch%sync_verts_not_owned)
     IF ( icon_comm_debug) THEN
       CALL print_grid_comm_pattern(p_patch%sync_cells_not_in_domain)
       CALL print_grid_comm_pattern(p_patch%sync_edges_not_owned)
@@ -851,11 +851,14 @@ CONTAINS
     
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE print_grid_comm_stats(grid_comm_pattern)
-    TYPE(t_grid_comm_pattern), INTENT(in) :: grid_comm_pattern
+  SUBROUTINE print_grid_comm_stats(comm_pattern_id)
 
+    INTEGER, INTENT(in) :: comm_pattern_id
+  
+    TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: i, min_points, max_points, tot_points
-           
+
+    grid_comm_pattern => grid_comm_pattern_list(comm_pattern_id)
     write(log_file_id,*) " === Communication stats for ", TRIM(grid_comm_pattern%name), &
       & " id=", grid_comm_pattern%id
     write(log_file_id,*) " --- recv: no_of_procs= ", grid_comm_pattern%no_of_recv_procs

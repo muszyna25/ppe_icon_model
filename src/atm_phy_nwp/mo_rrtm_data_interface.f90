@@ -55,7 +55,9 @@ MODULE mo_rrtm_data_interface
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
     & get_my_mpi_work_communicator, p_bcast
   USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
-    & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all 
+    & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all, &
+    & print_grid_comm_stats
+ 
 
 
   IMPLICIT NONE
@@ -260,6 +262,8 @@ CONTAINS
       &  in_comm_pattern_id = rrtm_model_data%radiation_recv_comm_pattern, &
       &  name = "radiation_send_to_dynamics" )
 
+    CALL print_grid_comm_stats(rrtm_model_data%radiation_recv_comm_pattern)
+    CALL print_grid_comm_stats(rrtm_model_data%radiation_send_comm_pattern)
     CALL print_grid_comm_pattern(rrtm_model_data%radiation_recv_comm_pattern)
     CALL print_grid_comm_pattern(rrtm_model_data%radiation_send_comm_pattern)
 
