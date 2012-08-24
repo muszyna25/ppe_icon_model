@@ -1139,6 +1139,7 @@ CONTAINS
 
     comm_variable(new_comm_var_r3d_recv_send)%recv_values_3d => recv_var
     comm_variable(new_comm_var_r3d_recv_send)%send_values_3d => send_var
+    comm_variable(new_comm_var_r3d_recv_send)%no_of_variables = 1
     
     IF (PRESENT(status)) THEN
       IF (status == is_ready) CALL icon_comm_var_is_ready(new_comm_var_r3d_recv_send )
