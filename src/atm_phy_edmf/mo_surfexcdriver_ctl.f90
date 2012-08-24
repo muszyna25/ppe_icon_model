@@ -121,7 +121,8 @@ USE mo_vsurf        ,ONLY : vsurf
 USE mo_vevap        ,ONLY : vevap
 USE mo_surfseb_ctl  ,ONLY : surfseb_ctl
 USE mo_nwp_sfc_interface_edmf, ONLY : nwp_surface_edmf
-USE mo_run_config,          ONLY: msg_level
+USE mo_run_config   ,ONLY : msg_level
+USE mo_data_turbdiff,ONLY : t0_melt, zt_ice
 
 
 ! #ifdef DOC
@@ -730,8 +731,8 @@ DO isubs=1,ntiles_total
           JTILE = 5   ! snow over bare ground
       END SELECT
     ENDIF
-    IF ( PSST(jl) < 273.0_jprb ) THEN   ! temperature should be ocean freezing T ???
-      JTILE = 2       ! sea ice         ! this may never be active as not LAND
+    IF ( t_g(jl) > (t0_melt + zt_ice) ) THEN   ! salt water freezing temperature
+      JTILE = 2              ! sea ice         ! this may never be active as not LAND
     ENDIF
 ! interception layer (#3) missing ???
 

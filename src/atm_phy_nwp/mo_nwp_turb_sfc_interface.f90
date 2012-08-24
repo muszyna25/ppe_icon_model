@@ -209,7 +209,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         shfl_s_t(nproma,ntiles_total) , evap_s_t(nproma,ntiles_total),    &
     &         tskin_t(nproma,ntiles_total)  , &
     &         ustr_s_t(nproma,ntiles_total) , vstr_s_t(nproma,ntiles_total),    &
-    &         zae(nproma,p_patch%nlev)      , zvar(nproma,p_patch%nlev),        &
+    &         zae(nproma,p_patch%nlev)      ,                                   &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
     &         zsigflt(nproma)               , zfrti(nproma,ntiles_total),       &
@@ -276,7 +276,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !$OMP shfl_s_t, &
 !$OMP evap_s_t,  tskin_t, &
 !$OMP ustr_s_t,  vstr_s_t, &
-!$OMP zae,       zvar, &
+!$OMP zae, &
 !$OMP ztice,     ztske1, &
 !$OMP ztskm1m,   ztskrad, &
 !$OMP zsigflt,   zfrti, &
@@ -323,7 +323,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
              &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
              &                                   p_diag%pres_sfc(jc,jb) )
          ENDDO
-        END IF
+        ENDIF
       ENDIF
     ENDIF
 
@@ -479,7 +479,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
        !prm_diag%lhfl_s(1:i_endidx,jb)=prm_diag%qhfl_s (1:i_endidx,jb)*alv
        prm_diag%lhfl_s(1:i_endidx,jb)=z_dummy_lhflx(1:i_endidx,nsfc_type,jb)
        prm_diag%shfl_s(1:i_endidx,jb)=z_dummy_shflx(1:i_endidx,nsfc_type,jb)
-      END IF
+      ENDIF
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
 
@@ -556,7 +556,6 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           zsotev (jc,jk) = 0.0_wp
           zsobeta(jc,jk) = 0.0_wp
           zae    (jc,jk) = 0.0_wp   ! cloud tendency ???
-          zvar   (jc,jk) = 0.0_wp   ! qt,var should be prognostic !!!
         ENDDO
       ENDDO
 
@@ -575,12 +574,12 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       DO jc = i_startidx, i_endidx
         zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
        !IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
-       !  zfrti(jc,3) = 1.0_wp                         ! interception reservoir (???)
-       !ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
-       !  zfrti(jc,1) = 1.0_wp                         ! open ocean
-       !ELSE
-       !  zfrti(jc,2) = 1.0_wp                         ! sea ice
-       !END IF
+       !  zfrti(jc,8) = 1.0_wp                         ! bare soil (???)
+       !ELSE !!!! IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
+       !  zfrti(jc,1) = 0.0_wp                         ! open ocean
+       !     !!!! ELSE
+       !     !!!! zfrti(jc,2) = 1.0_wp                         ! sea ice
+       !ENDIF
       ENDDO
 
       DO jk = 1,nlev_soil
