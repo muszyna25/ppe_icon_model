@@ -209,10 +209,10 @@ MODULE mo_physical_constants
 !----------below are parameters for sea-ice model---------------
   REAL(wp), PARAMETER ::           &
     ks           = 0.31_wp,         & ! heat conductivity snow     [J  / (m s K)]
-    ki           = 2.03_wp,         & ! heat conductivity ice      [J  / (m s K)]   
-    rhoi         = 910.0_wp,        & ! density of sea ice         [kg / m�]
-    rhos         = 330.0_wp,        & ! density of snow            [kg / m�]
-    ci           = 2100.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
+    ki           = 2.1656_wp,       & ! heat conductivity ice      [J  / (m s K)]   
+    rhoi         = 917.0_wp,        & ! density of sea ice         [kg / m�]
+    rhos         = 300.0_wp,        & ! density of snow            [kg / m�]
+    ci           = 2106.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
     Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
     Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
     mu           = 0.054_wp,        & ! Constant in linear freezing-

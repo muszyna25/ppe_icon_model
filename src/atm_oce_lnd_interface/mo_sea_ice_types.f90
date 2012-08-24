@@ -172,7 +172,7 @@ MODULE mo_sea_ice_types
       & surfmeltT  (:,:,:)       ,   & ! Mean temperature of surface melt water        [C]
       & evapwi     (:,:,:)       ,   & ! amount of evaporated water if no ice left     [kg/m2]
       & conc       (:,:,:)       ,   & ! ice concentration in each ice class
-      & restart_isice(:,:,:)           ! ice mask as a read field for getting it into restart
+      & restart_isice(:,:,:)           ! ice mask as a real field for getting it into restart
 
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity                                [m/s]

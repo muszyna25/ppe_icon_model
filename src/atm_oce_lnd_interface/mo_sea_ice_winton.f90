@@ -278,10 +278,7 @@ CONTAINS
       & draft,       & ! depth of ice-ocean interface below sea level       [m]
       & E1,          & ! Energy content of upper ice+snow layer             [J/kg]
       & E2,          & ! Energy content of lower ice      layer             [J/kg]
-      ! for energy conservation
-      & E1new,       &
-      & E2new,       & 
-      & Q_surplus,   &
+      & Q_surplus,   & ! for energy conservation
       !
       & f1,          & ! Fraction of upper ice in new ice layer (Eq. 37)
       & h1,          & ! Thickness of upper ice layer                       [m]
@@ -306,8 +303,8 @@ CONTAINS
     surfmelti2 = 0.0_wp
 
     !
-    E1new(:,:,:) =     0.0_wp
-    E2new(:,:,:) =     0.0_wp
+    ice%E1(:,:,:) =     0.0_wp
+    ice%E2(:,:,:) =     0.0_wp
     Q_surplus(:,:,:) = 0.0_wp
 
     !
@@ -561,15 +558,15 @@ CONTAINS
             END IF
             
             ! Eq.  1 (energy upper layer)
-            E1new(jc,k,jb) =   ci * ( ice%T1(jc,k,jb)+muS ) &
+            ice%E1(jc,k,jb) =   ci * ( ice%T1(jc,k,jb)+muS ) &
               &              - alf * (1.0_wp+muS/ice%T1(jc,k,jb))
             ! Eq. 25 (energy lower layer)
-            E2new(jc,k,jb) = ci * ( ice%T2(jc,k,jb)+muS ) - alf
+            ice%E2(jc,k,jb) = ci * ( ice%T2(jc,k,jb)+muS ) - alf
             
             ! Energy balance: discrepancy in eqn. (2)
             
-            Q_surplus(jc,k,jb) =   (   E1new(jc,k,jb) - E1(jc,k,jb)            &
-              &                      + E2new(jc,k,jb) - E2(jc,k,jb) ) / dtime  &
+            Q_surplus(jc,k,jb) =   (   ice%E1(jc,k,jb) - E1(jc,k,jb)            &
+              &                      + ice%E2(jc,k,jb) - E2(jc,k,jb) ) / dtime  &
               &                  - (ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb) )    &
               &                / (ice%hs(jc,k,jb)*rhos + ice%hi(jc,k,jb)*rhoi)
             

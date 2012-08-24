@@ -81,7 +81,7 @@ USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, tmelt, tf, &
-  &                               mu, clw, rho_ref
+  &                               mu, clw, rho_ref, albedoW
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
@@ -523,6 +523,16 @@ CONTAINS
         p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
+        idt_src=2  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+        !---------------------------------------------------------------------
+
       ELSE   !  no sea ice
 
         ! bulk formula applied to boundary forcing for ocean model:
@@ -543,7 +553,7 @@ CONTAINS
               p_sfc_flx%forc_hflx(jc,jb)                 &
               & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
               & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-              & +  Qatm%SWin(jc,jb)                        ! incoming SW radiation flux
+              & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
             ENDDO
           ENDDO
 
