@@ -46,14 +46,15 @@ MODULE mo_parallel_config
   PUBLIC :: parallel_radiation_mode, test_parallel_radiation
 
   PUBLIC :: n_ghost_rows,                                     &
-       &    div_from_file, div_geometric, div_metis, division_method, &
-       &    division_file_name, radiation_division_file_name, &
-       &    l_log_checks, l_fast_sum,             &
-       &    p_test_run, l_test_openmp, exch_msgsize,                  &
-       &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
-       &    use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
-       &    icon_comm_method, icon_comm_openmp
+       &  div_from_file, div_geometric, div_metis, division_method, &
+       &  division_file_name, radiation_division_file_name, &
+       &  l_log_checks, l_fast_sum,             &
+       &  p_test_run, l_test_openmp, exch_msgsize,                  &
+       &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
+       &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
+       &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
+       &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
+       &  max_no_of_comm_processes, max_no_of_comm_patterns
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -105,6 +106,9 @@ MODULE mo_parallel_config
   LOGICAL :: use_icon_comm = .false.
   LOGICAL :: icon_comm_debug= .false.
   INTEGER :: max_send_recv_buffer_size = 131072
+  INTEGER :: max_no_of_comm_variables = 64
+  INTEGER :: max_no_of_comm_processes = 64
+  INTEGER :: max_no_of_comm_patterns  = 32
   INTEGER :: icon_comm_method = 1
   LOGICAL :: icon_comm_openmp = .false.
   

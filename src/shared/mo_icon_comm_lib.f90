@@ -44,7 +44,8 @@ MODULE mo_icon_comm_lib
   USE mo_io_units,        ONLY: filename_max
   USE mo_exception,       ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
-    & icon_comm_method, icon_comm_openmp
+    & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,    &
+    & max_no_of_comm_processes, max_no_of_comm_patterns
 
   USE mo_communication,   ONLY: blk_no, idx_no
   USE mo_model_domain,    ONLY: t_patch
@@ -83,7 +84,7 @@ MODULE mo_icon_comm_lib
   PUBLIC :: is_ready, until_sync
    
   ! public methods
-  PUBLIC :: init_icon_comm_lib       ! the first call to the icon_comm_lib 
+  PUBLIC :: construct_icon_comm_lib       ! the first call to the icon_comm_lib
   PUBLIC :: init_icon_std_comm_patterns  ! initilize comm_patterns for a patch
                                      ! must be called before any communication variable is
                                      ! created for this patch
@@ -107,8 +108,6 @@ MODULE mo_icon_comm_lib
   
   !--------------------------------------------------------------
   ! internal parameters
-  INTEGER, PARAMETER ::  max_no_of_comm_variables = 20
-  INTEGER, PARAMETER ::  max_no_of_comm_processes = 32
 !  INTEGER, PARAMETER ::  max_send_recv_buffer_size = 131072
   REAL(wp), PARAMETER::  header_separator = 99999999.0_wp
   INTEGER, PARAMETER ::  checksum_size = 2
@@ -123,10 +122,6 @@ MODULE mo_icon_comm_lib
   INTEGER, PARAMETER ::  communicate = 11
 
   !--------------------------------------------------------------
-
-  !--------------------------------------------------------------
-  INTEGER ::  max_comm_patterns = 0
-  INTEGER, PARAMETER ::  allocated_comm_patterns = 12
 
   !--------------------------------------------------------------
   ! grid dimensions
@@ -229,21 +224,24 @@ MODULE mo_icon_comm_lib
 
   
   !> The array of the grid objects.
-  TYPE(t_comm_variable_real), TARGET :: comm_variable(max_no_of_comm_variables)
+  TYPE(t_comm_variable_real), ALLOCATABLE, TARGET :: comm_variable(:)
   
-  TYPE(t_comm_process_buffer), TARGET :: send_procs_buffer(max_no_of_comm_processes)
+  TYPE(t_comm_process_buffer), ALLOCATABLE, TARGET :: send_procs_buffer(:)
   
-  TYPE(t_comm_process_buffer), TARGET :: recv_procs_buffer(max_no_of_comm_processes)
+  TYPE(t_comm_process_buffer), ALLOCATABLE, TARGET :: recv_procs_buffer(:)
   
-  TYPE(t_grid_comm_pattern), TARGET ::  &
-    & grid_comm_pattern_list(allocated_comm_patterns)
+  TYPE(t_grid_comm_pattern), ALLOCATABLE, TARGET :: grid_comm_pattern_list(:)
 
-  ! At the moment we only have on sett of communication buffers
+  ! At the moment we only have one set of communication buffers
   ! This means that only one communation bulk can be executed each time
   REAL(wp), ALLOCATABLE :: send_buffer(:)
   REAL(wp), ALLOCATABLE :: recv_buffer(:)
   INTEGER  :: buffer_comm_status
  
+  !--------------------------------------------------------------
+  INTEGER ::  max_comm_patterns = 0
+  INTEGER ::  allocated_comm_patterns = 0
+
   !> The number of actual active comm_variables
   INTEGER :: active_comm_variables
   !> The max id of the active comm_variables
@@ -306,12 +304,12 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE init_icon_comm_lib()
+  SUBROUTINE construct_icon_comm_lib()
 
     INTEGER :: i,k, return_status
     LOGICAL :: unit_is_occupied
     
-    CHARACTER(*), PARAMETER :: method_name = "init_icon_comm_lib"
+    CHARACTER(*), PARAMETER :: method_name = "construct_icon_comm_lib"
 
     this_is_mpi_sequential = my_process_is_mpi_seq()
 !     write(0,*) method_name, " this_is_mpi_sequential=", this_is_mpi_sequential
@@ -328,6 +326,23 @@ CONTAINS
       RETURN
     END IF
 
+    ALLOCATE(comm_variable(max_no_of_comm_variables), &
+      & stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'ALLOCATE comm_variable failed')
+
+    ALLOCATE(send_procs_buffer(max_no_of_comm_processes), &
+      & recv_procs_buffer(max_no_of_comm_processes), stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'ALLOCATE send-recv_procs_buffer failed')
+
+    allocated_comm_patterns = max_no_of_comm_patterns
+    ALLOCATE(grid_comm_pattern_list(allocated_comm_patterns), &
+      & stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'ALLOCATE grid_comm_pattern_list failed')
+
+    
     ALLOCATE(send_buffer(max_send_recv_buffer_size), &
       & recv_buffer(max_send_recv_buffer_size),stat=return_status)
     IF (return_status > 0) &
@@ -367,7 +382,7 @@ CONTAINS
     
     RETURN
 
-  END SUBROUTINE init_icon_comm_lib
+  END SUBROUTINE construct_icon_comm_lib
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------

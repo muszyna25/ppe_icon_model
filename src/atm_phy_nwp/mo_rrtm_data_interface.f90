@@ -170,9 +170,9 @@ CONTAINS
       RETURN
     ENDIF
 
-    my_mpi_work_id        = get_my_mpi_work_id()
-    my_mpi_work_comm_size = get_my_mpi_work_comm_size()
-    workroot_mpi_id       = get_mpi_all_workroot_id()
+    my_mpi_work_id           = get_my_mpi_work_id()
+    my_mpi_work_comm_size    = get_my_mpi_work_comm_size()
+    workroot_mpi_id          = get_mpi_all_workroot_id()
     my_mpi_work_communicator = get_my_mpi_work_communicator()
 
     ! NOTE: this global array should be eventully replaced by local arrays

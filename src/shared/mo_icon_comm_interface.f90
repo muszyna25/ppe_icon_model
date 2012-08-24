@@ -71,7 +71,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "construct_icon_communication"
 
 
-    CALL init_icon_comm_lib()
+    CALL construct_icon_comm_lib()
     
     DO grid_id = 1, n_dom
       ! create the communication patterns
