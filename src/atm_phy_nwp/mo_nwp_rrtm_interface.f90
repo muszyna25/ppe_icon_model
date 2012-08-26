@@ -71,6 +71,9 @@ MODULE mo_nwp_rrtm_interface
   USE mo_sync,                 ONLY: global_max, global_min
 
   USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
+  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level, &
+    & timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
+    & timer_preradiaton
 
   IMPLICIT NONE
 
@@ -1263,6 +1266,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "nwp_rrtm_radiation_repartition"
 
+    IF (timers_level > 3) CALL timer_start(timer_preradiaton)
     !-------------------------------------------------------------------------
     IF (msg_level >= 12) &
       &  CALL message('mo_nwp_rad_interface',   &
@@ -1402,6 +1406,10 @@ CONTAINS
     ENDDO ! blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_preradiaton)
+      CALL timer_start(timer_radiaton_recv)
+    ENDIF
 
     CALL recv_rrtm_input( &
           & zland      =ext_data%atm%fr_land_smt(:,:)   ,&!< in     land fraction
@@ -1434,6 +1442,10 @@ CONTAINS
           & rrtm_data  = rrtm_data)                     !< out, pointer to rrtm input values
 
     
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_radiaton_recv)
+      CALL timer_start(timer_radiaton_comp)
+    ENDIF
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
@@ -1494,6 +1506,11 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_radiaton_comp)
+      CALL timer_start(timer_radiaton_send)
+    ENDIF
+
     CALL send_rrtm_output(        &
       & rrtm_data               , &
       & prm_diag%lwflxclr(:,:,:), &!< out terrestrial flux, clear sky, net down
@@ -1501,6 +1518,9 @@ CONTAINS
       & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
       & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
 
+    IF (timers_level > 3) &
+      & CALL timer_stop(timer_radiaton_send)
+    
     
     IF (test_parallel_radiation) THEN
       DO jb = i_startblk, i_endblk

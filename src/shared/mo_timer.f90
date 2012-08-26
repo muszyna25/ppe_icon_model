@@ -64,6 +64,8 @@ MODULE mo_timer
   PUBLIC :: timer_physics
                         !< IDs of timers
   PUBLIC :: timer_radiation
+  PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
+    & timer_preradiaton
 
   PUBLIC :: timer_lrtm_1, timer_lrtm_2
 
@@ -175,6 +177,8 @@ MODULE mo_timer
   INTEGER :: timer_fast_phys
   INTEGER :: timer_nwp_convection
   INTEGER :: timer_nwp_radiation
+  INTEGER :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
+    & timer_preradiaton
   INTEGER :: timer_pre_radiation_nwp
   INTEGER :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
   INTEGER :: timer_phys_sync_tracers
@@ -331,6 +335,10 @@ CONTAINS
     timer_lrtm_2    = new_timer("rad_lrtm_2")
     timer_omp_radiation = new_timer("omp_radiation")
     timer_nwp_radiation = new_timer("nwp_radiation")
+    timer_radiaton_recv = new_timer("radiaton_recv")
+    timer_radiaton_comp  = new_timer("radiaton_comp")
+    timer_radiaton_send  = new_timer("radiaton_send")
+    timer_preradiaton = new_timer("preradiaton")
     timer_radheat = new_timer("radheat")
     timer_cover     = new_timer("cover")
     timer_cloud     = new_timer("cloud")
