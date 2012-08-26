@@ -19,7 +19,7 @@ cd $WRKDIR
 grid_file="iconR2B01-grid"
 dec_size=12
 use_sea_land_mask=yes
-decomposition_file=${grid_file}-dec_size-metis.cell_domain_ids
+decomposition_file=${grid_file}-${dec_size}-metis.cell_domain_ids
 
 #-----------------------------------------------------------------------------
 if [ $use_sea_land_mask = yes ] ; then

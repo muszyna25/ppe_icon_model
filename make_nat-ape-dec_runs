@@ -233,7 +233,7 @@ create_comm_test_on_blizzard()
   create_weak_scaling "comm-weaktest_hexdec" 384 
   #==============================================================================
   division_method=1
-  create_weak_scaling "comm-weaktest_hexdec" 96
+  create_weak_scaling "comm-weaktest_geomdec" 96
   create_weak_scaling "comm-weaktest_geomdec" 384
 
 }

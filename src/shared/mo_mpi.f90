@@ -1227,7 +1227,11 @@ CONTAINS
     ! start MPI
 #ifndef NOMPI
 #ifdef _OPENMP
+#ifdef __MULTIPLE_MPI_THREADS
+    CALL MPI_INIT_THREAD(MPI_THREAD_MULTIPLE,provided,p_error)
+#else
     CALL MPI_INIT_THREAD(MPI_THREAD_FUNNELED,provided,p_error)
+#endif
 #else
     CALL MPI_INIT (p_error)
 #endif
@@ -1239,6 +1243,16 @@ CONTAINS
     
 #ifdef _OPENMP
     ! Check if MPI_INIT_THREAD returned at least MPI_THREAD_FUNNELED in "provided"
+#ifdef __MULTIPLE_MPI_THREADS
+    IF (provided < MPI_THREAD_MULTIPLE) THEN
+       WRITE (nerr,'(a,a)') method_name, &
+         & ' MPI_INIT_THREAD did not return desired level of thread support'
+       WRITE (nerr,'(a,i0)') " provided: ", provided
+       WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_MULTIPLE
+       CALL MPI_Finalize(p_error)
+       STOP
+    END IF
+#else
     IF (provided < MPI_THREAD_FUNNELED) THEN
        WRITE (nerr,'(a,a)') method_name, &
          & ' MPI_INIT_THREAD did not return desired level of thread support'
@@ -1247,6 +1261,7 @@ CONTAINS
        CALL MPI_Finalize(p_error)
        STOP
     END IF
+#endif
 #endif
 
     process_mpi_all_comm = MPI_COMM_NULL

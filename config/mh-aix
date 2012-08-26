@@ -96,6 +96,8 @@ case $ac_sitename in
     submit="llsubmit"
     sync_submit=llsubmit -s
     use_shell=/bin/bash
+
+    BASIC_OPT_FLAGS = "$BASIC_OPT_FLAGS" -WF,-D__MULTIPLE_MPI_THREADS
     ;;
 
   ecmwf.int)
