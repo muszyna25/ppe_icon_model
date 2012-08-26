@@ -66,13 +66,18 @@ create_dec()
     nodes=`expr ${dec_size} / ${mpi_procs_pernode} + 1`
   fi
 
-  exp_name=${outname}.${dec_size}.${nodes}nodes.${nproma}nproma.${atmo_dyn_gridname}
+  icon_comm_method=${icon_comm_method:=1}
+  comm_method=$icon_comm_method 
+  if [ "x$use_icon_comm" != "x.true." ]; then
+    comm_method=0
+  fi
+  exp_name=${outname}_${comm_method}-comm.${openmp_threads}threads.${nodes}nodes.${dec_size}procs.${nproma}nproma.${atmo_dyn_gridname}
   runname=exp.${exp_name}.run
 
   $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
-    ndays=$ndays use_icon_comm=$use_icon_comm
+    ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -95,6 +100,7 @@ set_default_parameters()
   nproma=4
   rrad="false"
   division_method=1
+  parallel_radiation_mode=0
   dt_rad=1800
   use_barrier=".false."
   testbed_mode=0
@@ -177,10 +183,16 @@ create_weak_scaling()
     exit
   ;;
   esac
- 
-  outname="${setup_name}-${cells_per_domain}cellspd"
+
+  if [ x$division_method == x0 ]; then
+    outname="${setup_name}_hexdec"
+  else
+    outname="${setup_name}_geodec"
+  fi
+  outname="${outname}_${cells_per_domain}cellspd"
   atmo_dyn_gridname=""
   atmo_rad_gridname=""
+
   for dec_size in $dec_size_list
   do
     create_dec
@@ -193,22 +205,51 @@ create_weak_scaling()
 #==============================================================================
 create_weak_scaling_on_blizzard()
 {
-   
   set_default_parameters
-  cells_per_domain=24
-  division_method=0
   ndays=60
   cpu_time="00:20:00"
   dt_rad=1800
+  setup_name="nat-ape_30m-redis-rad"
   #---------------------------------
-  # run="true"
+   run="true"
   #==============================================================================
 
+  division_method=0
+  parallel_radiation_mode=1
   use_icon_comm=".true."
-  # create_weak_scaling "nat-ape_hexdec_30mrad_iconcomm"
-  #==============================================================================
-  use_icon_comm=".false."
-  create_weak_scaling "nat-ape_hexdec_30mrad_no-iconcomm"
+  icon_comm_method=1
+  
+  mpi_procs_pernode=32
+  openmp_threads=2
+  ndays=60
+  cpu_time="00:20:00"
+  create_weak_scaling "${setup_name}_60days_test_1" 24 "1442"
+  create_weak_scaling "${setup_name}_60days_test_2" 24 "1442"
+  exit
+
+  parallel_radiation_mode=0
+  create_weak_scaling "nat-ape_norerad_20days"  24 "1442"
+
+  use_icon_comm=".true."
+  icon_comm_method=1
+  create_weak_scaling "nat-ape_norerad_20days"  24 "1442"
+
+  exit
+
+  mpi_procs_pernode=16
+  openmp_threads=4
+  ndays=30
+  create_weak_scaling "$setup_name" 96 "32 92 162 362 642 1082"
+ 
+  mpi_procs_pernode=32
+  openmp_threads=2
+ 
+  ndays=60
+  # create_weak_scaling "$setup_name" 24
+  
+  ndays=15
+  # create_weak_scaling "$setup_name" 96
+  #---------------------------------
 }
 
 
@@ -233,12 +274,14 @@ create_comm_test_on_blizzard()
   create_weak_scaling "comm-weaktest_hexdec" 384 
   #==============================================================================
   division_method=1
-  create_weak_scaling "comm-weaktest_geomdec" 96
+  create_weak_scaling "comm-weaktest_hexdec" 96
   create_weak_scaling "comm-weaktest_geomdec" 384
 
 }
 
-create_comm_test_on_blizzard
+create_weak_scaling_on_blizzard
+exit
+
 #create_weak_scaling_on_blizzard
 exit
 
