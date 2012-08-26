@@ -51,10 +51,11 @@ MODULE mo_parallel_config
        &  l_log_checks, l_fast_sum,             &
        &  p_test_run, l_test_openmp, exch_msgsize,                  &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
+       &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
-       &  max_no_of_comm_processes, max_no_of_comm_patterns
+       &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
+       &  sync_barrier_mode
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -110,7 +111,10 @@ MODULE mo_parallel_config
   INTEGER :: max_no_of_comm_processes = 64
   INTEGER :: max_no_of_comm_patterns  = 32
   INTEGER :: icon_comm_method = 1
+  INTEGER :: sync_barrier_mode = 0
+  
   LOGICAL :: icon_comm_openmp = .false.
+  
   
   ! Type of parallel I/O
   INTEGER :: pio_type = 1

@@ -45,7 +45,7 @@ MODULE mo_icon_comm_lib
   USE mo_exception,       ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
     & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,    &
-    & max_no_of_comm_processes, max_no_of_comm_patterns
+    & max_no_of_comm_processes, max_no_of_comm_patterns, sync_barrier_mode
 
   USE mo_communication,   ONLY: blk_no, idx_no
   USE mo_model_domain,    ONLY: t_patch
@@ -57,7 +57,7 @@ MODULE mo_icon_comm_lib
   USE mo_timer,           ONLY: ltimer, timer_start, timer_stop, timer_icon_comm_sync, &
     & activate_sync_timers, timer_icon_comm_fillrecv, timer_icon_comm_wait, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
-    & timer_icon_comm_isend
+    & timer_icon_comm_isend, timer_icon_comm_barrier_2
 
   USE mo_master_control,  ONLY: get_my_process_name
 #ifndef NOMPI
@@ -750,9 +750,7 @@ CONTAINS
     grid_comm_pattern%status = active
     grid_comm_pattern%name   = TRIM(name)
 #endif
-    
-    CALL work_mpi_barrier()
- 
+     
   END SUBROUTINE setup_grid_comm_pattern
   !-----------------------------------------------------------------------
   
@@ -1559,6 +1557,12 @@ CONTAINS
     ENDIF
     
     IF (ltimer) CALL timer_stop(timer_icon_comm_sync)
+
+    IF (sync_barrier_mode == 2) THEN
+      CALL timer_start(timer_icon_comm_barrier_2)
+      CALL work_mpi_barrier()
+      CALL timer_stop(timer_icon_comm_barrier_2)
+   ENDIF
 
 !     CALL p_barrier(process_mpi_all_comm)
 

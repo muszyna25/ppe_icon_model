@@ -75,7 +75,8 @@ MODULE mo_parallel_nml
     & config_icon_comm_method   => icon_comm_method,          &
     & config_max_no_of_comm_var => max_no_of_comm_variables,  &
     & config_max_no_of_comm_proc => max_no_of_comm_processes, &
-    & config_max_no_of_comm_patt => max_no_of_comm_patterns
+    & config_max_no_of_comm_patt => max_no_of_comm_patterns,  &
+    & config_sync_barrier_mode   => sync_barrier_mode
 
   IMPLICIT NONE
   PRIVATE
@@ -135,6 +136,7 @@ MODULE mo_parallel_nml
     INTEGER :: max_no_of_comm_variables
     INTEGER :: max_no_of_comm_processes
     INTEGER :: max_no_of_comm_patterns
+    INTEGER :: sync_barrier_mode
     
     ! Type of parallel I/O
     INTEGER :: pio_type
@@ -185,7 +187,8 @@ MODULE mo_parallel_nml
       & division_file_name, radiation_division_file_name, use_dycore_barrier, &
       & use_sp_output, itype_exch_barrier, exch_msgsize, &
       & icon_comm_method, max_no_of_comm_variables, &
-      & max_no_of_comm_processes, max_no_of_comm_patterns
+      & max_no_of_comm_processes, max_no_of_comm_patterns, &
+      & sync_barrier_mode
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -228,6 +231,7 @@ MODULE mo_parallel_nml
     max_no_of_comm_variables = 64
     max_no_of_comm_processes = 64
     max_no_of_comm_patterns  = 32
+    sync_barrier_mode = 0
           
     ! Type of parallel I/O
     pio_type = 1
@@ -323,6 +327,7 @@ MODULE mo_parallel_nml
     config_max_no_of_comm_var  = max_no_of_comm_variables
     config_max_no_of_comm_proc = max_no_of_comm_processes
     config_max_no_of_comm_patt = max_no_of_comm_patterns
+    config_sync_barrier_mode   = sync_barrier_mode
     config_parallel_radiation_omp = parallel_radiation_omp
     config_parallel_radiation_mode = parallel_radiation_mode
     config_test_parallel_radiation= test_parallel_radiation
