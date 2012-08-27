@@ -68,6 +68,7 @@ MODULE mo_rrtm_data_interface
   PUBLIC :: construct_rrtm_model_repart
   PUBLIC :: destruct_rrtm_model_repart
   PUBLIC :: recv_rrtm_input, send_rrtm_output
+  PUBLIC :: init_rrtm_data
     
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
@@ -352,6 +353,35 @@ CONTAINS
       CALL finish ("allocate_rrtm_model_data",'failed')
     ENDIF
 
+    rrtm_data%convection_type = 0.0_wp
+    rrtm_data%fr_land_smt     = 0.0_wp
+    rrtm_data%fr_glac_smt     = 0.0_wp
+    rrtm_data%cosmu0          = 0.0_wp
+    rrtm_data%albedo_vis_dir  = 0.0_wp
+    rrtm_data%albedo_nir_dir  = 0.0_wp
+    rrtm_data%albedo_vis_dif  = 0.0_wp
+    rrtm_data%albedo_nir_dif  = 0.0_wp
+    rrtm_data%emis_rad        = 0.0_wp
+    rrtm_data%tsfctrad        = 0.0_wp
+    rrtm_data%pres_ifc        = 0.0_wp
+    rrtm_data%pres            = 0.0_wp
+    rrtm_data%temp            = 0.0_wp
+    rrtm_data%qm_vapor        = 0.0_wp
+    rrtm_data%qm_liquid       = 0.0_wp
+    rrtm_data%qm_ice          = 0.0_wp
+    rrtm_data%qm_o3           = 0.0_wp
+    rrtm_data%acdnc           = 0.0_wp
+    rrtm_data%cld_frc         = 0.0_wp
+    rrtm_data%zaeq1           = 0.0_wp
+    rrtm_data%zaeq2           = 0.0_wp
+    rrtm_data%zaeq3           = 0.0_wp
+    rrtm_data%zaeq4           = 0.0_wp
+    rrtm_data%zaeq5           = 0.0_wp
+    rrtm_data%aclcov          = 0.0_wp
+    rrtm_data%lwflxclr        = 0.0_wp
+    rrtm_data%trsolclr        = 0.0_wp
+    rrtm_data%lwflxall        = 0.0_wp
+    rrtm_data%trsolall        = 0.0_wp
     
   END SUBROUTINE allocate_rrtm_model_data
   !-----------------------------------------

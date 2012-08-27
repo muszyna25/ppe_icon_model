@@ -38,7 +38,8 @@ MODULE mo_test_communication
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
-    & print_timer, activate_sync_timers
+    & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
+  USE mo_parallel_config,     ONLY: nproma
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
@@ -54,6 +55,11 @@ MODULE mo_test_communication
 !   USE mo_icon_comm_interface,ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_icon_comm_lib
   USE mo_atmo_nonhydrostatic, ONLY: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
+
+  USE mo_rrtm_data_interface, ONLY: t_rrtm_data, init_rrtm_data, recv_rrtm_input, &
+    & construct_rrtm_model_repart
+
+
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -79,10 +85,10 @@ CONTAINS
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
     
     ltimer = .false.
+    timers_level = 0
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
     CALL prepare_ha_dyn( p_patch(1:) )
-!     CALL construct_icon_communication()
     !---------------------------------------------------------------------
         
     !---------------------------------------------------------------------
@@ -90,9 +96,20 @@ CONTAINS
     ltimer = .true.
     activate_sync_timers = .true.
     CALL init_timer()
-    CALL test_communication_3D()
+!     CALL test_communication_3D()
+    CALL test_radiation_communication()
     !---------------------------------------------------------------------
 
+    !---------------------------------------------------------------------
+    ! print the timers
+!    IF (my_process_is_stdio()) THEN
+    CALL message("===================", "=======================")
+    WRITE(message_text,*) "Communication Iterations=", testbed_iterations
+    CALL message(method_name, TRIM(message_text))
+    CALL print_timer()
+!    ENDIF
+    !---------------------------------------------------------------------
+    
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
     !---------------------------------------------------------------------
@@ -101,18 +118,77 @@ CONTAINS
 !     CALL destruct_icon_communication()
     CALL message(TRIM(method_name),'clean-up finished')
 
-    !---------------------------------------------------------------------
-    ! print the timers
-!    IF (my_process_is_stdio()) THEN
-      CALL message("===================", "=======================")
-      WRITE(message_text,*) "Communication Iterations=", testbed_iterations
-      CALL message(method_name, TRIM(message_text))
-      CALL print_timer()
-!    ENDIF
-    !---------------------------------------------------------------------
      
 
   END SUBROUTINE test_communication
+  !-------------------------------------------------------------------------
+    
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_radiation_communication()
+        
+    TYPE(t_rrtm_data), TARGET :: rrtm_local_data
+    TYPE(t_rrtm_data), POINTER :: rrtm_rad_data
+    INTEGER ::  timer_barrier_only, i
+    
+    CALL construct_rrtm_model_repart(p_patch(1))
+    ! now allocate the data for the radiation interface
+    CALL init_rrtm_data( &
+      & rrtm_data   = rrtm_local_data   , &
+      & no_of_cells = p_patch(1)%n_patch_cells, &
+      & full_levels = p_patch(1)%nlev,         &
+      & half_levels = p_patch(1)%nlevp1,       &
+      & block_size  = nproma)
+    
+    !---------------------------------------------------------------------
+    ! test the barrier
+    !---------------------------------------------------------------------
+    timer_barrier_only  = new_timer("mpi_barrier_only")
+    CALL work_mpi_barrier()
+    DO i=1,testbed_iterations
+      CALL timer_start(timer_barrier_only)
+      CALL work_mpi_barrier()
+      CALL timer_stop(timer_barrier_only)
+    ENDDO
+    CALL work_mpi_barrier()
+    
+    DO i=1,testbed_iterations
+      CALL timer_start(timer_radiaton_recv)
+      CALL recv_rrtm_input( &
+      zland       = rrtm_local_data%fr_land_smt    ,&  !< in     land fraction
+      zglac       = rrtm_local_data%fr_glac_smt    ,&  !< in     land glacier fraction
+      cos_mu0     = rrtm_local_data%cosmu0         ,&  !< in  cos of zenith angle mu0
+      alb_vis_dir = rrtm_local_data%albedo_vis_dir ,&  !< in surface albedo for visible range, direct
+      alb_nir_dir = rrtm_local_data%albedo_nir_dir ,&  !< in surface albedo for near IR range, direct
+      alb_vis_dif = rrtm_local_data%albedo_vis_dif ,&  !< in surface albedo for visible range, diffuse
+      alb_nir_dif = rrtm_local_data%albedo_nir_dif ,&  !< in surface albedo for near IR range, diffuse
+      emis_rad    = rrtm_local_data%emis_rad       ,&  !< in longwave surface emissivity
+      tk_sfc      = rrtm_local_data%tsfctrad       ,&  !< in surface temperature
+      pp_hl       = rrtm_local_data%pres_ifc       ,&  !< in  pres at half levels at t-dt [Pa]
+      pp_fl       = rrtm_local_data%pres           ,&  !< in  pres at full levels at t-dt [Pa]
+      tk_fl       = rrtm_local_data%temp           ,&  !< in  temperature at full level at t-dt
+      qm_vap      = rrtm_local_data%qm_vapor       ,&  !< in  water vapor mass mix ratio at t-dt
+      qm_liq      = rrtm_local_data%qm_liquid      ,&  !< in cloud water mass mix ratio at t-dt
+      qm_ice      = rrtm_local_data%qm_ice         ,&  !< in cloud ice mass mixing ratio at t-dt
+      qm_o3       = rrtm_local_data%qm_o3          ,&  !< in o3 mass mixing ratio at t-dt
+      cdnc        = rrtm_local_data%acdnc          ,&  !< in  cloud droplet numb conc. [1/m**3]
+      cld_frc     = rrtm_local_data%cld_frc        ,&  !< in  cloud fraction [m2/m2]
+      zaeq1       = rrtm_local_data%zaeq1          ,&  !< in aerosol continental
+      zaeq2       = rrtm_local_data%zaeq2          ,&  !< in aerosol maritime
+      zaeq3       = rrtm_local_data%zaeq3          ,&  !< in aerosol urban
+      zaeq4       = rrtm_local_data%zaeq4          ,&  !< in aerosol volcano ashes
+      zaeq5       = rrtm_local_data%zaeq5          ,&  !< in aerosol stratospheric background
+      patch       = p_patch(1)     ,&  !< in
+      rrtm_data   = rrtm_rad_data )  !< pointer out
+      CALL timer_stop(timer_radiaton_recv)
+      CALL timer_start(timer_barrier)
+      CALL work_mpi_barrier()
+      CALL timer_stop(timer_barrier)
+    ENDDO
+    
+
+  END SUBROUTINE test_radiation_communication
   !-------------------------------------------------------------------------
     
   
