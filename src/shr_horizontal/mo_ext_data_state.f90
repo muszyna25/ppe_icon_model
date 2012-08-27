@@ -2683,7 +2683,7 @@ CONTAINS
        ext_data(jg)%atm%lp_count_t(:,:) = 0
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
+!$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
 !$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
