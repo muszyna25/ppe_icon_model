@@ -615,6 +615,7 @@ run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
+run/exp.hat_icoham_ape_jsbach -text
 run/exp.hat_icoham_ape_r2b6 -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
@@ -652,6 +653,7 @@ run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
 run/exp.test_couple_atmo-ocean -text
+run/exp.test_hat_icoham_ape_jsbach -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
 run/exp.test_hom_lsm -text
@@ -672,7 +674,6 @@ run/grid.create_torus_grid -text
 run/grid.decompose_metis -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
-run/jsbach_test_ape -text
 run/mapfile_vlist.txt -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text

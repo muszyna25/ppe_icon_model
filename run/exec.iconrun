@@ -98,6 +98,9 @@ fi
 # ocean grid provided below
 #all_grids="${atmo_grids} ${ocean_grids}"
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
+if [ ${atmo_dyn_grids} = 'iconR2B04-ocean_etopo40_planet.nc' ] ; then
+ ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
+fi
 for gridfile in ${all_grids}; do
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
