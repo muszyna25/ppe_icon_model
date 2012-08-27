@@ -98,8 +98,8 @@ MODULE mo_sea_ice
   PUBLIC :: ice_slow
   PUBLIC :: upper_ocean_TS
   PUBLIC :: new_ice_growth
-  PUBLIC :: calc_atm_fluxes_from_bulk
-  PUBLIC :: calc_bulk_flux_no_seaice
+  PUBLIC :: calc_bulk_flux_ice
+  PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: prepareAfterRestart
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -1080,7 +1080,8 @@ CONTAINS
 !#elif defined CORE
     !CALL budget_core   (ice, Qatm)
 !#else
-    CALL calc_atm_fluxes_from_bulk(p_patch, p_as, p_os, ice, Qatm)
+    CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
+    CALL calc_bulk_flux_ice(p_patch, p_as, ice , Qatm)
 !#endif
 
   END SUBROUTINE get_atmos_fluxes 
@@ -1424,11 +1425,12 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-07). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
+  !! Einar Olason, split calc_atm_fluxes_from_bulk into calc_bulk_flux_ice and calc_bulk_flux_oce
+  !! so that the ocean model can be run without the ice model, but with OMIP fluxes.
   !
-  SUBROUTINE calc_atm_fluxes_from_bulk(p_patch, p_as, p_os, p_ice, Qatm)
+  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
-    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
 
@@ -1460,15 +1462,14 @@ CONTAINS
  !  INTEGER :: testice(nproma,p_patch%nblks_c)
     
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
-    REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
+    REAL(wp) :: a,b,c,di,AA,BB,CC,alpha,beta
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_atm_fluxes_from_bulk'
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_bulk_flux_ice'
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
-    Tsurf(:,:)  = p_os%p_prog(nold(1))%tracer(:,1,:,1)  ! set surface temp = mixed layer temp
     tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
 
@@ -1512,22 +1513,9 @@ CONTAINS
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
     !-----------------------------------------------------------------------
 
-    aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
-    ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
-
-    AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
-    AAi=2.2e-4_wp; BBi=3.83e-6_wp; CCi=6.4e-10_wp
-
+    a=611.15_wp; b=23.036_wp; c=279.82_wp; di=333.7_wp
+    AA=2.2e-4_wp; BB=3.83e-6_wp; CC=6.4e-10_wp
     alpha=0.62197_wp; beta=0.37803_wp
-
-    fa(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*ftdewC(:,:)**2)
-    esta(:,:) = fa(:,:) * aw*EXP((bw-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+cw))
-    fw(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*Tsurf(:,:) **2)
-    estw(:,:) = fw(:,:) *aw*EXP((bw-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +cw))
-    ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
-   
-    sphumida(:,:)  = alpha * esta(:,:)/(p_as%pao(:,:)-beta*esta(:,:))
-    sphumidw(:,:)  = alpha * estw(:,:)/(p_as%pao(:,:)-beta*estw(:,:))
 
     !-----------------------------------------------------------------------
     !  Compute longwave radiation according to 
@@ -1542,17 +1530,10 @@ CONTAINS
     !  the default usage).
     !-----------------------------------------------------------------------
 
-    humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
-    fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
-      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
-    ! NB: Lwinw and LWoutw is a misleading nomenclature in this case. The seperation is
-    ! artificial, but LWnetw is correct, according to Berliand & Berliand ('52)
-    Qatm%LWin(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4
-
-    Qatm%LWoutw(:,:) = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
-    Qatm%LWnetw(:,:) = Qatm%LWin(:,:) - Qatm%LWoutw(:,:)
-
-    Qatm%SWin(:,:) = p_as%fswr(:,:)
+    ! NB: Lwinw and LWoutw is a misleading nomenclature in this case, since
+    ! Berliand & Berliand ('52) calculate only LWnet
+    Qatm%LWin(:,:) = 0._wp
+    Qatm%LWout(:,:,:) = 0._wp
 
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to 
@@ -1576,15 +1557,6 @@ CONTAINS
       &               - 0.6743_wp/(fu10lim(:,:) * fu10lim(:,:)))
     dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
       &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
-    dragl(:,:)      = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
-    ! A reasonable maximum and minimum is needed for dragl in case there's a large difference
-    ! between the 2-m and surface temperatures.
-    dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
-    drags(:,:)      = 0.95_wp * dragl(:,:)
-    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) &
-      &               * (p_as%tafo(:,:) -Tsurf(:,:))
-    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) &
-      &               * (sphumida(:,:)-sphumidw(:,:))
 
     DO i = 1, p_ice%kice
       WHERE (p_ice% isice(:,i,:))
@@ -1595,8 +1567,8 @@ CONTAINS
 !!$          IF (ice%isice(jc,k,jb)) THEN
 
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
-        fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
-        esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
+        fi(:,:)       = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*Tsurf(:,:) **2)
+        esti(:,:)     = fi(:,:)*a*EXP((b-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +c))
         sphumidi(:,:) = alpha*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:))
         ! This may not be the best drag parametrisation to use over ice
         dragl(:,:)    = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
@@ -1605,11 +1577,8 @@ CONTAINS
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
         drags(:,:)    = 0.95_wp * dragl(:,:)
 
-        ! NB: Lwin and LWout is a misleading nomenclature in this case. The seperation is
-        ! artificial, but LWnetw is correct, according to Berliand & Berliand ('52)
-        Qatm%LWout (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) &
-          &                    - p_as%tafo(:,:))
-        Qatm%LWnet (:,i,:)  = Qatm%LWin(:,:) - Qatm%LWout(:,i,:)
+        Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4 &
+          &     - 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
         Qatm%dLWdT (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3
         Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
@@ -1620,9 +1589,9 @@ CONTAINS
           &                  *(dragl0(:,:) - 2.0_wp*dragl(:,:))
         dsphumididesti(:,:) = alpha/(p_as%pao(:,:)-beta*esti(:,:)) &
           &                   * (1.0_wp + beta*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:)))
-        destidT(:,:)        = (bi*ci*di-Tsurf(:,:)*(2.0_wp*ci+Tsurf(:,:)))&
-          &                   /(di*(ci+Tsurf(:,:))**2) * esti(:,:)
-        dfdT(:,:)               = 2.0_wp*CCi*BBi*Tsurf(:,:)
+        destidT(:,:)        = (b*c*di-Tsurf(:,:)*(2.0_wp*c+Tsurf(:,:)))&
+          &                   /(di*(c+Tsurf(:,:))**2) * esti(:,:)
+        dfdT(:,:)               = 2.0_wp*CC*BB*Tsurf(:,:)
         Qatm%dlatdT(:,i,:)  = alf*rhoair(:,:)*p_as%fu10(:,:)* &
           &                  ( (sphumida(:,:)-sphumidi(:,:))*dragl1(:,:) &
           &                    - dragl(:,:)*dsphumididesti(:,:)*(fi(:,:)*destidT(:,:) &
@@ -1640,29 +1609,23 @@ CONTAINS
     CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
     CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulk: Qatm%LWnetw'     ,Qatm%LWnetw       ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%LWnet ice'  ,Qatm%LWnet        ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%sensw'      ,Qatm%sensw        ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%sens ice'   ,Qatm%sens         ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw         ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%lat ice'    ,Qatm%lat          ,str_module,idt_src)
     !---------------------------------------------------------------------
 
-  END SUBROUTINE calc_atm_fluxes_from_bulk
+  END SUBROUTINE calc_bulk_flux_ice
 
   !-------------------------------------------------------------------------
   !
   !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
-  !! Sets the atmospheric bulk fluxes for the update of temperature of open water
-  !! without sea ice for OMIP forcing.
-  !!  - Soon to be merged with calc_atm_fluxes_for_bulk, accordingly
-  !!  - p_ice is not initialized when i_sea_ice=0 !
-  !!
+  !! Sets the atmospheric fluxes for the update of
+  !! temperature of open water for OMIP forcing.
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-08). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !
-  SUBROUTINE calc_bulk_flux_no_seaice(p_patch, p_as, p_os, Qatm)
+  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
@@ -1693,12 +1656,12 @@ CONTAINS
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
     
-    INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
-    REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
+    INTEGER :: jb, jc, i_startidx_c, i_endidx_c
+    REAL(wp) :: a,b,c,dw,AA,BB,CC,alpha,beta
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_bulk_flux_no_seaice
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_bulk_flux_oce
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
@@ -1746,18 +1709,14 @@ CONTAINS
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
     !-----------------------------------------------------------------------
 
-    aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
-    ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
-
-    AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
-    AAi=2.2e-4_wp; BBi=3.83e-6_wp; CCi=6.4e-10_wp
-
+    a=611.21_wp; b=18.729_wp; c=257.87_wp; dw=227.3_wp
+    AA=7.2e-4_wp; BB=3.20e-6_wp; CC=5.9e-10_wp
     alpha=0.62197_wp; beta=0.37803_wp
 
-    fa(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*ftdewC(:,:)**2)
-    esta(:,:) = fa(:,:) * aw*EXP((bw-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+cw))
-    fw(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*Tsurf(:,:) **2)
-    estw(:,:) = fw(:,:) *aw*EXP((bw-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +cw))
+    fa(:,:)   = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*ftdewC(:,:)**2)
+    esta(:,:) = fa(:,:) * a*EXP((b-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+c))
+    fw(:,:)   = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*Tsurf(:,:) **2)
+    estw(:,:) = fw(:,:) *a*EXP((b-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +c))
     ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
    
     sphumida(:,:)  = alpha * esta(:,:)/(p_as%pao(:,:)-beta*esta(:,:))
@@ -1779,12 +1738,13 @@ CONTAINS
     humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
     fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
-    ! NB: Lwinw and LWoutw is a misleading nomenclature in this case. The seperation is
-    ! artificial, but LWnetw is correct, according to Berliand & Berliand ('52)
-    Qatm%LWin(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4
+    ! NB: Lwin and LWoutw is a misleading nomenclature in this case, since
+    ! Berliand & Berliand ('52) calculate only LWnetw
+    Qatm%LWin(:,:) = 0._wp
+    Qatm%LWoutw(:,:) = 0._wp
 
-    Qatm%LWoutw(:,:) = 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
-    Qatm%LWnetw(:,:) = Qatm%LWin(:,:) - Qatm%LWoutw(:,:)
+    Qatm%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4  &
+      &         - 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
 
     Qatm%SWin(:,:) = p_as%fswr(:,:)
 
@@ -1832,7 +1792,7 @@ CONTAINS
     CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw         ,str_module,idt_src)
     !---------------------------------------------------------------------
 
-  END SUBROUTINE calc_bulk_flux_no_seaice
+  END SUBROUTINE calc_bulk_flux_oce
  
   !-------------------------------------------------------------------------
 

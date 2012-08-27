@@ -85,7 +85,7 @@ USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, 
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,             ONLY: calc_atm_fluxes_from_bulk, calc_bulk_flux_no_seaice,     &
+USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,     &
   &                               ice_slow, ice_fast, prepareAfterRestart ! ,set_ice_albedo
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
 USE mo_coupling_config,     ONLY: is_coupled_run
@@ -504,8 +504,10 @@ CONTAINS
 
       IF (i_sea_ice >= 1) THEN
 
-        IF (iforc_type == 2 .OR. iforc_type == 5) &
-          & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
+        IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+          CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
+          CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
+        ENDIF
         
         IF ( no_tracer >= 2 ) THEN
           DO k=1,p_ice%kice
@@ -542,7 +544,7 @@ CONTAINS
         IF (i_apply_bulk == 1) THEN
 
           IF (iforc_type == 2 .OR. iforc_type == 5) &
-            & CALL calc_bulk_flux_no_seaice (p_patch, p_as, p_os, Qatm)
+            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
 
           temperature_relaxation = 0   !  hack
 
