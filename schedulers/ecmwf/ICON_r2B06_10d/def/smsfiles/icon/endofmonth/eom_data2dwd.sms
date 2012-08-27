@@ -39,7 +39,7 @@ DATADIR="/scratch/ms/de/deia/ifs_data"
 cd ${DATADIR}
 
 
-if [[ $process = 1 ]] ; then
+if [[ $lprocess = 1 ]] ; then
 
 # --- processing ICON data (Helmut Frank, requires a few environment variables in .user_kshrc)
   ~dw7/ICON/iconECFS2DWD -e icon_003_ICON_r2B06_10d -d 2012060100 -d 2012060200

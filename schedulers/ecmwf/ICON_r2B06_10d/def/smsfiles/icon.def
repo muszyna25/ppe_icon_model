@@ -28,7 +28,7 @@ set UID `id -u`
 set SUITE_NAME    "ICON_r2B06_10d"
 set EXPNUM        "001"                #---experiment number---
 set FIRST_DATE    20120601
-set LAST_DATE     20120901
+set LAST_DATE     20121231
 
 # HPC environment:
 set SCHOST      c1a
@@ -55,6 +55,7 @@ set MAXFILES     1
 
 # no. of time steps (10x86400s/60s)
 set NSTEPS       14400
+#set NSTEPS       2880
 
 # wait interval between file checks:
 set WAITINTVL    10
@@ -160,13 +161,13 @@ suite icon_${EXPNUM}
 
     family init
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (init:YMD le ( forecast:YMD + 1 )) and (once == complete)
+        trigger (init:YMD le ( forecast:YMD + 2 )) and (once == complete)
         complete ($ENABLE_INIT == 0)
 
         extern /ifs_trigger/fct_ifs
 
         task setup
-            trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE-2) or \
+            trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE-3) or \
                     (/ifs_trigger/fct_ifs == complete)
             on_ecgate
             if ($ENABLE_INIT == 0) then
@@ -180,7 +181,7 @@ suite icon_${EXPNUM}
             trigger (setup == complete) and (../once == complete)
             complete ($ENABLE_GET_DATA == 0)
             on_hpc_serial
-            edit SCWALLCLOCKLIMIT 00:30:00
+            edit SCWALLCLOCKLIMIT 02:00:00
             if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
                 label status "skipped"
             endif
@@ -247,7 +248,7 @@ suite icon_${EXPNUM}
 
     family forecast
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 1 ))
+        trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 2 ))
         complete ($ENABLE_FORECAST == 0)
 
         family prepare
