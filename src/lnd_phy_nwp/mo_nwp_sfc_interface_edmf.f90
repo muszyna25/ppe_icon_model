@@ -642,26 +642,28 @@ endif
 IF (msg_level >= 15) THEN
   DO ic = 1, i_count
     jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-    if ( abs(shfl_s_t(jc,isubs)) > 400.0  .or. shfl_snow_t(jc,isubs) > 400.0  .or. &
-         abs(lhfl_s_t(jc,isubs)) > 2000.0 .or. lhfl_snow_t(jc,isubs) > 2000.0 ) then
-       write(*,*) 'mo_nwp_sfc_interface_edmf: fluxes ', &
-         ic, jc, isubs, snowfrac_t(jc,isubs), &
-         shfl_s_t(jc,isubs), shfl_snow_t(jc,isubs), &
-         lhfl_s_t(jc,isubs), lhfl_snow_t(jc,isubs)
+    if ( abs(shfl_s_t(ic,isubs)) > 500.0  .or. shfl_snow_t(ic,isubs) > 500.0  .or. &
+         abs(lhfl_s_t(ic,isubs)) > 2000.0 .or. lhfl_snow_t(ic,isubs) > 2000.0 ) then
+       write(*,*) 'sfc_interface_edmf: fluxes ', &
+         ic, jc, isubs, snowfrac_t(ic,isubs), &
+         shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
+         lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
     endif
     DO jk=1,nlev_soil+2
       if ( abs( t_so_ex(jc,jk,isubs) - t_so_new_t(ic,jk,isubs) ) > 2.0 ) then 
-        write(*,*) 'mo_nwp_sfc_interface_edmf: t_so ', ic, jc, isubs, jk, & 
-          t_so_ex(jc,jk,isubs), t_so_new_t(ic,jk,isubs)
+        write(*,*) 'sfc_interface_edmf: t_so ', ic, jc, isubs, jk, & 
+          t_so_ex(jc,jk,isubs), t_so_new_t(ic,jk,isubs), &
+          lc_class_t(ic,isubs), snowfrac_t(ic,isubs), &
+          shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs)
       endif
     ENDDO
     DO jk=1,nlev_soil+1
       if ( abs( w_so_ex(jc,jk,isubs) - w_so_new_t(ic,jk,isubs) ) > 0.5 ) then 
-        write(*,*) 'mo_nwp_sfc_interface_edmf: w_so ', ic, jc, isubs, jk, &
+        write(*,*) 'sfc_interface_edmf: w_so ', ic, jc, isubs, jk, &
           w_so_ex(jc,jk,isubs), w_so_new_t(ic,jk,isubs)
       endif
       if ( abs( w_so_ice_ex(jc,jk,isubs) - w_so_ice_new_t(ic,jk,isubs) ) > 0.5 ) then 
-        write(*,*) 'mo_nwp_sfc_interface_edmf: w_so_ice ', ic, jc, isubs, jk, &
+        write(*,*) 'sfc_interface_edmf: w_so_ice ', ic, jc, isubs, jk, &
           w_so_ice_ex(jc,jk,isubs), w_so_ice_new_t(ic,jk,isubs)
       endif
     ENDDO

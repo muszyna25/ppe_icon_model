@@ -575,10 +575,10 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
        !zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
         IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
           zfrti(jc,8) = 1.0_wp                         ! bare soil (???)
-        ELSE !!!IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
+        ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
           zfrti(jc,1) = 1.0_wp                         ! open ocean
-        !!! ELSE
-        !!!  zfrti(jc,2) = 1.0_wp                         ! sea ice
+        ELSE
+          zfrti(jc,2) = 1.0_wp                         ! sea ice
         ENDIF
       ENDDO
 
