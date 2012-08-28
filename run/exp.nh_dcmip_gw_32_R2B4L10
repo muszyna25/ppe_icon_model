@@ -128,6 +128,7 @@ cat > ${atmo_namelist} << EOF
  lhdiff_vn            = .TRUE.
  lhdiff_temp          = .FALSE.
  hdiff_tv_ratio       = 1.0
+ hdiff_smag_fac       = 0.12
 /
 &io_nml
  lwrite_extra    = .TRUE.   ! only for visualization purposes
@@ -138,7 +139,7 @@ cat > ${atmo_namelist} << EOF
  filetype         = 4
  dom              = -1
  output_time_unit = 1
- output_bounds    = 0.,3600.,100.   !start, end, increment
+ output_bounds    = 0.,14400.,900.   !start, end, increment
  steps_per_file   = 40
  include_last     = .TRUE.
  remap            = 1   ! lon/lat output
@@ -153,7 +154,7 @@ cat > ${atmo_namelist} << EOF
  filetype         = 4
  dom              = -1
  output_time_unit = 1
- output_bounds    = 0.,3600.,100.   !start, end, increment
+ output_bounds    = 0.,14400.,900.   !start, end, increment
  steps_per_file   = 40
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
@@ -162,7 +163,7 @@ cat > ${atmo_namelist} << EOF
  ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc','extra_3d1'
 /
 &interpol_nml
-l_intp_c2l = .true.
-l_mono_c2l = .true.
+ l_intp_c2l = .true.
+ l_mono_c2l = .true.
 /
 EOF

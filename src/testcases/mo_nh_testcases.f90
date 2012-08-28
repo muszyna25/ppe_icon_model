@@ -1089,8 +1089,8 @@ MODULE mo_nh_testcases
     CALL message(TRIM(routine),'setup dcmip_gw_32 (analyt. gravity waves on small planet) test')
 
     DO jg = 1, n_dom
-      CALL init_nh_gw_analyt( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
+      CALL init_nh_gw_analyt( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),           &
+        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics, p_int(jg) )
     ENDDO
 
     CALL message(TRIM(routine),'End setup dcmip_gw_32 test')

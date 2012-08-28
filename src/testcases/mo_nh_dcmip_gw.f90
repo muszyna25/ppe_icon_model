@@ -53,10 +53,13 @@ MODULE mo_nh_dcmip_gw
    USE mo_parallel_config,      ONLY: nproma
    USE mo_loopindices,          ONLY: get_indices_c, get_indices_e, get_indices_v
    USE mo_model_domain,         ONLY: t_patch
+   USE mo_intp_data_strc,       ONLY: t_int_state
    USE mo_io_config,            ONLY: lwrite_extra
    USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
    USE mo_dynamics_config,      ONLY: lcoriolis
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+   USE mo_math_utilities,       ONLY: rotate_latlon
+   USE mo_math_divrot,          ONLY: div
    USE mo_exception,            ONLY: message, finish, message_text
 
 
@@ -399,7 +402,7 @@ CONTAINS
   !! @par Revision History
   !! - initial revision by Daniel Reinert, DWD (2012-06-26)
   !!
-  SUBROUTINE init_nh_gw_analyt( p_patch, p_nh_prog, p_nh_diag, p_metrics )
+  SUBROUTINE init_nh_gw_analyt( p_patch, p_nh_prog, p_nh_diag, p_metrics, p_int )
 
     TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
@@ -413,8 +416,11 @@ CONTAINS
     TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
       &  p_metrics
 
+    TYPE(t_int_state),    INTENT(IN)    :: &  !< interpolation state
+      &  p_int
 
-    REAL(wp) :: z_lat                 !< geographical latitude
+
+    REAL(wp) :: z_lat, z_lon          !< geographical latitude and longitude
 
     REAL(wp) ::           &           !< zonal and meridional velocity
       & zu(nproma), zv(nproma)
@@ -426,21 +432,33 @@ CONTAINS
     REAL(wp) :: temp_pert             !< temperature perturbation         [K]
     REAL(wp) :: rho_pert              !< density perturbation             [kg/m**3]
     REAL(wp) :: temp_b, rho_b
+    REAL(wp) :: zpsi(nproma,p_patch%nblks_v) ! horizontal stream function
     INTEGER  :: jc, je, jv, jk, jb    !< loop indices
+    INTEGER  :: ilv1, ibv1, ilv2, ibv2 !< vertex line and block indices
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom  
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
-
+    INTEGER  :: iorient
 
 
     ! test case parameters
     !
     REAL(wp), PARAMETER :: t0   = 250._wp    !< surface temperature        [K]
-    REAL(wp), PARAMETER :: u0   = 0._wp      !< maximum amplitude 
-                                             !< of the zonal wind          [m s^-1]
-    REAL(wp), PARAMETER :: phic = 0.0_wp     !< Lat of perturbation center
+
     REAL(wp), PARAMETER :: q    = 50._wp     !< width of perturbation 
+
     REAL(wp), PARAMETER :: delta_temp = 0.01_wp !< Max amplitude of perturbation [K]
+
+
+    ! The following settings may be changed by the user
+    !
+    REAL(wp), PARAMETER :: u0   = 0._wp      !< maximum amplitude
+                                             !< of the zonal wind          [m s^-1]
+!    REAL(wp), PARAMETER :: u0   = 20._wp     !< maximum amplitude 
+                                             !< of the zonal wind          [m s^-1]
+    REAL(wp), PARAMETER :: phic = 0.5_wp*pi  !< Lat of perturbation center [rad]
+!    REAL(wp), PARAMETER :: phic = 0.0_wp     !< Lat of perturbation center [rad]
+
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_dcmip_gw:init_nh_gw_analyt'
@@ -477,13 +495,90 @@ CONTAINS
     !
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
 
+!    i_rlstart = 1
+!    i_rlend   = min_rledge
+
+!    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+!    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_lat,zu,zv)
+!    DO jb = i_startblk, i_endblk
+
+!      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+!                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+!      DO jk = 1, nlev
+!        DO je = i_startidx, i_endidx
+
+
+!          ! get geographical coordinates of edge midpoint
+!          !
+!          z_lat = p_patch%edges%center(je,jb)%lat
+
+!          ! init velocity field
+!          !
+!          ! zonal velocity
+!          zu(je) = u0 * COS(z_lat)
+
+!          ! meridional velocity
+!          zv(je) = 0._wp
+
+!          ! compute normal wind component
+!          p_nh_prog%vn(je,jk,jb) = zu(je) * p_patch%edges%primal_normal(je,jb)%v1  &
+!            &                    + zv(je) * p_patch%edges%primal_normal(je,jb)%v2
+
+!        ENDDO  ! je
+!      ENDDO  ! jk
+!    ENDDO ! jb
+!!$OMP ENDDO NOWAIT
+
+
+    !
+    ! Init prognostic variables vn, w
+    !
+    ! Use stream function initialization, in order to get a discretely 
+    ! non-divergent horizontal wind field
+    ! 
+    ! compute velocity stream function at vertices
+    !
+    i_rlstart = 1
+    i_rlend   = min_rlvert
+
+    i_startblk = p_patch%verts%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jv,jb,i_startidx,i_endidx,z_lat)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+        DO jv = i_startidx, i_endidx
+
+          ! get geographical coordinates of vertices
+          !
+          z_lat = p_patch%verts%vertex(jv,jb)%lat
+
+          ! get streamfunction
+          zpsi(jv,jb) = -grid_sphere_radius * u0 * SIN(z_lat)
+
+        ENDDO  ! jv
+    ENDDO ! jb
+!$OMP ENDDO
+
+
+
+    ! compute normal velocities at edge center
+    !
     i_rlstart = 1
     i_rlend   = min_rledge
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
-!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_lat,zu,zv)
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,ilv1,ibv1,ilv2,ibv2,iorient)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -493,27 +588,26 @@ CONTAINS
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
 
+          ! get edge vertices
+          ilv1 = p_patch%edges%vertex_idx(je,jb,1)
+          ibv1 = p_patch%edges%vertex_blk(je,jb,1)
+          ilv2 = p_patch%edges%vertex_idx(je,jb,2)
+          ibv2 = p_patch%edges%vertex_blk(je,jb,2)
 
-          ! get geographical coordinates of edge midpoint
-          !
-          z_lat = p_patch%edges%center(je,jb)%lat
-
-          ! init velocity field
-          !
-          ! zonal velocity
-          zu(je) = u0 * cos(z_lat)
-
-          ! meridional velocity
-          zv(je) = 0._wp
+          iorient = p_patch%edges%system_orientation(je,jb)
 
           ! compute normal wind component
-          p_nh_prog%vn(je,jk,jb) = zu(je) * p_patch%edges%primal_normal(je,jb)%v1  &
-            &                    + zv(je) * p_patch%edges%primal_normal(je,jb)%v2
+          p_nh_prog%vn(je,jk,jb) = iorient                                &
+            &                  * (zpsi(ilv2,ibv2) - zpsi(ilv1,ibv1))      &
+            &                  / p_patch%edges%primal_edge_length(je,jb)
 
         ENDDO  ! je
       ENDDO  ! jk
-    ENDDO ! jb
-!$OMP ENDDO NOWAIT
+    ENDDO  ! jb
+!$OMP ENDDO
+
+
+
 
 
     i_rlstart = 1
@@ -601,7 +695,7 @@ CONTAINS
     !!!    II. Add temperature and density perturbation  !!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_lat,shape_func,temp_b, &
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_lat,z_lon,shape_func,temp_b, &
 !$OMP            temp_pert,rho_b,rho_pert)
     DO jb = i_startblk, i_endblk
 
@@ -614,7 +708,13 @@ CONTAINS
 
           ! get geographical latitude of cell circumcenter
           !
-          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lat  = p_patch%cells%center(jc,jb)%lat
+          z_lon  = p_patch%cells%center(jc,jb)%lon
+
+          CALL rotate_latlon(z_lat, z_lon, phic, 0._wp)
+
+          ! note that from now on, z_lat and z_lon are given with respect to 
+          ! the rotated north pole (at (lat,lon)=(phic,0.0))
 
           shape_func = (0.5_wp * (1._wp + SIN(z_lat)))**q  &
             &        * SIN(pi * p_metrics%z_mc(jc,jk,jb)/p_metrics%z_ifc(jc,1,jb))
@@ -737,6 +837,10 @@ CONTAINS
     IF ( (u0 /= 0._wp) .AND. lcoriolis ) THEN
       CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
     ENDIF
+
+
+    ! diag for Output
+    CALL div(p_nh_prog%vn, p_patch, p_int, p_nh_diag%div)
 
   END SUBROUTINE init_nh_gw_analyt
 
