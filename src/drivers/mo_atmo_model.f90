@@ -715,9 +715,9 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
-!     IF (use_icon_comm) THEN
+    IF (use_icon_comm .OR. parallel_radiation_mode > 0) THEN
       CALL construct_icon_communication()
-!     ENDIF
+    ENDIF
 
     IF (parallel_radiation_mode == 1) THEN
       CALL construct_rrtm_model_repart(p_patch(1))
@@ -786,9 +786,9 @@ CONTAINS
     IF (parallel_radiation_mode == 1) THEN
       CALL destruct_rrtm_model_repart()
     ENDIF
-!     IF (use_icon_comm) THEN
+    IF (use_icon_comm .OR. parallel_radiation_mode > 0) THEN
       CALL destruct_icon_communication()
-!     ENDIF
+    ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')
     
