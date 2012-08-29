@@ -45,7 +45,8 @@ MODULE mo_icon_comm_lib
   USE mo_exception,       ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
     & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,    &
-    & max_no_of_comm_processes, max_no_of_comm_patterns, sync_barrier_mode
+    & max_no_of_comm_processes, max_no_of_comm_patterns, sync_barrier_mode, &
+    & max_mpi_message_size
 
   USE mo_communication,   ONLY: blk_no, idx_no
   USE mo_model_domain,    ONLY: t_patch
@@ -108,7 +109,6 @@ MODULE mo_icon_comm_lib
   
   !--------------------------------------------------------------
   ! internal parameters
-!  INTEGER, PARAMETER ::  max_send_recv_buffer_size = 131072
   REAL(wp), PARAMETER::  header_separator = 99999999.0_wp
   INTEGER, PARAMETER ::  checksum_size = 2
   ! TAG parameters
@@ -1645,7 +1645,7 @@ CONTAINS
   SUBROUTINE fill_and_send_buffers()
         
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
-    INTEGER :: comm_var, var_no, bfid, np    
+    INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size, message_size  
 !     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillandsend)
@@ -1674,11 +1674,22 @@ CONTAINS
         ENDDO 
       
       END DO ! comm_var = 1, max_active_comm_variables
+
+      buffer_start = send_procs_buffer(bfid)%start_index
+      buffer_size  = send_procs_buffer(bfid)%buffer_size
       
-      CALL p_isend(send_buffer(send_procs_buffer(bfid)%start_index:), &
-        & send_procs_buffer(bfid)%pid, p_tag=halo_tag,                &
-        &  p_count=send_procs_buffer(bfid)%buffer_size,               &
-        & comm=my_work_communicator)
+      DO WHILE (buffer_size > 0) 
+      
+        message_size  = MIN(buffer_size, max_mpi_message_size)
+        CALL p_isend(send_buffer(buffer_start:), &
+          & send_procs_buffer(bfid)%pid, p_tag=halo_tag,                &
+          &  p_count=message_size,              &
+          & comm=my_work_communicator)
+        
+        buffer_size  = buffer_size  - message_size
+        buffer_start = buffer_start + message_size
+
+      ENDDO
             
     ENDDO !bfid = 1, active_send_buffers
 !ICON_OMP_END_DO_NOWAIT
@@ -1924,7 +1935,7 @@ CONTAINS
   !>
   SUBROUTINE sent_active_buffers(  )
 
-    INTEGER :: bfid, buffer_start, buffer_size
+    INTEGER :: bfid, buffer_start, buffer_size, message_size
 !     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_isend)
@@ -1934,10 +1945,16 @@ CONTAINS
       buffer_start = send_procs_buffer(bfid)%start_index
       buffer_size  = send_procs_buffer(bfid)%buffer_size
       
-      IF ( buffer_size > 0 ) THEN
+      DO WHILE ( buffer_size > 0 )
+
+        message_size = MIN(buffer_size, max_mpi_message_size)
         CALL p_isend(send_buffer(buffer_start:), send_procs_buffer(bfid)%pid, &
-          & p_tag=halo_tag, p_count=buffer_size, comm=my_work_communicator)
-      ENDIF
+          & p_tag=halo_tag, p_count=message_size, comm=my_work_communicator)
+        buffer_size  = buffer_size  - message_size
+        buffer_start = buffer_start + message_size
+
+      ENDDO
+      
 
     ENDDO
     
@@ -1950,7 +1967,7 @@ CONTAINS
   !>
   SUBROUTINE start_recv_active_buffers(  )
 
-    INTEGER :: bfid, buffer_start, buffer_size
+    INTEGER :: bfid, buffer_start, buffer_size, message_size
 
     CALL compute_recv_buffer_sizes()
     
@@ -1961,12 +1978,18 @@ CONTAINS
 
       buffer_start = recv_procs_buffer(bfid)%start_index
       buffer_size  = recv_procs_buffer(bfid)%buffer_size
-      
-      IF ( buffer_size > 0 ) THEN
-        CALL p_irecv(recv_buffer(buffer_start:), recv_procs_buffer(bfid)%pid, &
-          & p_tag=halo_tag, p_count=buffer_size, comm=my_work_communicator)
-      ENDIF
 
+      DO WHILE (buffer_size > 0 )
+      
+        message_size =  MIN(buffer_size,max_mpi_message_size)
+        CALL p_irecv(recv_buffer(buffer_start:), recv_procs_buffer(bfid)%pid, &
+          & p_tag=halo_tag, p_count=message_size, &
+          & comm=my_work_communicator)
+
+          buffer_size  = buffer_size  - message_size
+          buffer_start = buffer_start + message_size
+      ENDDO
+      
     ENDDO
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_ircv)
           

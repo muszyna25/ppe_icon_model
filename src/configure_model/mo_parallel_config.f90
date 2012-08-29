@@ -55,7 +55,7 @@ MODULE mo_parallel_config
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
-       &  sync_barrier_mode
+       &  sync_barrier_mode, max_mpi_message_size
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -106,10 +106,11 @@ MODULE mo_parallel_config
 
   LOGICAL :: use_icon_comm = .false.
   LOGICAL :: icon_comm_debug= .false.
-  INTEGER :: max_send_recv_buffer_size = 131072
-  INTEGER :: max_no_of_comm_variables = 64
-  INTEGER :: max_no_of_comm_processes = 64
-  INTEGER :: max_no_of_comm_patterns  = 32
+  INTEGER :: max_send_recv_buffer_size = 262144
+  INTEGER :: max_mpi_message_size          =  16384
+  INTEGER :: max_no_of_comm_variables  = 64
+  INTEGER :: max_no_of_comm_processes  = 64
+  INTEGER :: max_no_of_comm_patterns   = 32
   INTEGER :: icon_comm_method = 1
   INTEGER :: sync_barrier_mode = 0
   
