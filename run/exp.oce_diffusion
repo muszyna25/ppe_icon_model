@@ -129,15 +129,6 @@ cat > ${ocean_namelist} << EOF
 &run_nml
  dtime       = 1800         ! model timestep in seconds
 /
-&dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
-  idbg_val =0                     ! initialize one cell debug output
-  idbg_slev=1                     ! initialize start level for debug output
-  idbg_elev=5                     ! initialize end level for debug output
-  dbg_lat_in=   30.0              ! latitude location of one cell debug output
-  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
-  str_mod_tst='all'               ! define modules to print out in debug mode
-/
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
   n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
@@ -148,7 +139,7 @@ cat > ${ocean_namelist} << EOF
   FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   i_apply_bulk          = 1      ! 1=use bulk formula without sea ice
   veloc_diffusion_order = 2      ! biharmonic friction
-  veloc_diffusion_type = 2       ! div-grad from of diffusion operator
+  veloc_diffusion_form = 2       ! div-grad from of diffusion operator
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
