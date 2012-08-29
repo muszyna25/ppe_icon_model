@@ -514,6 +514,14 @@ IF ( KSTEP == 0 .AND. CDCONF /= 'T' ) THEN
   ENDIF
 ENDIF
 
+DO JT=1,KTILES
+  DO JL=KIDIA,KFDIA
+if ( (PTSKTI(JL,JT) > 400.0)  .or. (PTSKTI(JL,JT) < 100.0  ) ) then
+  write(*,*) 'surfexc1: ', JT, PTSKTI(JL,JT), PSST(JL), PTSKM1M(JL)
+endif
+  ENDDO
+ENDDO
+
 !*         1.2  UPDATE Z0
 
 CALL VUPDZ0(KIDIA,KFDIA,KLON,KTILES,KSTEP,CDCONF,&
@@ -872,7 +880,7 @@ ENDDO
 !                 BALANCE ROUTINE
 
 !xmk: as a first try turn of the first step SEB 
-!IF (KSTEP == 0) THEN 
+!IF (KSTEP == 0) THEN    ???
 IF (0 == 0) THEN 
 !xxx
   IF (LEOCWA .OR. LEOCCO) THEN

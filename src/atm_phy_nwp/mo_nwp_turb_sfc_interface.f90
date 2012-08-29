@@ -548,6 +548,9 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
         zsigflt(jc) = 0.0_wp   ! just for testing (standard dev. of filtered orogrphy)
         zz0h   (jc) = 0.0_wp   ! diagnostic z0,h - should be in diagnostic output ???
+if (ztskm1m(jc) > 400.0 ) then
+  write(*,*) 'turb_sfc1: ', ztskm1m(jc)
+endif
       ENDDO
 
       DO jk = 1,p_patch%nlev
@@ -575,10 +578,10 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
        !zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
         IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
           zfrti(jc,8) = 1.0_wp                         ! bare soil (???)
-        ELSE IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
+        ELSE !!!IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
           zfrti(jc,1) = 1.0_wp                         ! open ocean
-        ELSE
-          zfrti(jc,2) = 1.0_wp                         ! sea ice
+       !ELSE
+       !  zfrti(jc,2) = 1.0_wp                         ! sea ice
         ENDIF
       ENDDO
 
@@ -593,7 +596,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         idummy_vdf_0a(jc) = 16    !KTVL  ???
         idummy_vdf_0b(jc) = 3     !KTVH  ???
         zdummy_vdf_1a(jc) = 0.5_wp!PCVL  ???
-        zdummy_vdf_1b(jc) = 0.5_wp!PCVL  ???
+        zdummy_vdf_1b(jc) = 0.5_wp!PCVH  ???
         idummy_vdf_0c(jc) = 1     !KSOTY ??? soil type (needs to be specified)
         zdummy_vdf_1f(jc) = 1.0_wp!maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
         zdummy_vdf_1c(jc) = 0.0_wp!lake ice thickness ??? (no lakes???)
@@ -612,13 +615,13 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0._wp
 
       CALL vdfouter ( &
-        & CDCONF  = ' '                                        ,&! (IN)  unused
+        & CDCONF  = 'T'                                        ,&! (IN)  used in surfexcdriver
         & KIDIA   = i_startidx                                 ,&! (IN)   
         & KFDIA   = i_endidx                                   ,&! (IN)   
         & KLON    = nproma                                     ,&! (IN)   
         & KLEV    = p_patch%nlev                               ,&! (IN)   
         & KLEVS   = nlev_soil                                  ,&! (IN)
-        & KSTEP   = 0                                          ,&! (IN)  unused: current time step
+        & KSTEP   = 0                                          ,&! (IN)  ??? used in surfexdriver!!
         & KTILES  = ntiles_total                               ,&! (IN)
         & KTRAC   = itrac_vdf                                  ,&! (IN)  default 0 (itrac?)
         & KLEVSN  = nlev_snow                                  ,&! (IN)  # snow layers (1!)

@@ -642,6 +642,12 @@ ENDIF
 !*         1.3    STORE FLUXES AND STRESSES IN LOCAL ARRAYS
 !                 -----------------------------------------
 
+DO JROF=KIDIA,KFDIA
+ if ( PTSKM1M(JROF) > 400.0 .or. PTSKM1M(JROF) < 100.0 ) then
+  write(*,*) 'vdfouter1: ', PTSKM1M(JROF), PTM1(JROF,KLEV), PTM1(JROF,KLEV-1)
+ endif
+ENDDO
+
 ZTSKM1M(KIDIA:KFDIA)=PTSKM1M(KIDIA:KFDIA)
 
 ZTSKTI(KIDIA:KFDIA,:)=PTSKTI(KIDIA:KFDIA,:)
@@ -729,6 +735,12 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
 
 !*         2.2    CALL VDFMAIN EACH SMALL TIME STEP
 !                 ---------------------------------
+
+DO JROF=KIDIA,KFDIA
+ if ( ZTSKM1M(JROF) > 400.0 .or. ZTSKM1M(JROF) < 100.0  ) then
+  write(*,*) 'vdfouter2: ', ZTSKM1M(JROF), PTM1(JROF,KLEV), PTM1(JROF,KLEV-1)
+ endif
+ENDDO
 
   CALL VDFMAIN ( CDCONF, &
    & KIDIA  , KFDIA  , KLON   , KLEV   , KLEVS  , KSTEP  , KTILES , &
@@ -819,7 +831,19 @@ INNER_TIME_LOOP: DO JCNT=1,INVDF
 !*         3.1    UPDATE SKIN TEMPERATURE
 !                 -----------------------
 
+DO JROF=KIDIA,KFDIA
+ if ( ZTSKM1M(JROF) > 400.0 .or. ZTSKM1M(JROF) < 100.0 ) then
+  write(*,*) 'vdfouter3: ', ZTSKM1M(JROF), PTM1(JROF,KLEV), PTM1(JROF,KLEV-1)
+ endif
+ENDDO
+
   ZTSKM1M(KIDIA:KFDIA)=ZTSKM1M(KIDIA:KFDIA)+ZTSKE1(KIDIA:KFDIA)*ZTSPHY
+
+DO JROF=KIDIA,KFDIA
+ if ( ZTSKM1M(JROF) > 400.0 .or. ZTSKM1M(JROF) < 100.0 ) then
+  write(*,*) 'vdfouter4: ', ZTSKM1M(JROF), PTM1(JROF,KLEV), ZTSKE1(JROF)
+ endif
+ENDDO
 
 
 !*         4.0    ACCUMULATE AND COMPUTE AVERAGE TENDENCIES

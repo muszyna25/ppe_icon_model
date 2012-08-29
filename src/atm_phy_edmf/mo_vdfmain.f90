@@ -831,6 +831,12 @@ ENDDO
 !*         3.  Compute all surface related quantities
 !          ------------------------------------------
 
+DO JL=KIDIA,KFDIA
+ if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0 ) then
+  write(*,*) 'vdfmain1: ', JL, JB, PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
+ endif
+ENDDO
+
 CALL SURFEXCDRIVER( &
   ! TERRA data
    &   ext_data                                                           & !in
@@ -928,6 +934,12 @@ DO JL=KIDIA,KFDIA
   ENDDO
 ENDDO
 !xxx
+
+DO JL=KIDIA,KFDIA
+ if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0) then
+  write(*,*) 'vdfmain2: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
+ endif
+ENDDO
 
 !amk ATTENTION: needs to specify surface layer diffusion coefficients
 !   JK = KLEV
@@ -1360,7 +1372,12 @@ CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
 !ENDDO
 !xxx
 
-!DMK??
+DO JL=KIDIA,KFDIA
+ if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0  ) then
+  write(*,*) 'vdfmain3: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1), PFRTI(JL,1)
+ endif
+ENDDO
+
 CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
  & KDHVTLS=KDHVTLS,KDHFTLS=KDHFTLS, &
  & PTSTEP=PTSPHY, &
@@ -1383,7 +1400,6 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
 ! output DDH
  & PDHTLS=PDHTLS &
  & )
-!XMK??
 
 DO JL=KIDIA,KFDIA
   IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
