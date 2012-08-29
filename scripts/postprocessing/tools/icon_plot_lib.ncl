@@ -18,12 +18,15 @@
 ;                 Stephan Lorenz (stephan.lorenz@zmaw.de)
 ;-------------------------------------------------------------------------------
 ; some global defaults
-  DEFAULTLON = "clon"
-  DEFAULTLAT = "clat"
-  RAD2DEG    = 45./atan(1.)
-  ABORTMSG   = "Abort Script."
-  NUMLEVS    = 10
-  CDO        = "cdo"
+  DEFAULTLON   = "clon"
+  DEFAULTLAT   = "clat"
+  RAD2DEG      = 45./atan(1.)
+  ABORTMSG     = "Abort Script."
+  NUMLEVS      = 10
+  CDO          = "cdo"
+;  DEFAULTCOLOR = "BlWhRe"             ; ncolors = 103
+  DEFAULTCOLOR = "BlueDarkRed18"      ; ncolors = 256
+  DEFAULTCOLOR = "BlueWhiteOrangeRed" ; ncolors = 256
 ;-------------------------------------------------------------------------------
 procedure setCDO(path)
 begin
@@ -928,6 +931,7 @@ begin
   ;resource@gsnYAxisIrregular2Log        = True
   return resource
 end
+;---------------------------------------------------------------
 undef("setDefaultOverlayResource")
 procedure setDefaultOverlayResource(resource)
 begin
@@ -943,6 +947,30 @@ begin
   resource@lbLabelFontHeightF = 0.015
   resource@lbLeftMarginF      = 0.01
   resource@lbLabelBarOn       = False;  switch of the vector label bar, because the speed is show as vector lenghts
+end
+;---------------------------------------------------------------
+undef("setDefaultColors")
+procedure setDefaultColors(resource,minval,maxval,debug)
+begin
+; white is color 135
+  if ((minval*maxval) .LT. 0.0) then ; data goes fro positiv to negative or vs.
+    if (abs(maxval) .GT. abs(minval)) then
+      resource@gsnSpreadColorStart = 135  - toint(126*(abs(minval)/abs(maxval)))
+      resource@gsnSpreadColorEnd   = 255
+    else
+      resource@gsnSpreadColorStart = 2
+      resource@gsnSpreadColorEnd   = 135 + toint(126*(abs(maxval)/abs(minval)))
+    end if
+    resource@gsnContourZeroLineThicknessF = 2.0
+    if (debug) then
+      print("===================== COMPUTE the COLORS to make zero WHITE:")
+      print("minval: "+minval)
+      print("maxval: "+maxval)
+      print("100*(toint(abs(minval)/abs(maxval))): "+toint(100*(abs(minval)/abs(maxval))))
+      print("resource@gsnSpreadColorStart:" + resource@gsnSpreadColorStart)
+      print("resource@gsnSpreadColorEnd  :" + resource@gsnSpreadColorEnd)
+    end if
+  end if
 end
 ;---------------------------------------------------------------
 undef("shift4SecMap")
@@ -1227,8 +1255,8 @@ procedure setMaskColor(wks,resource)
 begin
   newcolor = NhlNewColor(wks,0.85,0.85,0.85)   ; add gray to colormap
   ;resource@gsnSpreadColorStart  = 1
-  resource@gsnSpreadColorEnd     = 19  ; last color number not known?
-  resource@cnMissingValFillColor = 20  ; last color is used for missing values
+  ;resource@gsnSpreadColorEnd     = 19  ; last color number not known?
+  resource@cnMissingValFillColor = newcolor
 end
 ;---------------------------------------------------------------
 ; set the coordinates for an ICON data field
