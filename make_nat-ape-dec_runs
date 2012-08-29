@@ -77,7 +77,8 @@ create_dec()
   $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
-    ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method
+    ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
+    max_mpi_message_size=$max_mpi_message_size
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -98,6 +99,8 @@ set_default_parameters()
   mpi_procs_pernode=32
   openmp_threads=2
   nproma=4
+  max_mpi_message_size=16384
+  icon_comm_method=1
   rrad="false"
   division_method=1
   parallel_radiation_mode=0
@@ -150,7 +153,7 @@ create_strong_scaling()
 #==============================================================================
 create_weak_scaling()
 {
-  setup_name=$1
+  weak_scaling_setup_name=$1
   cells_per_domain=$2
   dec_size_list="$3"
   dec_size_list_all="32 92 162 362 642 1082 1442 1922 2432"
@@ -185,9 +188,9 @@ create_weak_scaling()
   esac
 
   if [ x$division_method == x0 ]; then
-    outname="${setup_name}_hexdec"
+    outname="${weak_scaling_setup_name}_hexdec"
   else
-    outname="${setup_name}_geodec"
+    outname="${weak_scaling_setup_name}_geodec"
   fi
   outname="${outname}_${cells_per_domain}cellspd"
   atmo_dyn_gridname=""
@@ -211,20 +214,27 @@ create_weak_scaling_on_blizzard()
   dt_rad=1800
   setup_name="nat-ape_30m-redis-rad"
   #---------------------------------
-   run="true"
+  # run="true"
   #==============================================================================
 
   division_method=0
   parallel_radiation_mode=1
   use_icon_comm=".true."
   icon_comm_method=1
-  
+ 
+  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-16-16-cells
+  setup_name="nat-ape_30m-redis-rad-16cells"
   mpi_procs_pernode=32
   openmp_threads=2
   ndays=60
   cpu_time="00:20:00"
-  create_weak_scaling "${setup_name}_60days_test_1" 24 "1442"
-  create_weak_scaling "${setup_name}_60days_test_2" 24 "1442"
+  max_mpi_message_size=16384
+  create_weak_scaling "${setup_name}_60days_128Kmessage" 24 "1442"
+  max_mpi_message_size=8192
+  create_weak_scaling "${setup_name}_60days_64Kmessage" 24 "1442"
+  max_mpi_message_size=4096
+  create_weak_scaling "${setup_name}_60days_32Kmessage" 24 "1442"
+
   exit
 
   parallel_radiation_mode=0
@@ -260,16 +270,36 @@ create_comm_test_on_blizzard()
   exp_descriptor="icon-testbed_communication"
   cpu_time="00:20:00"
   dt_rad=1800
-  #---------------------------------
-  # run="true"
-  #==============================================================================
-  
-  # ndays=30
-  # create_strong_scaling "iconR2B05-grid" "comm-strongtest" "1 2 4"
-  #==============================================================================
-  ndays=30
   division_method=0
-  # create_weak_scaling "comm-weaktest_hexdec" 24
+  parallel_radiation_mode=1
+  use_icon_comm=".true."
+  icon_comm_method=1
+  mpi_procs_pernode=32
+  openmp_threads=2
+  ndays=500
+
+  #---------------------------------
+  run="true"
+  #==============================================================================
+  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-16-16-cells
+  setup_name="rad-comm-test_16cells"
+  max_mpi_message_size=16384
+  create_weak_scaling "${setup_name}_128Kmessage" 96 "1082"
+  max_mpi_message_size=8192
+  create_weak_scaling "${setup_name}_64Kmessage" 96 "1082"
+  max_mpi_message_size=4096
+  create_weak_scaling "${setup_name}_32Kmessage" 96 "1082"
+
+  exit
+
+  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-4-16-cells
+  create_weak_scaling "rad-comm-test_4cells_2" 96 "1082"
+
+  exit
+  #==============================================================================
+  ndays=60
+  division_method=0
+  create_weak_scaling "comm-weaktest_hexdec" 24
   create_weak_scaling "comm-weaktest_hexdec" 96
   create_weak_scaling "comm-weaktest_hexdec" 384 
   #==============================================================================
@@ -279,10 +309,8 @@ create_comm_test_on_blizzard()
 
 }
 
-create_weak_scaling_on_blizzard
-exit
-
-#create_weak_scaling_on_blizzard
+# create_weak_scaling_on_blizzard
+create_comm_test_on_blizzard
 exit
 
 
