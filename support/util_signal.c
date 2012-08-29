@@ -222,7 +222,7 @@ int signal_trap(int *create_dump, int *signals)
   int ret = 0;
   char errmsg[1024];
 
-#if !((defined __linux__ ) || (defined (__APPLE__) && defined (__MACH__)))
+#if !((defined __linux__ ) || (defined _AIX) || (defined (__APPLE__) && defined (__MACH__)))
   fexcept_t fp_traps;
 #endif
 
