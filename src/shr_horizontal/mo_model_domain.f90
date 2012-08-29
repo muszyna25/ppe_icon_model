@@ -105,7 +105,6 @@ MODULE mo_model_domain
   USE mo_communication,  ONLY: t_comm_pattern
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
-  USE mo_grid_subset,    ONLY: t_subset_range
   
   IMPLICIT NONE
   
@@ -122,10 +121,46 @@ MODULE mo_model_domain
   PUBLIC :: t_grid_edges
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
+  PUBLIC :: t_subset_range, t_subset_range_index
   
   !PUBLIC :: t_patch_ocean
   
   PUBLIC :: t_tangent_vectors
+  
+  !----------------------------------------------------
+  !> Defines a subset in a range (in terms of blocks)
+  TYPE :: t_subset_range
+    
+    INTEGER :: start_block
+    INTEGER :: start_index
+    INTEGER :: end_block
+    INTEGER :: end_index
+    INTEGER :: block_size
+
+    TYPE(t_patch), POINTER :: patch
+    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts    
+
+    INTEGER :: no_of_holes ! the number of holes in the subset
+    LOGICAL :: is_in_domain
+    
+  END TYPE
+  !----------------------------------------------------
+  
+
+  !----------------------------------------------------
+  !> Defines an index for a subset_range 
+  TYPE :: t_subset_range_index
+  
+    INTEGER, POINTER :: block ! the current block in the subset
+    INTEGER, POINTER :: index ! the current index in the subset
+    
+    INTEGER :: start_index ! the current start index within the current block,
+    INTEGER :: end_index   ! the current end index within the current block,
+
+    TYPE(t_subset_range), POINTER :: subset_range
+  
+  END TYPE
+  !----------------------------------------------------
   
   ! tangent vector class
   TYPE t_tangent_vectors

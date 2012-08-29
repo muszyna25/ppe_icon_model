@@ -35,7 +35,7 @@
 MODULE mo_grid_subset
 
   USE mo_exception,    ONLY: warning
-
+  USE mo_model_domain, ONLY: t_patch, t_subset_range, t_subset_range_index
   IMPLICIT NONE
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -44,37 +44,6 @@ MODULE mo_grid_subset
 
   PUBLIC :: fill_subset, get_index_range
 
-  !----------------------------------------------------
-  !> Defines a subset in a range (in terms of blocks)
-  TYPE :: t_subset_range
-    
-    INTEGER :: start_block
-    INTEGER :: start_index
-    INTEGER :: end_block
-    INTEGER :: end_index
-    INTEGER :: block_size
-
-    INTEGER :: no_of_holes ! the number of holes in the subset
-    LOGICAL :: is_in_domain
-    
-  END TYPE
-  !----------------------------------------------------
-  
-
-  !----------------------------------------------------
-  !> Defines an index for a subset_range 
-  TYPE :: t_subset_range_index
-  
-    INTEGER, POINTER :: block ! the current block in the subset
-    INTEGER, POINTER :: index ! the current index in the subset
-    
-    INTEGER :: start_index ! the current start index within the current block,
-    INTEGER :: end_index   ! the current end index within the current block,
-
-    TYPE(t_subset_range), POINTER :: subset_range
-  
-  END TYPE
-  !----------------------------------------------------
 
 CONTAINS
 
@@ -87,8 +56,9 @@ CONTAINS
   ! start_level - end_level
   !
   ! Assumes that level is of the shape (1:,1:)
-  SUBROUTINE fill_subset(subset_range, level, start_level, end_level)
+  SUBROUTINE fill_subset(subset_range, patch, level, start_level, end_level)
     TYPE(t_subset_range), INTENT(inout) :: subset_range
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch
     INTEGER, INTENT(in) :: level(:,:), start_level, end_level
 
     INTEGER :: levels_size(2) 
@@ -149,6 +119,8 @@ CONTAINS
       ENDDO
     ENDIF
 
+    subset_range%patch => patch
+    
 !     IF (subset_range%no_of_holes > 0) THEN
 !       CALL warning(method_name, "We have holes in the range subset")      
 !     ENDIF
