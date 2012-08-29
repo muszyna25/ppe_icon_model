@@ -107,7 +107,7 @@ MODULE mo_parallel_config
   LOGICAL :: use_icon_comm = .false.
   LOGICAL :: icon_comm_debug= .false.
   INTEGER :: max_send_recv_buffer_size = 262144
-  INTEGER :: max_mpi_message_size          =  16384
+  INTEGER :: max_mpi_message_size      = 65536
   INTEGER :: max_no_of_comm_variables  = 64
   INTEGER :: max_no_of_comm_processes  = 64
   INTEGER :: max_no_of_comm_patterns   = 32

@@ -1645,7 +1645,8 @@ CONTAINS
   SUBROUTINE fill_and_send_buffers()
         
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
-    INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size, message_size  
+    INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size,&
+      & message_size, message_seq_id  
 !     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillandsend)
@@ -1677,17 +1678,18 @@ CONTAINS
 
       buffer_start = send_procs_buffer(bfid)%start_index
       buffer_size  = send_procs_buffer(bfid)%buffer_size
-      
+      message_seq_id = 0    
       DO WHILE (buffer_size > 0) 
       
         message_size  = MIN(buffer_size, max_mpi_message_size)
         CALL p_isend(send_buffer(buffer_start:), &
-          & send_procs_buffer(bfid)%pid, p_tag=halo_tag,                &
+          & send_procs_buffer(bfid)%pid, p_tag=halo_tag+message_seq_id, &
           &  p_count=message_size,              &
           & comm=my_work_communicator)
         
         buffer_size  = buffer_size  - message_size
         buffer_start = buffer_start + message_size
+        message_seq_id = message_seq_id + 1
 
       ENDDO
             
@@ -1935,7 +1937,7 @@ CONTAINS
   !>
   SUBROUTINE sent_active_buffers(  )
 
-    INTEGER :: bfid, buffer_start, buffer_size, message_size
+    INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
 !     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_isend)
@@ -1944,14 +1946,16 @@ CONTAINS
 
       buffer_start = send_procs_buffer(bfid)%start_index
       buffer_size  = send_procs_buffer(bfid)%buffer_size
-      
+      message_seq_id = 0
       DO WHILE ( buffer_size > 0 )
 
         message_size = MIN(buffer_size, max_mpi_message_size)
         CALL p_isend(send_buffer(buffer_start:), send_procs_buffer(bfid)%pid, &
-          & p_tag=halo_tag, p_count=message_size, comm=my_work_communicator)
+          & p_tag=halo_tag+message_seq_id, p_count=message_size, &
+          & comm=my_work_communicator)
         buffer_size  = buffer_size  - message_size
         buffer_start = buffer_start + message_size
+        message_seq_id = message_seq_id + 1
 
       ENDDO
       
@@ -1967,7 +1971,7 @@ CONTAINS
   !>
   SUBROUTINE start_recv_active_buffers(  )
 
-    INTEGER :: bfid, buffer_start, buffer_size, message_size
+    INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
 
     CALL compute_recv_buffer_sizes()
     
@@ -1978,16 +1982,17 @@ CONTAINS
 
       buffer_start = recv_procs_buffer(bfid)%start_index
       buffer_size  = recv_procs_buffer(bfid)%buffer_size
-
+      message_seq_id = 0
       DO WHILE (buffer_size > 0 )
-      
+
         message_size =  MIN(buffer_size,max_mpi_message_size)
         CALL p_irecv(recv_buffer(buffer_start:), recv_procs_buffer(bfid)%pid, &
-          & p_tag=halo_tag, p_count=message_size, &
+          & p_tag=halo_tag+message_seq_id, p_count=message_size, &
           & comm=my_work_communicator)
 
           buffer_size  = buffer_size  - message_size
           buffer_start = buffer_start + message_size
+          message_seq_id = message_seq_id + 1
       ENDDO
       
     ENDDO
