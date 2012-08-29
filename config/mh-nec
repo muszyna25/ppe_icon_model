@@ -59,8 +59,8 @@ LDFLAGS = -Wl,-Z 16G
 
 # Inlining
 INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
-INLINE   = $INLINE -pi expin=../../../src/shared/mo_sync.f90
-INLINE   = $INLINE -pi expin=../../../src/shared/mo_communication.f90
+INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_sync.f90
+INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_communication.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_math_utilities.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
 INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
@@ -68,7 +68,7 @@ INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cufunctions.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cuparameters.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_satad.f90
-INLINE   = $INLINE -pi expin=../../../src/shared/mo_mpi.f90
+INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_mpi.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_edmf_param.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfthermo.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfpdftable.f90
