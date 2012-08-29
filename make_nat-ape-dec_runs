@@ -279,9 +279,9 @@ create_comm_test_on_blizzard()
   ndays=500
 
   #---------------------------------
-  run="true"
+  # run="true"
   #==============================================================================
-  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-16-16-cells
+  grids_folder=/work/mh0287/leonidas.public/grids/grids.radiation_4-16-16-cells
   setup_name="rad-comm-test_16cells"
   max_mpi_message_size=16384
   create_weak_scaling "${setup_name}_128Kmessage" 96 "1082"
