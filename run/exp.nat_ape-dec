@@ -106,6 +106,7 @@ lrestore_states=".false."
 #-----------------------------------------------------------------------------
 use_barrier=${use_barrier:=".false."}
 use_icon_comm=${use_icon_comm:=".false."}
+icon_comm_method=${icon_comm_method:=1}
 #-----------------------------------------------------------------------------
 
 
