@@ -144,7 +144,7 @@ INTEGER :: jb, jc, jk, jt, je, js, jgc, i_nchdom, i_chidx, &
 INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
 INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
 INTEGER :: nshift, nshift_c
-INTEGER :: ntiles
+INTEGER :: ntiles, ntiles_h2o
 
 REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_v) :: z_u, z_v
 REAL(wp) ::   &  ! RBF-reconstructed velocity
@@ -225,9 +225,11 @@ nshift = p_pc%nshift
 js     = nshift
 
 IF (atm_phy_nwp_config(jgp)%inwp_surface > 0 ) THEN
-  ntiles = ntiles_total
+  ntiles     = ntiles_total
+  ntiles_h2o = ntiles_water
 ELSE
-  ntiles = 0
+  ntiles     = 0
+  ntiles_h2o = 0
 ENDIF
 
 i_nchdom = MAX(1,p_pc%n_childdom)
@@ -668,7 +670,8 @@ IF (.NOT. l_parallel) THEN
       p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
-    DO jt = 1, ntiles+1, ntiles+ntiles_water
+!DR    DO jt = 1, ntiles+1, ntiles+ntiles_water   ! to me this looks incorrect!
+    DO jt = ntiles+1, ntiles+ntiles_h2o
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
@@ -919,7 +922,8 @@ ENDIF
       p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
-    DO jt = 1, ntiles+1, ntiles+ntiles_water
+!DR    DO jt = 1, ntiles+1, ntiles+ntiles_water   ! to me this looks incorrect !
+    DO jt = ntiles+1, ntiles+ntiles_h2o
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
@@ -1122,7 +1126,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
   INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
   INTEGER :: nshift
-  INTEGER :: nblks_cp, nblks_cc, nblks_ep, nblks_ec, ntiles
+  INTEGER :: nblks_cp, nblks_cc, nblks_ep, nblks_ec, ntiles, ntiles_h2o
 
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
                                                      feedback_vn, feedback_w, feedback_tg
@@ -1212,9 +1216,11 @@ nshift = p_pc%nshift
 js     = nshift
 
 IF (atm_phy_nwp_config(jgp)%inwp_surface > 0 ) THEN
-  ntiles = ntiles_total
+  ntiles     = ntiles_total
+  ntiles_h2o = ntiles_water 
 ELSE
-  ntiles = 0
+  ntiles     = 0
+  ntiles_h2o = 0
 ENDIF
 
 i_nchdom = MAX(1,p_pc%n_childdom)
@@ -1760,7 +1766,7 @@ ENDIF
         p_lndp%t_so_t(jc,2,jb,jt) = p_lndp%t_so_t(jc,2,jb,jt) + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
-    DO jt = ntiles+1, ntiles+ntiles_water
+    DO jt = ntiles+1, ntiles+ntiles_h2o
       DO jc = i_startidx,i_endidx
         p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
       ENDDO
