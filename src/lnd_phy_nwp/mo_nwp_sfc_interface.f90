@@ -938,7 +938,7 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,i_count,ic) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,i_count,ic) ICON_OMP_GUIDED_SCHEDULE
 
     DO jb = i_startblk, i_endblk
 
