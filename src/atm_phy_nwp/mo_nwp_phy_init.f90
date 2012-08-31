@@ -47,7 +47,7 @@ MODULE mo_nwp_phy_init
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -100,8 +100,8 @@ MODULE mo_nwp_phy_init
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
-  USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water
+  USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_seaice_lists
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, lseaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
@@ -132,6 +132,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                        &  p_prog_now,  p_prog,  p_diag,     &
                        &  prm_diag,prm_nwp_tend,            &
                        &  p_prog_lnd_now, p_prog_lnd_new,   &
+                       &  p_prog_wtr_now, p_prog_wtr_new,   &
                        &  p_diag_lnd,                       &
                        &  ext_data, phy_params)
 
@@ -144,6 +145,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_nwp_phy_diag),        INTENT(inout) :: prm_diag
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout) :: prm_nwp_tend
   TYPE(t_lnd_prog),            INTENT(inout) :: p_prog_lnd_now, p_prog_lnd_new
+  TYPE(t_wtr_prog),            INTENT(inout) :: p_prog_wtr_now, p_prog_wtr_new
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
 
@@ -646,9 +648,17 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !------------------------------------------
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
-    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd)
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lsnowtile .AND. is_restart_run()) THEN
-    CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
+    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
+      &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd)
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. is_restart_run()) THEN
+
+    IF ( lsnowtile ) THEN
+      CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
+    ENDIF
+
+    IF ( lseaice ) THEN
+      CALL init_seaice_lists(p_patch, ext_data, p_prog_wtr_now)
+    ENDIF
   END IF
 
 

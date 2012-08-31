@@ -41,7 +41,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,     ONLY: nproma
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
@@ -49,6 +49,7 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile
   USE mo_soil_ml,             ONLY: terra_multlay_init
+  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd  ! r_d / cp_d
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
@@ -69,30 +70,37 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: nwp_surface_init
   PUBLIC :: diag_snowfrac_tg
   PUBLIC :: aggregate_landvars
-  PUBLIC :: update_index_lists, init_snowtile_lists
+  PUBLIC :: update_index_lists
+  PUBLIC :: init_snowtile_lists
+  PUBLIC :: update_index_lists_sea
+  PUBLIC :: init_seaice_lists
 
 CONTAINS
 
 
   !-------------------------------------------------------------------------
   !>
-  !! Init surface model TERRA
+  !! Init surface model TERRA and seaice model
   !!
-  !! Init surface model TERRA.
+  !! Init surface model TERRA and seaice model
   !!
   !! @par Revision History
   !! Initial revision by Ekaterina Machulskaya, DWD (2011-07-??)
-  !! Modification by Daniel Reienrt, DWD (2011-07-29)
+  !! Modification by Daniel Reinert, DWD (2011-07-29)
   !! - initialize climatological layer t_so(nlev_soil+2)
+  !! Modification by Daniel Reinert, DWD (2012-08-31)
+  !! - initialize seaice model
   !!
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
-    &                          p_prog_lnd_new, p_lnd_diag )
+    &                          p_prog_lnd_new, p_prog_wtr_now,    &
+    &                          p_prog_wtr_new, p_lnd_diag )
  
                              
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch       !<grid/patch info.
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
+    TYPE(t_wtr_prog)     , INTENT(INOUT) :: p_prog_wtr_now, p_prog_wtr_new
     TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
     
     ! Local array bounds:
@@ -133,6 +141,19 @@ CONTAINS
     REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) ::          sso_sigma_t(nproma,  p_patch%nblks_c, ntiles_total)
     INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, ntiles_total)
+
+    ! local fields for sea ice model
+    !
+    REAL(wp) :: frsi     (nproma)   ! sea ice fraction
+    REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time
+    REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level
+    REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time 
+    REAL(wp) :: hsnow_now(nproma)   ! snow thickness at previous time level
+    REAL(wp) :: tice_new (nproma)   ! temperature of ice upper surface at new time
+    REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level
+    REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time 
+    REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level
+    INTEGER  :: icount_ice          ! total number of sea-ice points per block
 
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
     REAL(wp), PARAMETER :: small = 1.E-06_wp
@@ -516,6 +537,51 @@ CONTAINS
         END DO
       END IF
 
+
+      !
+      ! Init sea ice parameterization
+      ! 
+      IF ( lseaice ) THEN
+
+        icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
+
+        DO ic = 1, icount_ice
+
+          jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+          frsi     (ic) = ext_data%atm%fr_ice(jc,jb)
+          tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
+          hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
+          tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
+          hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
+        ENDDO  ! jc
+
+
+        CALL seaice_init_nwp ( icount_ice, frsi,                         & ! in
+          &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
+          &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
+
+
+        !  Recover fields from index list
+        !
+        DO ic = 1, icount_ice
+          jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+          ! fields at time level now may have potentially been changed!
+          p_prog_wtr_now%t_ice(jc,jb)    = tice_now(ic)
+          p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
+          p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
+          p_prog_wtr_now%h_snow_si(jc,jb)= hsnow_now(ic)
+
+          p_prog_wtr_new%t_ice(jc,jb)    = tice_new(ic)
+          p_prog_wtr_new%h_ice(jc,jb)    = hice_new(ic)
+          p_prog_wtr_new%t_snow_si(jc,jb)= tsnow_new(ic)
+          p_prog_wtr_new%h_snow_si(jc,jb)= hsnow_new(ic)
+
+        ENDDO  ! ic
+
+      ENDIF  ! lseaice
+
     ENDDO  ! jb loop
 !$OMP END DO
 !$OMP END PARALLEL
@@ -805,6 +871,8 @@ CONTAINS
 
   END SUBROUTINE aggregate_landvars
 
+
+
   !! Driver routine to (re-)initialize the snowtile index lists in the case of a restart
   !!
   !! @par Revision History
@@ -838,7 +906,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,isubs_snow), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,isubs,i_count,isubs_snow), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -871,6 +939,75 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE init_snowtile_lists
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Driver routine to (re-)initialize the sea-ice and open water 
+  !! index lists in the case of a restart
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD (2012-08-03)
+  !!
+  SUBROUTINE init_seaice_lists(p_patch, ext_data, p_prog_wtr_now)
+
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !<grid/patch info.
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
+    TYPE(t_wtr_prog)     , INTENT(IN)    :: p_prog_wtr_now !< prognostic wtr state
+    
+    ! Local array bounds:
+    
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< number of child domains
+
+    ! Local scalars:
+
+    INTEGER :: jb,i_count
+
+!-------------------------------------------------------------------------
+
+
+    i_nchdom = MAX(1,p_patch%n_childdom)
+
+    ! exclude nest boundary and halo points
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,i_count), SCHEDULE(guided)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+
+        i_count = ext_data%atm%sp_count(jb)
+
+        IF (i_count == 0) CYCLE ! skip loop if the index list for the given block is empty
+
+        CALL update_index_lists_sea (hice_n      = p_prog_wtr_now%h_ice(:,jb),     &
+          &                          idx_lst_sp  = ext_data%atm%idx_lst_sp(:,jb),  &
+          &                          sp_count    = ext_data%atm%sp_count(jb),      &
+          &                          idx_lst_spw = ext_data%atm%idx_lst_spw(:,jb), &
+          &                          spw_count   = ext_data%atm%spw_count(jb),     &
+          &                          idx_lst_spi = ext_data%atm%idx_lst_spi(:,jb), &
+          &                          spi_count   = ext_data%atm%spi_count(jb)      )
+
+
+    ENDDO    
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE init_seaice_lists
+
+  !-------------------------------------------------------------------------
+
 
 
   SUBROUTINE subsmean(i_count, t_g_s, qv_s_s, t_s_s, t_snow_s, t_snow_mult_s, &
@@ -1308,27 +1445,60 @@ CONTAINS
 
   END SUBROUTINE diag_snowfrac_tg
 
+
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Updating of dynamic index lists
+  !!
+  !! Routine updates the following dynamic index lists (if required):
+  !!
+  !! - dynamic 
+  !!
+  !! @par Revision History
+  !! Initial release by Guenther Zaengl, DWD (2012-07-01)
+  !!
   SUBROUTINE update_index_lists (idx_lst_lp, lp_count, idx_lst, gp_count, idx_lst_snow, gp_count_snow,  &
      lc_frac, partial_frac, partial_frac_snow, snowtile_flag, snowtile_flag_snow, snowfrac)
 
-    ! Index lists and corresponding grid-point counts:
-    ! idx_lst_lp = all land points of a tile index; idx_lst = list of snow-free or mixed points;
-    ! idx_lst_snow = list of snow-covered points for land-cover classes eligible for separate treatment
-    INTEGER , INTENT(IN)    :: idx_lst_lp(:), lp_count 
-    INTEGER , INTENT(INOUT) :: idx_lst(:), gp_count, idx_lst_snow(:), gp_count_snow
 
-    ! flag fields: -1: no separation between snow tile and snow-free tile
-    !               0: inactive
-    !               1: active
-    !               2: newly activated; initialization from corresponding tile required
-    INTEGER , INTENT(INOUT) :: snowtile_flag(:), snowtile_flag_snow(:)
+    INTEGER ,    INTENT(   IN) ::  &   !< static list of all land points of a tile index
+      &  idx_lst_lp(:), lp_count       !< and corresponding grid point counts
 
-    ! area fractions of land-cover class, snow-free sub-tile and snow-covered sub-tile
-    REAL(wp), INTENT(IN)    :: lc_frac(:)
-    REAL(wp), INTENT(INOUT) ::  partial_frac(:), partial_frac_snow(:)
+ 
+    INTEGER ,    INTENT(INOUT) ::  &   !< dynamic list of all snow-free or mixed land points
+      &  idx_lst(:), gp_count          !< of a tile index
+                                       !< and corresponding grid point counts
 
-    ! snow-cover fraction
-    REAL(wp), INTENT(INOUT) :: snowfrac(:)
+
+    INTEGER ,    INTENT(INOUT) ::  &   !< dynamic list of all snow-covered points for land-cover 
+      &  idx_lst_snow(:), gp_count_snow !< classes eligible for separate treatment
+                                       !< and corresponding grid point counts
+
+    INTEGER ,    INTENT(INOUT) ::  &   !< snowtile flag field for snow-free or mixed points
+      &  snowtile_flag(:)              !< -1: no separation between snow tile and snow-free tile
+                                       !< inactive
+                                       !< active
+                                       !< newly activated; initialization from corresponding tile required
+
+    INTEGER ,    INTENT(INOUT) ::  &   !< snowtile flag field for snow-covered points
+      &  snowtile_flag_snow(:)         !< -1: no separation between snow tile and snow-free tile
+                                       !< inactive
+                                       !< active
+                                       !< newly activated; initialization from corresponding tile required
+
+    REAL(wp),    INTENT(   IN) ::  &   !< area fraction of land-cover class
+      &  lc_frac(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< snow-cover fraction
+      &  snowfrac(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< snow-free and snow-covered sub-tile area fraction
+      &  partial_frac(:), partial_frac_snow(:)
+
 
     ! Local variables
     INTEGER  :: ic, jc, icount, icount_snow
@@ -1394,6 +1564,75 @@ CONTAINS
     gp_count_snow = icount_snow
 
   END SUBROUTINE update_index_lists
+
+
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Updating of dynamic index lists for sea points
+  !!
+  !! Routine updates the following dynamic index lists (if required):
+  !!
+  !! - dynamic sea-water and sea-ice point index list, which are sub-index lists 
+  !!   of the static sea point index list idx_lst_sp 
+  !!
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert (2012-08-31)
+  !!
+  SUBROUTINE update_index_lists_sea (hice_n, idx_lst_sp, sp_count, idx_lst_spw, &
+    &                                spw_count, idx_lst_spi, spi_count          )
+
+
+    REAL(wp),    INTENT(IN)    ::  &   !< sea ice depth at new time level  [m]
+      &  hice_n(:)                     !< dim: (nproma)
+
+    INTEGER ,    INTENT(INOUT) ::  &   !< Static sea point index list 
+      &  idx_lst_sp(:), sp_count       !< and corresponding grid point counts
+
+    INTEGER ,    INTENT(INOUT) ::  &   !< dynamic sea water point index list 
+      &  idx_lst_spw(:), spw_count     !< and corresponding grid point counts
+
+
+    INTEGER ,    INTENT(INOUT) ::  &   !< dynamic sea ice point index list 
+      &  idx_lst_spi(:), spi_count     !< and corresponding grid point counts
+
+    ! Local variables
+    INTEGER  :: ic, jc          !< loop indices
+    INTEGER  :: icount_water    !< counter for water (i.e. ice-free) points
+    INTEGER  :: icount_ice      !< counter for sea-ice points
+
+    !-------------------------------------------------------------------------
+
+
+    !
+    ! Update index lists of sea-ice and open water (i.e. ice-free) points
+    !
+
+    icount_water = 0
+    icount_ice   = 0
+
+
+    DO ic = 1, sp_count
+      jc = idx_lst_sp(ic)
+
+      IF ( hice_n(jc) <= hice_min ) THEN   ! water point
+        icount_water = icount_water + 1
+        idx_lst_spw(icount_water) = jc
+        spw_count = icount_water
+      ELSE                                 ! sea ice point
+        icount_ice = icount_ice + 1
+        idx_lst_spi(icount_ice) = jc
+        spi_count = icount_ice
+      ENDIF
+    ENDDO  ! ic
+
+    !do we need to set fr_ice=0, for sea-ice points that turned to open water points?
+ 
+  END SUBROUTINE update_index_lists_sea
 
 END MODULE mo_nwp_sfc_utils
 

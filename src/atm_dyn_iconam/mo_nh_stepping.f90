@@ -306,6 +306,8 @@ MODULE mo_nh_stepping
            & prm_nwp_tend(jg)                      ,&
            & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),&
            & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
+           & p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)),&
+           & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
@@ -323,6 +325,8 @@ MODULE mo_nh_stepping
            & prm_nwp_tend(jg)                      ,&
            & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),&
            & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
+           & p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)),&
+           & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
@@ -1453,6 +1457,8 @@ MODULE mo_nh_stepping
               & prm_nwp_tend(jgc)                       ,&
               & p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),&
               & p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),&
+              & p_lnd_state(jgc)%prog_wtr(nnow_rcf(jgc)),&
+              & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
               & p_lnd_state(jgc)%diag_lnd               ,&
               & ext_data(jgc)                           ,&
               & phy_params(jgc)                          )

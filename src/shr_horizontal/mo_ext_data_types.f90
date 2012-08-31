@@ -223,15 +223,15 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
       & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
 
-    INTEGER, POINTER ::  &    !< Land point index list for each block        [ ]
+    INTEGER, POINTER ::  &    !< Static land point index list for each block  [ ]
       & idx_lst_lp(:,:)       ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER ::  &    !< Land point count per block       [ ]
       & lp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point index list for each block        [ ]
+    INTEGER, POINTER ::  &    !< Static sea point index list for each block   [ ]
       & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
       & sp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Lake point index list for each block        [ ]
+    INTEGER, POINTER ::  &    !< static lake point index list for each block  [ ]
       & idx_lst_fp(:,:)       ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER ::  &    !< Lake point count per block        [ ]
       & fp_count(:)           ! index1=1,nblks_c

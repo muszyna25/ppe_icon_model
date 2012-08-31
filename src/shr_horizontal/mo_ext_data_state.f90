@@ -95,6 +95,7 @@ MODULE mo_ext_data_state
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil
+  USE mo_seaice_nwp,         ONLY: frsi_min
   USE mo_datetime,           ONLY: t_datetime,  month2hour
   USE mo_cdi_constants
 
@@ -2626,12 +2627,16 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
+
   SUBROUTINE init_index_lists (p_patch, ext_data)
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_sea, i_count_flk, ic, jt, jt_in
+    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_flk, ic, jt, jt_in
+    INTEGER :: i_count_sea             ! number of sea points
+    INTEGER :: i_count_ice             ! number of sea-ice points
+    INTEGER :: i_count_water           ! number of ice-free water points       
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -2679,12 +2684,17 @@ CONTAINS
        ext_data(jg)%atm%sp_count(:) = 0
        ext_data(jg)%atm%fp_count(:) = 0
 
+       ext_data(jg)%atm%spi_count(:) = 0
+       ext_data(jg)%atm%spw_count(:) = 0  
+
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
+      
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in,i_count_ice,             &
+!$OMP            i_count_water) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -2912,6 +2922,35 @@ CONTAINS
            ext_data(jg)%atm%frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
          ENDDO
 
+
+
+         ! Init sub-index lists for sea points. We distinguish between sea-water 
+         ! (i.e. ice free) points and sea-ice points. fr_ice is used to distinguish 
+         ! between sea-water and sea-ice points.
+         ! Needed by sea-ice model
+         !
+         i_count_sea   = ext_data(jg)%atm%sp_count(jb)
+         i_count_ice   = 0
+         i_count_water = 0
+
+         IF (i_count_sea == 0) CYCLE ! skip loop if the index list for the given block is empty
+
+         DO ic = 1, i_count_sea
+
+           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+
+           IF ( ext_data(jg)%atm%fr_ice(jc,jb) >= frsi_min ) THEN
+             i_count_ice = i_count_ice + 1
+             ext_data(jg)%atm%idx_lst_spi(i_count_ice,jb) = jc
+             ext_data(jg)%atm%spi_count(jb)               = i_count_ice
+           ELSE
+             i_count_water = i_count_water + 1
+             ext_data(jg)%atm%idx_lst_spw(i_count_water,jb) = jc
+             ext_data(jg)%atm%spw_count(jb)                 = i_count_water
+           ENDIF
+
+         ENDDO  ! ic 
+
        END DO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2939,6 +2978,8 @@ CONTAINS
        ENDDO
 
     END DO  !jg
+
+  
 
   END SUBROUTINE init_index_lists
 

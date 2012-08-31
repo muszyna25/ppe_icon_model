@@ -72,7 +72,6 @@ MODULE mo_test_nh_communication
     &                               timer_integrate_nh, timer_nh_diagnostics
   USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
-  USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow
   USE mo_model_domain,        ONLY: t_patch

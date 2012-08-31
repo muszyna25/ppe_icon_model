@@ -168,13 +168,11 @@ MODULE mo_nwp_lnd_state
              'allocation of land prognostic state array failed')
       ENDIF
 
-      IF (lseaice .OR. llake) THEN
-        ALLOCATE(p_lnd_state(jg)%prog_wtr(1:ntl), &
-                 p_lnd_state(jg)%wtr_prog_nwp_list(1:ntl),STAT=ist)
-        IF(ist/=SUCCESS)THEN
-          CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
-             'allocation of water prognostic state array failed')
-        ENDIF
+      ALLOCATE(p_lnd_state(jg)%prog_wtr(1:ntl), &
+               p_lnd_state(jg)%wtr_prog_nwp_list(1:ntl),STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
+           'allocation of water prognostic state array failed')
       ENDIF
 
       !

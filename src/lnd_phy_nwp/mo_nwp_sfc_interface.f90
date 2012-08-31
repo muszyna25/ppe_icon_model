@@ -216,9 +216,6 @@ CONTAINS
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
-    REAL(wp) :: qv_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: td_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: rh_2m_t     (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)

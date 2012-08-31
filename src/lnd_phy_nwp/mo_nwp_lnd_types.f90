@@ -70,7 +70,7 @@ MODULE mo_nwp_lnd_types
   END TYPE t_ptr_lnd
 
   !
-  ! prognostic variables state vector
+  ! prognostic variables state vector (land)
   !
   TYPE t_lnd_prog
 
@@ -108,13 +108,17 @@ MODULE mo_nwp_lnd_types
 
   END TYPE t_lnd_prog
 
+
+  !
+  ! prognostic variables state vector (sea)
+  !
   TYPE t_wtr_prog
 
     REAL(wp), POINTER :: &
     &  t_ice        (:,:)   , & ! temperature of the sea ice          (  K  )
     &  h_ice        (:,:)   , & ! depth of the sea ice                (  m  )
     &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice  (  K  )
-    &  h_snow_si    (:,:)       ! depth of the snowon sea ice         (  m  )
+    &  h_snow_si    (:,:)       ! depth of the snow on sea ice        (  m  )
 
   END TYPE t_wtr_prog
 

@@ -240,10 +240,10 @@ CONTAINS
                                   !< (equal to the number of grid boxes within a block 
                                   !< where the sea ice is present) 
 
-    REAL(wp), DIMENSION(nsigb), INTENT(IN) ::       &
+    REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
                                            &  frsi  !< sea-ice fraction [-] 
 
-    REAL(wp), DIMENSION(nsigb), INTENT(INOUT) ::           &
+    REAL(wp), DIMENSION(:), INTENT(INOUT) ::               &
                                               &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
                                               &  hice_p  , &  !< ice thickness at previous time level [m] 
                                               &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
@@ -311,10 +311,11 @@ CONTAINS
     IF( lcallabort ) THEN 
       ! Send an error message 
       WRITE(nameerr,*) "MODULE mo_seaice_nwp, SUBROUTINE seaice_init_nwp" 
-      WRITE(texterr,*) "Sea-ice fraction ", frsi(isi),                          & 
+      WRITE(texterr,*) "Sea-ice fraction ", frsi(isi),                        & 
                     &  " is less than a minimum threshold value ", frsi_min,  & 
                     &  " Call model abort."
       CALL message(TRIM(nameerr), TRIM(texterr))
+
       ! Call model abort
       WRITE(nameerr,*) "mo_seaice_nwp:seaice_init_nwp" 
       WRITE(texterr,*) "error in sea-ice fraction"
@@ -330,7 +331,7 @@ CONTAINS
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
   !>
-  !! Prognostic variables of the sea-ice scheme are advances one time step.
+  !! Prognostic variables of the sea-ice scheme are advanced one time step.
   !!
   !! Ordinary differential equations (in time) for the ice surface temperature and 
   !! the ice thickness are solved using an explicit Euler scheme for time advance.
