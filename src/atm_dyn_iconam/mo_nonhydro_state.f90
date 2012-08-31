@@ -2231,6 +2231,16 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c )
 
 
+      ! Reference atmosphere field theta (edges)
+      ! theta_ref_me  p_metrics%theta_ref_me(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_theta', 'K',            &
+      &                     'Reference atmosphere field theta', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'theta_ref_me', p_metrics%theta_ref_me,     &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_e )
+
       ! Reference atmosphere field theta
       ! theta_ref_ic  p_metrics%theta_ref_ic(nproma,nlevp1,nblks_c)
       !
@@ -2261,6 +2271,17 @@ MODULE mo_nonhydro_state
       CALL add_var( p_metrics_list, 'rho_ref_mc', p_metrics%rho_ref_mc,         &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c )
+
+
+      ! Reference atmosphere field density (edges)
+      ! rho_ref_me  p_metrics%rho_ref_me(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_density', '-',            &
+      &                     'Reference atmosphere field density', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'rho_ref_me', p_metrics%rho_ref_me,         &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_e )
 
 
       ! Reference atmosphere field exner

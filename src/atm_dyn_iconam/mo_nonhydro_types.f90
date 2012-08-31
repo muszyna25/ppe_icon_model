@@ -299,10 +299,12 @@ MODULE mo_nonhydro_types
    REAL(wp), POINTER :: vwind_impl_wgt(:,:)
    ! Fields for reference atmosphere
    REAL(wp), POINTER :: theta_ref_mc(:,:,:)
+   REAL(wp), POINTER :: theta_ref_me(:,:,:)
    REAL(wp), POINTER :: theta_ref_ic(:,:,:)
    REAL(wp), POINTER :: tsfc_ref(:,:)
    REAL(wp), POINTER :: exner_ref_mc(:,:,:)
    REAL(wp), POINTER :: rho_ref_mc  (:,:,:)
+   REAL(wp), POINTER :: rho_ref_me  (:,:,:)
    REAL(wp), POINTER :: d_exner_dz_ref_ic(:,:,:)
    REAL(wp), POINTER :: d2dexdz2_fac1_mc(:,:,:)
    REAL(wp), POINTER :: d2dexdz2_fac2_mc(:,:,:)

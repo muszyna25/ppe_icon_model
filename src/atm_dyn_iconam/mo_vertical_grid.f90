@@ -990,6 +990,52 @@ MODULE mo_vertical_grid
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+        ALLOCATE(z_me(nproma,nlev,p_patch(jg)%nblks_e))
+        IF (p_test_run) THEN
+          z_me = 0._wp
+        ENDIF
+
+        ! Compute geometric height at edge points
+        CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, p_patch(jg), &
+               p_int(jg)%c_lin_e, z_me)
+
+        CALL sync_patch_array(SYNC_E,p_patch(jg),z_me)
+
+        i_startblk = p_patch(jg)%edges%start_blk(2,1)
+
+        ! Reference fields on edges
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je, z_aux1, z_temp) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk,nblks_e
+
+          CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
+                             i_startidx, i_endidx, 2)
+
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+
+              ! Reference pressure, full level edge points
+              z_aux1(je) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
+                &  *LOG((EXP(z_me(je,jk,jb)/h_scal_bg)      &
+                &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
+
+              ! Reference temperature, full level edge points
+              z_temp(je) = (t0sl_bg-del_t_bg)+del_t_bg*        &
+                & EXP(-z_me(je,jk,jb)/h_scal_bg)
+
+              ! Reference density, full level edge points
+              p_nh(jg)%metrics%rho_ref_me(je,jk,jb) = z_aux1(je)/(rd*z_temp(je))
+
+              ! Reference Potential temperature, full level edge points
+              p_nh(jg)%metrics%theta_ref_me(je,jk,jb) = z_temp(je)/((z_aux1(je)/p0ref)**rd_o_cpd)
+            ENDDO
+          ENDDO
+
+        ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
       ENDIF
 
       ! Compute information needed for Taylor-expansion-based pressure gradient calculation
@@ -1003,22 +1049,12 @@ MODULE mo_vertical_grid
           & for igradp_method>3')
       ENDIF
 
-      ALLOCATE(z_me(nproma,nlev,p_patch(jg)%nblks_e), flat_idx(nproma,p_patch(jg)%nblks_e))
-      IF (p_test_run) THEN
-        z_me = 0._wp
-      ENDIF
+      ALLOCATE(flat_idx(nproma,p_patch(jg)%nblks_e))
       flat_idx = nlev
-
-      ! Compute geometric height at edge points
-      CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, p_patch(jg), &
-             p_int(jg)%c_lin_e, z_me)
-
-      CALL sync_patch_array(SYNC_E,p_patch(jg),z_me)
 
       iidx => p_patch(jg)%edges%cell_idx
       iblk => p_patch(jg)%edges%cell_blk
 
-      i_startblk = p_patch(jg)%edges%start_blk(2,1)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je) ICON_OMP_DEFAULT_SCHEDULE

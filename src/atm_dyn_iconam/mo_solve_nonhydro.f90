@@ -556,7 +556,8 @@ MODULE mo_solve_nonhydro
                 z_dexner_dz_c (2,nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_exner_ex_pr   (nproma,p_patch%nlevp1,p_patch%nblks_c), & ! nlevp1 is intended here
                 z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_grad_rth      (nproma,4,p_patch%nlev,p_patch%nblks_c)
+                z_grad_rth      (nproma,4,p_patch%nlev,p_patch%nblks_c), &
+                z_rth_pr        (nproma,2,p_patch%nlev,p_patch%nblks_c)
 
     REAL(wp) :: z_w_expl        (nproma,p_patch%nlevp1),          &
                 z_contr_w_fl_l  (nproma,p_patch%nlevp1),          &
@@ -718,7 +719,10 @@ MODULE mo_solve_nonhydro
 
         CALL grad_green_gauss_cell(p_nh%prog(nnow)%rho, p_patch, p_int, z_grad_rth, &
                                    opt_rlend=min_rlcell_int-1, opt_dynmode=.TRUE.,  &
-                                   opt_ccin2=p_nh%prog(nnow)%theta_v)
+                                   opt_ccin2=p_nh%prog(nnow)%theta_v,               &
+                                   opt_ref1=p_nh%metrics%rho_ref_mc,                &
+                                   opt_ref2=p_nh%metrics%theta_ref_mc,              &
+                                   opt_ccpr=z_rth_pr                                )
 
         rl_start = 7
         rl_end   = min_rledge_int-1
@@ -759,12 +763,16 @@ MODULE mo_solve_nonhydro
               ibc0 = z_cell_indices(je,jk,jb,2)  
 
               ! Calculate "edge values" of rho and theta_v
-              z_rho_e(je,jk,jb) = p_nh%prog(nnow)%rho(ilc0,jk,ibc0)     &
+              ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
+              ! and the corresponding gradients are stored in z_grad_rth.
+              z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
+                +                            z_rth_pr(ilc0,1,jk,ibc0)   &
                 + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,1,jk,ibc0) &
                 + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,2,jk,ibc0)
 
-              z_theta_v_e(je,jk,jb) = p_nh%prog(nnow)%theta_v(ilc0,jk,ibc0) &
-                + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,3,jk,ibc0)     &
+              z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
+                +                            z_rth_pr(ilc0,2,jk,ibc0)     &
+                + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,3,jk,ibc0)   &
                 + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,4,jk,ibc0)
 
             ENDDO ! loop over edges
