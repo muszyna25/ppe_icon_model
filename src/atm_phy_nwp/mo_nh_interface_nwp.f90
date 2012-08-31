@@ -71,7 +71,7 @@ MODULE mo_nh_interface_nwp
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf
-  USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
@@ -135,6 +135,7 @@ CONTAINS
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend,lnd_diag,     &
                             & lnd_prog_now, lnd_prog_new,          & !inout
+                            & wtr_prog_now, wtr_prog_new,          & !inout
                             & p_prog_list                             ) !in  
 
     !>
@@ -169,6 +170,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
     TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now, lnd_prog_new
+    TYPE(t_wtr_prog),           INTENT(inout) :: wtr_prog_now, wtr_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
     TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
@@ -600,6 +602,7 @@ CONTAINS
                             & pt_diag ,                         & !>inout
                             & prm_diag,                         & !>inout 
                             & lnd_prog_now, lnd_prog_new,       & !>inout
+                            & wtr_prog_now, wtr_prog_new,       & !>inout
                             & lnd_diag                          ) !>input
 
     ENDIF

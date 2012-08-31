@@ -50,7 +50,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
@@ -59,7 +59,8 @@ MODULE mo_nwp_sfc_interface
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
-  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_index_lists
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_index_lists, update_index_lists_sea
+  USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
@@ -92,6 +93,7 @@ CONTAINS
                         & p_diag ,                        & !>inout
                         & prm_diag,                       & !>inout 
                         & lnd_prog_now, lnd_prog_new,     & !>inout
+                        & p_prog_wtr_now, p_prog_wtr_new, & !>inout
                         & lnd_diag                        ) !>inout
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
@@ -101,6 +103,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now  !< prog vars for sfc
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new  !< prog vars for sfc
+    TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
+    TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
     TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag      !< diag vars for sfc
     REAL(wp),                    INTENT(in)   :: tcall_sfc_jg  !< time interval for 
                                                                !< surface
@@ -832,6 +836,7 @@ CONTAINS
 
        ENDIF    ! with or without tiles
 
+
     
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 
 
@@ -848,7 +853,173 @@ CONTAINS
 !$OMP END PARALLEL
 
 
+
+!!!!!!!!!!!!! SEAICE deactivated so far (under construction)
+!       !
+!       ! Call seaice parameterization
+!       !
+!       IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
+!         CALL nwp_seaice(p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
+!    &                    ext_data, tcall_sfc_jg)
+!       ENDIF
+
   END SUBROUTINE nwp_surface
+
+
+
+  !>
+  !! Interface for seaice parameterization
+  !!
+  !! Interface for seaice parameterization. Calls seaice time integration scheme 
+  !! seaice_timestep_nwp and updates the dynamic seaice index lists.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2012-08-31)
+  !!
+  SUBROUTINE nwp_seaice (p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
+    &                    ext_data, dtime)
+
+    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
+    TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
+    TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
+    TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
+    TYPE(t_external_data),       INTENT(in)   :: ext_data       !< external data
+    REAL(wp),                    INTENT(in)   :: dtime          !< time interval for 
+                                                                !< surface
+
+    ! Local arrays  (local copies)
+    !
+    REAL(wp) :: shfl_s   (nproma)   ! sensible heat flux at the surface               [W/m^2]
+    REAL(wp) :: lhfl_s   (nproma)   ! latent heat flux at the surface                 [W/m^2]
+    REAL(wp) :: lwflxsfc (nproma)   ! net long-wave radiation flux at the surface     [W/m^2] 
+    REAL(wp) :: swflxsfc (nproma)   ! !< net solar radiation flux at the surface      [W/m^2]
+    REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time  [K]
+    REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level               [m]
+    REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time [K]
+    REAL(wp) :: hsnow_now(nproma)   ! snow thickness at previous time level              [m]
+    REAL(wp) :: tice_new (nproma)   ! temperature of ice upper surface at new time       [K]
+    REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level                    [m]
+    REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
+    REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
+
+    ! Local array bounds:
+    !
+    INTEGER :: nblks_c                 !> number of blocks for cells
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+
+    ! Local scalars:
+    !
+    INTEGER :: jc, jb, ic              !loop indices
+    INTEGER :: i_count
+
+    !-------------------------------------------------------------------------
+
+
+    ! local variables related to the blocking
+
+    nblks_c   = p_patch%nblks_int_c
+
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+
+
+    ! exclude nest boundary and halo points
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+    IF (msg_level >= 15) THEN
+      CALL message('mo_nwp_sfc_interface: ', 'call nwp_seaice scheme')
+    ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,i_count,ic) ICON_OMP_GUIDED_SCHEDULE
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+
+      !
+      ! Copy input fields
+      !
+      i_count = ext_data%atm%spi_count(jb) 
+
+      IF (i_count == 0) CYCLE ! skip loop if the index list for the given block is empty
+
+      DO ic = 1, i_count
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+!!!!! should have the PRIVATE attribute, if not allocated as 2D-arrays!!!!!
+!!!!!!!!!!!
+        shfl_s   (ic) = prm_diag%shfl_s(jc,jb)     ! sensible heat flux at sfc    [W/m^2]
+        lhfl_s   (ic) = prm_diag%lhfl_s(jc,jb)     ! latent heat flux at sfc      [W/m^2]
+        lwflxsfc (ic) = prm_diag%lwflxsfc(jc,jb)   ! net lw radiation flux at sfc [W/m^2]
+        swflxsfc (ic) = prm_diag%swflxsfc(jc,jb)   ! net solar radiation flux at sfc [W/m^2]
+        tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
+        hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
+        tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
+        hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
+          
+      ENDDO  ! ic
+
+
+      ! call seaice time integration scheme
+      !
+      CALL seaice_timestep_nwp (                               &
+                            &   dtime   = dtime,               &
+                            &   nsigb   = i_count,             &
+                            &   qsen    = shfl_s(:),           & !in 
+                            &   qlat    = lhfl_s(:),           & !in
+                            &   qlwrnet = lwflxsfc(:),         & !in
+                            &   qsolnet = swflxsfc(:),         & !in
+                            &   tice_p  = tice_now(:),         & !in
+                            &   hice_p  = hice_now(:),         & !in
+                            &   tsnow_p = tsnow_now(:),        & !in
+                            &   hsnow_p = hsnow_now(:),        & !in
+                            &   tice_n  = tice_new(:),         & !out
+                            &   hice_n  = hice_new(:),         & !out
+                            &   tsnow_n = tsnow_new(:),        & !out
+                            &   hsnow_n = hsnow_new(:)         ) !out
+! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) neglected, so far
+
+
+
+      !  Recover fields from index list
+      !
+      DO ic = 1, i_count
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+        p_prog_wtr_new%t_ice(jc,jb)     = tice_new(ic)
+        p_prog_wtr_new%h_ice(jc,jb)     = hice_new(ic)
+        p_prog_wtr_new%t_snow_si(jc,jb) = tsnow_new(ic)
+        p_prog_wtr_new%h_snow_si(jc,jb) = hsnow_new(ic)
+
+      ENDDO  ! ic
+
+
+      ! Update dynamic seaice index list
+      !
+      CALL update_index_lists_sea (hice_n      = p_prog_wtr_new%h_ice(:,jb),     &
+        &                          idx_lst_sp  = ext_data%atm%idx_lst_sp(:,jb),  &
+        &                          sp_count    = ext_data%atm%sp_count(jb),      &
+        &                          idx_lst_spw = ext_data%atm%idx_lst_spw(:,jb), &
+        &                          spw_count   = ext_data%atm%spw_count(jb),     &
+        &                          idx_lst_spi = ext_data%atm%idx_lst_spi(:,jb), &
+        &                          spi_count   = ext_data%atm%spi_count(jb)      )
+
+
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE nwp_seaice
 
 
 END MODULE mo_nwp_sfc_interface

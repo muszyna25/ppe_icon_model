@@ -396,29 +396,29 @@ CONTAINS
                                   !< (equal to the number of grid boxes within a block 
                                   !< where the sea ice is present) 
 
-    REAL(wp), DIMENSION(nsigb), INTENT(IN) ::           & 
+    REAL(wp), DIMENSION(:), INTENT(IN) ::           & 
                                            &  qsen    , &  !< sensible heat flux at the surface [W/m^2]
                                            &  qlat    , &  !< latent heat flux at the surface [W/m^2]
                                            &  qlwrnet , &  !< net long-wave radiation flux at the surface [W/m^2] 
                                            &  qsolnet      !< net solar radiation flux at the surface [W/m^2] 
 
-    REAL(wp), DIMENSION(nsigb), INTENT(IN) ::           &
+    REAL(wp), DIMENSION(:), INTENT(IN) ::           &
                                            &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
                                            &  hice_p  , &  !< ice thickness at previous time level [m] 
                                            &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
                                            &  hsnow_p      !< snow thickness at previous time level [m] 
 
-    REAL(wp), DIMENSION(nsigb), INTENT(OUT) ::           &
+    REAL(wp), DIMENSION(:), INTENT(OUT) ::           &
                                             &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
                                             &  hice_n  , &  !< ice thickness at new time level [m] 
                                             &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
                                             &  hsnow_n      !< snow thickness at new time level [m] 
 
-    REAL(wp), DIMENSION(nsigb), INTENT(OUT), OPTIONAL ::            &
-                                                      &  dticedt  , &  !< time tendency of ice surface temperature [K/s] 
-                                                      &  dhicedt  , &  !< time tendency of ice thickness [m/s] 
-                                                      &  dtsnowdt , &  !< time tendency of snow surface temperature [K/s] 
-                                                      &  dhsnowdt      !< time tendency of snow thickness [m/s] 
+    REAL(wp), DIMENSION(:), INTENT(OUT), OPTIONAL ::            &
+                                            &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
+                                            &  dhicedt , &  !< time tendency of ice thickness [m/s] 
+                                            &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
+                                            &  dhsnowdt     !< time tendency of snow thickness [m/s] 
 
     ! Derived parameters 
     ! (combinations of physical constants encountered several times in the code)

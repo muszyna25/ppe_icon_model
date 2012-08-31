@@ -1025,6 +1025,8 @@ MODULE mo_nh_stepping
             &                  p_lnd_state(jg)%diag_lnd,           &
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+            &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+            &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
             &                  p_nh_state(jg)%prog_list(n_now_rcf) ) 
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
@@ -1242,6 +1244,8 @@ MODULE mo_nh_stepping
             &                  p_lnd_state(jg)%diag_lnd,           &
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
             &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
+            &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+            &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
             &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
 
           ! Boundary interpolation of land state variables entering into radiation computation
