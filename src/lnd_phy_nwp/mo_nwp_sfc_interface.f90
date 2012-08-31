@@ -883,7 +883,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
-    TYPE(t_external_data),       INTENT(in)   :: ext_data       !< external data
+    TYPE(t_external_data),       INTENT(inout):: ext_data       !< external data
     REAL(wp),                    INTENT(in)   :: dtime          !< time interval for 
                                                                 !< surface
 
