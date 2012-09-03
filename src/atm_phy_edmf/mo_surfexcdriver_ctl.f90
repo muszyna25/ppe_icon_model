@@ -452,13 +452,11 @@ REAL(KIND=JPRB) :: ZHOOK_HANDLE
 LOGICAL         :: LLAND, LLSICE, LLHISSR(KLON)
 
 ! Globcover 2009: tile index used in TESSEL (IFS) (see also mo_ext_data_state.f90)
-
-! Number of landcover classes provided by external parameter data
-! Needs to be changed into a variable if landcover classifications 
-! with a different number of classes become available
+!   Number of landcover classes provided by external parameter data
+!   Needs to be changed into a variable if landcover classifications 
+!   with a different number of classes become available
 INTEGER, PARAMETER :: num_lcc = 23
 REAL(KIND=JPRB), DIMENSION(num_lcc):: jtessel_gcv2009  ! Tessel index table GlobCover2009
-
 !                      jtessel 
 DATA jtessel_gcv2009 / 4,     & ! irrigated croplands                           
                    &   4,     & ! rainfed croplands                             
@@ -658,6 +656,10 @@ IF (KSTEP <= 3) THEN
 ELSE
   IITT=1
 ENDIF
+
+LLINIT=.true.                !????
+IITT=3                       !????
+
 DO JTILE=1,KTILES
 
   CALL VEXCS(KIDIA,KFDIA,KLON,IITT,K_VMASS,LLINIT,PTSTEP,PRVDIFTS,&
@@ -880,7 +882,7 @@ ENDDO
 !                 BALANCE ROUTINE
 
 !xmk: as a first try turn of the first step SEB 
-!IF (KSTEP == 0) THEN    ???
+!IF (KSTEP == 0) THEN    !???
 IF (0 == 0) THEN 
 !xxx
   IF (LEOCWA .OR. LEOCCO) THEN

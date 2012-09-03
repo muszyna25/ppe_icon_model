@@ -127,7 +127,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
   ! Local scalars:
 
-  INTEGER :: jc,jk,jb,jt,jg      !loop indices
+  INTEGER :: jc,jk,jb,jt,jtile,jg    !loop indices
 
   ! local variables for vdiff
 
@@ -179,7 +179,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
   INTEGER  :: icnt
   INTEGER, PARAMETER :: itrac_vdf = 0
-  INTEGER  :: idummy_vdf_0a(nproma), idummy_vdf_0b(nproma), idummy_vdf_0c(nproma), & 
+  INTEGER, PARAMETER :: ntiles_edmf = 8
+  INTEGER  :: KTVL(nproma)         , KTVH(nproma)         , zsoty(nproma)        , & 
     &         idummy_vdf_0d(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
   REAL(wp) :: zdummy_vdf_1a(nproma), zdummy_vdf_1b(nproma), zdummy_vdf_1c(nproma), &
     &         zdummy_vdf_1d(nproma), zdummy_vdf_1e(nproma), zdummy_vdf_1f(nproma), &
@@ -196,7 +197,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
   REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil)     , zdummy_vdf_4b(nproma,nlev_soil)
-  REAL(wp) :: zdummy_vdf_5a(nproma,ntiles_total)
+  REAL(wp) :: zalbti(nproma,ntiles_edmf)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6c(nproma,itrac_vdf)
@@ -212,14 +213,57 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zae(nproma,p_patch%nlev)      ,                                   &
     &         ztice(nproma)                 , ztske1(nproma),                   &
     &         ztskm1m(nproma)               , ztskrad(nproma),                  &
-    &         zsigflt(nproma)               , zfrti(nproma,ntiles_total),       &
+    &         zsigflt(nproma)               , zfrti(nproma,ntiles_edmf),        &
     &         tch_ex(nproma,ntiles_total)   , tcm_ex(nproma,ntiles_total),      &
     &         tfv_ex(nproma,ntiles_total)
   LOGICAL  :: ldummy_vdf_a(nproma)
 
+  INTEGER, SAVE :: nstep_turb = 0
+
+! estimates of tile albedo ???
+  REAL(wp) :: zalbti_est(ntiles_edmf)
+  DATA        zalbti_est  / 0.06, 0.80, 0.20, 0.20, 0.70, 0.15, 0.35, 0.40 /
+! conversion of soil types TERRA to TESSEL
+  REAL(wp) :: soiltyp_conv(8)
+  DATA        soiltyp_conv /0,0,1,2,3,4,5,6/
+! conversion of vegetation types TERRA (Tab11.5) to TESSEL (cy36r1 Tab8.1) 
+  REAL(wp) :: vegtyp_conv(23)
+  DATA        vegtyp_conv / 6, 5,19, 3, 4,  18,20,18,18,11, &
+                         & 16,17,13,11, 7,   1, 1,18, 8,15, &
+                         & 12, 8,15 /
+
+! Globcover 2009: tile index used in TESSEL (IFS) (see also mo_ext_data_state.f90)
+!   Number of landcover classes provided by external parameter data
+!   Needs to be changed into a variable if landcover classifications 
+!   with a different number of classes become available
+  INTEGER,  PARAMETER          :: num_lcc = 23
+  REAL(wp), DIMENSION(num_lcc) :: jtessel_gcv2009  ! Tessel index table GlobCover2009
+!                      jtessel 
+  DATA jtessel_gcv2009 / 4,   & !  1 irrigated croplands                           
+                     &   4,   & !  2 rainfed croplands                             
+                     &   4,   & !  3 mosaic cropland (50-70%) - vegetation (20-50%)
+                     &   4,   & !  4 mosaic vegetation (50-70%) - cropland (20-50%)
+                     &   6,   & !  5 closed broadleaved evergreen forest           
+                     &   6,   & !  6 closed broadleaved deciduous forest           
+                     &   6,   & !  7 open broadleaved deciduous forest             
+                     &   6,   & !  8 closed needleleaved evergreen forest          
+                     &   6,   & !  9 open needleleaved deciduous forest            
+                     &   6,   & ! 10 mixed broadleaved and needleleaved forest     
+                     &   4,   & ! 11 mosaic shrubland (50-70%) - grassland (20-50%)
+                     &   4,   & ! 12 mosaic grassland (50-70%) - shrubland (20-50%)
+                     &   4,   & ! 13 closed to open shrubland                      
+                     &   4,   & ! 14 closed to open herbaceous vegetation          
+                     &   4,   & ! 15 sparse vegetation                             
+                     &   6,   & ! 16 closed to open forest regulary flooded        
+                     &   6,   & ! 17 closed forest or shrubland permanently flooded
+                     &   4,   & ! 18 closed to open grassland regularly flooded    
+                     &   8,   & ! 19 artificial surfaces                           
+                     &   8,   & ! 20 bare areas                                    
+                     &   1,   & ! 21 water bodies                                  
+                     &   5,   & ! 22 permanent snow and ice                        
+                     &   8    / ! 23 undefined                                  
 
 !--------------------------------------------------------------
-
 
   ! number of vertical levels
   nlev   = p_patch%nlev
@@ -247,7 +291,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx, icnt, &
-!$OMP idummy_vdf_0a, idummy_vdf_0b, idummy_vdf_0c, & 
+!$OMP KTVL, KTVH, zsoty, & 
 !$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
 !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
 !$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
@@ -264,7 +308,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !$OMP zdummy_vdf_3i, zdummy_vdf_3j, &
 !$OMP zdummy_vdf_3k, zdummy_vdf_3l, &
 !$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
-!$OMP zdummy_vdf_5a, &
+!$OMP zalbti, &
 !$OMP zdummy_vdf_6a, &
 !$OMP zdummy_vdf_6b, &
 !$OMP zdummy_vdf_6c, &
@@ -569,19 +613,65 @@ endif
           tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific, and prognostic !!!
           ustr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress U  !!!
           vstr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress V  !!!
+        ENDDO
+      ENDDO
+
+      DO jt = 1,ntiles_edmf
+        DO jc = i_startidx, i_endidx
           zfrti   (jc,jt) = 0.0_wp                     ! all zero but tile1=1.0 ... all ocean ???
-          zdummy_vdf_5a(jc,jt) = 0.3_wp                ! surface albedo ????????
+          zalbti  (jc,jt) = zalbti_est(jt)             ! surface albedo ????????
         ENDDO
       ENDDO
 
       DO jc = i_startidx, i_endidx
-       !zfrti(jc,1) = 1.0_wp                           ! all zero but tile1=1.0 ... all ocean ???
-        IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN     ! land point
-          zfrti(jc,8) = 1.0_wp                         ! bare soil (???)
-        ELSE !!!IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
-          zfrti(jc,1) = 1.0_wp                         ! open ocean
-       !ELSE
-       !  zfrti(jc,2) = 1.0_wp                         ! sea ice
+        KTVL(jc) = 16                                  ! KTVL: dummy default ???
+        KTVH(jc) = 3                                   ! KTVH: dummy default ???
+      ENDDO
+
+      DO jt = ntiles_total, 1, -1
+        DO jc = i_startidx, i_endidx
+          IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN ! land
+            JTILE =                 jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
+!JTILE=8 !?????????????
+!???            IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
+!???            IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
+!write(*,*) 'turb_sfc1: ',  JTILE, KTVL(jc), KTVH(jc), ext_data%atm%lc_class_t(jc,jb,jt)
+            IF ( lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0.5_wp ) THEN
+              SELECT CASE ( JTILE )
+                CASE (4)
+                  JTILE = 5   ! snow over low vegetation
+                CASE (6)
+                  JTILE = 7   ! snow over high vegetation
+                CASE (8)
+                  JTILE = 5   ! snow over bare ground
+              END SELECT
+            ENDIF
+           !IF ( t_g(jl) > (t0_melt + zt_ice) ) THEN   ! salt water freezing temperature
+           !  JTILE = 2              ! sea ice         ! this may never be active as not LAND
+           !ENDIF
+           !interception layer (#3) missing ???
+            zfrti(jc,jtile) = zfrti(jc,jtile) + ext_data%atm%lc_frac_t(jc,jb,jt)
+          ENDIF
+        ENDDO
+      ENDDO
+
+      DO jc = i_startidx, i_endidx
+        IF ( .NOT. ext_data%atm%llsm_atm_c(jc,jb) ) THEN ! ocean or sea-ice point
+          zfrti(jc,:) = 0.0_wp                           ! all zero
+          zfrti(jc,1) = 1.0_wp                           ! ocean one
+!ELSE
+!  zfrti(jc,:) = 0.0_wp
+!  zfrti(jc,7) = 1.0_wp  !8,3,4,5 work, 6?
+        ENDIF
+       !ELSE !!! IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
+       !  zfrti(jc,1) = 1.0_wp                           ! open ocean
+       !!!!ELSE
+       !!!!  zfrti(jc,2) = 1.0_wp                        ! sea ice (requires sea ice cover)
+      ENDDO
+
+      DO jc = i_startidx, i_endidx
+        IF ( (SUM(zfrti(jc,:)) > 1.01_wp) .or. (SUM(zfrti(jc,:)) < 0.99_wp) ) THEN
+          write(*,*) 'turb_sfc2: ', zfrti(jc,:)
         ENDIF
       ENDDO
 
@@ -593,11 +683,11 @@ endif
       ENDDO
 
       DO jc = i_startidx, i_endidx
-        idummy_vdf_0a(jc) = 16    !KTVL  ???
-        idummy_vdf_0b(jc) = 3     !KTVH  ???
+       !KTVL(jc) = 16    !KTVL  ???
+       !KTVH(jc) = 3     !KTVH  ???
         zdummy_vdf_1a(jc) = 0.5_wp!PCVL  ???
         zdummy_vdf_1b(jc) = 0.5_wp!PCVH  ???
-        idummy_vdf_0c(jc) = 1     !KSOTY ??? soil type (needs to be specified)
+        zsoty(jc)         = soiltyp_conv(ext_data%atm%soiltyp_t(jc,jb,1)) !KSOTY ???
         zdummy_vdf_1f(jc) = 1.0_wp!maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
         zdummy_vdf_1c(jc) = 0.0_wp!lake ice thickness ??? (no lakes???)
         zdummy_vdf_1d(jc) = 273.0_wp !lake ice temperature ??? (no lakes???)
@@ -621,8 +711,8 @@ endif
         & KLON    = nproma                                     ,&! (IN)   
         & KLEV    = p_patch%nlev                               ,&! (IN)   
         & KLEVS   = nlev_soil                                  ,&! (IN)
-        & KSTEP   = 0                                          ,&! (IN)  ??? used in surfexdriver!!
-        & KTILES  = ntiles_total                               ,&! (IN)
+        & KSTEP   = nstep_turb                                 ,&! (IN)  ??? used in surfexdriver!!
+        & KTILES  = ntiles_edmf                                ,&! (IN)
         & KTRAC   = itrac_vdf                                  ,&! (IN)  default 0 (itrac?)
         & KLEVSN  = nlev_snow                                  ,&! (IN)  # snow layers (1!)
         & KLEVI   = 1                                          ,&! (IN)  # sea ice layers
@@ -635,8 +725,8 @@ endif
         & KDHVTIS = 4                                          ,&! (IN)   - " - 
         & KDHFTIS = 9                                          ,&! (IN)   - " - 
         & PTSPHY  = tcall_turb_jg                              ,&! (IN)   
-        & KTVL    = idummy_vdf_0a                              ,&! (IN)  input for TESSEL   
-        & KTVH    = idummy_vdf_0b                              ,&! (IN)  input for TESSEL
+        & KTVL    = KTVL                                       ,&! (IN)  input for TESSEL   
+        & KTVH    = KTVH                                       ,&! (IN)  input for TESSEL
         & KCNT    = icnt                                       ,&! (INOUT)
         & PCVL    = zdummy_vdf_1a                              ,&! (IN)  input for TESSEL
         & PCVH    = zdummy_vdf_1b                              ,&! (IN)  input for TESSEL   
@@ -668,10 +758,10 @@ endif
         & PTLICE  = zdummy_vdf_1d                              ,&! (IN)  lake ice temperature - unused 
         & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
         & PSST    = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  SST
-        & KSOTY   = idummy_vdf_0c                              ,&! (IN)  soil type
+        & KSOTY   = zsoty                                      ,&! (IN)  soil type
 !xmk ?  & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
         & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
-        & PALBTI  = zdummy_vdf_5a                              ,&! (IN)  tile albedo
+        & PALBTI  = zalbti                                     ,&! (IN)  tile albedo
         & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  maximum skin reservoir capacity
         & PCHAR   = zchar                                      ,&! (IN)  Charnock parameter (for z0 over ocean)
         & PUCURR  = zucurr                                     ,&! (IN)  Ocean current x 
@@ -825,6 +915,8 @@ endif
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+nstep_turb = nstep_turb + 1
 
 CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_prog_rcf%tracer, &
                           lpart4d=.TRUE.)
