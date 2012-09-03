@@ -2908,7 +2908,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
                auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
-              npats, isum, ioffset, isum1, n4d
+              npats, isum, ioffset, isum1, n4d, pid
 
 !-----------------------------------------------------------------------
 
@@ -2929,16 +2929,18 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. use_exchange_delayed) THEN
 
      ioffset = 0
-     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
+     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+
+       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
 
        ! Sum up receive points over all communication patterns to be processed
        isum = ioffset
        DO n = 1, npats
-         isum = isum + p_pat(n)%recv_limits(np+1) - p_pat(n)%recv_limits(np)
+         isum = isum + p_pat(n)%recv_limits(pid+1) - p_pat(n)%recv_limits(pid)
        ENDDO
 
        IF(isum > ioffset) &
-         CALL p_irecv(auxr_buf(1,ioffset+1), np, 1, p_count=(isum-ioffset)*ndim2tot, &
+         CALL p_irecv(auxr_buf(1,ioffset+1), pid, 1, p_count=(isum-ioffset)*ndim2tot, &
                       comm=p_comm_work)
        ioffset = isum
 
@@ -3082,13 +3084,15 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF (iorder_sendrecv <= 1) THEN
      ! Send our data
      ioffset = 0
-     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+
+       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
        DO n = 1, npats
-         iss = p_pat(n)%send_limits(np)+1 + ioffset_s(n)
-         ise = p_pat(n)%send_limits(np+1) + ioffset_s(n)
+         iss = p_pat(n)%send_limits(pid)+1 + ioffset_s(n)
+         ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
          isum1 = ise - iss + 1
          IF (isum1 > 0) THEN
 !CDIR COLLAPSE
@@ -3097,7 +3101,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDIF
        ENDDO
 
-       IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), np, 1,             &
+       IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1,             &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
 
        ioffset = isum
@@ -3105,13 +3109,15 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
      ioffset = 0
-     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+
+       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
        DO n = 1, npats
-         iss = p_pat(n)%send_limits(np)+1 + ioffset_s(n)
-         ise = p_pat(n)%send_limits(np+1) + ioffset_s(n)
+         iss = p_pat(n)%send_limits(pid)+1 + ioffset_s(n)
+         ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
          isum1 = ise - iss + 1
          IF (isum1 > 0) THEN
 !CDIR COLLAPSE
@@ -3120,7 +3126,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDIF
        ENDDO
 
-       IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), np, 1,            &
+       IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
 
        ioffset = isum
@@ -3128,28 +3134,32 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
 
      ioffset = 0
-     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
+     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+
+       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
 
        ! Sum up receive points over all communication patterns to be processed
        isum = ioffset
        DO n = 1, npats
-         isum = isum + p_pat(n)%recv_limits(np+1) - p_pat(n)%recv_limits(np)
+         isum = isum + p_pat(n)%recv_limits(pid+1) - p_pat(n)%recv_limits(pid)
        ENDDO
 
-       IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), np, 1,             &
+       IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1,             &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
        ioffset = isum
 
      ENDDO
    ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
      ioffset = 0
-     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+
+       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
        DO n = 1, npats
-         iss = p_pat(n)%send_limits(np)+1 + ioffset_s(n)
-         ise = p_pat(n)%send_limits(np+1) + ioffset_s(n)
+         iss = p_pat(n)%send_limits(pid)+1 + ioffset_s(n)
+         ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
          isum1 = ise - iss + 1
          IF (isum1 > 0) THEN
 !CDIR COLLAPSE
@@ -3158,7 +3168,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDIF
        ENDDO
 
-       IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), np, 1,            &
+       IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
 
        ioffset = isum
@@ -3180,12 +3190,14 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    ! Copy exchanged data back to receive buffer
    ioffset = 0
-   DO np = 0, p_n_work-1
+   DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+
+     pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
 
      isum = ioffset
      DO n = 1, npats
-       irs = p_pat(n)%recv_limits(np)+1 + ioffset_r(n)
-       ire = p_pat(n)%recv_limits(np+1) + ioffset_r(n)
+       irs = p_pat(n)%recv_limits(pid)+1 + ioffset_r(n)
+       ire = p_pat(n)%recv_limits(pid+1) + ioffset_r(n)
        isum1 = ire - irs + 1
        IF (isum1 > 0) THEN
 !CDIR COLLAPSE
