@@ -69,11 +69,9 @@ MODULE mo_gnat_gridsearch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id, &
-    &                               p_allreduce_minloc, p_comm_work, &
-    &                               my_process_is_mpi_test, p_max
+    &                               p_comm_work, my_process_is_mpi_test, p_max
   USE mo_kind
   USE mo_grid_config,         ONLY: grid_sphere_radius
-  USE mo_run_config,          ONLY: ltimer
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
 
