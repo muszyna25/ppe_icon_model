@@ -182,6 +182,8 @@ CONTAINS
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile(nbdim,nsfc_type)
 
+    REAL(wp) :: ztemperature_rad(nbdim)
+
 !!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
 !!$    REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
@@ -437,7 +439,17 @@ CONTAINS
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
         zaedummy(:,:) = 0.0_wp
-            
+
+        IF (phy_config%ljsbach) THEN
+           WHERE (ext_data(jg)%atm%lsm_ctr_c(jcs:jce,jb) > 0)
+              ztemperature_rad = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
+           ELSEWHERE
+              ztemperature_rad(jcs:jce) = field% tsfc(jcs:jce,jb)
+           ENDWHERE
+        ELSE
+           ztemperature_rad(jcs:jce) = field% tsfc(jcs:jce,jb)
+        END IF
+
         CALL radiation(               &
           !
           ! argument                   !  INTENT comment
@@ -465,7 +477,7 @@ CONTAINS
           & field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
           & field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
           & ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & field% tsfc(:,jb)        ,&!< in     grid box mean surface temperature
+          & ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
           & field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
