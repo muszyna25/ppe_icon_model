@@ -41,13 +41,13 @@ emkdir -p $ecfsdir
 # archive plots and tranfer to DWD by ectrans
 
 tar cvf metplots_%SUITE%_%YMD%%INIHOUR%.tar metplots
-gzip    metplots_%SUITE%_%YMD%%INIHOUR%.tar
-ecp     metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+gzip -f metplots_%SUITE%_%YMD%%INIHOUR%.tar
+ecp  -o metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 \rm -rf metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz
 
 tar cvf meteogram_%SUITE%_%YMD%%INIHOUR%.tar meteo
-gzip    meteogram_%SUITE%_%YMD%%INIHOUR%.tar
-ecp     meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+gzip -f meteogram_%SUITE%_%YMD%%INIHOUR%.tar
+ecp  -o meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 \rm -rf meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz
 
 

@@ -25,7 +25,7 @@
 echo "EOM_ARCHIVE.SMS" 
 
 
-ldeldata=0
+ldeldata=1
 
 
 #-----------------------------------------------------------------------------
@@ -43,6 +43,8 @@ ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/$YYYYMM"
 tar cvf metplots_%SUITE%_$YYYYMM.tar metplots
 gzip    metplots_%SUITE%_$YYYYMM.tar
 ecp     metplots_%SUITE%_$YYYYMM.tar.gz $ecfsdir
+\rm -rf metplots_%SUITE%_$YYYYMM.tar /
+        metplots_%SUITE%_$YYYYMM.tar.gz  
 
 
 #-----------------------------------------------------------------------------

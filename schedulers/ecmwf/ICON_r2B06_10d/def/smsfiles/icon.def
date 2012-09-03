@@ -27,7 +27,7 @@ set UID `id -u`
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
 set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20120601
+set FIRST_DATE    20120901
 set LAST_DATE     20121231
 
 # HPC environment:
@@ -167,6 +167,7 @@ suite icon_${EXPNUM}
         extern /ifs_trigger/fct_ifs
 
         task setup
+            time 06:00                                  # use this for tasks running daily (not catch-up mode)
             trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE-3) or \
                     (/ifs_trigger/fct_ifs == complete)
             on_ecgate
@@ -341,7 +342,7 @@ suite icon_${EXPNUM}
 
     family endofmonth
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (forecast:YMD gt endofmonth:YMD)
+        trigger (post:YMD gt endofmonth:YMD)
 
         task testday
             on_ecgate
@@ -356,7 +357,7 @@ suite icon_${EXPNUM}
             trigger testday:time_eom
             complete (testday==complete) and not (testday:time_eom)
             on_hpc_serial
-            edit SCWALLCLOCKLIMIT 12:00:00
+            edit SCWALLCLOCKLIMIT 24:00:00
             meter ecget     0 31 31
             meter splitdata 0 31 31
             meter deldata   0 31 31
