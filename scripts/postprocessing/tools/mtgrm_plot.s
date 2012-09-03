@@ -21,13 +21,13 @@ dir=${4}
 iFile=${5}
 #dir="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
 #iFile=${dir}"NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.nc"
-echo "dir = ", $dir, " iFile =", $iFile
+echo "dir = " $dir " iFile = " $iFile
 
 mkdir -p ${dir}"/meteo"
 #oType="png" !doesn't work on AIX (NCL 5.2.1)
 oType="pdf"
 
-set -A iStation 1 2 3 4 5 6 7 8 9
+set -A iStation 1 2 3 4 5 6 7 8 9 #10
 
 set -A varNameSfc \
   P_SFC    PL_Cov   LA_Ind  RO_Dept    Z0         qv_s       w_i_1    w_snow_1 \

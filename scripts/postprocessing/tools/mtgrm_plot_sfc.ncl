@@ -121,7 +121,8 @@ begin
   
   print("")
   print("Meteogram  '" + charactertostring(cdf_file->station_name(iStation,:))+"'" )
-  print("Outputfile '"+str_concat((/oFile,".000001.",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
+; print("Outputfile '"+str_concat((/oFile,".000001.",oType/))+"' will be created")   ; in "+systemfunc("dirname "+iFile))
+  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created")   ; in "+systemfunc("dirname "+iFile))
 
   wks  = gsn_open_wks(oType,oFile)                 ; Opens a ps file
   gsn_define_colormap(wks,colormap)  
