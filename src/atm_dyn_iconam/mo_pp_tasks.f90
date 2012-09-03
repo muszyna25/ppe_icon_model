@@ -815,7 +815,6 @@ CONTAINS
   SUBROUTINE pp_task_compute_field(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_compute_field")
     INTEGER                            :: jg, out_var_idx
     TYPE (t_var_list_element), POINTER :: out_var
     TYPE(t_var_metadata),      POINTER :: p_info

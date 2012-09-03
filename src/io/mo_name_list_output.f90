@@ -172,6 +172,8 @@ MODULE mo_name_list_output
                       ! Only set on compute PEs, set to 0 on IO PEs
     INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
                       ! idx and blk for own points, only set on compute PEs
+    INTEGER, ALLOCATABLE :: own_dst_idx(:), own_dst_blk(:)
+                      ! dest idx and blk for own points, only set on sequential/test PEs
     INTEGER, ALLOCATABLE :: pe_own(:)
                       ! n_own, gathered for all compute PEs (set on all PEs)
     INTEGER, ALLOCATABLE :: pe_off(:)
@@ -1759,6 +1761,16 @@ CONTAINS
     ! Safety check
     IF(n/=p_ri%n_glb) CALL finish(routine,'Reordering failed')
 
+    ! set trivial destination indices:
+    IF(my_process_is_mpi_seq()) THEN
+      ALLOCATE(p_ri%own_dst_idx(p_ri%n_own), &
+        &      p_ri%own_dst_blk(p_ri%n_own))
+      DO i=1,p_ri%n_own
+        p_ri%own_dst_idx(i) = idx_no(i)
+        p_ri%own_dst_blk(i) = blk_no(i)
+      END DO ! i
+    END IF
+
     DEALLOCATE(phys_owner_mask)
     DEALLOCATE(glbidx_own)
     DEALLOCATE(glbidx_glb)
@@ -1778,7 +1790,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &   'mo_name_list_output/set_reorder_info_lonlat'
     INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, & 
-    &          ioffset
+    &          ioffset, gidx
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -1798,10 +1810,22 @@ CONTAINS
       IF (jc>nproma) THEN
         jb = jb+1;  jc = 1
       END IF
-
       p_ri%own_idx(i) = jc
       p_ri%own_blk(i) = jb
     END DO ! i
+
+    ! set destination indices (for sequential/test PEs). This is
+    ! important for the case that the local patch is smaller than the
+    ! lon-lat grid:
+    IF(my_process_is_mpi_seq()) THEN
+      ALLOCATE(p_ri%own_dst_idx(p_ri%n_own), &
+        &      p_ri%own_dst_blk(p_ri%n_own))
+      DO i=1,p_ri%n_own
+        gidx = intp%global_idx(i)
+        p_ri%own_dst_idx(i) = idx_no(gidx)
+        p_ri%own_dst_blk(i) = blk_no(gidx)
+      END DO ! i
+    END IF
 
     ! Gather the number of own points for every PE into p_ri%pe_own
     ALLOCATE(p_ri%pe_own(0:p_n_work-1), p_ri%pe_off(0:p_n_work-1), STAT=ierrstat)
@@ -3168,7 +3192,7 @@ CONTAINS
     TYPE(t_comm_pattern), POINTER :: p_pat
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
-    REAL(wp) :: SYNC_ERROR_PRINT_TOL = 1e-9_wp
+    REAL(wp) :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
     LOGICAL  :: l_error
 
     ! Offset in memory window for async I/O
@@ -3307,12 +3331,12 @@ CONTAINS
           ! otherwise exchange_data doesn't work!
           ALLOCATE(r_tmp(nproma,nlevs,1))
         ENDIF
-
+        r_tmp(:,:,:) = 0._wp
         ! Gather data on root
         IF(my_process_is_mpi_seq()) THEN
           DO jk = 1, nlevs
-            DO i = 1, n_points
-              r_tmp(idx_no(i),jk,blk_no(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+            DO i = 1, p_ri%n_own
+              r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
             ENDDO
           ENDDO
         ELSE
@@ -3354,20 +3378,12 @@ CONTAINS
                   IF (r_out_recv(i,jk) /= r_out_dp(i,jk)) THEN
                     ! do detailed print-out only for "large" errors:
                     IF (ABS(r_out_recv(i,jk) - r_out_dp(i,jk)) > SYNC_ERROR_PRINT_TOL) THEN
-                      WRITE (message_text,*) 'Sync error test PE/worker PEs for ', TRIM(info%name)
-                      CALL tocompact(message_text)
-                      CALL message(routine,message_text)
-                      WRITE (message_text,*) "global pos (", idx_no(i), ",", blk_no(i),")"
-                      CALL tocompact(message_text)
-                      CALL message(routine,message_text)
-                      WRITE (message_text,*) "level", jk, "/", nlevs
-                      CALL tocompact(message_text)
-                      CALL message(routine,message_text)
-                      WRITE (message_text,*) "vals: ", r_out_recv(i,jk), r_out_dp(i,jk)
-                      CALL tocompact(message_text)
-                      CALL message(routine,message_text)
+                      WRITE (0,*) 'Sync error test PE/worker PEs for ', TRIM(info%name)
+                      WRITE (0,*) "global pos (", idx_no(i), ",", blk_no(i),")"
+                      WRITE (0,*) "level", jk, "/", nlevs
+                      WRITE (0,*) "vals: ", r_out_recv(i,jk), r_out_dp(i,jk)
+                      l_error = .TRUE.
                     END IF
-                    l_error = .TRUE.
                   END IF
                 ENDDO
               END DO

@@ -335,7 +335,6 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
-INTEGER  :: nblks_c
 INTEGER  :: jc, jb           ! loop indices
 INTEGER  :: ilc, ibc         ! line and block index of neighbour cell
 INTEGER  :: ic1, ic2         ! index counters
@@ -346,25 +345,29 @@ INTEGER  :: i_endidx         ! end index
 
 ! Pointers to neighbor indices/blocks
 INTEGER, DIMENSION(:,:,:), POINTER :: inidx, inblk
+INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
 
 !--------------------------------------------------------------------
 
-  ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
-
   inidx => ptr_patch%cells%neighbor_idx
   inblk => ptr_patch%cells%neighbor_blk
+
+  ! values for the blocking
+  rl_start = 2
+  rl_end = min_rlcell_int
+  
+  i_nchdom   = MAX(1,ptr_patch%n_childdom)
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)    
+
   !
   ! The stencil has a total of 10 cells, namely the local cell,
   ! its neighbors, and the neighbors of the neighbors (excluding the local cell)
   !
-  ! This stencil is not available when refin_ctrl=1
-  i_startblk = ptr_patch%cells%start_blk(2,1)
+  DO jb = i_startblk, i_endblk
 
-  DO jb = i_startblk, nblks_c
-
-    CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
-                       i_startidx, i_endidx, 2)
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
 
     DO jc = i_startidx, i_endidx
 

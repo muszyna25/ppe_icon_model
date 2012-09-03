@@ -58,7 +58,8 @@ MODULE mo_icon_comm_lib
   USE mo_timer,           ONLY: ltimer, timer_start, timer_stop, timer_icon_comm_sync, &
     & activate_sync_timers, timer_icon_comm_fillrecv, timer_icon_comm_wait, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
-    & timer_icon_comm_isend, timer_icon_comm_barrier_2
+    & timer_icon_comm_isend, timer_icon_comm_barrier_2, &
+    & timer_start, timer_stop, timer_extra1
 
   USE mo_master_control,  ONLY: get_my_process_name
 #ifndef NOMPI
@@ -103,6 +104,9 @@ MODULE mo_icon_comm_lib
 
   PUBLIC :: print_grid_comm_pattern, print_grid_comm_stats
 !   PUBLIC :: icon_comm_show
+
+  PUBLIC :: t_mpi_mintype
+  PUBLIC :: mpi_reduce_mindistance_pts
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   !--------------------------------------------------------------
@@ -221,6 +225,15 @@ MODULE mo_icon_comm_lib
   END TYPE t_comm_variable_real
 
   !--------------------------------------------------------------
+
+  !> type definition for a user-defined reduction operation, see
+  !  subroutine "mpi_reduce_mindistance_pts"
+  TYPE t_mpi_mintype
+    SEQUENCE
+    REAL    :: rdist
+    INTEGER :: glb_index
+    INTEGER :: owner
+  END TYPE t_mpi_mintype
 
   
   !> The array of the grid objects.
@@ -2264,5 +2277,70 @@ CONTAINS
 !       
 !   END SUBROUTINE icon_comm_show
   !-----------------------------------------------------------------------
+
+  !> This is a utility routine for the parallel range-searching
+  !  algorithm with GNATs, the problem is described below in the
+  !  subroutine "mpi_reduce_mindistance_pts".
+  SUBROUTINE mintype_minfct(invec, inoutvec, len, itype)
+    INTEGER :: len, itype
+    TYPE(t_mpi_mintype) :: invec(len), inoutvec(len)
+    ! local variables
+    INTEGER :: i
+    
+    DO i=1,len
+      IF (invec(i)%rdist < inoutvec(i)%rdist) THEN
+        inoutvec(i) = invec(i)
+      ELSE IF (invec(i)%rdist == inoutvec(i)%rdist) THEN
+        IF (invec(i)%glb_index < inoutvec(i)%glb_index) THEN
+          inoutvec(i) = invec(i)
+        END IF
+      END IF
+    END DO
+  END SUBROUTINE mintype_minfct
+
+
+  !> This is a utility routine for the parallel range-searching
+  !  algorithm with GNATs, the problem is described below.
+  !
+  !  This routine has been placed in the module "mo_icon_comm_lib",
+  !  since it requires low-level MPI library calls for a user-defined
+  !  reduction operation.
+  ! 
+  !  Problem statement:
+  !  For a given point in lon-lat space we might end up with more than
+  !  one "minimum distance" triangle when searching in parallel. Thus,
+  !  we must reduce the list of "minimum triangles" over all working
+  !  PEs. There may occur the situation that we have two or more
+  !  triangles with identical distance (e.g. at the poles). Then we
+  !  choose between these triangles based on the global triangle
+  !  index. This is necessary to ensure a well-defined behaviour for a
+  !  varying number of MPI tasks.
+  !
+  !  Initial implementation: F. Prill, DWD (2012-09-03)
+  ! 
+  SUBROUTINE mpi_reduce_mindistance_pts(in, total_dim, comm)
+    TYPE(t_mpi_mintype),  INTENT(INOUT) :: in(:)
+    INTEGER,                 INTENT(IN) :: total_dim
+    INTEGER,                 INTENT(IN) :: comm
+    ! local variables:
+    INTEGER  :: mpi_type(2), mpi_disp(2), mpi_block(2), rextent, min_type, ierr, mintype_op
+
+    ! create a user-defined type for MPI allreduce operation:
+    mpi_type  = (/ MPI_REAL, MPI_INTEGER /)
+    CALL MPI_TYPE_EXTENT(MPI_REAL, rextent, ierr) 
+    mpi_disp  = (/ 0, rextent /)
+    mpi_block = (/ 1, 2 /)
+    CALL MPI_TYPE_STRUCT(2, mpi_block, mpi_disp, mpi_type, min_type, ierr) 
+    CALL MPI_TYPE_COMMIT(min_type, ierr) 
+    ! register user-defined reduction operation
+    CALL MPI_OP_CREATE(mintype_minfct, .TRUE., mintype_op, ierr)
+
+    ! Temporarily introduce a timer to facilitate analyzing possible
+    ! load balance issues
+    IF (ltimer) CALL timer_start(timer_extra1)
+    CALL MPI_ALLREDUCE( MPI_IN_PLACE, in, total_dim, min_type, mintype_op, comm, ierr)
+    IF (ltimer) CALL timer_stop(timer_extra1)
+
+  END SUBROUTINE mpi_reduce_mindistance_pts
 
 END MODULE mo_icon_comm_lib

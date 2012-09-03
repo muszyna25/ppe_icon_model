@@ -549,9 +549,9 @@
 
 !$OMP DO PRIVATE(jb,jc,jec,jj,jtri,i_startidx,i_endidx,cnt,ilv,ibv, &
 !$OMP            ilc_v,ibc_v,ilc_n,ibc_n) 
-        DO jb = i_startblk, nblks_c
+        DO jb = i_startblk, i_endblk
 
-          CALL get_indices_c(ptr_patch, i_startblk,  &
+          CALL get_indices_c(ptr_patch, jb,        &
             &                i_startblk, i_endblk, &
             &                i_startidx, i_endidx, &
             &                rl_start, rl_end)
@@ -1036,7 +1036,6 @@
         &                                 i_startidx, i_endidx,    & ! start/end index
         &                                 istencil(nproma),        & ! actual number of stencil points
         &                                 jg, jb_cell, jc_cell
-      INTEGER                          :: stencil(rbf_dim_c2l)
       REAL(wp)                         :: checksum                   ! to check if sum of interpolation coefficients is correct
       TYPE(t_geographical_coordinates) :: grid_point
 
@@ -1076,7 +1075,6 @@
 
               jc_cell = ptr_int_lonlat%tri_idx(1,jc, jb)
               jb_cell = ptr_int_lonlat%tri_idx(2,jc, jb)
-              stencil(:) = ptr_int_lonlat%rbf_c2l_idx(:,jc_cell,jb_cell)
               ! Get actual number of stencil points
               istencil(jc) = ptr_int_lonlat%rbf_c2l_stencil(jc_cell,jb_cell)
               ! paranoia:
@@ -1106,10 +1104,7 @@
             END DO
           END DO
         END DO
-
-        jc_cell = ptr_int_lonlat%tri_idx(1,1,72)
-        jb_cell = ptr_int_lonlat%tri_idx(2,1,72)
-
+        
         ! apply Cholesky decomposition to matrix
         !
 !CDIR NOIEXPAND
@@ -1179,7 +1174,6 @@
             ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) = &
               ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) / checksum
           END DO
-
         END DO ! jc
 
       END DO BLOCKS
@@ -1651,7 +1645,6 @@
     SUBROUTINE rbf_interpol_c2l( p_cell_in, ptr_int,                   &
       &                          p_out, nblks_lonlat, npromz_lonlat,   &
       &                          opt_slev, opt_elev)
-
       ! !INPUT PARAMETERS
       !
       ! input cell-based variable for which gradient at cell center is computed
@@ -1845,7 +1838,6 @@
       &                                p_lonlat_out,                  &
       &                                nblks_lonlat, npromz_lonlat,   &
       &                                opt_slev, opt_elev)
-
       ! input cell-based variable for which gradient at cell center is computed
       REAL(wp),              INTENT(IN)           :: p_cell_in(:,:,:)    ! dim: (nproma,nlev,nblks_c)
       ! Indices of source points and interpolation coefficients

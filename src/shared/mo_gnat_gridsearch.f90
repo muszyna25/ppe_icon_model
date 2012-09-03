@@ -69,11 +69,13 @@ MODULE mo_gnat_gridsearch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id, &
-    &                               p_allreduce_minloc, p_comm_work
+    &                               p_allreduce_minloc, p_comm_work, &
+    &                               my_process_is_mpi_test, p_max
   USE mo_kind
   USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_run_config,          ONLY: ltimer
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_extra1
+  USE mo_communication,       ONLY: idx_1d
+  USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
 
   IMPLICIT NONE
 
@@ -126,6 +128,8 @@ MODULE mo_gnat_gridsearch
     INTEGER                     :: child(gnat_k) ! index pointer
     REAL(gk)                    :: drange(gnat_k, gnat_k, 2)
   END TYPE t_gnat_tree
+
+
 
   !> GNAT-based tree (index of root node)
   INTEGER :: gnat_tree = UNASSOCIATED
@@ -379,9 +383,17 @@ CONTAINS
         dist_vp = dist(tree%p(ip), v)
         count_dist = count_dist + 1
 #endif
-        IF ((dist_vp <= r) .AND. (dist_vp < min_dist)) THEN
-          min_dist = dist_vp
-          min_node_idx(1:2) = tree%p(ip)%idx(1:2)
+        IF (dist_vp <= r) THEN
+          IF (dist_vp < min_dist) THEN
+            min_dist = dist_vp
+            min_node_idx(1:2) = tree%p(ip)%idx(1:2)
+          ELSE IF (dist_vp == min_dist) THEN
+            IF ((min_node_idx(2) > tree%p(ip)%idx(2)) .OR.  &
+              & ((min_node_idx(2) == tree%p(ip)%idx(2)) .AND. (min_node_idx(1) > tree%p(ip)%idx(1)))) THEN
+              min_dist = dist_vp
+              min_node_idx(1:2) = tree%p(ip)%idx(1:2)
+            END IF
+          END IF
         END IF
 
         WHERE (pflag(1:isplit_pts))
@@ -545,6 +557,8 @@ CONTAINS
         &                i_startidx, i_endidx, &
         &                rl_start, rl_end)
       DO jc=i_startidx,i_endidx
+        IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
+
         ntotal = ntotal + 1
         cell_indices(1,ntotal) = jc
         cell_indices(2,ntotal) = jb
@@ -946,6 +960,9 @@ CONTAINS
   SUBROUTINE gnat_merge_distributed_queries(p_patch, total_dim, iv_nproma, iv_nblks, min_dist, &
     &                                       tri_idx, lonlat_points, global_idx,                &
     &                                       ithis_local_pts)
+
+    USE MPI
+
     TYPE(t_patch),         INTENT(IN)    :: p_patch
     INTEGER,               INTENT(IN)    :: total_dim
     INTEGER,               INTENT(IN)    :: iv_nproma, iv_nblks
@@ -959,38 +976,33 @@ CONTAINS
     INTEGER  :: i, j, jc, jb
     INTEGER  :: new_tri_idx(2,total_dim)
     REAL(gk) :: new_lonlat_points(total_dim,2)
-    REAL     :: in(2,total_dim)
-    INTEGER  :: iowner, idummy_applied
-    INTEGER  :: array_shape(2), dummy_idx(2)
-    INTEGER  :: i_endblk, i_endidx, &
-      &         rl_start, rl_end, i_nchdom, my_id
+    INTEGER  :: iowner, my_id, gidx
+    INTEGER  :: array_shape(2)
+    TYPE(t_mpi_mintype) :: in(total_dim)
 
     my_id = get_my_mpi_work_id()
-
-    ! for the (rather pathological) case of local patches covered by a
-    ! larger lon-lat grid, we have to set some "dummy" indices outside
-    ! the domain:
-    rl_start = 2
-    rl_end = min_rlcell_int-1
-    i_nchdom     = MAX(1,p_patch%n_childdom)
-    dummy_idx(2) = p_patch%cells%start_blk(rl_start,1)
-    i_endblk     = p_patch%cells%end_blk(rl_end,i_nchdom)    
-    CALL get_indices_c(p_patch, dummy_idx(2),  &
-      &                dummy_idx(2), i_endblk, &
-      &                dummy_idx(1), i_endidx, &
-      &                rl_start, rl_end)
 
     ! 1. Perform an MPI_ALLREDUCE operation with the min_dist vector
     !    to find out which process is in charge of which in_point
 
-    in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ total_dim /) )
-    in(2,:) = REAL( my_id )
-    IF (p_patch%n_patch_cells == 0) in(2,:) = -1.;
+    in(:)%rdist = RESHAPE(REAL(min_dist(:,:)), (/ total_dim /) )
+    in(:)%owner = my_id
+    IF (p_patch%n_patch_cells == 0) in(:)%owner = -1;
+    in(:)%glb_index = -1
 
-    ! Temporarily introduce a timer to facilitate analyzing possible load balance issues
-    IF (ltimer) CALL timer_start(timer_extra1)
-    CALL p_allreduce_minloc(in, total_dim, p_comm_work)
-    IF (ltimer) CALL timer_stop(timer_extra1)
+    DO j=1,total_dim
+      ! convert global index into local idx/block pair:
+      jb = (j-1)/iv_nproma + 1
+      jc = j - (jb-1)*iv_nproma
+
+      IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
+        gidx = idx_1d(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+        in(j)%glb_index = p_patch%cells%glb_index(gidx)
+      END IF
+    END DO
+
+    ! call user-defined parallel reduction operation
+    CALL mpi_reduce_mindistance_pts(in, total_dim, p_comm_work)
 
     ! 2. If we are a working PE, reduce the list of in_points and the
     !    tri_idx array to points which are actually located on this
@@ -999,44 +1011,28 @@ CONTAINS
     ! store list of global indices owned by this PE:
     j=0
     DO i=1,total_dim
-      iowner = NINT(in(2,i))
+      iowner = in(i)%owner
       IF (iowner == my_id) THEN
-        j = j + 1 
-        global_idx(j) = i
+        jb = (i-1)/iv_nproma + 1
+        jc = i - (jb-1)*iv_nproma
+
+        IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
+          j = j + 1 
+          global_idx(j)            = i
+          new_tri_idx(1:2,j)       = tri_idx(1:2,jc,jb)          
+          new_lonlat_points(j,1:2) = lonlat_points(jc,jb,1:2)
+        END IF
       END IF
     END DO
+
     ! now, j points are left for proc "get_my_mpi_work_id()"
     ithis_local_pts = j
 
-    idummy_applied = 0
-    DO i=1,ithis_local_pts
-      ! convert global index into local idx/block pair:
-      j = global_idx(i)
-      jb = (j-1)/iv_nproma + 1
-      jc = j - (jb-1)*iv_nproma
-
-      IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
-        new_tri_idx(1:2,i) = tri_idx(1:2,jc,jb)          
-      ELSE
-        new_tri_idx(1:2,i) = dummy_idx
-        idummy_applied = idummy_applied + 1
-      END IF
-      new_lonlat_points(i,1:2) = lonlat_points(jc,jb,1:2)
-    END DO
-    
     array_shape(:) = (/ iv_nproma, iv_nblks /)
     tri_idx(1,:,:) = RESHAPE( new_tri_idx(1,:), array_shape(:), (/ 0 /) )
     tri_idx(2,:,:) = RESHAPE( new_tri_idx(2,:), array_shape(:), (/ 0 /) )
     lonlat_points(:,:,1) = RESHAPE( new_lonlat_points(:,1), array_shape(:), (/ 0._gk /) )
-    lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )
-
-    IF (dbg_level > 10) THEN
-      IF (idummy_applied > 0) THEN
-        WRITE(message_text,*) "proc ", my_id, ": dummy applied: ", idummy_applied
-        CALL message(routine, TRIM(message_text))
-      END IF
-    END IF
-    
+    lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )  
   END SUBROUTINE gnat_merge_distributed_queries
 
 
@@ -1102,6 +1098,8 @@ CONTAINS
       &                rl_start, rl_end)
     radius = 3._gk * REAL(p_patch%edges%primal_edge_length(i_startidx,i_startblk) &
       & /grid_sphere_radius, gk)
+    ! for MPI-independent behaviour: determine global max. of search radii
+    radius = p_max(radius)
 
     ! query list of nearest neighbors
     ! TODO[FP] : For some test cases it might be reasonable to enable
