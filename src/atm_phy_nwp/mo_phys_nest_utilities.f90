@@ -1746,7 +1746,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   TYPE(t_lnd_diag),             POINTER :: ptr_ldiagc ! child level land diag state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p=9    ! Number of 2D phyiscs fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p=21    ! Number of 2D phyiscs fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=12   ! Number of 2D land state fields
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk
@@ -1807,6 +1807,18 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       z_aux3dp_p(jc,7,jb) = prm_diag(jg)%tracer_rate(jc,jb,2)
       z_aux3dp_p(jc,8,jb) = prm_diag(jg)%tracer_rate(jc,jb,3)
       z_aux3dp_p(jc,9,jb) = prm_diag(jg)%tracer_rate(jc,jb,4)
+      z_aux3dp_p(jc,10,jb) = prm_diag(jg)%gz0(jc,jb)
+      z_aux3dp_p(jc,11,jb) = prm_diag(jg)%tcm(jc,jb)
+      z_aux3dp_p(jc,12,jb) = prm_diag(jg)%tch(jc,jb)
+      z_aux3dp_p(jc,13,jb) = prm_diag(jg)%tfm(jc,jb)
+      z_aux3dp_p(jc,14,jb) = prm_diag(jg)%tfh(jc,jb)
+      z_aux3dp_p(jc,15,jb) = prm_diag(jg)%tfv(jc,jb)
+      z_aux3dp_p(jc,16,jb) = prm_diag(jg)%t_2m(jc,jb)
+      z_aux3dp_p(jc,17,jb) = prm_diag(jg)%qv_2m(jc,jb)
+      z_aux3dp_p(jc,18,jb) = prm_diag(jg)%td_2m(jc,jb)
+      z_aux3dp_p(jc,19,jb) = prm_diag(jg)%rh_2m(jc,jb)
+      z_aux3dp_p(jc,20,jb) = prm_diag(jg)%u_10m(jc,jb)
+      z_aux3dp_p(jc,21,jb) = prm_diag(jg)%v_10m(jc,jb)
     ENDDO
 
     IF (lsfc_interp) THEN
@@ -1878,6 +1890,11 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
 
     ENDIF
 
+    CALL sync_patch_array_mult(SYNC_C,ptr_pp,3,prm_diag(jg)%tkvm,prm_diag(jg)%tkvh,prm_diag(jg)%rcld)
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 3, prm_diag(jg)%tkvm, prm_diag(jgc)%tkvm, &
+      prm_diag(jg)%tkvh, prm_diag(jgc)%tkvh, prm_diag(jg)%rcld, prm_diag(jgc)%rcld,                         &
+      llimit_nneg=(/.TRUE.,.TRUE.,.TRUE./))
+
   i_startblk = ptr_pc%cells%start_blk(1,1)
   i_endblk   = ptr_pc%cells%end_blk(grf_bdywidth_c,1)
 
@@ -1899,9 +1916,19 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%tracer_rate(jc,jb,2)  = z_aux3dp_c(jc,7,jb)
       prm_diag(jgc)%tracer_rate(jc,jb,3)  = z_aux3dp_c(jc,8,jb)
       prm_diag(jgc)%tracer_rate(jc,jb,4)  = z_aux3dp_c(jc,9,jb)
+      prm_diag(jgc)%gz0(jc,jb)            = z_aux3dp_c(jc,10,jb)
+      prm_diag(jgc)%tcm(jc,jb)            = z_aux3dp_c(jc,11,jb)
+      prm_diag(jgc)%tch(jc,jb)            = z_aux3dp_c(jc,12,jb)
+      prm_diag(jgc)%tfm(jc,jb)            = z_aux3dp_c(jc,13,jb)
+      prm_diag(jgc)%tfh(jc,jb)            = z_aux3dp_c(jc,14,jb)
+      prm_diag(jgc)%tfv(jc,jb)            = z_aux3dp_c(jc,15,jb)
+      prm_diag(jgc)%t_2m(jc,jb)           = z_aux3dp_c(jc,16,jb)
+      prm_diag(jgc)%qv_2m(jc,jb)          = z_aux3dp_c(jc,17,jb)
+      prm_diag(jgc)%td_2m(jc,jb)          = z_aux3dp_c(jc,18,jb)
+      prm_diag(jgc)%rh_2m(jc,jb)          = z_aux3dp_c(jc,19,jb)
+      prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp_c(jc,20,jb)
+      prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp_c(jc,21,jb)
     ENDDO
-
-
 
     IF (lsfc_interp) THEN
       DO jc = i_startidx, i_endidx
