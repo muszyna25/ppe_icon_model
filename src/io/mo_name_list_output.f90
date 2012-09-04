@@ -1702,6 +1702,7 @@ CONTAINS
 #else
     p_ri%pe_own(0) = p_ri%n_own
 #endif
+
     ! Get offset within result array
     p_ri%pe_off(0) = 0
     DO i = 1, p_n_work-1
@@ -1837,6 +1838,7 @@ CONTAINS
 #else
     p_ri%pe_own(0) = p_ri%n_own
 #endif
+
     ! Get offset within result array
     p_ri%pe_off(0) = 0
     DO i = 1, p_n_work-1
@@ -1860,7 +1862,6 @@ CONTAINS
     ! merge all fields across working PEs:
     p_ri%reorder_index = p_max(p_ri%reorder_index, &
       &                        comm=get_my_mpi_work_communicator())
-
     IF (l_grid_info_from_file) THEN
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
@@ -3594,8 +3595,8 @@ CONTAINS
     IF(my_process_is_mpi_test()) RETURN
 
     ! Transfer the global number of points, this is not yet known on IO PEs
-    CALL p_bcast(p_ri%n_glb, bcast_root, p_comm_work_2_io)
-    CALL p_bcast(p_ri%n_log, bcast_root, p_comm_work_2_io)
+    CALL p_bcast(p_ri%n_glb,  bcast_root, p_comm_work_2_io)
+    CALL p_bcast(p_ri%n_log,  bcast_root, p_comm_work_2_io)
 
     IF(my_process_is_io()) THEN
 
@@ -4080,9 +4081,9 @@ CONTAINS
     ENDDO
 
     IF(use_sp_output) THEN
-      ALLOCATE(var1_sp(nval*nlev_max), var2_sp(nval), STAT=ierrstat)
+      ALLOCATE(var1_sp(nval*nlev_max), var2_sp(-1:nval), STAT=ierrstat)
     ELSE
-      ALLOCATE(var1_dp(nval*nlev_max), var2_dp(nval), STAT=ierrstat)
+      ALLOCATE(var1_dp(nval*nlev_max), var2_dp(-1:nval), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -4177,8 +4178,10 @@ CONTAINS
         nv_off = 0
         DO np = 0, num_work_procs-1
           IF(use_sp_output) THEN
+            var2_sp(-1) = 0._sp ! special value for lon-lat areas overlapping local patches
             var2_sp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
           ELSE
+            var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
             var2_dp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
           ENDIF
           nv_off = nv_off+p_ri%pe_own(np)
