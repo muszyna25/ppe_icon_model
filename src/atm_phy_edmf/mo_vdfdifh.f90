@@ -494,6 +494,15 @@ CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
   & PSSH=PSSH,PSLH=PSLH,PSTR=PSTR,PG0=PG0,&
   & PSL=ZSL,PQL=ZQL)
 
+! DO JL=KIDIA,KFDIA
+!   IF ( .NOT. LDLAND(JL) ) THEN
+!     if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
+!       write(*,*) 'vdfdifh5: ', PSST(JL), PTSKTI(JL,1), PQSTI(JL,1), PQM1(JL,KLEV), &
+!         PQM1(JL,KLEV-1), ZRHOCQU(JL,1), PJQ(JL,1)*RLVTT, ZJS(JL,1)
+!     endif
+!   ENDIF
+! ENDDO
+
 !*         1.9    ADD SNOW EVAPORATION TO FLUXES
 
 !dmk  This needs to be done special !!!

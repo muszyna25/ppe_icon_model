@@ -514,9 +514,9 @@ ENDIF
 
 DO JT=1,KTILES
   DO JL=KIDIA,KFDIA
-if ( (PTSKTI(JL,JT) > 400.0)  .or. (PTSKTI(JL,JT) < 100.0  ) ) then
-  write(*,*) 'surfexc1: ', JT, PTSKTI(JL,JT), PSST(JL), PTSKM1M(JL)
-endif
+    if ( (PTSKTI(JL,JT) > 400.0)  .or. (PTSKTI(JL,JT) < 100.0  ) ) then
+      write(*,*) 'surfexc1: ', JT, PTSKTI(JL,JT), PSST(JL), PTSKM1M(JL)
+    endif
   ENDDO
 ENDDO
 
@@ -678,6 +678,13 @@ DO JTILE=1,KTILES
     ENDIF
   ENDDO
 ENDDO
+
+! DO JL=KIDIA,KFDIA
+!   if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
+!     write(*,*) 'surfexc5: ', PSST(JL), PCFQTI(JL,1), ZBUOMTI(JL,1), ZZDLTI(JL,1), &
+!       ZZ0MTI(JL,1),ZZ0HTI(JL,1),ZZ0QTI(JL,1), KSTEP, PEVAPTI(JL,1), PAHFSTI(JL,1)
+!   endif
+! ENDDO
 
 !*         3.2  EQUIVALENT EVAPOTRANSPIRATION EFFICIENCY COEFFICIENT
 

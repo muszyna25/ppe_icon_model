@@ -744,7 +744,7 @@ endif
         & PAPM1   = p_diag%pres             (:,:,jb)           ,&! (IN)   
         & PGEOM1  = p_metrics%geopot_agl    (:,:,jb)           ,&! (IN)   
         & PGEOH   = p_metrics%geopot_agl_ifc(:,:,jb)           ,&! (IN)   
-        & PTSKM1M = ztskm1m                                    ,&! (IN)  T,skin
+        & PTSKM1M = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  T,skin
         & PTSAM1M = zdummy_vdf_4a                              ,&! (IN)  T,soil
         & PWSAM1M = zdummy_vdf_4b                              ,&! (IN)  Q,soil
         & PSSRFL  = prm_diag%swflxsfc(:,jb)                    ,&! (IN)   
@@ -757,7 +757,7 @@ endif
         & PHLICE  = zdummy_vdf_1c                              ,&! (IN)  lake ice thickness   - unused
         & PTLICE  = zdummy_vdf_1d                              ,&! (IN)  lake ice temperature - unused 
         & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
-        & PSST    = lnd_prog_now%t_g(:,jb)                     ,&! (IN)  SST
+        & PSST    = ztskm1m                                    ,&! (IN)  SST
         & KSOTY   = zsoty                                      ,&! (IN)  soil type
 !xmk ?  & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
         & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
@@ -897,18 +897,28 @@ endif
         ENDDO
       ENDDO
 
-! Some diagnostic values have to be set !!!!
-      DO jc = i_startidx, i_endidx
-        prm_diag%rh_2m(jc,jb)  = 0.0_wp
-        prm_diag%shfl_s(jc,jb) = shfl_s_t(jc,1)           ! should be tile mean !!!
-        prm_diag%lhfl_s(jc,jb) = evap_s_t(jc,1) * alv     ! should be tile mean !!!
-        prm_diag%tch(jc,jb)    = tch_ex(jc,1)             ! -"-
-        prm_diag%tcm(jc,jb)    = tcm_ex(jc,1)             ! -"-
-        prm_diag%tfv(jc,jb)    = tfv_ex(jc,1)             ! -"-
+! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
+
+      prm_diag%rh_2m (:,:) = 0.0_wp
+      prm_diag%shfl_s(:,:) = 0.0_wp
+      prm_diag%lhfl_s(:,:) = 0.0_wp
+      prm_diag%tch   (:,:) = 0.0_wp
+      prm_diag%tcm   (:,:) = 0.0_wp
+      prm_diag%tfv   (:,:) = 0.0_wp
+      DO jt = 1, ntiles_total
+        DO jc = i_startidx, i_endidx
+          prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m (jc,jb) + 0.0_wp  !???
+
+        ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt)
+        ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* ext_data%atm%lc_frac_t(jc,jb,jt)
+          prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
+          prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
+
+          prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt) !??land only??
+          prm_diag%tcm   (jc,jb) = prm_diag%tcm   (jc,jb) + tcm_ex  (jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt)
+          prm_diag%tfv   (jc,jb) = prm_diag%tfv   (jc,jb) + tfv_ex  (jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt)
+        ENDDO           
       ENDDO
-!write(*,*) 'hello tch: ', minval(tch_ex(i_startidx:i_endidx,1)), maxval(tch_ex(i_startidx:i_endidx,1))
-!write(*,*) 'hello tcm: ', minval(tcm_ex(i_startidx:i_endidx,1)), maxval(tcm_ex(i_startidx:i_endidx,1))
-!write(*,*) 'hello tfv: ', minval(tfv_ex(i_startidx:i_endidx,1)), maxval(tfv_ex(i_startidx:i_endidx,1))
 
     ENDIF !inwp_turb
 
