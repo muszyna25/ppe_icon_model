@@ -1097,7 +1097,7 @@ CONTAINS
     radius = 3._gk * REAL(p_patch%edges%primal_edge_length(i_startidx,i_startblk) &
       & /grid_sphere_radius, gk)
     ! for MPI-independent behaviour: determine global max. of search radii
-    radius = p_max(radius)
+    radius = p_max(radius, p_comm_work)
 
     ! query list of nearest neighbors
     ! TODO[FP] : For some test cases it might be reasonable to enable
