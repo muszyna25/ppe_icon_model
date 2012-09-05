@@ -891,30 +891,15 @@ CALL SURFEXCDRIVER( &
 
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
-!DO JL=KIDIA,KFDIA
-!  DO JT=1,ntiles_total
-!    write(*,*) 'hello vdfmain', jl, jt, subsfrac_ex(jl,jt), snowfrac_ex(jl,jt), &
-!      shfl_s_t(jl,jt), shfl_snow_t(jl,jt), lhfl_s_t(jl,jt), lhfl_snow_t(jl,jt)
-!  ENDDO
-!ENDDO
 DO JL=KIDIA,KFDIA
- !ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
- !ZEXTSHF(JL) = ZKHFL(JL) * ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) * ZRHO
- !ZEXTLHF(JL) = ZKQFL(JL) * RLVTT * ZRHO
- !should really be handed over for each tile not mean ???????
 
 ! surface fluxes from TERRA
+!      should really be handed over for each tile not mean ???????
 
   ZEXTSHF(JL) = 0.0_JPRB
   ZEXTLHF(JL) = 0.0_JPRB
   DO JT=1,ntiles_total
     IF (LLTERRA) THEN
-!write(*,*) 'hh1: ', subsfrac_ex(JL,JT)
-!write(*,*) 'hh2: ', SNOWFRAC_EX(JL,JT)
-!write(*,*) 'hh3: ', SHFL_S_T   (JL,JT)
-!write(*,*) 'hh4: ', SHFL_SNOW_T(JL,JT)
-!write(*,*) 'hh5: ', LHFL_S_T   (JL,JT)
-!write(*,*) 'hh6: ', LHFL_SNOW_T(JL,JT)
       ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
         ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
@@ -922,6 +907,14 @@ DO JL=KIDIA,KFDIA
         ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
+  ENDDO
+
+  IF (LDLAND(JL)) THEN
+    ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+    ZKHFL(JL) = ZEXTSHF(JL) / ZRHO / RCPD
+    ZKQFL(JL) = ZEXTLHF(JL) / ZRHO / RLVTT
+   !ZKMFL(JL) = ??? done by TESSEL???
+  END IF
 
 ! test: fixed surface fluxes
 
@@ -931,10 +924,16 @@ DO JL=KIDIA,KFDIA
    !ZEXTLHF(JL) = 0.0_JPRB  ! - " -
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
 
-  ENDDO
 ENDDO
 !xxx
 
+! DO JL=KIDIA,KFDIA
+!   IF ( .NOT. LDLAND(JL) ) THEN
+!     if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
+!       write(*,*) 'vdfmain5: ', ZKHFL(JL)*RCPD, ZKQFL(JL)*RLVTT, ZKMFL(JL)
+!     endif
+!   ENDIF
+! ENDDO
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0) then
   write(*,*) 'vdfmain2: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)

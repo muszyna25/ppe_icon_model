@@ -631,7 +631,7 @@ endif
       DO jt = ntiles_total, 1, -1
         DO jc = i_startidx, i_endidx
           IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN ! land
-            JTILE =                 jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
+            JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
 !JTILE=8 !?????????????
 !???            IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
 !???            IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))

@@ -541,7 +541,7 @@ ENDIF
 !                 (Over-write output of SURFSEB)
 
 IF (LDTERRA) THEN
-  DO JT=2,KTILES     ! TERRA goes in tiles 3-8
+  DO JT=3,KTILES     ! TERRA goes in tiles 3-8
  !DO JT=1,KTILES
     DO JL=KIDIA,KFDIA
       IF ( LDLAND(JL) ) THEN

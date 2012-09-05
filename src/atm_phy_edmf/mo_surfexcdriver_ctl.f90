@@ -889,8 +889,8 @@ ENDDO
 !                 BALANCE ROUTINE
 
 !xmk: as a first try turn of the first step SEB 
-!IF (KSTEP == 0) THEN    !???
-IF (0 == 0) THEN 
+IF (KSTEP == 0) THEN    !???
+!IF (0 == 0) THEN 
 !xxx
   IF (LEOCWA .OR. LEOCCO) THEN
     ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)
