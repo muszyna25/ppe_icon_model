@@ -2388,7 +2388,7 @@ CONTAINS
           l_found(:) = .FALSE.
           DO jk1 = jk_start, nlevs_in-1
             DO jc = 1, nlen
-              IF (zalml_in(jc,jk1) >= zpbl1 .OR. zalml_out(jc,jk) >= zpbl1) THEN
+              IF (zalml_out(jc,jk) >= zpbl1) THEN
                 l_found(jc) = .TRUE.
                 ik1(jc)     = jk_start
               ELSE IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
@@ -2688,7 +2688,7 @@ CONTAINS
           l_found(:) = .FALSE.
           DO jk1 = jk_start, nlevs_in-1
             DO jc = 1, nlen
-              IF (zalml_in(jc,jk1) >= zpbl1 .OR. zalml_out(jc,jk) >= zpbl1) THEN
+              IF (zalml_out(jc,jk) >= zpbl1) THEN
                 l_found(jc) = .TRUE.
                 ik1(jc)     = jk_start
               ELSE IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
@@ -2961,7 +2961,7 @@ CONTAINS
           l_found(:) = .FALSE.
           DO jk1 = jk_start, nlevs_in-1
             DO jc = 1, nlen
-              IF (zalml_in(jc,jk1) >= zpbl1 .OR. zalml_out(jc,jk) >= zpbl1) THEN
+              IF (zalml_out(jc,jk) >= zpbl1) THEN
                 l_found(jc) = .TRUE.
                 ik1(jc)     = jk_start
               ELSE IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
