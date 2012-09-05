@@ -959,8 +959,6 @@ CONTAINS
     &                                       tri_idx, lonlat_points, global_idx,                &
     &                                       ithis_local_pts)
 
-    USE MPI
-
     TYPE(t_patch),         INTENT(IN)    :: p_patch
     INTEGER,               INTENT(IN)    :: total_dim
     INTEGER,               INTENT(IN)    :: iv_nproma, iv_nblks

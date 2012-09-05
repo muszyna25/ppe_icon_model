@@ -2325,6 +2325,7 @@ CONTAINS
     ! local variables:
     INTEGER  :: mpi_type(2), mpi_disp(2), mpi_block(2), rextent, min_type, ierr, mintype_op
 
+#ifndef NOMPI
     ! create a user-defined type for MPI allreduce operation:
     mpi_type  = (/ MPI_REAL, MPI_INTEGER /)
     CALL MPI_TYPE_EXTENT(MPI_REAL, rextent, ierr) 
@@ -2340,6 +2341,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_extra1)
     CALL MPI_ALLREDUCE( MPI_IN_PLACE, in, total_dim, min_type, mintype_op, comm, ierr)
     IF (ltimer) CALL timer_stop(timer_extra1)
+#endif
 
   END SUBROUTINE mpi_reduce_mindistance_pts
 
