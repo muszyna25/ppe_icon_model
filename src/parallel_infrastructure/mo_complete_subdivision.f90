@@ -1145,14 +1145,30 @@ CONTAINS
     ENDDO
 
     DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_scal_grf(n)%pelist_send, &
-                  p_patch%comm_pat_interpol_scal_grf(n)%pelist_recv)
+      DEALLOCATE (p_patch%comm_pat_interpol_scal_grf(n)%pelist_send,   &
+                  p_patch%comm_pat_interpol_scal_grf(n)%pelist_recv,   &
+                  p_patch%comm_pat_interpol_scal_grf(n)%send_startidx, &
+                  p_patch%comm_pat_interpol_scal_grf(n)%recv_startidx, &
+                  p_patch%comm_pat_interpol_scal_grf(n)%send_count,    &
+                  p_patch%comm_pat_interpol_scal_grf(n)%recv_count     )
 
       p_patch%comm_pat_interpol_scal_grf(n)%np_send = num_send
       p_patch%comm_pat_interpol_scal_grf(n)%np_recv = num_recv
 
-      ALLOCATE (p_patch%comm_pat_interpol_scal_grf(n)%pelist_send(num_send), &
-                p_patch%comm_pat_interpol_scal_grf(n)%pelist_recv(num_recv))
+      ALLOCATE (p_patch%comm_pat_interpol_scal_grf(n)%pelist_send(num_send),   &
+                p_patch%comm_pat_interpol_scal_grf(n)%pelist_recv(num_recv),   &
+                p_patch%comm_pat_interpol_scal_grf(n)%send_startidx(num_send), &
+                p_patch%comm_pat_interpol_scal_grf(n)%recv_startidx(num_recv), &
+                p_patch%comm_pat_interpol_scal_grf(n)%send_count(num_send),    &
+                p_patch%comm_pat_interpol_scal_grf(n)%recv_count(num_recv)     )
+
+      ! The startidx and count fields are not used for the nest interpolation
+      ! communication, but the fields have to redimensioned here in order to avoid
+      ! segmentation faults in dump/restore mode
+      p_patch%comm_pat_interpol_scal_grf(n)%send_startidx(:) = 0
+      p_patch%comm_pat_interpol_scal_grf(n)%recv_startidx(:) = 0
+      p_patch%comm_pat_interpol_scal_grf(n)%send_count(:) = 0
+      p_patch%comm_pat_interpol_scal_grf(n)%recv_count(:) = 0
     ENDDO
 
     num_send = 0
@@ -1265,14 +1281,30 @@ CONTAINS
     ENDDO
 
     DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_vec_grf(n)%pelist_send, &
-                  p_patch%comm_pat_interpol_vec_grf(n)%pelist_recv)
+      DEALLOCATE (p_patch%comm_pat_interpol_vec_grf(n)%pelist_send,   &
+                  p_patch%comm_pat_interpol_vec_grf(n)%pelist_recv,   &
+                  p_patch%comm_pat_interpol_vec_grf(n)%send_startidx, &
+                  p_patch%comm_pat_interpol_vec_grf(n)%recv_startidx, &
+                  p_patch%comm_pat_interpol_vec_grf(n)%send_count,    &
+                  p_patch%comm_pat_interpol_vec_grf(n)%recv_count     )
 
       p_patch%comm_pat_interpol_vec_grf(n)%np_send = num_send
       p_patch%comm_pat_interpol_vec_grf(n)%np_recv = num_recv
 
-      ALLOCATE (p_patch%comm_pat_interpol_vec_grf(n)%pelist_send(num_send), &
-                p_patch%comm_pat_interpol_vec_grf(n)%pelist_recv(num_recv))
+      ALLOCATE (p_patch%comm_pat_interpol_vec_grf(n)%pelist_send(num_send),   &
+                p_patch%comm_pat_interpol_vec_grf(n)%pelist_recv(num_recv),   &
+                p_patch%comm_pat_interpol_vec_grf(n)%send_startidx(num_send), &
+                p_patch%comm_pat_interpol_vec_grf(n)%recv_startidx(num_recv), &
+                p_patch%comm_pat_interpol_vec_grf(n)%send_count(num_send),    &
+                p_patch%comm_pat_interpol_vec_grf(n)%recv_count(num_recv)     )
+
+      ! The startidx and count fields are not used for the nest interpolation
+      ! communication, but the fields have to redimensioned here in order to avoid
+      ! segmentation faults in dump/restore mode
+      p_patch%comm_pat_interpol_vec_grf(n)%send_startidx(:) = 0
+      p_patch%comm_pat_interpol_vec_grf(n)%recv_startidx(:) = 0
+      p_patch%comm_pat_interpol_vec_grf(n)%send_count(:) = 0
+      p_patch%comm_pat_interpol_vec_grf(n)%recv_count(:) = 0
     ENDDO
 
     num_send = 0
@@ -1412,14 +1444,30 @@ CONTAINS
     ENDDO
 
     DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_scal_ubc(n)%pelist_send, &
-                  p_patch%comm_pat_interpol_scal_ubc(n)%pelist_recv)
+      DEALLOCATE (p_patch%comm_pat_interpol_scal_ubc(n)%pelist_send,   &
+                  p_patch%comm_pat_interpol_scal_ubc(n)%pelist_recv,   &
+                  p_patch%comm_pat_interpol_scal_ubc(n)%send_startidx, &
+                  p_patch%comm_pat_interpol_scal_ubc(n)%recv_startidx, &
+                  p_patch%comm_pat_interpol_scal_ubc(n)%send_count,    &
+                  p_patch%comm_pat_interpol_scal_ubc(n)%recv_count     )
 
       p_patch%comm_pat_interpol_scal_ubc(n)%np_send = num_send
       p_patch%comm_pat_interpol_scal_ubc(n)%np_recv = num_recv
 
-      ALLOCATE (p_patch%comm_pat_interpol_scal_ubc(n)%pelist_send(num_send), &
-                p_patch%comm_pat_interpol_scal_ubc(n)%pelist_recv(num_recv))
+      ALLOCATE (p_patch%comm_pat_interpol_scal_ubc(n)%pelist_send(num_send),   &
+                p_patch%comm_pat_interpol_scal_ubc(n)%pelist_recv(num_recv),   &
+                p_patch%comm_pat_interpol_scal_ubc(n)%send_startidx(num_send), &
+                p_patch%comm_pat_interpol_scal_ubc(n)%recv_startidx(num_recv), &
+                p_patch%comm_pat_interpol_scal_ubc(n)%send_count(num_send),    &
+                p_patch%comm_pat_interpol_scal_ubc(n)%recv_count(num_recv)     )
+
+      ! The startidx and count fields are not used for the nest interpolation
+      ! communication, but the fields have to redimensioned here in order to avoid
+      ! segmentation faults in dump/restore mode
+      p_patch%comm_pat_interpol_scal_ubc(n)%send_startidx(:) = 0
+      p_patch%comm_pat_interpol_scal_ubc(n)%recv_startidx(:) = 0
+      p_patch%comm_pat_interpol_scal_ubc(n)%send_count(:) = 0
+      p_patch%comm_pat_interpol_scal_ubc(n)%recv_count(:) = 0
     ENDDO
 
     num_send = 0
@@ -1532,14 +1580,30 @@ CONTAINS
     ENDDO
 
     DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_vec_ubc(n)%pelist_send, &
-                  p_patch%comm_pat_interpol_vec_ubc(n)%pelist_recv)
+      DEALLOCATE (p_patch%comm_pat_interpol_vec_ubc(n)%pelist_send,   &
+                  p_patch%comm_pat_interpol_vec_ubc(n)%pelist_recv,   &
+                  p_patch%comm_pat_interpol_vec_ubc(n)%send_startidx, &
+                  p_patch%comm_pat_interpol_vec_ubc(n)%recv_startidx, &
+                  p_patch%comm_pat_interpol_vec_ubc(n)%send_count,    &
+                  p_patch%comm_pat_interpol_vec_ubc(n)%recv_count     )
 
       p_patch%comm_pat_interpol_vec_ubc(n)%np_send = num_send
       p_patch%comm_pat_interpol_vec_ubc(n)%np_recv = num_recv
 
-      ALLOCATE (p_patch%comm_pat_interpol_vec_ubc(n)%pelist_send(num_send), &
-                p_patch%comm_pat_interpol_vec_ubc(n)%pelist_recv(num_recv))
+      ALLOCATE (p_patch%comm_pat_interpol_vec_ubc(n)%pelist_send(num_send),   &
+                p_patch%comm_pat_interpol_vec_ubc(n)%pelist_recv(num_recv),   &
+                p_patch%comm_pat_interpol_vec_ubc(n)%send_startidx(num_send), &
+                p_patch%comm_pat_interpol_vec_ubc(n)%recv_startidx(num_recv), &
+                p_patch%comm_pat_interpol_vec_ubc(n)%send_count(num_send),    &
+                p_patch%comm_pat_interpol_vec_ubc(n)%recv_count(num_recv)     )
+
+      ! The startidx and count fields are not used for the nest interpolation
+      ! communication, but the fields have to redimensioned here in order to avoid
+      ! segmentation faults in dump/restore mode
+      p_patch%comm_pat_interpol_vec_ubc(n)%send_startidx(:) = 0
+      p_patch%comm_pat_interpol_vec_ubc(n)%recv_startidx(:) = 0
+      p_patch%comm_pat_interpol_vec_ubc(n)%send_count(:) = 0
+      p_patch%comm_pat_interpol_vec_ubc(n)%recv_count(:) = 0
     ENDDO
 
     num_send = 0
