@@ -1138,12 +1138,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
-        ! &      diag%h_ice(nproma,nblks_c)
-        cf_desc    = t_cf_var('h_ice', 'm','ice thickness', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(10, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'h_ice', diag%h_ice,                         &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
 !tiled quantities
         ! &      diag%shfl_s_t(nproma,nblks_c,ntiles_total)
         cf_desc    = t_cf_var('SHFL_S_T', 'W m-2 ', 'tile-based surface sensible heat flux', &

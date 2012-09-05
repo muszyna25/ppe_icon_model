@@ -161,7 +161,8 @@ CONTAINS
       nlists_water = 0
     ELSE
       ! extra tiles for water points
-      ntiles_water = 1 ! currently one for lake and ocean points; will be increased to 2
+      ntiles_water = 2 
+!      ntiles_water = 1 ! currently one for lake and ocean points; will be increased to 2
                        ! when sea ice model becomes active
       nlists_water = 2 ! currently one for lake and ocean points; will be increased to 3 
                        ! when sea ice model becomes active

@@ -36,6 +36,8 @@
 MODULE mo_nwp_sfc_utils
 
   USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: message, message_text
+  USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -52,6 +54,8 @@ MODULE mo_nwp_sfc_utils
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_seaice_nwp,          ONLY: frsi_min
+  USE mo_sync,                ONLY: global_sum_array
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
   
   IMPLICIT NONE 
@@ -70,9 +74,9 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: nwp_surface_init
   PUBLIC :: diag_snowfrac_tg
   PUBLIC :: aggregate_landvars
-  PUBLIC :: update_index_lists
+  PUBLIC :: update_idx_lists_lnd
+  PUBLIC :: update_idx_lists_sea
   PUBLIC :: init_snowtile_lists
-  PUBLIC :: update_index_lists_sea
   PUBLIC :: init_seaice_lists
 
 CONTAINS
@@ -299,7 +303,7 @@ CONTAINS
         DO isubs = 1, ntiles_lnd
           isubs_snow = isubs + ntiles_lnd
 
-          CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+          CALL update_idx_lists_lnd (idx_lst_lp       = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
                                    lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
                                    idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
                                    gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
@@ -473,7 +477,7 @@ CONTAINS
 
           isubs_snow = isubs + ntiles_lnd
 
-          CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+          CALL update_idx_lists_lnd (idx_lst_lp       = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
                                    lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
                                    idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
                                    gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
@@ -543,13 +547,14 @@ CONTAINS
       ! 
       IF ( lseaice ) THEN
 
+
         icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
 
         DO ic = 1, icount_ice
 
           jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-          frsi     (ic) = ext_data%atm%fr_ice(jc,jb)
+          frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
           tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
           hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
           tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
@@ -893,7 +898,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jb,isubs,i_count,isubs_snow
+    INTEGER :: jb,isubs,i_count,isubs_snow
 
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -919,7 +924,7 @@ CONTAINS
 
         IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-        CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+        CALL update_idx_lists_lnd (idx_lst_lp       = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
                                  lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
                                  idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
                                  gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &
@@ -944,31 +949,47 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Driver routine to (re-)initialize the sea-ice and open water 
-  !! index lists in the case of a restart
+  !! Initialize the sea-ice and open water index lists for restart and 
+  !! non-restart runs. Seaice and open water points sre distinguished 
+  !! based on fr_seaice which is provided by analysis.
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD (2012-08-03)
   !!
-  SUBROUTINE init_seaice_lists(p_patch, ext_data, p_prog_wtr_now)
+  SUBROUTINE init_seaice_lists(p_patch, ext_data, p_lnd_diag)
 
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !<grid/patch info.
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !< grid/patch info.
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_wtr_prog)     , INTENT(IN)    :: p_prog_wtr_now !< prognostic wtr state
+    TYPE(t_lnd_diag)     , INTENT(IN)    :: p_lnd_diag     !< diag vars for sfc
     
     ! Local array bounds:
     
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
-    INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< number of child domains
 
     ! Local scalars:
+    !
+    INTEGER :: jb, ic, jc
+    INTEGER :: jg
+    INTEGER :: jt1, jt2
+    INTEGER :: i_count_sea, i_count_ice, i_count_water
+    INTEGER :: npoints_ice, npoints_wtr
 
-    INTEGER :: jb,i_count
-
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
 !-------------------------------------------------------------------------
 
+    ! index for seaice tile (sanity check, may be removed lateron)
+    IF ( ntiles_water==2 ) THEN
+      jt1  = ntiles_total + ntiles_water - 1
+      jt2  = ntiles_total + ntiles_water
+    ELSE
+      CALL finish(TRIM(routine), 'requires ntiles_water=2')
+    ENDIF
+
+
+    ! patch ID
+    jg = p_patch%id
 
     i_nchdom = MAX(1,p_patch%n_childdom)
 
@@ -980,29 +1001,76 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,i_count), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,ic,jc,i_count_sea,i_count_ice,i_count_water), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
 
 
-        i_count = ext_data%atm%sp_count(jb)
+       ! Init sub-index lists for sea points. We distinguish between sea-water 
+       ! (i.e. ice free) points and sea-ice points. diag_lnd%fr_seaice is used 
+       ! to distinguish between sea-water and sea-ice points.
+       ! Needed by sea-ice model
+       !
+       i_count_sea   = ext_data%atm%sp_count(jb)
+       i_count_ice   = 0
+       i_count_water = 0
 
-        IF (i_count == 0) CYCLE ! skip loop if the index list for the given block is empty
+       IF (i_count_sea == 0) CYCLE ! skip loop if the index list for the given block is empty
 
-        CALL update_index_lists_sea (hice_n      = p_prog_wtr_now%h_ice(:,jb),     &
-          &                          idx_lst_sp  = ext_data%atm%idx_lst_sp(:,jb),  &
-          &                          sp_count    = ext_data%atm%sp_count(jb),      &
-          &                          idx_lst_spw = ext_data%atm%idx_lst_spw(:,jb), &
-          &                          spw_count   = ext_data%atm%spw_count(jb),     &
-          &                          idx_lst_spi = ext_data%atm%idx_lst_spi(:,jb), &
-          &                          spi_count   = ext_data%atm%spi_count(jb)      )
+!CDIR NODEP,VOVERTAKE,VOB
+       DO ic = 1, i_count_sea
+
+         jc = ext_data%atm%idx_lst_sp(ic,jb)
 
 
-    ENDDO    
+         !
+         ! seaice point
+         !
+         IF ( p_lnd_diag%fr_seaice(jc,jb) >= frsi_min ) THEN
+           i_count_ice = i_count_ice + 1
+           ext_data%atm%idx_lst_spi(i_count_ice,jb) = jc
+           ext_data%atm%spi_count(jb)               = i_count_ice
+           ! set land-cover class
+           ext_data%atm%lc_class_t(jc,jb,jt2) = ext_data%atm%i_lc_snow_ice
+           ! set also area fractions (copy from water tile)
+           ext_data%atm%lc_frac_t(jc,jb,jt2)  = ext_data%atm%lc_frac_t(jc,jb,jt1)
+         ENDIF
+
+         !
+         ! water point: all sea points with fr_ice < 1
+         !
+         IF ( p_lnd_diag%fr_seaice(jc,jb) < 1._wp ) THEN
+           i_count_water = i_count_water + 1
+           ext_data%atm%idx_lst_spw(i_count_water,jb) = jc
+           ext_data%atm%spw_count(jb)                 = i_count_water
+         ENDIF
+
+         ! Initialize frac_t with lc_frac_t
+!DR         !!!!! this can only be activated, once the turbulence interface has been 
+!DR         !!!!! adapted.
+         ext_data%atm%frac_t(jc,jb,jt1)  = ext_data%atm%lc_frac_t(jc,jb,jt1) !&
+!           &                                 * (1._wp - p_lnd_diag%fr_seaice(jc,jb))
+         ext_data%atm%frac_t(jc,jb,jt2)  = ext_data%atm%lc_frac_t(jc,jb,jt2) &
+           &                                 * p_lnd_diag%fr_seaice(jc,jb)
+
+       ENDDO  ! ic 
+
+    ENDDO  ! jb    
 !$OMP END DO
 !$OMP END PARALLEL
+
+
+       ! Some diagnostics
+       npoints_ice = SUM(ext_data%atm%spi_count(i_startblk:i_endblk))
+       npoints_ice = global_sum_array(npoints_ice)
+       npoints_wtr = SUM(ext_data%atm%spw_count(i_startblk:i_endblk))
+       npoints_wtr = global_sum_array(npoints_wtr)
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of seaice points in domain',jg, &
+         &  ':',npoints_ice
+       CALL message('', TRIM(message_text))
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in domain',jg, &
+         &  ':',npoints_wtr
+       CALL message('', TRIM(message_text))
 
   END SUBROUTINE init_seaice_lists
 
@@ -1461,8 +1529,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD (2012-07-01)
   !!
-  SUBROUTINE update_index_lists (idx_lst_lp, lp_count, idx_lst, gp_count, idx_lst_snow, gp_count_snow,  &
-     lc_frac, partial_frac, partial_frac_snow, snowtile_flag, snowtile_flag_snow, snowfrac)
+  SUBROUTINE update_idx_lists_lnd (idx_lst_lp, lp_count, idx_lst, gp_count, idx_lst_snow, &
+    &             gp_count_snow, lc_frac, partial_frac, partial_frac_snow, snowtile_flag, &
+    &             snowtile_flag_snow, snowfrac)
 
 
     INTEGER ,    INTENT(   IN) ::  &   !< static list of all land points of a tile index
@@ -1563,7 +1632,7 @@ CONTAINS
     gp_count = icount
     gp_count_snow = icount_snow
 
-  END SUBROUTINE update_index_lists
+  END SUBROUTINE update_idx_lists_lnd
 
 
 
@@ -1583,15 +1652,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Reinert (2012-08-31)
   !!
-  SUBROUTINE update_index_lists_sea (hice_n, idx_lst_sp, sp_count, idx_lst_spw, &
-    &                                spw_count, idx_lst_spi, spi_count          )
+  SUBROUTINE update_idx_lists_sea (hice_n, idx_lst_spw, spw_count, idx_lst_spi, &
+    &                              spi_count, lc_frac, partial_frac_ice,        &
+    &                              partial_frac_water, fr_seaice )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea ice depth at new time level  [m]
       &  hice_n(:)                     !< dim: (nproma)
-
-    INTEGER ,    INTENT(INOUT) ::  &   !< Static sea point index list 
-      &  idx_lst_sp(:), sp_count       !< and corresponding grid point counts
 
     INTEGER ,    INTENT(INOUT) ::  &   !< dynamic sea water point index list 
       &  idx_lst_spw(:), spw_count     !< and corresponding grid point counts
@@ -1600,39 +1667,75 @@ CONTAINS
     INTEGER ,    INTENT(INOUT) ::  &   !< dynamic sea ice point index list 
       &  idx_lst_spi(:), spi_count     !< and corresponding grid point counts
 
+    REAL(wp),    INTENT(IN)    ::  &   !< area fraction of water class
+      &  lc_frac(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< ice-covered and ice-free ocean area fraction
+      &  partial_frac_ice(:), partial_frac_water(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< seaice fraction
+      &  fr_seaice(:)
+
     ! Local variables
+    INTEGER, DIMENSION(SIZE(idx_lst_spi,1)) :: &
+      &   idx_lst_spi_old       !< seaice index list local copy               
     INTEGER  :: ic, jc          !< loop indices
     INTEGER  :: icount_water    !< counter for water (i.e. ice-free) points
     INTEGER  :: icount_ice      !< counter for sea-ice points
-
+    INTEGER  :: spi_count_old   !< current seaice grid point count
     !-------------------------------------------------------------------------
 
 
-    !
-    ! Update index lists of sea-ice and open water (i.e. ice-free) points
-    !
-
-    icount_water = 0
+    icount_water = spw_count
     icount_ice   = 0
 
+    ! save old seaice index list and grid point count
+    idx_lst_spi_old(:) = idx_lst_spi(:)
+    spi_count_old      = spi_count
 
-    DO ic = 1, sp_count
-      jc = idx_lst_sp(ic)
+    ! re-initialize
+    idx_lst_spi(:) = 0
+    spi_count      = 0
 
-      IF ( hice_n(jc) <= hice_min ) THEN   ! water point
-        icount_water = icount_water + 1
-        idx_lst_spw(icount_water) = jc
-        spw_count = icount_water
-      ELSE                                 ! sea ice point
+
+    !
+    ! update index list for sea-ice and open water
+    !
+    ! Since the current seaice model does not allow for new seaice points to be 
+    ! created during model integration, the number of seaice points can only 
+    ! decrease with time. I.e. seaice points may be converted into water points, 
+    ! but not vice versa. 
+    !
+    ! Loop over seaice-points, only
+!CDIR NODEP,VOVERTAKE,VOB
+    DO ic = 1, spi_count_old
+      jc = idx_lst_spi_old(ic)
+
+      IF ( hice_n(ic) >= hice_min )  THEN ! still seaice point
         icount_ice = icount_ice + 1
         idx_lst_spi(icount_ice) = jc
         spi_count = icount_ice
+      ELSE                          ! seaice point has turned into water point
+        ! Check whether we need to initialize a new water tile, or whether a water tile 
+        ! already exists for the given point:
+        IF ( fr_seaice(jc) == 1._wp ) THEN   ! water tile does not exist for given point
+          ! add new water tile to water-points index list and initialize
+          icount_water = icount_water + 1
+          idx_lst_spw(icount_water) = jc
+          spw_count = icount_water 
+          ! Initialize sea surface temperature
+          ! TO BE CODED
+        ENDIF
+
+        fr_seaice(jc) = 0._wp        ! reset fr_seaice
+        partial_frac_water(jc) = lc_frac(jc) * (1._wp - fr_seaice(jc))
+        partial_frac_ice(jc)   = lc_frac(jc) * fr_seaice(jc)
       ENDIF
+
     ENDDO  ! ic
 
-    !do we need to set fr_ice=0, for sea-ice points that turned to open water points?
- 
-  END SUBROUTINE update_index_lists_sea
+
+  END SUBROUTINE update_idx_lists_sea
 
 END MODULE mo_nwp_sfc_utils
 

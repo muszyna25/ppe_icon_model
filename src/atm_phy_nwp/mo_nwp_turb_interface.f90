@@ -48,22 +48,21 @@ MODULE mo_nwp_turb_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc
+  USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: alv, rd_o_cpd, grav
+  USE mo_physical_constants,   ONLY: rd_o_cpd, grav
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params 
-  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: turbtran, turbdiff
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
@@ -87,7 +86,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                           & p_prog,                            & !>inout
                           & p_prog_now_rcf, p_prog_rcf,        & !>in/inout
                           & p_diag ,                           & !>inout
-                          & prm_diag, prm_nwp_tend,            & !>inout 
+                          & prm_diag, prm_nwp_tend,            & !>inout
+                          & wtr_prog_now,                      & !>in 
                           & lnd_prog_now, lnd_prog_new,        & !>inout 
                           & lnd_diag                           ) !>inout
 
@@ -101,6 +101,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
+  TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
@@ -303,7 +304,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,           &
           & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                    &
           & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),           &
-          & sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice(:,jb), ps=p_diag%pres_sfc(:,jb),       &
+          & sai=prm_diag%sai(:,jb), h_ice=wtr_prog_now%h_ice(:,jb), ps=p_diag%pres_sfc(:,jb),   &
           & t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                               &
           & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                         &
           & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                                     &
@@ -463,7 +464,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                    &
          &  dp0=p_diag%dpres_mc(:,:,jb),                                                        &
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),           &
-         &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb),                                &
+         &  sai=prm_diag%sai(:,jb), h_ice=wtr_prog_now%h_ice (:,jb),                            &
          &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),     &
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb),  &
          &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),                 &

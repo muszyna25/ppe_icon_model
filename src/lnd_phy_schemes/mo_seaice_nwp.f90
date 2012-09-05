@@ -377,12 +377,12 @@ CONTAINS
 
   SUBROUTINE seaice_timestep_nwp (                                      &
                               &  dtime,                                 &
-                              &  nsigb,                                 &
+                              &  nproma, nsigb,                         &
                               &  qsen, qlat, qlwrnet, qsolnet,          &
                               &  tice_p, hice_p, tsnow_p, hsnow_p,      &
                               &  tice_n, hice_n, tsnow_n, hsnow_n,      &
-                              &  dticedt, dhicedt, dtsnowdt, dhsnowdt   &
-                              &  )
+                              &  opt_dticedt, opt_dhicedt, opt_dtsnowdt,&
+                              &  opt_dhsnowdt                           )
 
     IMPLICIT NONE
 
@@ -392,9 +392,11 @@ CONTAINS
                          &  dtime  !< model time step [s]
 
     INTEGER, INTENT(IN) ::        &
-                        &  nsigb  !< Array (vector) dimension
-                                  !< (equal to the number of grid boxes within a block 
-                                  !< where the sea ice is present) 
+                        &  nproma !< Array (vector) dimension
+
+    INTEGER, INTENT(IN) ::        &
+                        &  nsigb  !< number of grid boxes within a block 
+                                  !< where the sea ice is present 
 
     REAL(wp), DIMENSION(:), INTENT(IN) ::           & 
                                            &  qsen    , &  !< sensible heat flux at the surface [W/m^2]
@@ -414,11 +416,11 @@ CONTAINS
                                             &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
                                             &  hsnow_n      !< snow thickness at new time level [m] 
 
-    REAL(wp), DIMENSION(:), INTENT(OUT), OPTIONAL ::            &
-                                            &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
-                                            &  dhicedt , &  !< time tendency of ice thickness [m/s] 
-                                            &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
-                                            &  dhsnowdt     !< time tendency of snow thickness [m/s] 
+    REAL(wp), DIMENSION(:), INTENT(OUT), OPTIONAL ::         &
+                                            &  opt_dticedt , &  !< time tendency of ice surface temperature [K/s] 
+                                            &  opt_dhicedt , &  !< time tendency of ice thickness [m/s] 
+                                            &  opt_dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
+                                            &  opt_dhsnowdt     !< time tendency of snow thickness [m/s] 
 
     ! Derived parameters 
     ! (combinations of physical constants encountered several times in the code)
@@ -431,6 +433,11 @@ CONTAINS
                          &  ci_o_alf     = ci/alf        
 
     ! Local variables 
+    REAL(wp), DIMENSION(nproma) :: &
+                                &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
+                                &  dhicedt , &  !< time tendency of ice thickness [m/s] 
+                                &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
+                                &  dhsnowdt     !< time tendency of snow thickness [m/s] 
 
     INTEGER ::      &
             &  isi  !< DO loop index
@@ -455,6 +462,7 @@ CONTAINS
     !===============================================================================================
     !  Start calculations
     !-----------------------------------------------------------------------------------------------
+
 
     ! Reciprocal of the time step 
     r_dtime = 1._wp/dtime
@@ -574,6 +582,20 @@ CONTAINS
 
     END DO GridBoxesWithSeaIce
 
+
+    IF (PRESENT(opt_dticedt)) THEN
+      opt_dticedt(:) = dticedt(:)
+    ENDIF
+    IF (PRESENT(opt_dhicedt)) THEN
+      opt_dhicedt(:) = dhicedt(:)
+    ENDIF
+    IF (PRESENT(opt_dtsnowdt)) THEN
+      opt_dtsnowdt(:) = dtsnowdt(:)
+    ENDIF
+    IF (PRESENT(opt_dhsnowdt)) THEN
+      opt_dhsnowdt(:) = dhsnowdt(:)
+    ENDIF
+ 
     !-----------------------------------------------------------------------------------------------
     !  End calculations
     !===============================================================================================

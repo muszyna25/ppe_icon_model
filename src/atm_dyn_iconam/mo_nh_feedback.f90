@@ -670,7 +670,6 @@ IF (.NOT. l_parallel) THEN
       p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
-!DR    DO jt = 1, ntiles+1, ntiles+ntiles_water   ! to me this looks incorrect!
     DO jt = ntiles+1, ntiles+ntiles_h2o
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
@@ -922,7 +921,6 @@ ENDIF
       p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so_t(i_startidx:i_endidx,2,jb,jt) + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
-!DR    DO jt = 1, ntiles+1, ntiles+ntiles_water   ! to me this looks incorrect !
     DO jt = ntiles+1, ntiles+ntiles_h2o
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)

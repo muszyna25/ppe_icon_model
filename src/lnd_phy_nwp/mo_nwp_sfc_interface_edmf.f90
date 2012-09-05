@@ -55,7 +55,7 @@ MODULE mo_nwp_sfc_interface_edmf
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
-  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_index_lists
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
 
@@ -781,7 +781,7 @@ endif
            frac_snow_sv(:) = ext_data%atm%frac_t(:,jb,isubs_snow)
 
            ! update index lists for snow tiles
-           CALL update_index_lists (idx_lst_lp         = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
+           CALL update_idx_lists_lnd (idx_lst_lp       = ext_data%atm%idx_lst_lp_t(:,jb,isubs),         &
                                     lp_count           = ext_data%atm%lp_count_t(jb,isubs),             &
                                     idx_lst            = ext_data%atm%idx_lst_t(:,jb,isubs),            &
                                     gp_count           = ext_data%atm%gp_count_t(jb,isubs),             &

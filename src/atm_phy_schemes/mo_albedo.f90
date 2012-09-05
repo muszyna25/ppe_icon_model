@@ -55,7 +55,7 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, lseaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
@@ -112,6 +112,7 @@ CONTAINS
     INTEGER :: i_count_lnd             !< number of land points
     INTEGER :: i_count_sea             !< number of sea points
     INTEGER :: i_count_flk             !< number of lake points
+    INTEGER :: i_count_seaice          !< number of seaice points
 
     !-----------------------------------------------------------------------
 
@@ -127,7 +128,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jc,i_startidx,i_endidx,jt,ist,zvege,zsnow, &
-!$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea,    &
+!$OMP            i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -165,6 +167,7 @@ CONTAINS
         ENDDO
 
 
+
         !
         ! 2. Consider lake points (no tiles)
         !
@@ -187,8 +190,9 @@ CONTAINS
         ENDDO
 
 
+
         !
-        ! 3. Consider land points only (may have tiles)
+        ! 4. Consider land points only (may have tiles)
         !
         ! - loop over surface tiles
         ! - note that different grid points may have different numbers 
@@ -241,6 +245,27 @@ CONTAINS
           ENDDO
 
         ENDDO  !ntiles
+
+
+        !
+        ! Consider seaice points  (with tile approach)
+        !
+        IF ( (lseaice) .AND. (ntiles_total>1) ) THEN
+          !
+          ! - loop over seaice points
+          !
+          i_count_seaice = ext_data%atm%spi_count(jb)
+          jt = ntiles_total + ntiles_water
+
+          DO ic = 1, i_count_seaice
+            jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+            ist = 10
+
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+        ENDIF
+
 
 
         !

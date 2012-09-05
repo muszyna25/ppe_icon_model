@@ -647,6 +647,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !< call for surface initialization
   !------------------------------------------
 
+  IF ( lseaice ) THEN
+     ! for both restart and non-restart runs. could not be included into 
+     ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
+     CALL init_seaice_lists(p_patch, ext_data, p_diag_lnd)
+  ENDIF
+
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
       &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd)
@@ -654,10 +660,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     IF ( lsnowtile ) THEN
       CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
-    ENDIF
-
-    IF ( lseaice ) THEN
-      CALL init_seaice_lists(p_patch, ext_data, p_prog_wtr_now)
     ENDIF
   END IF
 
@@ -764,7 +766,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-         &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
+         &  sai=prm_diag%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !
@@ -795,7 +797,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-         &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
+         &  sai=prm_diag%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !

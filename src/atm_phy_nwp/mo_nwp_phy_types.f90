@@ -205,7 +205,6 @@ MODULE mo_nwp_phy_types
       eai(:,:),            & !! (evaporative) earth area index                ( 1 )
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
       tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
-      h_ice(:,:),          & !! ice thickness                                 (  m  )
       t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
       t_2m_s6avg(:,:),     & !! 6 hourly sample 2 m temperature average       (  K  )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
