@@ -4846,6 +4846,7 @@ SUBROUTINE terra_multlay_init (                &
 !---------------------
 
 #ifdef __ICON__
+  IF (msg_level >= 14) THEN
         DO i = istarts, iends
              IF (w_snow_now(i) > 2.410E-003 .AND. w_snow_now(i) < 2.411E-003 ) THEN
               write(0,*) "SFC-DIAGNOSIS TERRA INIT",i
@@ -4856,6 +4857,7 @@ SUBROUTINE terra_multlay_init (                &
               write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
            END IF
          END DO
+  ENDIF
 #endif
 
 ! End of timestep 0 preparations
