@@ -68,8 +68,11 @@ MODULE mo_gnat_gridsearch
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id, &
-    &                               p_comm_work, my_process_is_mpi_test, p_max
+  USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id,                         &
+    &                               p_comm_work, my_process_is_mpi_test, p_max,           &
+    &                               p_send, p_recv,                                       &
+    &                               process_mpi_all_test_id, process_mpi_all_workroot_id
+  USE mo_parallel_config,     ONLY: p_test_run
   USE mo_kind
   USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_communication,       ONLY: idx_1d
@@ -116,7 +119,8 @@ MODULE mo_gnat_gridsearch
   TYPE  t_coord
     REAL(gk)                    :: p (icoord_dim)
     REAL(gk)                    :: sin_p, cos_p ! sin/cos of latitude
-    INTEGER                     :: idx(2) ! dimensions: (idx,blk)
+    INTEGER                     :: idx(3)  ! dimensions: (idx,blk,glb_idx)
+    ! (where global index is required for "equal distance decisions") 
   END TYPE t_coord
 
   !> tree structure based on generalized hyperplanes
@@ -272,7 +276,7 @@ CONTAINS
   SUBROUTINE gnat_insert(tree, p, idx, free_node, lcomplete, count_dist)
     INTEGER,         INTENT(INOUT) :: tree ! index pointer
     REAL(gk),        INTENT(IN)    :: p(icoord_dim)
-    INTEGER,         INTENT(IN)    :: idx(2)
+    INTEGER,         INTENT(IN)    :: idx(3)
     INTEGER,         INTENT(INOUT) :: free_node
     LOGICAL,         INTENT(OUT)   :: lcomplete
     INTEGER,         INTENT(INOUT) :: count_dist ! counter: distance calculations
@@ -344,7 +348,7 @@ CONTAINS
     REAL(gk),          INTENT(IN)    :: v(icoord_dim)
     REAL(gk),          INTENT(IN)    :: r
     REAL(gk),          INTENT(INOUT) :: min_dist
-    INTEGER,           INTENT(INOUT) :: min_node_idx(2)
+    INTEGER,           INTENT(INOUT) :: min_node_idx(:)
     INTEGER,           INTENT(INOUT) :: count_dist ! counter: distance calculations
     ! local variables
     LOGICAL                          :: pflag(gnat_k)
@@ -381,15 +385,15 @@ CONTAINS
         dist_vp = dist(tree%p(ip), v)
         count_dist = count_dist + 1
 #endif
+
         IF (dist_vp <= r) THEN
           IF (dist_vp < min_dist) THEN
             min_dist = dist_vp
-            min_node_idx(1:2) = tree%p(ip)%idx(1:2)
+            min_node_idx = tree%p(ip)%idx
           ELSE IF (dist_vp == min_dist) THEN
-            IF ((min_node_idx(2) > tree%p(ip)%idx(2)) .OR.  &
-              & ((min_node_idx(2) == tree%p(ip)%idx(2)) .AND. (min_node_idx(1) > tree%p(ip)%idx(1)))) THEN
+            IF (min_node_idx(3) > tree%p(ip)%idx(3)) THEN
               min_dist = dist_vp
-              min_node_idx(1:2) = tree%p(ip)%idx(1:2)
+              min_node_idx = tree%p(ip)%idx
             END IF
           END IF
         END IF
@@ -425,14 +429,14 @@ CONTAINS
     REAL(gk),      INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim)    ! search point
     REAL(gk),      INTENT(IN)    :: rr                   ! initial search radius
     REAL(gk),      INTENT(INOUT) :: min_dist(iv_nproma, iv_nblks)         ! minimal distance
-    INTEGER,       INTENT(INOUT) :: min_node_idx(iv_nproma, iv_nblks,2)   ! corresponding node
+    INTEGER,       INTENT(INOUT) :: min_node_idx(iv_nproma, iv_nblks,3)   ! corresponding node
     INTEGER,       INTENT(INOUT) :: count_dist           ! counter: distance calculations
     ! local parameters
     INTEGER                      :: jb, jc, end_idx      ! block, index loop counter
     REAL(gk)                     :: r2, r, min_dist_old
     REAL(gk)                     :: p_old(icoord_dim), p_new(icoord_dim)
     REAL(gk)                     :: vmin_dist
-    INTEGER                      :: vmin_node_idx(2)
+    INTEGER                      :: vmin_node_idx(3)
 
     ! Description:
 
@@ -450,7 +454,6 @@ CONTAINS
     min_node_idx(:,istart:istart+iv-1,1) = INVALID_NODE
 
     DO jb=istart, istart+iv-1
-
       ! set end index in current block:
       end_idx = iv_nproma
       IF (jb == iv_nblks) THEN
@@ -483,7 +486,7 @@ CONTAINS
           &                       vmin_dist, vmin_node_idx(:), &
           &                       count_dist)
         min_dist(jc,jb)         = vmin_dist
-        min_node_idx(jc,jb,1:2) = vmin_node_idx(1:2)
+        min_node_idx(jc,jb,:)   = vmin_node_idx(:)
 
         p_old(1:icoord_dim)     = p_new(1:icoord_dim)
         min_dist_old            = vmin_dist
@@ -513,11 +516,11 @@ CONTAINS
     ! reordering parameter (for permuting points before insertion):
     INTEGER, PARAMETER :: nstrides = 7
     INTEGER                    :: root ! index pointer 
-    INTEGER                    :: idx(2,nproc), work(nproc), depth(nproc)
+    INTEGER                    :: idx(3,nproc), work(nproc), depth(nproc)
     INTEGER                    :: node_proc(nproc) ! index pointer
     INTEGER                    :: free_node(nproc) ! short list of available nodes
     REAL(gk)                   :: p(icoord_dim,nproc)
-    INTEGER                    :: j, new_idx(2), jb, jc
+    INTEGER                    :: j, new_idx(3), jb, jc
     INTEGER                    :: iproc
     LOGICAL                    :: lcomplete
     TYPE (t_geographical_coordinates) :: pcoord
@@ -545,7 +548,7 @@ CONTAINS
     count_dist = 1
 
     ! create a 1D list of cell indices:
-    ALLOCATE(cell_indices(2,p_patch%n_patch_cells), &
+    ALLOCATE(cell_indices(3,p_patch%n_patch_cells), &
       &      permutation(p_patch%n_patch_cells),STAT=errstat)
     IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
     ntotal = 0
@@ -556,10 +559,10 @@ CONTAINS
         &                rl_start, rl_end)
       DO jc=i_startidx,i_endidx
         IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
-
         ntotal = ntotal + 1
         cell_indices(1,ntotal) = jc
         cell_indices(2,ntotal) = jb
+        cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
       END DO
     END DO
     icount = 0
@@ -587,7 +590,7 @@ CONTAINS
     tree_depth   =  0  ! maximum tree depth
     free_node(:) = UNASSOCIATED
     icount       =  0
-    new_idx(1:2) = cell_indices(1:2,permutation(1))    
+    new_idx(:)   = cell_indices(:,permutation(1))    
     
     ! Short description of parallel processing:
 
@@ -646,11 +649,11 @@ CONTAINS
         ! insert next point for this proc
         icount = icount + 1
         IF (icount <= ntotal) THEN 
-          new_idx(1:2) = cell_indices(1:2,permutation(icount))
+          new_idx(:)   = cell_indices(:,permutation(icount))
           pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
           p(1,j)       = REAL( pcoord%lon, gk)
           p(2,j)       = REAL( pcoord%lat, gk)
-          idx(1:2,j)   = new_idx(1:2)
+          idx(:,j)     = new_idx(:)
           work(j)      = work(j) + 1
           tree_depth   = MAX(tree_depth, depth(j))
           depth(j)     = 0
@@ -708,7 +711,7 @@ CONTAINS
     INTEGER,            INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz     ! list size
     REAL(gk),           INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim) ! list of search points
     REAL(gk),           INTENT(INOUT) :: min_dist(iv_nproma, iv_nblks)      ! minimal distance
-    INTEGER,            INTENT(INOUT) :: min_node_idx(iv_nproma, iv_nblks,2)! corresponding node
+    INTEGER,            INTENT(INOUT) :: min_node_idx(iv_nproma, iv_nblks,3)! corresponding node
     INTEGER,            INTENT(INOUT) :: count_dist           ! counter: distance calculations
     LOGICAL,            INTENT(IN)    :: ladapt_radius
     REAL(gk), OPTIONAL, INTENT(IN)    :: opt_rr                   ! opt. search radius
@@ -719,7 +722,7 @@ CONTAINS
     &                                    end_idx, nqueries
     REAL(gk)                          :: r                    ! search radius
     REAL(gk)                          :: vmin_dist
-    INTEGER                           :: vmin_node_idx(2)
+    INTEGER                           :: vmin_node_idx(3)
 
     IF (PRESENT(opt_rr)) THEN
       r = opt_rr
@@ -750,7 +753,6 @@ CONTAINS
     END IF
 
 !$OMP END PARALLEL
-
     ! for all failed queries (if there are any) repeat query with a
     ! larger search radius:
     IF (.NOT. ladapt_radius) RETURN
@@ -781,7 +783,7 @@ CONTAINS
             CALL gnat_recursive_query(tree, v(jc,jb,:), r,     &
               &                       vmin_dist, vmin_node_idx(:), count_dist)
             min_dist(jc,jb)         = vmin_dist
-            min_node_idx(jc,jb,1:2) = vmin_node_idx(1:2)
+            min_node_idx(jc,jb,:)   = vmin_node_idx(:)
           END IF
         END DO
       END DO
@@ -981,7 +983,7 @@ CONTAINS
     ! 1. Perform an MPI_ALLREDUCE operation with the min_dist vector
     !    to find out which process is in charge of which in_point
 
-    in(:)%rdist = RESHAPE(REAL(min_dist(:,:)), (/ total_dim /) )
+    in(:)%rdist = RESHAPE(min_dist(:,:), (/ total_dim /) )
     in(:)%owner = my_id
     IF (p_patch%n_patch_cells == 0) in(:)%owner = -1;
     in(:)%glb_index = -1
@@ -1019,6 +1021,7 @@ CONTAINS
           new_lonlat_points(j,1:2) = lonlat_points(jc,jb,1:2)
         END IF
       END IF
+
     END DO
 
     ! now, j points are left for proc "get_my_mpi_work_id()"
@@ -1050,7 +1053,7 @@ CONTAINS
     TYPE (t_grid_vertices), POINTER  :: verts
     INTEGER                     :: i_nv
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_query_containing_triangles")
-    INTEGER                :: min_node_idx(iv_nproma, iv_nblks, 2)  ! corresponding GNAT nodes
+    INTEGER                :: min_node_idx(iv_nproma, iv_nblks, 3)  ! corresponding GNAT nodes
     INTEGER                :: count_dist                            ! counter: distance calculations
 
     INTEGER                :: jb, jc, j, k, i_nb,  &
@@ -1096,6 +1099,15 @@ CONTAINS
       & /grid_sphere_radius, gk)
     ! for MPI-independent behaviour: determine global max. of search radii
     radius = p_max(radius, comm=p_comm_work)
+    IF(p_test_run) THEN
+      IF(.NOT. my_process_is_mpi_test()) THEN
+        ! Send to test PE
+        CALL p_send(radius, process_mpi_all_test_id, 1)
+      ELSE
+        ! Receive result from parallel worker PEs
+        CALL p_recv(radius, process_mpi_all_workroot_id, 1)
+      END IF
+    END IF
 
     ! query list of nearest neighbors
     ! TODO[FP] : For some test cases it might be reasonable to enable

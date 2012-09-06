@@ -230,9 +230,9 @@ MODULE mo_icon_comm_lib
   !  subroutine "mpi_reduce_mindistance_pts"
   TYPE t_mpi_mintype
     SEQUENCE
-    REAL    :: rdist
-    INTEGER :: glb_index
-    INTEGER :: owner
+    REAL(wp) :: rdist
+    INTEGER  :: glb_index
+    INTEGER  :: owner
   END TYPE t_mpi_mintype
 
   
@@ -2327,8 +2327,8 @@ CONTAINS
 
 #ifndef NOMPI
     ! create a user-defined type for MPI allreduce operation:
-    mpi_type  = (/ MPI_REAL, MPI_INTEGER /)
-    CALL MPI_TYPE_EXTENT(MPI_REAL, rextent, ierr) 
+    mpi_type  = (/ p_real_dp, MPI_INTEGER /)
+    CALL MPI_TYPE_EXTENT(p_real_dp, rextent, ierr) 
     mpi_disp  = (/ 0, rextent /)
     mpi_block = (/ 1, 2 /)
     CALL MPI_TYPE_STRUCT(2, mpi_block, mpi_disp, mpi_type, min_type, ierr) 

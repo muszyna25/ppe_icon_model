@@ -67,7 +67,7 @@
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                         &
       &                               compute_lonlat_blocking,                &
       &                               compute_lonlat_specs
-    USE mo_parallel_config,     ONLY: nproma
+    USE mo_parallel_config,     ONLY: nproma, p_test_run
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids, &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
@@ -83,7 +83,10 @@
     USE mo_mpi,                 ONLY: p_gather_field, my_process_is_mpi_workroot, &
       &                               get_my_mpi_work_id, p_n_work,               &
       &                               p_max, get_my_mpi_work_communicator,        &
-      &                               my_process_is_mpi_seq
+      &                               my_process_is_mpi_seq, p_comm_work,         &
+      &                               my_process_is_mpi_test, p_max, p_send,      &
+      &                               p_recv, process_mpi_all_test_id,            &
+      &                               process_mpi_all_workroot_id
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no, &
       &                               setup_comm_pattern
     USE mo_mpi,                 ONLY: p_pe
@@ -1397,6 +1400,17 @@
           &                rl_start, rl_end)
         max_dist = 3._gk * &
           & REAL(ptr_patch%edges%primal_edge_length(i_startidx,i_startblk)/grid_sphere_radius, gk)
+        ! for MPI-independent behaviour: determine global max.
+        max_dist = p_max(max_dist, comm=p_comm_work)
+        IF(p_test_run) THEN
+          IF(.NOT. my_process_is_mpi_test()) THEN
+            ! Send to test PE
+            CALL p_send(max_dist, process_mpi_all_test_id, 1)
+          ELSE
+            ! Receive result from parallel worker PEs
+            CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
+          END IF
+        END IF
 
         ! build a logical array, .true. where lon-lat point is outside of
         ! the current patch:
