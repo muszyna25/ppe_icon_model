@@ -189,7 +189,9 @@ MODULE mo_nwp_lnd_state
           &     TRIM(varname_prefix), p_lnd_state(jg)%lnd_prog_nwp_list(jt), &
           &     p_lnd_state(jg)%prog_lnd(jt), jt)
 
-        IF (lseaice .OR. llake) THEN
+! preliminary: since h_ice-field is also needed be turbdiff irrespective of whether 
+! the seaice model is used or not.
+!        IF (lseaice .OR. llake) THEN
           WRITE(listname,'(a,i2.2,a,i2.2)') 'wtr_prog_of_domain_',jg, &
             &                               '_and_timelev_',jt
 
@@ -197,7 +199,7 @@ MODULE mo_nwp_lnd_state
           CALL  new_nwp_wtr_prog_list(jg, nblks_c, TRIM(listname),             &
             &     TRIM(varname_prefix), p_lnd_state(jg)%wtr_prog_nwp_list(jt), &
             &     p_lnd_state(jg)%prog_wtr(jt), jt)
-        ENDIF
+!        ENDIF
 
       ENDDO
 
