@@ -474,7 +474,7 @@ CONTAINS
 
     ! loop index ranges
     ! -----------------
-    i_rlstart = 1
+    i_rlstart = 2
     i_rlend   = min_rledge
     !
     ! number of child domains
