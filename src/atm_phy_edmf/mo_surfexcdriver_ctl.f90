@@ -737,27 +737,31 @@ ENDDO
 
 DO isubs=1,ntiles_total
   DO jl=KIDIA,KFDIA
-    JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jl,jb,isubs))
-    IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
-      SELECT CASE ( JTILE )
-        CASE (4)
-          JTILE = 5   ! snow over low vegetation
-        CASE (6)
-          JTILE = 7   ! snow over high vegetation
-        CASE (8)
-          JTILE = 5   ! snow over bare ground
-      END SELECT
-    ENDIF
-    IF ( t_g(jl) > (t0_melt + zt_ice) ) THEN   ! salt water freezing temperature
-      JTILE = 2              ! sea ice         ! this may never be active as not LAND
-    ENDIF
+    IF ( ( ext_data%atm%llsm_atm_c(jl,jb) )  .and.           & ! land
+        ( ext_data%atm%frac_t(jl,jb,isubs) > 0.0_JPRB) ) THEN   ! only used tiles 
+      JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jl,jb,isubs))
+      IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
+        SELECT CASE ( JTILE )
+          CASE (4)
+            JTILE = 5   ! snow over low vegetation
+          CASE (6)
+            JTILE = 7   ! snow over high vegetation
+          CASE (8)
+            JTILE = 5   ! snow over bare ground
+        END SELECT
+      ENDIF
 ! interception layer (#3) missing ???
 
 ! debug: high veg -> low veg (snow or no snow) ???
-    IF (JTILE == 6)  JTILE = 4
-    IF (JTILE == 7)  JTILE = 5
+      IF (JTILE == 6)  JTILE = 4
+      IF (JTILE == 7)  JTILE = 5
    !JTILE=2                             !??????????
-
+    ELSE
+      JTILE = 1                ! ocean
+      IF ( t_g(jl) > (t0_melt + zt_ice) ) THEN   ! salt water freezing temperature
+        JTILE = 2              ! sea ice         ! this may never be active as not LAND
+      ENDIF
+    ENDIF
     tch_ex(jl,isubs) = ZCH(jl,JTILE)
     tcm_ex(jl,isubs) = ZCM(jl,JTILE)
     tfv_ex(jl,isubs) = 1.0_JPRB   ! laminar reduction factor for evaporation (Matthias) ????

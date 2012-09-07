@@ -628,14 +628,15 @@ endif
         KTVH(jc) = 3                                   ! KTVH: dummy default ???
       ENDDO
 
-      DO jt = ntiles_total, 1, -1
+      DO jt = ntiles_total, 1, -1                      ! backward to use dominant veg types
         DO jc = i_startidx, i_endidx
-          IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN ! land
+          IF ( ( ext_data%atm%llsm_atm_c(jc,jb) )  .and.        & ! land
+               ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp) ) THEN   ! only used tiles 
             JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
 !JTILE=8 !?????????????
-!???            IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
-!???            IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
-!write(*,*) 'turb_sfc1: ',  JTILE, KTVL(jc), KTVH(jc), ext_data%atm%lc_class_t(jc,jb,jt)
+!                IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
+!                IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
+!write(*,*) 'turb_sfc1: ',  jt, JTILE, KTVL(jc), KTVH(jc), ext_data%atm%lc_class_t(jc,jb,jt)
             IF ( lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0.5_wp ) THEN
               SELECT CASE ( JTILE )
                 CASE (4)
@@ -650,7 +651,7 @@ endif
            !  JTILE = 2              ! sea ice         ! this may never be active as not LAND
            !ENDIF
            !interception layer (#3) missing ???
-            zfrti(jc,jtile) = zfrti(jc,jtile) + ext_data%atm%lc_frac_t(jc,jb,jt)
+            zfrti(jc,jtile) = zfrti(jc,jtile) + ext_data%atm%frac_t(jc,jb,jt)
           ENDIF
         ENDDO
       ENDDO
@@ -905,18 +906,18 @@ endif
       prm_diag%tch   (:,:) = 0.0_wp
       prm_diag%tcm   (:,:) = 0.0_wp
       prm_diag%tfv   (:,:) = 0.0_wp
-      DO jt = 1, ntiles_total
+      DO jt = 1, ntiles_total    !!! + ntiles_water ???
         DO jc = i_startidx, i_endidx
           prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m (jc,jb) + 0.0_wp  !???
 
-        ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt)
-        ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* ext_data%atm%lc_frac_t(jc,jb,jt)
+        ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
+        ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
           prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
 
-          prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt) !??land only??
-          prm_diag%tcm   (jc,jb) = prm_diag%tcm   (jc,jb) + tcm_ex  (jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt)
-          prm_diag%tfv   (jc,jb) = prm_diag%tfv   (jc,jb) + tfv_ex  (jc,jt)    * ext_data%atm%lc_frac_t(jc,jb,jt)
+          prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt) !??land only??
+          prm_diag%tcm   (jc,jb) = prm_diag%tcm   (jc,jb) + tcm_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfv   (jc,jb) = prm_diag%tfv   (jc,jb) + tfv_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
         ENDDO           
       ENDDO
 
