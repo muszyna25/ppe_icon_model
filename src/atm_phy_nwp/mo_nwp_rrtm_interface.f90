@@ -664,11 +664,12 @@ CONTAINS
 
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft
-      DO jc = 1,i_endidx
+      DO jc = i_startidx,i_endidx
         albvisdir(jc,jb) =  ( 1.0_wp                                                           &
           &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
           & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
       ENDDO
+      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
 
       ! no distiction between vis and nir albedo
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
@@ -1337,11 +1338,12 @@ CONTAINS
 
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft
-      DO jc = 1,i_endidx
+      DO jc = i_startidx,i_endidx
         albvisdir(jc,jb) =  ( 1.0_wp                                                           &
           &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
           & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
       ENDDO
+      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
 
       ! no distiction between vis and nir albedo
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
