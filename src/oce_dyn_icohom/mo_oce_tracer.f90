@@ -126,6 +126,7 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
                                & z_cellthick_intmed)
 
   DO i_no_t = 1,no_tracer
+!CALL sync_patch_array(SYNC_C, p_patch,p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t))
     !First tracer is temperature
     !Second tracer is salinity
     IF( iswm_oce /= 1) THEN
@@ -268,7 +269,7 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff,z_cellthick_intmed
   INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: i_startidx_e, i_endidx_e
   INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-  INTEGER  :: il_v1, il_v2, ib_v1, ib_v2
+  INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
   INTEGER  :: il_c, ib_c
   REAL(wp) :: delta_z
   TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
@@ -306,15 +307,15 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff,z_cellthick_intmed
 !             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
 !             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
             !Get indices of two adjacent cells
-            il_v1 = p_patch%edges%cell_idx(je,jb,1)
-            ib_v1 = p_patch%edges%cell_blk(je,jb,1)
-            il_v2 = p_patch%edges%cell_idx(je,jb,2)
-            ib_v2 = p_patch%edges%cell_blk(je,jb,2)
+            il_c1 = p_patch%edges%cell_idx(je,jb,1)
+            ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+            il_c2 = p_patch%edges%cell_idx(je,jb,2)
+            ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
             !  p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
             !    &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
             p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-              &(p_os%p_diag%p_vn(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn(il_v2,jk,ib_v2)%x)
+              &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
 
             p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
               & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
@@ -337,12 +338,10 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff,z_cellthick_intmed
           ENDIF
         END DO
       END DO
+      CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(1))
+      CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(2))
+      CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(3))
     END DO
-  !CALL sync_patch_array(SYNC_E, p_patch,p_op_coeff%upwind_cell_idx )
-  !CALL sync_patch_array(SYNC_E, p_patch,p_op_coeff%upwind_cell_blk )
-  CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,1:n_zlev,1:p_patch%nblks_e)%x(1))
-  CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,1:n_zlev,1:p_patch%nblks_e)%x(2))
-  CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,1:n_zlev,1:p_patch%nblks_e)%x(3))
 
   ENDIF
 
