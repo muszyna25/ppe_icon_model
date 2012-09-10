@@ -320,6 +320,15 @@ CONTAINS
          ztsi = tsi
        END SELECT
 
+       IF (phy_config%ljsbach) THEN
+         WHERE (ext_data(jg)%atm%lsm_ctr_c(jcs:jce,jb) > 0)
+            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
+         ELSEWHERE
+            ztemperature_rad(jcs:jce) = field% tsfc_tile(jcs:jce,jb,iwtr)
+         ENDWHERE
+       ELSE
+           ztemperature_rad(jcs:jce) = field% tsfc(jcs:jce,jb)
+        END IF
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
@@ -439,16 +448,6 @@ CONTAINS
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
         zaedummy(:,:) = 0.0_wp
-
-        IF (phy_config%ljsbach) THEN
-           WHERE (ext_data(jg)%atm%lsm_ctr_c(jcs:jce,jb) > 0)
-              ztemperature_rad = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
-           ELSEWHERE
-              ztemperature_rad(jcs:jce) = field% tsfc(jcs:jce,jb)
-           ENDWHERE
-        ELSE
-           ztemperature_rad(jcs:jce) = field% tsfc(jcs:jce,jb)
-        END IF
 
         CALL radiation(               &
           !
@@ -573,7 +572,7 @@ CONTAINS
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%surface_temperature_eff(:,jb),&! in  effective surface temperature [K]
-        & ptsfctrad  = field%surface_temperature_rad(:,jb),&! in  radiative sfc temp. used in "radiation" [K]
+        & ptsfctrad  = ztemperature_rad(:)            ,&! in  radiative sfc temp. used in "radiation" [K]
         & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
@@ -820,7 +819,7 @@ CONTAINS
                        & zqhflx,                          &! out, for "cucall"
                        !! optional
                        & nblock = jb,                  &! in
-                       & lsm = ext_data(jg)%atm%lsm_ctr_c(:,jb), &!< in, land-sea mask (.true. for land grid boxes)
+                       & lsm = ext_data(jg)%atm%lsm_ctr_c(:,jb), &!< in, land-sea mask
                        & pu = field% u(:,nlev,jb),     &! in, um1
                        & pv = field% v(:,nlev,jb),     &! in, vm1
                        & ptemp = field% temp(:,nlev,jb), &! in, tm1
@@ -1074,9 +1073,9 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      IF (phy_config%ljsbach) THEN
-         zqhflx(:) = field% evapotranspiration(:,jb)
-      END IF
+!!$ TR      IF (phy_config%ljsbach) THEN
+!!$ TR         zqhflx(:) = field% evapotranspiration(:,jb)
+!!$ TR      END IF
 
       CALL cucall( echam_conv_config%ncvmicro,&! in
         &          echam_conv_config%iconv,   &! in

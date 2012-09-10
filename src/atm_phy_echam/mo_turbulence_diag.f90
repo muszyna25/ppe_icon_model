@@ -640,7 +640,7 @@ CONTAINS
         zdthetal = pthetal_b(jl) - ztheta                         ! d theta_l
 !! TR ATTENTION!
 !! TR From here on idx_wtr and idx_lnd are exchanged for testing
-        IF ( jsfc == idx_lnd .OR. jsfc == idx_ice ) THEN          ! over water or ice
+        IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN          ! over water or ice
           zdu2(jl,jsfc) = MAX(zepdu2,(pum1_b(jl)-pocu(jl))**2 &   ! (d u)^2
                                     +(pvm1_b(jl)-pocv(jl))**2)    ! (d v)^2
         ELSE                                                      ! over land
@@ -650,7 +650,7 @@ CONTAINS
         zbuoy        = zdus1*zdthetal + zdus2*zthetamit*zdqt
         pri_sfc(jl,jsfc) = pgeom1_b(jl)*zbuoy/(zthetavmit*zdu2(jl,jsfc))
 
-        IF ( jsfc == idx_lnd .OR. jsfc == idx_ice ) THEN          ! over water or ice        
+        IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN          ! over water or ice        
           zalo = LOG( 1._wp + pgeom1_b(jl)/(g*pz0m(jl,jsfc)) )  ! ln[ 1 + zL/z0m ]
         ELSE ! over land
           zalo = LOG( 1._wp + pgeom1_b(jl)/(g*z0hl) )  ! ln[ 1 + zL/z0m ]
@@ -663,7 +663,7 @@ CONTAINS
         zdthv         = MAX(0._wp,(zthetav-pthetav_b(jl)))
         zwst(jl,jsfc) = zdthv*SQRT(zdu2(jl,jsfc))/zthetavmit
 
-        IF ( jsfc == idx_lnd ) THEN ! over water
+        IF ( jsfc == idx_wtr ) THEN ! over water
           z0h        =pz0m(jl,jsfc)*EXP(2._wp-86.276_wp*pz0m(jl,jsfc)**0.375_wp)
           zaloh      =LOG(1._wp+pgeom1_b(jl)/(g*z0h))
           zchn  (jl,jsfc)=ckap**2/(zalo*zaloh)
@@ -672,7 +672,7 @@ CONTAINS
         ELSEIF (jsfc == idx_ice ) THEN ! over ice
           zchn  (jl,jsfc) = zcdn (jl,jsfc)
           zcfnch(jl,jsfc) = zcfnc(jl,jsfc)  ! coeff. for scalar is the same as for momentum
-        ELSE IF (jsfc == idx_wtr ) THEN ! over land
+        ELSE IF (jsfc == idx_lnd ) THEN ! over land
           zchn  (jl,jsfc)=(ckap/LOG(1._wp+pgeom1_b(jl)/(g*z0hl)))**2 
           zcfnch(jl,jsfc)=SQRT(zdu2(jl,jsfc))*zchn(jl,jsfc)
         ENDIF
@@ -783,8 +783,8 @@ CONTAINS
   
       ! unstable case
       IF (phy_config%ljsbach) THEN  
-      IF (idx_lnd<=ksfc_type) THEN
-        jsfc = idx_lnd  ! water
+      IF (idx_wtr<=ksfc_type) THEN
+        jsfc = idx_wtr  ! water
         DO jl = 1,kproma
           IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
             zucf =  SQRT( -pri_sfc(jl,jsfc)*(1._wp+ pgeom1_b(jl)/(g*pz0m(jl,jsfc))) ) ! sqrt in (5.4)
@@ -811,8 +811,8 @@ CONTAINS
         ENDDO
       ENDIF
 
-      IF (idx_wtr<=ksfc_type) THEN
-        jsfc = idx_wtr  ! land
+      IF (idx_lnd<=ksfc_type) THEN
+        jsfc = idx_lnd  ! land
         DO jl = 1,kproma
           IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
             zucfh = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + &

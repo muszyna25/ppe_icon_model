@@ -48,6 +48,7 @@
 MODULE mo_icoham_sfc_indices
 
   USE mo_exception, ONLY: message, message_text
+  USE mo_echam_phy_config, ONLY: phy_config => echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -85,6 +86,16 @@ CONTAINS
         igbm      = 0
         iice      = 999
         ilnd      = 999
+
+        IF (phy_config%ljsbach) THEN
+
+           iwtr      = 1
+           ilnd      = 2
+           nsfc_type = 2
+           igbm      = 0
+           iice      = 999
+
+        END IF
 
       CASE('JWw-Moist','LDF-Moist')
       ! Baroclinic wave test, no land, no ice.

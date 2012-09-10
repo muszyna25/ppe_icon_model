@@ -229,6 +229,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
 
+! locals
+
     LOGICAL  :: lfland(kbdim)
     REAL(wp)  :: surface_temperature_last(kbdim)
     INTEGER  :: jsfc, jk, jkm1, im
@@ -274,7 +276,7 @@ CONTAINS
 
     lfland(1:kproma) = .true. !! TR for testing
 !!$ TR long wave upward radiation for water (aqua planet setup)
-    lwup(1:kproma) = 0.996_wp * 5.67e-8_wp * ptsfc_tile(1:kproma,idx_wtr)**4
+    lwup(1:kproma) = 0.996_wp * 5.67e-8_wp * ptsfc_tile(1:kproma,idx_lnd)**4
     surface_temperature_last(1:kproma) = surface_temperature(1:kproma)
 
     CALL jsbach_inter_1d (kdim = kproma,                                   &
@@ -296,12 +298,12 @@ CONTAINS
                           pressure = presi_old(1:kproma),                  &
 !!$ TR                          czenith  = pcosmu0(1:kproma),                    & ! comment out to simplify for testing
 !!$ TR                          CO2_concentration = 0.00055_wp,                  & ! comment out to simplify for testing, mass mixing ratio
-                          cdrag = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_wtr), &
-                          etAcoef = zen_h(1:kproma,idx_wtr),               &
-                          etBcoef = zfn_h(1:kproma,idx_wtr),               &
-                          eqAcoef = zen_qv(1:kproma,idx_wtr),              &
-                          eqBcoef = zfn_qv(1:kproma,idx_wtr),              &
-                          p_echam_zchl = pch_tile(1:kproma,idx_wtr),       & ! intent in
+                          cdrag = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd), &
+                          etAcoef = zen_h(1:kproma,idx_lnd),               &
+                          etBcoef = zfn_h(1:kproma,idx_lnd),               &
+                          eqAcoef = zen_qv(1:kproma,idx_lnd),              &
+                          eqBcoef = zfn_qv(1:kproma,idx_lnd),              &
+                          p_echam_zchl = pch_tile(1:kproma,idx_lnd),       & ! intent in
                            !! added for testing JSBACH (hydrology)
                           cair = pcair(1:kproma),                          & ! intent out
                           csat = pcsat(1:kproma),                          & ! intent out
@@ -473,9 +475,7 @@ CONTAINS
 !!$ TR couple surface temperature of water
 !!$ TR    WRITE (*,*) 'lsm',lsm(1:kproma)
     IF (phy_config%ljsbach) THEN
-       WHERE (lsm(1:kproma) > 0) 
-          ptsfc_tile(1:kproma,idx_wtr) = surface_temperature(1:kproma)
-       ENDWHERE
+      ptsfc_tile(1:kproma,idx_lnd) = surface_temperature(1:kproma)
     END IF ! ljsbach
    !-------------------------------------------------------------------
    ! Various diagnostics
@@ -491,7 +491,8 @@ CONTAINS
                       & pevap_gbm_ac,  dshflx_dT_ac_tile,     &! inout
                       & plhflx_tile, pshflx_tile,             &! inout (practically out)
                       & dshflx_dT_tile,                       &! out
-                      & pevap_tile, pevap_gbm                 )! out
+                      & pevap_tile, pevap_gbm,                &! out
+                      & evapotranspiration)                    ! in (optional)
 
 
   END SUBROUTINE update_surface

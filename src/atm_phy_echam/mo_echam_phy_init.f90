@@ -78,6 +78,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
+  USE mo_ext_data_state,       ONLY: ext_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
                                    & init_sfc_indices
 
@@ -282,22 +283,44 @@ CONTAINS
       IF (ltestcase) THEN
         SELECT CASE (ctest_name)
         CASE('APE') !Note that there is only one surface type in this case
+                    !except ljsbach=.true. with land and ocean (two surface types)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-            DO jc = jcs,jce
-              zlat = p_patch(jg)%cells%center(jc,jb)%lat
-             !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
-             !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
+
+          IF (phy_config%ljsbach) THEN
+            DO jb = jbs,nblks_c
+              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+              DO jc = jcs,jce
+                zlat = p_patch(jg)%cells%center(jc,jb)%lat
+                field% tsfc_tile(jc,jb,ilnd) = ape_sst(ape_sst_case,zlat)   ! SST (preliminary)
+                field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+                IF (ext_data(jg)%atm%lsm_ctr_c(jc,jb) > 0) THEN ! this is land
+                  field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,ilnd)
+                  field% lsmask(jc,jb) = 1._wp   ! a grid box is either completely land ...
+                ELSE ! this is ocean
+                  field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,iwtr)
+                  field% lsmask(jc,jb) = 0._wp   ! ... or a grid box is completely ocean
+                END IF
+              END DO
+              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+              field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+            END DO
+          ELSE
+            DO jb = jbs,nblks_c
+              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+              DO jc = jcs,jce
+                zlat = p_patch(jg)%cells%center(jc,jb)%lat
+               !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
+               !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
                 field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
                 field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
+              END DO
+              field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+              field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
             END DO
-            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
-          END DO
+          END IF ! ljsbach
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL
 

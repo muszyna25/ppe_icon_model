@@ -62,7 +62,8 @@ CONTAINS
                            & pevap_gbm_ac, dshflx_dT_ac_tile,      &! inout
                            & plhflx_tile, pshflx_tile,             &! out
                            & dshflx_dT_tile,                       &! out
-                           & pevap_tile, pevap_gbm )! out
+                           & pevap_tile, pevap_gbm,                &! out
+                           & evapotranspiration)
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
     REAL(wp),INTENT(IN) :: pdtime, psteplen
@@ -93,6 +94,8 @@ CONTAINS
     REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
 
     REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(1:kproma,ksfc_type)
+
+    REAL(wp),INTENT(IN)    :: evapotranspiration(1:kproma)
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
@@ -143,9 +146,13 @@ CONTAINS
       ! (g*psteplen)**(-1)*[  tpfac1*g*psteplen*(air density)*(exchange coef)
       !                     *(tpfac1)**(-1)*( qv_{tavg,klev} - qs_tile ) ]
 
-      pevap_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
-                                & *pcfh_tile(1:kproma,jsfc)  &
-                                & *zdqv(1:kproma)
+      IF (jsfc == idx_lnd) THEN
+        pevap_tile(1:kproma,jsfc) = evapotranspiration(1:kproma)
+      ELSE
+        pevap_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
+                                  & *pcfh_tile(1:kproma,jsfc)  &
+                                  & *zdqv(1:kproma)
+      END IF
     ENDDO
 
     ! Compute grid box mean and time integral
@@ -167,9 +174,13 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous values
 
-    IF (idx_lnd<=ksfc_type) THEN
-      CALL finish('','Computation of latent heat flux over land not implemented')
-    END IF
+!!$ TR testing: latent heat flux still need to be passed from JSBACH
+!!$ TR    IF (idx_lnd<=ksfc_type) THEN
+!!$ TR      CALL finish('','Computation of latent heat flux over land not implemented')
+!!$ TR    END IF
+
+    IF (idx_lnd<=ksfc_type) &
+    plhflx_tile(1:kproma,idx_lnd) = 0._wp
 
     IF (idx_ice<=ksfc_type) &
     plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
@@ -191,40 +202,45 @@ CONTAINS
     ! Instantaneous flux on each tile
 
     DO jsfc = 1,ksfc_type
-      IF (idx_lnd<=ksfc_type) THEN
-        CALL finish('','Computation of sensible heat flux over land not implemented')
-        ! CYCLE
-      END IF
+
+!!$ TR testing: sensible heat flux still need to be passed from JSBACH
+!!$ TR      IF (idx_lnd<=ksfc_type) THEN
+!!$ TR        CALL finish('','Computation of sensible heat flux over land not implemented')
+!!$ TR      END IF
+
+      IF (jsfc == idx_lnd) THEN
+        pshflx_tile(1:kproma,jsfc) = 0._wp
+        dshflx_dT_tile(1:kproma,jsfc) = 0._wp
+      ELSE
 
       ! Vertical gradient of dry static energy.
       ! (Formula translated from ECHAM. Question: why using the blended
       ! dry static energy, not the value on individual surface?)
 
-      zdcptv(1:kproma) = bb(1:kproma,klev,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
+        zdcptv(1:kproma) = bb(1:kproma,klev,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
 
       ! Flux of dry static energy
 
-      pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
-                                 & *pcfh_tile(1:kproma,jsfc)  &
-                                 & *zdcptv(1:kproma)
-
-   
+        pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
+                                   & *pcfh_tile(1:kproma,jsfc)  &
+                                   & *zdcptv(1:kproma)
 
       ! Subtract contribution from latent heat
       !  CpTv = CpT(1+vtmpc2*qv)
       !  => CpT = CpTv - CpT*vtmpc2*qv
       ! Question: second term is nonlinear?!
 
-      pshflx_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc)       &
-                                 & - ptsfc_tile(1:kproma,jsfc)*cpd   &
-                                 &  *pevap_tile(1:kproma,jsfc)*vtmpc2
+        pshflx_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc)       &
+                                   & - ptsfc_tile(1:kproma,jsfc)*cpd   &
+                                   &  *pevap_tile(1:kproma,jsfc)*vtmpc2
 
       ! KF: For the Sea-ice model!
       ! attempt to made a first guess of temperature tendency for SHF
       ! over ICE! by assuming only the cp*delta(T) matters. So: d(SHF)/deltaT
 
-      dshflx_dT_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc) &
-        &                           / zdcptv(1:kproma) !*(1._wp+pevap_tile(1:kproma,jsfc)*vtmpc2)
+        dshflx_dT_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc) &
+          &                           / zdcptv(1:kproma) !*(1._wp+pevap_tile(1:kproma,jsfc)*vtmpc2)
+      END IF
 
     ENDDO
 
