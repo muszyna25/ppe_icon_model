@@ -482,7 +482,7 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       IF (idbg_mxmn >= idt_src) THEN
-        WRITE(message_text,'(a,i6,2(a,i2),2(a,f12.8))') 'FLUX time interpolation: jt=',jstep, &
+        WRITE(message_text,'(a,i6,2(a,i4),2(a,f12.8))') 'FLUX time interpolation: jt=',jstep, &
           &  ' mon1=',jmon1,' mon2=',jmon2,' day1=',rday1,' day2=',rday2
         CALL message (' ', message_text)
       END IF
