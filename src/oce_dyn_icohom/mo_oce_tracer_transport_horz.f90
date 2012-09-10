@@ -823,7 +823,7 @@ END SUBROUTINE advect_diffuse_flux_horz
     z_gradC_cc(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(2) = 0.0_wp
     z_gradC_cc(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(3) = 0.0_wp
 
-    CALL grad_fd_norm_oce_3D( pvar_c,                 &
+    CALL grad_fd_norm_oce_3d( pvar_c,                 &
            &                  p_patch,                 &
            &                  p_op_coeff%grad_coeff,  &
            &                  z_gradC)
