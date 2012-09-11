@@ -84,6 +84,8 @@ CONTAINS
        cair, &
        csat, &
        csat_transpiration, &
+       albedo_vis, &
+       albedo_nir, &
        moisture1, &
        moisture2, &
        moisture3, &
@@ -182,6 +184,8 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(inout) :: cair(kdim)                !! area fraction with wet surface
     REAL(wp), OPTIONAL, INTENT(inout) :: csat(kdim)                !! area fraction with wet surface (air)
     REAL(wp), OPTIONAL, INTENT(inout) :: csat_transpiration(kdim)
+    REAL(wp), OPTIONAL, INTENT(out)   :: albedo_vis(kdim)
+    REAL(wp), OPTIONAL, INTENT(out)   :: albedo_nir(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture1(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture2(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture3(kdim)
@@ -385,7 +389,9 @@ CONTAINS
 !!$ TR    root_depth(:,:,:) = 1._wp                     ! root depth equals the depth of the soil bucket (as in the current JSBACH)
     lai(:,:) = 5._wp                              ! no leaves, no transpiration
     zwind10(:) = zwind(:) * 0.8_wp
-    zswnet(:) = zswdown(:) * 0.8_wp
+    albedo_vis(:) = 0.07_wp
+    albedo_nir(:) = 0.07_wp
+    zswnet(:) = zswdown(:) * (1._wp - 0.07_wp)
 
     DO itile=1,ntiles
        CALL unstressed_canopy_cond_par(lai(1:nidx,itile), zswdown(:) / 2._wp, &

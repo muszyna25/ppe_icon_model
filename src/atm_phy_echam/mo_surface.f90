@@ -128,6 +128,10 @@ CONTAINS
                            & ground_heat_flux,                  &! inout
                            & swnet,                             &! inout
                            & time_steps_soil,                   &! inout
+                           & albvisdir,                         &! out
+                           & albnirdir,                         &! out
+                           & albvisdif,                         &! out
+                           & albnirdif,                         &! out
                            & evapotranspiration,                &! out
                            & surface_temperature_rad,           &! out
                            & surface_temperature_eff            &! out
@@ -225,6 +229,10 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: ground_heat_flux(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: swnet(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: time_steps_soil(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdir(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdir(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: evapotranspiration(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
@@ -244,6 +252,8 @@ CONTAINS
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
     REAL(wp) :: lwup(kbdim)
+
+    REAL(wp) :: albedo_vis(kbdim), albedo_nir(kbdim)
 
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
@@ -309,6 +319,8 @@ CONTAINS
                           csat = pcsat(1:kproma),                          & ! intent out
 !!$ TR                          zhsoil = ,                                      & ! intent out
                           csat_transpiration= csat_transpiration(1:kproma),& ! intent out
+                          albedo_vis = albedo_vis(1:kproma),               & ! intent out
+                          albedo_nir = albedo_nir(1:kproma),               & ! intent out
                           moisture1 = moisture1(1:kproma),                 & ! intent out
                           moisture2 = moisture2(1:kproma),                 & ! intent out
                           moisture3 = moisture3(1:kproma),                 & ! intent out
@@ -370,6 +382,13 @@ CONTAINS
                                   & zen_h, zfn_h, zen_qv, zfn_qv             )! out
 
     END IF ! ljsbach
+
+    ! set albedo values for direct and diffuse radiation
+
+    albvisdir(1:kproma) = albedo_vis(1:kproma)
+    albvisdif(1:kproma) = albedo_vis(1:kproma)
+    albnirdir(1:kproma) = albedo_nir(1:kproma)
+    albnirdif(1:kproma) = albedo_nir(1:kproma)
 
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.

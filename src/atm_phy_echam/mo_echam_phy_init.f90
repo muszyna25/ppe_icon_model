@@ -588,6 +588,15 @@ CONTAINS
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
+      field% albvisdir(:,  :) = 0.07_wp ! albedo in the visible range for direct radiation
+                                             ! (set to the albedo of water for testing)
+      field% albnirdir(:,  :) = 0.07_wp ! albedo in the NIR range for direct radiation 
+                                             ! (set to the albedo of water for testing)
+      field% albvisdif(:,  :) = 0.07_wp ! albedo in the visible range for diffuse radiation
+                                             ! (set to the albedo of water for testing)
+      field% albnirdif(:,  :) = 0.07_wp ! albedo in the NIR range for diffuse radiation
+                                             ! (set to the albedo of water for testing)
+
       tend% x_dtr(:,:,:)   = 0._wp  !"xtec" in ECHAM
 !$OMP END WORKSHARE
 

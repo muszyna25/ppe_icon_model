@@ -365,11 +365,6 @@ CONTAINS
 
           END SELECT
 
-          field% albvisdir(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
-          field% albnirdir(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
-          field% albvisdif(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
-          field% albnirdif(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
-
 
           SELECT CASE(irad_o3)
             CASE default
@@ -877,6 +872,10 @@ CONTAINS
                        & ground_heat_flux = field%ground_heat_flux(:,jb),       &! inout
                        & swnet = field%swnet(:,jb),                             &! inout
                        & time_steps_soil = field%time_steps_soil(:,jb),         &! inout
+                       & albvisdir = field% albvisdir(:,jb),                    &! out
+                       & albnirdir = field% albnirdir(:,jb),                    &! out
+                       & albvisdif = field% albvisdif(:,jb),                    &! out
+                       & albnirdif = field% albnirdif(:,jb),                    &! out
                        & evapotranspiration = field%evapotranspiration(:,jb),           &! out
                        & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
                        & surface_temperature_eff = field%surface_temperature_eff(:,jb)  &! out
