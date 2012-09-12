@@ -54,7 +54,8 @@ USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
-  &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order
+  &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
+  &                               biharmonic_diffusion_factor
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -213,7 +214,7 @@ CONTAINS
         !The number that controls all that the "z_diff_efdt_ratio"
         !is different. Higher z_diff_efdt_ratio decreases the final
         !diffusion coefficient 
-        z_diff_efdt_ratio = 10000.0_wp
+        z_diff_efdt_ratio = 1.0E22 * biharmonic_diffusion_factor
         z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
