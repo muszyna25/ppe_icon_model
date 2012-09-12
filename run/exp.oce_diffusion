@@ -83,7 +83,7 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-04-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -129,7 +129,20 @@ cat > ${ocean_namelist} << EOF
 &run_nml
  dtime       = 1800         ! model timestep in seconds
 /
+&dbg_index_nml
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
+  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
+  str_mod_tst='all'               ! define modules to print out in debug mode
+/
 &ocean_dynamics_nml
+! 10 unevenly spaced levels beginning with 50m depth
+! n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
+! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
   n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
@@ -152,6 +165,7 @@ cat > ${ocean_namelist} << EOF
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
   MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
+  biharmonic_diffusion_factor = 10.0
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
