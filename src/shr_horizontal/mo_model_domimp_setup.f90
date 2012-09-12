@@ -115,7 +115,7 @@ MODULE mo_model_domimp_setup
   USE mo_loopindices,        ONLY: get_indices_e
   USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity
   USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
-  USE mo_grid_subset,        ONLY: fill_subset
+  USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling
   
@@ -139,6 +139,36 @@ MODULE mo_model_domimp_setup
   !-------------------------------------------------------------------------
   
 CONTAINS
+
+  !-------------------------------------------------------------------------
+  !>
+  !! This routine calculates the edge area of the patch
+  !!
+  SUBROUTINE calculate_edge_area(ptr_patch)
+    TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+
+    INTEGER                       :: je, jb, istart_e, iend_e
+    TYPE(t_subset_range), POINTER :: all_edges
+    !-------------------------------------------------------------------------
+    all_edges => ptr_patch%edges%all
+
+    ! a) the control volume associated to each edge is defined as the
+    ! quadrilateral whose edges are the primal edge and the associated dual edge
+    !----------------------------------------------------------------------------
+    ! loop over all blocks and edges
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, istart_e, iend_e)
+      DO je = istart_e, iend_e
+        ptr_patch%edges%area_edge(je,jb) =  &
+            &    ptr_patch%edges%primal_edge_length(je,jb)  &
+            &  * ptr_patch%edges%dual_edge_length(je,jb)
+      END DO
+    END DO
+!$OMP END DO
+  END SUBROUTINE calculate_edge_area
   
   !-------------------------------------------------------------------------
   !>
