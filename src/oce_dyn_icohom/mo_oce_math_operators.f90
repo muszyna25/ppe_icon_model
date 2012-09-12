@@ -93,14 +93,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! mpi parallelized by LL
-  SUBROUTINE map_edges2vert_3d(p_patch, vn, h_e, edge2vert_coeff_cc, p_vn_dual)
+  SUBROUTINE map_edges2vert_3d(p_patch, vn, edge2vert_coeff_cc, p_vn_dual)
     
     TYPE(t_patch), TARGET, INTENT(in)      :: p_patch
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     TYPE(t_cartesian_coordinates),INTENT(in):: edge2vert_coeff_cc(:,:,:,:)
-    REAL(wp), INTENT(in)           :: h_e(:,:)
     TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
-
 
     !Local variables
     !

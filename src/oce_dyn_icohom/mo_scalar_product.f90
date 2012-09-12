@@ -143,13 +143,11 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
     !!  mpi parallelized by LL
   SUBROUTINE calc_scalar_product_veloc_3d( p_patch, vn_e_old, vn_e_new,&
-    & h_e, p_diag, p_op_coeff)
+    & p_diag, p_op_coeff)
     
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(in)      :: vn_e_old(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
-    REAL(wp), INTENT(in)      :: h_e(:,:)           ! SW-case: h_e is thickness at edges
-                                                    ! 3D case: h_e is surface elevation at edges
     TYPE(t_hydro_ocean_diag)  :: p_diag
     TYPE(t_operator_coeff)    :: p_op_coeff
     !Local variables
@@ -168,7 +166,7 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-    CALL map_edges2vert_3d(p_patch, vn_e_old, h_e, p_op_coeff%edge2vert_coeff_cc, &
+    CALL map_edges2vert_3d(p_patch, vn_e_old, p_op_coeff%edge2vert_coeff_cc, &
       & p_diag%p_vn_dual)
 
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy

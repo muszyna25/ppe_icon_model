@@ -198,7 +198,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
      & CALL calc_scalar_product_veloc_3D( p_patch,&
                                       & p_os%p_prog(nold(1))%vn,&
                                       & p_os%p_prog(nold(1))%vn,&
-                                      & p_os%p_diag%h_e,        &
                                       & p_os%p_diag,            &
                                       & p_op_coeff)
   ENDIF
@@ -1370,7 +1369,6 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data
     CALL calc_scalar_product_veloc_3D( p_patch,                &
                                      & p_os%p_prog(nnew(1))%vn,&
                                      & p_os%p_prog(nnew(1))%vn,&
-                                     & p_os%p_diag%h_e,        &
                                      & p_os%p_diag,            &
                                      & p_op_coeff)
 

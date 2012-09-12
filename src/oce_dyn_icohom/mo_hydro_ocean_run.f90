@@ -259,7 +259,6 @@ CONTAINS
          CALL calc_scalar_product_veloc_3D( ppatch(jg), &
            & pstate_oce(jg)%p_prog(nold(1))%vn,         &
            & pstate_oce(jg)%p_prog(nold(1))%vn,         &
-           & pstate_oce(jg)%p_diag%h_e,                 &
            & pstate_oce(jg)%p_diag,                     &
            & ptr_op_coeff)
 

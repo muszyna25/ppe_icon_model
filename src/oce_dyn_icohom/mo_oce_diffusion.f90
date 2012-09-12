@@ -665,7 +665,6 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     ! compute rotation of vector field for the ocean
     CALL map_edges2vert_3D( p_patch, &
                           & z_nabla2_e,&
-                          & h_e,       &
                           & p_op_coeff%edge2vert_coeff_cc,&
                           & p_nabla2_dual)!h_e dummy, not used. Delete in sbr map_edges2vert
     CALL rot_vertex_ocean_3D( p_patch, z_nabla2_e, p_nabla2_dual, p_op_coeff, z_rot_v)!

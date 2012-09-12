@@ -500,10 +500,9 @@ CONTAINS
     
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
-      CALL calc_scalar_product_veloc_3D( p_patch,&
+      CALL calc_scalar_product_veloc_3d( p_patch,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_prog(nold(1))%vn,&
-        & p_os%p_diag%h_e,        &
         & p_os%p_diag,            &
         & p_op_coeff)
 
