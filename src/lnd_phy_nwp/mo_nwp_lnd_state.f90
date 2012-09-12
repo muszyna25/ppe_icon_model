@@ -572,7 +572,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_so_t(nproma,nlev_soil+2,nblks_c,ntiles_total) 
     cf_desc    = t_cf_var('t_so_t', 'K', 'soil temperature (main level)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_so_t'//suffix, p_prog_lnd%t_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+2,kblks,ntiles_total/),                         &
@@ -1010,7 +1010,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%t_so(nproma,nlev_soil+2,nblks_c)
     cf_desc    = t_cf_var('t_so', 'K', 'weighted soil temperature (main level)', &
          &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_so', p_diag_lnd%t_so,              &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+2,kblks/),                                   &
