@@ -109,7 +109,7 @@ start_date="2001-01-01T00:00:00Z"
 nhours_data=6        # ocean model output interval hours [hours]
 ndays_file=1000      # new output file generation interval [days]
 ndays_checkp=30      # write restart file interval [days]
-ndays_restart=1      # stop model for restart [days]
+ndays_restart=10      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
