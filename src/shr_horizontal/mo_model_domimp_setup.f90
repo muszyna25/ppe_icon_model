@@ -157,8 +157,7 @@ CONTAINS
     !----------------------------------------------------------------------------
     ! loop over all blocks and edges
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, istart_e, iend_e)
       DO je = istart_e, iend_e
@@ -167,7 +166,7 @@ CONTAINS
             &  * ptr_patch%edges%dual_edge_length(je,jb)
       END DO
     END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
   END SUBROUTINE calculate_edge_area
   
   !-------------------------------------------------------------------------
