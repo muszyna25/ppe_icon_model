@@ -285,10 +285,8 @@ CONTAINS
         CASE('APE') !Note that there is only one surface type in this case
                     !except ljsbach=.true. with land and ocean (two surface types)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
-
           IF (phy_config%ljsbach) THEN
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = jbs,nblks_c
               CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
               DO jc = jcs,jce
@@ -306,7 +304,9 @@ CONTAINS
               field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
               field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
             END DO
+!$OMP END PARALLEL DO
           ELSE
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = jbs,nblks_c
               CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
               DO jc = jcs,jce
@@ -320,9 +320,8 @@ CONTAINS
               field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
               field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
             END DO
+!$OMP END PARALLEL DO
           END IF ! ljsbach
-!$OMP END DO  NOWAIT
-!$OMP END PARALLEL
 
           IF ( is_coupled_run() ) THEN
 
