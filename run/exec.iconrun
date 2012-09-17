@@ -14,7 +14,7 @@
 #
 ICONDIR=${ICON_BASE_PATH}
 RUNSCRIPTDIR=${ICONDIR}/run
-if [ x$grids_folder == x ] ; then
+if [ x$grids_folder = x ] ; then
    HGRIDDIR=${ICONDIR}/grids
 else
    HGRIDDIR=$grids_folder
