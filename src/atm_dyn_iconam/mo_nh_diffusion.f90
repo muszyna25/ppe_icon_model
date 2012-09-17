@@ -65,6 +65,7 @@ MODULE mo_nh_diffusion
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_math_constants,      ONLY: dbl_eps, pi
+  USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_gridref_config,      ONLY: denom_diffu_v
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
@@ -123,10 +124,9 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: v_cell
-    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset,     &
-                diff_multfac_smag, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, &
-                vn_cell1, vn_cell2
-    REAL(wp) :: smag_limit(p_patch%nlev)
+    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset,   &
+                nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, vn_cell1, vn_cell2
+    REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
     INTEGER  :: nlev              !< number of full levels
 
@@ -188,18 +188,28 @@ MODULE mo_nh_diffusion
       diffu_type = 5 ! always combine nabla4 background diffusion with Smagorinsky diffusion for initial filtering call
       smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
     ELSE IF (lhdiff_rcf) THEN ! combination with divergence damping inside the dynamical core
-      diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
-                               3._wp*p_nh_metrics%enhfac_diffu(:))
+      IF (diffu_type == 4) THEN
+        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
+                                 3._wp*p_nh_metrics%enhfac_diffu(:))
+      ELSE ! For Smagorinsky diffusion, the Smagorinsky coefficient rather than the background
+           ! diffusion coefficient is enhanced near the model top (see below)
+        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/3._wp)
+      ENDIF
       IF (diffu_type == 3) THEN
         smag_offset   = 0._wp
         smag_limit(:) = 0.125_wp
       ELSE
-        smag_offset   = 0.2_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+        smag_offset   = 0.25_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
         smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
       ENDIF
     ELSE           ! enhanced diffusion near model top only
-      diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
-      smag_offset        = 0.2_wp*diffusion_config(jg)%k4
+      IF (diffu_type == 4) THEN
+        diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
+      ELSE ! For Smagorinsky diffusion, the Smagorinsky coefficient rather than the background
+           ! diffusion coefficient is enhanced near the model top (see below)
+        diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp
+      ENDIF
+      smag_offset        = 0.25_wp*diffusion_config(jg)%k4
       smag_limit(:)      = 0.125_wp-4._wp*diff_multfac_vn(:)
       ! pure Smagorinsky diffusion does not work without divergence damping
       IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
@@ -210,13 +220,15 @@ MODULE mo_nh_diffusion
       ! temperature diffusion is used only in combination with Smagorinsky diffusion
       ltemp_diffu = diffusion_config(jg)%lhdiff_temp
 
+      ! enhanced factor for Smagorinsky diffusion above the stratopause in order to
+      ! properly damp breaking gravity waves
+      enh_smag_fac(1:nlev) = MIN(1._wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2)
+
       ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
       ! larger than suggested in the literature)
-      IF (lhdiff_rcf) THEN
-        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime*REAL(iadv_rcf,wp)
-      ELSE
-        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime
-      ENDIF
+      diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
+
+      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(iadv_rcf,wp)
 
     ELSE
       ltemp_diffu = .FALSE.
@@ -313,7 +325,7 @@ MODULE mo_nh_diffusion
                        p_patch%edges%dual_normal_vert(je,jb,3)%v2)
 
             ! Smagorinsky diffusion coefficient
-            kh_smag_e(je,jk,jb) = diff_multfac_smag*SQRT(                 (  &
+            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(             (  &
               (vn_vert4-vn_vert3)*p_patch%edges%inv_vert_vert_length(je,jb) -&
               dvt_tang*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (  &
               (vn_vert2-vn_vert1)*p_patch%edges%system_orientation(je,jb)*   &
@@ -427,7 +439,7 @@ MODULE mo_nh_diffusion
                        p_patch%edges%dual_normal_cell(je,jb,1)%v2)
 
             ! Smagorinsky diffusion coefficient
-            kh_smag_e(je,jk,jb) = diff_multfac_smag*SQRT(                 (  &
+            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(             (  &
               (vn_cell2-vn_cell1)*p_patch%edges%inv_dual_edge_length(je,jb) -&
               dvt_tang*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (  &
               (vn_vert2-vn_vert1)*p_patch%edges%system_orientation(je,jb)*   &
@@ -829,10 +841,12 @@ MODULE mo_nh_diffusion
 !CDIR NODEP,VOVERTAKE,VOB
           DO jc = 1, nlen_zdiffu
             ic = (jb-1)*nproma_zdiffu+jc
-            z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) = MAX(p_nh_metrics%zd_diffcoef(ic),        &
-              kh_smag_e(iedge(1,ic),ilev(1,ic),iedblk(1,ic))* blcoef(1,ic)  +                    &
-              kh_smag_e(iedge(2,ic),ilev(1,ic),iedblk(2,ic))* blcoef(2,ic)  +                    &
-              kh_smag_e(iedge(3,ic),ilev(1,ic),iedblk(3,ic))* blcoef(3,ic) ) *                   &
+            z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) =                                          &
+              z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) + p_nh_metrics%zd_diffcoef(ic)*          &
+!              MAX(p_nh_metrics%zd_diffcoef(ic),        &
+!              kh_smag_e(iedge(1,ic),ilev(1,ic),iedblk(1,ic))* blcoef(1,ic)  +                    &
+!              kh_smag_e(iedge(2,ic),ilev(1,ic),iedblk(2,ic))* blcoef(2,ic)  +                    &
+!              kh_smag_e(iedge(3,ic),ilev(1,ic),iedblk(3,ic))* blcoef(3,ic) ) *                   &
              (geofac_n2s(1,ic)*p_nh_prog%theta_v(icell(1,ic),ilev(1,ic),iblk(1,ic)) +            &
               geofac_n2s(2,ic)*(vcoef(1,ic)*p_nh_prog%theta_v(icell(2,ic),ilev(2,ic),iblk(2,ic))+&
               (1._wp-vcoef(1,ic))* p_nh_prog%theta_v(icell(2,ic),ilev(2,ic)+1,iblk(2,ic)))  +    &

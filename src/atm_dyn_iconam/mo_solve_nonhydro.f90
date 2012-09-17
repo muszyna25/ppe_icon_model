@@ -669,7 +669,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Set time levels of ddt_adv fields for call to velocity_tendencies
-    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN ! Velocity advection averaging nnow and nnew tendencies
+    IF (itime_scheme >= 4) THEN ! Velocity advection averaging nnow and nnew tendencies
       ntl1 = nnow
       ntl2 = nnew
     ELSE                        ! Velocity advection is taken at nnew only
@@ -680,7 +680,7 @@ MODULE mo_solve_nonhydro
     ! Weighting coefficients for velocity advection if tendency averaging is used
     ! The off-centering specified here turned out to be beneficial to numerical
     ! stability in extreme situations
-    wgt_nnow = 0.4_wp
+    wgt_nnow = 0.25_wp
     wgt_nnew = 1._wp - wgt_nnow
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
@@ -688,8 +688,8 @@ MODULE mo_solve_nonhydro
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step
-        IF (itime_scheme >= 5 .OR. l_init .OR. l_recompute) THEN
-          IF (itime_scheme < 5 .AND. .NOT. l_init) THEN
+        IF (itime_scheme >= 6 .OR. l_init .OR. l_recompute) THEN
+          IF (itime_scheme < 6 .AND. .NOT. l_init) THEN
             lvn_only = .TRUE. ! Recompute only vn tendency
           ELSE
             lvn_only = .FALSE.
@@ -1245,7 +1245,7 @@ MODULE mo_solve_nonhydro
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF ((itime_scheme == 4 .OR. itime_scheme == 6) .AND. istep == 2) THEN
+      IF ((itime_scheme >= 4) .AND. istep == 2) THEN
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
@@ -1447,6 +1447,36 @@ MODULE mo_solve_nonhydro
            ENDDO
         ENDDO
 
+      ELSE IF (idiv_method == 1 .AND. itime_scheme >= 5) THEN
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! Average normal wind components in order to get nearly second-order accurate divergence
+            z_vn_avg(je,jk,jb) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)        &
+              + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+            ! RBF reconstruction of tangential wind component
+            p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%rbf_vec_coeff_e(2,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%rbf_vec_coeff_e(3,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%rbf_vec_coeff_e(4,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+
       ELSE IF (idiv_method == 1) THEN
 
 #ifdef __LOOP_EXCHANGE
@@ -1497,9 +1527,32 @@ MODULE mo_solve_nonhydro
            ENDDO
         ENDDO
 
+      ELSE IF (itime_scheme >= 5) THEN
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! RBF reconstruction of tangential wind component
+            p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%rbf_vec_coeff_e(2,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%rbf_vec_coeff_e(3,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%rbf_vec_coeff_e(4,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+
       ENDIF
 
-      IF (istep == 1) THEN
+      IF (istep == 1 .OR. itime_scheme >= 5) THEN
         ! Compute contravariant correction for vertical velocity at full levels
         DO jk = nflatlev(p_patch%id), nlev
           DO je = i_startidx, i_endidx
@@ -1551,8 +1604,8 @@ MODULE mo_solve_nonhydro
 
     ! It turned out that it is sufficient to compute the contravariant correction in the
     ! predictor step at time level n+1; repeating the calculation in the corrector step
-    ! has negligible impact on the results
-    IF (istep == 1) THEN
+    ! has negligible impact on the results except in very-high resolution runs with extremely steep mountains
+    IF (istep == 1 .OR. itime_scheme >= 5) THEN
 
       rl_start = 3
       rl_end = min_rlcell_int - 1
@@ -1675,7 +1728,7 @@ MODULE mo_solve_nonhydro
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (istep == 2 .AND. (itime_scheme == 4 .OR. itime_scheme == 6)) THEN
+      IF (istep == 2 .AND. (itime_scheme >= 4)) THEN
 !CDIR UNROLL=5
         DO jk = 2, nlev
           DO jc = i_startidx, i_endidx

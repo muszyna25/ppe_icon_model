@@ -1612,7 +1612,9 @@ MODULE mo_vertical_grid
     INTEGER, DIMENSION(nproma*p_patch%nblks_c) :: i_indlist, i_blklist
     INTEGER :: i_listdim, numpoints, i_listreduce(p_patch%nblks_c)
 
-    REAL(wp) :: max_nbhgt, z_vintcoeff(nproma,p_patch%nlev,p_patch%nblks_c,3)
+    REAL(wp) :: max_nbhgt, z_vintcoeff(nproma,p_patch%nlev,p_patch%nblks_c,3), &
+                z_maxslp_avg(nproma,p_patch%nlev,p_patch%nblks_c), z_maxhgtd_avg(nproma,p_patch%nlev,p_patch%nblks_c)
+
     INTEGER  :: nbidx(nproma,p_patch%nlev,p_patch%nblks_c,3)
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -1628,6 +1630,34 @@ MODULE mo_vertical_grid
     iidx => p_patch%cells%neighbor_idx
     iblk => p_patch%cells%neighbor_blk
 
+    ! Apply cell averaging to slope and height difference fields
+    i_startblk = p_patch%cells%start_blk(2,1)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk,nblks_c
+
+      CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, i_startidx, i_endidx, 2)
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+          z_maxslp_avg(jc,jk,jb) = maxslp(jc,jk,jb)                      *p_int%c_bln_avg(jc,1,jb) + &
+                                   maxslp(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_int%c_bln_avg(jc,2,jb) + &
+                                   maxslp(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_int%c_bln_avg(jc,3,jb) + &
+                                   maxslp(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_int%c_bln_avg(jc,4,jb)
+
+          z_maxhgtd_avg(jc,jk,jb) = maxhgtd(jc,jk,jb)                      *p_int%c_bln_avg(jc,1,jb) + &
+                                    maxhgtd(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_int%c_bln_avg(jc,2,jb) + &
+                                    maxhgtd(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_int%c_bln_avg(jc,3,jb) + &
+                                    maxhgtd(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_int%c_bln_avg(jc,4,jb)
+
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
     ! Horizontal index list for truly horizontal diffusion
     i_startblk = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
 
@@ -1638,7 +1668,7 @@ MODULE mo_vertical_grid
                          i_startidx, i_endidx, grf_bdywidth_c+1)
 
       DO jc = i_startidx, i_endidx
-        IF ((maxslp(jc,nlev,jb)>=thslp_zdiffu .OR. maxhgtd(jc,nlev,jb)>=thhgtd_zdiffu) &
+        IF ((z_maxslp_avg(jc,nlev,jb)>=thslp_zdiffu .OR. z_maxhgtd_avg(jc,nlev,jb)>=thhgtd_zdiffu) &
             .AND. p_patch%cells%owner_mask(jc,jb)) THEN
           ji = ji+1
           i_blklist(ji) = jb
@@ -1673,7 +1703,7 @@ MODULE mo_vertical_grid
             ENDIF
           ENDDO
           DO jk = 1, nlev
-            IF(maxslp(jc,jk,jb) >= thslp_zdiffu .OR. maxhgtd(jc,jk,jb)>=thhgtd_zdiffu) THEN
+            IF(z_maxslp_avg(jc,jk,jb) >= thslp_zdiffu .OR. z_maxhgtd_avg(jc,jk,jb)>=thhgtd_zdiffu) THEN
               k_start(jc,jb) = jk
               EXIT
             ENDIF
@@ -1846,9 +1876,9 @@ MODULE mo_vertical_grid
         p_nh%metrics%zd_intcoef(3,ji1) = z_vintcoeff(jc,jk,jb,3)
 
         p_nh%metrics%zd_diffcoef(ji1)   =                                   &
-          MAX(0._wp,SQRT(MAX(0._wp,maxslp(jc,jk,jb)-thslp_zdiffu))/250._wp, &
-                    2.e-4_wp*SQRT(MAX(0._wp,maxhgtd(jc,jk,jb)-thhgtd_zdiffu)) )
-        p_nh%metrics%zd_diffcoef(ji1)   = MIN(1._wp/200._wp,p_nh%metrics%zd_diffcoef(ji1))
+          MAX(0._wp,SQRT(MAX(0._wp,z_maxslp_avg(jc,jk,jb)-thslp_zdiffu))/250._wp, &
+                    2.e-4_wp*SQRT(MAX(0._wp,z_maxhgtd_avg(jc,jk,jb)-thhgtd_zdiffu)) )
+        p_nh%metrics%zd_diffcoef(ji1)   = MIN(1._wp/500._wp,p_nh%metrics%zd_diffcoef(ji1))
 
       ENDDO
     ENDDO

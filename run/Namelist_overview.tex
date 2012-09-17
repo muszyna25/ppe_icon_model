@@ -2026,12 +2026,13 @@ iequations$\in$\{1,2\}
 \hline
 itime\_scheme&
 I& 4& &
-Mode of treating velocity tendencies:& \tabularnewline
-& & & & 4, 6: Tendencies of nnow and nnew are averaged in corrector step \\
-3, 5: Corrector step uses tendency at time level nnew only \\
-3, 4: Tendencies are recomputed for predictor step after physics calls only, otherwise
-      tendencies from preceding corrector step are used for predictor step \\
-5, 6: Tendencies are always recomputed for predictor step &
+Options for predictor-corrector time-stepping scheme:& \tabularnewline 
+& & & &
+4: Contravariant vertical velocity is computed in the predictor step only, 
+   velocity tendencies are computed in the corrector step only (most efficient option) \\
+5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
+   stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)\\
+6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive) &
 iequations=3 and cell\_type=3
 \tabularnewline
 
@@ -2316,7 +2317,7 @@ hdiff\_order&
 I& 4& &
 Order of $\nabla$ operator for diffusion:& \tabularnewline
 & & & & -1: no diffusion& \tabularnewline
-& & & & 2: $\nabla^{2}$ diffusion& \tabularnewline
+& & & & 2: $\nabla^{2}$ diffusion (not available for NH model on triangles!)& \tabularnewline
 & & & & 3: Smagorinsky $\nabla^{2}$ diffusion 
 (includes frictional heating for the hexagonal model if lhdiff\_temp=.TRUE.) &
 \tabularnewline
@@ -2327,7 +2328,7 @@ Order of $\nabla$ operator for diffusion:& \tabularnewline
 background diffusion as specified via hdiff\_efdt\_ratio&
 \tabularnewline
 & & & &
-defaults: 2 for hexagonal model, 4 for triangular model&
+defaults: 2 for hexagonal model, 4 for triangular model; for triangular NH model, 5 is strongly recommended!&
 \tabularnewline
 & & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
 (cf. k2\_pres\_max and k2\_klev\_max below); 
@@ -2374,13 +2375,14 @@ hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
 hdiff\_efdt\_ratio&
 R& 1.0 & &
 ratio of e-folding time to time step (or 2{*} time step when using
-a 3 time level time stepping scheme) (only for triangles currently) &
+a 3 time level time stepping scheme) (only for triangles currently; 
+for triangular NH model, values between 10 and 20 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 \hline 
 hdiff\_min\_efdt\_ratio&
 R& 1.0 & &
-minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3
+minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
 \tabularnewline
 
 \hline 

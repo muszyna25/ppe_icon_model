@@ -858,7 +858,7 @@ MODULE mo_nonhydro_state
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN
+    IF (itime_scheme >= 2) THEN
      n_timlevs = 2
     ELSE
      n_timlevs = 1

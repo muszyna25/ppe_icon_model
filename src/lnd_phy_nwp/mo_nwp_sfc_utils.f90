@@ -1493,7 +1493,7 @@ CONTAINS
         snowfrac(ic) = MIN(1.0_wp, w_snow(ic)/cf_snow)
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE
+    ELSE IF (idiag_snowfrac == 2) THEN
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1508,7 +1508,21 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-
+    ELSE    ! idiag_snowfrac = 3 - similar to option 2, but different tuning
+      DO ic = istart, iend
+        IF (w_snow(ic) <= 1.e-6_wp) THEN
+          snowfrac(ic) = 0._wp
+        ELSE
+          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
+          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
+          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          z0_fac   = MAX(1._wp,SQRT(12.5_wp*z0_lcc(MAX(1,lc_class(ic)))))
+          z0_limit = MIN(1._wp,SQRT(SQRT(2.5_wp/z0_fac)))
+          lc_limit = MIN(1._wp,1.75_wp/SQRT(MAX(0.1_wp,tai(ic))))
+          snowfrac(ic) = MIN(lc_limit,z0_limit,snowdepth_fac/z0_fac)
+        ENDIF
+        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
     ENDIF
 
   END SUBROUTINE diag_snowfrac_tg
