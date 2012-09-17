@@ -374,6 +374,13 @@ CONTAINS
       surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
     ENDWHERE
 
+    ! set albedo values for direct and diffuse radiation
+
+    albvisdir(1:kproma) = albedo_vis(1:kproma)
+    albvisdif(1:kproma) = albedo_vis(1:kproma)
+    albnirdir(1:kproma) = albedo_nir(1:kproma)
+    albnirdif(1:kproma) = albedo_nir(1:kproma)
+
     ELSE ! not ljsbach
 
     CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
@@ -382,13 +389,6 @@ CONTAINS
                                   & zen_h, zfn_h, zen_qv, zfn_qv             )! out
 
     END IF ! ljsbach
-
-    ! set albedo values for direct and diffuse radiation
-
-    albvisdir(1:kproma) = albedo_vis(1:kproma)
-    albvisdif(1:kproma) = albedo_vis(1:kproma)
-    albnirdir(1:kproma) = albedo_nir(1:kproma)
-    albnirdif(1:kproma) = albedo_nir(1:kproma)
 
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.
