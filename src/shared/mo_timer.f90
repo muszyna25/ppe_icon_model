@@ -56,7 +56,7 @@ MODULE mo_timer
   PUBLIC :: timer_icon_comm_sync  
   PUBLIC :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
-    & timer_icon_comm_barrier_2
+    & timer_icon_comm_barrier_2, timer_icon_comm_send
   PUBLIC :: timer_barrier  
 
   PUBLIC :: timer_integrate_nh
@@ -157,7 +157,7 @@ MODULE mo_timer
   INTEGER :: timer_icon_comm_sync
   INTEGER :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
-    & timer_icon_comm_barrier_2
+    & timer_icon_comm_barrier_2, timer_icon_comm_send
   INTEGER :: timer_barrier
   INTEGER :: timer_nh_hdiffusion
 
@@ -285,6 +285,7 @@ CONTAINS
     timer_icon_comm_fillrecv     = new_timer("comm_fillrecv")
     timer_icon_comm_ircv         = new_timer("comm_ircv")
     timer_icon_comm_isend        = new_timer("comm_isend")    
+    timer_icon_comm_send         = new_timer("comm_send")
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
           

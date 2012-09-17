@@ -106,8 +106,8 @@ MODULE mo_parallel_config
 
   LOGICAL :: use_icon_comm = .false.
   LOGICAL :: icon_comm_debug= .false.
-  INTEGER :: max_send_recv_buffer_size = 262144
-  INTEGER :: max_mpi_message_size      = 65536
+  INTEGER :: max_send_recv_buffer_size = 262144  ! size in doubles (x8)
+  INTEGER :: max_mpi_message_size      = 65536   ! size in doubles (x8)
   INTEGER :: max_no_of_comm_variables  = 64
   INTEGER :: max_no_of_comm_processes  = 64
   INTEGER :: max_no_of_comm_patterns   = 32
@@ -163,26 +163,19 @@ CONTAINS
     !------------------------------------------------------------
     IF (nproma<=0) CALL finish(TRIM(method_name),'"nproma" must be positive')
 
+    icon_comm_openmp = .false.
 ! check l_test_openmp
 #ifndef _OPENMP
-  IF (l_test_openmp) THEN
-    CALL message(method_name, &
-       & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
-    CALL message(method_name, &
-       & '--> l_test_openmp set to .FALSE.')
-    l_test_openmp = .FALSE.
-  END IF
-  icon_comm_openmp = .false.
+    IF (l_test_openmp) THEN
+      CALL message(method_name, &
+         & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
+      CALL message(method_name, &
+         & '--> l_test_openmp set to .FALSE.')
+      l_test_openmp = .FALSE.
+    END IF
 #else
-    SELECT CASE(icon_comm_method)
-    CASE(2)
-      icon_comm_openmp = .true.
-      icon_comm_method = 1
-    CASE(4)
-      icon_comm_openmp = .true.
-      icon_comm_method = 3
-    END SELECT
-
+    IF (icon_comm_method > 100) &
+      & icon_comm_openmp = .true.
 #endif
 
     ! check p_test_run and num_io_procs

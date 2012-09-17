@@ -51,14 +51,14 @@ MODULE mo_icon_comm_lib
   USE mo_communication,   ONLY: blk_no, idx_no
   USE mo_model_domain,    ONLY: t_patch
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
+     & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
      & process_mpi_all_comm, work_mpi_barrier, p_stop, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id
   USE mo_timer,           ONLY: ltimer, timer_start, timer_stop, timer_icon_comm_sync, &
     & activate_sync_timers, timer_icon_comm_fillrecv, timer_icon_comm_wait, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
-    & timer_icon_comm_isend, timer_icon_comm_barrier_2, &
+    & timer_icon_comm_isend, timer_icon_comm_barrier_2, timer_icon_comm_send, &
     & timer_start, timer_stop, timer_extra1
 
   USE mo_master_control,  ONLY: get_my_process_name
@@ -1546,17 +1546,35 @@ CONTAINS
       ! go through the whole process
       SELECT CASE(icon_comm_method)
       
-      CASE(1,2)
-        CALL start_recv_active_buffers() 
+      CASE(1,101)
+        CALL nonblockrecv_all_data()
         CALL fill_send_buffers()
-        CALL sent_active_buffers()
-        CALL finalize_recv_active_buffers()
+        CALL nonblocksent_all_data()
+        ! Wait for all outstanding requests to finish
+        IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
+        CALL p_wait
+        IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_wait)        
+        CALL fill_vars_from_recv_buffers()
         
-      CASE(3,4)
-        CALL start_recv_active_buffers() 
-        CALL fill_and_send_buffers
-        CALL finalize_recv_active_buffers()
+      CASE(2,102)
+        CALL nonblockrecv_all_data()
+        CALL fill_and_send_buffers()
+        ! Wait for all outstanding requests to finish
+        IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
+        CALL p_wait
+        IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_wait)        
+        CALL fill_vars_from_recv_buffers()
 
+      CASE(3,103)
+        CALL nonblockrecv_all_data()
+        CALL fill_send_buffers()
+        CALL blocksent_all_data()
+        ! Wait for all outstanding requests to finish
+        IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
+        CALL p_wait
+        IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_wait)        
+        CALL fill_vars_from_recv_buffers()
+        
       CASE DEFAULT
         CALL finish( method_name,'unknown icon_comm_method.')
       END SELECT
@@ -1948,7 +1966,7 @@ CONTAINS
  
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE sent_active_buffers(  )
+  SUBROUTINE nonblocksent_all_data(  )
 
     INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
 !     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
@@ -1972,17 +1990,49 @@ CONTAINS
 
       ENDDO
       
-
     ENDDO
     
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_isend)
           
-  END SUBROUTINE sent_active_buffers
+  END SUBROUTINE nonblocksent_all_data
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE start_recv_active_buffers(  )
+  SUBROUTINE blocksent_all_data(  )
+
+    INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
+!     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
+
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_send)
+    
+    DO bfid = 1, active_send_buffers
+
+      buffer_start = send_procs_buffer(bfid)%start_index
+      buffer_size  = send_procs_buffer(bfid)%buffer_size
+      message_seq_id = 0
+      DO WHILE ( buffer_size > 0 )
+
+        message_size = MIN(buffer_size, max_mpi_message_size)
+        CALL p_send(send_buffer(buffer_start:), send_procs_buffer(bfid)%pid, &
+          & p_tag=halo_tag+message_seq_id, p_count=message_size, &
+          & comm=my_work_communicator)
+        buffer_size  = buffer_size  - message_size
+        buffer_start = buffer_start + message_size
+        message_seq_id = message_seq_id + 1
+
+      ENDDO
+      
+    ENDDO
+    
+    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_send)
+          
+  END SUBROUTINE blocksent_all_data
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE nonblockrecv_all_data(  )
 
     INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
 
@@ -2011,7 +2061,7 @@ CONTAINS
     ENDDO
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_ircv)
           
-  END SUBROUTINE start_recv_active_buffers
+  END SUBROUTINE nonblockrecv_all_data
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -2028,18 +2078,11 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE finalize_recv_active_buffers()
+  SUBROUTINE fill_vars_from_recv_buffers()
 
     INTEGER :: comm_var, var_no, bfid
-        
-    
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
-    ! Wait for all outstanding requests to finish
-    CALL p_wait
-    IF (activate_sync_timers) THEN
-      CALL timer_stop(timer_icon_comm_wait)
-      CALL timer_start(timer_icon_comm_fillrecv)
-    ENDIF
+            
+    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillrecv)
     
     ! set the current recv index to start
     DO bfid = 1, active_recv_buffers
@@ -2057,7 +2100,7 @@ CONTAINS
     ENDDO
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillrecv)
   
-  END SUBROUTINE finalize_recv_active_buffers
+  END SUBROUTINE fill_vars_from_recv_buffers
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
