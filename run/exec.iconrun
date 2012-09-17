@@ -254,6 +254,7 @@ if [[ $run_ocean = 'true' ]]; then
 
      PROGNAME=iconR${R}B0${B}-prog.nc
      OININAME=ts_phc_annual-iconR${R}B0${B}-${init_oce_suff}
+     RESTARTNAME=restart_500y_dailyOmip_noIce_iconR${R}B0${B}-${init_oce_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
@@ -273,6 +274,21 @@ if [[ $run_ocean = 'true' ]]; then
      ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
 
+     if [ -f ${POOL_INIT}/${RESTARTNAME} ]; then
+       #copy to grids
+       cp -p ${POOL_INIT}/${RESTARTNAME} ${HGRIDDIR}/${RESTARTNAME}
+       #link to it form the experiment dir
+       ln -s ${HGRIDDIR}/${RESTARTNAME} ${EXPDIR}/restart_oce.nc
+       #create default restart.info
+       if [ ! -f "${EXPDIR}/restart.info" ];then
+         echo "Create default ${EXPDIR}/restart.info"
+         echo "gridspec: grid_D01_atm.nc ! here should be the physical filename including path" > ${EXPDIR}/restart.info
+       else
+         echo "Found ${EXPDIR}/restart.info"
+       fi
+     else
+       echo "WARNING: Cannot find restart file: ${RESTARTNAME}"
+     fi
    fi
    # =======================================================
    #
