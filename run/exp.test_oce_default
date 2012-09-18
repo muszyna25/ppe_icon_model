@@ -83,14 +83,14 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2500-02-09T00:00:00Z"
-  end_date="2510-01-02T00:00:00Z"
+  end_date="2505-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=240      # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=4000   # stop model for restart [days]
+ndays_restart=1000   # stop model for restart [days]
 restart=.true.
 #
 #-----------------------------------------------------------------------------
