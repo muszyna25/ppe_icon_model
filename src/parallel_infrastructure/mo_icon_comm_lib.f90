@@ -1558,7 +1558,7 @@ CONTAINS
         
       CASE(2,102)
         CALL nonblockrecv_all_data()
-        CALL fill_and_send_buffers()
+        CALL fill_and_nonblocksend_buffers()
         ! Wait for all outstanding requests to finish
         IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
         CALL p_wait
@@ -1673,7 +1673,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------  
-  SUBROUTINE fill_and_send_buffers()
+  SUBROUTINE fill_and_nonblocksend_buffers()
         
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size,&
@@ -1729,7 +1729,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillandsend)
            
-  END SUBROUTINE fill_and_send_buffers
+  END SUBROUTINE fill_and_nonblocksend_buffers
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -2006,6 +2006,8 @@ CONTAINS
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_send)
     
+!ICON_OMP_PARALLEL IF(icon_comm_openmp)
+!ICON_OMP_DO PRIVATE(bfid, buffer_start, buffer_size, message_seq_id, message_size)
     DO bfid = 1, active_send_buffers
 
       buffer_start = send_procs_buffer(bfid)%start_index
@@ -2024,6 +2026,8 @@ CONTAINS
       ENDDO
       
     ENDDO
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
     
     IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_send)
           
