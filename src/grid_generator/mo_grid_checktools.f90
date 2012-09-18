@@ -44,14 +44,15 @@ MODULE mo_grid_checktools
   USE mo_exception,      ONLY: message, finish
   USE mo_local_grid
   USE mo_io_local_grid
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, &
-    & gc2cc, arc_length, norma, sin_cc, gvec2cvec!, sphere_tanget_coordinates
-  USE mo_math_constants, ONLY: rad2deg
+  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
+    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area!, sphere_tanget_coordinates
+  USE mo_math_constants, ONLY: rad2deg, deg2rad
   USE mo_local_grid_geometry,  ONLY: edges_cell_angle, edges_normal_angle, no_angle, &
     & get_cell_barycenters
     !, get_triangle_circumcenters, geographical_to_cartesian
   USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
   USE mo_statistics_tools
+  USE mo_physical_constants, ONLY: earth_radius
   
   IMPLICIT NONE
 
@@ -71,6 +72,7 @@ MODULE mo_grid_checktools
   PUBLIC :: check_parent_child_grid
   PUBLIC :: check_grid_file, grid_statistics_file
   PUBLIC :: check_inverse_connect_verts
+  PUBLIC :: calculate_triangle_properties
   
   !----------------------------------------
   REAL(wp), PARAMETER  :: EDGE_CENTER_LIMIT = 1e-3_wp
@@ -82,6 +84,34 @@ MODULE mo_grid_checktools
 
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_triangle_properties(lon1, lat1, lon2, lat2, lon3, lat3 )
+    REAL(wp), INTENT(in) :: lon1, lat1, lon2, lat2, lon3, lat3
+
+    TYPE(t_cartesian_coordinates) :: x0, x1, x2
+    TYPE(t_geographical_coordinates) :: v
+    REAL(wp) :: area
+
+
+    v%lon = lon1 * deg2rad
+    v%lat = lat1 * deg2rad    
+    x0 = gc2cc(v)
+    
+    v%lon = lon2 * deg2rad
+    v%lat = lat2 * deg2rad    
+    x1 = gc2cc(v)
+
+    v%lon = lon3 * deg2rad
+    v%lat = lat3 * deg2rad    
+    x2 = gc2cc(v)
+
+    area = triangle_area(x0, x1, x2)
+    write(0,*) " Normed triangle area=", area
+    write(0,*) " Earth triangle area (km) =", area * earth_radius * earth_radius * 1e-6_wp
+    
+  END SUBROUTINE calculate_triangle_properties
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   SUBROUTINE check_grid_file(in_file)
     CHARACTER(LEN=filename_max), INTENT(in) :: in_file

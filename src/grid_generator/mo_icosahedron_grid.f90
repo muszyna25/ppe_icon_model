@@ -70,7 +70,7 @@ MODULE mo_icosahedron_grid
 
   INTEGER :: no_of_levels, start_level, refinement_method, start_optimize, end_optimize
   INTEGER :: decompose_cells_at_level = -2
-  INTEGER :: decompose_dualcells_at_level = -2
+  INTEGER :: dual_decomposition_domains = -2
   INTEGER :: decompose_roundrobin_at_level = -2
   
   REAL(wp) :: icon_norm_edge, icon_norm_dual_edge
@@ -95,7 +95,7 @@ CONTAINS
     NAMELIST /icosahedron_grid/ no_of_levels, start_level, &
       & refinement_method, input_file, output_file, optimization_extension, &
       & start_optimize, end_optimize, decompose_cells_at_level, &
-      & decompose_dualcells_at_level, decomposition_ascii_ext,  &
+      & dual_decomposition_domains, decomposition_ascii_ext,  &
       & decompose_roundrobin_at_level
 
     ! set default values
@@ -108,7 +108,7 @@ CONTAINS
     start_optimize = 1
     end_optimize = -1
     decompose_cells_at_level = -2
-    decompose_dualcells_at_level = -2
+    dual_decomposition_domains = -2
     
     ! read namelist
     CALL open_nml(param_file_name)
@@ -152,8 +152,11 @@ CONTAINS
 
     INTEGER :: base_grid_id, next_grid_id, level, end_level
     INTEGER :: no_of_domains
+    LOGICAL :: is_dual_decomposed
     CHARACTER(LEN=filename_max) :: file_name
 
+    is_dual_decomposed = .false.
+    
     CALL read_icosahedron_grid_param(param_file_name)
 
     IF (input_file == 'NULL') THEN
@@ -188,7 +191,8 @@ CONTAINS
 
         CASE(edge_bisection)
 
-          IF (level-1 == decompose_dualcells_at_level) THEN
+          IF (get_number_of_vertices(base_grid_id) == dual_decomposition_domains) THEN
+            is_dual_decomposed = .true.
             next_grid_id = get_basic_dual_grid(base_grid_id)
             CALL delete_grid(base_grid_id)
             CALL decompose_all_cells(next_grid_id, 1)
@@ -234,7 +238,7 @@ CONTAINS
       ENDIF
       
       IF (level == decompose_roundrobin_at_level) THEN
-        CALL redecompose_round_robin(base_grid_id, 1, 2)
+        CALL redecompose_round_robin(base_grid_id, 1, 1, 2)
       ENDIF
 
       
@@ -244,13 +248,13 @@ CONTAINS
 
       ! if decomposition takes place write the ascci decomposition file
       !  if this level >= decompose level
-      IF (decompose_dualcells_at_level > -2 .AND. &
-        & level > decompose_dualcells_at_level) THEN
-        
+      IF (is_dual_decomposed) THEN        
         no_of_domains = get_no_of_domains(base_grid_id, 1)
-        WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
-          TRIM(optimization_extension), "_hex_dd_", no_of_domains, &
-          TRIM(decomposition_ascii_ext)
+!         WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
+!           TRIM(optimization_extension), "_hex_dd_", no_of_domains, &
+!           TRIM(decomposition_ascii_ext)
+        WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
+          TRIM(optimization_extension), TRIM(decomposition_ascii_ext)
         CALL write_ascii_decomposition(base_grid_id, 1, file_name)
       ENDIF
       
@@ -276,6 +280,9 @@ CONTAINS
 
     CALL delete_grid(base_grid_id)
 
+    IF (dual_decomposition_domains > 0 .AND. .NOT. is_dual_decomposed) THEN
+      CALL finish("create_icon_grid","grid is NOT dual_decomposed")
+    ENDIF
 
   END SUBROUTINE create_icon_grid
   !-------------------------------------------------------------------------

@@ -804,7 +804,9 @@ CONTAINS
     INTEGER :: vertex1_in_cell, vertex2_in_cell
     INTEGER, ALLOCATABLE ::new_vertex_index(:), new_edge_index(:), new_cell_edge_index(:)
 
-    INTEGER :: j
+    INTEGER :: j, i
+    INTEGER :: cell_creation_order(6) ! this will identify the order with which the cells
+                                      ! will be created for each vertex (dual cell)
 
     !-------------------------------------------------------------------------
     in_grid  => get_grid(in_grid_id)
@@ -875,6 +877,7 @@ CONTAINS
     out_edge_index = 0
     out_cell_index = 0
     out_cells%no_of_domains(:) = in_cells%no_of_domains(:)
+    cell_creation_order(:) = (/ 2, 1, 3, 5, 4, 6/)
     DO in_cell_index=1,no_of_input_cells
       ! insert cell center
       out_vertex_index = out_vertex_index + 1
@@ -884,7 +887,9 @@ CONTAINS
 
       new_cell_edge_index(:) = 0
       ! go through the cell vertices and create a new vertex and edge for each vertex
-      DO j=1,max_in_cell_vertices
+      ! use the connectivity matrix
+      DO i = 1, max_in_cell_vertices
+        j = cell_creation_order(i)
         in_vertex1 = in_cells%get_vertex_index(in_cell_index, j)
         IF (in_vertex1 /= 0) THEN
           out_vertex1 = new_vertex_index(in_vertex1)

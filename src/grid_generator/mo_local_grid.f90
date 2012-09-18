@@ -595,7 +595,7 @@ CONTAINS
 
   END FUNCTION get_cells
   !-----------------------------------------------------------------------
-
+  
   !-----------------------------------------------------------------------
   !>
   !! Returns a pointer to the edges structure associated with the grid_id
@@ -638,7 +638,6 @@ CONTAINS
 
   END FUNCTION get_number_of_vertices
   !-----------------------------------------------------------------------
-
 
   !-----------------------------------------------------------------------
   LOGICAL FUNCTION grid_is_filled(grid_id)
@@ -2503,24 +2502,20 @@ CONTAINS
     TYPE(t_grid_edges), POINTER :: edges
     TYPE(t_grid_vertices), POINTER :: verts
 
-    INTEGER :: no_of_input_cells, no_of_input_edges, no_of_input_verts
     INTEGER :: i
 
     in_grid => get_grid_object(in_grid_id)
-    no_of_input_cells = in_grid%ncells
-    no_of_input_edges = in_grid%nedges
-    no_of_input_verts = in_grid%nverts
     verts=>in_grid%verts
     edges=>in_grid%edges
     cells=>in_grid%cells
 
-    DO i=1,no_of_input_cells
+    DO i=1,in_grid%cells%no_of_allocatedcells
       cells%idx(i) = i
     ENDDO
-    DO i=1,no_of_input_edges
+    DO i=1,in_grid%edges%no_of_allocatededges
       edges%idx(i) = i
     ENDDO
-    DO i=1,no_of_input_verts
+    DO i=1,in_grid%verts%no_of_allocatedvertices
       verts%idx(i) = i
     ENDDO
 

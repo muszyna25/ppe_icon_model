@@ -72,15 +72,16 @@ CONTAINS
   !>
   !! Given a decomposition, it re-decomposes in a round_robin way for each subdomain
   SUBROUTINE redecompose_file_round_robin(grid_file, out_ascii_file, &
-    & in_decomposition_id, out_decomposition_id)
+    & cells_group_size, in_decomposition_id, out_decomposition_id)
     
     CHARACTER(LEN=*), INTENT(in) :: grid_file, out_ascii_file
-    INTEGER, INTENT(in)  :: in_decomposition_id, out_decomposition_id
+    INTEGER, INTENT(in)  :: cells_group_size, in_decomposition_id, out_decomposition_id
 
     INTEGER :: grid_id
 
     grid_id = read_new_netcdf_grid(grid_file)
-    CALL redecompose_round_robin(grid_id, in_decomposition_id, out_decomposition_id)
+    CALL redecompose_round_robin(grid_id, cells_group_size, &
+      & in_decomposition_id, out_decomposition_id)
     CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
@@ -93,8 +94,10 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Given a decomposition, it re-decomposes in a round_robin way for each subdomain
-  SUBROUTINE redecompose_round_robin(grid_id, in_decomposition_id, out_decomposition_id)
-    INTEGER, INTENT(in)  :: grid_id, in_decomposition_id, out_decomposition_id
+  SUBROUTINE redecompose_round_robin(grid_id, cells_group_size, &
+    & in_decomposition_id, out_decomposition_id)
+    INTEGER, INTENT(in)  :: grid_id, cells_group_size, &
+      & in_decomposition_id, out_decomposition_id
 
     TYPE(t_grid_cells), POINTER :: cells
     INTEGER, POINTER :: cells_per_domain(:), next_new_domain(:)
@@ -125,13 +128,24 @@ CONTAINS
     next_new_domain(0) = 0
     DO domain_id = 0, no_of_domains-2
       next_new_domain(domain_id+1) = &
-        & MOD(next_new_domain(domain_id) + cells_per_domain(domain_id), no_of_domains)
+        & MOD( next_new_domain(domain_id) + &
+        &     (cells_per_domain(domain_id) / cells_group_size), &
+        &     no_of_domains)
     ENDDO
+
+    ! re-distribute in groups of cells_group_size
+    ! the current group size for each subdomain
+    !  will be hold in cells_per_domain
+    cells_per_domain(:) = 0
     DO cell_no = 1, cells%no_of_existcells
       domain_id = cells%get_domain_id(in_decomposition_id, cell_no)
       cells%get_domain_id(out_decomposition_id, cell_no) = next_new_domain(domain_id)
-      next_new_domain(domain_id) = &
-        & MOD(next_new_domain(domain_id) + 1, no_of_domains)
+      cells_per_domain(in_decomposition_id) = cells_per_domain(in_decomposition_id) + 1
+      IF (cells_per_domain(in_decomposition_id) >= cells_group_size) THEN
+        next_new_domain(domain_id) = &
+          & MOD(next_new_domain(domain_id) + 1, no_of_domains)
+        cells_per_domain(in_decomposition_id) = 0
+      ENDIF
     ENDDO
 
     ! all cells have been re-distributed
@@ -371,7 +385,7 @@ CONTAINS
     REAL(wp) :: cell_ratio, max_halo_cell_ratio
 
     INTEGER :: no_of_neigbors, halo_cells_to_edge, halo_cells_to_vert
-    INTEGER, ALLOCATABLE :: owned_cells(:)
+    INTEGER, ALLOCATABLE :: owned_cells(:), land_cells(:), sea_cells(:)
 
     INTEGER :: cell_no, this_domain_id, return_status
 
@@ -381,17 +395,26 @@ CONTAINS
     cells => get_cells(grid_id)
     max_domain_id = get_max_domain_id(grid_id, decomposition_id)
     IF (cells%no_of_domains(decomposition_id) /= max_domain_id+1) &
-      & CALL finish(method_name, "no_of_domains incisitent to max_domain_id")
+      & CALL finish(method_name, "no_of_domains inconsistent to max_domain_id")
     
     ! calculate owned cells
-    ALLOCATE(owned_cells(0:max_domain_id), stat=return_status)
+    ALLOCATE(owned_cells(0:max_domain_id),land_cells(0:max_domain_id), &
+      & sea_cells(0:max_domain_id), stat=return_status)
     IF (return_status > 0) THEN
         CALL finish (method_name, 'ALLOCATE(owned_cells)')
     ENDIF
+    
     owned_cells(:) = 0
+    land_cells(:)  = 0
+    sea_cells(:)   = 0
     DO cell_no =1, cells%no_of_existcells
-      owned_cells(cells%get_domain_id(decomposition_id, cell_no)) = &
-        & owned_cells(cells%get_domain_id(decomposition_id, cell_no)) + 1
+      this_domain_id = cells%get_domain_id(decomposition_id, cell_no)
+      owned_cells(this_domain_id) = owned_cells(this_domain_id) + 1
+      IF      (cells%sea_land_mask(cell_no) > 0 ) THEN
+        land_cells(this_domain_id) = land_cells(this_domain_id)  + 1
+      ELSEIF (cells%sea_land_mask(cell_no) < 0 ) THEN
+        sea_cells(this_domain_id) = sea_cells(this_domain_id)  + 1
+      ENDIF
     ENDDO
 
     WRITE(0,*) " === Decomposition Statistics ==="
@@ -408,7 +431,10 @@ CONTAINS
       cell_ratio = REAL(halo_cells_to_vert,wp) / REAL(owned_cells(this_domain_id), wp)
       
       WRITE(0,*) "Domain:", this_domain_id, " no_of_neigbors=", no_of_neigbors, &
-        " owned_cells=", owned_cells(this_domain_id), " halo_cells=", halo_cells_to_vert, &
+        " owned_cells=", owned_cells(this_domain_id), &
+        " sea_cells=",   sea_cells(this_domain_id), &
+        " land_cells=",  land_cells(this_domain_id), &
+        " halo_cells=",  halo_cells_to_vert, &
         " ratio=", cell_ratio,  " halo_cells_to_edge=", halo_cells_to_edge
                
       max_neighbors = MAX(max_neighbors, no_of_neigbors)
@@ -425,7 +451,7 @@ CONTAINS
 
     WRITE(0,*) " === END Decomposition Statistics ==="
 
-    DEALLOCATE(owned_cells)
+    DEALLOCATE(owned_cells, land_cells, sea_cells)
   
   END SUBROUTINE grid_decomposition_statistics
   !-------------------------------------------------------------------------

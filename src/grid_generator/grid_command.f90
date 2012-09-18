@@ -11,7 +11,7 @@ PROGRAM grid_command
   USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual, &
     &   shift_grid_ids
   USE mo_grid_checktools,       ONLY: check_grid_file, grid_statistics_file,&
-    & check_inverse_connect_verts, check_read_write_grid
+    & check_inverse_connect_verts, check_read_write_grid, calculate_triangle_properties
   USE mo_local_grid_optimization, ONLY: optimize_grid_file
   USE mo_icosahedron_grid,      ONLY: create_icon_grid
   USE mo_grid_conditions,       ONLY: cut_local_grid, cut_local_grid_ascii
@@ -56,13 +56,15 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: global_graph_generator_c ='global_graph_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_generator_c ='global_grid_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_refine_c ='global_grid_refine'
+  CHARACTER(len=32), PARAMETER :: calculate_triangle_c ='calculate_triangle'
 
   CHARACTER(len=32) :: command =''
   CHARACTER(len=filename_max) :: param_1 = ''
   CHARACTER(len=filename_max) :: param_2 = ''
   CHARACTER(len=filename_max) :: param_3 = ''
 
-  INTEGER :: int_param_1, int_param_2
+  INTEGER :: int_param_1, int_param_2, int_param_3
+  REAL(wp):: real_param_1, real_param_2, real_param_3, real_param_4, real_param_5, real_param_6
   LOGICAL :: logical_flag
 !   CALL get_command_argument(1, command)
 !   CALL get_command_argument(2, param_1)
@@ -153,9 +155,9 @@ PROGRAM grid_command
 
     CASE (redecompose_round_robin_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
-      READ (500, *) command, param_1, param_2, int_param_1, int_param_2
+      READ (500, *) command, param_1, param_2, int_param_1, int_param_2, int_param_3
       CLOSE(500)
-      CALL redecompose_file_round_robin(param_1, param_2, int_param_1, int_param_2)
+      CALL redecompose_file_round_robin(param_1, param_2, int_param_1, int_param_2, int_param_3)
     
     CASE (decomposition_statistics_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
@@ -168,6 +170,15 @@ PROGRAM grid_command
       READ (500, *) command, param_1, param_2
       CLOSE(500)
       CALL grid_statistics_file(param_1, param_2)
+    
+    CASE (calculate_triangle_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, real_param_1, real_param_2, &
+        & real_param_3, real_param_4, real_param_5, real_param_6
+      CLOSE(500)
+      CALL calculate_triangle_properties(lon1=real_param_1, lat1=real_param_2,  &
+        & lon2=real_param_3, lat2=real_param_4, lon3=real_param_5, lat3=real_param_6 )
+      ! decompose_file_metis(grid_file, dec_size, out_ascii_file, decomposition_id )
 
 #ifdef __ICON__
     CASE (global_graph_generator_c)
