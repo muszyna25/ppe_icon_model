@@ -273,7 +273,7 @@ MODULE mo_mpi
 
   ! communicator stack for global sums
   INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
-  INTEGER, PUBLIC :: comm_lev = 0, glob_comm(max_lev), comm_proc0(max_lev)
+  INTEGER, PUBLIC :: comm_lev = 0, glob_comm(0:max_lev), comm_proc0(0:max_lev)
 
   ! define generic interfaces to allow proper compiling with picky compilers
   ! like NAG f95 for clean argument checking and shortening the call sequence.
