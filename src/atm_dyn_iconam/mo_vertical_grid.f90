@@ -1041,6 +1041,7 @@ MODULE mo_vertical_grid
       ! Compute information needed for Taylor-expansion-based pressure gradient calculation
       IF (igradp_method == 1) THEN
         nflat_gradp(jg) = nlev
+        DEALLOCATE(z_me)
         CYCLE
       ENDIF
 
