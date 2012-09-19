@@ -4550,11 +4550,23 @@ l\_limited\_area =.TRUE.
  itype\_atmos\_ana determines the atmospheric profile, itype\_anaprof\_uv 
 determines the wind profile and itype\_topo\_ana determines the topography&
 \tabularnewline
+&&&&'\textbf{dcmip\_rest\_200}': atmosphere at rest test (Schaer-type mountain)&
+lcoriolis = .FALSE.
+\tabularnewline
+&&&&'\textbf{dcmip\_mw\_2x}': nonhydrostatic mountain waves triggered by Schaer-type mountain&
+lcoriolis = .FALSE.
+\tabularnewline
 &&&&'\textbf{dcmip\_gw\_31}': nonhydrostatic gravity waves triggered by a localized perturbation (nonlinear)&
 \tabularnewline
 &&&&'\textbf{dcmip\_gw\_32}': nonhydrostatic gravity waves triggered by a localized perturbation (linear)&
 l\_limited\_area =.TRUE. \\
 and lcoriolis = .FALSE.
+\tabularnewline
+&&&&'\textbf{dcmip\_tc\_51}': tropical cyclone test case with 'simple physics' parameterizations (\textbf{not yet implemented})&
+lcoriolis = .TRUE.
+\tabularnewline
+&&&&'\textbf{dcmip\_tc\_52}': tropical cyclone test case with with full physics in Aqua-planet mode&
+lcoriolis = .TRUE.
 \tabularnewline
 \hline
 jw\_up&
@@ -4985,6 +4997,14 @@ R& 4000. & m &
 lambda parameter for the schaer mountain&
 nh\_test\_name=\\'g\_lim\_area' and 
 itype\_topo\_ana=1
+\tabularnewline
+\hline 
+lshear\_dcmip&
+L& FALSE &  &
+run dcmip\_mw\_2x with/without vertical wind shear\\
+FALSE: dcmip\_mw\_21: non-sheared \\
+TRUE : dcmip\_mw\_22: sheared &
+nh\_test\_name=\\'dcmip\_mw\_2x'
 \tabularnewline
 \hline 
 halfwidth\_2d&

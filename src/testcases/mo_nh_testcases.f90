@@ -85,7 +85,12 @@ MODULE mo_nh_testcases
                                    & qv_max_wk, u_infty_wk,                       &
                                    & bubctr_lat, bubctr_lon, bubctr_z,            &
                                    & bub_hor_width, bub_ver_width, bub_amp
-  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt 
+  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
+  USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,lshear_dcmip,      &
+                                   & init_nh_topo_dcmip_schaer
+  USE mo_nh_dcmip_steady_state_mountain, ONLY :                                   &
+                                   & init_nh_topo_dcmip_steady_state_m,           &
+                                   & init_nh_prog_dcmip_steady_state_m  
   USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
   USE mo_nh_lim_area_testcases,ONLY: init_nh_atmo_ana_nconstlayers, nlayers_nconst,  &
                                    & p_base_nconst, theta0_base_nconst, h_nconst,    &
@@ -156,7 +161,8 @@ MODULE mo_nh_testcases
                             halfwidth_2dm, mount_lonc_deg, mount_latc_deg,   &
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
-                            tgr_poly, rh_poly, rhgr_poly, lcoupled_rho  
+                            tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
+                            lcoupled_rho  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -307,6 +313,7 @@ MODULE mo_nh_testcases
     m_height       = 1000.0_wp
     m_width_x      = 5000.0_wp
     m_width_y      = 5000.0_wp
+    lshear_dcmip   = .FALSE.
     ! for PA test cases:
     lcoupled_rho   = .FALSE.
 
@@ -577,6 +584,16 @@ MODULE mo_nh_testcases
     ! The topography has been initialized to 0 
     CALL message(TRIM(routine),'running the dcmip_gw_32 (analyt. small planet gravity wave) test')
 
+  CASE ('dcmip_rest_200')
+
+    DO jg = 1, n_dom 
+
+     CALL init_nh_topo_dcmip_steady_state_m ( p_patch(jg),  ext_data(jg)%atm%topography_c,  &
+                          & ext_data(jg)%atm%topography_v, ext_data(jg)%atm%fis  )
+
+    END DO
+
+    CALL message(TRIM(routine),'running the dcmip_rest_200 (steady state at rest dcmip) test')
 
   CASE ('dcmip_tc_51')
     ! itopo == 0 --> The topography is initialized to 0 at the begining of this subroutine
@@ -1095,6 +1112,53 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup dcmip_gw_32 test')
 
+
+  CASE ('dcmip_rest_200')
+
+    CALL message(TRIM(routine),'setup dcmip_rest_200 (steady state at rest) test')
+  
+   l_hydro_adjust = .TRUE.
+
+   IF ( lcoriolis) THEN
+
+     WRITE(message_text,'(a)') &
+             & 'For dcmip_rest_200 test case  lcoriolis must be .FALSE.'
+            CALL finish  (routine, TRIM(message_text))
+   END IF
+
+
+    DO jg = 1, n_dom
+      CALL init_nh_prog_dcmip_steady_state_m( p_patch(jg),                        &
+        &                    p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
+        &                    p_nh_state(jg)%metrics, p_int(jg),l_hydro_adjust )
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    ENDDO
+
+    CALL message(TRIM(routine),'End setup dcmip_rest_200 test')
+
+
+  CASE ('dcmip_mw_2x')
+
+    CALL message(TRIM(routine),'setup dcmip_mw_2x (schaer-type on small planet) test')
+  
+   l_hydro_adjust = .FALSE.
+
+   IF ( lcoriolis) THEN
+
+     WRITE(message_text,'(a)') &
+             & 'For dcmip_mw_2x test case  lcoriolis must be .FALSE.'
+            CALL finish  (routine, TRIM(message_text))
+   END IF
+
+
+    DO jg = 1, n_dom
+      CALL init_nh_prog_dcmip_schaer( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+        &                    p_nh_state(jg)%diag, p_nh_state(jg)%ref,             &
+        &                    p_nh_state(jg)%metrics, p_int(jg),l_hydro_adjust )
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    ENDDO
+
+    CALL message(TRIM(routine),'End setup dcmip_mw_2x test')
 
 
   CASE ('dcmip_tc_51','dcmip_tc_52')
