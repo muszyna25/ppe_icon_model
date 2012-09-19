@@ -47,7 +47,7 @@
 !! software.
 !!
 !!
-MODULE mo_nh_dcmip_steady_state_mountain
+MODULE mo_nh_dcmip_rest_atm
 
    USE mo_kind,                 ONLY: wp
    USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
@@ -73,8 +73,8 @@ MODULE mo_nh_dcmip_steady_state_mountain
 
    CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-   PUBLIC :: init_nh_prog_dcmip_steady_state_m
-   PUBLIC :: init_nh_topo_dcmip_steady_state_m
+   PUBLIC :: init_nh_prog_dcmip_rest_atm
+   PUBLIC :: init_nh_topo_dcmip_rest_atm
 
 
 !--------------------------------------------------------------------
@@ -88,7 +88,7 @@ MODULE mo_nh_dcmip_steady_state_mountain
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_topo_dcmip_steady_state_m( p_patch, topo_c, topo_v, fis)
+  SUBROUTINE init_nh_topo_dcmip_rest_atm( p_patch, topo_c, topo_v, fis)
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
@@ -190,7 +190,7 @@ MODULE mo_nh_dcmip_steady_state_mountain
 !$OMP END PARALLEL
 
 
-   END SUBROUTINE init_nh_topo_dcmip_steady_state_m
+   END SUBROUTINE init_nh_topo_dcmip_rest_atm
  
 !-------------------------------------------------------------------------
 
@@ -200,7 +200,7 @@ MODULE mo_nh_dcmip_steady_state_mountain
   !!
   !!
 
-  SUBROUTINE init_nh_prog_dcmip_steady_state_m(p_patch, p_nh_prog, p_nh_diag, &
+  SUBROUTINE init_nh_prog_dcmip_rest_atm(p_patch, p_nh_prog, p_nh_diag, &
     &                                  p_metrics, p_int, l_hydro_adjust )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
@@ -363,6 +363,6 @@ MODULE mo_nh_dcmip_steady_state_mountain
    END IF
 
 
-  END SUBROUTINE init_nh_prog_dcmip_steady_state_m
+  END SUBROUTINE init_nh_prog_dcmip_rest_atm
 !--------------------------------------------------------------------
-  END MODULE mo_nh_dcmip_steady_state_mountain
+  END MODULE mo_nh_dcmip_rest_atm
