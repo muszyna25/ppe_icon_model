@@ -642,6 +642,9 @@ run/exp.nh_dcmip_tc_52_r5b4 -text
 run/exp.oce_aqpl -text
 run/exp.oce_base -text
 run/exp.oce_channel -text
+run/exp.oce_cmp2mpiom_central -text
+run/exp.oce_cmp2mpiom_miura -text
+run/exp.oce_cmp2mpiom_upwind -text
 run/exp.oce_density_front -text
 run/exp.oce_densityfront -text
 run/exp.oce_diffusion -text
