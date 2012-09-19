@@ -862,7 +862,8 @@ CONTAINS
     
     CALL nf(nf_open(TRIM(p_patch%grid_filename), nf_nowrite, ncid))
     
-    uuid_string = ' ' ! To avoid null characters in the standard output
+    uuid_string = 'ee34e42c-5fbb-11e1-ab9c-9b115d841c30' ! To avoid null characters in the standard output
+
     CALL nf(nf_get_att_text(ncid, nf_global, 'uuid', uuid_string), &
       & warnonly=.TRUE., silent=(.NOT. is_grib_output()))
     CALL uuid_parse(uuid_string, p_patch%grid_uuid)
