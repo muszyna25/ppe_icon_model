@@ -53,10 +53,12 @@ MODULE mo_advection_limiter
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: dbl_eps
+  USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                ONLY: SYNC_C1, sync_patch_array, sync_patch_array_mult
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_C1, sync_patch_array, &
+    &                               sync_patch_array_mult
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -96,15 +98,20 @@ CONTAINS
   !! @par Literature:
   !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
   !!   Algorithms for Fluids. JCP, 31, 335-362
+  !! - Schaer, C. and P.K. Smolarkiewicz (1996): A synchronous and iterative 
+  !!   flux-correction formalism for coupled transport equations. J. comput. Phys., 
+  !!   128, 101-120
   !!
   !! @par Revision History
   !! - Inital revision by Daniel Reinert, DWD (2010-03-10)
   !! Modification by Daniel Reinert, DWD (2010-03-25)
   !! - adapted for MPI parallelization
+  !! Modification by Daniel Reinert, DWD (2012-09-20)
+  !! - possibility for iterative flux correction
   !!
   SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc, p_mass_flx_e, &
-    &                         p_mflx_tracer_h, opt_rlstart, opt_rlend,         &
-    &                         opt_slev, opt_elev )
+    &                         p_mflx_tracer_h, opt_niter, opt_rlstart,         &
+    &                         opt_rlend, opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -125,11 +132,14 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
 
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: number of iterations
+      &  opt_niter                     !< niter=1 is the standard flux limiter
+
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'edge value'
+      &  opt_rlstart                   !< only valid for calculation of 'edge value'
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
@@ -144,7 +154,7 @@ CONTAINS
       &  z_anti(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
 
     REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
-      &  z_mflx_anti(nproma,ptr_patch%nlev,ptr_patch%nblks_c,3) !< (units kg/kg)
+      &  z_mflx_anti(3,nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< (units kg/kg)
 
     REAL(wp) ::                 &    !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,ptr_patch%nlev,ptr_patch%nblks_c)
@@ -182,34 +192,29 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
+    INTEGER  :: i_rlstart_nit_e, i_rlend_nit_e
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
+    INTEGER  :: niter                  !< number of iterations. Default: 1
+                                       !< usually, more than 2 iterations is useless
+    INTEGER  :: nit                    !< loop counter
 
   !-------------------------------------------------------------------------
 
+
+    ! set default values
+    slev      = 1
+    elev      = ptr_patch%nlev
+    i_rlstart = grf_bdywidth_e
+    i_rlend   = min_rledge_int - 1
+    niter     = 1
+
+
     ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = ptr_patch%nlev
-    END IF
-
-    IF ( PRESENT(opt_rlstart) ) THEN
-      i_rlstart = opt_rlstart
-    ELSE
-      i_rlstart = grf_bdywidth_e
-    ENDIF
-
-    IF ( PRESENT(opt_rlend) ) THEN
-      i_rlend = opt_rlend
-    ELSE
-      i_rlend = min_rledge_int - 1
-    ENDIF
+    CALL assign_if_present(slev     ,opt_slev)
+    CALL assign_if_present(elev     ,opt_elev)
+    CALL assign_if_present(i_rlstart,opt_rlstart)
+    CALL assign_if_present(i_rlend  ,opt_rlend)
+    CALL assign_if_present(niter    ,opt_niter)
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
@@ -218,6 +223,10 @@ CONTAINS
     IF (p_test_run) THEN
       r_p = 0._wp
       r_m = 0._wp
+    ENDIF
+
+    IF (niter > 1) THEN
+      CALL sync_patch_array(SYNC_E,ptr_patch,p_mflx_tracer_h)
     ENDIF
 
 
@@ -277,6 +286,10 @@ CONTAINS
 
 
           ! calculate antidiffusive flux for each edge
+          ! only correct for i_rlend_e = min_rledge_int - 1, if p_mflx_tracer_h 
+          ! is not synchronized. This is sufficient for niter=1, but insufficient 
+          ! for niter>1. Therefore a SYNC of p_mflx_tracer_h has been introduced 
+          ! for niter>1.
           z_anti(je,jk,jb)     = p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb)
 
 
@@ -284,8 +297,16 @@ CONTAINS
       END DO  ! end loop over levels
 
     END DO  ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
+
+
+    ! iterative flux correction
+    !
+    DO nit = 1, niter
+
+!$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
 
     i_rlstart_c  = grf_bdywidth_c - 1
     i_rlend_c    = min_rlcell_int - 1
@@ -315,15 +336,15 @@ CONTAINS
           !    - negative for incoming fluxes
           !    this sign convention is related to the definition of the divergence operator.
 
-          z_mflx_anti(jc,jk,jb,1) =                                                  &
+          z_mflx_anti(1,jc,jk,jb) =                                                  &
             &     p_dtime * ptr_int%geofac_div(jc,1,jb) / ptr_delp_mc_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
-          z_mflx_anti(jc,jk,jb,2) =                                                  &
+          z_mflx_anti(2,jc,jk,jb) =                                                  &
             &     p_dtime * ptr_int%geofac_div(jc,2,jb) / ptr_delp_mc_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
 
-          z_mflx_anti(jc,jk,jb,3) =                                                  &
+          z_mflx_anti(3,jc,jk,jb) =                                                  &
             &     p_dtime * ptr_int%geofac_div(jc,3,jb) / ptr_delp_mc_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
@@ -416,14 +437,14 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 
           ! Sum of all incoming antidiffusive fluxes into cell jc
-          p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
-                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
-                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,3)) )
+          p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(1,jc,jk,jb))   &
+                         + MIN(0._wp,z_mflx_anti(2,jc,jk,jb))   &
+                         + MIN(0._wp,z_mflx_anti(3,jc,jk,jb)) )
 
           ! Sum of all outgoing antidiffusive fluxes out of cell jc
-          p_m =  MAX(0._wp,z_mflx_anti(jc,jk,jb,1))  &
-            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,2))  &
-            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,3))
+          p_m =  MAX(0._wp,z_mflx_anti(1,jc,jk,jb))  &
+            &  + MAX(0._wp,z_mflx_anti(2,jc,jk,jb))  &
+            &  + MAX(0._wp,z_mflx_anti(3,jc,jk,jb))
 
           ! fraction which must multiply all fluxes out of cell jc to guarantee no
           ! undershoot
@@ -441,59 +462,120 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    ! Synchronize r_m and r_p
-    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
+
+    ! Synchronize r_m and r_p and determine i_rlstart/i_rlend
+    !
+    IF (nit /= niter) THEN
+      ! full sync necessary, since z_mflx_low and z_anti need to be computed 
+      ! for halo edges, as well.
+      CALL sync_patch_array_mult(SYNC_C, ptr_patch, 2, r_m, r_p)
+      i_rlstart_nit_e = i_rlstart_e
+      i_rlend_nit_e   = i_rlend_e
+    ELSE
+      CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
+      i_rlstart_nit_e = i_rlstart
+      i_rlend_nit_e   = i_rlend
+    ENDIF
+
 
     !
     ! 5. Now loop over all edges and determine the minimum fraction which must
     !    multiply the antidiffusive flux at the edge.
-    !    At the end, compute new, limited fluxes which are then passed to the main
-    !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
+    !
+    !    Depending on the iteration count, either
+    !    - compute improved low order flux and updated antidiffusive fluxes
+    !    or
+    !    - at the end, compute new, limited fluxes which are then passed to 
+    !      the main program. Note that p_mflx_tracer_h now denotes the 
+    !      LIMITED flux.
     !
 
-    i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
-    i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = ptr_patch%edges%start_blk(i_rlstart_nit_e,1)
+    i_endblk   = ptr_patch%edges%end_blk(i_rlend_nit_e,i_nchdom)
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
-      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,                &
+                         i_startidx, i_endidx, i_rlstart_nit_e, i_rlend_nit_e)
 
+      IF (nit /= niter) THEN
+        !
+        ! compute improved low order fluxes and antidiffusive fluxes
+        !
 #ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+          DO jk = slev, elev
 #else
 !CDIR UNROLL=3
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
 #endif
 
-          z_signum = SIGN(1._wp,z_anti(je,jk,jb))
+            z_signum = SIGN(1._wp,z_anti(je,jk,jb))
 
-          ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
-          ! but is computationally more efficient
-          r_frac = 0.5_wp*( (1._wp+z_signum)*                &
-             &     MIN(r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),  &
-             &         r_p(iilc(je,jb,2),jk,iibc(je,jb,2)))  &
-             &     +  (1._wp-z_signum)*                      &
-             &     MIN(r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),  &
-             &         r_p(iilc(je,jb,1),jk,iibc(je,jb,1)))  )
+            ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
+            ! but is computationally more efficient
+            r_frac = 0.5_wp*( (1._wp+z_signum)*                &
+               &     MIN(r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),  &
+               &         r_p(iilc(je,jb,2),jk,iibc(je,jb,2)))  &
+               &     +  (1._wp-z_signum)*                      &
+               &     MIN(r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),  &
+               &         r_p(iilc(je,jb,1),jk,iibc(je,jb,1)))  )
 
-          ! Limited flux
-          p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
-            &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
+            ! Limited flux
+            z_mflx_low(je,jk,jb) = z_mflx_low(je,jk,jb)               &
+              &                  + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
 
+            z_anti(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb)
+
+          ENDDO
         ENDDO
-      ENDDO
 
-    ENDDO
+      ELSE
+        !
+        ! compute final limited fluxes
+        !
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
+#endif
+
+            z_signum = SIGN(1._wp,z_anti(je,jk,jb))
+
+            ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
+            ! but is computationally more efficient
+            r_frac = 0.5_wp*( (1._wp+z_signum)*                &
+               &     MIN(r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),  &
+               &         r_p(iilc(je,jb,2),jk,iibc(je,jb,2)))  &
+               &     +  (1._wp-z_signum)*                      &
+               &     MIN(r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),  &
+               &         r_p(iilc(je,jb,1),jk,iibc(je,jb,1)))  )
+
+            ! Limited flux
+            p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
+              &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
+
+          ENDDO
+        ENDDO
+
+      ENDIF  ! niter
+
+    ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ENDDO  ! nit
+
   END SUBROUTINE hflx_limiter_mo
+
 
 
 
