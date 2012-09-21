@@ -162,6 +162,10 @@ do
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       cpu_time="03:00:00" memory_model="small" queue="$queue"
       ;;    
+    *_oce_default)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+      ;;
     *)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
