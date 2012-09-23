@@ -107,6 +107,8 @@ CONTAINS
                            & runoff_acc,                        &! inout
                            & drainage_acc,                      &! inout
                            !! added for testing JSBACH (energy balance)
+                           & albedo_vis_soil,                   &! in
+                           & albedo_nir_soil,                   &! in
                            & surface_temperature,               &! inout
                            & surface_temperature_old,           &! inout
                            & c_soil_temperature1,               &! inout
@@ -208,6 +210,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: runoff_acc(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: drainage_acc(kbdim)
     !! added for testing JSBACH (energy balance)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_vis_soil(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_soil(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature_old(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature1(kbdim)
@@ -314,6 +318,8 @@ CONTAINS
                           eqAcoef = zen_qv(1:kproma,idx_lnd),              &
                           eqBcoef = zfn_qv(1:kproma,idx_lnd),              &
                           p_echam_zchl = pch_tile(1:kproma,idx_lnd),       & ! intent in
+                          albedo_vis_soil = albedo_vis_soil(1:kproma),     & ! intent in
+                          albedo_nir_soil = albedo_nir_soil(1:kproma),     & ! intent in
                            !! added for testing JSBACH (hydrology)
                           cair = pcair(1:kproma),                          & ! intent out
                           csat = pcsat(1:kproma),                          & ! intent out
@@ -369,17 +375,18 @@ CONTAINS
       surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
                                           (4._wp*surface_temperature_rad(1:kproma) -  &
                                           3._wp * surface_temperature_last(1:kproma)))**0.25
+
+      ! set albedo values for direct and diffuse radiation
+
+      albvisdir(1:kproma) = albedo_vis(1:kproma)
+      albvisdif(1:kproma) = albedo_vis(1:kproma)
+      albnirdir(1:kproma) = albedo_nir(1:kproma)
+      albnirdif(1:kproma) = albedo_nir(1:kproma)
+
     ELSEWHERE
       surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
       surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
     ENDWHERE
-
-    ! set albedo values for direct and diffuse radiation
-
-    albvisdir(1:kproma) = albedo_vis(1:kproma)
-    albvisdif(1:kproma) = albedo_vis(1:kproma)
-    albnirdir(1:kproma) = albedo_nir(1:kproma)
-    albnirdif(1:kproma) = albedo_nir(1:kproma)
 
     ELSE ! not ljsbach
 

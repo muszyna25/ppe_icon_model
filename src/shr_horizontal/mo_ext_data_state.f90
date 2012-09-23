@@ -455,6 +455,20 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
                   grib2_desc, ldims=shape2d_c )
+    ! albedo_vis_soil  p_ext_atm%albedo_vis_soil(nproma,nblks_c)
+    cf_desc    = t_cf_var('soil surface albedo visible', '', &
+      &                   'soil surface albedo in the visible range', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'albedo_vis_soil', p_ext_atm%albedo_vis_soil,        &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
+    ! albedo_nir_soil  p_ext_atm%albedo_nir_soil(nproma,nblks_c)
+    cf_desc    = t_cf_var('soil surface albedo NIR', '', &
+      &                   'soil surface albedo in the NIR range', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'albedo_nir_soil', p_ext_atm%albedo_nir_soil,        &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
     END IF
 
     ! ozone mixing ratio
@@ -1773,24 +1787,15 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    ! Read land-sea mask if JSBACH is used
+    ! Read land-sea mask and land surface albedo if JSBACH is used
 
     IF (echam_phy_config%ljsbach) THEN
     DO jg = 1,n_dom
 
       i_lev = p_patch(jg)%level
 
-      IF(my_process_is_stdio()) THEN
-
-        !
-        ! generate file name and open file
-        extpar_file = generate_filename(extpar_filename,                  &
-          &                             model_base_dir,                   &
-          &                             TRIM(p_patch(jg)%grid_filename))
-
+      IF(my_process_is_stdio()) &
         CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid))
-
-      ENDIF
 
       IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
@@ -1800,6 +1805,31 @@ CONTAINS
         CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%lsm_ctr_c)
+
+      ENDIF
+
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+
+      IF(my_process_is_stdio()) THEN
+        !
+        ! generate file name and open file
+        extpar_file = generate_filename(extpar_filename,                  &
+          &                             model_base_dir,                   &
+          &                             TRIM(p_patch(jg)%grid_filename))
+
+        CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+!!$ TR        CALL nf(nf_open('/pf/m/m212070/jsbach_R2B04_v1.nc', NF_NOWRITE, ncid))
+      END IF
+
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+
+        ! get land surface albedo on cells
+        CALL read_netcdf_data (ncid, 'albedo_soil_vis', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%albedo_vis_soil)
+        CALL read_netcdf_data (ncid, 'albedo_soil_nir', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%albedo_nir_soil)
 
       ENDIF
 

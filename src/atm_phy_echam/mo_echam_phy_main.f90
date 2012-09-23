@@ -851,6 +851,8 @@ CONTAINS
                        & runoff_acc = field% runoff_acc(:,jb),                  &! inout
                        & drainage_acc = field% drainage_acc(:,jb),              &! inout
                        !! added for testing JSBACH (energy balance)
+                       & albedo_vis_soil = ext_data(jg)%atm%albedo_vis_soil(:,jb), &!< in
+                       & albedo_nir_soil = ext_data(jg)%atm%albedo_nir_soil(:,jb), &!< in
                        & surface_temperature = field%surface_temperature(:,jb),         &! inout
                        & surface_temperature_old = field%surface_temperature_old(:,jb), &! inout
                        & c_soil_temperature1 = field%c_soil_temperature1(:,jb), &! inout

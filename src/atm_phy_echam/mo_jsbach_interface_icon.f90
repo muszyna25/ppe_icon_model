@@ -80,6 +80,8 @@ CONTAINS
        eqAcoef, &
        eqBcoef, &
        p_echam_zchl, &
+       albedo_vis_soil, &
+       albedo_nir_soil, &
        !! inout for testing (hydrology)
        cair, &
        csat, &
@@ -180,6 +182,8 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(in)    :: eqAcoef(kdim)            !! Richtmeyer Morton coeff. humidity
     REAL(wp), OPTIONAL, INTENT(in)    :: eqBcoef(kdim)            !!
     REAL(wp), OPTIONAL, INTENT(in)    :: p_echam_zchl(kdim)       !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: albedo_vis_soil(kdim)    !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: albedo_nir_soil(kdim)    !!
     !! inout for testing (hydrology
     REAL(wp), OPTIONAL, INTENT(inout) :: cair(kdim)                !! area fraction with wet surface
     REAL(wp), OPTIONAL, INTENT(inout) :: csat(kdim)                !! area fraction with wet surface (air)
@@ -389,8 +393,8 @@ CONTAINS
 !!$ TR    root_depth(:,:,:) = 1._wp                     ! root depth equals the depth of the soil bucket (as in the current JSBACH)
     lai(:,:) = 5._wp                              ! no leaves, no transpiration
     zwind10(:) = zwind(:) * 0.8_wp
-    albedo_vis(:) = 0.07_wp
-    albedo_nir(:) = 0.07_wp
+    albedo_vis(:) = albedo_vis_soil(:) ! 0.07_wp
+    albedo_nir(:) = albedo_nir_soil(:) ! 0.07_wp
     zswnet(:) = zswdown(:) * (1._wp - 0.07_wp)
 
     DO itile=1,ntiles

@@ -96,6 +96,12 @@ MODULE mo_ext_data_types
     INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< land surface albedo visible             [ ]
+      &  albedo_vis_soil(:,:)
+
+    REAL(wp), POINTER ::   &   !< land surface albedo NIR                 [ ]
+      &  albedo_nir_soil(:,:)
+
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
                                ! index1=1,nproma, index2=1,nblks_c
