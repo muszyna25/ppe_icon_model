@@ -71,14 +71,44 @@ create_dec()
   if [ "x$use_icon_comm" != "x.true." ]; then
     comm_method=0
   fi
-  exp_name=${outname}_${comm_method}-comm.${openmp_threads}threads.${nodes}nodes.${dec_size}procs.${nproma}nproma.${atmo_dyn_gridname}
+  exp_name=${outname}_${comm_method}-comm_${iorder_sendrecv}sendrecv.${openmp_threads}threads.${nodes}nodes.${dec_size}procs.${nproma}nproma.${atmo_dyn_gridname}.${nlevels}levels
   runname=exp.${exp_name}.run
 
   $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
-    max_mpi_message_size=$max_mpi_message_size
+    max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv
+  # queue="express"
+
+  if [ $run = "true" ]; then
+    cd $input_folder
+    $use_submit ${runname}
+    cd $base_folder
+  fi
+
+  atmo_dyn_gridname=""
+  
+}
+#==============================================================================
+
+#==============================================================================
+create_seq()
+{
+
+  if [[ x$atmo_dyn_gridname == x ]] ; then  
+    grid_base_level=$(eval "echo \$$(echo grid_base_level_dec_${dec_size})")
+    grid_level=`expr ${grid_base_level} + ${add_grid_level}`  
+    atmo_dyn_gridname="iconR2B0${grid_level}_dec-${dec_size}"
+  fi
+  
+  exp_name=${outname}_seq.${nproma}nproma.${atmo_dyn_gridname}.${nlevels}levels
+  runname=exp.${exp_name}.run
+
+  $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
+    atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma dt_rad=$dt_rad \
+    openmp_threads=$openmp_threads cpu_time=$cpu_time testbed_mode=$testbed_mode  \
+    ndays=$ndays grids_folder=$grids_folder dtime=$dtime nlevels=$nlevels 
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -96,19 +126,24 @@ create_dec()
 set_default_parameters()
 {
   exp_descriptor=nat_ape-dec
+  create_method=dec
   mpi_procs_pernode=32
   openmp_threads=2
   nproma=4
-  max_mpi_message_size=16384
+  max_mpi_message_size=8192
+  max_send_recv_buffer_size=262144
   icon_comm_method=1
   rrad="false"
   division_method=1
   parallel_radiation_mode=0
+  dtime=60
   dt_rad=1800
+  nlevels=78
   use_barrier=".false."
   testbed_mode=0
   timers_level=6
   use_icon_comm=".false."
+  iorder_sendrecv=0
   ndays=10
   #---------------------------------
   run="false"
@@ -198,9 +233,51 @@ create_weak_scaling()
 
   for dec_size in $dec_size_list
   do
-    create_dec
+    create_${create_method}
   done
 
+}
+
+#==============================================================================
+create_seq_on_blizzard()
+{
+  set_default_parameters
+  create_method=seq
+  cpu_time="08:00:00"
+  dt_rad=3600
+  nlevels=64
+  max_send_recv_buffer_size=131072
+  max_mpi_message_size=8192
+  mpi_procs_pernode=32
+  openmp_threads=2
+  use_icon_comm=".true."
+  icon_comm_method=103
+  iorder_sendrecv=1
+
+  grids_folder=/work/mh0287/leonidas.public/grids/grids.new
+  division_method=0
+  parallel_radiation_mode=0
+  setup_name='nat_ape_24cells'
+  #---------------------------------
+  run="true"
+  #==============================================================================
+
+  # run the 1082 cores
+  ndays=18
+  dtime=240
+  create_weak_scaling "${setup_name}" 24 "1082"
+
+  dtime=204
+  create_weak_scaling "${setup_name}" 24 "1442"
+
+  ndays=12
+  dtime=175
+  create_weak_scaling "${setup_name}" 24 "1922"
+
+  dtime=154
+  create_weak_scaling "${setup_name}" 24 "2432"
+
+  exit
 }
 
 
@@ -209,26 +286,43 @@ create_weak_scaling()
 create_weak_scaling_on_blizzard()
 {
   set_default_parameters
-  ndays=60
+  ndays=120
   cpu_time="00:20:00"
-  dt_rad=1800
-  setup_name="nat-ape_30m-redis-rad"
-  #---------------------------------
-  # run="true"
-  #==============================================================================
-
-  division_method=0
-  parallel_radiation_mode=1
-  use_icon_comm=".true."
-  icon_comm_method=1
- 
-  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-16-16-cells
-  setup_name="nat-ape_30m-redis-rad-16cells"
+  dt_rad=3600
+  nlevels=64
+  max_send_recv_buffer_size=131072
+  max_mpi_message_size=8192
   mpi_procs_pernode=32
   openmp_threads=2
-  ndays=60
-  cpu_time="00:20:00"
-  max_mpi_message_size=16384
+  use_icon_comm=".true."
+  icon_comm_method=103
+  iorder_sendrecv=1
+
+  grids_folder=/work/mh0287/leonidas.public/grids/grids.new
+  division_method=0
+  parallel_radiation_mode=0
+  setup_name='nat_ape_24cells'
+  #---------------------------------
+   run="true"
+  #==============================================================================
+
+  # run the 1082 cores
+  ndays=180
+  dtime=240
+  create_weak_scaling "${setup_name}" 24 "1082"
+
+  dtime=204
+  create_weak_scaling "${setup_name}" 24 "1442"
+
+  ndays=120
+  dtime=175
+  create_weak_scaling "${setup_name}" 24 "1922"
+
+  dtime=154
+  create_weak_scaling "${setup_name}" 24 "2432"
+
+  exit
+
   create_weak_scaling "${setup_name}_60days_128Kmessage" 24 "1442"
   max_mpi_message_size=8192
   create_weak_scaling "${setup_name}_60days_64Kmessage" 24 "1442"
@@ -309,8 +403,9 @@ create_comm_test_on_blizzard()
 
 }
 
+create_seq_on_blizzard
 # create_weak_scaling_on_blizzard
-create_comm_test_on_blizzard
+# create_comm_test_on_blizzard
 exit
 
 
