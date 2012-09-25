@@ -645,6 +645,7 @@ run/exp.oce_channel -text
 run/exp.oce_cmp2mpiom_central -text
 run/exp.oce_cmp2mpiom_miura -text
 run/exp.oce_cmp2mpiom_upwind -text
+run/exp.oce_default_L40 -text
 run/exp.oce_density_front -text
 run/exp.oce_densityfront -text
 run/exp.oce_diffusion -text
