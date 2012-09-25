@@ -111,9 +111,19 @@ precision( 4 )           # precision of numbers in plots
 
 # capitalization
 if varname = 'QC'   or varname = 'QI'   or
-   varname = 'CLWC' or varname = 'CIWC' or varname = 'CRWC'     or varname = 'CSWC' then
+   varname = 'CLWC' or varname = 'CIWC' or varname = 'CRWC' or varname = 'CSWC' then
   varfile = lowercase(varfile)
 end if
+
+# scaling: to 1/day from 1/s
+scale = 1.0
+if varname='ttendcds' or varname='qtendcds' or varname='utendcds' or varname='vtendcds' or
+   varname='ttendts'  or varname='qtendt'   or varname='utendts'  or varname='vtendts'  or
+   varname='ttends'   or varname='utends'   or varname='vtends'   or
+   varname='ewgd'     or varname='nsgd'     or varname='ttendsw'  or varname='ttendlw'  then
+  scale = 86400.0
+end if
+
 # rename
 case varfile of
  'CC':        if levtype = 'pl' then
@@ -247,6 +257,8 @@ case stat of
   end
 end case
 
+var_data = var_data * scale
+
 var_data = avgtime_met(var_data,nlev,ndays)
 
 #nvar    = 1
@@ -328,6 +340,7 @@ all = mcont(
 		CONTOUR_LEVEL_COUNT            : level_count,
 		CONTOUR_MAX_LEVEL              : maxi, 
  		CONTOUR_MIN_LEVEL              : mini, 
+                CONTOUR_LABEL                  : 'OFF',
 		CONTOUR_SHADE                  : 'ON', 
 		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
 #		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'RED', 
@@ -416,10 +429,10 @@ function build_layout()
     		Y_AUTOMATIC                 : "ON", 
     		Y_MIN                       : 1000, 
     		Y_MAX                       : 0, 
-    		SUBPAGE_X_POSITION          : 6, 
-    		SUBPAGE_Y_POSITION          : 7.5, 
+    		SUBPAGE_X_POSITION          : 5, 
+    		SUBPAGE_Y_POSITION          : 12, 
     		SUBPAGE_X_LENGTH            : 90, 
-    		SUBPAGE_Y_LENGTH            : 75, 
+    		SUBPAGE_Y_LENGTH            : 90, 
     		PAGE_FRAME                  : "ON", 
     		PAGE_FRAME_COLOUR           : "BLUE", 
     		PAGE_FRAME_LINE_STYLE       : "SOLID", 
@@ -441,7 +454,7 @@ function build_layout()
     		SUBPAGE_BACKGROUND_COLOUR   : "WHITE" 
     	) 
     Page = plot_page(  
-    		TOP        : 0, 
+    		TOP        : 5, 
     		BOTTOM     : 100, 
     		LEFT       : 0, 
     		RIGHT      : 100, 

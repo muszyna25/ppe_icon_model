@@ -115,7 +115,7 @@ if txt_index > 0 then
   varfile = substring(varfile, 1, txt_index-1)
 end if
 # capitalization
-if varname = 'QC'     or varname = 'QI'   or varname = 'RAIN_CON' or varname = 'RAIN_GSP' or 
+if varname = 'QC'     or varname = 'QI'   or # varname = 'RAIN_CON' or varname = 'RAIN_GSP' or 
    varname = 'T_SNOW' or varname = 'W_I'  or
    varname = 'CLWC'   or varname = 'CIWC' or varname = 'CRWC'     or varname = 'CSWC' then
   varfile = lowercase(varfile)
@@ -188,6 +188,19 @@ for nd=1 to ndays do
   		time     : initime,
                 step     : step
   	       )
+# fluxes: take last 24h diff
+    if varname = 'ACCSOB_S'  or varname = 'ACCTHB_S'  or varname = 'ACCSOB_T' or varname = 'ACCTHB_T' or 
+       varname = 'ACCLHFL_S' or varname = 'ACCSHFL_S' or varname = 'TOT_PREC' or varname = 'RAIN_CON' or 
+       varname = 'RAIN_GSP'  or varname = 'SNOW_CON'  or varname = 'SNOW_GSP' then 
+      temp_24h = read(
+                SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&
+                           '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb',
+  		date     : inidate,
+  		time     : initime,
+                step     : step-24
+  	       )
+       temp = temp - temp_24h
+    end if
     scale = 1.0
     case varname of
       'ACCSOB_S':        scale= 1.0/86400.0 end
@@ -234,10 +247,10 @@ for nd=1 to ndays do
         end
       'sfc':
         scale  = 1.0
-       #ddays = date(verdate)+hour(vertime) - date(inidate)-hour(initime)
-        vertime1 = parse(vertime)
-        initime1 = parse(initime)
-        ddays = date(verdate)+vertime1[1]/24.0  - date(inidate)-initime1[1]/24.0
+       ##ddays = date(verdate)+hour(vertime) - date(inidate)-hour(initime)
+       #vertime1 = parse(vertime)
+       #initime1 = parse(initime)
+       #ddays = date(verdate)+vertime1[1]/24.0  - date(inidate)-initime1[1]/24.0
         param = varname
         case varname of
           'CLCT':            param = 'TCC'  end
@@ -249,31 +262,32 @@ for nd=1 to ndays do
           'T_2M':            param = '2T'   end
          #'':                param = 'CP'   end
          #'':                param = 'LSP'  end
-          'TOT_PREC':        param = 'TP'  ; scale=1000.0 end
+          'TOT_PREC':        param = 'TP'   ; scale= 1000.0 end
          #'':                param = 'SSTK' end
           'H_SNOW_tile_1':   param = 'SD'   end
           'RHO_SNOW_tile_1': param = 'RSN'  end
           'T_G':             param = 'SKT'  end
-          'ACCSOB_S':        param = 'SSR'  ; scale= 1.0/86400.0/ddays end
-          'ACCTHB_S':        param = 'STR'  ; scale= 1.0/86400.0/ddays end
-          'ACCSOB_T':        param = 'TSR'  ; scale= 1.0/86400.0/ddays end
-          'ACCTHB_T':        param = 'TTR'  ; scale= 1.0/86400.0/ddays end
-          'ACCLHFL_S':       param = 'SLHF' ; scale= 1.0/86400.0/ddays end
-          'ACCSHFL_S':       param = 'SSHF' ; scale= 1.0/86400.0/ddays end
+          'ACCSOB_S':        param = 'SSR'  ; scale= 1.0/86400.0 end
+          'ACCTHB_S':        param = 'STR'  ; scale= 1.0/86400.0 end
+          'ACCSOB_T':        param = 'TSR'  ; scale= 1.0/86400.0 end
+          'ACCTHB_T':        param = 'TTR'  ; scale= 1.0/86400.0 end
+          'ACCLHFL_S':       param = 'SLHF' ; scale= 1.0/86400.0 end
+          'ACCSHFL_S':       param = 'SSHF' ; scale= 1.0/86400.0 end
         end case
         temp = read(  
   		SOURCE   : source_sfc_ifs,
   		param    : param,
-  		date     : verdate,
-  		time     : vertime
+  		date     : date(verdate - 1),
+  		time     : vertime,
+                step     : 24   # attention: all IFS sfc data was retrieved as step=24
       	)
         temp = temp * scale
         end
       otherwise:
         case varname of
-          'QV'  : varfile = '192.201.28' end
-          'CLWC': varfile = 'qc' end
-          'CIWC': varfile = 'qi' end
+          'QV'   : varfile = '192.201.28' end   # compare to Q1 initial condition
+          'CLWC' : varfile = 'qc' end
+          'CIWC' : varfile = 'qi' end
         end case
         temp = read(  
   		SOURCE   : source_ver_icon, 
@@ -348,6 +362,9 @@ for k=k1 to k2 by k3 do
              '   Mean:  '&integrate(mean(var_data_k))
   if stat = 'diff' then 
     statistic = statistic&'   RMS:  '&sqrt(integrate(var_data_k*var_data_k))
+    append (plotdir&"/scores_exp"&expnum&".txt", 
+      varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
+      '   step: ', step, '   ndays: ', ndays, tab, statistic, newline)
   end if
 
   if levtype = 'pl' then
