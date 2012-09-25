@@ -82,6 +82,8 @@ CONTAINS
        p_echam_zchl, &
        albedo_vis_soil, &
        albedo_nir_soil, &
+       albedo_vis_canopy, &
+       albedo_nir_canopy, &
        !! inout for testing (hydrology)
        cair, &
        csat, &
@@ -184,6 +186,8 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(in)    :: p_echam_zchl(kdim)       !!
     REAL(wp), OPTIONAL, INTENT(in)    :: albedo_vis_soil(kdim)    !!
     REAL(wp), OPTIONAL, INTENT(in)    :: albedo_nir_soil(kdim)    !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: albedo_vis_canopy(kdim)  !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: albedo_nir_canopy(kdim)  !!
     !! inout for testing (hydrology
     REAL(wp), OPTIONAL, INTENT(inout) :: cair(kdim)                !! area fraction with wet surface
     REAL(wp), OPTIONAL, INTENT(inout) :: csat(kdim)                !! area fraction with wet surface (air)
@@ -278,6 +282,8 @@ CONTAINS
     REAL(wp), DIMENSION(kdim) ::   zground_heat_flux
     REAL(wp), DIMENSION(kdim) ::   zswnet
     REAL(wp), DIMENSION(kdim) ::   ztime_steps_soil
+
+    REAL(wp), DIMENSION(kdim) ::   zsky_view_factor
 
     !! Other local declarations
     LOGICAL,  DIMENSION(kdim)  ::   mask                               !! Land mask or all true's
@@ -393,9 +399,15 @@ CONTAINS
 !!$ TR    root_depth(:,:,:) = 1._wp                     ! root depth equals the depth of the soil bucket (as in the current JSBACH)
     lai(:,:) = 5._wp                              ! no leaves, no transpiration
     zwind10(:) = zwind(:) * 0.8_wp
-    albedo_vis(:) = albedo_vis_soil(:) ! 0.07_wp
-    albedo_nir(:) = albedo_nir_soil(:) ! 0.07_wp
-    zswnet(:) = zswdown(:) * (1._wp - 0.07_wp)
+
+!!$ TR preliminary calculation of albedo
+    zsky_view_factor(:) = EXP(-lai(:,1)/2._wp)
+    albedo_vis(:) = (zsky_view_factor(:) * albedo_vis_soil(:)) + &
+                    ((1._wp - zsky_view_factor(:)) * albedo_vis_canopy(:))
+    albedo_nir(:) = (zsky_view_factor(:) * albedo_nir_soil(:)) + &
+                    ((1._wp - zsky_view_factor(:)) * albedo_nir_canopy(:))
+!!$ TR conversion of swdown in swnet is not accurate and preliminary for testing
+    zswnet(:) = zswdown(:) * (1._wp - (albedo_vis(:) + albedo_nir(:)) / 2._wp)
 
     DO itile=1,ntiles
        CALL unstressed_canopy_cond_par(lai(1:nidx,itile), zswdown(:) / 2._wp, &

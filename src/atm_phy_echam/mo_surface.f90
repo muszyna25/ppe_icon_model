@@ -109,6 +109,8 @@ CONTAINS
                            !! added for testing JSBACH (energy balance)
                            & albedo_vis_soil,                   &! in
                            & albedo_nir_soil,                   &! in
+                           & albedo_vis_canopy,                 &! in
+                           & albedo_nir_canopy,                 &! in
                            & surface_temperature,               &! inout
                            & surface_temperature_old,           &! inout
                            & c_soil_temperature1,               &! inout
@@ -212,6 +214,8 @@ CONTAINS
     !! added for testing JSBACH (energy balance)
     REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_vis_soil(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_soil(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_vis_canopy(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_canopy(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature_old(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature1(kbdim)
@@ -320,6 +324,8 @@ CONTAINS
                           p_echam_zchl = pch_tile(1:kproma,idx_lnd),       & ! intent in
                           albedo_vis_soil = albedo_vis_soil(1:kproma),     & ! intent in
                           albedo_nir_soil = albedo_nir_soil(1:kproma),     & ! intent in
+                          albedo_vis_canopy = albedo_vis_canopy(1:kproma), & ! intent in
+                          albedo_nir_canopy = albedo_nir_canopy(1:kproma), & ! intent in
                            !! added for testing JSBACH (hydrology)
                           cair = pcair(1:kproma),                          & ! intent out
                           csat = pcsat(1:kproma),                          & ! intent out

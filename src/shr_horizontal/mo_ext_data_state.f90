@@ -469,6 +469,20 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'albedo_nir_soil', p_ext_atm%albedo_nir_soil,        &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
                   grib2_desc, ldims=shape2d_c )
+    ! albedo_vis_canopy  p_ext_atm%albedo_vis_canopy(nproma,nblks_c)
+    cf_desc    = t_cf_var('canopy reflectance visible', '', &
+      &                   'canopy reflectance in the visible range', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'albedo_vis_canopy', p_ext_atm%albedo_vis_canopy,    &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
+    ! albedo_nir_canopy  p_ext_atm%albedo_nir_canopy(nproma,nblks_c)
+    cf_desc    = t_cf_var('canopy reflectance NIR', '', &
+      &                   'canopy reflectance in the NIR range', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'albedo_nir_canopy', p_ext_atm%albedo_nir_canopy,    &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
     END IF
 
     ! ozone mixing ratio
@@ -1830,7 +1844,12 @@ CONTAINS
         CALL read_netcdf_data (ncid, 'albedo_soil_nir', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%albedo_nir_soil)
-
+        CALL read_netcdf_data (ncid, 'albedo_canopy_vis', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%albedo_vis_canopy)
+        CALL read_netcdf_data (ncid, 'albedo_canopy_nir', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%albedo_nir_canopy)
       ENDIF
 
       IF( my_process_is_stdio()) CALL nf(nf_close(ncid))

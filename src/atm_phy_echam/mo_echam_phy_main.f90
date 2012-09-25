@@ -853,6 +853,8 @@ CONTAINS
                        !! added for testing JSBACH (energy balance)
                        & albedo_vis_soil = ext_data(jg)%atm%albedo_vis_soil(:,jb), &!< in
                        & albedo_nir_soil = ext_data(jg)%atm%albedo_nir_soil(:,jb), &!< in
+                       & albedo_vis_canopy = ext_data(jg)%atm%albedo_vis_canopy(:,jb), &!< in
+                       & albedo_nir_canopy = ext_data(jg)%atm%albedo_nir_canopy(:,jb), &!< in
                        & surface_temperature = field%surface_temperature(:,jb),         &! inout
                        & surface_temperature_old = field%surface_temperature_old(:,jb), &! inout
                        & c_soil_temperature1 = field%c_soil_temperature1(:,jb), &! inout
