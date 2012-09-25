@@ -102,12 +102,11 @@ MODULE mo_nh_diagnose_pres_temp
 
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
-    REAL(wp) :: dz, z_qsum
+    REAL(wp) :: dz1, dz2, z_qsum
 
 
     IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
-    dz     = 0._wp
     z_qsum = 0._wp
     
     ! Check for optional arguments
@@ -156,7 +155,7 @@ MODULE mo_nh_diagnose_pres_temp
     i_endblk   = pt_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, dz, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, dz1, dz2, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( pt_patch, jb, i_startblk, i_endblk,      &
@@ -232,11 +231,14 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_pres ) THEN
         
         DO jc = i_startidx, i_endidx
-          ! Height difference between surface and first full level
-          dz = p_metrics%z_ifc(jc,nlevp1,jb)-p_metrics%z_mc(jc,nlev,jb)
+          ! Height differences between surface, second-lowest half level and second-lowest main level
+          dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
+          dz2 = p_metrics%z_mc (jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
 
-          pt_diag%pres_sfc(jc,jb) =p0ref*EXP(cpd_o_rd*LOG(pt_prog%exner(jc,nlev,jb))) *&
-            &                      EXP(-grav_o_rd*dz/pt_diag%tempv(jc,nlev,jb))
+          ! Compute surface pressure starting from second-lowest level; this is done
+          ! in order to avoid contamination by sound-wave activity in the presence of strong latent heating
+          pt_diag%pres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(pt_prog%exner(jc,nlev-1,jb)) + &
+            grav_o_rd*(dz1/pt_diag%tempv(jc,nlev,jb) + dz2/pt_diag%tempv(jc,nlev-1,jb))      )
 
           pt_diag%pres_ifc(jc,nlevp1,jb) = pt_diag%pres_sfc(jc,jb)
         ENDDO

@@ -265,7 +265,6 @@ CONTAINS
         &  vcoeff%coef3(nproma,nlev,nblks),           &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
       ! integer
       ALLOCATE( &
         &  vcoeff%idx0_lin(nproma,nlev,nblks),        &
@@ -274,18 +273,30 @@ CONTAINS
         &  vcoeff%bot_idx_cub(nproma,nblks),          &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
       ALLOCATE( &
         &  vcoeff%wfacpbl1(nproma,nblks),             &
         &  vcoeff%wfacpbl2(nproma,nblks),             &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
       ALLOCATE( &
         &  vcoeff%kpbl1(nproma,nblks),                &
         &  vcoeff%kpbl2(nproma,nblks),                &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+      ! Initialization
+      vcoeff%wfac_lin = 0._wp
+      vcoeff%coef1 = 0._wp
+      vcoeff%coef2 = 0._wp
+      vcoeff%coef3 = 0._wp
+      vcoeff%idx0_lin = 0
+      vcoeff%idx0_cub = 0
+      vcoeff%bot_idx_lin = 0
+      vcoeff%bot_idx_cub = 0
+      vcoeff%wfacpbl1 = 0._wp
+      vcoeff%wfacpbl2 = 0._wp
+      vcoeff%kpbl1 = 0
+      vcoeff%kpbl2 = 0
 
       !-- interpolation data for the vertical interface of cells, "nlevp1"
 
@@ -310,6 +321,15 @@ CONTAINS
         &  vcoeff%kpbl2_nlevp1(nproma,nblks),         &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+      ! Initialization
+      vcoeff%wfac_lin_nlevp1 = 0._wp
+      vcoeff%idx0_lin_nlevp1 = 0
+      vcoeff%bot_idx_lin_nlevp1 = 0
+      vcoeff%wfacpbl1_nlevp1 = 0._wp
+      vcoeff%wfacpbl2_nlevp1 = 0._wp
+      vcoeff%kpbl1_nlevp1 = 0
+      vcoeff%kpbl2_nlevp1 = 0
 
       vcoeff%l_allocated = .TRUE.
     END IF

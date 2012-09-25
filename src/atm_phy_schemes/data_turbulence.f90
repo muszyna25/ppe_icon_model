@@ -91,7 +91,7 @@ REAL (KIND=ireals) ::          &
 !
   rat_lam    =  1.0_ireals,    & ! ratio of laminar scaling factors for vapour and heat
   rat_can    =  1.0_ireals,    & ! ratio of canopy height over z0m
-  rat_sea    =  1.0_ireals,    & ! ratio of laminar scaling factors for heat over sea and land
+  rat_sea    =  5.0_ireals,    & ! ratio of laminar scaling factors for heat over sea and land
 !
   z0m_dia    =  0.2_ireals,    & ! roughness length of a typical synoptic station [m]
 !

@@ -34,6 +34,7 @@
 MODULE mo_diffusion_nml
 
   USE mo_diffusion_config,    ONLY: diffusion_config
+  USE mo_dynamics_config,     ONLY: iequations
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_exception,           ONLY: message, finish
@@ -124,11 +125,18 @@ CONTAINS
     lhdiff_temp          = .TRUE.
     lhdiff_vn            = .TRUE.
 
-    hdiff_order          = 4
-    hdiff_efdt_ratio     = 1.0_wp
+    IF (iequations == 3) THEN
+      hdiff_order          = 5
+      hdiff_efdt_ratio     = 15.0_wp
+      hdiff_smag_fac       = 0.025_wp
+    ELSE
+      hdiff_order          = 4
+      hdiff_efdt_ratio     = 1.0_wp
+      hdiff_smag_fac       = 0.15_wp
+    ENDIF
+
     hdiff_min_efdt_ratio = 1.0_wp
     hdiff_multfac        = 1.0_wp
-    hdiff_smag_fac       = 0.15_wp
     hdiff_tv_ratio       = 1.0_wp
     itype_vn_diffu       = 1
     itype_t_diffu        = 1

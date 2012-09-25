@@ -2314,7 +2314,7 @@ Diffusion on the horizontal wind field&
 
 \hline 
 hdiff\_order&
-I& 4& &
+I& 4 (hydro) \\ 5 (NH)& &
 Order of $\nabla$ operator for diffusion:& \tabularnewline
 & & & & -1: no diffusion& \tabularnewline
 & & & & 2: $\nabla^{2}$ diffusion (not available for NH model on triangles!)& \tabularnewline
@@ -2381,7 +2381,7 @@ for triangular NH model, values between 10 and 20 are recommended when using hdi
 
 \hline 
 hdiff\_min\_efdt\_ratio&
-R& 1.0 & &
+R& 1.0 (hydro) \\ 15.0 (NH) & &
 minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
 \tabularnewline
 
@@ -2400,7 +2400,7 @@ n\_dom>1\tabularnewline
 
 \hline 
 hdiff\_smag\_fac&
-R& 0.15& &
+R& 0.15 (hydro) \\ 0.025 (NH)& &
 Scaling factor for Smagorinsky diffusion&
 for triangles only with iequations=3, for hexagons with hdiff\_order=3
 \tabularnewline
