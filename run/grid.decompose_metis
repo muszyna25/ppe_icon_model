@@ -16,8 +16,8 @@ command=decompose_metis
 cd $WRKDIR
 #-----------------------------------------------------------------------------
 
-grid_file="iconR2B01-grid"
-dec_size=12
+grid_file="iconR2B04-ocean_etopo40_planet"
+dec_size=32
 use_sea_land_mask=yes
 decomposition_file=${grid_file}-${dec_size}-metis.cell_domain_ids
 

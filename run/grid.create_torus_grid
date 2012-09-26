@@ -4,7 +4,6 @@
 #
 #-----------------------------------------------------------------------------
 command=create_torus
-outFile=planR0B01-grid.nc
 parameterFile=NAMELIST_TORUS_GRID
 commandFile=command.grid
 run_commmand="$bindir/grid_command"
@@ -31,7 +30,7 @@ cat > $parameterFile << EOF
     edge_length = 500.0
     x_center = 0.0
     y_center = 0.0
-    out_file_name = '$outFile'
+    out_file_name = 'torus-grid_100x2.nc'
     unfolded_torus_file_name = 'unfoldedTorus_grid.nc'
     ascii_filename = 'unfoldedTorus_grid.ascii'
 /
