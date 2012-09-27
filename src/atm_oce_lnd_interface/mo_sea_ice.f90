@@ -1442,10 +1442,8 @@ CONTAINS
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
       & esti,           &  ! water vapor pressure at ice surface             [Pa]
-      & estw,           &  ! water vapor pressure at water surface           [Pa]
       & sphumida,       &  ! Specific humididty at 2 m height 
       & sphumidi,       &  ! Specific humididty at ice surface
-      & sphumidw,       &  ! Specific humididty at water surface
       & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
       & dragl0,         &  ! part of dragl                                   
@@ -1454,12 +1452,10 @@ CONTAINS
       & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
       & fakts,          &  ! Effect of cloudiness on LW radiation
       & humi,           &  ! Effect of air humidity on LW radiation
-      & fa, fw, fi,     &  ! Enhancment factor for vapor pressure
+      & fa, fi,         &  ! Enhancment factor for vapor pressure
       & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
-
- !  INTEGER :: testice(nproma,p_patch%nblks_c)
     
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: a,b,c,di,AA,BB,CC,alpha,beta
@@ -1473,37 +1469,8 @@ CONTAINS
     tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
 
-
-    ! --- standard initialisation
-    
-    ! Tsurf
-    ! tafoK
-    fu10lim        (:,:) = 0.0_wp
-    esta           (:,:) = 0.0_wp
-    esti           (:,:) = 0.0_wp
-    estw           (:,:) = 0.0_wp
-    sphumida       (:,:) = 0.0_wp
-    sphumidi       (:,:) = 0.0_wp
-    sphumidw       (:,:) = 0.0_wp
-    ! ftdewC
-    rhoair         (:,:) = 0.0_wp
-    dragl0         (:,:) = 0.0_wp
-    dragl1         (:,:) = 0.0_wp
-    dragl          (:,:) = 0.0_wp
-    drags          (:,:) = 0.0_wp
-    fakts          (:,:) = 0.0_wp
-    humi           (:,:) = 0.0_wp
-    fa             (:,:) = 0.0_wp
-    fw             (:,:) = 0.0_wp
-    fi             (:,:) = 0.0_wp
-    dsphumididesti (:,:) = 0.0_wp
-    destidT        (:,:) = 0.0_wp
-    dfdT           (:,:) = 0.0_wp
-
     ! subset range pointer
     all_cells => p_patch%cells%all 
-
-
 
     !-----------------------------------------------------------------------
     ! Compute water vapor pressure and specific humididty in 2m height (esta) 
@@ -1517,6 +1484,10 @@ CONTAINS
     AA=2.2e-4_wp; BB=3.83e-6_wp; CC=6.4e-10_wp
     alpha=0.62197_wp; beta=0.37803_wp
 
+    fa   = 1.0_wp+AAw+p_as%pao*(BBw+CCw*ftdewC**2)
+    esta = fa * aw*EXP((bw-ftdewC/dw)*ftdewC/(ftdewC+cw))
+   
+    sphumida  = alpha * esta/(p_as%pao-beta*esta)
     !-----------------------------------------------------------------------
     !  Compute longwave radiation according to 
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
@@ -1532,6 +1503,9 @@ CONTAINS
 
     ! NB: Lwinw and LWoutw is a misleading nomenclature in this case, since
     ! Berliand & Berliand ('52) calculate only LWnet
+    humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
+    fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
     Qatm%LWin(:,:) = 0._wp
     Qatm%LWout(:,:,:) = 0._wp
 
@@ -1542,6 +1516,7 @@ CONTAINS
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
     !-----------------------------------------------------------------------  
     
+    rhoair(:,:) = 0._wp
     DO jb = 1,p_patch%nblks_c
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
       DO jc = i_startidx_c,i_endidx_c
@@ -1560,12 +1535,6 @@ CONTAINS
 
     DO i = 1, p_ice%kice
       WHERE (p_ice% isice(:,i,:))
-!!$    DO jb = 1,p_patch%nblks_c
-!!$      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
-!!$      DO k=1,ice%kice
-!!$        DO jc = i_startidx_c,i_endidx_c
-!!$          IF (ice%isice(jc,k,jb)) THEN
-
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
         fi(:,:)       = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*a*EXP((b-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +c))
@@ -1638,10 +1607,8 @@ CONTAINS
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
-      & esti,           &  ! water vapor pressure at ice surface             [Pa]
       & estw,           &  ! water vapor pressure at water surface           [Pa]
       & sphumida,       &  ! Specific humididty at 2 m height 
-      & sphumidi,       &  ! Specific humididty at ice surface
       & sphumidw,       &  ! Specific humididty at water surface
       & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
@@ -1651,13 +1618,10 @@ CONTAINS
       & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
       & fakts,          &  ! Effect of cloudiness on LW radiation
       & humi,           &  ! Effect of air humidity on LW radiation
-      & fa, fw, fi,     &  ! Enhancment factor for vapor pressure
-      & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
-      & destidT,        &  ! Derivative of esti w.r.t. T
-      & dfdT               ! Derivative of f w.r.t. T
+      & fa, fw             ! Enhancment factor for vapor pressure
     
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
-    REAL(wp) :: a,b,c,dw,AA,BB,CC,alpha,beta
+    REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -1668,33 +1632,6 @@ CONTAINS
     Tsurf(:,:)  = p_os%p_prog(nold(1))%tracer(:,1,:,1)  ! set surface temp = mixed layer temp
     tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
-
-
-    ! --- standard initialisation
-    
-    ! Tsurf
-    ! tafoK
-    fu10lim        (:,:) = 0.0_wp
-    esta           (:,:) = 0.0_wp
-    esti           (:,:) = 0.0_wp
-    estw           (:,:) = 0.0_wp
-    sphumida       (:,:) = 0.0_wp
-    sphumidi       (:,:) = 0.0_wp
-    sphumidw       (:,:) = 0.0_wp
-    ! ftdewC
-    rhoair         (:,:) = 0.0_wp
-    dragl0         (:,:) = 0.0_wp
-    dragl1         (:,:) = 0.0_wp
-    dragl          (:,:) = 0.0_wp
-    drags          (:,:) = 0.0_wp
-    fakts          (:,:) = 0.0_wp
-    humi           (:,:) = 0.0_wp
-    fa             (:,:) = 0.0_wp
-    fw             (:,:) = 0.0_wp
-    fi             (:,:) = 0.0_wp
-    dsphumididesti (:,:) = 0.0_wp
-    destidT        (:,:) = 0.0_wp
-    dfdT           (:,:) = 0.0_wp
 
     ! subset range pointer
     all_cells => p_patch%cells%all 
@@ -1709,8 +1646,8 @@ CONTAINS
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
     !-----------------------------------------------------------------------
 
-    a=611.21_wp; b=18.729_wp; c=257.87_wp; dw=227.3_wp
-    AA=7.2e-4_wp; BB=3.20e-6_wp; CC=5.9e-10_wp
+    aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
+    AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
     alpha=0.62197_wp; beta=0.37803_wp
 
     fa(:,:)   = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*ftdewC(:,:)**2)
@@ -1755,6 +1692,7 @@ CONTAINS
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
     !-----------------------------------------------------------------------  
     
+    rhoair(:,:) = 0._wp
     DO jb = 1,p_patch%nblks_c
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
       DO jc = i_startidx_c,i_endidx_c
