@@ -214,7 +214,7 @@ CONTAINS
         !The number that controls all that the "z_diff_efdt_ratio"
         !is different. Higher z_diff_efdt_ratio decreases the final
         !diffusion coefficient 
-        z_diff_efdt_ratio = 1.0E22 * biharmonic_diffusion_factor
+        z_diff_efdt_ratio = 10000.0_wp * biharmonic_diffusion_factor
         z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
@@ -551,10 +551,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !! changes of physical parametrizations.
   !! Currently vertical mixing coefficients for tracers and vertical diffusivity are updated.
   !! Dependent on the local Richardson number the diffusivity are calculated
-  !!(Large & Gent JPO 29, (1999), 449-464).
-  !!The formulation follows the MPI-OM implementation as described in Marsland et al. (Ocean Modelling, 2002).
-  !!The notationnal convection is also taken from this paper( cf. eqs (14)-(19)).
+  !! (Large & Gent JPO 29, (1999), 449-464).
+  !! The formulation follows the MPI-OM implementation as described in Marsland et al. (Ocean
+  !! Modelling 5, 2003).
+  !! The notational convention is also taken from this paper( cf. eqs (14) and (19)).
   !! What is missing is the fractional ice cover (see eqs. (15-16)).
+  !! Eq. (18) is the Redi part that is not implemented, yet
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
@@ -594,12 +596,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp) :: dz_inv
 !    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
 !   REAL(wp) :: z_lambda_frac 
-    REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
+!   REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
     INTEGER  :: z_dolic
 
     !Below is a set of variables and parameters for tracer and velocity
-    REAL(wp), PARAMETER :: z_beta            = 0.6_wp
-    REAL(wp), PARAMETER :: z_one_minus_beta  = 0.4_wp
+    !REAL(wp), PARAMETER :: z_beta            = 0.6_wp
+    !REAL(wp), PARAMETER :: z_one_minus_beta  = 0.4_wp
     REAL(wp), PARAMETER :: z_lambda          = 0.05_wp
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
     REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
@@ -646,6 +648,47 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_s2                         = 0.0_wp
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
+
+    ! #slo# this part is taken from revision r5966
+    ! !Following MPI-OM (cf. vertical mixing sbr)
+    ! z_w_T = CWT/6.0_wp**3
+    ! z_w_v = CWA/6.0_wp**3
+    ! 
+    ! !The wind part
+    ! DO jb = i_startblk_e, i_endblk_e
+    !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+    !   &                   rl_start_e, rl_end_e)
+    !   DO je = i_startidx_e, i_endidx_e 
+    !     IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+    ! 
+    !      ilc1 = p_patch%edges%cell_idx(je,jb,1)
+    !      ibc1 = p_patch%edges%cell_blk(je,jb,1)
+    !      ilc2 = p_patch%edges%cell_idx(je,jb,2)
+    !      ibc2 = p_patch%edges%cell_blk(je,jb,2)
+    ! 
+    !       !This is (15) in Marsland et al. 
+    !       z_10m_wind_e(je,1,jb)= SQRT(&
+    !       &0.5_wp*(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x,     &
+    !       &                    p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x)     &
+    !       &       +DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x,     &
+    !       &                    p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x)))**3
+    !       z_A_W_v (je,1,jb) = z_w_v*z_10m_wind_e(je,1,jb)
+    !     ENDIF
+    !   END DO
+    ! END DO
+    !
+    ! DO jb = i_startblk_c, i_endblk_c
+    !   CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+    !   &                   rl_start_c, rl_end_c)
+    !   DO jc = i_startidx_c, i_endidx_c 
+    !     IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+    !       !This is (15) in Marsland et al. 
+    !       z_10m_wind_c(jc,1,jb)= SQRT(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(jc,jb)%x,&
+    !                                              &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3
+    !       z_A_W_T (jc,1,jb) = z_w_T*z_10m_wind_c(jc,1,jb)
+    !     ENDIF
+    !   END DO
+    ! END DO
 
       !Calculate Richardson number and vertical density gradient
       DO jb = all_cells%start_block, all_cells%end_block
@@ -725,7 +768,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
               DO itracer = 1, no_tracer
 
                 !Store old diffusivity
-                z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,itracer)
+                !z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,itracer)
 
                 !! vert_density_grad == 0 or below threshold ('semi-stable'): use background value
                 IF ( ABS(z_vert_density_grad_c(jc,jk,jb)) < z_threshold ) THEN
@@ -740,10 +783,32 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
                 ELSE
                   z_Ri_c(jc,jk,jb) = MAX(z_Ri_c(jc,jk,jb),0.0_wp)
 
+                  ! This follows (19) in Marsland et al. but with lambda_D=1.0
+                  ! but Marsland et al. use lambda_D=0.6 (z_beta, see below), which is not implemented here
+                  ! The small wind mixing term D_w=5.0e-4 is missing
                   A_T_tmp = params_oce%A_tracer_v_back(itracer) + &
                     & z_dv0/((1.0_wp + z_c1_T * z_Ri_c(jc,jk,jb))**3)
 
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = A_T_tmp
+
+!               !This is (16) in Marsland et al. and identical to treatment of velocity
+!               !but it allows to use different parameters
+!               z_lambda_frac     = z_lambda_T/v_base%del_zlev_i(jk)
+!               z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
+!               &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
+!               &/(z_lambda_frac+z_vert_density_grad_c)
+!             !For positive Richardson number set vertical mixing coefficient to maximal number 
+!               IF(z_Ri_c <= 0.0_wp)THEN
+!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac)                        &
+!                 & = params_oce%A_tracer_v_back(i_no_trac)!z_one_minus_beta* z_A_tracer_v_old                            &
+!                 !& + z_beta*(params_oce%A_tracer_v_back(i_no_trac)                 &
+!                 !& + params_oce%A_tracer_v_back(i_no_trac)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
+!                 !& + z_A_W_T(jc,jk,jb))
+!              !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
+!               ELSEIF(z_Ri_c > 0.0_wp)THEN
+! !                 write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
+!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)!z_max_diff_T!params_oce%A_tracer_v_back(i_no_trac)
+!               ENDIF
 
                 END IF
               ENDDO
