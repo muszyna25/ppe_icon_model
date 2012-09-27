@@ -78,7 +78,8 @@ create_dec()
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
-    max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv
+    max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv \
+     advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness}
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -107,8 +108,9 @@ create_seq()
 
   $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma dt_rad=$dt_rad \
-    openmp_threads=$openmp_threads cpu_time=$cpu_time testbed_mode=$testbed_mode  \
-    ndays=$ndays grids_folder=$grids_folder dtime=$dtime nlevels=$nlevels 
+    openmp_threads=$openmp_threads cpu_time=$cpu_time testbed_mode=$testbed_mode ndays=$ndays  \
+    grids_folder=$grids_folder dtime=$dtime nlevels=$nlevels advection_substepping=$advection_substepping \
+    vwind_implicitness=${vwind_implicitness}
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -131,21 +133,26 @@ set_default_parameters()
   openmp_threads=2
   nproma=4
   max_mpi_message_size=8192
-  max_send_recv_buffer_size=262144
+#  max_send_recv_buffer_size=262144
+  max_send_recv_buffer_size=131072
   icon_comm_method=1
   rrad="false"
   division_method=1
+  nlevels=96
   parallel_radiation_mode=0
   dtime=60
   dt_rad=1800
-  nlevels=78
+  vwind_implicitness=0.15
+  advection_substepping=4
   use_barrier=".false."
   testbed_mode=0
   timers_level=6
-  use_icon_comm=".false."
-  iorder_sendrecv=0
+  use_icon_comm=".true."
+  icon_comm_method=103
+  iorder_sendrecv=1
   ndays=10
   #---------------------------------
+  grids_folder=/work/mh0287/leonidas.public/grids/grids.new
   run="false"
 }
 #==============================================================================
@@ -358,6 +365,41 @@ create_weak_scaling_on_blizzard()
 
 
 #==============================================================================
+create_nat_test-setups_on_blizzard()
+{
+  set_default_parameters
+  ndays=120
+  cpu_time="08:00:00"
+
+  setup_name='nat-ape_setup-tests'
+  #---------------------------------
+  # run="true"
+  #==============================================================================
+
+  vwind_implicitness=3.0
+  advection_substepping=4
+  dtime=165
+  dt_rad=3960
+  create_strong_scaling "iconR2B05_dec-1922.nc" "$setup_name" "4"
+
+  vwind_implicitness=2.5
+  advection_substepping=5
+  dtime=132
+  dt_rad=3960
+  create_strong_scaling "iconR2B05-grid.nc" "$setup_name" "6"
+
+  vwind_implicitness=1.5
+  advection_substepping=5
+  dtime=72
+  dt_rad=2160
+  create_strong_scaling "iconR2B06-grid.nc" "$setup_name" "24"
+   
+  exit
+}
+   
+
+
+#==============================================================================
 create_comm_test_on_blizzard()
 {
   set_default_parameters
@@ -403,7 +445,9 @@ create_comm_test_on_blizzard()
 
 }
 
-create_seq_on_blizzard
+create_nat_test-setups_on_blizzard
+
+#create_seq_on_blizzard
 # create_weak_scaling_on_blizzard
 # create_comm_test_on_blizzard
 exit

@@ -17,23 +17,6 @@
 atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
-# global timing
-start_date=${start_date:="2000-07-01T00:00:00Z"}
-ndays_restart=${ndays_restart:=3650}              # restart every 10 year
-dt_restart=`expr ${ndays_restart} \* 86400`
-ndays_checkpoint=${ndays_checkpoint:=3650}         # write restart file 10 year
-dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 ` 
-#
-#-----------------------------------------------------------------------------
-# model timing
-dtime=${dtime:=60}
-ndays=${ndays:=10}
-nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
-dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
-dt_conv=${dt_conv:=$dtime}
-dt_sso=${dt_sso:=$dt_conv}
-#
-#-----------------------------------------------------------------------------
 # the grid files if not defined
 atmo_dyn_grids=${atmo_dyn_gridname}.nc
 if [ x$atmo_rad_gridname = x ] ; then
@@ -46,6 +29,24 @@ fi
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
+# global timing
+start_date=${start_date:="2000-07-01T00:00:00Z"}
+ndays_restart=${ndays_restart:=3650}              # restart every 10 year
+dt_restart=`expr ${ndays_restart} \* 86400`
+ndays_checkpoint=${ndays_checkpoint:=3650}         # write restart file 10 year
+dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 ` 
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=${dtime:=60}
+ndays=${ndays:=10}
+nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
+advection_substepping=${advection_substepping:=4}
+dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
+dt_conv=${dt_conv:=$dtime}         # every advection step
+dt_sso=${dt_sso:=$dt_conv}         # every advection step
+#
+#-----------------------------------------------------------------------------
 #output=${output:='"vlist","totint"'}
 output=${output:='"none"'}
 out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
@@ -56,16 +57,22 @@ out_newfile_days=${out_newfile_days:=1}     # 1 day per file
 dt_file=`expr ${out_newfile_days} \* 86400 `
 msg_level=${msg_level:=0}
 
+#-----------------------------------------------------------------------------
+# parallel parameters
 division_method=${division_method:=1}
 division_file_name=${division_file_name:=""}
 parallel_radiation_mode=${parallel_radiation_mode:=0}
 use_icon_comm=${use_icon_comm:=".false."}
 icon_comm_method=${icon_comm_method:=1}
 iorder_sendrecv=${iorder_sendrecv:=3}
-test_gw_hines_opt=${test_gw_hines_opt:=0}
 ltimer=${ltimer:=".true."}
 timers_level=${timers_level:=100}
 activate_sync_timers=${activate_sync_timers:=".true."}
+use_barrier=${use_barrier:=".false."}
+use_icon_comm=${use_icon_comm:=".false."}
+icon_comm_method=${icon_comm_method:=1}
+max_send_recv_buffer_size=${max_send_recv_buffer_size:=262144}
+max_mpi_message_size=${max_mpi_message_size:=8192}
 
 p_test_run=${p_test_run:=".false."}
 if [ $p_test_run = ".true." ] ; then
@@ -76,17 +83,10 @@ else
   l_log_checks=".false."
 fi
 
+#-----------------------------------------------------------------------------
+# model setup
 initial_conditions=${initial_conditions:=1}
 ntracer=${ntracer:=5}
-
-#-----------------------------------------------------------------------------
-atmo_model_equations=3
-             # equation system
-#                     1=hydrost. atm. T
-#                     1=hydrost. atm. theta dp
-#                     3=non-hydrost. atm.,
-#                     0=shallow water model
-#                    -1=hydrost. ocean
 
 iforcing=3
         # forcing to the equation system
@@ -94,21 +94,11 @@ iforcing=3
 #                     1 = Held-Suarez forcing
 #                     2 = ECHAM6 physics
 #                     3 = NWP forcing
-
-itime_scheme=3
-    # default 4; 5: modified Matsuno for better numerical stability of sound waves
-
-
+vwind_implicitness=${vwind_implicitness:=0.15}
 #-----------------------------------------------------------------------------
 ldump_states=".false."
 lrestore_states=".false."
 
-#-----------------------------------------------------------------------------
-use_barrier=${use_barrier:=".false."}
-use_icon_comm=${use_icon_comm:=".false."}
-icon_comm_method=${icon_comm_method:=1}
-max_send_recv_buffer_size=${max_send_recv_buffer_size:=262144}
-max_mpi_message_size=${max_mpi_message_size:=8192}
 
 #-----------------------------------------------------------------------------
 
@@ -162,8 +152,8 @@ cat >> ${atmo_namelist} << EOF
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer     = ${ntracer}            ! number of tracers
- iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ ntracer     = ${ntracer}   ! number of tracers
+ iforcing    = ${iforcing}  ! 
  ldump_states   = ${ldump_states}
  lrestore_states= ${lrestore_states}
  msg_level   =  $msg_level           ! detailed report during integration
@@ -173,28 +163,27 @@ cat >> ${atmo_namelist} << EOF
  output       = ${output}
 /
 &dynamics_nml
- iequations  = ${atmo_model_equations}  
+ iequations      = 3  
  idiv_method     = 1
  divavg_cntrwgt  = 0.50
 /
 &nh_testcase_nml
  nh_test_name      = 'APE_nh'     ! test case identifier
  ape_sst_case      = 'sst1'
- ! init_conditions_type = ${initial_conditions}
 /
 &nonhydrostatic_nml
- itime_scheme    = ${itime_scheme}        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
+ itime_scheme    = 5        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
- igradp_method   = 1        ! new default
- iadv_rcf        = 4        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
+ igradp_method   = 3        ! new default
+ iadv_rcf        = ${advection_substepping}   ! microphysics and turb and sat adj 
  exner_expol     = 0.666    ! exner function extrapolation?
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
- damp_height     = 35000.   ! damping height (set about 10km below top)
- vwind_offctr    = 0.12     ! off-centering for time differencing (like alpha in turb)
- l_open_ubc      = .false.   ! top open upper boundary condition. might help to go higher
- htop_moist_proc = 22500
- htop_qvadv      = 30000
+ vwind_offctr    = ${vwind_implicitness}     ! off-centering for time differencing (like alpha in turb)
+ l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
+ damp_height     = 90000.   ! damping height (set about 10km below top)
+ htop_moist_proc = 85000.   ! height above which moist physics and cld/precip advection off
+ htop_qvadv      = 85000.
 /
 &transport_nml
  ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
@@ -217,9 +206,9 @@ cat >> ${atmo_namelist} << EOF
 /
 &sleve_nml                  ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
- top_height      = 45000.
+ top_height      = 100000.
  flat_height     = 20000.
- stretch_fac     = 1.0     ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
  decay_scale_1   = 4000.    ! decay scales for topography
  decay_scale_2   = 2500.
  decay_exp       = 1.2
