@@ -1458,7 +1458,7 @@ CONTAINS
       & dfdT               ! Derivative of f w.r.t. T
     
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
-    REAL(wp) :: a,b,c,di,AA,BB,CC,alpha,beta
+    REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -1480,8 +1480,12 @@ CONTAINS
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
     !-----------------------------------------------------------------------
 
-    a=611.15_wp; b=23.036_wp; c=279.82_wp; di=333.7_wp
-    AA=2.2e-4_wp; BB=3.83e-6_wp; CC=6.4e-10_wp
+    aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
+    ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
+
+    AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
+    AAi=2.2e-4_wp; BBi=3.83e-6_wp; CCi=6.4e-10_wp
+
     alpha=0.62197_wp; beta=0.37803_wp
 
     fa   = 1.0_wp+AAw+p_as%pao*(BBw+CCw*ftdewC**2)
@@ -1536,8 +1540,8 @@ CONTAINS
     DO i = 1, p_ice%kice
       WHERE (p_ice% isice(:,i,:))
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
-        fi(:,:)       = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*Tsurf(:,:) **2)
-        esti(:,:)     = fi(:,:)*a*EXP((b-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +c))
+        fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
+        esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
         sphumidi(:,:) = alpha*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:))
         ! This may not be the best drag parametrisation to use over ice
         dragl(:,:)    = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
@@ -1558,9 +1562,9 @@ CONTAINS
           &                  *(dragl0(:,:) - 2.0_wp*dragl(:,:))
         dsphumididesti(:,:) = alpha/(p_as%pao(:,:)-beta*esti(:,:)) &
           &                   * (1.0_wp + beta*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:)))
-        destidT(:,:)        = (b*c*di-Tsurf(:,:)*(2.0_wp*c+Tsurf(:,:)))&
-          &                   /(di*(c+Tsurf(:,:))**2) * esti(:,:)
-        dfdT(:,:)               = 2.0_wp*CC*BB*Tsurf(:,:)
+        destidT(:,:)        = (bi*ci*di-Tsurf(:,:)*(2.0_wp*ci+Tsurf(:,:)))&
+          &                   /(di*(ci+Tsurf(:,:))**2) * esti(:,:)
+        dfdT(:,:)               = 2.0_wp*CCi*BBi*Tsurf(:,:)
         Qatm%dlatdT(:,i,:)  = alf*rhoair(:,:)*p_as%fu10(:,:)* &
           &                  ( (sphumida(:,:)-sphumidi(:,:))*dragl1(:,:) &
           &                    - dragl(:,:)*dsphumididesti(:,:)*(fi(:,:)*destidT(:,:) &
@@ -1650,10 +1654,10 @@ CONTAINS
     AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
     alpha=0.62197_wp; beta=0.37803_wp
 
-    fa(:,:)   = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*ftdewC(:,:)**2)
-    esta(:,:) = fa(:,:) * a*EXP((b-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+c))
-    fw(:,:)   = 1.0_wp+AA+p_as%pao(:,:)*(BB+CC*Tsurf(:,:) **2)
-    estw(:,:) = fw(:,:) *a*EXP((b-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +c))
+    fa(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*ftdewC(:,:)**2)
+    esta(:,:) = fa(:,:) * aw*EXP((bw-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+cw))
+    fw(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*Tsurf(:,:) **2)
+    estw(:,:) = fw(:,:) *aw*EXP((bw-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +cw))
     ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
    
     sphumida(:,:)  = alpha * esta(:,:)/(p_as%pao(:,:)-beta*esta(:,:))
