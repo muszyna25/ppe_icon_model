@@ -24,7 +24,7 @@ echo "SETUP.SMS"
 
 
 # Build a new binary every MONDAY:
-WEEKDAY=`python $HOME/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00`
+WEEKDAY=`python %ECBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00`
 if [ "${WEEKDAY}" -eq "1" ]
 then
      smsevent enable_build
@@ -38,7 +38,7 @@ fi
 
 # Create data directory on ecgate
  
-mkdir -p /scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+mkdir -p %ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
 
 # -------------------------------------------------
 

@@ -25,7 +25,7 @@ echo "EOM_PREPARE.SMS"
 module load python
 module load netcdf
 module load grib_api
-cdo='/perm/ms/de/deia/software/cdo-1.5.4_build/bin/cdo'
+cdo='%SCSOFT%/software/cdo-1.5.4_build/bin/cdo'
 
 
 lecget=1
@@ -65,7 +65,7 @@ for levtype1 in PL HL ML; do
 
     dd=`echo ${ymdh} | cut -c 7-8`
     outdir="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/${ymdh}/"
-    gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/${ymdh}"
+    gatedir="%ECTEMP%/%SUITE_NAME%/%SUITE%/${ymdh}"
     rsh ecgate mkdir -p ${gatedir}
     cd ${outdir}
 
@@ -86,7 +86,7 @@ for levtype1 in PL HL ML; do
     if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-      export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+      export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
 
       mkdir -p grb_data
       if [[ ${levtype1} = 'HL' ]] ; then
@@ -221,7 +221,7 @@ fi
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then
-  gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/${YYYYMM}"
+  gatedir="%ECTEMP%/%SUITE_NAME%/%SUITE%/${YYYYMM}"
   cd $mondir
   rsh ecgate mkdir -p ${gatedir}/grb_data
   rcp *.grb ecgate:${gatedir}/grb_data

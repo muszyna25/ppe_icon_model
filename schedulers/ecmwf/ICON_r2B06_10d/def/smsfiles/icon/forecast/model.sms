@@ -42,15 +42,15 @@ INITIME_FMT=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printfmt -d
 SETDIRTMP=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
 
 
-# base directory
-basedir="%SCBASEDIR%/%SUITE_NAME%/cluster"
-# output base directory
-outbasedir=%SCTEMP%
 # ifsdir
 ifsdir=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+# base directory
+basedir=%SCPERM%
+# output base directory
+outbasedir=%SCTEMP%
 
 # architecture (corresponds to build/<build architecture>/bin/...)
-arch=powerpc-ibm-aix5.3.0.0  # compare with init_build.sms!
+arch=powerpc-ibm-aix5.3.0.0  # compare with init_cp_binary.sms!
 
 # -------------------------------------------------
 

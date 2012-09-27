@@ -24,28 +24,28 @@
 echo "INIT_BUILD.SMS"
 
 # Change directory ----------------------------
-cd %SCBASEDIR%/%SUITE_NAME%/cluster/
+cd %SCPERM%
 ls -lrt
 
-if [ "%SVN_UPDATE%" -eq "1" ]
-then
+#if [ "%SVN_UPDATE%" -eq "1" ]
+#then
 
 # [1] SVN UPDATE =================================
 
   cd icon-dev
 
-else
+#else
 
 # [2] EXPORTED TARBALL FROM ECGATE ===============
 
 # Extract tar file with current trunk version -
-  rm -rf icon-dev
-  tar xvf icon-dev.tar.gz
-  rm icon-dev.tar.gz
-  smsevent uncompress
-  cd icon-dev
+#  rm -rf icon-dev
+#  tar xvf icon-dev.tar.gz
+#  rm icon-dev.tar.gz
+#  smsevent uncompress
+#  cd icon-dev
 
-fi
+#fi
 
 # load Fortran compiler environment
 # Note: On "c1b": fortran/xlf/13.1.0.7

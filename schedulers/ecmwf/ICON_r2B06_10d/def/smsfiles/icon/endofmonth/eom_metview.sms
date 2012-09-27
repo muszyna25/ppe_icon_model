@@ -35,8 +35,8 @@ lmetview=1
 # directory
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-EXPDIR="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/$YYYYMM"
-METDIR="/home/ms/de/deia/ICON_r2B06_10d/def/icon_scripts/postprocessing/tools/metview"
+EXPDIR="%ECTEMP%/%SUITE_NAME%/%SUITE%/$YYYYMM"
+METDIR="%ECPERM%/icon-dev/scripts/postprocessing/tools/metview"
 export ARCH="rs6000"
 cd ${EXPDIR}
 
@@ -67,7 +67,7 @@ if [[ $lmetview = 1 ]] ; then
     # add one day "-s -1" for verification !!!
     # substract one day from number of days (e.g. 31-1=30)
     DAYS_ENS=`expr ${DAYS_MONTH} - ${DAYS_FC}`
-    VERDATEHOUR=`python ${HOME}/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d ${YYYYMM}0100 -s -${DAYS_FC}`
+    VERDATEHOUR=`python %ECBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d ${YYYYMM}0100 -s -${DAYS_FC}`
     VERDATE=`echo $VERDATEHOUR | cut -c1-8`
     VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
     STEP=`expr ${DAYS_FC} \* 24`

@@ -22,8 +22,8 @@
 
 echo "INIT_SVN.SMS"
 
-if [ "%SVN_UPDATE%" -eq "1" ]
-then
+#if [ "%SVN_UPDATE%" -eq "1" ]
+#then
 
 # [1] SVN UPDATE =================================
 
@@ -31,8 +31,8 @@ then
 # with 
 # svn co http://svn.zmaw.de/svn/icon/trunk/icon-dev
 
-  svn update /c1a%SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev
-  revision=`svn info /c1a%SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev | grep Revision | awk '{print $2}'`
+  svn update %ECPERM%/icon-dev
+  revision=`svn info %ECPERM%/icon-dev | grep Revision | awk '{print $2}'`
 
   smsevent svn_update
   
@@ -41,32 +41,32 @@ then
  #rsh %SCHOST% "cd %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev ; gmake distclean"
  #smsevent make_distclean
 
-else
+#else
 
 # [2] EXPORT TARBALL FROM ECGATE =================
 
 # Change directory ----------------------------
-  cd %TMPDIR%
-  ls -lrt
+#  cd %TMPDIR%
+#  ls -lrt
 
 # Export working trunk version -------------------
-  rm -rf icon-dev
-  svn export https://svn.zmaw.de/svn/icon/trunk/icon-dev
-  ls -lrt
-  smsevent svn_export
+#  rm -rf icon-dev
+#  svn export https://svn.zmaw.de/svn/icon/trunk/icon-dev
+#  ls -lrt
+#  smsevent svn_export
 
 # Copy tar file containing trunk version ---------
-  tar cvf icon-dev.tar.gz icon-dev
-  rcp icon-dev.tar.gz %SCHOST%:%SCBASEDIR%/%SUITE_NAME%/cluster/
-  smsevent tarfile
+#  tar cvf icon-dev.tar.gz icon-dev
+#  rcp icon-dev.tar.gz %SCHOST%:%SCBASEDIR%/%SUITE_NAME%/cluster/
+#  smsevent tarfile
 
 # Clean up ---------------------------------------
-  rm -rf icon-dev.tar.gz 
-  rm -rf icon-dev
-  ls -lrt
-  smsevent clear_directory
+#  rm -rf icon-dev.tar.gz 
+#  rm -rf icon-dev
+#  ls -lrt
+#  smsevent clear_directory
 
-fi
+#fi
 
 # -------------------------------------------------
 

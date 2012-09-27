@@ -34,8 +34,8 @@ lmetview=1
 #-----------------------------------------------------------------------------
 # directory
 
-EXPDIR="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
-METDIR="/home/ms/de/deia/ICON_r2B06_10d/def/icon_scripts/postprocessing/tools/metview"
+EXPDIR=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 export ARCH="rs6000"
 cd ${EXPDIR}
 
@@ -57,12 +57,12 @@ if [[ $lmetview = 1 ]] ; then
   export YYYYMM
   mkdir -p ${PLOTDIR}
   # add one day "-s -1"!!!
-  VERDATEHOUR=`python ${HOME}/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %YMD%%INIHOUR% -s -1`
+  VERDATEHOUR=`python %ECBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %YMD%%INIHOUR% -s -1`
   VERDATE=`echo $VERDATEHOUR | cut -c1-8`
   VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
   ./many.error.s %YMD% %INIHOUR% $VERDATE $VERHOUR 1 r2B06 %SUITE%
  ## minus one day "-s +1"!!!
- #VERDATEHOUR=`python ${HOME}/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
+ #VERDATEHOUR=`python %ECBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
  #VERDATE=`echo $VERDATEHOUR | cut -c1-8`
  #VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
  #./many.error.s $VERDATE $VERHOUR %YMD% %INIHOUR% 1 r2B06 %SUITE%

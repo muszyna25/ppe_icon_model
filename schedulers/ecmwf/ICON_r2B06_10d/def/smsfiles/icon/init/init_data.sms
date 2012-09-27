@@ -25,22 +25,20 @@ echo "INIT_DATA.SMS"
 
 module load python
 
-# calculate and format starting date of simulation: SMSDATE - 2 days, time: UTC 00 
-#REQUEST_DATE=`python %SCBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
+IFSCONFIGFILE=%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf
+IFSDATADIR=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/ifs2icon
+IFSCELLDIR=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/ifs2icon/cellweights
+IFSDATAOUTDIR=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+GRIDDIR=%SCPERM%/icon_input/grids
+CDOBIN=%SCSOFT%/software/cdo-1.5.4_build/bin/cdo
+RUBYBIN=%SCSOFT%/software/ruby-1.9.3-p125/ruby
+IFS2ICON=%SCPERM%/icon-dev/scripts/preprocessing/ifs2icon.rb
 
-IFSCONFIGFILE="%SCBASEDIR%/%SUITE_NAME%/def/ifs2icon_1279.conf"
-IFSDATADIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/%SUITE%"
-IFSCELLDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/ifs2icon/cellweights"
-IFSDATAOUTDIR="%SCTEMP%/input/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
-GRIDDIR="%SCBASEDIR%/%SUITE_NAME%/cluster/input/grids"
-CDOBIN="%SCPERM%/software/cdo-1.5.4_build/bin/cdo"
-RUBYBIN="/perm/ms/de/dfi0/software/ruby-1.9.3-p125/ruby"
-IFS2ICON="%SCBASEDIR%/%SUITE_NAME%/def/icon_scripts/preprocessing/ifs2icon.rb"
 
 export CDOBIN
 # Important: ==================================
 # export the DWD GRIB short names:
-export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
 # =============================================
 
 
@@ -48,10 +46,11 @@ export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-
 #smsevent change_dir
 cd ${IFSDATADIR}
 
-# create IFSDATAOUTDIR, if necessary
-if [ ! -d ${IFSDATAOUTDIR} ]; then
-    mkdir -p ${IFSDATAOUTDIR}
-fi
+# create directories, if necessary
+mkdir -p ${IFSCELLDIR}
+#if [ ! -d ${IFSDATAOUTDIR} ]; then
+mkdir -p ${IFSDATAOUTDIR}
+#fi
 
 # move grib file to IFS2ICON directory
 mv ${IFSDATADIR}/ifs_oper_T255_%YMD%%INIHOUR%.grb ${IFSDATAOUTDIR}

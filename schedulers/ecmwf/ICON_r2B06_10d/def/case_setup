@@ -19,13 +19,13 @@
 # absolute path to output directory
 EXPDIR=${outbasedir}/output/${EXP1}/${EXP2}/${INITIME}
 # absolute path to input directory
-INDIR=${basedir}/input/grids
+INDIR=${basedir}/icon_input/grids
 # absolute path to external parameter directory
-EXTPARDIR=${basedir}/input/extpar
+EXTPARDIR=${basedir}/icon_input/extpar
 # absolute path to IFS2ICON data directory
 IFS2ICONDIR=${ifsdir}
 # absolute path to files needed for radiation
-RADDIR=${basedir}/input/radiation
+RADDIR=${basedir}/icon_input/radiation
 
 # absolute path to model binary, including the executable
 #MODEL=${basedir}/icon-dev/build/${arch}/bin/control_model

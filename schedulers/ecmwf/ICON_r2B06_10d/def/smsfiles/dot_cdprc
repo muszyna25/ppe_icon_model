@@ -5,3 +5,26 @@ define icon_restart {
    play icon.def
    begin icon
 }
+
+define total_restart {
+   myalias
+   icon_restart
+   force complete /icon/ifs_fct/fct_ifs
+   force queued   /icon/forecast/check_progress
+   status -a
+}
+
+define ifs_trigger_restart {
+   myalias
+   cancel -y ifs_trigger
+   play ifs_trigger.def
+   begin ifs_trigger
+}
+
+define icon_restart_001 {
+   myalias
+   cancel -y icon_001
+   play icon.def
+   mkdirs -v
+   begin icon_001
+}

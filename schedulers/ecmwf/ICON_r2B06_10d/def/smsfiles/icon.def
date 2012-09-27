@@ -15,6 +15,8 @@
 # "ecgate:/home/ms/de/zde/BCeps"
 #
 # 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
+# 2012-summer: Upgrade to multi-experiment, catch-up-mode,
+#              plotting (Martin Koehler)
 #
 
 # import environment variables:
@@ -26,26 +28,30 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "001"                #---experiment number---
+set EXPNUM        "002"                #---experiment number---
 set FIRST_DATE    20120901
 set LAST_DATE     20121231
 
 # HPC environment:
 set SCHOST      c1a
-set SCBASEDIR   /perm/ms/de/$USER
-set SCTEMP      /$SCHOST/tmp/ms/de/$USER/sms
+set SCTEMP      /$SCHOST/tmp/ms/de/$USER/icon
+set ECTEMP      /scratch/ms/de/$USER/icon_data
+set SCLOGDIR    /$SCHOST/tmp/ms/de/$USER/sms
 set SCLOGPORT   `expr 35000 + $UID `
-set SCLOGDIR    $SCTEMP
 set SCPERM      /perm/ms/de/$USER
+set ECPERM      /c1a$SCPERM            # mounted c1a perm on ecgate
+set SCBASEDIR   $SCPERM/icon-dev/schedulers/ecmwf
+set ECBASEDIR   $ECPERM/icon-dev/schedulers/ecmwf
+set SCSOFT      /perm/ms/de/deia
+
+# place where suite and tasks are defined
+set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/$SUITE_NAME/def/smsfiles/icon"
+
+# place where include files are stored
+set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/$SUITE_NAME/def/include"
 
 # place where generated job scripts are stored
 set SMSHOME     "$HOME/sms"
-
-# place where suite and tasks are defined
-set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles/icon"
-
-# place where include files are stored
-set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
 
 # place for SMS output
 set SMSOUT      "$HOME/sms"
@@ -138,10 +144,14 @@ suite icon_${EXPNUM}
     edit WAITINTVL  $WAITINTVL
     edit USER       $USER
     edit SCPERM     $SCPERM
+    edit ECPERM     $ECPERM
     edit TMPDIR     $TMPDIR
     edit SCHOST     $SCHOST
     edit SCBASEDIR  $SCBASEDIR
+    edit ECBASEDIR  $ECBASEDIR
     edit SCTEMP     $SCTEMP
+    edit ECTEMP     $ECTEMP
+    edit SCSOFT     $SCSOFT
 
     edit ICONNODES        $ICONNODES        
     edit ICONTASKSPERNODE $ICONTASKSPERNODE 
@@ -167,7 +177,7 @@ suite icon_${EXPNUM}
         extern /ifs_trigger/fct_ifs
 
         task setup
-            time 06:00                                  # use this for tasks running daily (not catch-up mode)
+           #time 06:00                                  # use this for tasks running daily (not catch-up mode)
             trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE-3) or \
                     (/ifs_trigger/fct_ifs == complete)
             on_ecgate

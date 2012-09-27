@@ -31,9 +31,9 @@ ldeldata=1
 #-----------------------------------------------------------------------------
 # directories
 
-gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
+gatedir=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
 cd $gatedir
-ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%"
+ecfsdir=ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
 emkdir -p $ecfsdir
 
 

@@ -28,9 +28,9 @@ echo "METEOGRAM.SMS"
 #-----------------------------------------------------------------------------
 # meteogram plots
 
-outdir_mtg=/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+outdir_mtg=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
 outfile_mtg=%SUITE%_meteogram.nc
-dir_mtgrm=/home/ms/de/deia/ICON_r2B06_10d/def/icon_scripts/postprocessing/tools
+dir_mtgrm=%ECPERM%/icon-dev/scripts/postprocessing/tools
 cd ${outdir_mtg}
 cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot_sfc.ncl .
 

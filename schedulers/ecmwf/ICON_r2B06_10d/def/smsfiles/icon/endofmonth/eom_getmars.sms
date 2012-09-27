@@ -34,9 +34,8 @@ use cdo
 # --- setup
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-DATADIR="/scratch/ms/de/deia/ifs_data"
-#DATADIR  = "/e/uwork/mkoehler/icon/ifs.data"
-cd ${DATADIR}
+cd %ECTEMP%
+cd ../ifs_data
 
 
 if [[ $lgetmars = 1 ]] ; then

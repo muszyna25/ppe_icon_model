@@ -26,8 +26,8 @@ echo "INIT_CP_BINARY.SMS"
 
 # Copy to experiment temporary directory
 arch=powerpc-ibm-aix5.3.0.0  # compare with model.sms!
-cp %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev/build/${arch}/bin/control_model \
-  /c1a/tmp/ms/de/deia/sms/output/%SUITE_NAME%/%SUITE%/setup
+cp %SCPERM%/icon-dev/build/${arch}/bin/control_model \
+  %SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
 
 
 # -------------------------------------------------

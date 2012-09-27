@@ -30,8 +30,8 @@ module load grib_api
 #-----------------------------------------------------------------------------
 # directories
 
-outdir="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/"
-gatedir="/scratch/ms/de/deia/icon_data/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
+outdir=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/
+gatedir=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
 rsh ecgate mkdir -p ${gatedir}
 cd ${outdir}
 ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%"
@@ -76,7 +76,7 @@ ldeldata=1
 if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-  export GRIB_DEFINITION_PATH="%SCPERM%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+  export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
 
  #smsevent cpdata
   mkdir -p grb_data
