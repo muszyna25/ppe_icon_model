@@ -78,8 +78,8 @@ create_dec()
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
-    max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv \
-     advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness}
+    max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv itime_scheme=${itime_scheme} \
+    advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness}
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -110,7 +110,8 @@ create_seq()
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma dt_rad=$dt_rad \
     openmp_threads=$openmp_threads cpu_time=$cpu_time testbed_mode=$testbed_mode ndays=$ndays  \
     grids_folder=$grids_folder dtime=$dtime nlevels=$nlevels advection_substepping=$advection_substepping \
-    vwind_implicitness=${vwind_implicitness}
+    vwind_implicitness=${vwind_implicitness} itime_scheme=${itime_scheme}
+ 
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -142,6 +143,7 @@ set_default_parameters()
   parallel_radiation_mode=0
   dtime=60
   dt_rad=1800
+  itime_scheme=4
   vwind_implicitness=0.15
   advection_substepping=4
   use_barrier=".false."
@@ -373,27 +375,53 @@ create_nat_test-setups_on_blizzard()
 
   setup_name='nat-ape_setup-tests'
   #---------------------------------
-  # run="true"
+   run="true"
   #==============================================================================
 
-  vwind_implicitness=3.0
+  itime_scheme=5
+  setup_name='nat-ape_setup-tests_5scheme'
+  
+  vwind_implicitness=0.4
   advection_substepping=4
   dtime=165
   dt_rad=3960
-  create_strong_scaling "iconR2B05_dec-1922.nc" "$setup_name" "4"
+  create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "4"
 
-  vwind_implicitness=2.5
+  vwind_implicitness=0.3
   advection_substepping=5
   dtime=132
   dt_rad=3960
-  create_strong_scaling "iconR2B05-grid.nc" "$setup_name" "6"
+  create_strong_scaling "iconR2B05-grid" "$setup_name" "6"
 
-  vwind_implicitness=1.5
+  vwind_implicitness=0.15
   advection_substepping=5
   dtime=72
   dt_rad=2160
-  create_strong_scaling "iconR2B06-grid.nc" "$setup_name" "24"
-   
+  create_strong_scaling "iconR2B06-grid" "$setup_name" "24"
+
+
+  itime_scheme=4
+  setup_name='nat-ape_setup-tests_4scheme'
+ 
+  vwind_implicitness=0.45
+  advection_substepping=4
+  dtime=165
+  dt_rad=3960
+  create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "4"
+
+  vwind_implicitness=0.35
+  advection_substepping=5
+  dtime=132
+  dt_rad=3960
+  create_strong_scaling "iconR2B05-grid" "$setup_name" "6"
+
+  vwind_implicitness=0.20
+  advection_substepping=5
+  dtime=72
+  dt_rad=2160
+  create_strong_scaling "iconR2B06-grid" "$setup_name" "24"
+  
+  
   exit
 }
    

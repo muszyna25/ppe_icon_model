@@ -94,6 +94,8 @@ iforcing=3
 #                     1 = Held-Suarez forcing
 #                     2 = ECHAM6 physics
 #                     3 = NWP forcing
+
+itime_scheme=${itime_scheme:=5}        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
 vwind_implicitness=${vwind_implicitness:=0.15}
 #-----------------------------------------------------------------------------
 ldump_states=".false."
@@ -172,18 +174,19 @@ cat >> ${atmo_namelist} << EOF
  ape_sst_case      = 'sst1'
 /
 &nonhydrostatic_nml
- itime_scheme    = 5        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
+ itime_scheme    = ${itime_scheme}    ! default 4; 5: modified Matsuno for better numerical stability of sound waves
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 3        ! new default
  iadv_rcf        = ${advection_substepping}   ! microphysics and turb and sat adj 
  exner_expol     = 0.666    ! exner function extrapolation?
- rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
+ rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = ${vwind_implicitness}     ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
  damp_height     = 90000.   ! damping height (set about 10km below top)
- htop_moist_proc = 85000.   ! height above which moist physics and cld/precip advection off
+ htop_moist_proc = 45000.   ! height above which moist physics and cld/precip advection off
  htop_qvadv      = 85000.
+ hbot_qvsubstep  = 86000.
 /
 &transport_nml
  ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
@@ -203,11 +206,12 @@ cat >> ${atmo_namelist} << EOF
  lhdiff_temp      = .TRUE.
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
+ hdiff_smag_fac   = 0.175
 /
 &sleve_nml                  ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
  top_height      = 100000.
- flat_height     = 20000.
+ flat_height     = 16000.
  stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
  decay_scale_1   = 4000.    ! decay scales for topography
  decay_scale_2   = 2500.
@@ -223,9 +227,10 @@ cat >> ${atmo_namelist} << EOF
  inwp_sso        = 0
  inwp_gwd        = 1
  inwp_surface    = 0
- dt_conv         = ${dt_conv},
+ dt_conv         = ${dt_conv},   ! every advection step
  dt_rad          = ${dt_rad},
- dt_sso          = ${dt_sso},
+ dt_sso          = ${dt_sso},    ! every advection step
+ efdt_min_raylfric  = 7200.
 /
 &radiation_nml
  dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
