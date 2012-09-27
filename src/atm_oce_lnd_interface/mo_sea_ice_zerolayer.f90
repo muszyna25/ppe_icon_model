@@ -288,8 +288,6 @@ CONTAINS
     IF (i_sea_ice == 2 ) THEN
       ! Heat flux from ocean into ice
       CALL oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
-      ! Add oceanic heat flux to energy available at the bottom of the ice.
-      ice%Qbot(:,:,:) = ice%Qbot(:,:,:) + zHeatOceI(:,:,:)
 !!$    ELSE IF ( i_sea_ice == 3) THEN
       ! for i_sea_ice == 3, no ocean-ice heatflx is included!
     END IF
@@ -300,6 +298,9 @@ CONTAINS
         DO jc = i_startidx_c,i_endidx_c
           IF (ice%isice(jc,k,jb)) THEN
 
+            ! Add oceanic heat flux to energy available at the bottom of the ice.
+            ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + zHeatOceI(jc,k,jb)
+      
             ! for energy flux surplus
             IF ( ice%Qtop(jc,k,jb) > 0.0_wp ) THEN 
               IF  ( ice%hs(jc,k,jb) > 0.0_wp )  THEN ! melt snow where there's snow
