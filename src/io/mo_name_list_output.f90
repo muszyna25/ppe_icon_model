@@ -349,10 +349,6 @@ CONTAINS
       gauss_tgrid_def,    &
       north_pole
 
-
-!LK
-write(0,*) 'LK: entered read output namelists ...'
-
     ! Open input file and position to first namelist 'output_nml'
 
     CALL open_nml(TRIM(filename))
@@ -367,10 +363,6 @@ write(0,*) 'LK: entered read output namelists ...'
     lrewind = .TRUE.
 
     IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
-
-!LK
-write(0,*) 'LK: try to read output namelists ...'
-
     DO
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
@@ -430,14 +422,11 @@ write(0,*) 'LK: try to read output namelists ...'
         WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
         CALL finish(routine, message_text)
       ENDIF
-!LK
-write(0,output_nml)
       
       nnamelists = nnamelists+1
-!LK
-      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
-      CALL message('LK',message_text)
-!LK
+!LK      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
+!LK      CALL message('',message_text)
+
       ! Check input
 
       ! We need dtime for this check
@@ -466,15 +455,11 @@ write(0,output_nml)
       ! Allocate next output_name_list
 
       IF(.NOT.ASSOCIATED(first_output_name_list)) THEN
-!LK
-write(0,*) 'LK: get anchor ...'
         ! Allocate first name_list
         ALLOCATE(first_output_name_list)
         p_onl => first_output_name_list
         name_list_output_active = .TRUE.
       ELSE
-!LK
-write(0,*) 'LK: net namelist ...'
         ! This is not the first one, p_onl points to the last one which was created
         ALLOCATE(p_onl%next)
         p_onl => p_onl%next
@@ -710,9 +695,6 @@ write(0,*) 'LK: net namelist ...'
     l_print_list = .FALSE.
     IF (PRESENT(lprintlist)) l_print_list = lprintlist
 
-!LK 
-    l_print_list = .TRUE.
-
     i_sample = 1
     IF (PRESENT(isample)) i_sample = isample
 
@@ -720,8 +702,6 @@ write(0,*) 'LK: net namelist ...'
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
 
-!LK
-write (0,*) 'LK: entered init_name_list_output ...'
 
     DO i = 1, nvar_lists
 
@@ -916,11 +896,6 @@ write (0,*) 'LK: entered init_name_list_output ...'
     
     ! Get the number of output files needed (by counting the domains per name list)
 
-!LK
-if (.not. associated(first_output_name_list)) then
-  write (0,*) 'LK: first_output_name_list problem ... '
-endif
-
     p_onl => first_output_name_list
     nfiles = 0
 
@@ -948,10 +923,7 @@ endif
             'Illegal domain number ',p_onl%dom(i),' in name list input'
           CALL finish(routine,message_text)
         ENDIF
-
         DO i_typ = 1, 4
-!LK
-write (0,*) 'LK: ', p_onl%ml_varlist(1), p_onl%pl_varlist(1), p_onl%hl_varlist(1)
           ! Check if name_list has variables of corresponding type
           IF(i_typ == 1 .AND. p_onl%ml_varlist(1) == ' ') CYCLE
           IF(i_typ == 2 .AND. p_onl%pl_varlist(1) == ' ') CYCLE
@@ -1217,10 +1189,6 @@ write (0,*) 'LK: ', p_onl%ml_varlist(1), p_onl%pl_varlist(1), p_onl%hl_varlist(1
           IF (idx_y > 0) idx=MIN(idx, idx_y)
           IF (idx==vname_len) idx=0
           
-!LK
-         write (0,*) 'LK: ', varlist(ivar), element%field%info%name
-!LK          
-
           ! Check for matching name
           IF(idx == 0) THEN
             IF(varlist(ivar) /= element%field%info%name) CYCLE
@@ -1229,6 +1197,7 @@ write (0,*) 'LK: ', p_onl%ml_varlist(1), p_onl%pl_varlist(1), p_onl%hl_varlist(1
           ENDIF
 
           ! Found it, add it to the variable list of output file
+          
           ! If we are dealing with an edge-based variable: look for
           ! both, the x and y component
           IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN

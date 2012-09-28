@@ -57,7 +57,7 @@ USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
   &                                  is_checkpoint_time, n_checkpoints
-USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
+USE mo_run_config,             ONLY: nsteps, dtime, ltimer
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data_types,         ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
@@ -102,9 +102,6 @@ USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_E
   &                                  calc_density_JMDWFG06_EOS_func, calc_density
 USE mo_output,                 ONLY: init_output_files, write_output, &
   &                                  create_restart_file
-USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
-USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output, &
-     &                                output_file
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
@@ -166,7 +163,6 @@ CONTAINS
 
 
   ! local variables
-  REAL(wp)                        :: sim_time(n_dom)
   INTEGER                         :: jstep, jg
   LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring
@@ -213,7 +209,9 @@ CONTAINS
   CALL message (TRIM(routine), message_text)
   !END IF
 
-  sim_time(:) = 0._wp
+  ! call of MOC before time loop
+  !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
+
 
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
@@ -334,33 +332,21 @@ CONTAINS
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
-    ! Not nice, but the name list output requires this
-    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp) 
 
     l_outputtime = (MOD(jstep,n_io) == 0)
-
     IF ( l_outputtime ) THEN
 
       CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
       CALL calc_psi (ppatch(jg), pstate_oce(jg)%p_diag%u(:,:,:), &
         &                        pstate_oce(jg)%p_prog(nold(1))%h(:,:), &
         &                        pstate_oce(jg)%p_diag%u_vint, datetime)
-      
-    ENDIF
 
-    IF ( l_outputtime  .OR. istime4name_list_output(sim_time(1))) THEN
-      IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
-      ENDIF
-      IF (output_mode%l_vlist) THEN
-        CALL write_output( datetime )
-      ENDIF
-      
+      CALL write_output( datetime )
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
-      
-    ENDIF
+
+    END IF
 
     ! close the current output file and trigger a new one
     IF (istime4newoutputfile(jstep)) THEN

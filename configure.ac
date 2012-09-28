@@ -469,7 +469,7 @@ else
   if test -n "$MPIROOT" ; then    
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
     MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
-    MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
+    MPI_I_INCLUDE="-I\$(MPIROOT)/include"
     case $host in
     powerpc-ibm-aix*)
       mod_file=$(find $MPIROOT -name mpi.mod -print 2>/dev/null | grep mpi.mod | grep ${MPI_INCLUDE_THREAD})
@@ -853,18 +853,18 @@ fi
 #############################
 echo ""
 
-if test "x$config_target" = "x"; then
+if test x$config_target = x; then
   config_target="default"
 fi
 
-if test "x$with_mpi" = "xno" ; then
+if test x$with_mpi = xno ; then
   use_mpi=no
 else
   use_mpi=yes
 fi
 
-if test "x$load_module" != "x" ; then
-  if test "$use_mpi" = "yes" ; then
+if test x$load_module != x ; then
+  if test $use_mpi = yes ; then
     load_modules="$load_modules $load_mpi_modules"
   else
     load_modules="$load_modules $load_nompi_modules"
@@ -872,8 +872,8 @@ if test "x$load_module" != "x" ; then
 fi
 
 # general command for running a progmam
-if test "x$mpi_startrun" = "x" ; then
-  if  test "x$MPIROOT" = "x" ; then
+if test x$mpi_startrun = x ; then
+  if  test x$MPIROOT = x ; then
     mpi_startrun="mpiexec -n \\\$mpi_procs"
   else
     mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_procs"
