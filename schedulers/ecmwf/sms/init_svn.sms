@@ -38,7 +38,7 @@ echo "INIT_SVN.SMS"
   
   smsmeter revision $revision
 
- #rsh %SCHOST% "cd %SCBASEDIR%/%SUITE_NAME%/cluster/icon-dev ; gmake distclean"
+ #rsh %SCHOST% "cd %SCPERM%/icon-dev ; gmake distclean"
  #smsevent make_distclean
 
 #else
@@ -57,7 +57,7 @@ echo "INIT_SVN.SMS"
 
 # Copy tar file containing trunk version ---------
 #  tar cvf icon-dev.tar.gz icon-dev
-#  rcp icon-dev.tar.gz %SCHOST%:%SCBASEDIR%/%SUITE_NAME%/cluster/
+#  rcp icon-dev.tar.gz %SCHOST%:%SCPERM%
 #  smsevent tarfile
 
 # Clean up ---------------------------------------

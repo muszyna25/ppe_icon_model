@@ -2,7 +2,7 @@
 
 %manual
   -------------------------------------------------
-  SETUP.SMS
+  ONCE.SMS
   -------------------------------------------------
 
   This script is part of the ICON SMS suite
@@ -16,32 +16,25 @@
 %end
 
 # include the header file for remote jobs
-%include <head.h> 
+%include <init_job.h> 
 
 # -------------------------------------------------
 
-echo "SETUP.SMS"
+echo "ONCE.SMS"
 
-
-# Build a new binary every MONDAY:
-WEEKDAY=`python %ECBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a weekday -d %SMSDATE%00`
-if [ "${WEEKDAY}" -eq "1" ]
-then
-     smsevent enable_build
-fi
-
-
-# NOTE: For the time being, dump state creation is
-#       enabled for every run:
-# smsevent enable_dumpstate
-
-
-# Create data directory on ecgate
+# Create setup directory on ecgate
  
-mkdir -p %ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+SETDIRTMP=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
+mkdir -p ${SETDIRTMP}
+
+# Copy ICON namelist to experiment directory
+
+SETDIR=%SCBASEDIR%/gen
+cp ${SETDIR}/case_setup        ${SETDIRTMP}
+cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
+
 
 # -------------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <tail.h>
-
+%include <end_job.h>

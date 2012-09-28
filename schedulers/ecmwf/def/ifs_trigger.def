@@ -25,14 +25,14 @@ set UID `id -u`
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
 
-# place where generated job scripts are stored
-set SMSHOME     "$HOME/sms"
-
 # place where suite and tasks are defined
-set SMSFILES    "$HOME/$SUITE_NAME/def/smsfiles/icon"
+set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/sms"
 
 # place where include files are stored
-set SMSINCLUDE  "$HOME/$SUITE_NAME/def/include"
+set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/include"
+
+# place where generated job scripts are stored
+set SMSHOME     "$HOME/sms"
 
 # place for SMS output
 set SMSOUT      "$HOME/sms"

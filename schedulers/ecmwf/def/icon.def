@@ -28,7 +28,7 @@ set UID `id -u`
 
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "002"                #---experiment number---
+set EXPNUM        "001"                #---experiment number---
 set FIRST_DATE    20120901
 set LAST_DATE     20121231
 
@@ -45,10 +45,10 @@ set ECBASEDIR   $ECPERM/icon-dev/schedulers/ecmwf
 set SCSOFT      /perm/ms/de/deia
 
 # place where suite and tasks are defined
-set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/$SUITE_NAME/def/smsfiles/icon"
+set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/sms"
 
 # place where include files are stored
-set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/$SUITE_NAME/def/include"
+set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/include"
 
 # place where generated job scripts are stored
 set SMSHOME     "$HOME/sms"

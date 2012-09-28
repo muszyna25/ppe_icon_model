@@ -32,7 +32,7 @@ echo "METVIEW.SMS"
 
 
 
-EOFM=`python %ECBASEDIR%/%SUITE_NAME%/def/bin/date_calc.py -a endofmonth -d %YMD%%INIHOUR%`
+EOFM=`python %ECBASEDIR%/gen/date_calc.py -a endofmonth -d %YMD%%INIHOUR%`
 if [ "${EOFM}" -eq "1" ]
 then
     echo "End of month!"
