@@ -1,7 +1,7 @@
 EXP="test_oce_default"
 varNames="ELEV T S"
 maskName="wet_c"
-oType="png"
+oType="eps"
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
