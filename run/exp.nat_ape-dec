@@ -183,10 +183,15 @@ cat >> ${atmo_namelist} << EOF
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = ${vwind_implicitness}     ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
- damp_height     = 90000.   ! damping height (set about 10km below top)
- htop_moist_proc = 45000.   ! height above which moist physics and cld/precip advection off
- htop_qvadv      = 85000.
- hbot_qvsubstep  = 86000.
+ damp_height     = 70000.   ! damping height (set about 10km below top)
+ htop_moist_proc = 55000.   ! height above which moist physics and cld/precip advection off
+ htop_qvadv      = 65000.
+ hbot_qvsubstep  = 75000.
+
+ !damp_height     = 88000.   ! damping height (set about 10km below top)
+ !htop_moist_proc = 45000.   ! height above which moist physics and cld/precip advection off
+ !htop_qvadv      = 85000.
+ !hbot_qvsubstep  = 86000.
 /
 &transport_nml
  ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
@@ -210,9 +215,9 @@ cat >> ${atmo_namelist} << EOF
 /
 &sleve_nml                  ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
- top_height      = 100000.
+ top_height      = 85000.
  flat_height     = 16000.
- stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ stretch_fac     = 0.8      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
  decay_scale_1   = 4000.    ! decay scales for topography
  decay_scale_2   = 2500.
  decay_exp       = 1.2

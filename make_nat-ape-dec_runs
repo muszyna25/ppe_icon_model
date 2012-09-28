@@ -79,7 +79,7 @@ create_dec()
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
     max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv itime_scheme=${itime_scheme} \
-    advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness}
+    advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness} max_send_recv_buffer_size=${max_send_recv_buffer_size}
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -371,55 +371,35 @@ create_nat_test-setups_on_blizzard()
 {
   set_default_parameters
   ndays=120
-  cpu_time="08:00:00"
+  cpu_time="04:00:00"
 
   setup_name='nat-ape_setup-tests'
   #---------------------------------
    run="true"
   #==============================================================================
+#  exp_descriptor=nat_ape-dec_notop
+  itime_scheme=4
+  setup_name='nat-ape_setup-tests_85km'
+ 
+  vwind_implicitness=0.5
+  advection_substepping=4
+  dtime=165
+  dt_rad=3960
+  # create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "4"
 
-  itime_scheme=5
-  setup_name='nat-ape_setup-tests_5scheme'
-  
+  max_send_recv_buffer_size=262144
   vwind_implicitness=0.4
   advection_substepping=4
-  dtime=165
-  dt_rad=3960
-  create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "4"
-
-  vwind_implicitness=0.3
-  advection_substepping=5
   dtime=132
-  dt_rad=3960
+  dt_rad=3168
   create_strong_scaling "iconR2B05-grid" "$setup_name" "6"
 
+  max_send_recv_buffer_size=393216
   vwind_implicitness=0.15
-  advection_substepping=5
-  dtime=72
-  dt_rad=2160
-  create_strong_scaling "iconR2B06-grid" "$setup_name" "24"
-
-
-  itime_scheme=4
-  setup_name='nat-ape_setup-tests_4scheme'
- 
-  vwind_implicitness=0.45
   advection_substepping=4
-  dtime=165
-  dt_rad=3960
-  create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "4"
-
-  vwind_implicitness=0.35
-  advection_substepping=5
-  dtime=132
-  dt_rad=3960
-  create_strong_scaling "iconR2B05-grid" "$setup_name" "6"
-
-  vwind_implicitness=0.20
-  advection_substepping=5
-  dtime=72
-  dt_rad=2160
-  create_strong_scaling "iconR2B06-grid" "$setup_name" "24"
+  dtime=60
+  dt_rad=1800
+  # create_strong_scaling "iconR2B06-grid" "$setup_name" "4"
   
   
   exit
