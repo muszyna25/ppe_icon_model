@@ -47,12 +47,14 @@ init_oce=1     # 1: use ocean initialization file; 0: init analytically
 #   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
 # provide name suffix for vertical resolution
 #init_oce_suff='L10_50-1000m.nc'
+#init_oce_suff='L40_12-600m.nc'
 init_oce_suff='L20_20-700m.nc'
 #
 #-----------------------------------------------------------------------------
 # surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
 init_relax=1   # 1: use relaxation initialization file
 #init_rel_suff='50m.nc'  # 50m thickness
+#init_rel_suff='12m.nc'  # 12m thickness
 init_rel_suff='20m.nc'  # 20m thickness
 # surface relaxation file must match the thickness of the surface level
 #   ts_surf_annual-iconR${R}B0{B}-50m.nc          # 50m thickness
