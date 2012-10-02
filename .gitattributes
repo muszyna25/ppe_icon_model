@@ -984,7 +984,6 @@ src/atm_dyn_iconam/mo_nonhydro_types.f90 -text
 src/atm_dyn_iconam/mo_opt_diagnostics.f90 -text
 src/atm_dyn_iconam/mo_pp_scheduler.f90 -text
 src/atm_dyn_iconam/mo_pp_tasks.f90 -text
-src/atm_dyn_iconam/mo_solve_nh_async.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
 src/atm_dyn_iconam/mo_vector_operations.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
@@ -1405,7 +1404,6 @@ src/testbed/mo_test_communication.f90 -text
 src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
 src/testbed/mo_test_nh_communication.f90 -text
-src/testbed/mo_test_solve_nonhydro.f90 -text
 src/testcases/mo_ape_params.f90 -text
 src/testcases/mo_df_test.f90 -text
 src/testcases/mo_gw_test.f90 -text
