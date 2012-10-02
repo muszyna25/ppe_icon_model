@@ -37,7 +37,7 @@ void cf_util_init_real_time(void);
 FCALLSCSUB0(cf_util_init_real_time, UTIL_INIT_REAL_TIME, util_init_real_time)
 
 void cf_util_get_real_time_size(int *rt_size);
-FCALLSCSUB1(cf_util_get_real_time_size, UTIL_GET_REAL_TIME_SIZE, 
+FCALLSCSUB1(cf_util_get_real_time_size, UTIL_GET_REAL_TIME_SIZE,
 	    util_get_real_time_size, PINT)
 
 void cf_util_read_real_time(void *it);
@@ -63,9 +63,9 @@ int cf_util_cputime(double *user_time, double *system_time)
   *system_time = (double) 0;
 #else
   struct tms tbuf;
-  if (times(&tbuf) == -1) return ((int) (-1)); 
+  if (times(&tbuf) == -1) return ((int) (-1));
 
-  *user_time   = ((double) tbuf.tms_utime) / clock_ticks; 
+  *user_time   = ((double) tbuf.tms_utime) / clock_ticks;
   *system_time = ((double) tbuf.tms_stime) / clock_ticks;
 #endif
 
@@ -87,7 +87,7 @@ double cf_util_walltime(void)
 
   return (time_in_secs);
 }
- 
+
 /****************************************************************************/
 
 #ifdef _AIX
@@ -110,73 +110,73 @@ void cf_util_init_real_time(void)
     aix_rt_fhigh = 1.0;
     aix_rt_tconv = 1.0;
   } else  {
-    /* powerpc family */ 
+    /* powerpc family */
     aix_rt_fhigh = 4.294967296;
     tb_top = (double) _system_configuration.Xint;
     tb_bot = (double) _system_configuration.Xfrac;
-    aix_rt_tconv = tb_top/tb_bot; 
+    aix_rt_tconv = tb_top/tb_bot;
   }
 }
 
-void cf_util_get_real_time_size(int *rt_size) 
-{ 
+void cf_util_get_real_time_size(int *rt_size)
+{
   /* fortran out:  integer*4:: rt_size(4) */
   *rt_size = (int) sizeof(struct timebasestruct);
 }
 
-void cf_util_read_real_time(void *it) 
-{ 
+void cf_util_read_real_time(void *it)
+{
   /* fortran out:  integer*4:: it(4)
    * raw values - not yet scaled to real time
    */
   read_real_time( (struct timebasestruct*) it, TIMEBASE_SZ );
 }
 
-void cf_util_diff_real_time(void *it1, void *it2, double *t) 
+void cf_util_diff_real_time(void *it1, void *it2, double *t)
 {
   /* fortran in:  integer*4:: it1(4), it2(4)
    * fortran out: real*8:: t
    * t is the real time diff between measurements it1 and it2
    */
-  
+
   struct timebasestruct *tb1, *tb2;
-  
+
   tb1 = (struct timebasestruct *) it1;
   tb2 = (struct timebasestruct *) it2;
-  
-  *t = aix_rt_tconv*(aix_rt_fhigh*( (double) (tb2->tb_high - tb1->tb_high) ) 
+
+  *t = aix_rt_tconv*(aix_rt_fhigh*( (double) (tb2->tb_high - tb1->tb_high) )
       +1.0e-9*( (double)tb2->tb_low - (double)tb1->tb_low ));
-} 
+}
 
-#elif defined (_HIGH_RESOLUTION_TIMER) && (defined (SX) || defined (ES)) 
+#elif defined (_HIGH_RESOLUTION_TIMER) && (defined (SX) || defined (ES))
 
-#define CPU_CLOCK 2.0e-9    /* SX-6: 500 MHz */
+#define CPU_CLOCK 6.25e-10  /* SX-9: 3.2/2 GHz is the increment frequency of the counter register */
 
-long long int irtc(void);   /* provided as assembler routine */   
+long long int irtc(void);   /* provided as assembler routine */
 
-void cf_util_init_real_time() 
+void cf_util_init_real_time()
 {
 }
 
-void cf_util_get_real_time_size(int *rt_size) 
-{ 
+void cf_util_get_real_time_size(int *rt_size)
+{
   *rt_size = (int) sizeof(double);
 }
 
-void cf_util_read_real_time(void *it) 
-{ 
+void cf_util_read_real_time(void *it)
+{
   double *t;
   t = (double *) it;
   *t = CPU_CLOCK*irtc();
 }
 
-void cf_util_diff_real_time(void *it1, void *it2, double *t) 
+void cf_util_diff_real_time(void *it1, void *it2, double *t)
 {
   double *t1, *t2;
   t1 = (double*) it1;
   t2 = (double*) it2;
   *t = *t2 - *t1;
-} 
+}
 
 #elif defined (_HIGH_RESOLUTION_TIMER) && defined (LINUX)
 
@@ -188,12 +188,12 @@ void cf_util_diff_real_time(void *it1, void *it2, double *t)
 
 static double cpu_clock;
 
-void cf_util_init_real_time() 
+void cf_util_init_real_time()
 {
   double freq = 0.0;
   FILE *cpuinfo;
   char line[256];
-  
+
   if ((cpuinfo = fopen ("/proc/cpuinfo", "r")) == NULL) {
     fprintf (stderr, "Couldn't open /proc/cpuinfo ...\n");
     exit(-1);
@@ -215,12 +215,12 @@ void cf_util_init_real_time()
 }
 
 void cf_util_get_real_time_size(int *rt_size)
-{ 
+{
   *rt_size = (int) sizeof(double);
 }
 
 void cf_util_read_real_time(void *it)
-{ 
+{
   long long llt;
   double *t;
   t = (double *) it;
@@ -234,7 +234,7 @@ void cf_util_diff_real_time(void *it1, void *it2, double *t)
   t1 = (double*) it1;
   t2 = (double*) it2;
   *t = *t2 - *t1;
-} 
+}
 
 #else
 
@@ -245,12 +245,12 @@ void cf_util_init_real_time()
 }
 
 void cf_util_get_real_time_size(int *rt_size)
-{ 
+{
   *rt_size = (int) sizeof(double);
 }
 
 void cf_util_read_real_time(void *it)
-{ 
+{
   double *t;
   t = (double *) it;
   *t=cf_util_walltime();
@@ -262,7 +262,7 @@ void cf_util_diff_real_time(void *it1, void *it2, double *t)
   t1 = (double*) it1;
   t2 = (double*) it2;
   *t = *t2 - *t1;
-} 
+}
 
 #endif
 
