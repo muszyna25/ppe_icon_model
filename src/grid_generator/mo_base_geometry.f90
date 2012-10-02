@@ -220,7 +220,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Computes area of triangular cell.
+  !! Computes area of triangular cell on sphere
   !!
   !! @par Revision History
   !! Developed  by Luis Kornblueh  (2004).
