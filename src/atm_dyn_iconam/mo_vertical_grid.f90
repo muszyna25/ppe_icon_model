@@ -117,7 +117,7 @@ MODULE mo_vertical_grid
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
-               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic, jkmax
+               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic
     INTEGER :: nlev, nlevp1              !< number of full levels
 
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
@@ -463,14 +463,10 @@ MODULE mo_vertical_grid
       p_nh(jg)%metrics%vwind_expl_wgt(:,:) = 0.5_wp - vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt(:,:) = 0.5_wp + vwind_offctr
 
-      ! Rayleigh damping properties (it is enforced that the damping layer
-      ! starts at a level where the coordinate surfaces no longer follow the topography)
+      ! Rayleigh damping properties
 
       p_nh(jg)%metrics%rayleigh_w(:)   = 0.0_wp
       p_nh(jg)%metrics%enhfac_diffu(:) = 1.0_wp
-
-      jkmax = MAX(2,p_patch(jg)%nshift_total+nflatlev(jg))
-      damp_height(jg) = MAX(vct_a(jkmax),damp_height(jg))
 
       ! Determine end index of damping layer
       nrdmax(jg) = 1
@@ -478,8 +474,6 @@ MODULE mo_vertical_grid
         jk1 = jk + p_patch(jg)%nshift_total
         IF (vct_a(jk1) >= damp_height(jg))  nrdmax(jg) = jk
       ENDDO
-
-
 
 
       ! Rayleigh damping coefficient for vn and/or w

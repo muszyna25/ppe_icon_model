@@ -54,7 +54,7 @@ MODULE mo_pp_tasks
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
   USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
-  USE mo_intp,                    ONLY: verts2cells_scalar
+  USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
   USE mo_nh_vert_interp,          ONLY: prepare_vert_interp,                &
@@ -727,7 +727,7 @@ CONTAINS
       &                    EXTRAPOL_DIST = -500._wp
 
     INTEGER                            :: nblks, npromz, jg,            &
-      &                                   in_var_idx, out_var_idx, nlev
+      &                                   in_var_idx, out_var_idx, nlev, i_endblk
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     TYPE(t_vcoeff)                     :: vcoeff
     TYPE (t_var_list_element), POINTER :: in_var, out_var
@@ -736,6 +736,9 @@ CONTAINS
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
+
+    REAL(wp) :: pmsl_aux(nproma,1,ptr_task%data_input%p_patch%nblks_c), &
+                pmsl_avg(nproma,1,ptr_task%data_input%p_patch%nblks_c)
 
     ! patch, state, and metrics
     jg             =  ptr_task%data_input%jg
@@ -776,7 +779,7 @@ CONTAINS
         &                 vcoeff%kpbl2, vcoeff%wfacpbl2   )               !out
       ! Interpolate pressure on z-level "0": 
       CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_ifc,    &
-        &                out_var%r_ptr(:,:,out_var_idx,1,1),            &
+        &                pmsl_aux(:,1,:),                               &
         &                nblks, npromz, p_patch%nlev,                   &
         &                vcoeff%wfacpbl1, vcoeff%kpbl1,                 &
         &                vcoeff%wfacpbl2, vcoeff%kpbl2,                 &
@@ -790,12 +793,20 @@ CONTAINS
       ! Interpolate pressure on z-level "0":
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
-        &                    out_var%r_ptr(:,:,out_var_idx,1,1),        &  ! out
+        &                    pmsl_aux(:,1,:),                           &  ! out
         &                    nblks, npromz, p_patch%nlev )                 ! in
 
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')
     END SELECT
+
+    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+      i_endblk = p_patch%cells%end_blk(1,1)
+      pmsl_avg(:,1,1:i_endblk) = pmsl_aux(:,1,1:i_endblk)
+    ENDIF
+
+    CALL cell_avg(pmsl_aux, p_patch, p_int_state(jg)%c_bln_avg, pmsl_avg)
+    out_var%r_ptr(:,:,out_var_idx,1,1) = pmsl_avg(:,1,:)
 
   END SUBROUTINE pp_task_intp_msl
 
