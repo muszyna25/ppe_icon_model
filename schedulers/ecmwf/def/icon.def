@@ -26,17 +26,20 @@ setenv -i HOST
 setenv -i TMPDIR
 set UID `id -u`
 
+
 # global definitions:
 set SUITE_NAME    "ICON_r2B06_10d"
-set EXPNUM        "001"                #---experiment number---
+set EXPNUM        "009"                #---experiment number---
 set FIRST_DATE    20120901
 set LAST_DATE     20121231
+set ICON_HOME     /home/ms/de/deia 
+set ICON_ID       deia 
 
 # HPC environment:
 set SCHOST      c1a
-set SCTEMP      /$SCHOST/tmp/ms/de/$USER/icon
+set SCTEMP      /$SCHOST/tmp/ms/de/$ICON_ID/icon
 set ECTEMP      /scratch/ms/de/$USER/icon_data
-set SCLOGDIR    /$SCHOST/tmp/ms/de/$USER/sms
+set SCLOGDIR    /$SCHOST/tmp/ms/de/$ICON_ID/sms
 set SCLOGPORT   `expr 35000 + $UID `
 set SCPERM      /perm/ms/de/$USER
 set ECPERM      /c1a$SCPERM            # mounted c1a perm on ecgate
@@ -51,10 +54,10 @@ set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/sms"
 set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/include"
 
 # place where generated job scripts are stored
-set SMSHOME     "$HOME/sms"
+set SMSHOME     "$ICON_HOME/sms"
 
 # place for SMS output
-set SMSOUT      "$HOME/sms"
+set SMSOUT      "$ICON_HOME/sms"
 
 # no. of files to check for:
 set MAXFILES     1
@@ -75,6 +78,7 @@ set ICONTASKSPERNODE 32
 set ICONTHREADS       2
 # -------------------------------------------------
 
+#USER=deia
 
 define on_ecgate {
   label host "$HOST"
@@ -89,9 +93,9 @@ define on_ecgate_submit {
 
 define on_hpc_parallel {
   label host "$SCHOST parallel"
-  edit SMSCMD  "/usr/local/share/sms_submit      %USER% %SCHOST% %SMSJOB%"
-  edit SMSKILL "/usr/local/share/sms_kill        %USER% %SCHOST% %SMSRID% %SMSJOB%"
-  edit SMSSTATUSCMD "/usr/local/share/sms_status %USER% %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSCMD  "/usr/local/share/sms_submit      $ICON_ID %SCHOST% %SMSJOB%"
+  edit SMSKILL "/usr/local/share/sms_kill        $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
   edit SMSOUT     ${SCLOGDIR}
   edit SMSLOGHOST ${SCHOST}
   edit SMSLOGPORT ${SCLOGPORT}
@@ -110,7 +114,12 @@ define on_hpc_serial {
 
 # -------------------------------------------------
 
-suite icon_${EXPNUM}
+suite $USER
+
+  # EXP ---------------------------------------------
+
+  family ${EXPNUM}
+
 
     # initial hour: could be cycled later
     edit INIHOUR 00
@@ -159,10 +168,12 @@ suite icon_${EXPNUM}
     edit ENABLE_DUMPSTATE $ENABLE_DUMPSTATE
 
 
+
+
     # ONCE --------------------------------------------
 
     task once
-       #complete (/icon_${EXPNUM}:YMD gt ${FIRST_DATE})
+       #complete (/${EXPNUM}:YMD gt ${FIRST_DATE})
         on_hpc_serial
         edit SCWALLCLOCKLIMIT 00:02:00
 
@@ -178,7 +189,7 @@ suite icon_${EXPNUM}
 
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
-            trigger (../init:YMD le /icon_${EXPNUM}:SMSDATE-3) or \
+            trigger (../init:YMD le /${USER}:SMSDATE-3) or \
                     (/ifs_trigger/fct_ifs == complete)
             on_ecgate
             if ($ENABLE_INIT == 0) then
@@ -273,7 +284,7 @@ suite icon_${EXPNUM}
 
             task dumpstate
                 trigger (pre_clean == complete)
-                complete ($ENABLE_DUMPSTATE == 0) or not (../../../init/setup:enable_dumpstate)
+                complete ($ENABLE_DUMPSTATE == 0) or not (/${USER}/${EXPNUM}/init/setup:enable_dumpstate)
                 on_hpc_parallel
                 edit SCWALLCLOCKLIMIT 00:20:00
                 if (($ENABLE_FORECAST == 0) or ($ENABLE_DUMPSTATE == 0)) then
@@ -330,18 +341,20 @@ suite icon_${EXPNUM}
                trigger (post_prepare:meteogram_data)
                on_ecgate_submit
    
-           set work "1 2 3 4"
-           loop ii ( $work ) do
-               task metview_$ii
-                   trigger (post_prepare == complete)
+           family metview_all 
+             trigger (post_prepare == complete)
+             for set 1 4 ; do
+               set tsk `printf %3.3i $set`
+               family $tsk
+                 task metview
                    on_ecgate_submit
-                   edit metproc $ii
-           endloop   
+                   edit metproc $set
+               endfamily
+             endfor  
+           endfamily
 
            task post_archive
-               trigger meteogram==complete \
-                   and metview_1==complete and metview_2==complete \
-                   and metview_3==complete and metview_4==complete
+               trigger meteogram==complete and metview_all==complete 
                on_ecgate_submit
    
        endfamily
@@ -379,21 +392,26 @@ suite icon_${EXPNUM}
             complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
 
-        set work "1 2 3 4"
-        loop ii ( $work ) do
-            task eom_metview_$ii
-                trigger (eom_prepare == complete) and (eom_getmars == complete)
-                complete (testday==complete) and not (testday:time_eom)
-                on_ecgate_submit
-                edit metproc $ii
-        endloop
+        family eom_metview_all 
+             trigger (eom_prepare == complete) and (eom_getmars == complete)
+             complete (testday==complete) and not (testday:time_eom)
+             for set 1 4 ; do
+               set tsk `printf %3.3i $set`
+               family $tsk
+                 task eom_metview
+                   on_ecgate_submit
+                   edit metproc $set
+               endfamily
+             endfor  
+        endfamily
 
         task eom_archive
-            trigger eom_metview_1==complete and eom_metview_2==complete \
-                and eom_metview_3==complete and eom_metview_4==complete
+            trigger eom_metview_all==complete
             complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
    
     endfamily
+
+  endfamily
 
 endsuite
