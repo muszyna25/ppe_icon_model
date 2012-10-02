@@ -33,6 +33,7 @@ case "$fortran_compiler" in
       FFLAGS   = $GENFLAGS -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000  -qessl
       F77      = mpxlf_r
       F77FLAGS = $GENFLAGS -g -qextname  -qessl 
+      LDFLAGS  = -V  -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000  -qessl -qsmp=omp -O3 -qhot -qstrict
     #  OMPFLAG  = -qsmp=omp:stackcheck
       OMPFLAG  = -qsmp=omp
       DEFOPT   = -WF,-D
