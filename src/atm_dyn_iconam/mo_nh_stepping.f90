@@ -104,8 +104,6 @@ MODULE mo_nh_stepping
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div
   USE mo_solve_nonhydro,      ONLY: solve_nh
-  USE mo_test_solve_nonhydro, ONLY: test_solve_nh
-  USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
@@ -1114,22 +1112,15 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-  !          IF (test_mode > 0) THEN
-  !            CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),     &
-  !              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
-  !          ELSE
-              CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),          &
-                n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
-  !          ENDIF
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),          &
+              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
                 p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
           ELSE
-            ! call version for asynchronous halo communication, 
-            ! combining solve and Smagorinsky diffusion
-            CALL solve_nh_ahc(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),      &
-              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
+            
+            CALL finish ( 'mo_nh_stepping', 'asynchronous halo communication currently not implemented')
           ENDIF
 
         ELSE ! hexagonal case
