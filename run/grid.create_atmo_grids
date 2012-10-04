@@ -118,10 +118,10 @@ set_grid_optimization()
     prime_ref_length_coeff=1.0
     use_adaptive_spring_length='.true.'
   
-    if [ "x$use_symmetry_optimization" = "xtrue" ] ; then
-      use_local_reference_length='.true.'
-      local_reference_length_coeff=0.75
-    fi
+#     if [ "x$use_symmetry_optimization" = "xtrue" ] ; then
+#       use_local_reference_length='.true.'
+#       local_reference_length_coeff=0.75
+#     fi
   fi
     
   if [ "x$use_symmetry_optimization" = "xtrue" ] ; then
