@@ -635,20 +635,20 @@ CONTAINS
       ! buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp 
         CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
-      ! zonal wind
+      ! zonal velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
         CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
-      ! meridional wind
+      ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
         CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
       ! Receive fields from atmosphere
       ! ------------------------------
 
-        !-------------------------------------------------------------------------
-        ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
       !
+      ! Apply wind stress - records 0 and 1 of field_id
+
       ! zonal wind stress
         CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF (info > 0 ) THEN
@@ -665,7 +665,7 @@ CONTAINS
             CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_v(:,:))
         ENDIF
       !
-      ! freshwater flux - 2 parts, precipitation and evaporation
+      ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
       ! prflx(:,:)  total precipitation flux            [m/s]
       ! evflx(:,:)  evaporation flux                    [m/s]
         field_shape(3) = 2
@@ -680,7 +680,7 @@ CONTAINS
             p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
         END IF
       !
-      ! surface temperature
+      ! Apply surface air temperature - not used with temperature_relaxation= -1 - record 4
         field_shape(3) = 1
         CALL ICON_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF (info > 0 ) THEN
@@ -690,7 +690,7 @@ CONTAINS
           p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
         END IF
       !
-      ! total heat flux - 4 parts
+      ! Apply total heat flux - 4 parts - record 5
       ! swflx(:,:)  surface short wave heat flux        [W/m2]
       ! lwflx(:,:)  surface long  wave heat flux        [W/m2]
       ! ssflx(:,:)  surface sensible   heat flux        [W/m2]
