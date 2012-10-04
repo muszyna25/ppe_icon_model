@@ -109,8 +109,6 @@ MODULE mo_test_nh_communication
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
-  USE mo_test_solve_nonhydro, ONLY: test_solve_nh
-  USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
