@@ -50,7 +50,7 @@ call "$CDO merge $initFile $initRhopotFile $initWithPotDensity"
 # ==============================================================================
 # creating a mask file
 maskFile='mask.nc'
-call "$CDO -selname,$MaskVarName ${fileListArray[0]} $maskFile"
+call "$CDO -selname,$MaskVarName -seltimestep,1 ${fileListArray[0]} $maskFile"
 
 # ==============================================================================
 # Loop over all files in serial
