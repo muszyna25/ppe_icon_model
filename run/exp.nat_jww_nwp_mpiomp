@@ -155,7 +155,7 @@ cat > ${atmo_namelist} << EOF
  lrestore_states= .false. 
 /
 &nwp_phy_nml
-inwp_gscp       = 1
+inwp_gscp       = 10
 inwp_convection = 1
 inwp_radiation  = 1
 inwp_cldcover   = 3
