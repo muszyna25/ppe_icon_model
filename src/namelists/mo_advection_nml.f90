@@ -116,6 +116,9 @@ MODULE mo_advection_nml
   INTEGER :: niter_fct             !< number of iterations for monotone
                                    !< flux correction procedure
 
+  REAL(wp):: beta_fct              !< factor for multiplicative spreading of range
+                                   !< of permissible values (monotone limiter)
+
   INTEGER :: iord_backtraj         !< parameter to select the spacial order
                                    !< of accuracy for the backward trajectory
 
@@ -133,9 +136,9 @@ MODULE mo_advection_nml
 
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
-    &                     niter_fct, iord_backtraj, lclip_tracer,         &
-    &                     ctracer_list, igrad_c_miura, lstrang,           &
-    &                     upstr_beta_adv, llsq_svd
+    &                     niter_fct, beta_fct, iord_backtraj,             &
+    &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
+    &                     lstrang, upstr_beta_adv, llsq_svd
 
 
 CONTAINS
@@ -177,6 +180,7 @@ CONTAINS
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     niter_fct       = 1         ! number of FCT-iterations
+    beta_fct        = 1._wp     ! multiplicative spreading factor (limiter)
     ivcfl_max       = 5         ! CFL-stability range for vertical advection
     iord_backtraj   = 1         ! 1st order backward trajectory
     lvadv_tracer    = .TRUE.    ! vertical advection yes/no
@@ -256,6 +260,12 @@ CONTAINS
       CALL finish( TRIM(routine), 'niter_fct must be greater than 0 ')
     ENDIF
 
+    ! FCT multiplicative spreading - sanity check
+    IF ( (beta_fct < 1.0_wp) .OR. (beta_fct >= 2.0_wp) ) THEN
+      CALL finish( TRIM(routine),                                     & 
+        & 'permissible range of values for beta_fct:  [1,2[ ')
+    ENDIF
+
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -272,6 +282,7 @@ CONTAINS
       advection_config(jg)%itype_vlimit(:)= itype_vlimit(:)
       advection_config(jg)%itype_hlimit(:)= itype_hlimit(:)
       advection_config(jg)%niter_fct      = niter_fct
+      advection_config(jg)%beta_fct       = beta_fct
       advection_config(jg)%iord_backtraj  = iord_backtraj
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
       advection_config(jg)%ivcfl_max      = ivcfl_max

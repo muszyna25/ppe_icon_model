@@ -131,6 +131,9 @@ MODULE mo_advection_config
     INTEGER :: niter_fct            !< number of iterations for monotone
                                     !< flux correction procedure
 
+    REAL(wp):: beta_fct             !< factor for multiplicative spreading of range
+                                    !< of permissible values (monotone limiter)
+
     INTEGER :: iord_backtraj        !< parameter to select the spacial order     
                                     !< of accuracy for the backward trajectory   
 

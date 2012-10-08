@@ -3070,6 +3070,12 @@ I& 1& & number of iterations  of monotone flux correction procedure& ihadv\_trac
 \tabularnewline
 
 \hline 
+beta\_fct&
+R& 1.0& & factor for multiplicative spreading of range of permissible values (limiter) \\
+\textcolor{red}{Tentative suggestion: beta\_fct=1.0015}& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3 
+\tabularnewline
+
+\hline 
 iord\_backtraj&
 I& 1& & order of backward trajectory calculation:& \tabularnewline
 & & & & 1: first order& \tabularnewline

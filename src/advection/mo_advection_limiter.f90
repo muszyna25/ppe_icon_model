@@ -109,8 +109,8 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2012-09-20)
   !! - possibility for iterative flux correction
   !!
-  SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc, p_mass_flx_e, &
-    &                         p_mflx_tracer_h, opt_niter, opt_rlstart,         &
+  SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc, p_mass_flx_e,       &
+    &                         p_mflx_tracer_h, opt_beta_fct, opt_niter, opt_rlstart, &
     &                         opt_rlend, opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
@@ -131,6 +131,9 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(IN), OPTIONAL ::  & !< factor for multiplicative spreading of range 
+      &  opt_beta_fct                    !< of permissible values
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: number of iterations
       &  opt_niter                     !< niter=1 is the standard flux limiter
@@ -180,6 +183,8 @@ CONTAINS
       &         z_max(nproma,ptr_patch%nlev) 
     REAL(wp) :: z_signum             !< sign of antidiffusive velocity
     REAL(wp) :: p_p, p_m             !< sum of antidiffusive fluxes into and out of cell jc
+    REAL(wp) :: beta_fct             !< factor for multiplicative spreading of range 
+                                     !< of permissible values
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
       &  iilc, iibc                          !< neighbor cells (array)
@@ -206,6 +211,7 @@ CONTAINS
     elev      = ptr_patch%nlev
     i_rlstart = grf_bdywidth_e
     i_rlend   = min_rledge_int - 1
+    beta_fct  = 1._wp              ! tentative suggestion: 1.0015
     niter     = 1
 
 
@@ -214,6 +220,7 @@ CONTAINS
     CALL assign_if_present(elev     ,opt_elev)
     CALL assign_if_present(i_rlstart,opt_rlstart)
     CALL assign_if_present(i_rlend  ,opt_rlend)
+    CALL assign_if_present(beta_fct ,opt_beta_fct)
     CALL assign_if_present(niter    ,opt_niter)
 
     ! number of child domains
@@ -420,14 +427,14 @@ CONTAINS
 
           ! max value of cell and its neighbors
           ! also look back to previous time step
-          z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
+          z_max(jc,jk) = beta_fct * MAX( z_tracer_max(jc,jk,jb),               &
             &                 z_tracer_max(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
             &                 z_tracer_max(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
             &                 z_tracer_max(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
 
           ! min value of cell and its neighbors
           ! also look back to previous time step
-          z_min(jc,jk) = MIN( z_tracer_min(jc,jk,jb),                          &
+          z_min(jc,jk) = (2._wp - beta_fct) * MIN( z_tracer_min(jc,jk,jb),     &
             &                 z_tracer_min(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
             &                 z_tracer_min(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
             &                 z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
@@ -664,29 +671,18 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+    ! set default values
+    slev      = 1
+    elev      = ptr_patch%nlev
+    i_rlstart = grf_bdywidth_e
+    i_rlend   = min_rledge_int - 1
+
+
     ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = ptr_patch%nlev
-    END IF
-
-    IF ( PRESENT(opt_rlstart) ) THEN
-      i_rlstart = opt_rlstart
-    ELSE
-      i_rlstart = grf_bdywidth_e
-    ENDIF
-
-    IF ( PRESENT(opt_rlend) ) THEN
-      i_rlend = opt_rlend
-    ELSE
-      i_rlend = min_rledge_int - 1
-    ENDIF
+    CALL assign_if_present(slev     ,opt_slev)
+    CALL assign_if_present(elev     ,opt_elev)
+    CALL assign_if_present(i_rlstart,opt_rlstart)
+    CALL assign_if_present(i_rlend  ,opt_rlend)
 
     IF ( PRESENT(opt_rho) ) THEN
       ptr_rho => opt_rho
@@ -696,7 +692,6 @@ CONTAINS
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
-
 
     IF (p_test_run) THEN
       r_m = 0._wp
