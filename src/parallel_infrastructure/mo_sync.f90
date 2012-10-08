@@ -231,14 +231,14 @@ END SUBROUTINE sync_patch_array_2
 !
 
 !>
-!! Does boundary exchange for up to 5 3D cell-based fields or a 4D field.
+!! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field.
 !!
 !! @par Revision History
 !! Optimized version by Guenther Zaengl, Apr 2010, based on routines
 !! developed by Rainer Johanni
 !!
 SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
-                                 f3din4, f3din5, f4din, lpart4d )
+                                 f3din4, f3din5, f4din)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
@@ -246,7 +246,6 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
 
    REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
                                          f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
-   LOGICAL, OPTIONAL, INTENT(IN)     :: lpart4d
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    TYPE(t_comm_pattern), POINTER :: p_pat
@@ -255,12 +254,6 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    LOGICAL :: l_part4d ! Allows to synchronize only part of a 4D field
 
 !-----------------------------------------------------------------------
-
-    IF (PRESENT(lpart4d)) THEN
-      l_part4d = lpart4d
-    ELSE
-      l_part4d = .FALSE.
-    ENDIF
 
     IF(typ == SYNC_C) THEN
       p_pat => p_patch%comm_pat_c
@@ -276,7 +269,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
-       DO i = 1, nfields
+       DO i = 1, SIZE(f4din,4)
          arr3(:,:,:) = f4din(:,:,:,i)
          CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
        ENDDO
@@ -292,34 +285,18 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
      IF (PRESENT(f4din)) THEN
-       IF (.NOT. l_part4d .AND. nfields/=UBOUND(f4din,4)) &
-         CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = nfields*SIZE(f4din,2)
-       CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv4d=f4din)
-     ELSE IF (PRESENT(f3din5)) THEN
-       IF (nfields<5) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)+SIZE(f3din3,2)+SIZE(f3din4,2)+SIZE(f3din5,2)
-       CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2, &
-                               recv3=f3din3, recv4=f3din4, recv5=f3din5)
-     ELSE IF (PRESENT(f3din4)) THEN
-       IF (nfields<4) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)+SIZE(f3din3,2)+SIZE(f3din4,2)
-       CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2, &
-                               recv3=f3din3, recv4=f3din4)
-     ELSE IF (PRESENT(f3din3)) THEN
-       IF (nfields<3) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)+SIZE(f3din3,2)
-       CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2, &
-                               recv3=f3din3)
-     ELSE IF (PRESENT(f3din2)) THEN
-       IF (nfields<2) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)
-       CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2)
-     ELSE IF (PRESENT(f3din1)) THEN
-       CALL exchange_data(p_pat, f3din1)
+       ndim2tot = SIZE(f4din,4)*SIZE(f4din,2)
      ELSE
-       CALL finish('sync_patch_array_mult','missing or inconsistent arguments')
+       ndim2tot = 0
      ENDIF
+     IF (PRESENT(f3din1)) ndim2tot = ndim2tot+SIZE(f3din1,2)
+     IF (PRESENT(f3din2)) ndim2tot = ndim2tot+SIZE(f3din2,2)
+     IF (PRESENT(f3din3)) ndim2tot = ndim2tot+SIZE(f3din3,2)
+     IF (PRESENT(f3din4)) ndim2tot = ndim2tot+SIZE(f3din4,2)
+     IF (PRESENT(f3din5)) ndim2tot = ndim2tot+SIZE(f3din5,2)
+
+     CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2, &
+                             recv3=f3din3, recv4=f3din4, recv5=f3din5, recv4d=f4din)
    ENDIF
 
 END SUBROUTINE sync_patch_array_mult

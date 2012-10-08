@@ -1183,58 +1183,37 @@ CONTAINS
     !                and diagnostic computations
     !--------------------------------------------------------
 
+    ! Synchronize tracers if any of the updating (fast-physics) processes was active.
+    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_old
     IF (l_any_fastphys) THEN
 
       IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
 
-      IF (use_icon_comm) THEN
+      IF (use_icon_comm) THEN ! use communication library
+
         tracers_comm = new_icon_comm_variable(pt_prog_rcf%tracer, pt_patch%sync_cells_not_in_domain,  &
           & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
-      ELSE
-        ! Synchronize tracers if any of the updating (fast-physics) processes was active
-         CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer)
-!        write(*,*) 'hello1'
-!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,1))
-!        write(*,*) 'hello2'
-!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,2))
-!        write(*,*) 'hello3'
-!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,3))
-!        write(*,*) 'hello4'
-!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,4))
-!        write(*,*) 'hello5'
-!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,5))
-!        write(*,*) 'hello6'
-!        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,6))
-      ENDIF
-        
-      IF (timers_level > 3) THEN
-        CALL timer_stop(timer_phys_sync_tracers)
-        CALL timer_start(timer_phys_sync_tempv)
-      ENDIF
-      ! Synchronize tempv, then recompute thermodynamic variables on halo points
-      ! (This is more efficient than synchronizing three variables)
-      
-      IF (lhdiff_rcf) THEN ! in this case, exner_old also needs to be synchronized
-        IF (use_icon_comm) THEN
-          tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%tempv")
+        tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
+          & status=is_ready, scope=until_sync, name="pt_diag%tempv")
+
+        IF (lhdiff_rcf) THEN
           exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
             & pt_patch%sync_cells_not_in_domain, &
             & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
-        ELSE
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_diag%tempv, pt_diag%exner_old)
         ENDIF
+
       ELSE
-        IF (use_icon_comm) THEN
-          tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%tempv")
+        IF (lhdiff_rcf) THEN
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+2, pt_diag%tempv, &
+                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
         ELSE
-          CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+1, pt_diag%tempv, f4din=pt_prog_rcf%tracer)
         ENDIF
+
       ENDIF
 
       IF (timers_level > 3) THEN
-        CALL timer_stop(timer_phys_sync_tempv)
+        CALL timer_stop(timer_phys_sync_tracers)
       ENDIF
     ENDIF
           
@@ -1367,21 +1346,6 @@ CONTAINS
       maxuturb(:,:) = 0._wp
       maxvturb(:,:) = 0._wp
     ENDIF
-
-
-!    moved with the sync of the fast physics
-!     IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
-!     IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
-! 
-!       CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
-!                                  prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
-! 
-!     ELSE IF (lcall_phy_jg(itturb) ) THEN
-! 
-!       CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
-!                                  prm_nwp_tend%ddt_v_turb)
-! 
-!     ENDIF
 
     !-------------------------------------------------------------------------
     !>

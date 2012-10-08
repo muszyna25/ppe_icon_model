@@ -530,23 +530,27 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   n = 0
   DO k = 1, grf_vec_dim_1
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_1a(:,k,:), &
-                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_1a(:,k,:)),wp)
+!CDIR IEXPAND
+    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_le:ieb_le), &
+                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_le:ieb_le)),wp)
   ENDDO
   DO k = 1, grf_vec_dim_1
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_1b(:,k,:), &
-                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_1b(:,k,:)),wp)
+!CDIR IEXPAND
+    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_le:ieb_le), &
+                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_le:ieb_le)),wp)
   ENDDO
   DO k = 1, grf_vec_dim_2
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_2a(:,k,:), &
-                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_2a(:,k,:)),wp)
+!CDIR IEXPAND
+    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_le:ieb_le), &
+                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_le:ieb_le)),wp)
   ENDDO
   DO k = 1, grf_vec_dim_2
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_2b(:,k,:), &
-                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_2b(:,k,:)),wp)
+!CDIR IEXPAND
+    z_tmp_s(:,n,isb_le:ieb_le) =REAL(glb_idx_1d_e(p_lp,p_lgrf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_le:ieb_le), &
+                                                       p_lgrf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_le:ieb_le)),wp)
   ENDDO
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
@@ -554,23 +558,23 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   n = 0
   DO k = 1, grf_vec_dim_1
     n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
   ENDDO
   DO k = 1, grf_vec_dim_1
     n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
   ENDDO
   DO k = 1, grf_vec_dim_2
     n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
   ENDDO
   DO k = 1, grf_vec_dim_2
     n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
   ENDDO
 
   n = 0

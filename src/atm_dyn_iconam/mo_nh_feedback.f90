@@ -1793,12 +1793,14 @@ ENDIF
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL
 
-  CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,p_parent_prog%rho,p_parent_prog%theta_v,   &
-                             p_parent_prog%w)
   CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
   IF (ltransport .AND. l_trac_fbk) THEN
-     CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer, F4DIN=p_parent_prog_rcf%tracer)
+    CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer+3, p_parent_prog%rho, p_parent_prog%theta_v, &
+                               p_parent_prog%w, f4din=p_parent_prog_rcf%tracer)
+  ELSE
+    CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,p_parent_prog%rho,p_parent_prog%theta_v,   &
+                               p_parent_prog%w)
   ENDIF
 
 IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after sync of theta

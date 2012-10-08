@@ -1602,7 +1602,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
    REAL(wp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
 
-   INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount
+   INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount, nf4d
    LOGICAL :: lsend, ladd, l_par
 
    ! Variables required for message size blocking
@@ -1643,57 +1643,59 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
    ! Set pointers to input fields
    IF (PRESENT(recv4d)) THEN
-     DO i = 1, nfields
+     nf4d = SIZE(recv4d,4)
+     DO i = 1, nf4d
        recv(i)%fld => recv4d(:,:,:,i)
      ENDDO
      IF (PRESENT(send4d)) THEN ! all 4D fields must have the same dimensions
-       DO i = 1, nfields
+       DO i = 1, nf4d
          send(i)%fld => send4d(:,:,:,i)
        ENDDO
        lsend = .TRUE.
      ENDIF
      IF (PRESENT(add4d)) THEN
-       DO i = 1, nfields
+       DO i = 1, nf4d
          add(i)%fld => add4d(:,:,:,i)
        ENDDO
        ladd = .TRUE.
      ENDIF
    ELSE
-     IF (PRESENT(recv1)) THEN
-       recv(1)%fld => recv1
-       IF (PRESENT(send1)) THEN
-         send(1)%fld => send1
-         lsend = .TRUE.
-       ENDIF
-       IF (PRESENT(add1)) THEN
-         add(1)%fld => add1
-         ladd = .TRUE.
-       ENDIF
-       IF (PRESENT(recv2)) THEN
-         recv(2)%fld => recv2
-         IF (lsend) send(2)%fld => send2
-         IF (ladd)  add(2)%fld  => add2
-         IF (PRESENT(recv3)) THEN
-           recv(3)%fld => recv3
-           IF (lsend) send(3)%fld => send3
-           IF (ladd)  add(3)%fld  => add3
-           IF (PRESENT(recv4)) THEN
-             recv(4)%fld => recv4
-             IF (lsend) send(4)%fld => send4
-             IF (ladd)  add(4)%fld  => add4
-             IF (PRESENT(recv5)) THEN
-               recv(5)%fld => recv5
-               IF (lsend) send(5)%fld => send5
-               IF (ladd)  add(5)%fld  => add5
-               IF (PRESENT(recv6)) THEN
-                 recv(6)%fld => recv6
-                 IF (lsend) send(6)%fld => send6
-                 IF (ladd)  add(6)%fld  => add6
-                 IF (PRESENT(recv7)) THEN
-                   recv(7)%fld => recv7
-                   IF (lsend) send(7)%fld => send7
-                   IF (ladd)  add(7)%fld  => add7
-                 ENDIF
+     nf4d = 0
+   ENDIF
+   IF (PRESENT(recv1)) THEN
+     recv(nf4d+1)%fld => recv1
+     IF (PRESENT(send1)) THEN
+       send(nf4d+1)%fld => send1
+       lsend = .TRUE.
+     ENDIF
+     IF (PRESENT(add1)) THEN
+       add(nf4d+1)%fld => add1
+       ladd = .TRUE.
+     ENDIF
+     IF (PRESENT(recv2)) THEN
+       recv(nf4d+2)%fld => recv2
+       IF (lsend) send(nf4d+2)%fld => send2
+       IF (ladd)  add(nf4d+2)%fld  => add2
+       IF (PRESENT(recv3)) THEN
+         recv(nf4d+3)%fld => recv3
+         IF (lsend) send(nf4d+3)%fld => send3
+         IF (ladd)  add(nf4d+3)%fld  => add3
+         IF (PRESENT(recv4)) THEN
+           recv(nf4d+4)%fld => recv4
+           IF (lsend) send(nf4d+4)%fld => send4
+           IF (ladd)  add(nf4d+4)%fld  => add4
+           IF (PRESENT(recv5)) THEN
+             recv(nf4d+5)%fld => recv5
+             IF (lsend) send(nf4d+5)%fld => send5
+             IF (ladd)  add(nf4d+5)%fld  => add5
+             IF (PRESENT(recv6)) THEN
+               recv(nf4d+6)%fld => recv6
+               IF (lsend) send(nf4d+6)%fld => send6
+               IF (ladd)  add(nf4d+6)%fld  => add6
+               IF (PRESENT(recv7)) THEN
+                 recv(nf4d+7)%fld => recv7
+                 IF (lsend) send(nf4d+7)%fld => send7
+                 IF (ladd)  add(nf4d+7)%fld  => add7
                ENDIF
              ENDIF
            ENDIF
