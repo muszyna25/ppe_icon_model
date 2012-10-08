@@ -382,8 +382,9 @@ CONTAINS
     ENDDO
 !$OMP END DO
 
-    ! Additional initialization of lateral boundary points is needed for limited-area mode
-    IF ( l_limited_area .AND. ptr_patch%id == 1) THEN
+    ! Additional initialization of lateral boundary points is needed 
+    ! for limited-area mode or iterative flux limitation
+    IF ( (l_limited_area .OR. niter > 1) .AND. ptr_patch%id == 1) THEN
 
       i_startblk   = ptr_patch%cells%start_blk(1,1)
       i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
