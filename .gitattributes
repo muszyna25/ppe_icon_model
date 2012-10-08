@@ -679,6 +679,7 @@ run/grid.decompose_metis -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
 run/mapfile_vlist.txt -text
+run/post.hom_lsm -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.plot_icon_grids -text
@@ -686,7 +687,6 @@ run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_hat_jww -text
 run/post.test_hat_jww-moist_cld-cnv-vdf -text
-run/post.test_hom_lsm -text
 run/post.test_nah_jww -text
 run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_nh35_tri_jws -text
