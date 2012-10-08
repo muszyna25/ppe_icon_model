@@ -38,7 +38,7 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=${dtime:=60}
+dtime=${dtime:=72}
 ndays=${ndays:=10}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 advection_substepping=${advection_substepping:=4}
@@ -48,13 +48,19 @@ dt_sso=${dt_sso:=$dt_conv}         # every advection step
 #
 #-----------------------------------------------------------------------------
 #output=${output:='"vlist","totint"'}
-output=${output:='"none"'}
-out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
-out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
-dt_diag=`expr ${out_diag_hours} \* 3600  `   
-dt_data=`expr ${out_data_hours} \* 3600  `
+#output=${output:='"none"'}
+#out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
+#out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
+#dt_diag=`expr ${out_diag_hours} \* 3600  `   
+#dt_data=`expr ${out_data_hours} \* 3600  `
+#out_newfile_days=${out_newfile_days:=1}     # 1 day per file
+#dt_file=`expr ${out_newfile_days} \* 86400 `
+
+dt_diag=${dtime}
+dt_data=`expr ${dtime} \* 120  `
 out_newfile_days=${out_newfile_days:=1}     # 1 day per file
-dt_file=`expr ${out_newfile_days} \* 86400 `
+dt_file=${dtime}
+
 msg_level=${msg_level:=0}
 
 #-----------------------------------------------------------------------------
@@ -178,15 +184,15 @@ cat >> ${atmo_namelist} << EOF
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 3        ! new default
- iadv_rcf        = ${advection_substepping}   ! microphysics and turb and sat adj 
- exner_expol     = 0.666    ! exner function extrapolation?
+ iadv_rcf        = 2 ! ${advection_substepping}   ! microphysics and turb and sat adj 
+ exner_expol     = 0.5    ! exner function extrapolation?
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = ${vwind_implicitness}     ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
- damp_height     = 70000.   ! damping height (set about 10km below top)
- htop_moist_proc = 55000.   ! height above which moist physics and cld/precip advection off
- htop_qvadv      = 65000.
- hbot_qvsubstep  = 75000.
+ damp_height     = 60000.   ! damping height (set about 10km below top)
+ ! htop_moist_proc = 50000.   ! height above which moist physics and cld/precip advection off
+ ! htop_qvadv      = 55000.
+ ! hbot_qvsubstep  = 60000.
 
  !damp_height     = 88000.   ! damping height (set about 10km below top)
  !htop_moist_proc = 45000.   ! height above which moist physics and cld/precip advection off
@@ -195,9 +201,9 @@ cat >> ${atmo_namelist} << EOF
 /
 &transport_nml
  ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
- ihadv_tracer  = 2,2,2,2,2,0
+ ihadv_tracer  = 32,2,2,2,2,0
  ivadv_tracer  = 3,3,3,3,3,0
- igrad_c_miura = 1
+ ! igrad_c_miura = 1
  lvadv_tracer  = .TRUE.
  lstrang       = .FALSE.
  itype_hlimit = 3,4,4,4,4,0
@@ -206,18 +212,18 @@ cat >> ${atmo_namelist} << EOF
 /
 &diffusion_nml
  hdiff_order      = 5
- hdiff_efdt_ratio = 8.0
+ ! hdiff_efdt_ratio = 8.0
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
- hdiff_smag_fac   = 0.175
+ ! hdiff_smag_fac   = 0.175
 /
 &sleve_nml                  ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
  top_height      = 85000.
  flat_height     = 16000.
- stretch_fac     = 0.8      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
  decay_scale_1   = 4000.    ! decay scales for topography
  decay_scale_2   = 2500.
  decay_exp       = 1.2
@@ -239,7 +245,7 @@ cat >> ${atmo_namelist} << EOF
 /
 &radiation_nml
  dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
- irad_o3    = 6             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
+ irad_o3    = 7             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
  izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
  irad_h2o   = 1             ! prognostic vapor, liquid and ice
  irad_co2   = 2             ! constant co2 vmr

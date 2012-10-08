@@ -79,7 +79,9 @@ create_dec()
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
     max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv itime_scheme=${itime_scheme} \
-    advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness} max_send_recv_buffer_size=${max_send_recv_buffer_size}
+    advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness} max_send_recv_buffer_size=${max_send_recv_buffer_size} \
+    msg_level=${msg_level} top_of_atmo=${top_of_atmo} damp_height=${damp_height}
+
   # queue="express"
 
   if [ $run = "true" ]; then
@@ -110,7 +112,8 @@ create_seq()
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma dt_rad=$dt_rad \
     openmp_threads=$openmp_threads cpu_time=$cpu_time testbed_mode=$testbed_mode ndays=$ndays  \
     grids_folder=$grids_folder dtime=$dtime nlevels=$nlevels advection_substepping=$advection_substepping \
-    vwind_implicitness=${vwind_implicitness} itime_scheme=${itime_scheme}
+    vwind_implicitness=${vwind_implicitness} itime_scheme=${itime_scheme} msg_level=${msg_level} \
+    top_of_atmo=${top_of_atmo} damp_height=${damp_height}
  
   # queue="express"
 
@@ -134,8 +137,8 @@ set_default_parameters()
   openmp_threads=2
   nproma=4
   max_mpi_message_size=8192
-#  max_send_recv_buffer_size=262144
-  max_send_recv_buffer_size=131072
+  max_send_recv_buffer_size=262144
+#  max_send_recv_buffer_size=131072
   icon_comm_method=1
   rrad="false"
   division_method=1
@@ -150,9 +153,10 @@ set_default_parameters()
   testbed_mode=0
   timers_level=6
   use_icon_comm=".true."
-  icon_comm_method=103
+  icon_comm_method=1
   iorder_sendrecv=1
   ndays=10
+  msg_level=0
   #---------------------------------
   grids_folder=/work/mh0287/leonidas.public/grids/grids.new
   run="false"
@@ -371,37 +375,84 @@ create_nat_test-setups_on_blizzard()
 {
   set_default_parameters
   ndays=120
-  cpu_time="04:00:00"
+  cpu_time="02:00:00"
 
-  setup_name='nat-ape_setup-tests'
+  # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
+  top_of_atmo=100000.
+  damp_height=60000.
+  itime_scheme=4
+  setup_name='nat-ape_100km'
+
+ 
   #---------------------------------
-   run="true"
+  run="true"
   #==============================================================================
 #  exp_descriptor=nat_ape-dec_notop
-  itime_scheme=4
-  setup_name='nat-ape_setup-tests_85km'
+  iorder_sendrecv=3
+  icon_comm_method=1
+
+  nlevels=64
  
   vwind_implicitness=0.5
   advection_substepping=4
   dtime=165
   dt_rad=3960
-  # create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "4"
+  iorder_sendrecv=3
+  # create_strong_scaling "iconR2B04-grid" "$setup_name" "2"
+  
 
-  max_send_recv_buffer_size=262144
+  nlevels=96
+
+  msg_level=100
+ 
+  vwind_implicitness=0.5
+  advection_substepping=4
+  dtime=165
+  dt_rad=3960
+  create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "8"
+#  division_method=0
+ # create_weak_scaling "${setup_name}" 24 "1922"
+
+  exit
+
+
+  vwind_implicitness=0.45
+  advection_substepping=4
+  dtime=144
+  dt_rad=3456
+  create_strong_scaling "iconR2B05-grid" "${setup_name}" "10"
+
+ 
   vwind_implicitness=0.4
-  advection_substepping=4
-  dtime=132
-  dt_rad=3168
-  create_strong_scaling "iconR2B05-grid" "$setup_name" "6"
+  advection_substepping=5
+  dtime=94
+  dt_rad=2820
 
+  cpu_time="04:00:00"
+  # create_strong_scaling "iconR2B06_dec-1922" "$setup_name" "12"
+
+ 
+  cpu_time="04:00:00"
+
+ # exp_descriptor=nat_ape_gu.100km
+ # setup_name='nat-ape_setup-tests_100km_gu'
   max_send_recv_buffer_size=393216
-  vwind_implicitness=0.15
-  advection_substepping=4
-  dtime=60
+ # msg_level=12
+  vwind_implicitness=0.4
+  advection_substepping=5
+  dtime=72
+  dt_rad=2160
+  create_strong_scaling "iconR2B06-grid" "${setup_name}_x5" "32"
+
+  cpu_time="08:00:00"
+  ndays=100
+  vwind_implicitness=0.3
+  advection_substepping=5
+  dtime=36
   dt_rad=1800
-  # create_strong_scaling "iconR2B06-grid" "$setup_name" "4"
-  
-  
+ # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
+  create_strong_scaling "iconR2B07-grid" "${setup_name}_x5" "80"
+ 
   exit
 }
    
