@@ -67,7 +67,7 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
+  USE mo_run_config,           ONLY: iforcing, ntracer,                    &
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
     &                                nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
@@ -464,7 +464,7 @@ MODULE mo_nonhydro_state
     shape3d_e     = (/nproma, nlev,   nblks_e  /)
     shape3d_c     = (/nproma, nlev,   nblks_c  /)
     shape3d_chalf = (/nproma, nlevp1, nblks_c  /)
-    shape4d_c     = (/nproma, nlev,   nblks_c, ntracer+ntracer_static/)
+    shape4d_c     = (/nproma, nlev,   nblks_c, ntracer /)
 
     ! Suffix (mandatory for time level dependent variables)
 
@@ -539,8 +539,8 @@ MODULE mo_nonhydro_state
 
       ! Tracer array for (model) internal use
 
-      ! tracer         p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
-      IF (ntracer+ntracer_static > 0) THEN
+      ! tracer         p_prog%tracer(nproma,nlev,nblks_c,ntracer)
+      IF (ntracer > 0) THEN
         cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                       &
@@ -557,7 +557,7 @@ MODULE mo_nonhydro_state
         ! add_tracer_ref. 
         
 
-        ktracer=ntracer+ntracer_static
+        ktracer=ntracer
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
         !QV
         CALL add_ref( p_prog_list, 'tracer',                                         &

@@ -48,7 +48,7 @@ MODULE mo_run_config
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
-  PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
+  PUBLIC :: ltransport, ntracer, nlev, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
@@ -130,8 +130,6 @@ MODULE mo_run_config
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevp1             !< number of half levels for each domain
     INTEGER :: nvclev             !< number of levels at which the coeffs A, B are given
-
-    INTEGER :: ntracer_static     !< Total number of non-advected tracers
 
     LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
 
@@ -224,11 +222,6 @@ CONTAINS
 !  INTEGER FUNCTION get_ntracer()
 !    get_ntracer = ntracer 
 !  END FUNCTION get_ntracer
-!  !---------------------------------------
-!  !>
-!  INTEGER FUNCTION get_ntracer_static()
-!    get_ntracer_static = ntracer_static
-!  END FUNCTION get_ntracer_static
 !  !---------------------------------------
 !  !>
 !  INTEGER FUNCTION get_iforcing()

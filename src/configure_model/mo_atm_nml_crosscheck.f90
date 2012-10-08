@@ -67,8 +67,8 @@ MODULE mo_nml_crosscheck
     &                              num_io_procs, itype_comm
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, ltestcase,      &
-    &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
-    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,               &
+    &                              nqtendphy, iqv, iqc, iqi,                  &
+    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -535,8 +535,6 @@ CONTAINS
 
       ! If iforcing=INWP is chosen, ntracer will automatically be set to 5,
       ! except for the case of ICON-ART. If ICON-ART: then ntracer is adapted from the namelist.
-      ! In addition, ntracer_static will be set automatically as well, 
-      ! according to the selected radiation scheme (following section).
       !
       do jg=1,n_dom
         IF ( (ntracer /= 5) .AND. (.NOT. art_config(jg)%lart) ) THEN
@@ -580,9 +578,6 @@ CONTAINS
 
     END SELECT
 
-    ! Total number of non-advected (static) tracers
-    !
-    ntracer_static = 0
 
     IF (ltransport) THEN
     DO jg = 1,n_dom
