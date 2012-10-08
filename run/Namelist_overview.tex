@@ -3065,27 +3065,22 @@ I(ntracer)&
 & & & & 4: positive definite flux limiter& \tabularnewline
 
 \hline 
+niter\_fct&
+I& 1& & number of iterations  of monotone flux correction procedure& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3 
+\tabularnewline
+
+\hline 
 iord\_backtraj&
 I& 1& & order of backward trajectory calculation:& \tabularnewline
 & & & & 1: first order& \tabularnewline
-& & & & 2: second order (iterative; currently 1 iteration hardcoded)& ihadv\_tracer='miura'\tabularnewline
+& & & & 2: second order (iterative; currently 1 iteration hardcoded)& ihadv\_tracer='miura'
+\tabularnewline
 
 \hline 
 igrad\_c\_miura&
 I& 1& & Method for gradient reconstruction at cell center for 2nd order miura& \tabularnewline
 & & & & 1: Least-squares (linear, non-consv)& ihadv\_tracer=2\tabularnewline
 & & & & 2: Green-Gauss& 
-\tabularnewline
-
-\hline
-lclip\_tracer&
-L& .FALSE.& & Clipping of negative values&
-\tabularnewline
-
-\hline 
-upstr\_beta\_adv&
-R& 1.0& & parameter to select 3rd order (=1) or 4th order (=0) advection, or something inbetween (0..1)&
-ihadv\_tracer=iup3
 \tabularnewline
 
 \hline
@@ -3101,6 +3096,17 @@ L&
 .FALSE.&
 &
 use QR decomposition (FALSE) or SV decomposition (TRUE) for least squares design matrix A&
+\tabularnewline
+
+\hline
+lclip\_tracer&
+L& .FALSE.& & Clipping of negative values&
+\tabularnewline
+
+\hline 
+upstr\_beta\_adv&
+R& 1.0& & parameter to select 3rd order (=1) or 4th order (=0) advection, or something inbetween (0..1)&
+ihadv\_tracer=iup3
 \tabularnewline
 \hline
 \end{longtab}

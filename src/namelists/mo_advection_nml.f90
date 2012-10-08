@@ -107,11 +107,14 @@ MODULE mo_advection_nml
     &  itype_vlimit(max_ntracer)   !< for vertical transport
                                
 
-  INTEGER, TARGET :: &             !< parameter used to select the limiter
+  INTEGER :: &                     !< parameter used to select the limiter
     &  itype_hlimit(max_ntracer)   !< for horizontal transport
                                    !< 0: no limiter
                                    !< 3: monotonous flux limiter
                                    !< 4: positive definite flux limiter
+
+  INTEGER :: niter_fct             !< number of iterations for monotone
+                                   !< flux correction procedure
 
   INTEGER :: iord_backtraj         !< parameter to select the spacial order
                                    !< of accuracy for the backward trajectory
@@ -130,8 +133,9 @@ MODULE mo_advection_nml
 
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
-    &                     iord_backtraj, lclip_tracer, ctracer_list,      &
-    &                     igrad_c_miura, lstrang, upstr_beta_adv, llsq_svd
+    &                     niter_fct, iord_backtraj, lclip_tracer,         &
+    &                     ctracer_list, igrad_c_miura, lstrang,           &
+    &                     upstr_beta_adv, llsq_svd
 
 
 CONTAINS
@@ -172,6 +176,7 @@ CONTAINS
     itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    niter_fct       = 1         ! number of FCT-iterations
     ivcfl_max       = 5         ! CFL-stability range for vertical advection
     iord_backtraj   = 1         ! 1st order backward trajectory
     lvadv_tracer    = .TRUE.    ! vertical advection yes/no
@@ -246,6 +251,10 @@ CONTAINS
         &  'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
 
+    ! FCT-iterations - sanity check
+    IF ( niter_fct < 1 ) THEN
+      CALL finish( TRIM(routine), 'niter_fct must be greater than 0 ')
+    ENDIF
 
 
     !----------------------------------------------------
@@ -262,6 +271,7 @@ CONTAINS
       advection_config(jg)%llsq_svd       = llsq_svd
       advection_config(jg)%itype_vlimit(:)= itype_vlimit(:)
       advection_config(jg)%itype_hlimit(:)= itype_hlimit(:)
+      advection_config(jg)%niter_fct      = niter_fct
       advection_config(jg)%iord_backtraj  = iord_backtraj
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
       advection_config(jg)%ivcfl_max      = ivcfl_max

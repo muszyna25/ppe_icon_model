@@ -127,7 +127,10 @@ MODULE mo_advection_config
                                     !< 1: semi-monotonous slope limiter          
                                     !< 2: monotonous slope limiter               
                                     !< 3: monotonous flux limiter                
-                 
+
+    INTEGER :: niter_fct            !< number of iterations for monotone
+                                    !< flux correction procedure
+
     INTEGER :: iord_backtraj        !< parameter to select the spacial order     
                                     !< of accuracy for the backward trajectory   
 

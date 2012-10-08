@@ -2017,8 +2017,8 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &                p_out_e, opt_niter=2, opt_rlend=i_rlend,        & !inout,in
-        &                opt_slev=slev, opt_elev=elev                    ) !in
+        &            p_out_e, opt_niter=advection_config(pid)%niter_fct, & !in,inout
+        &            opt_rlend=i_rlend, opt_slev=slev, opt_elev=elev     ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       ! no MPI-sync necessary
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
@@ -2594,8 +2594,8 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &                p_out_e, opt_niter=2, opt_rlend=i_rlend,        & !inout,in
-        &                opt_slev=slev, opt_elev=elev                    ) !in
+        &            p_out_e, opt_niter=advection_config(pid)%niter_fct, & !inout,in
+        &            opt_rlend=i_rlend, opt_slev=slev, opt_elev=elev     ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       ! no MPI-sync necessary
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
