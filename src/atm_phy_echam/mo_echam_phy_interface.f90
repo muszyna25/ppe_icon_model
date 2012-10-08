@@ -541,8 +541,7 @@ CONTAINS
        CALL sync_patch_array( SYNC_C, p_patch, dyn_tend%temp )
 !      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_temp)
 !      IF (timers_level > 5) CALL timer_start(timer_echam_sync_tracers)
-       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer, &
-         &                        lpart4d=.TRUE.)
+       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer)
 !      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_tracers)
      ENDIF
          

@@ -1798,8 +1798,7 @@ ENDIF
   CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
   IF (ltransport .AND. l_trac_fbk) THEN
-     CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer, F4DIN=p_parent_prog_rcf%tracer,&
-                                lpart4d=.TRUE.)
+     CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer, F4DIN=p_parent_prog_rcf%tracer)
   ENDIF
 
 IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after sync of theta

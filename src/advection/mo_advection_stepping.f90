@@ -563,9 +563,7 @@ CONTAINS
       ! IF vertical advection proceeds horizontal advection, synchronize the 
       ! updated tracer array. For efficiency, the synchronization is applied for all 
       ! tracers at once
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new, &
-        &                        lpart4d=.TRUE.)
-
+      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new)
 
     ELSE  ! if lvadv_tracer=.FALSE.
 
@@ -834,8 +832,7 @@ CONTAINS
     ! follow AFTER the call of NWP physics.
     ! For efficiency, the synchronization is applied for all tracers at once
     IF (iforcing /= inwp) THEN
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new, &
-        &                        lpart4d=.TRUE.)
+      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new)
     ENDIF
 
     !
@@ -886,8 +883,7 @@ CONTAINS
     IF (PRESENT(opt_ddt_tracer_adv)) THEN
       IF (iforcing /= inwp) THEN
         CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  &
-                                 & f4din=opt_ddt_tracer_adv, &
-                                 & lpart4d=.TRUE.)
+                                 & f4din=opt_ddt_tracer_adv )
       ENDIF
     ENDIF
 

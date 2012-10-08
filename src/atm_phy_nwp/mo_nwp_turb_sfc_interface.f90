@@ -929,8 +929,7 @@ endif
 
 nstep_turb = nstep_turb + 1
 
-CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_prog_rcf%tracer, &
-                          lpart4d=.TRUE.)
+CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_prog_rcf%tracer)
 CALL sync_patch_array_mult(SYNC_C, p_patch, 2, p_diag%tempv, p_diag%exner_old)
 CALL sync_patch_array     (SYNC_C, p_patch, p_diag%tempv)
 CALL sync_patch_array_mult(SYNC_C1,p_patch, 2, &

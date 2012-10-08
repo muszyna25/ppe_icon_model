@@ -1192,8 +1192,7 @@ CONTAINS
           & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
       ELSE
         ! Synchronize tracers if any of the updating (fast-physics) processes was active
-         CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
-                                 lpart4d=.TRUE.)
+         CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer)
 !        write(*,*) 'hello1'
 !        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,1))
 !        write(*,*) 'hello2'
