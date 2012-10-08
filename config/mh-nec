@@ -63,6 +63,7 @@ INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_sync.f90
 INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_communication.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_math_utilities.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
+INLINE   = $INLINE -pi expin=../../../src/shared/mo_fortran_tools.f90
 INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
 INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cufunctions.f90

@@ -837,14 +837,14 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    ! Computations at cell points; to be executed in predictor step only
-    IF (istep == 1) THEN
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic,z_theta_v_pr_mc,z_theta_v_pr_ic) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      IF (istep == 1) THEN ! to be executed in predictor step only
 
 !CDIR UNROLL=2
         DO jk = 1, nlev
@@ -923,21 +923,7 @@ MODULE mo_solve_nonhydro
 
         ENDIF
 
-      ENDDO
-!$OMP END DO
-    ENDIF ! istep = 1
-
-    IF (igradp_method == 1) THEN
-      rl_end   = min_rlcell_int
-      i_endblk = p_patch%cells%end_blk(rl_end,i_nchdom)
-    ENDIF
-
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_theta_v_pr_mc,z_theta_v_pr_ic) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
+      ENDIF ! istep = 1
 
       z_theta_v_pr_mc(i_startidx:i_endidx,1) =  0.5_wp *     &
         (p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) + &

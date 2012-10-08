@@ -979,6 +979,14 @@ division\_method = 0
 \tabularnewline
 
 \hline 
+ldiv\_phys\_dom &
+L & .TRUE. & &
+.TRUE.: split into physical domains before computing domain decomposition (in case of merged domains)\\
+(This reduces load imbalance; turning off this option is not recommended except for very small processor numbers) &
+division\_method = 1
+\tabularnewline
+
+\hline 
 p\_test\_run &
 L & .FALSE.& &
 .TRUE. means verification run for MPI parallelization (PE 0

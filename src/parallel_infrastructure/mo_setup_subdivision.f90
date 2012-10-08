@@ -51,7 +51,7 @@ MODULE mo_setup_subdivision
   !
   USE mo_kind,               ONLY: wp, i8
   USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
-    & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
+    & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw, max_dom
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message, message_text,    &
@@ -70,7 +70,7 @@ MODULE mo_setup_subdivision
     & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
     & get_my_mpi_all_id, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,       ONLY:  nproma, p_test_run, &
+  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file, div_geometric
     
 #ifdef HAVE_METIS
@@ -251,7 +251,7 @@ CONTAINS
 
       ! No splitting, proc0, n_proc are identical for all patches
 
-      IF(p_pe_work==0) PRINT *,'No splitting of processor grid'
+      IF(p_pe_work==0) WRITE(0,*) 'No splitting of processor grid'
       p_patch(:)%n_proc = n_procs_decomp
       p_patch(:)%proc0  = 0
 
@@ -298,6 +298,8 @@ CONTAINS
 
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
       CALL divide_patch_cells(p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
+
+      DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
       IF(jg > n_dom_start) THEN
         ! Assign the cell owners of the current patch to the parent cells
@@ -557,7 +559,7 @@ CONTAINS
 
       CALL p_bcast(cell_owner, 0, comm=p_comm_work)
 
-      IF(p_pe_work==0) PRINT *,'Successfully read: '//TRIM(division_file_name)
+      IF(p_pe_work==0) WRITE(0,*) 'Successfully read: '//TRIM(division_file_name)
 
     ELSE
 
@@ -583,7 +585,7 @@ CONTAINS
           jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
           jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
 
-          flag_c(idx_1d(jl_p, jb_p)) = 1
+          flag_c(idx_1d(jl_p, jb_p)) = MAX(1,wrk_p_patch_g%cells%phys_id(jl,jb))
         ENDDO
 
         ! Divide subset of patch
@@ -1121,12 +1123,14 @@ CONTAINS
       ! Note: the segments between min_rlcell and min_rlcell_int-1 are reserved for
       ! halo cells; they are set below
       DO i=min_rlcell_int,max_rlcell
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%cells%loc_index, &
           & wrk_p_patch_g%cells%start_idx(i,j),           &
           & wrk_p_patch_g%cells%start_blk(i,j),           &
           & wrk_p_patch%cells%start_idx(i,j),             &
           & wrk_p_patch%cells%start_blk(i,j),             &
           & +1 )
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%cells%loc_index, &
           & wrk_p_patch_g%cells%end_idx(i,j),             &
           & wrk_p_patch_g%cells%end_blk(i,j),             &
@@ -1285,12 +1289,14 @@ CONTAINS
 
     DO j=1,wrk_p_patch%max_childdom
       DO i=min_rledge_int,max_rledge
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%edges%loc_index, &
           & wrk_p_patch_g%edges%start_idx(i,j),           &
           & wrk_p_patch_g%edges%start_blk(i,j),           &
           & wrk_p_patch%edges%start_idx(i,j),             &
           & wrk_p_patch%edges%start_blk(i,j),             &
           & +1 )
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%edges%loc_index, &
           & wrk_p_patch_g%edges%end_idx(i,j),             &
           & wrk_p_patch_g%edges%end_blk(i,j),             &
@@ -1447,12 +1453,14 @@ CONTAINS
 
     DO j=1,wrk_p_patch%max_childdom
       DO i=min_rlvert_int,max_rlvert
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%verts%loc_index, &
           & wrk_p_patch_g%verts%start_idx(i,j),           &
           & wrk_p_patch_g%verts%start_blk(i,j),           &
           & wrk_p_patch%verts%start_idx(i,j),             &
           & wrk_p_patch%verts%start_blk(i,j),             &
           & +1 )
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%verts%loc_index, &
           & wrk_p_patch_g%verts%end_idx(i,j),             &
           & wrk_p_patch_g%verts%end_blk(i,j),             &
@@ -1642,18 +1650,21 @@ CONTAINS
 
       DO i=1,wrk_p_patch%cell_type
 
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%cells%loc_index, &
           & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),&
           & wrk_p_patch_g%cells%neighbor_blk(jl_g,jb_g,i),&
           & wrk_p_patch%cells%neighbor_idx(jl,jb,i),      &
           & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
 
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%edges%loc_index, &
           & wrk_p_patch_g%cells%edge_idx(jl_g,jb_g,i),    &
           & wrk_p_patch_g%cells%edge_blk(jl_g,jb_g,i),    &
           & wrk_p_patch%cells%edge_idx(jl,jb,i),          &
           & wrk_p_patch%cells%edge_blk(jl,jb,i))
 
+!CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%verts%loc_index, &
           & wrk_p_patch_g%cells%vertex_idx(jl_g,jb_g,i),  &
           & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),  &
@@ -1803,19 +1814,106 @@ CONTAINS
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
-    INTEGER :: i, j, jl, jb, jl_v, jb_v, nc
+    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1)
+    INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
+               num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
+               ncell_offset(0:max_phys_dom)
     REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
-    REAL(wp)              :: cclat, cclon
+    REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom)
+    LOGICAL  :: lsplit_merged_domains
 
     !-----------------------------------------------------------------------
 
     IF(p_pe_work==0) THEN
       IF(divide_for_radiation) THEN
-        PRINT *,'divide_patch: Using geometric area subdivision for radiation'
+        WRITE(0,*) 'divide_patch: Using geometric area subdivision for radiation'
       ELSE
-        PRINT *,'divide_patch: Using geometric area subdivision (normal)'
+        WRITE(0,*) 'divide_patch: Using geometric area subdivision (normal)'
       ENDIF
     ENDIF
+
+    ! Initialization of cell owner field
+    owner(:) = -1
+
+    lsplit_merged_domains = .FALSE.
+
+    ! Check if domain merging has been applied; for large PE numbers, calculating the DD
+    ! for each physical domain separately tends to yield a more balanced distribution
+    ! of the halo points
+    IF (ldiv_phys_dom .AND. .NOT. divide_for_radiation) THEN
+      count_physdom(:) = 0
+      count_total      = 0
+      num_physdom      = 0
+      id_physdom(:)    = 0
+      proc_count(:)    = 0
+      ncell_offset(:)  = 0
+      proc_offset(:)   = 0
+      corr_ratio(:)    = 1._wp
+
+      DO j = 1, wrk_divide_patch%n_patch_cells
+        IF (subset_flag(j) > 0) THEN
+          count_physdom(subset_flag(j)) = count_physdom(subset_flag(j)) + 1
+          count_total = count_total + 1
+        ENDIF
+      ENDDO
+
+      IF (MAXVAL(count_physdom) < count_total) THEN
+        lsplit_merged_domains = .TRUE.
+        DO j = 1, max_phys_dom
+          IF (count_physdom(j) > 0) THEN
+            num_physdom = num_physdom + 1
+            id_physdom(num_physdom) = j
+            proc_count(num_physdom) = NINT(REAL(count_physdom(j),wp)/REAL(count_total,wp)*REAL(n_proc,wp))
+          ENDIF
+        ENDDO
+
+        ! Ensure that the sum of partial processor counts matches n_proc
+        checksum = SUM(proc_count(1:num_physdom)) - n_proc
+        IF (checksum /= 0) THEN
+          DO j = 1, num_physdom
+            corr_ratio(j) = REAL(proc_count(j),wp) / &
+              (REAL(count_physdom(id_physdom(j)),wp)/REAL(count_total,wp)*REAL(n_proc,wp))
+          ENDDO
+        ENDIF
+        IF (checksum > 0) THEN
+          DO WHILE (checksum > 0)
+            jm = MAXLOC(corr_ratio)
+            j = jm(1)
+            corr_ratio(j) = 1._wp
+            proc_count(j) = proc_count(j) - 1
+            checksum = checksum - 1
+          ENDDO
+        ELSE IF (checksum < 0) THEN
+          DO WHILE (checksum < 0)
+            jm = MINLOC(corr_ratio)
+            j = jm(1)
+            corr_ratio(j) = 1._wp
+            proc_count(j) = proc_count(j) + 1
+            checksum = checksum + 1
+          ENDDO
+        ENDIF
+
+        ! Compute offset for processor IDs
+        DO j = 2, num_physdom
+          proc_offset(j) = proc_offset(j-1) + proc_count(j-1)
+        ENDDO
+
+        IF(p_pe_work==0) THEN
+          WRITE(0,*) 'divide_patch: partial processor counts used for decomposition of merged domain:'
+          WRITE(0,*) proc_count(1:num_physdom), 'total: ', n_proc
+        ENDIF
+
+      ENDIF
+
+    ENDIF
+
+    IF (.NOT. lsplit_merged_domains) THEN
+      num_physdom       = 1
+      proc_count(1)     = n_proc
+      proc_offset(1)    = 0
+      id_physdom(1)     = MAXVAL(subset_flag)
+    ENDIF
+
 
     ! Fill the cell_desc array, it must contain:
     ! cell_desc(1,:)   lat
@@ -1825,32 +1923,21 @@ CONTAINS
 
     ALLOCATE(cell_desc(4,wrk_divide_patch%n_patch_cells))
 
-    cell_desc(1:2,:) = 1.d99 ! for finding min lat/lon
-
     nc = 0
-    DO j = 1, wrk_divide_patch%n_patch_cells
+    nn = 0
 
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
+    IF(divide_for_radiation) THEN
 
-      IF(subset_flag(j)<=0) CYCLE ! Cell not in subset
+      cell_desc(1:2,:) = 1.d99 ! for finding min lat/lon
 
-      nc = nc+1 ! Cell counter
+      DO j = 1, wrk_divide_patch%n_patch_cells
 
-      IF(.NOT. divide_for_radiation) THEN
+        IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
 
-        ! Using the center of the cells for geometric subdivision leads
-        ! to "toothed" edges of the subdivision area
-        ! Thus we use the minimum lat/lon as subdision criterion.
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
 
-        DO i=1,wrk_divide_patch%cells%num_edges(jl,jb)
-          jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
-          jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
-          cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
-          cell_desc(2,nc) = MIN(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
-        ENDDO
-
-      ELSE
+        nc = nc+1 ! Cell counter
 
         ! Patch division for radiation calculations:
         ! To minimize load imbalance, every patch contains 10 areas
@@ -1899,35 +1986,137 @@ CONTAINS
           cell_desc(2,nc) = cell_desc(2,nc) + 2._wp*pi
         ENDIF
 
-      ENDIF
+        cell_desc(3,nc) = REAL(nc,wp)
+        cell_desc(4,nc) = 0.0_wp
 
-      cell_desc(3,nc) = REAL(nc,wp)
-      cell_desc(4,nc) = 0.0_wp
+      ENDDO
+
+      ncell_offset(0) = 0
+      ncell_offset(1) = nc
+
+    ELSE ! ordinary domain decomposition with optional splitting into physical domains
+
+      npt = wrk_divide_patch%n_patch_cells+1
+
+      DO jd = 1, num_physdom
+
+        idp = id_physdom(jd)
+
+        DO j = 1, wrk_divide_patch%n_patch_cells
+
+          ! Skip cell if it is not in subset or does not belong to current physical domain
+          IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
+
+          jb = blk_no(j) ! block index
+          jl = idx_no(j) ! line index
+
+          ! Disregard outer nest boundary points for the time being. They do very little
+          ! computational work, so they can be added to the closest PEs afterwards
+          IF (wrk_divide_patch%cells%refin_ctrl(jl,jb) == -1) THEN
+            nn = nn+1
+            cell_desc(3,npt-nn) = REAL(j,wp)
+            CYCLE
+          ELSE
+            nc = nc+1 ! Cell counter
+          ENDIF
+
+          cell_desc(1,nc) = wrk_divide_patch%cells%center(jl,jb)%lat
+          cell_desc(2,nc) = wrk_divide_patch%cells%center(jl,jb)%lon
+
+          ! Using the center of the cells for geometric subdivision leads
+          ! to "toothed" edges of the subdivision area
+          ! Thus we use the minimum lat/lon as subdision criterion.
+
+          IF (cell_desc(1,nc) >= 0._wp) THEN
+            DO i=1,wrk_divide_patch%cells%num_edges(jl,jb)
+              jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
+              jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
+              cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
+              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
+            ENDDO
+          ELSE
+            DO i=1,wrk_divide_patch%cells%num_edges(jl,jb)
+              jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
+              jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
+             cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
+             cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
+            ENDDO
+          ENDIF
+
+          cell_desc(3,nc) = REAL(nc,wp)
+          cell_desc(4,nc) = 0.0_wp
+
+        ENDDO
+
+        ncell_offset(jd) = nc
+
+      ENDDO
+
+    ENDIF
+
+    DO j = 1, num_physdom
+
+      ncs = ncell_offset(j-1)+1
+      nce = ncell_offset(j)
+      nc  = ncell_offset(j) - ncell_offset(j-1)
+
+      ALLOCATE(workspace(4,nc))
+
+      CALL divide_cells_by_location(nc, cell_desc(:,ncs:nce), workspace, 0, proc_count(j)-1)
+
+      ! After divide_cells_by_location the cells are sorted by owner,
+      ! order them by original cell numbers again
+
+      CALL sort_array_by_row(cell_desc(:,ncs:nce), workspace, 3)
+
+      DEALLOCATE(workspace)
+
+      ! Apply shift of processor IDs
+      IF (j > 1) cell_desc(4,ncs:nce) = cell_desc(4,ncs:nce) + proc_offset(j)
 
     ENDDO
-
-    ALLOCATE(workspace(4,nc))
-
-    CALL divide_cells_by_location(nc, cell_desc(:,1:nc), workspace, 0, n_proc-1)
-
-    ! After divide_cells_by_location the cells are sorted by owner,
-    ! order them by original cell numbers again
-
-    CALL sort_array_by_row(cell_desc(:,1:nc), workspace(:,1:nc), 3)
 
     ! Set owner list (of complete patch)
 
-    owner(:) = -1
     nc = 0 ! Counts cells in subset
 
-    DO j = 1, wrk_divide_patch%n_patch_cells
-      IF(subset_flag(j)>0) THEN
-        nc = nc+1
-        owner(j) = INT(cell_desc(4,nc))
-      ENDIF
+    DO jd = 1, num_physdom
+      idp = id_physdom(jd)
+
+      DO j = 1, wrk_divide_patch%n_patch_cells
+        IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
+          jb = blk_no(j) ! block index
+          jl = idx_no(j) ! line index
+          IF (wrk_divide_patch%cells%refin_ctrl(jl,jb) /= -1) THEN
+            nc = nc+1
+            owner(j) = NINT(cell_desc(4,nc))
+          ENDIF
+        ENDIF
+      ENDDO
     ENDDO
 
-    DEALLOCATE(cell_desc, workspace)
+    ! Add outer nest boundary points that have been disregarded so far
+    IF (nn > 0) THEN
+      nc = 0
+      DO WHILE (nc < nn) ! Iterations are needed because outer nest boundary row contains indirect neighbors
+        DO i = 1, nn
+          j = NINT(cell_desc(3,npt-i))
+          IF (owner(j) >= 0) CYCLE
+          jb = blk_no(j) ! block index
+          jl = idx_no(j) ! line index
+          DO ii = 1, wrk_divide_patch%cells%num_edges(jl,jb)
+            jn = idx_1d(wrk_divide_patch%cells%neighbor_idx(jl,jb,ii),wrk_divide_patch%cells%neighbor_blk(jl,jb,ii))
+            IF (owner(jn) >= 0) THEN
+              owner(j) = owner(jn)
+              nc = nc + 1
+              EXIT
+            ENDIF
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDIF
+
+    DEALLOCATE(cell_desc)
 
   END SUBROUTINE divide_subset_geometric
 
@@ -2146,7 +2335,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    IF(p_pe_work==0) PRINT *,'divide_patch: Using METIS for area subdivision'
+    IF(p_pe_work==0) WRITE(0,*) 'divide_patch: Using METIS for area subdivision'
 
     ! Get the local index (i.e. contiguous numbers) of the cells in the subset.
     ! Since the METIS rountine is called with the option for C-Style numbering,

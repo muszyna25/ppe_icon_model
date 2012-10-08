@@ -48,7 +48,7 @@ MODULE mo_parallel_config
   PUBLIC :: n_ghost_rows,                                     &
        &  div_from_file, div_geometric, div_metis, division_method, &
        &  division_file_name, radiation_division_file_name, &
-       &  l_log_checks, l_fast_sum,             &
+       &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
        &  p_test_run, l_test_openmp, exch_msgsize,                  &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
@@ -77,6 +77,10 @@ MODULE mo_parallel_config
   INTEGER :: division_method = 1
   CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if parallel_radiation_mode = 1
+
+  ! Flag if (in case of merged domains) physical domains shall be considered for 
+  ! computing the domain decomposition
+  LOGICAL :: ldiv_phys_dom = .FALSE.
 
   ! Flag if checks in a verification run should be logged
   LOGICAL :: l_log_checks = .false.

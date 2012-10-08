@@ -48,6 +48,7 @@ MODULE mo_parallel_nml
     & config_n_ghost_rows        => n_ghost_rows,        &
     & config_division_method     => division_method,     &
     & config_division_file_name  => division_file_name,  &
+    & config_ldiv_phys_dom       => ldiv_phys_dom,       &
     & config_rad_division_file_name  => radiation_division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
     & config_l_fast_sum          => l_fast_sum,          &
@@ -108,7 +109,11 @@ MODULE mo_parallel_nml
 
     CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
     CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if div_from_file
-    
+
+    ! Flag if (in case of merged domains) physical domains shall be considered for 
+    ! computing the domain decomposition
+    LOGICAL :: ldiv_phys_dom
+
     ! Flag if checks in a verification run should be logged
     LOGICAL :: l_log_checks
 
@@ -176,7 +181,7 @@ MODULE mo_parallel_nml
 
     LOGICAL :: use_sp_output
     
-    NAMELIST /parallel_nml/ n_ghost_rows,  division_method, &
+    NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
       & num_io_procs,      pio_type,            &
@@ -207,6 +212,10 @@ MODULE mo_parallel_nml
     division_file_name = ""
     radiation_division_file_name = ""
      
+    ! Flag if (in case of merged domains) physical domains shall be considered for 
+    ! computing the domain decomposition
+    ldiv_phys_dom = .TRUE.
+
     ! Flag if checks in a verification run should be logged
     l_log_checks = .FALSE.
 
@@ -309,6 +318,7 @@ MODULE mo_parallel_nml
     config_n_ghost_rows        = n_ghost_rows
     config_division_method     = division_method
     config_division_file_name  = division_file_name
+    config_ldiv_phys_dom       = ldiv_phys_dom
     config_rad_division_file_name  = radiation_division_file_name
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum

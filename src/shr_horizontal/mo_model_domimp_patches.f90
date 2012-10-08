@@ -1136,6 +1136,12 @@ CONTAINS
         & 'child_cell_id incompatible with hexagonal grid')
     ENDIF
     
+    ! p_patch%cells%phys_id(:,:)
+    CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+    CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+      & p_patch%cells%phys_id(:,:) )
+
     ! p_patch%cells%neighbor_idx(:,:,:)
     ! p_patch%cells%neighbor_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))

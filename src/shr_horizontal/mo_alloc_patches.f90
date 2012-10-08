@@ -586,6 +586,7 @@ CONTAINS
     ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%nblks_c,4) )
     ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
     ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
     ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
     ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
     ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
@@ -633,6 +634,7 @@ CONTAINS
     p_patch%cells%child_idx = 0
     p_patch%cells%child_blk = 0
     p_patch%cells%child_id = 0
+    p_patch%cells%phys_id = 0
     p_patch%cells%neighbor_idx = 0
     p_patch%cells%neighbor_blk = 0
     p_patch%cells%edge_idx = 0
@@ -764,7 +766,7 @@ CONTAINS
     ! !grid cells
     !
     IF (iopmode /= 2) THEN
-      ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
+      IF (.NOT. ALLOCATED(p_patch%cells%phys_id)) ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
       ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
       ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
       ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )

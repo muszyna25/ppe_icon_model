@@ -418,16 +418,19 @@ CONTAINS
 
       DO i=1,p_patch%cell_type
 
+!CDIR IEXPAND
         CALL remap_index(p_patch%cells%loc_index, &
           & p_patch%cells%neighbor_idx(jl,jb,i),      &
           & p_patch%cells%neighbor_blk(jl,jb,i))
 
         ! edge_idx and vertex_idx should not need a remap !!!
         ! This is only left here if there should change something in the decomposition
+!CDIR IEXPAND
         CALL remap_index(p_patch%edges%loc_index, &
           & p_patch%cells%edge_idx(jl,jb,i),          &
           & p_patch%cells%edge_blk(jl,jb,i))
 
+!CDIR IEXPAND
         CALL remap_index(p_patch%verts%loc_index, &
           & p_patch%cells%vertex_idx(jl,jb,i),        &
           & p_patch%cells%vertex_blk(jl,jb,i))
@@ -488,18 +491,21 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
 
       DO i=1,2
+!CDIR IEXPAND
         CALL remap_index(p_patch%cells%loc_index, &
           & p_patch%edges%cell_idx(jl,jb,i),          &
           & p_patch%edges%cell_blk(jl,jb,i))
       ENDDO
 
       DO i=1,4
+!CDIR IEXPAND
         CALL remap_index(p_patch%verts%loc_index, &
           & p_patch%edges%vertex_idx(jl,jb,i),        &
           & p_patch%edges%vertex_blk(jl,jb,i))
       ENDDO
 
       DO i=1,4
+!CDIR IEXPAND
         CALL remap_index(p_patch%edges%loc_index, &
           & p_patch%edges%quad_idx(jl,jb,i),          &
           & p_patch%edges%quad_blk(jl,jb,i))
@@ -551,14 +557,17 @@ CONTAINS
 
       DO i=1,9-p_patch%cell_type
 
+!CDIR IEXPAND
         CALL remap_index(p_patch%verts%loc_index, &
           & p_patch%verts%neighbor_idx(jl,jb,i),      &
           & p_patch%verts%neighbor_blk(jl,jb,i))
 
+!CDIR IEXPAND
         CALL remap_index(p_patch%edges%loc_index, &
           & p_patch%verts%edge_idx(jl,jb,i),          &
           & p_patch%verts%edge_blk(jl,jb,i))
 
+!CDIR IEXPAND
         CALL remap_index(p_patch%cells%loc_index, &
           & p_patch%verts%cell_idx(jl,jb,i),          &
           & p_patch%verts%cell_blk(jl,jb,i))
