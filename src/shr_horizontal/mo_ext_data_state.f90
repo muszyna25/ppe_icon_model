@@ -483,6 +483,20 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'albedo_nir_canopy', p_ext_atm%albedo_nir_canopy,    &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
                   grib2_desc, ldims=shape2d_c )
+    ! albedo_background  p_ext_atm%albedo_background(nproma,nblks_c)
+    cf_desc    = t_cf_var('background albedo', '', &
+      &                   'background albedo for echam5 albedo scheme', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'albedo_background', p_ext_atm%albedo_background,    &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
+    ! forest_fract  p_ext_atm%forest_fract(nproma,nblks_c)
+    cf_desc    = t_cf_var('forest fraction', '', &
+      &                   'forest fraction for echam5 albedo scheme', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'forest_fract', p_ext_atm%forest_fract,    &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
     END IF
 
     ! ozone mixing ratio
@@ -1801,7 +1815,7 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    ! Read land-sea mask and land surface albedo if JSBACH is used
+    ! Read land-sea mask, land surface albedo, and forest fraction if JSBACH is used
 
     IF (echam_phy_config%ljsbach) THEN
     DO jg = 1,n_dom
@@ -1844,12 +1858,18 @@ CONTAINS
         CALL read_netcdf_data (ncid, 'albedo_soil_nir', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%albedo_nir_soil)
-        CALL read_netcdf_data (ncid, 'albedo_canopy_vis', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (ncid, 'albedo_veg_vis', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%albedo_vis_canopy)
-        CALL read_netcdf_data (ncid, 'albedo_canopy_nir', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (ncid, 'albedo_veg_nir', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%albedo_nir_canopy)
+        CALL read_netcdf_data (ncid, 'albedo', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%albedo_background)
+        CALL read_netcdf_data (ncid, 'forest_fract', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%forest_fract)
       ENDIF
 
       IF( my_process_is_stdio()) CALL nf(nf_close(ncid))

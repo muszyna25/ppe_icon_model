@@ -1322,6 +1322,16 @@ CONTAINS
       &                   'm', 52, 128,&
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
       &           k_jg)
+     CALL addVar(TimeVar('albvisdir',&
+      &                   'albedo visible',&
+      &                   '', 53, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+     CALL addVar(TimeVar('albnirdir',&
+      &                   'albedo NIR',&
+      &                   '', 54, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
       END IF ! ljsbach
 
         END SELECT !iforcing
@@ -2768,6 +2778,8 @@ CONTAINS
       CASE ('moisture_all');   ptr2 => prm_field(jg)%moisture_all
       CASE ('skin_reservoir');   ptr2 => prm_field(jg)%skin_reservoir
       CASE ('snow');   ptr2 => prm_field(jg)%snow
+      CASE ('albvisdir');   ptr2 => prm_field(jg)%albvisdir
+      CASE ('albnirdir');   ptr2 => prm_field(jg)%albnirdir
         !KF  the reset command can only be used for 'plain' fields
       CASE ('swflxsfc_avg')
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)

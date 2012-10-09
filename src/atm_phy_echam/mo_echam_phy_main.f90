@@ -851,10 +851,12 @@ CONTAINS
                        & runoff_acc = field% runoff_acc(:,jb),                  &! inout
                        & drainage_acc = field% drainage_acc(:,jb),              &! inout
                        !! added for testing JSBACH (energy balance)
-                       & albedo_vis_soil = ext_data(jg)%atm%albedo_vis_soil(:,jb), &!< in
-                       & albedo_nir_soil = ext_data(jg)%atm%albedo_nir_soil(:,jb), &!< in
-                       & albedo_vis_canopy = ext_data(jg)%atm%albedo_vis_canopy(:,jb), &!< in
-                       & albedo_nir_canopy = ext_data(jg)%atm%albedo_nir_canopy(:,jb), &!< in
+                       & albedo_vis_soil = ext_data(jg)%atm%albedo_vis_soil(:,jb), &! in
+                       & albedo_nir_soil = ext_data(jg)%atm%albedo_nir_soil(:,jb), &! in
+                       & albedo_vis_canopy = ext_data(jg)%atm%albedo_vis_canopy(:,jb), &! in
+                       & albedo_nir_canopy = ext_data(jg)%atm%albedo_nir_canopy(:,jb), &! in
+                       & albedo_background = ext_data(jg)%atm%albedo_background(:,jb), &! in
+                       & forest_fract = ext_data(jg)%atm%forest_fract(:,jb),    & ! in
                        & surface_temperature = field%surface_temperature(:,jb),         &! inout
                        & surface_temperature_old = field%surface_temperature_old(:,jb), &! inout
                        & c_soil_temperature1 = field%c_soil_temperature1(:,jb), &! inout
@@ -876,10 +878,10 @@ CONTAINS
                        & ground_heat_flux = field%ground_heat_flux(:,jb),       &! inout
                        & swnet = field%swnet(:,jb),                             &! inout
                        & time_steps_soil = field%time_steps_soil(:,jb),         &! inout
-                       & albvisdir = field% albvisdir(:,jb),                    &! out
-                       & albnirdir = field% albnirdir(:,jb),                    &! out
-                       & albvisdif = field% albvisdif(:,jb),                    &! out
-                       & albnirdif = field% albnirdif(:,jb),                    &! out
+                       & albvisdir = field% albvisdir(:,jb),                    &! inout
+                       & albnirdir = field% albnirdir(:,jb),                    &! inout
+                       & albvisdif = field% albvisdif(:,jb),                    &! inout
+                       & albnirdif = field% albnirdif(:,jb),                    &! inout
                        & evapotranspiration = field%evapotranspiration(:,jb),           &! out
                        & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
                        & surface_temperature_eff = field%surface_temperature_eff(:,jb)  &! out

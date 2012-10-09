@@ -111,6 +111,8 @@ CONTAINS
                            & albedo_nir_soil,                   &! in
                            & albedo_vis_canopy,                 &! in
                            & albedo_nir_canopy,                 &! in
+                           & albedo_background,                 &! in
+                           & forest_fract,                      &! in
                            & surface_temperature,               &! inout
                            & surface_temperature_old,           &! inout
                            & c_soil_temperature1,               &! inout
@@ -132,10 +134,10 @@ CONTAINS
                            & ground_heat_flux,                  &! inout
                            & swnet,                             &! inout
                            & time_steps_soil,                   &! inout
-                           & albvisdir,                         &! out
-                           & albnirdir,                         &! out
-                           & albvisdif,                         &! out
-                           & albnirdif,                         &! out
+                           & albvisdir,                         &! inout
+                           & albnirdir,                         &! inout
+                           & albvisdif,                         &! inout
+                           & albnirdif,                         &! inout
                            & evapotranspiration,                &! out
                            & surface_temperature_rad,           &! out
                            & surface_temperature_eff            &! out
@@ -216,6 +218,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_soil(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_vis_canopy(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_canopy(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_background(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: forest_fract(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature_old(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature1(kbdim)
@@ -237,10 +241,10 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: ground_heat_flux(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: swnet(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: time_steps_soil(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdir(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdir(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdir(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdir(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: evapotranspiration(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
@@ -260,8 +264,6 @@ CONTAINS
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
     REAL(wp) :: lwup(kbdim)
-
-    REAL(wp) :: albedo_vis(kbdim), albedo_nir(kbdim)
 
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
@@ -300,7 +302,7 @@ CONTAINS
     CALL jsbach_inter_1d (kdim = kproma,                                   &
                           kblock = nblock,                                 &
                           kland = COUNT(lfland(1:kproma)),                 &
-                          mask_land = lfland(1:kproma),                    &
+                          mask_land = lsm(1:kproma),                       &
                           delta_time = pdtime,                             &
                           time_step_len = psteplen,                        &
                           time_steps_soil = time_steps_soil(1:kproma),     &
@@ -314,7 +316,7 @@ CONTAINS
                           lwdown   = pemterall(1:kproma) + lwup(1:kproma), &
                           swdown   = ptrsolall(1:kproma),                  & !! ATTENTION !! replaces sw_vis_net + sw_nir_net
                           pressure = presi_old(1:kproma),                  &
-!!$ TR                          czenith  = pcosmu0(1:kproma),                    & ! comment out to simplify for testing
+                          czenith  = pcosmu0(1:kproma),                    &
 !!$ TR                          CO2_concentration = 0.00055_wp,                  & ! comment out to simplify for testing, mass mixing ratio
                           cdrag = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd), &
                           etAcoef = zen_h(1:kproma,idx_lnd),               &
@@ -326,13 +328,17 @@ CONTAINS
                           albedo_nir_soil = albedo_nir_soil(1:kproma),     & ! intent in
                           albedo_vis_canopy = albedo_vis_canopy(1:kproma), & ! intent in
                           albedo_nir_canopy = albedo_nir_canopy(1:kproma), & ! intent in
+                          albedo_background = albedo_background(1:kproma), & ! intent in
+                          forest_fract = forest_fract(1:kproma),           & ! intent in
                            !! added for testing JSBACH (hydrology)
                           cair = pcair(1:kproma),                          & ! intent out
                           csat = pcsat(1:kproma),                          & ! intent out
 !!$ TR                          zhsoil = ,                                      & ! intent out
                           csat_transpiration= csat_transpiration(1:kproma),& ! intent out
-                          albedo_vis = albedo_vis(1:kproma),               & ! intent out
-                          albedo_nir = albedo_nir(1:kproma),               & ! intent out
+                          albvisdir = albvisdir(1:kproma),                 & ! intent inout
+                          albnirdir = albnirdir(1:kproma),                 & ! intent inout
+                          albvisdif = albvisdif(1:kproma),                 & ! intent inout
+                          albnirdif = albnirdif(1:kproma),                 & ! intent inout
                           moisture1 = moisture1(1:kproma),                 & ! intent out
                           moisture2 = moisture2(1:kproma),                 & ! intent out
                           moisture3 = moisture3(1:kproma),                 & ! intent out
@@ -381,14 +387,6 @@ CONTAINS
       surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
                                           (4._wp*surface_temperature_rad(1:kproma) -  &
                                           3._wp * surface_temperature_last(1:kproma)))**0.25
-
-      ! set albedo values for direct and diffuse radiation
-
-      albvisdir(1:kproma) = albedo_vis(1:kproma)
-      albvisdif(1:kproma) = albedo_vis(1:kproma)
-      albnirdir(1:kproma) = albedo_nir(1:kproma)
-      albnirdif(1:kproma) = albedo_nir(1:kproma)
-
     ELSEWHERE
       surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
       surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)

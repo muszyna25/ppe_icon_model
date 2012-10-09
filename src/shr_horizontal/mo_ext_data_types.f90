@@ -108,6 +108,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< canopy reflectance NIR                  [ ]
       &  albedo_nir_canopy(:,:)
 
+    REAL(wp), POINTER ::   &   !< background albedo for echam5 scheme     [ ]
+      &  albedo_background(:,:)
+
+    REAL(wp), POINTER ::   &   !< forest fraction for the use in          [ ]
+      &  forest_fract(:,:)     !< routine update_albedo_static
+
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
                                ! index1=1,nproma, index2=1,nblks_c

@@ -59,7 +59,7 @@ CONTAINS
        moisture1, moisture2, moisture3, moisture4, moisture5, moisture_all, &
        sat_surface_specific_humidity, skin_reservoir, &
        snow_fract, snow, snow_canopy, snow_melt, snow_acc, snow_melt_acc, &
-       glacier_runoff_acc, runoff_acc, drainage_acc, &
+       glacier_runoff_acc, runoff_acc, drainage_acc, canopy_snow_fract, &
        !! output for testing (energy balance)
        surface_temperature, surface_temperature_old, &
        surface_temperature_rad, &
@@ -114,7 +114,6 @@ CONTAINS
          lai
 !!$ TR    REAL(wp), DIMENSION(:,:), INTENT(inout) :: &  ! Dimension (nidx,ntiles)
 !!$ TR         canopy_snow, &                             ! Snow depth in canopy
-!!$ TR         canopy_snow_fract
 !!$ TR    REAL(dp), DIMENSION(:,:), INTENT(out) :: &  ! Dimension (nidx,ntiles)
 !!$ TR         canopy_conductance_limited                  ! resistance limited by water avaiability (water stress)
     REAL(wp), DIMENSION(:), INTENT(in) :: &    ! Dimension nidx
@@ -154,6 +153,7 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(inout) :: glacier_runoff_acc
     REAL(wp), DIMENSION(:), INTENT(inout) :: runoff_acc
     REAL(wp), DIMENSION(:), INTENT(inout) :: drainage_acc
+    REAL(wp), DIMENSION(:,:), INTENT(out) :: canopy_snow_fract
     !! output for testing (energy balance)
     REAL(wp), DIMENSION(:), INTENT(inout) ::  surface_temperature  ! Dimension (nidx)
     REAL(wp), DIMENSION(:), INTENT(inout) ::  surface_temperature_old  ! Dimension (nidx)
@@ -216,7 +216,6 @@ CONTAINS
          canopy_conductance_limited, &      ! water limited canopy conductance
          soil_moisture_root, &              ! Soil moisture in root zone
          soil_moisture_root_max, &          ! Field capacity in root zone
-         canopy_snow_fract, &               !
          water_stress_factor, &             ! Water stress factor (=1: no stress, =0: infinite stress)
 !!$ TR         relative_humidity, &               ! Relative humidity (Eq. 3.3.2.9 ECHAM3 Manual)
 !!$ TR         zhsoil, &

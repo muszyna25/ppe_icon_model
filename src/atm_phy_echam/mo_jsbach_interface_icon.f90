@@ -39,6 +39,7 @@ MODULE mo_jsbach_interface_icon
   USE mo_kind,              ONLY: wp
   USE mo_soil_icon,         ONLY: update_soil_icon
   USE mo_canopy,            ONLY: unstressed_canopy_cond_par
+  USE mo_land_surface,      ONLY: update_albedo_echam5
 
   IMPLICIT NONE
   PRIVATE
@@ -72,7 +73,7 @@ CONTAINS
 !!$ TR       sw_par_down, &                     !! downward PAR
 !!$ TR       sw_par_frac_diffuse, &             !! fraction of diffuse solar radiation contained in sw_par_down
        pressure, &
-!!$ TR       czenith, &
+       czenith, &
 !!$ TR       CO2_concentration, &
        cdrag, &
        etAcoef, &
@@ -84,12 +85,16 @@ CONTAINS
        albedo_nir_soil, &
        albedo_vis_canopy, &
        albedo_nir_canopy, &
+       albedo_background, &
+       forest_fract, &
        !! inout for testing (hydrology)
        cair, &
        csat, &
        csat_transpiration, &
-       albedo_vis, &
-       albedo_nir, &
+       albvisdir, &
+       albnirdir, &
+       albvisdif, &
+       albnirdif, &
        moisture1, &
        moisture2, &
        moisture3, &
@@ -157,7 +162,7 @@ CONTAINS
     INTEGER, OPTIONAL,  INTENT(in)    :: kblock                   !! Index of block  in domain that is to be
                                                                   !! processed. If missing: one call for whole domain
     INTEGER,            INTENT(in)    :: kland                    !! Number of land points in vectors
-    LOGICAL, OPTIONAL,  INTENT(in)    :: mask_land(kdim)          !! Land-sea mask (land includes glaciers)
+    INTEGER, OPTIONAL,  INTENT(in)    :: mask_land(kdim)          !! Land-sea mask (land includes glaciers)
     REAL(wp), INTENT(in)              :: delta_time               !! time step
     REAL(wp), INTENT(in)              :: time_step_len            !! 2*delta_time for leapfrog
     REAL(wp), OPTIONAL, INTENT(inout) :: time_steps_soil(kdim)    !! number of time steps since initialisation of the soil
@@ -176,7 +181,7 @@ CONTAINS
 !!$ TR   REAL(wp), OPTIONAL, INTENT(in)    :: sw_par_down(kdim)         !! downward surface PAR [W/m^2]
 !!$ TR   REAL(wp), OPTIONAL, INTENT(in)    :: sw_par_frac_diffuse(kdim) !! fraction of diffuse radiation contained in sw_par_net
     REAL(wp), OPTIONAL, INTENT(in)    :: pressure(kdim)            !! Surface pressure
-!!$ TR   REAL(wp), OPTIONAL, INTENT(in)    :: czenith(kdim)             !! Cosine of solar zenith angle
+   REAL(wp), OPTIONAL, INTENT(in)    :: czenith(kdim)              !! Cosine of solar zenith angle
 !!$ TR   REAL(wp), OPTIONAL, INTENT(in)    :: CO2_concentration(kdim)  !! Atmospheric CO2 concentration [kg(CO2)/kg(air)]
     REAL(wp), OPTIONAL, INTENT(in)    :: cdrag(kdim)              !! Surface drag
     REAL(wp), OPTIONAL, INTENT(in)    :: etAcoef(kdim)            !! Richtmeyer Morton coeff. temperature
@@ -188,12 +193,16 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(in)    :: albedo_nir_soil(kdim)    !!
     REAL(wp), OPTIONAL, INTENT(in)    :: albedo_vis_canopy(kdim)  !!
     REAL(wp), OPTIONAL, INTENT(in)    :: albedo_nir_canopy(kdim)  !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: albedo_background(kdim)  !!
+    REAL(wp), OPTIONAL, INTENT(in)    :: forest_fract(kdim)       !!
     !! inout for testing (hydrology
     REAL(wp), OPTIONAL, INTENT(inout) :: cair(kdim)                !! area fraction with wet surface
     REAL(wp), OPTIONAL, INTENT(inout) :: csat(kdim)                !! area fraction with wet surface (air)
     REAL(wp), OPTIONAL, INTENT(inout) :: csat_transpiration(kdim)
-    REAL(wp), OPTIONAL, INTENT(out)   :: albedo_vis(kdim)
-    REAL(wp), OPTIONAL, INTENT(out)   :: albedo_nir(kdim)
+    REAL(wp), OPTIONAL, INTENT(inout) :: albvisdir(kdim)
+    REAL(wp), OPTIONAL, INTENT(inout) :: albnirdir(kdim)
+    REAL(wp), OPTIONAL, INTENT(inout) :: albvisdif(kdim)
+    REAL(wp), OPTIONAL, INTENT(inout) :: albnirdif(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture1(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture2(kdim)
     REAL(wp), OPTIONAL, INTENT(inout) :: moisture3(kdim)
@@ -287,6 +296,9 @@ CONTAINS
 
     !! Other local declarations
     LOGICAL,  DIMENSION(kdim)  ::   mask                               !! Land mask or all true's
+    LOGICAL, ALLOCATABLE, DIMENSION(:,:) :: is_glacier
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: albedo_echam5
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: canopy_snow_fract
 
     !! local declarations for testing
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)  :: canopy_conductance
@@ -317,11 +329,11 @@ CONTAINS
 !!$ TR    kidx0 = kstart  ! kstart by use from mo_jsbach_grid
 !!$ TR    kidx1 = kend    ! kend by use from mo_jsbach_grid
 
-    IF (PRESENT(mask_land)) THEN
-       mask = mask_land
-    ELSE
+!!$ TR    IF (PRESENT(mask_land)) THEN
+!!$ TR       mask = mask_land
+!!$ TR   ELSE
        mask = .TRUE.
-    ENDIF
+!!$ TR    ENDIF
 !!$ TR    csat(:) = 1._wp
 !!$ TR    cair(:) = 1._wp
 
@@ -387,6 +399,9 @@ CONTAINS
     IF (PRESENT(swnet)) zswnet = PACK(swnet, MASK=mask)
     IF (PRESENT(time_steps_soil)) ztime_steps_soil = PACK(time_steps_soil, MASK=mask)
 
+    ALLOCATE(is_glacier(kdim,ntiles))
+    ALLOCATE(albedo_echam5(kdim,ntiles))
+    ALLOCATE(canopy_snow_fract(kdim,ntiles))
     ALLOCATE(canopy_conductance(kdim,ntiles))
 !!$ TR    ALLOCATE(root_depth(nidx,ntiles,nsoil))
     !!$ JSBACH testing: replace kdim by nidx
@@ -401,13 +416,13 @@ CONTAINS
     zwind10(:) = zwind(:) * 0.8_wp
 
 !!$ TR preliminary calculation of albedo
-    zsky_view_factor(:) = EXP(-lai(:,1)/2._wp)
-    albedo_vis(:) = (zsky_view_factor(:) * albedo_vis_soil(:)) + &
-                    ((1._wp - zsky_view_factor(:)) * albedo_vis_canopy(:))
-    albedo_nir(:) = (zsky_view_factor(:) * albedo_nir_soil(:)) + &
-                    ((1._wp - zsky_view_factor(:)) * albedo_nir_canopy(:))
+!!$    zsky_view_factor(:) = EXP(-lai(:,1)/2._wp)
+!!$    albedo_vis(:) = (zsky_view_factor(:) * albedo_vis_soil(:)) + &
+!!$                    ((1._wp - zsky_view_factor(:)) * albedo_vis_canopy(:))
+!!$    albedo_nir(:) = (zsky_view_factor(:) * albedo_nir_soil(:)) + &
+!!$                    ((1._wp - zsky_view_factor(:)) * albedo_nir_canopy(:))
 !!$ TR conversion of swdown in swnet is not accurate and preliminary for testing
-    zswnet(:) = zswdown(:) * (1._wp - (albedo_vis(:) + albedo_nir(:)) / 2._wp)
+    zswnet(:) = zswdown(:) * (1._wp - (albvisdir(:) + albnirdir(:)) / 2._wp)
 
     DO itile=1,ntiles
        CALL unstressed_canopy_cond_par(lai(1:nidx,itile), zswdown(:) / 2._wp, &
@@ -447,6 +462,7 @@ CONTAINS
                      glacier_runoff_acc, &
                      runoff_acc, &
                      drainage_acc, &
+                     canopy_snow_fract, &
                      !! output for testing (energy balance)
                      zsurface_temperature, &
                      zsurface_temperature_old, &
@@ -475,6 +491,23 @@ CONTAINS
 !!$ TR                     p_echam_zchl, zzhsoil, ztte_corr, &
 !!$ TR                     theLand%Vegetation%canopy_conductance_limited(kidx0:kidx1,:), &
 !!$ TR                     zglac_runoff_evap, zsurf_runoff_hd, zdrainage_hd)
+
+    is_glacier(:,:) = .false.
+
+    CALL update_albedo_echam5(nidx, ntiles, is_glacier(:,:), forest_fract(:), &
+           zsurface_temperature(:),                            &
+           SPREAD(snow_fract(:),DIM=2, NCOPIES=ntiles),        &
+           SPREAD(albedo_background(:),DIM=2, NCOPIES=ntiles), &
+           canopy_snow_fract  (:,:),                           &
+           lai                (:,:),                           &
+           albedo_echam5(:,:))
+
+    WHERE (mask_land(:) > 0)
+      albvisdir(:) = albedo_echam5(:,1)
+      albnirdir(:) = albedo_echam5(:,1)
+      albvisdif(:) = albedo_echam5(:,1)
+      albnirdif(:) = albedo_echam5(:,1)
+    ENDWHERE
 
     !! for testing
 !!$ TR    zhsoil() = 0._wp                              ! dry surface
@@ -518,7 +551,10 @@ CONTAINS
     IF (PRESENT(time_steps_soil)) time_steps_soil(:) = UNPACK(ztime_steps_soil, mask, 0.0_wp)
 
     !! deallocate variables for testing
-!!$ TR    DEALLOCATE(canopy_conductance)
+    DEALLOCATE(is_glacier)
+    DEALLOCATE(albedo_echam5)
+    DEALLOCATE(canopy_snow_fract)
+    DEALLOCATE(canopy_conductance)
 !!$ TR    DEALLOCATE(root_depth)
     DEALLOCATE(lai)
     DEALLOCATE(zwind10)
