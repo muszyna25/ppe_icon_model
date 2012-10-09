@@ -1359,6 +1359,9 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
+    ! return, if nothing to do:
+    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
+
     IF (PRESENT(lower_limit)) THEN
       z_limit = lower_limit
     ELSE
@@ -1490,6 +1493,8 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
+    ! return, if nothing to do:
+    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
@@ -2194,9 +2199,10 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, sfc_inv, temp_mod, g1, g2, g3
     REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out
 
-
-
 !-------------------------------------------------------------------------
+
+    ! return, if nothing to do:
+    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     IF (l_hires_corr .AND. .NOT. PRESENT(slope)) CALL finish("temperature_intp:",&
       "slope correction requires slope data as input")
@@ -2500,6 +2506,13 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out, zdiff_inout, red_speed
 
 !-------------------------------------------------------------------------
+
+    ! return, if nothing to do:
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) THEN
+      RETURN
+    END IF
+    ! consistency check:
+    IF (UBOUND(uv_out,2) < nlevs_out) CALL finish("Wrong size of output field!")
 
     ! Multiplicative limit for downward extrapolation; not used in high-resolution mode
     ! (wind speed in narrow valleys not resolved in the source model may be reduced
@@ -2807,6 +2820,9 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out, qsat_out
 
 !-------------------------------------------------------------------------
+
+    ! return, if nothing to do:
+    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     IF (PRESENT(opt_qc)) THEN
       l_check_qv_qc = .TRUE.

@@ -1188,7 +1188,7 @@ CONTAINS
           IF (idx_x > 0) idx=MIN(idx, idx_x)
           IF (idx_y > 0) idx=MIN(idx, idx_y)
           IF (idx==vname_len) idx=0
-          
+
           ! Check for matching name
           IF(idx == 0) THEN
             IF(varlist(ivar) /= element%field%info%name) CYCLE

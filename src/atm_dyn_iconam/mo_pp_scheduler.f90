@@ -69,8 +69,8 @@ MODULE mo_pp_scheduler
     & TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ,                            &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,        &
     & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,              &
-    & TASK_INTP_VER_ILEV
-  USE mo_model_domain,            ONLY: t_patch, p_patch
+    & TASK_INTP_VER_ILEV, max_phys_dom
+  USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
     &                                   nvar_lists, var_lists
@@ -494,7 +494,7 @@ CONTAINS
       &  TRIM("mo_pp_scheduler:pp_scheduler_init_ipz")
     INTEGER                            :: &
       &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
-      &  iaxis, vgrid, nlev
+      &  iaxis, vgrid, nlev, iphys_dom
     LOGICAL                            :: &
       &  l_jg_active, l_intp_p, l_intp_z, l_intp_i, found
     TYPE (t_output_name_list), POINTER :: p_onl
@@ -551,7 +551,13 @@ CONTAINS
         ! If dom(:) was not specified in namelist input, it is set
         ! completely to -1.  In this case all domains are wanted in
         ! the output
-        l_jg_active = (ANY(p_onl%dom(:) == jg) .OR. p_onl%dom(1) <= 0)
+        l_jg_active = (p_onl%dom(1) <= 0)
+        DO iphys_dom=1,max_phys_dom
+          IF (p_onl%dom(iphys_dom) > 0) THEN
+            l_jg_active = l_jg_active .OR. (jg == p_phys_patch(p_onl%dom(iphys_dom))%logical_id)
+          END IF
+        END DO
+
         ! Selection criteria: 
         ! - domain is requested
         ! - p-level interpolation is requested
@@ -586,7 +592,12 @@ CONTAINS
         ! If dom(:) was not specified in namelist input, it is set
         ! completely to -1.  In this case all domains are wanted in
         ! the output
-        l_jg_active = (ANY(p_onl%dom(:) == jg) .OR. p_onl%dom(1) <= 0)
+        l_jg_active = (p_onl%dom(1) <= 0)
+        DO iphys_dom=1,max_phys_dom
+          IF (p_onl%dom(iphys_dom) > 0) THEN
+            l_jg_active = l_jg_active .OR. (jg == p_phys_patch(p_onl%dom(iphys_dom))%logical_id)
+          END IF
+        END DO
         ! Selection criteria: 
         ! - domain is requested
         ! - z-level interpolation is requested
@@ -622,7 +633,12 @@ CONTAINS
         ! If dom(:) was not specified in namelist input, it is set
         ! completely to -1.  In this case all domains are wanted in
         ! the output
-        l_jg_active = (ANY(p_onl%dom(:) == jg) .OR. p_onl%dom(1) <= 0)
+        l_jg_active = (p_onl%dom(1) <= 0)
+        DO iphys_dom=1,max_phys_dom
+          IF (p_onl%dom(iphys_dom) > 0) THEN
+            l_jg_active = l_jg_active .OR. (jg == p_phys_patch(p_onl%dom(iphys_dom))%logical_id)
+          END IF
+        END DO
         ! Selection criteria: 
         ! - domain is requested
         ! - i-level interpolation is requested
@@ -1055,7 +1071,7 @@ CONTAINS
 
       ptr_task => ptr_task%next
     END DO LOOP_JOB
-    
+
   END SUBROUTINE pp_scheduler_process
 
 
