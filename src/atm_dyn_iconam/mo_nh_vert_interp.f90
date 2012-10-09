@@ -1360,7 +1360,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     ! return, if nothing to do:
-    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     IF (PRESENT(lower_limit)) THEN
       z_limit = lower_limit
@@ -1494,7 +1494,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     ! return, if nothing to do:
-    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
@@ -2202,7 +2202,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     ! return, if nothing to do:
-    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     IF (l_hires_corr .AND. .NOT. PRESENT(slope)) CALL finish("temperature_intp:",&
       "slope correction requires slope data as input")
@@ -2822,7 +2822,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     ! return, if nothing to do:
-    IF ((nblks == 0) .or. ((nblks == 1) .AND. (npromz == 0))) RETURN
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
     IF (PRESENT(opt_qc)) THEN
       l_check_qv_qc = .TRUE.
