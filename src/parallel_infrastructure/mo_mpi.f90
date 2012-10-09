@@ -390,6 +390,7 @@ MODULE mo_mpi
   END INTERFACE
 
   INTERFACE p_gather
+     MODULE PROCEDURE p_gather_real_0d1d
      MODULE PROCEDURE p_gather_real_1d2d
      MODULE PROCEDURE p_gather_real_5d6d
      MODULE PROCEDURE p_gather_int
@@ -6208,6 +6209,28 @@ CONTAINS
 #endif
 
   END FUNCTION p_min_3d
+
+  SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
+    REAL(dp),          INTENT(inout) :: sendbuf, recvbuf(:)
+    INTEGER,           INTENT(in) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+     CALL MPI_GATHER(sendbuf, 1, p_real_dp, &
+                     recvbuf, 1, p_real_dp, &
+                     p_dest, p_comm, p_error)
+#else
+     recvbuf(:) = sendbuf
+#endif
+   END SUBROUTINE p_gather_real_0d1d
 
   SUBROUTINE p_gather_real_1d2d (sendbuf, recvbuf, p_dest, comm)
     REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:,:)

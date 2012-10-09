@@ -51,6 +51,7 @@ USE mo_exception,          ONLY: finish, message, message_text
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: msg_level
+USE mo_math_constants,     ONLY: pi
 USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
@@ -2258,9 +2259,10 @@ SUBROUTINE decomposition_statistics(p_patch)
    TYPE(t_patch), INTENT(INOUT) :: p_patch
 
    REAL(wp) :: cellstat(0:6),edgestat(0:6),vertstat(0:5), csmax(0:5),csmin(0:5),csavg(0:6), &
-               esmax(0:6),esmin(0:6),esavg(0:6),vsmax(0:5),vsmin(0:5),vsavg(0:5)
-   INTEGER  :: i_nchdom, i, i_pe, max_nprecv, i1, i2
-   INTEGER, ALLOCATABLE :: nprecv_buf(:),displs(:),recvlist_buf(:)
+               esmax(0:6),esmin(0:6),esavg(0:6),vsmax(0:5),vsmin(0:5),vsavg(0:5),avglat,avglon
+   INTEGER  :: i_nchdom, i, i_pe, max_nprecv, i1, i2, i1m, i2m
+   INTEGER,  ALLOCATABLE :: nprecv_buf(:),displs(:),recvlist_buf(:)
+   REAL(wp), ALLOCATABLE :: avglat_buf(:),avglon_buf(:)
 
 !-----------------------------------------------------------------------
 
@@ -2394,7 +2396,29 @@ SUBROUTINE decomposition_statistics(p_patch)
      CALL message('List of receive PEs (cells)', TRIM(message_text))
      max_nprecv = NINT(csmax(5))
 
-     ALLOCATE(nprecv_buf(p_n_work),displs(p_n_work),recvlist_buf(max_nprecv*p_n_work))
+     ! Compute average latitude and longitude over prognostic grid points (including nest boundary)
+     avglat = 0
+     avglon = 0
+     i2m = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
+     DO i2 = 1, i2m
+       i1m = nproma
+       if (i2 == i2m) i1m = p_patch%cells%end_idx(min_rlcell_int,i_nchdom)
+       DO i1 = 1, i1m
+         avglat = avglat + p_patch%cells%center(i1,i2)%lat
+         avglon = avglon + p_patch%cells%center(i1,i2)%lon
+       ENDDO
+     ENDDO
+
+     IF (cellstat(0)+cellstat(1) > 0._wp) THEN
+       avglat = avglat/(cellstat(0)+cellstat(1))*180._wp/pi
+       avglon = avglon/(cellstat(0)+cellstat(1))*180._wp/pi
+     ELSE
+       avglat = 0._wp
+       avglon = 0._wp
+     ENDIF
+
+     ALLOCATE(nprecv_buf(p_n_work),displs(p_n_work),recvlist_buf(max_nprecv*p_n_work), &
+              avglat_buf(p_n_work),avglon_buf(p_n_work))
 
      CALL p_gather(p_patch%comm_pat_c%np_recv, nprecv_buf, 0, p_comm_work)
 
@@ -2403,16 +2427,20 @@ SUBROUTINE decomposition_statistics(p_patch)
      CALL p_gatherv(p_patch%comm_pat_c%pelist_recv, p_patch%comm_pat_c%np_recv,  &
                     recvlist_buf, nprecv_buf, displs, 0, p_comm_work)
 
+     CALL p_gather(avglat, avglat_buf, 0, p_comm_work)
+     CALL p_gather(avglon, avglon_buf, 0, p_comm_work)
+
      IF (p_pe == 0) THEN
-       WRITE(0,'(a)') 'PE, list of receive PEs'
+       WRITE(0,'(a)') 'PE, avg lat/lon, list of receive PEs'
        DO i_pe = 1, p_n_work
          i1 = (i_pe-1)*max_nprecv+1
-         i2 = i1-1+MIN(20,nprecv_buf(i_pe))
-         WRITE(0,'(i6,a,1x,20i6)') i_pe-1,':',recvlist_buf(i1:i2)
+         i2 = i1-1+MIN(18,nprecv_buf(i_pe))
+         IF (nprecv_buf(i_pe) > 0) WRITE(0,'(i6,a,2f8.2,18i6)') i_pe-1,':', &
+           avglat_buf(i_pe),avglon_buf(i_pe),recvlist_buf(i1:i2)
        ENDDO
      ENDIF
 
-     DEALLOCATE(nprecv_buf,displs,recvlist_buf)
+     DEALLOCATE(nprecv_buf,displs,recvlist_buf,avglat_buf,avglon_buf)
 
    ENDIF
 
