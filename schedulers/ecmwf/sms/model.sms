@@ -22,8 +22,6 @@
 
 # *************************************************
 stage=run
-EXP1=%SUITE_NAME%
-EXP2=%SUITE%
 
 
 # *************************************************
@@ -39,15 +37,15 @@ INITIME_FMT=`python %SCBASEDIR%/gen/date_calc.py -a printfmt -d %YMD%%INIHOUR%`
 
 
 # directory where the case setup is stored
-SETDIRTMP=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
-
-
-# ifsdir
-ifsdir=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
-# base directory
+SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup
+# ifsdir for IFS initial condition
+ifsdir=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%
+# base directory for external data
 basedir=%SCPERM%
-# output base directory
-outbasedir=%SCTEMP%
+# base directory for model output
+outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
 # architecture (corresponds to build/<build architecture>/bin/...)
 arch=powerpc-ibm-aix5.3.0.0  # compare with init_cp_binary.sms!
@@ -115,5 +113,4 @@ smsevent model_complete
 
 # include the "tail" file for remote jobs
 %include <end_job.h>
-
 

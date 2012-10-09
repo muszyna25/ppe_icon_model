@@ -38,7 +38,7 @@ fi
 
 # Create data directory on ecgate
  
-mkdir -p %ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 
 # -------------------------------------------------
 

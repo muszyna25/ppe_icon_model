@@ -24,7 +24,7 @@
 echo "INIT_BUILD.SMS"
 
 # Change directory ----------------------------
-cd %SCPERM%
+cd %SCPERMIII%
 ls -lrt
 
 #if [ "%SVN_UPDATE%" -eq "1" ]

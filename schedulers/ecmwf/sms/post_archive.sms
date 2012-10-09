@@ -31,24 +31,24 @@ ldeldata=1
 #-----------------------------------------------------------------------------
 # directories
 
-gatedir=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 cd $gatedir
-ecfsdir=ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%
+ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
 # archive plots and tranfer to DWD by ectrans
 
-tar cvf metplots_%SUITE%_%YMD%%INIHOUR%.tar metplots
-gzip -f metplots_%SUITE%_%YMD%%INIHOUR%.tar
-ecp  -o metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%YMD%%INIHOUR%.tar.gz
+tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
+gzip -f metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
+ecp  -o metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+\rm -rf metplots_%SUITE%_%EXPNUM%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
-tar cvf meteogram_%SUITE%_%YMD%%INIHOUR%.tar meteo
-gzip -f meteogram_%SUITE%_%YMD%%INIHOUR%.tar
-ecp  -o meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz $ecfsdir
-\rm -rf meteogram_%SUITE%_%YMD%%INIHOUR%.tar.gz
+tar cvf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar meteo
+gzip -f meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
+ecp  -o meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+\rm -rf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
 
 #-----------------------------------------------------------------------------

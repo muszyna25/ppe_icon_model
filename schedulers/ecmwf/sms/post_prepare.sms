@@ -30,19 +30,21 @@ module load grib_api
 #-----------------------------------------------------------------------------
 # directories
 
-outdir=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%/
-gatedir=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%/
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 rsh ecgate mkdir -p ${gatedir}
 cd ${outdir}
-ecfsdir="ec:icon/experiments/%SUITE%_%SUITE_NAME%/%YMD%%INIHOUR%"
+ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
 emkdir -p $ecfsdir
 
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
 #-----------------------------------------------------------------------------
 # namelist: copy to ecgate
 
-rcp    NAMELIST_%SUITE_NAME% ecgate:${gatedir}
-ecp -o NAMELIST_%SUITE_NAME% $ecfsdir
+rcp    NAMELIST_${basename} ecgate:${gatedir}
+ecp -o NAMELIST_${basename} $ecfsdir
 
 
 #-----------------------------------------------------------------------------
@@ -59,7 +61,7 @@ ecp -o $outfile_mtg2 $ecfsdir
 # GRIB: rename and copy to ecgate
 
 for levtype in ML PL HL ; do
-  outfile1=${outdir}%SUITE%_%SUITE_NAME%_DOM01_${levtype}_0001.grb
+  outfile1=${outdir}${basename}_DOM01_${levtype}_0001.grb
   outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
   mv ${outfile1} ${outfile2} || true
   ecp -o $outfile2 $ecfsdir  || true
@@ -85,18 +87,18 @@ if [[ $lsplitdata = 1 ]] ; then
 #                          ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.temp.grb
 #    \mv                   ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.temp.grb \
 #                          ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.grb
-    grib_copy  %SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb  \
-      grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_[shortName]_[typeOfFirstFixedSurface].grb
+    grib_copy  ${basename}_DOM01_${levtype}_0001.grb  \
+      grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
   done
-  grib_copy  %SUITE%_DOM01_HL_0001_%YMD%%INIHOUR%.grb  \
-    grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_[shortName]_zl.grb
+  grib_copy  ${basename}_DOM01_HL_0001.grb  \
+    grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
 
 # fixes
   for levtype in sfc ml pl zl ; do
     for bad in unknown '~' ; do
-      grib_copy grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_${bad}_${levtype}.grb \
-                grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype}.grb || true
-      \rm -rf   grb_data/%SUITE%_DOM01_%YMD%%INIHOUR%_0001_${bad}_${levtype}.grb
+      grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype}.grb \
+                grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype}.grb || true
+      \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype}.grb
     done
   done
 
@@ -123,7 +125,7 @@ fi
 if [[ $ldeldata = 1 ]] ; then
   \rm -rf grb_data 
   for levtype in ML PL HL ; do
-    outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
+    outfile2=${outdir}${basename}_DOM01_${levtype}_0001.grb
     \rm -rf ${outfile2}
   done
 fi

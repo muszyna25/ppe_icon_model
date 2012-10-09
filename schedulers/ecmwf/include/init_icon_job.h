@@ -2,7 +2,7 @@
 #  Loadleveler Directives
 #==========================================================================
 #@ restart = no
-#@ job_name         = %SUITE_NAME%
+#@ job_name         = %SUITE%_%EXPNUM%
 #@ output           = %SMSJOBOUT%
 #@ error            = %SMSJOBOUT%
 #@ notification     = error

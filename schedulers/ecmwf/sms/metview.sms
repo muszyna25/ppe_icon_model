@@ -34,7 +34,7 @@ lmetview=1
 #-----------------------------------------------------------------------------
 # directory
 
-EXPDIR=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 export ARCH="rs6000"
 cd ${EXPDIR}

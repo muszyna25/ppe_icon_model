@@ -24,7 +24,7 @@ echo "ONCE.SMS"
 
 # Create setup directory on ecgate
  
-SETDIRTMP=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
+SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup
 mkdir -p ${SETDIRTMP}
 
 # Copy ICON namelist to experiment directory

@@ -27,7 +27,7 @@ module load python
 
 
 # Change directory ----------------------------
-MODELOUTDIR="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%"
+MODELOUTDIR="%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%"
 cd %SCTEMP%
 ls -lrt
 

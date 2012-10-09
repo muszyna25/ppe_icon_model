@@ -25,7 +25,7 @@ echo "GET_DATA.SMS"
 module load python
 
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-IFSDATADIR=%SCTEMP%/input/%SUITE_NAME%/%SUITE%/ifs2icon
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon
 TMPDIR="${TEMP}"
 mkdir -p ${IFSDATADIR}
 

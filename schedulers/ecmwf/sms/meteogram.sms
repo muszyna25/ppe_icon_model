@@ -28,7 +28,7 @@ echo "METEOGRAM.SMS"
 #-----------------------------------------------------------------------------
 # meteogram plots
 
-outdir_mtg=%ECTEMP%/%SUITE_NAME%/%SUITE%/%YMD%%INIHOUR%
+outdir_mtg=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 outfile_mtg=%SUITE%_meteogram.nc
 dir_mtgrm=%ECPERM%/icon-dev/scripts/postprocessing/tools
 cd ${outdir_mtg}

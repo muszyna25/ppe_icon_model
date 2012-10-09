@@ -23,7 +23,6 @@ setenv -i TMPDIR
 set UID `id -u`
 
 # global definitions:
-set SUITE_NAME    "ICON_r2B06_10d"
 
 # place where suite and tasks are defined
 set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/sms"
@@ -52,7 +51,6 @@ define on_ecgate {
 
 suite ifs_trigger
 
-    edit SUITE_NAME $SUITE_NAME
     edit SMSTRIES   $SMSTRIES
     edit SMSHOME    $SMSHOME
     edit SMSFILES   $SMSFILES

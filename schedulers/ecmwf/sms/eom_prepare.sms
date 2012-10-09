@@ -64,18 +64,23 @@ for levtype1 in PL HL ML; do
 # directories
 
     dd=`echo ${ymdh} | cut -c 7-8`
-    outdir="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/${ymdh}/"
-    gatedir="%ECTEMP%/%SUITE_NAME%/%SUITE%/${ymdh}"
+    outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
+    gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}"
     rsh ecgate mkdir -p ${gatedir}
     cd ${outdir}
 
+    # base name for output and namelist files
+    basename=%SUITE%_%EXPNUM%_${ymdh}
+    basename31=%SUITE%_%EXPNUM%_${date31}
+    basenameMM=%SUITE%_%EXPNUM%_${YYYYMM}
+    base=%SUITE%_%EXPNUM%
 
 #-----------------------------------------------------------------------------
 # GRIB: rename and copy to ecgate
 
     if [[ $lecget = 1 ]] ; then
-      outfile=%SUITE%_DOM01_${levtype1}_0001_${ymdh}.grb
-      ecp ec:icon/experiments/%SUITE%_%SUITE_NAME%/${ymdh}/$outfile .
+      outfile=${basename}_DOM01_${levtype1}_0001.grb
+      ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${ymdh}/$outfile .
       smsmeter ecget  ${dd}
     fi
 
@@ -90,23 +95,23 @@ for levtype1 in PL HL ML; do
 
       mkdir -p grb_data
       if [[ ${levtype1} = 'HL' ]] ; then
-        grib_copy  %SUITE%_DOM01_HL_0001_${ymdh}.grb  \
-          grb_data/%SUITE%_DOM01_${ymdh}_0001_[shortName]_zl.grb
+        grib_copy  ${basename}_DOM01_HL_0001.grb  \
+          grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
       else
        #grib_set -s centre=98 ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.grb      \
        #                      ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.temp.grb
        #\mv                   ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.temp.grb \
        #                      ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.grb
-        grib_copy  %SUITE%_DOM01_${levtype1}_0001_${ymdh}.grb  \
-          grb_data/%SUITE%_DOM01_${ymdh}_0001_[shortName]_[typeOfFirstFixedSurface].grb
+        grib_copy  ${basename}_DOM01_${levtype1}_0001.grb  \
+          grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
       fi
 
 # fixes
       for levtype2 in sfc ml pl zl ; do
         for bad in unknown '~' ; do
-          grib_copy grb_data/%SUITE%_DOM01_${ymdh}_0001_${bad}_${levtype2}.grb \
-                    grb_data/%SUITE%_DOM01_${ymdh}_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
-          \rm -rf   grb_data/%SUITE%_DOM01_${ymdh}_0001_${bad}_${levtype2}.grb
+          grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb \
+                    grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
+          \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
         done
       done
       
@@ -119,7 +124,7 @@ for levtype1 in PL HL ML; do
 # delete data
 
     if [[ $ldeldata = 1 ]] ; then
-      outfile2=${outdir}%SUITE%_DOM01_${levtype1}_0001_${ymdh}.grb
+      outfile2=${outdir}${basename}_DOM01_${levtype1}_0001.grb
       \rm -rf ${outfile2}
       smsmeter deldata ${dd}
     fi
@@ -136,15 +141,15 @@ done                           # end levtype
 #-----------------------------------------------------------------------------
 # cat dates together
 
-mondir=%SCTEMP%/output/%SUITE_NAME%/%SUITE%/${YYYYMM}
+mondir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${YYYYMM}
 mkdir -p $mondir
 
 if [[ $lcatdata = 1 ]] ; then
- #varlist=`ls grb_data/%SUITE%_DOM01_${date31}_0001_*_*.grb | \
- #         awk 'BEGIN { FS="_"} ; {print $7"_"$8}'          | \
+ #varlist=`ls grb_data/${basename31}_DOM01_0001_*.grb | \
+ #         awk 'BEGIN { FS="_"} ; {print $7"_"$8}'    | \
  #         sed 's/.grb//'`
-  varlist=`ls grb_data/%SUITE%_DOM01_${date31}_0001_*_*.grb | \
-      sed "s/grb_data\/%SUITE%_DOM01_${date31}_0001_//"     | \
+  varlist=`ls grb_data/${basename31}_DOM01_0001_*.grb | \
+      sed "s/grb_data\/${basename31}_DOM01_0001_//"   | \
       sed "s/.grb//"`
 
   for var in $varlist ; do
@@ -153,10 +158,10 @@ if [[ $lcatdata = 1 ]] ; then
     ymdh=${date01}
     while (( ${ymdh} <= ${date31} )) ; do
       echo "processing variable: "$var
-      outdir="%SCTEMP%/output/%SUITE_NAME%/%SUITE%/${ymdh}/"
+      outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
-      grib_copy  grb_data/%SUITE%_DOM01_${ymdh}_0001_${var}.grb \
-        ${mondir}/tmp_dir/%SUITE%_DOM01_${ymdh}_0001_${var}_[forecastTime].grb
+      grib_copy  grb_data/${basename}_DOM01_0001_${var}.grb \
+        ${mondir}/tmp_dir/${basename}_DOM01_0001_${var}_[forecastTime].grb
       if [[ $ldeldata = 1 ]] ; then
         \rm -rf grb_data
       fi
@@ -166,49 +171,49 @@ if [[ $lcatdata = 1 ]] ; then
 
 # all times:
 
-    cat %SUITE%_DOM01_*_0001_${var}_0.grb \
-        %SUITE%_DOM01_*_0001_${var}_24.grb \
-        %SUITE%_DOM01_*_0001_${var}_240.grb \
-      > ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_24_240.grb
+    cat ${base}*_DOM01_0001_${var}_0.grb \
+        ${base}*_DOM01_0001_${var}_24.grb \
+        ${base}*_DOM01_0001_${var}_240.grb \
+      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_240.grb
 
 # time mean: (works only from day 11 onwards because of 10 day forecast verification)
 
     DD=`echo %YMD% | cut -c 7-8`   #e.g. 30 (last day)
     DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
     DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
-    cat %SUITE%_DOM01_*_0001_${var}_0.grb   > %SUITE%_DOM01_${YYYYMM}_0001_${var}_0.grb
-    cat %SUITE%_DOM01_*_0001_${var}_24.grb  > %SUITE%_DOM01_${YYYYMM}_0001_${var}_24.grb   
-    cat %SUITE%_DOM01_*_0001_${var}_240.grb > %SUITE%_DOM01_${YYYYMM}_0001_${var}_240.grb
+    cat ${basename}_DOM01_*_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
+    cat ${basename}_DOM01_*_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
+    cat ${basename}_DOM01_*_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
 
-    $cdo timselavg,${DDm1},1,100   %SUITE%_DOM01_${YYYYMM}_0001_${var}_0.grb   ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb
-    $cdo timselavg,${DDm1},0,100   %SUITE%_DOM01_${YYYYMM}_0001_${var}_24.grb  ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb
-    $cdo timselavg,${DDm10},10,100 %SUITE%_DOM01_${YYYYMM}_0001_${var}_0.grb   ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb
-    $cdo timselavg,${DDm10},0,100  %SUITE%_DOM01_${YYYYMM}_0001_${var}_240.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb
+    $cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
+    $cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
+    $cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
+    $cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
 
-    grib_set -s stepRange=0      ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb    out.grb
-                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb
-    grib_set -s stepRange=0      ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb   out.grb
-                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb
-    grib_set -s stepRange=24     ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb   out.grb
-                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb
-    grib_set -s stepRange=240    ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb out.grb
-                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb 
-    grib_set -s date=${YYYYMM}02 ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb    out.grb
-                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb
-    grib_set -s date=${YYYYMM}11 ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb   out.grb
-                      mv out.grb ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb
+    grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
+    grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   out.grb
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
+    grib_set -s stepRange=24     ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb   out.grb
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
+    grib_set -s stepRange=240    ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb out.grb
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb 
+    grib_set -s date=${YYYYMM}02 ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
+    grib_set -s date=${YYYYMM}11 ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   out.grb
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
 
-    cat ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb     \
-        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb    \
-      > ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_24_mn2-${DD}.grb
-    cat ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb    \
-        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb  \
-      > ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_240_mn11-${DD}.grb
+    cat ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb     \
+        ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb    \
+      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_mn2-${DD}.grb
+    cat ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb    \
+        ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb  \
+      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_240_mn11-${DD}.grb
     \rm -rf \
-        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn2-${DD}.grb     \
-        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_24_mn2-${DD}.grb    \
-        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_0_mn11-${DD}.grb    \
-        ${mondir}/%SUITE%_DOM01_${YYYYMM}_0001_${var}_240_mn11-${DD}.grb
+        ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb     \
+        ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb    \
+        ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb    \
+        ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
 
     cd ..
     \rm -rf ${mondir}/tmp_dir
@@ -221,12 +226,12 @@ fi
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then
-  gatedir="%ECTEMP%/%SUITE_NAME%/%SUITE%/${YYYYMM}"
+  gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}"
   cd $mondir
   rsh ecgate mkdir -p ${gatedir}/grb_data
   rcp *.grb ecgate:${gatedir}/grb_data
-  emkdir -p      ec:icon/experiments/%SUITE%_%SUITE_NAME%/${YYYYMM}
-  ecp *.grb ec:icon/experiments/%SUITE%_%SUITE_NAME%/${YYYYMM}
+  emkdir -p ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
+  ecp *.grb ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   smsevent cpdata
 fi
 

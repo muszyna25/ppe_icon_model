@@ -24,10 +24,16 @@
 echo "INIT_CP_BINARY.SMS"
 
 
-# Copy to experiment temporary directory
 arch=powerpc-ibm-aix5.3.0.0  # compare with model.sms!
-cp %SCPERM%/icon-dev/build/${arch}/bin/control_model \
-  %SCTEMP%/output/%SUITE_NAME%/%SUITE%/setup
+
+# Copy executable to experiment temporary directory
+cp %SCPERMIII%/icon-dev/build/${arch}/bin/control_model \
+  %SCTEMP%/%SUITE%/%EXPNUM%/output/setup
+
+# Use executable from $USER
+#cp %SCPERM%/icon-dev/build/${arch}/bin/control_model \
+#  %SCTEMP%/%SUITE%/%EXPNUM%/output/setup
+
 
 
 # -------------------------------------------------

@@ -31,8 +31,8 @@ echo "INIT_SVN.SMS"
 # with 
 # svn co http://svn.zmaw.de/svn/icon/trunk/icon-dev
 
-  svn update %ECPERM%/icon-dev
-  revision=`svn info %ECPERM%/icon-dev | grep Revision | awk '{print $2}'`
+  svn update %ECPERMIII%/icon-dev
+  revision=`svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
 
   smsevent svn_update
   

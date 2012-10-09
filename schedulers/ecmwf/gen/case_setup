@@ -17,7 +17,7 @@
 
 
 # absolute path to output directory
-EXPDIR=${outbasedir}/output/${EXP1}/${EXP2}/${INITIME}
+EXPDIR=${outbasedir}/${INITIME}
 # absolute path to input directory
 INDIR=${basedir}/icon_input/grids
 # absolute path to external parameter directory
@@ -60,7 +60,7 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=60          # output interval 3600s
 
 # model parameters
-atmo_namelist=NAMELIST_${EXP1}
+atmo_namelist=NAMELIST_${basename}
 model_equations=3      #  3=non-hydrost. atm.,
 
 # grid parameters
@@ -189,7 +189,7 @@ cat > ${atmo_namelist} << EOF
  steps_per_file               =  40
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
- output_filename              = '${EXP2}_${EXP1}'         ! file name base
+ output_filename              = '${basename}'             ! file name base
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
  hl_varlist                   = ${hl_varlist}
