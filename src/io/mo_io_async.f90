@@ -1508,36 +1508,6 @@ CONTAINS
 
   END SUBROUTINE test_pe_output
 
-  ! ------------------------------------------------------------------------------------------------
-  ! ------------------------------------------------------------------------------------------------
-  ! Remove the following when actually working with pio
-  ! ------------------------------------------------------------------------------------------------
-  ! ------------------------------------------------------------------------------------------------
-
-  INTEGER FUNCTION pioInit(type, comm, my_rank, num_tasks, comm_out)
-    INTEGER type, comm, my_rank, num_tasks, comm_out
-
-    IF(p_pe_work==0) THEN
-      print *
-      print *
-      print *,'ATTENTION:'
-      print *,'If you want ro run with more I/O PEs than domains,'
-      print *,'you have to remove the dummy rountines pioInit/pioFinalize'
-      print *,'at the end of module mo_io_async and link with an actual'
-      print *,'PIO enabled CDI version'
-      CALL finish(modname,'CDI PIO not enabled')
-    ENDIF
-
-    CALL p_barrier ! prevent other PEs from going on
-
-    ! Make the compiler happy:
-    pioInit = type*comm*my_rank*num_tasks*comm_out
-
-  END FUNCTION pioInit
-
-  SUBROUTINE pioFinalize
-  END SUBROUTINE pioFinalize
-
 #endif
 
 END MODULE mo_io_async

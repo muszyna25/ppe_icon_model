@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.5.5
+! Fortran interface for CDI library version 1.5.7
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   May 2012
+! Uwe Schulzweida, MPI-MET, Hamburg,   August 2012
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -254,19 +254,50 @@
       INTEGER    ZAXIS_REFERENCE       
       PARAMETER (ZAXIS_REFERENCE        = 16)
 !
+!  TIME types
+!
+      INTEGER    TIME_CONSTANT         
+      PARAMETER (TIME_CONSTANT          =  0)
+      INTEGER    TIME_VARIABLE         
+      PARAMETER (TIME_VARIABLE          =  1)
+!
+!  TSTEP types
+!
+      INTEGER    TSTEP_CONSTANT        
+      PARAMETER (TSTEP_CONSTANT         =  0)
+      INTEGER    TSTEP_INSTANT         
+      PARAMETER (TSTEP_INSTANT          =  1)
+      INTEGER    TSTEP_AVG             
+      PARAMETER (TSTEP_AVG              =  2)
+      INTEGER    TSTEP_ACCUM           
+      PARAMETER (TSTEP_ACCUM            =  3)
+      INTEGER    TSTEP_MAX             
+      PARAMETER (TSTEP_MAX              =  4)
+      INTEGER    TSTEP_MIN             
+      PARAMETER (TSTEP_MIN              =  5)
+      INTEGER    TSTEP_DIFF            
+      PARAMETER (TSTEP_DIFF             =  6)
+      INTEGER    TSTEP_RMS             
+      PARAMETER (TSTEP_RMS              =  7)
+      INTEGER    TSTEP_SD              
+      PARAMETER (TSTEP_SD               =  8)
+      INTEGER    TSTEP_COV             
+      PARAMETER (TSTEP_COV              =  9)
+      INTEGER    TSTEP_RATIO           
+      PARAMETER (TSTEP_RATIO            = 10)
+      INTEGER    TSTEP_RANGE           
+      PARAMETER (TSTEP_RANGE            = 11)
+      INTEGER    TSTEP_INSTANT2        
+      PARAMETER (TSTEP_INSTANT2         = 12)
+      INTEGER    TSTEP_INSTANT3        
+      PARAMETER (TSTEP_INSTANT3         = 13)
+!
 !  TAXIS types
 !
       INTEGER    TAXIS_ABSOLUTE        
       PARAMETER (TAXIS_ABSOLUTE         =  1)
       INTEGER    TAXIS_RELATIVE        
       PARAMETER (TAXIS_RELATIVE         =  2)
-!
-!  TIME types
-!
-      INTEGER    TIME_CONSTANT         
-      PARAMETER (TIME_CONSTANT          =  1)
-      INTEGER    TIME_VARIABLE         
-      PARAMETER (TIME_VARIABLE          =  2)
 !
 !  TUNIT types
 !
@@ -291,27 +322,6 @@
       INTEGER    TUNIT_12HOURS         
       PARAMETER (TUNIT_12HOURS          = 10)
 !
-!  TSTEP types
-!
-      INTEGER    TSTEP_INSTANT         
-      PARAMETER (TSTEP_INSTANT          =  1)
-      INTEGER    TSTEP_AVG             
-      PARAMETER (TSTEP_AVG              =  2)
-      INTEGER    TSTEP_ACCUM           
-      PARAMETER (TSTEP_ACCUM            =  3)
-      INTEGER    TSTEP_MAX             
-      PARAMETER (TSTEP_MAX              =  4)
-      INTEGER    TSTEP_MIN             
-      PARAMETER (TSTEP_MIN              =  5)
-      INTEGER    TSTEP_DIFF            
-      PARAMETER (TSTEP_DIFF             =  6)
-      INTEGER    TSTEP_RANGE           
-      PARAMETER (TSTEP_RANGE            =  7)
-      INTEGER    TSTEP_INSTANT2        
-      PARAMETER (TSTEP_INSTANT2         =  8)
-      INTEGER    TSTEP_INSTANT3        
-      PARAMETER (TSTEP_INSTANT3         =  9)
-!
 !  CALENDAR types
 !
       INTEGER    CALENDAR_STANDARD     
@@ -326,9 +336,53 @@
       PARAMETER (CALENDAR_366DAYS       =  4)
       INTEGER    CALENDAR_NONE         
       PARAMETER (CALENDAR_NONE          =  5)
-!
-!  CDI control routines
-!
+      INTEGER    PIO_NONE              
+      PARAMETER (PIO_NONE               =  0)
+      INTEGER    PIO_MPI               
+      PARAMETER (PIO_MPI                =  1)
+      INTEGER    PIO_WRITER            
+      PARAMETER (PIO_WRITER             =  2)
+      INTEGER    PIO_ASYNCH            
+      PARAMETER (PIO_ASYNCH             =  3)
+      INTEGER    PIO_FPGUARD           
+      PARAMETER (PIO_FPGUARD            =  4)
+!                     pioEndDef
+      EXTERNAL        pioEndDef
+
+!                     pioEndTimestepping
+      EXTERNAL        pioEndTimestepping
+
+!                     pioFinalize
+      EXTERNAL        pioFinalize
+
+      INTEGER         pioInit
+!                                    (INTEGER         ,
+!                                     INTEGER         ,
+!                                     INTEGER         ,
+!                                     INTEGER         ,
+!                                     INTEGER         )
+      EXTERNAL        pioInit
+
+      INTEGER         pioInqVarDecoChunk
+!                                    (INTEGER         ,
+!                                     INTEGER         )
+      EXTERNAL        pioInqVarDecoChunk
+
+      INTEGER         pioInqVarDecoOff
+!                                    (INTEGER         ,
+!                                     INTEGER         )
+      EXTERNAL        pioInqVarDecoOff
+
+!                     pioNamespaceSetActive
+!                                    (INTEGER         )
+      EXTERNAL        pioNamespaceSetActive
+
+!                     pioWriteTimestep
+!                                    (INTEGER         ,
+!                                     INTEGER         ,
+!                                     INTEGER         )
+      EXTERNAL        pioWriteTimestep
+
       CHARACTER*80    cdiStringError
 !                                    (INTEGER         cdiErrno)
       EXTERNAL        cdiStringError
@@ -439,6 +493,10 @@
 !                                    (INTEGER         streamID)
       EXTERNAL        streamInqVlist
 
+      INTEGER         streamInqVlistIDorig
+!                                    (INTEGER         streamID)
+      EXTERNAL        streamInqVlistIDorig
+
       INTEGER         streamInqFiletype
 !                                    (INTEGER         streamID)
       EXTERNAL        streamInqFiletype
@@ -491,6 +549,10 @@
       INTEGER         streamNtsteps
 !                                    (INTEGER         streamID)
       EXTERNAL        streamNtsteps
+
+      INTEGER         streamInqNvars
+!                                    (INTEGER         streamID)
+      EXTERNAL        streamInqNvars
 
 !
 !  STREAM var I/O routines
@@ -746,7 +808,7 @@
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         gridID,
 !                                     INTEGER         zaxisID,
-!                                     INTEGER         timeID)
+!                                     INTEGER         tsteptype)
       EXTERNAL        vlistDefVar
 
 !                     vlistChangeVarGrid
@@ -766,7 +828,7 @@
 !                                     INTEGER         varID,
 !                                     INTEGER         gridID,
 !                                     INTEGER         zaxisID,
-!                                     INTEGER         timeID)
+!                                     INTEGER         tsteptype)
       EXTERNAL        vlistInqVar
 
       INTEGER         vlistInqVarGrid
@@ -779,16 +841,24 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarZaxis
 
-      INTEGER         vlistInqVarTime
+!
+!  used in MPIOM
+!
+      INTEGER         vlistInqVarID
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         code)
+      EXTERNAL        vlistInqVarID
+
+      INTEGER         vlistInqVarTsteptype
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
-      EXTERNAL        vlistInqVarTime
+      EXTERNAL        vlistInqVarTsteptype
 
-!                     vlistDefVarTime
+!                     vlistDefVarTsteptype
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
-!                                     INTEGER         timeID)
-      EXTERNAL        vlistDefVarTime
+!                                     INTEGER         tsteptype)
+      EXTERNAL        vlistDefVarTsteptype
 
 !                     vlistDefVarCompType
 !                                    (INTEGER         vlistID,
@@ -975,17 +1045,6 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarAddoffset
 
-!                     vlistDefVarTsteptype
-!                                    (INTEGER         vlistID,
-!                                     INTEGER         varID,
-!                                     INTEGER         tsteptype)
-      EXTERNAL        vlistDefVarTsteptype
-
-      INTEGER         vlistInqVarTsteptype
-!                                    (INTEGER         vlistID,
-!                                     INTEGER         varID)
-      EXTERNAL        vlistInqVarTsteptype
-
 !                     vlistDefVarTimave
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
@@ -1060,6 +1119,25 @@
 !                                     INTEGER         varID,
 !                                     INTEGER         levelID)
       EXTERNAL        vlistMergedLevel
+
+!
+!  Ensemble info routines
+!
+!                     vlistDefVarEnsemble
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         ensID,
+!                                     INTEGER         ensCount,
+!                                     INTEGER         forecast_type)
+      EXTERNAL        vlistDefVarEnsemble
+
+      INTEGER         vlistInqVarEnsemble
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         ensID,
+!                                     INTEGER         ensCount,
+!                                     INTEGER         forecast_type)
+      EXTERNAL        vlistInqVarEnsemble
 
 !
 !  VLIST attributes

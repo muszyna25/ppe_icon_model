@@ -374,7 +374,7 @@ CONTAINS
       ! Set all variables in output_nml to their default values
 
       filetype           = FILETYPE_NC2 ! NetCDF
-      namespace          = ' '
+      namespace          = 'ECMWF'
       map_file           = ' '
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
@@ -2241,7 +2241,6 @@ CONTAINS
     END SELECT
      
     !
-
     CALL vlistDefTaxis(of%cdiVlistID, of%cdiTaxisID)
 
     !
@@ -2809,8 +2808,9 @@ CONTAINS
         ENDDO
       ENDIF
 
+
       varID = vlistDefVar(vlistID, gridID, zaxisID, info%cdiTimeID)
-      
+
       info%cdiVarID   = varID
 
       CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
@@ -2830,11 +2830,13 @@ CONTAINS
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
-!DR
-!DR Still missing: Set typeOfStatisticalProcessing
-!DR This feature is not yet fully supported by CDI
-!DR
-!DR      CALL  vlistDefVarTsteptype(vlistID, varID, info%istatproc);
+
+      !Set typeOfStatisticalProcessing
+      !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
+      !info%cdiTimeID in the call of vlistDefVar by info%istatproc
+      ! So far, passing typeOfStatisticalProcessing only works, when choosing TAXIS_RELATIVE. 
+      ! Otherwise, passing info%istatproc has no effect.
+      CALL vlistDefVarTsteptype(vlistID, varID, info%istatproc);
         
     ENDDO
     !
