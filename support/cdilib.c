@@ -4491,7 +4491,8 @@ int    pioFileClose    ( int );
 size_t pioFileWrite    ( int, int, const void*, size_t );
 
 #else
-typedef int MPI_Comm;
+//typedef int MPI_Comm;  DR: commented out, due to problems on SQUALL with netcdf-4.1.1-static-gcc45
+// netcdf.h contains: #define MPI_Comm int
 #endif
 
 #endif
