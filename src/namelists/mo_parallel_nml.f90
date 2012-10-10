@@ -78,7 +78,8 @@ MODULE mo_parallel_nml
     & config_max_no_of_comm_proc => max_no_of_comm_processes, &
     & config_max_no_of_comm_patt => max_no_of_comm_patterns,  &
     & config_sync_barrier_mode   => sync_barrier_mode,        &
-    & config_max_mpi_message_size => max_mpi_message_size
+    & config_max_mpi_message_size => max_mpi_message_size,    &
+    & config_use_physics_barrier  => use_physics_barrier
 
   IMPLICIT NONE
   PRIVATE
@@ -127,6 +128,7 @@ MODULE mo_parallel_nml
     LOGICAL :: p_test_run
 
     LOGICAL :: use_dycore_barrier ! put an mpi barrier before the dycore to synchronize MPI tasks
+    LOGICAL :: use_physics_barrier
     INTEGER :: itype_exch_barrier ! 1: put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
                                   ! 2: put an mpi barrier after MPI_WAIT to synchronize MPI tasks
                                   ! 3: 1+2
@@ -195,7 +197,7 @@ MODULE mo_parallel_nml
       & use_sp_output, itype_exch_barrier, exch_msgsize, &
       & icon_comm_method, max_no_of_comm_variables, &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
-      & sync_barrier_mode, max_mpi_message_size
+      & sync_barrier_mode, max_mpi_message_size, use_physics_barrier
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -228,7 +230,8 @@ MODULE mo_parallel_nml
     p_test_run = .FALSE.
 
     ! The barriers should be used for dedicated tests only, not for production runs
-    use_dycore_barrier = .FALSE.
+    use_dycore_barrier = config_use_dycore_barrier
+    use_physics_barrier= config_use_physics_barrier
     itype_exch_barrier = 0
     
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
@@ -347,6 +350,7 @@ MODULE mo_parallel_nml
     config_max_sr_buffer_size   = max_send_recv_buffer_size
     config_max_mpi_message_size = max_mpi_message_size
     config_use_dycore_barrier   = use_dycore_barrier
+    config_use_physics_barrier  = use_physics_barrier
     config_itype_exch_barrier   = itype_exch_barrier
     config_use_sp_output        = use_sp_output
     !-----------------------------------------------------

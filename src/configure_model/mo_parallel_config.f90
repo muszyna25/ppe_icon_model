@@ -55,7 +55,7 @@ MODULE mo_parallel_config
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
-       &  sync_barrier_mode, max_mpi_message_size
+       &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -94,8 +94,10 @@ MODULE mo_parallel_config
   ! model whereas the other PEs do a real parallelized run
   LOGICAL :: p_test_run = .false.
 
-  LOGICAL :: use_dycore_barrier = .false. ! put an mpi barrier before the dycore
+  LOGICAL :: use_dycore_barrier = .false. ! acivate an mpi barrier before the dycore
                                           ! to synchronize MPI tasks
+  LOGICAL :: use_physics_barrier = .false. ! activate mpi barrier after the physics
+                                            
   INTEGER :: itype_exch_barrier = 0  ! 1: put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
                                      ! 2: put an mpi barrier after MPI_WAIT to synchronize MPI tasks
                                      ! 3: 1+2

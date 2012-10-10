@@ -74,7 +74,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
+  USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
 
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &
     &                              msg_level, ltimer, timers_level, nqtendphy
@@ -1614,6 +1614,14 @@ CONTAINS
 
 
     IF (ltimer) CALL timer_stop(timer_physics)
+
+    !-------------------------------------------------------------------
+    IF (use_physics_barrier) THEN
+      CALL timer_start(timer_barrier)
+      CALL work_mpi_barrier()
+      CALL timer_stop(timer_barrier)
+    ENDIF
+    !-------------------------------------------------------------------
 
   END SUBROUTINE nwp_nh_interface
 
