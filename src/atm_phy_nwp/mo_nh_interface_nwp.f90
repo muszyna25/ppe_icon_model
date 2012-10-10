@@ -98,7 +98,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
                                    SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
-  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
+  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
