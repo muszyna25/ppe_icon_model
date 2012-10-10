@@ -147,15 +147,15 @@ MODULE mo_nwp_phy_types
                                 !! 5= temperature in updraft region (ptu)
                                 !! 6= humidity in updraft region (pqu)
                                 !! 7= condensate in updraft region (plu)
-      &  rain_upd(:,:),        & !! total precipitation produced in updrafts (prain)
+      &  rain_upd(:,:),        & !! total precipitation produced in updrafts [kg/m2/s]
       &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
                                 !!      = evaporation rate at surface
-      &  shfl_s_a(:,:),        & !! average or accumulated since model start of shfl_s ( W/m2)
-      &  lhfl_s_a(:,:),        & !! average or accumulated since model start of lhfl_s ( W/m2)
+      &  shfl_s_a(:,:),        & !! average or accumulated since model start of shfl_s [W/m2]
+      &  lhfl_s_a(:,:),        & !! average or accumulated since model start of lhfl_s [W/m2]
       &  qhfl_s_avg(:,:),      & !! average since model start of qhfl_s ( Kg/m2/s) 
                                 !! = average of evaporation rate at surface
       &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)

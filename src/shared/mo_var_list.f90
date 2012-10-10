@@ -27,7 +27,7 @@ MODULE mo_var_list
     &                            max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, STR_VINTP_TYPE
   USE mo_fortran_tools,    ONLY: assign_if_present
- USE mo_nonhydro_types,       ONLY: t_ptr_nh
+  USE mo_nonhydro_types,   ONLY: t_ptr_nh
 
   IMPLICIT NONE
 
@@ -490,7 +490,7 @@ CONTAINS
     !
     ! RJ: Set default loutput to .TRUE., regardless of this_list%p%loutput
     this_info%loutput             = .TRUE.
-    this_info%istatproc           = TSTEP_INSTANT
+    this_info%isteptype           = TSTEP_INSTANT
     this_info%resetval            = t_union_vals( 0.0_wp, 0, .FALSE.)
     this_info%lrestart            = this_list%p%lrestart
     this_info%lrestart_cont       = .FALSE.
@@ -713,7 +713,7 @@ CONTAINS
   SUBROUTINE set_var_metadata (info,                                           &
          &                     name, hgrid, vgrid, cf, grib2, ldims,           &
          &                     loutput, lcontainer, lrestart, lrestart_cont,   &
-         &                     initval, istatproc, resetval, lmiss,            &
+         &                     initval, isteptype, resetval, lmiss,            &
          &                     missval, tlev_source, tracer_info, vert_interp, &
          &                     hor_interp, in_group, verbose, cdiTimeID,       &
          &                     l_pp_scheduler_task)
@@ -730,7 +730,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart      ! restart file flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont ! continue on restart
     TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval       ! value if var not available
-    INTEGER,                 INTENT(in), OPTIONAL :: istatproc     ! type of statistical processing
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype     ! type of statistical processing
     TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval      ! reset value
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss         ! missing value flag
     TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval       ! missing value
@@ -773,7 +773,7 @@ CONTAINS
     CALL assign_if_present (info%lcontainer,    lcontainer)
     IF (info%lcontainer) info%ncontained = 0
     CALL struct_assign_if_present (info%resetval,resetval)
-    CALL assign_if_present (info%istatproc,     istatproc)
+    CALL assign_if_present (info%isteptype,     isteptype)
     CALL assign_if_present (info%lmiss,         lmiss)
     CALL struct_assign_if_present (info%missval,       missval)
     CALL assign_if_present (info%lrestart,      lrestart)
@@ -821,7 +821,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_r5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, istatproc,          &
+       lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
        cdiTimeID, l_pp_scheduler_task)
@@ -839,7 +839,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -892,7 +892,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,                     &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
          cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
@@ -943,7 +943,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, istatproc,          &
+       lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
        cdiTimeID, l_pp_scheduler_task)
@@ -961,7 +961,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -1014,7 +1014,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,                     &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
          cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1066,7 +1066,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, istatproc,          &
+       lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
        cdiTimeID, l_pp_scheduler_task)
@@ -1084,7 +1084,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -1137,7 +1137,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,                     &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
          cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1189,7 +1189,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, istatproc,          &
+       lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
        cdiTimeID, l_pp_scheduler_task)
@@ -1207,7 +1207,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -1260,7 +1260,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,                     &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
          cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1312,7 +1312,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, istatproc,          &
+       lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
        cdiTimeID, l_pp_scheduler_task)
@@ -1330,7 +1330,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -1383,7 +1383,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         istatproc=istatproc,resetval=resetval, lmiss=lmiss,                      &
+         isteptype=isteptype,resetval=resetval, lmiss=lmiss,                      &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
          cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1437,7 +1437,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_i5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, istatproc,          &
+       lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, hor_interp,     &
        vert_interp, in_group, verbose, new_element, cdiTimeID, &
        l_pp_scheduler_task)
@@ -1454,7 +1454,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
@@ -1506,7 +1506,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             & 
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             & 
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
          l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1558,7 +1558,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, istatproc,          &
+       lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -1575,7 +1575,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
@@ -1627,7 +1627,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
          l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1679,7 +1679,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, istatproc,          &
+       lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -1696,7 +1696,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
@@ -1748,7 +1748,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
          l_pp_scheduler_task=l_pp_scheduler_task)
@@ -1800,7 +1800,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, istatproc,          &
+       lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -1817,7 +1817,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
@@ -1869,7 +1869,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose)
     !
@@ -1920,7 +1920,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, istatproc,          &
+       lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -1937,7 +1937,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
@@ -1989,7 +1989,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose)
     !
@@ -2042,7 +2042,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_l5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, istatproc,          &
+       lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -2059,7 +2059,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
@@ -2111,7 +2111,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose)
     !
@@ -2162,7 +2162,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, istatproc,          &
+       lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -2179,7 +2179,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
@@ -2231,7 +2231,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose)
     !
@@ -2282,7 +2282,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, istatproc,          &
+       lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -2299,7 +2299,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
@@ -2351,7 +2351,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose)
     !
@@ -2402,7 +2402,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_l2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, istatproc,          &
+       lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -2419,7 +2419,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
@@ -2471,7 +2471,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose)
     !
@@ -2522,7 +2522,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, istatproc,          &
+       lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
        l_pp_scheduler_task)
@@ -2539,7 +2539,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
@@ -2591,7 +2591,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,             &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
          l_pp_scheduler_task=l_pp_scheduler_task)
@@ -2895,7 +2895,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       &                                 lrestart, lrestart_cont, initval_r, istatproc,          &
+       &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
        &                                 new_element, cdiTimeID, l_pp_scheduler_task)
@@ -2913,7 +2913,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -2987,7 +2987,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                               & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                  &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,   &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,               &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
@@ -3033,7 +3033,7 @@ CONTAINS
   !
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       &                                 lrestart, lrestart_cont, initval_r, istatproc,          &
+       &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
        &                                 verbose, new_element, cdiTimeID, l_pp_scheduler_task)
@@ -3051,7 +3051,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: istatproc           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
@@ -3124,7 +3124,7 @@ CONTAINS
          name=name, hgrid=hgrid, vgrid=vgrid,                               & 
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                  &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,   &
-         istatproc=istatproc, resetval=resetval, lmiss=lmiss,               &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
@@ -3342,7 +3342,7 @@ CONTAINS
         !
         WRITE (message_text,'(a,i2)')                          &
              ' type of stat. processing (I=1,AVG=2,ACC=3...: ',&
-             this_list_element%field%info%istatproc
+             this_list_element%field%info%isteptype
         CALL message('', message_text)
         !
         IF (this_list_element%field%info%lmiss) THEN

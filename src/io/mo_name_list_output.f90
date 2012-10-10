@@ -2809,7 +2809,7 @@ CONTAINS
       ENDIF
 
 
-      varID = vlistDefVar(vlistID, gridID, zaxisID, info%cdiTimeID)
+      varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
 
       info%cdiVarID   = varID
 
@@ -2833,10 +2833,10 @@ CONTAINS
 
       !Set typeOfStatisticalProcessing
       !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
-      !info%cdiTimeID in the call of vlistDefVar by info%istatproc
+      !info%cdiTimeID in the call of vlistDefVar by info%isteptype
       ! So far, passing typeOfStatisticalProcessing only works, when choosing TAXIS_RELATIVE. 
-      ! Otherwise, passing info%istatproc has no effect.
-      CALL vlistDefVarTsteptype(vlistID, varID, info%istatproc);
+      ! Otherwise, passing info%isteptype has no effect.
+      CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype);
         
     ENDDO
     !
@@ -3220,7 +3220,7 @@ CONTAINS
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
-      IF ((info%cdiTimeID == TIME_CONSTANT) .AND. .NOT. l_first_write) CYCLE
+      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. l_first_write) CYCLE
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
@@ -4100,7 +4100,7 @@ CONTAINS
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
-      IF ((info%cdiTimeID == TIME_CONSTANT) .AND. .NOT. l_first_write) CYCLE
+      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. l_first_write) CYCLE
 
       IF(info%ndims == 2) THEN
         nlevs = 1

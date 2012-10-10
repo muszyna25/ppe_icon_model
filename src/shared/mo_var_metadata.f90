@@ -86,7 +86,7 @@ MODULE mo_var_metadata
     ! 
     LOGICAL                    :: lrestart              ! write field to restart
     LOGICAL                    :: loutput               ! write field to output
-    INTEGER                    :: istatproc             ! Type of statistical processing
+    INTEGER                    :: isteptype             ! Type of statistical processing
     !                                         
     TYPE(t_union_vals)         :: resetval              ! reset value for accumulated fields
     LOGICAL                    :: lmiss                 ! missing value flag

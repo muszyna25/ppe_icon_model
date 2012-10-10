@@ -95,7 +95,7 @@
     USE mo_grib2,               ONLY: t_grib2_var
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, &
       &                               GRID_CELL, ZAXIS_SURFACE, TIME_CONSTANT, &
-      &                               DATATYPE_PACK16, DATATYPE_FLT32
+      &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state
     USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
@@ -359,7 +359,8 @@
               &           loutput=.TRUE., new_element=new_element,              &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ),                    &
-              &           cdiTimeID=TIME_CONSTANT )
+              &           isteptype=TSTEP_CONSTANT,                             &
+              &           cdiTimeID=TIME_CONSTANT )                ! deprecated
             ! link this new variable to the lon-lat grid:
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:

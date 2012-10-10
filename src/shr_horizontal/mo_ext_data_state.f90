@@ -443,7 +443,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,  &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
-      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
+      &           isteptype=TSTEP_CONSTANT )
 
     ! atmosphere land-sea-mask at surface on cell centers
     !
@@ -521,7 +522,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 7, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'topography_smt_c', p_ext_atm%topography_smt_c, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,                 &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,                   &
+      &           isteptype=TSTEP_CONSTANT )
 
 
     ! topography height at edge midpoint
@@ -532,7 +534,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_atm_list, 'topography_e', p_ext_atm%topography_e, &
       &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc,         &
-      &           grib2_desc, ldims=shape2d_e, loutput=.FALSE.)
+      &           grib2_desc, ldims=shape2d_e, loutput=.FALSE.,           &
+      &           isteptype=TSTEP_CONSTANT )
 
 
     ! topography height at vertex
@@ -543,7 +546,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_ext_atm_list, 'topography_v', p_ext_atm%topography_v, &
       &           GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE, cf_desc,         &
-      &           grib2_desc, ldims=shape2d_v, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_v, loutput=.FALSE.,           &
+      &           isteptype=TSTEP_CONSTANT )
 
 
     ! smoothed topography height at vertex
@@ -555,7 +559,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 7, ibits, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_ext_atm_list, 'topography_smt_v', p_ext_atm%topography_smt_v, &
       &           GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE, cf_desc,                 &
-      &           grib2_desc, ldims=shape2d_v, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_v, loutput=.FALSE.,                   &
+      &           isteptype=TSTEP_CONSTANT )
 
 
 
@@ -570,7 +575,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,     &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
+      &           isteptype=TSTEP_CONSTANT )
 
     ! land fraction
     !
@@ -579,7 +585,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+      &           isteptype=TSTEP_CONSTANT )
 
 
     ! glacier fraction
@@ -613,7 +620,8 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_land_smt', p_ext_atm%fr_land_smt, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,       &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,         &
+      &           isteptype=TSTEP_CONSTANT )
 
 
     ! glacier area fraction (smoothed)
@@ -671,7 +679,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_CONSTANT )
 
 
       ! lake depth
@@ -681,7 +690,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 192, 228, 7, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_CONSTANT )
 
 
 
@@ -698,7 +708,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_CONSTANT )
 
 
 
@@ -710,7 +721,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_gamma', p_ext_atm%sso_gamma, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,   &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           isteptype=TSTEP_CONSTANT )
 
 
 
@@ -722,7 +734,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 21, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_theta', p_ext_atm%sso_theta, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,   &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           isteptype=TSTEP_CONSTANT )
 
 
 
@@ -734,7 +747,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_sigma', p_ext_atm%sso_sigma, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,   &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           isteptype=TSTEP_CONSTANT )
 
 
 
