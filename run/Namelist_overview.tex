@@ -987,6 +987,14 @@ division\_method = 1
 \tabularnewline
 
 \hline 
+ntasks\_per\_node &
+I & 8 & &
+Assumption about number of MPI tasks per node used for geographical reordering of owner IDs in order to 
+reduce inter-node communication &
+division\_method = 1
+\tabularnewline
+
+\hline 
 p\_test\_run &
 L & .FALSE.& &
 .TRUE. means verification run for MPI parallelization (PE 0

@@ -70,7 +70,7 @@ MODULE mo_setup_subdivision
     & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
     & get_my_mpi_all_id, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
+  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, ntasks_per_node, &
     & division_method, division_file_name, n_ghost_rows, div_from_file, div_geometric
     
 #ifdef HAVE_METIS
@@ -80,7 +80,7 @@ MODULE mo_setup_subdivision
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, l_limited_area
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
@@ -563,7 +563,7 @@ CONTAINS
 
     ELSE
 
-      ! Build in subdivison methods
+      ! Built in subdivison methods
 
       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
 
@@ -594,7 +594,7 @@ CONTAINS
 
         IF(division_method==div_geometric) THEN
           wrk_divide_patch => wrk_p_parent_patch_g
-          CALL divide_subset_geometric( flag_c, n_proc, tmp)
+          CALL divide_subset_geometric( flag_c, n_proc, tmp, wrk_p_patch_g%id)
 #ifdef HAVE_METIS
         ELSE IF(division_method==div_metis) THEN
           wrk_divide_patch => wrk_p_parent_patch_g
@@ -633,7 +633,7 @@ CONTAINS
 
         IF(division_method==div_geometric) THEN
           wrk_divide_patch => wrk_p_patch_g
-          CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
+          CALL divide_subset_geometric(flag_c, n_proc, cell_owner, wrk_p_patch_g%id)
 #ifdef HAVE_METIS
         ELSE IF(division_method==div_metis) THEN
           wrk_divide_patch => wrk_p_patch_g
@@ -733,7 +733,7 @@ CONTAINS
 
     INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
                jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
-               jg, i_nchdom, irl0
+               jg, i_nchdom, irl0, mod_iown
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
@@ -1023,6 +1023,7 @@ CONTAINS
     DO j = 1, wrk_p_patch_g%n_patch_cells
       iown = wrk_p_patch%cells%owner_g(j)
       IF(iown<0) CYCLE
+      mod_iown = MOD(iown,2)
 
       jb = blk_no(j) ! block index
       jl = idx_no(j) ! line index
@@ -1032,8 +1033,8 @@ CONTAINS
         je = idx_1d(jl_e, jb_e)
         IF (wrk_p_patch%edges%owner_g(je) < 0) THEN
           wrk_p_patch%edges%owner_g(je) = iown
-        ELSE IF (MOD(iown,2)==0 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==0 .OR. &
-                 MOD(iown,2)==1 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==1) THEN
+        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==0 .OR. &
+                 mod_iown==1 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==1) THEN
           wrk_p_patch%edges%owner_g(je) = MAX(iown,wrk_p_patch%edges%owner_g(je))
         ELSE
           wrk_p_patch%edges%owner_g(je) = MIN(iown,wrk_p_patch%edges%owner_g(je))
@@ -1043,8 +1044,8 @@ CONTAINS
         jv = idx_1d(jl_v, jb_v)
         IF (wrk_p_patch%verts%owner_g(jv) < 0) THEN
           wrk_p_patch%verts%owner_g(jv) = iown
-        ELSE IF (MOD(iown,2)==0 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==0 .OR. &
-                 MOD(iown,2)==1 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==1) THEN
+        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==0 .OR. &
+                 mod_iown==1 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==1) THEN
           wrk_p_patch%verts%owner_g(jv) = MAX(iown,wrk_p_patch%verts%owner_g(jv))
         ELSE
           wrk_p_patch%verts%owner_g(jv) = MIN(iown,wrk_p_patch%verts%owner_g(jv))
@@ -1638,18 +1639,7 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
 
-      ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
-      ! This will be changed in set_parent_child_relations.
-
-      wrk_p_patch%cells%parent_idx(jl,jb)  = wrk_p_patch_g%cells%parent_idx(jl_g,jb_g)
-      wrk_p_patch%cells%parent_blk(jl,jb)  = wrk_p_patch_g%cells%parent_blk(jl_g,jb_g)
-      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_g%cells%pc_idx(jl_g,jb_g)
-      wrk_p_patch%cells%child_idx(jl,jb,:) = wrk_p_patch_g%cells%child_idx(jl_g,jb_g,:)
-      wrk_p_patch%cells%child_blk(jl,jb,:) = wrk_p_patch_g%cells%child_blk(jl_g,jb_g,:)
-      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
-
       DO i=1,wrk_p_patch%cell_type
-
 !CDIR IEXPAND
         CALL get_local_index(wrk_p_patch%cells%loc_index, &
           & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),&
@@ -1672,17 +1662,37 @@ CONTAINS
           & wrk_p_patch%cells%vertex_blk(jl,jb,i))
 
       ENDDO
+    ENDDO
+
+    DO j = 1, wrk_p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
+      jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
+
+      ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+      ! This will be changed in set_parent_child_relations.
+
+      wrk_p_patch%cells%parent_idx(jl,jb)  = wrk_p_patch_g%cells%parent_idx(jl_g,jb_g)
+      wrk_p_patch%cells%parent_blk(jl,jb)  = wrk_p_patch_g%cells%parent_blk(jl_g,jb_g)
+      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_g%cells%pc_idx(jl_g,jb_g)
+      wrk_p_patch%cells%child_idx(jl,jb,1:4) = wrk_p_patch_g%cells%child_idx(jl_g,jb_g,1:4)
+      wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_g%cells%child_blk(jl_g,jb_g,1:4)
+      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
 
       ! Safety check only: edge_idx and vertex_idx must always be valid!
-      if(any(wrk_p_patch%cells%edge_idx(jl,jb,:) <= 0) .or. &
-       & any(wrk_p_patch%cells%edge_blk(jl,jb,:) <= 0) )    &
-       & CALL finish('divide_patch','Illegal value for patch%cells%edge_idx')
-      if(any(wrk_p_patch%cells%vertex_idx(jl,jb,:) <= 0) .or. &
-       & any(wrk_p_patch%cells%vertex_blk(jl,jb,:) <= 0) )    &
-       & CALL finish('divide_patch','Illegal value for patch%cells%vertex_idx')
+ !     if(any(wrk_p_patch%cells%edge_idx(jl,jb,:) <= 0) .or. &
+ !      & any(wrk_p_patch%cells%edge_blk(jl,jb,:) <= 0) )    &
+ !      & CALL finish('divide_patch','Illegal value for patch%cells%edge_idx')
+ !     if(any(wrk_p_patch%cells%vertex_idx(jl,jb,:) <= 0) .or. &
+ !      & any(wrk_p_patch%cells%vertex_blk(jl,jb,:) <= 0) )    &
+ !      & CALL finish('divide_patch','Illegal value for patch%cells%vertex_idx')
 
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_g%cells%num_edges(jl_g,jb_g)
-      wrk_p_patch%cells%center(jl,jb)             = wrk_p_patch_g%cells%center(jl_g,jb_g)
+      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lat
+      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_g%cells%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
       wrk_p_patch%cells%decomp_domain(jl,jb)      = flag2_c(wrk_p_patch%cells%glb_index(j))
@@ -1724,7 +1734,8 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%verts%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%verts%glb_index(j)) ! Line  index in global patch
 
-      wrk_p_patch%verts%vertex(jl,jb)        = wrk_p_patch_g%verts%vertex(jl_g,jb_g)
+      wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lat
+      wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lon
       wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
 
@@ -1807,19 +1818,24 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner, id)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    INTEGER, INTENT(in)    :: id       ! Domain ID 
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
-    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1)
+    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1), js, np
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
-               ncell_offset(0:max_phys_dom)
-    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
-    REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom)
+               ncell_offset(0:max_phys_dom), nlatbands, nlonsegments, nbins_hem, nbins
+    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:), aux_lat(:), aux_lon(:), aux_clat(:), &
+                             minlat_bin(:), maxlat_bin(:), minlon_bin(:), maxlon_bin(:)
+    INTEGER,  ALLOCATABLE :: aux_owner(:)
+    REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom), newproc(0:n_proc-1), &
+                minlat, maxlat, minlon, maxlon, avglat(0:n_proc-1), avglon(0:n_proc-1), &
+                thrlat1, thrlat2, thrlon1, thrlon2
     LOGICAL  :: lsplit_merged_domains
 
     !-----------------------------------------------------------------------
@@ -1994,7 +2010,27 @@ CONTAINS
       ncell_offset(0) = 0
       ncell_offset(1) = nc
 
-    ELSE ! ordinary domain decomposition with optional splitting into physical domains
+    ELSE IF (wrk_divide_patch%cell_type == 6) THEN
+
+      DO j = 1, wrk_divide_patch%n_patch_cells
+
+        IF (subset_flag(j) <= 0) CYCLE
+
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+
+        nc = nc+1 ! Cell counter
+
+        cell_desc(1,nc) = wrk_divide_patch%cells%center(jl,jb)%lat
+        cell_desc(2,nc) = wrk_divide_patch%cells%center(jl,jb)%lon
+        cell_desc(3,nc) = REAL(nc,wp)
+        cell_desc(4,nc) = 0.0_wp
+
+      ENDDO
+
+      ncell_offset(1) = nc
+
+    ELSE ! domain decomposition for triangular cells with optional splitting into physical domains
 
       npt = wrk_divide_patch%n_patch_cells+1
 
@@ -2002,6 +2038,7 @@ CONTAINS
 
         idp = id_physdom(jd)
 
+!CDIR NODEP
         DO j = 1, wrk_divide_patch%n_patch_cells
 
           ! Skip cell if it is not in subset or does not belong to current physical domain
@@ -2028,18 +2065,18 @@ CONTAINS
           ! Thus we use the minimum lat/lon as subdision criterion.
 
           IF (cell_desc(1,nc) >= 0._wp) THEN
-            DO i=1,wrk_divide_patch%cells%num_edges(jl,jb)
+            DO i = 1, 3
               jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
               jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
               cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
               cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
             ENDDO
           ELSE
-            DO i=1,wrk_divide_patch%cells%num_edges(jl,jb)
+            DO i = 1, 3
               jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
               jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
-             cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
-             cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
+              cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
+              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
             ENDDO
           ENDIF
 
@@ -2118,6 +2155,136 @@ CONTAINS
 
     DEALLOCATE(cell_desc)
 
+    IF (divide_for_radiation .OR. lsplit_merged_domains .OR. n_proc < 16) RETURN
+
+    ! Determine parameters for sorting the owners according to the geographical position
+    ! of their subdomain
+
+    IF (id == 1 .AND. .NOT. l_limited_area) THEN
+      ! Number of latitude bands per hemisphere
+      nlatbands = MAX(2,NINT(SQRT(REAL(n_proc,wp)/(2._wp*REAL(ntasks_per_node)))))
+      ! Number of bins per hemisphere and total number
+      nbins_hem = nlatbands**2
+      nbins     = 2*nbins_hem
+    ELSE
+      ! Total number of latitude bands
+      nlatbands = MAX(2,NINT(SQRT(REAL(n_proc,wp)/(REAL(ntasks_per_node)))))
+      ! Number of bins
+      IF (nlatbands <= 3) THEN
+        nlonsegments = 1
+        nbins        = nlatbands**2
+        nlatbands    = nbins
+      ELSE
+        nlonsegments = nlatbands
+        nbins        = nlatbands*nlonsegments
+      ENDIF
+    ENDIF
+
+    nc = wrk_divide_patch%n_patch_cells
+    ALLOCATE (aux_lat(nc),aux_clat(nc),aux_lon(nc),aux_owner(nc),minlat_bin(nbins), &
+              maxlat_bin(nbins),minlon_bin(nbins),maxlon_bin(nbins))
+
+    ! Compute average latitude and longitude of each subdomain for owner reordering
+    DO j = 1, wrk_divide_patch%n_patch_cells
+      jb = blk_no(j) ! block index
+      jl = idx_no(j) ! line index
+
+      aux_lat(j)  = wrk_divide_patch%cells%center(jl,jb)%lat
+      aux_clat(j) = COS(wrk_divide_patch%cells%center(jl,jb)%lat)
+      aux_lon(j)  = wrk_divide_patch%cells%center(jl,jb)%lon
+      aux_owner(j) = owner(j)
+    ENDDO
+
+    DO i = 0, n_proc-1
+      avglat(i) = SUM(aux_lat(:)*aux_clat(:),MASK=owner(:)==i) / &
+                  SUM(aux_clat(:),MASK=owner(:)==i)
+      avglon(i) = SUM(aux_lon(:)*aux_clat(:),MASK=owner(:)==i) / &
+                  SUM(aux_clat(:),MASK=owner(:)==i)
+    ENDDO
+
+    IF (id == 1 .AND. .NOT. l_limited_area) THEN ! global domain
+      nn = 0
+      npt = nbins+1
+
+      ! Divide the earth surface in nbins pieces of equal area
+      IF (nlatbands <= 3) THEN ! Use latitude bands only
+        DO i = 1, nbins_hem
+          thrlat1 = ASIN(1._wp - REAL(i-1,wp)/REAL(nbins_hem,wp))
+          thrlat2 = ASIN(1._wp - REAL(i  ,wp)/REAL(nbins_hem,wp))
+          thrlon1 = -pi 
+          thrlon2 = pi 
+          nn = nn+1
+          maxlat_bin(nn) = thrlat1
+          minlat_bin(nn) = thrlat2
+          minlon_bin(nn) = thrlon1
+          maxlon_bin(nn) = thrlon2
+          minlat_bin(npt-nn) = -thrlat1
+          maxlat_bin(npt-nn) = -thrlat2
+          minlon_bin(npt-nn) = thrlon1
+          maxlon_bin(npt-nn) = thrlon2
+        ENDDO
+      ELSE ! Use a combination of latitude bands and longitude segments
+        DO i = 1, nlatbands
+          thrlat1 = ASIN(1._wp - REAL(i-1,wp)**2/REAL(nbins_hem,wp))
+          thrlat2 = ASIN(1._wp - REAL(i  ,wp)**2/REAL(nbins_hem,wp))
+          nlonsegments = 2*i-1
+          DO j = 1, nlonsegments
+            thrlon1 = -pi + 2._wp*pi*REAL(j-1,wp)/REAL(nlonsegments,wp)
+            thrlon2 = -pi + 2._wp*pi*REAL(j  ,wp)/REAL(nlonsegments,wp)
+            nn = nn+1
+            maxlat_bin(nn) = thrlat1
+            minlat_bin(nn) = thrlat2
+            minlon_bin(nn) = thrlon1
+            maxlon_bin(nn) = thrlon2
+            minlat_bin(npt-nn) = -thrlat1
+            maxlat_bin(npt-nn) = -thrlat2
+            minlon_bin(npt-nn) = thrlon1
+            maxlon_bin(npt-nn) = thrlon2
+          ENDDO
+        ENDDO
+      ENDIF
+
+    ELSE ! regional domain
+      minlat = MINVAL(aux_lat(:),MASK=owner(:)>=0)
+      maxlat = MAXVAL(aux_lat(:),MASK=owner(:)>=0)
+      minlon = MINVAL(aux_lon(:),MASK=owner(:)>=0)
+      maxlon = MAXVAL(aux_lon(:),MASK=owner(:)>=0)
+
+      nn = 0
+      npt = nbins+1
+      DO i = 1, nlatbands
+        thrlat1 = minlat + (maxlat-minlat)*REAL(i-1,wp)/REAL(nlatbands,wp)
+        thrlat2 = minlat + (maxlat-minlat)*REAL(i  ,wp)/REAL(nlatbands,wp)
+        DO j = 1, nlonsegments
+          thrlon1 = minlon + (maxlon-minlon)*REAL(j-1,wp)/REAL(nlonsegments,wp)
+          thrlon2 = minlon + (maxlon-minlon)*REAL(j  ,wp)/REAL(nlonsegments,wp)
+          nn = nn+1
+          minlat_bin(nn) = thrlat1
+          maxlat_bin(nn) = thrlat2
+          minlon_bin(nn) = thrlon1
+          maxlon_bin(nn) = thrlon2
+        ENDDO
+      ENDDO
+    ENDIF
+
+    np = -1
+    DO nn = 1, nbins
+      DO i = 0, n_proc-1
+        IF (avglat(i) >= minlat_bin(nn) .AND. avglat(i) < maxlat_bin(nn) .AND. &
+            avglon(i) >= minlon_bin(nn) .AND. avglon(i) < maxlon_bin(nn) ) THEN
+          np = np + 1
+          newproc(i) = np
+        ENDIF
+      ENDDO
+      js = jn
+    ENDDO
+
+    DO j = 1, wrk_divide_patch%n_patch_cells
+      IF (owner(j) >= 0)  owner(j) = newproc(aux_owner(j))
+    ENDDO
+
+    DEALLOCATE(aux_lat,aux_clat,aux_lon,aux_owner,minlat_bin,maxlat_bin,minlon_bin,maxlon_bin)
+
   END SUBROUTINE divide_subset_geometric
 
   !-------------------------------------------------------------------------
@@ -2140,7 +2307,7 @@ CONTAINS
     ! work contains workspace for sort_array_by_row to avoid local allocation there
 
     INTEGER cpu_m, n_cells_m
-    REAL(wp) :: xmax(2), xmin(2), avglat
+    REAL(wp) :: xmax(2), xmin(2), avglat, scalexp
     !-----------------------------------------------------------------------
 
     ! If there is only 1 CPU for distribution, we are done
@@ -2160,9 +2327,10 @@ CONTAINS
     ! average latitude in patch
     avglat  = SUM(cell_desc(1,:))/REAL(n_cells,wp)
 
-    ! account for convergence of meridians
-    xmin(2) = xmin(2)*SQRT(COS(avglat))
-    xmax(2) = xmax(2)*SQRT(COS(avglat))
+    ! account somehow for convergence of meridians - this formula is just empiric
+    scalexp = 1._wp - MAX(0._wp,ABS(xmax(1))-1._wp,ABS(xmin(1))-1._wp)
+    xmin(2) = xmin(2)*(COS(avglat))**scalexp
+    xmax(2) = xmax(2)*(COS(avglat))**scalexp
 
     ! Get dimension with biggest distance from min to max
     ! and sort cells in this dimension

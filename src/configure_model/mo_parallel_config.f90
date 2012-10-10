@@ -49,7 +49,7 @@ MODULE mo_parallel_config
        &  div_from_file, div_geometric, div_metis, division_method, &
        &  division_file_name, radiation_division_file_name, &
        &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
-       &  p_test_run, l_test_openmp, exch_msgsize,                  &
+       &  p_test_run, l_test_openmp, exch_msgsize, ntasks_per_node, &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
@@ -81,6 +81,10 @@ MODULE mo_parallel_config
   ! Flag if (in case of merged domains) physical domains shall be considered for 
   ! computing the domain decomposition
   LOGICAL :: ldiv_phys_dom = .FALSE.
+
+  ! Parameter for reordering the owner assignment in the domain decomposition according to
+  ! their geographical position
+  INTEGER :: ntasks_per_node = 8
 
   ! Flag if checks in a verification run should be logged
   LOGICAL :: l_log_checks = .false.
