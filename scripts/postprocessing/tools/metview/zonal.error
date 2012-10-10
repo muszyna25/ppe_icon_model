@@ -144,22 +144,22 @@ for nd=1 to ndays do
 # --- data files
 
 # source_ini_icon = '/uwork1/mkoehler/icon/experiments/exp'&expnum&
-#   '/NWP_icon'&exphres&'_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb'
+#   '/NWP_icon'&exphres&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
 # source_ver_icon = '/uwork1/mkoehler/icon/experiments/exp'&expnum&
-#   '/NWP_icon'&exphres&'_DOM01_'&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb' 
+#   '/NWP_icon'&exphres&verdate&vertime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb' 
 # source_pl_ifs ='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb'
 # source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
 
   mntxt = parse(tailfile, "_")
 
   if lmonth = 0 then
-    source_ini_icon = datafile&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb'
-    source_ver_icon = datafile&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb'
+    source_ini_icon = datafile&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
+    source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
   else
-    source_ini_icon = datafile&yyyymm&'_0001_'&varfile&'_'&levtype&tailfile
-    source_ver_icon = datafile&yyyymm&'_0001_'&varfile&'_'&levtype&tailfile 
+    source_ini_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
+    source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile 
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
   end if

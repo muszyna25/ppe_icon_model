@@ -1,13 +1,7 @@
-alias myalias set SMS_PROG 903455 \; login ecgate UID 1
-
-define icon_restart {
-   cancel -y icon
-   play icon.def
-   begin icon
-}
+alias lll set SMS_PROG 901730 \; login ecgate UID 1
 
 define total_restart {
-   myalias
+   lll
    icon_restart
    force complete /icon/ifs_fct/fct_ifs
    force queued   /icon/forecast/check_progress
@@ -15,16 +9,16 @@ define total_restart {
 }
 
 define ifs_trigger_restart {
-   myalias
+   lll
    cancel -y ifs_trigger
    play ifs_trigger.def
    begin ifs_trigger
 }
 
 define icon_restart_001 {
-   myalias
-   cancel -y icon_001
-   play icon.def
+   lll
+   cancel -y /UID/001
+   play -r /UID/001 icon.def
    mkdirs -v
-   begin icon_001
+   begin UID
 }

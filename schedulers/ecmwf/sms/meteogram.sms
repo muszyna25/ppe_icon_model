@@ -28,26 +28,19 @@ echo "METEOGRAM.SMS"
 #-----------------------------------------------------------------------------
 # meteogram plots
 
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
+
 outdir_mtg=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-outfile_mtg=%SUITE%_meteogram.nc
+outfile_mtg=${basename}_meteogram.nc
 dir_mtgrm=%ECPERM%/icon-dev/scripts/postprocessing/tools
 cd ${outdir_mtg}
 cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot_sfc.ncl .
 
-#  cat > meteo.s << EOF_METEO
-#   mtgrm_plot.s %YMD%%INIHOUR% R2B06 ec001
-#   chmod a+r meteo/*
-#   #ssh oflxs04.dwd.de mkdir -p /fe1-daten/mkoehler/plots/icon/nwp.ec001/meteo
-#   #scp -r meteo/NWP_iconR2B*_DOM01_2011010100_0001_meteogram.*.png \
-#   #  oflxs04.dwd.de:/fe1-daten/mkoehler/plots/icon/nwp.ec001/meteo
-#EOF_METEO
-#  chmod a+x meteo.s
-#   meteo.s
-
 # ncl plotting
 PATH=$PATH:/usr/local/apps/ncl/5.2.1/LP64/bin
 export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
-./mtgrm_plot.s %YMD%%INIHOUR% R2B06 ec001  ${outdir_mtg} ${outfile_mtg}
+./mtgrm_plot.s %YMD%%INIHOUR% R2B06 %EXPNUM% ${outdir_mtg} ${outfile_mtg}
 
 # transfer to DWD
 #ectrans ...

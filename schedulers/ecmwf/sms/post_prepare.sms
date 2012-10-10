@@ -51,7 +51,7 @@ ecp -o NAMELIST_${basename} $ecfsdir
 # meteogram: rename and copy to ecgate
 
 outfile_mtg1=${outdir}"METEOGRAM_patch001.nc"
-outfile_mtg2=${outdir}%SUITE%"_meteogram.nc"
+outfile_mtg2=${outdir}${basename}"_meteogram.nc"
 mv $outfile_mtg1 $outfile_mtg2 || true
 rcp $outfile_mtg2 ecgate:${gatedir}
 ecp -o $outfile_mtg2 $ecfsdir
@@ -61,9 +61,9 @@ ecp -o $outfile_mtg2 $ecfsdir
 # GRIB: rename and copy to ecgate
 
 for levtype in ML PL HL ; do
-  outfile1=${outdir}${basename}_DOM01_${levtype}_0001.grb
-  outfile2=${outdir}%SUITE%_DOM01_${levtype}_0001_%YMD%%INIHOUR%.grb
-  mv ${outfile1} ${outfile2} || true
+#  outfile1=${outdir}${basename}_DOM01_${levtype}_0001.grb
+   outfile2=${outdir}${basename}_DOM01_${levtype}_0001.grb
+#  mv ${outfile1} ${outfile2} || true
   ecp -o $outfile2 $ecfsdir  || true
 done
 smsevent meteogram_data

@@ -32,7 +32,7 @@ timestep=0
 while [[ $timestep -lt %NSTEPS% && $flag -eq 0 ]]
 do
 
-  timestep=`grep -i "time step" %SMSOUT%/%SUITE%/forecast/model.1 | tail -n1 | awk '{print $6}'`
+  timestep=`grep -i "time step" %SMSOUT%/%SUITE%/%EXPNUM%/forecast/model.1 | tail -n1 | awk '{print $6}'`
   if [[ ! -n "$timestep"  || "$timestep" = "initial" ]]
  #if [ "$timestep" = "initial" ]
   then

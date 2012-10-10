@@ -38,6 +38,9 @@ EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 export ARCH="rs6000"
 cd ${EXPDIR}
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
+
 
 
 #-----------------------------------------------------------------------------
@@ -51,7 +54,7 @@ export nstart
 if [[ $lmetview = 1 ]] ; then
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
-  export DATAFILE='grb_data/%SUITE%_DOM01_'
+  export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
   export TAILFILE='.grb'
   export LMONTH=0
   export YYYYMM
@@ -60,12 +63,12 @@ if [[ $lmetview = 1 ]] ; then
   VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s -1`
   VERDATE=`echo $VERDATEHOUR | cut -c1-8`
   VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
-  ./many.error.s %YMD% %INIHOUR% $VERDATE $VERHOUR 1 r2B06 %SUITE%
+  ./many.error.s %YMD% %INIHOUR% $VERDATE $VERHOUR 1 r2B06 %EXPNUM%
  ## minus one day "-s +1"!!!
  #VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
  #VERDATE=`echo $VERDATEHOUR | cut -c1-8`
  #VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
- #./many.error.s $VERDATE $VERHOUR %YMD% %INIHOUR% 1 r2B06 %SUITE%
+ #./many.error.s $VERDATE $VERHOUR %YMD% %INIHOUR% 1 r2B06 %EXPNUM%
 fi
 
 %nopp
