@@ -247,10 +247,10 @@ CONTAINS
   !! ice % hi       new ice  thickness for each ice category                [m]
   !! ice % hsold    old snow thickness for each ice category                [m]
   !! ice % hiold    old ice  thickness for each ice category                [m]
-  !! ice % T1       the new upper ice+snow temp.  for each ice category     [�C]
-  !! ice % T2       the new lower ice temperature for each ice category     [�C]
+  !! ice % T1       the new upper ice+snow temp.  for each ice category     [C]
+  !! ice % T2       the new lower ice temperature for each ice category     [C]
   !! ice % evapwi   amount of evaporated water from the mixed layer
-  !!                in previously ice covered areas if all ice is gone      [kg/m�]
+  !!                in previously ice covered areas if all ice is gone      [kg/m^3]
   !! ice % heatOceI to contain the energy that is available to the mixed layer
   !!                in previously ice covered areas if all ice is gone      [J]
   !!
@@ -266,31 +266,32 @@ CONTAINS
     REAL(wp),                  INTENT(IN)            :: rpreci(:,:) 
                                    ! water equiv. solid precipitation rate [m/s] DIMENSION (ie,je)
     !REAL(wp),                  INTENT(IN)    :: lat(:,:,:) 
-                                   !! lat. heat flux  [W/m�] DIMENSION (ie,je,kice)
+                                   !! lat. heat flux  [W/m^2] DIMENSION (ie,je,kice)
 
     !!Local variables
     REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::         &
       & below_water, & ! Thickness of snow layer below water line           [m]
-      & C1,          & ! L  * rhos * hs                                     [J/m�]
-      & C2,          & ! E1 * rhoi * h1                                     [J/m�]
-      & C3,          & ! E2 * rhoi * h2                                     [J/m�]
+      & C1,          & ! L  * rhos * hs                                     [J/m^2]
+      & C2,          & ! E1 * rhoi * h1                                     [J/m^2]
+      & C3,          & ! E2 * rhoi * h2                                     [J/m^2]
       & delh2,       & ! increase of bottom layer thickness (Eq. 24)        [m]
       & draft,       & ! depth of ice-ocean interface below sea level       [m]
       & E1,          & ! Energy content of upper ice+snow layer             [J/kg]
       & E2,          & ! Energy content of lower ice      layer             [J/kg]
-      & Q_surplus,   & ! for energy conservation
+      ! for energy conservation
+      & Q_surplus,   &
       !
       & f1,          & ! Fraction of upper ice in new ice layer (Eq. 37)
       & h1,          & ! Thickness of upper ice layer                       [m]
       & h2,          & ! Thickness of lower ice layer                       [m] 
       & new_snow3d,  & ! New snow fallen onto each ice category             [m]
-      !& subli,       & ! Amount of ice+snow that is sublimated away         [kg/m�]
-      & Tbar,        & ! Dummy temperature for new temperature calculation  [�C]
-      & surfmeltsn,  & ! Surface melt water from snow melt with T=0�C       [m]
+      !& subli,       & ! Amount of ice+snow that is sublimated away         [kg/m^3]
+      & Tbar,        & ! Dummy temperature for new temperature calculation  [C]
+      & surfmeltsn,  & ! Surface melt water from snow melt with T=0C        [m]
       & surfmelti1,  & ! Surface melt water from upper ice with T=-muS      [m]
       & surfmelti2,  & ! Surface melt water from lower ice with T=-muS      [m]
       & zHeatOceI,   & ! Oceanic heat flux                                  [W/m^2]
-      & Tfw            ! Ocean freezing temperature [°C]
+      & Tfw            ! Ocean freezing temperature [C]
 
     TYPE(t_subset_range), POINTER :: all_cells
     
@@ -565,10 +566,10 @@ CONTAINS
             
             ! Energy balance: discrepancy in eqn. (2)
             
-            Q_surplus(jc,k,jb) =   (   ice%E1(jc,k,jb) - E1(jc,k,jb)            &
-              &                      + ice%E2(jc,k,jb) - E2(jc,k,jb) ) / dtime  &
-              &                  - (ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb) )    &
-              &                / (ice%hs(jc,k,jb)*rhos + ice%hi(jc,k,jb)*rhoi)
+!            Q_surplus(jc,k,jb) =   (   ice%E1(jc,k,jb) - E1(jc,k,jb)            &
+!              &                      + ice%E2(jc,k,jb) - E2(jc,k,jb) ) / dtime  &
+!              &                  - (ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb) )    &
+!              &                / (ice%hs(jc,k,jb)*rhos + ice%hi(jc,k,jb)*rhoi)
             
           END IF  !isice
         END DO
