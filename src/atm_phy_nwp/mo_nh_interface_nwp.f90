@@ -225,9 +225,9 @@ CONTAINS
     ! variables for extended debug output
     REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
     REAL(wp), DIMENSION(pt_patch%nblks_c,pt_patch%nlev) :: maxabs_u, maxabs_v, &
-      maxtemp, mintemp, maxqv, minqv, maxqc, maxtturb, maxuturb, maxvturb
+      maxtemp, mintemp, maxqv, minqv, maxqc, minqc, maxtturb, maxuturb, maxvturb
     REAL(wp), DIMENSION(pt_patch%nlev) :: umax, vmax, tmax, tmin, qvmax, qvmin, qcmax, &
-      tturbmax, uturbmax, vturbmax
+      qcmin, tturbmax, uturbmax, vturbmax
 
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
@@ -344,7 +344,7 @@ CONTAINS
         maxqv(:,:)    = 0._wp
         minqv(:,:)    = 1.e20_wp
         maxqc(:,:)    = 0._wp
-
+        minqc(:,:)    = 1.e20_wp
 
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
@@ -368,6 +368,7 @@ CONTAINS
                 maxqv(jb,jk)    = MAX(maxqv(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqv))
                 minqv(jb,jk)    = MIN(minqv(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqv))
                 maxqc(jb,jk)    = MAX(maxqc(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqc))
+                minqc(jb,jk)    = MIN(minqc(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqc))
               ENDDO
             ENDDO
 
@@ -383,6 +384,7 @@ CONTAINS
           qvmax(jk) = MAXVAL(maxqv(:,jk))
           qvmin(jk) = MINVAL(minqv(:,jk))
           qcmax(jk) = MAXVAL(maxqc(:,jk))
+          qcmin(jk) = MINVAL(minqc(:,jk))
         ENDDO
 
         ! Finally take maximum/minimum over all PEs
@@ -393,13 +395,15 @@ CONTAINS
         qvmax = global_max(qvmax)
         qvmin = global_min(qvmin)
         qcmax = global_max(qcmax)
+        qcmin = global_min(qcmin)
 
         WRITE(message_text,'(a,i2)') 'max |U|, max |V|, min/max T, min/max QV,&
           & max QC per level in domain ',jg
         CALL message('', TRIM(message_text))
         DO jk = 1, nlev
           WRITE(message_text,'(a,i3,7(a,e12.5))') 'level ',jk,': u =',umax(jk),', v =',vmax(jk), &
-            ', t =', tmin(jk),' ', tmax(jk),', qv =', qvmin(jk),' ', qvmax(jk),', qc =', qcmax(jk)
+            ', t =', tmin(jk),' ', tmax(jk),', qv =', qvmin(jk),' ', qvmax(jk), &
+            ', qc =', qcmax(jk)   !,' ',qcmin(jk)
           CALL message('', TRIM(message_text))
         ENDDO
 
@@ -1711,7 +1715,7 @@ CONTAINS
         &                                  + pdtime                                     &
         &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
 
-      !grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+      !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
       prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
         &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
         &                              +  pdtime                                        &

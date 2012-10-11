@@ -378,7 +378,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
     ! &      diag%tot_prec(nproma,nblks_c)
-    cf_desc    = t_cf_var('tot_prec', '', 'total precip', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tot_prec', 'kg m-2', 'total precip', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
@@ -386,17 +386,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & in_group=groups("precip_vars"),                             &
                 & isteptype=TSTEP_ACCUM )
 
+
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('tot_prec_rate_avg', '', 'total precip, time average', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tot_prec_rate_avg', 'kg m-2 s-1',                  &
+      &          'total precip rate, time average', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec_rate_avg', diag%tot_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
                 & isteptype=TSTEP_AVG )
 
+
     ! &      diag%con_prec_rate_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('con_prec_rate_avg', '', 'convective precip, time average', & 
-         &                DATATYPE_FLT32)
+    cf_desc    = t_cf_var('con_prec_rate_avg', 'kg m-2 s-1',                  &
+      &          'convective precip rate, time average', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 10, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'con_prec_rate_avg', diag%con_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
@@ -405,8 +408,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & isteptype=TSTEP_AVG )
 
     ! &      diag%gsp_prec_rate_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('gsp_prec_rate_avg', '', 'gridscale precip, time average', &
-         &                DATATYPE_FLT32)
+    cf_desc    = t_cf_var('gsp_prec_rate_avg', 'kg m-2 s-1',                  &
+      &          'gridscale precip rate, time average', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'gsp_prec_rate_avg', diag%gsp_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &

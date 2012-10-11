@@ -131,13 +131,14 @@ MODULE mo_nwp_phy_types
       &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
       &   rain_con(:,:),       & !! accumulated convective surface rain                  [kg/m2]
       &   snow_con(:,:),       & !! accumulated convective surface snow                  [kg/m2]
-      &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface total precipitation
-      &   tot_prec_rate_avg(:,:),   & !! average since model start of 
+      &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface       [kg/m2]
+                                 !! total precipitation
+      &   tot_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
                                 !! grid-scale plus convective surface 
                                 !! total precipitation rate
-      &   con_prec_rate_avg(:,:),   & !! average since model start of 
+      &   con_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
                                 !! convective surface precipitation rate
-      &   gsp_prec_rate_avg(:,:),   & !! average since model start of 
+      &   gsp_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
                                 !! grid-scale surface precipitation rate
       &   cape    (:,:),       & !! convective available energy
       &   con_gust(:,:),       & !! convective gusts near surface
