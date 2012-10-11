@@ -1,13 +1,28 @@
+#!/bin/sh
+#
+
+
 # plot T,S and potential density variation to initial values from a list of ICON input files
+
+#  updates
+#   - ncl (icon_plot) with dozens of errors on blizzard, but okay on workstation
+#   - cdo -r cat necessary - done
 #
 # ==============================================================================
    DEBUG='TRUE'
   CDOOPT='-O'
-     CDO="cdo-dev $CDOOPT"  # my developement version of cdo with a workong rhopot operator
-ICONPLOT=$HOME/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl
+#  An updated version of cdo is necessary with a working rhopot operator:
+#    CDO="cdo-dev $CDOOPT"  #
+#ICONPLOT=$HOME/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl
+     CDO="cdo-1.5.8rc4 $CDOOPT"  # compiled and located at $HOME/bin
+ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl
+ ICONLIB=/pool/data/ICON/tools
+ICONPLOT=./icon_plot.ncl
+ ICONLIB=.
 
 # ==============================================================================
-# littel helper function fo debuggin
+# little helper function for debugging
+#  - set -x does the same
 function call {
   if [ ! -z "$DEBUG" ];then
     echo "CALLING:'$@'"
@@ -17,16 +32,17 @@ function call {
 # ==============================================================================
 # ==============================================================================
 # we supppose, that all files belong to the same experiment
-  fileListPattern='RAM_test_oce_withIce2_*.nc'
+     fileListPath='/work/mh0287/users/stephan/Icon/icon-dev.tst/experiments/xmpiom.bliz.r10130.NAtl'
+  fileListPattern='xmpiom.bliz.r10130.NAtl_icon*_000[1-3].nc'
      Temp_VarName='T'
  Salinity_VarName='S'
 PotDensityVarName='rhopot'
       MaskVarName='wet_c'
-   outputDataFile='output.nc'
+   outputDataFile='out.TSrhopot.fldm.nc'
 
 # ==============================================================================
-declare -a fileListArray
-fileList=$(ls $fileListPattern)
+#declare -a fileListArray
+fileList=$(ls $fileListPath/$fileListPattern)
 i=0
 for file in $fileList; do
   fileListArray[$i]=$file
@@ -70,10 +86,11 @@ done
 
 # ==============================================================================
 # Cat the files together
-call "$CDO cat fldmean_${fileListPattern}  $outputDataFile"
+call "$CDO -r cat fldmean_${fileListPattern}  $outputDataFile"
 
 # ==============================================================================
 # Plot a  hovmoeller type graph
 for varname in $Temp_VarName $Salinity_VarName $PotDensityVarName; do 
-  call "nclsh $ICONPLOT  -varName=$varname -iFile=$outputDataFile -oFile=${varname}_$(basename $outputDataFile .nc) -oType=png -isIcon -DEBUG -hov=true"
+  call "nclsh $ICONPLOT  -altLibDir=$ICONLIB -varName=$varname -iFile=$outputDataFile
+  -oFile=$(basename $outputDataFile .nc)_$varname -oType=png -isIcon -DEBUG -hov=true"
 done
