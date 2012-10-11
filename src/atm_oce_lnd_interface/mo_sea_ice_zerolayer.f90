@@ -77,7 +77,7 @@ CONTAINS
   !! ! set_ice_temp_zerolayer:: calculate new ice + snow temperatures based on:
   !!    Semtner, Albert J., 1976: A Model for the Thermodynamic Growth of Sea
   !!    Ice in Numerical Investigations of Climate. J. Phys. Oceanogr., 6,
-  !!    379–389.  doi:
+  !!    379--389.  doi:
   !!    http://dx.doi.org/10.1175/1520-0485(1976)006<0379:AMFTTG>2.0.CO;2
   !!   (Appendix)
   !!
@@ -163,10 +163,8 @@ CONTAINS
 
 
             IF (i_sea_ice == 2 ) THEN
-              ! #achim: dLWdT has wrong/inconsistent sign as of now, so
-              ! we have to put a + there.
               deltaTdenominator(jc,k,jb) = k_effective (jc,k,jb) &
-                &                        + Qatm%  dLWdT(jc,k,jb) &
+                &                        - Qatm%  dLWdT(jc,k,jb) &
                 &                        - Qatm%dsensdT(jc,k,jb) &
                 &                        - Qatm% dlatdT(jc,k,jb)
             ELSE IF (i_sea_ice == 3) THEN
@@ -241,7 +239,7 @@ CONTAINS
   !! --- currently not fully --- ice % hs       new snow thickness for each ice category                [m]
   !! ice % hi       new ice  thickness for each ice category                [m]
   !! --- not currently --- ice % evapwi   amount of evaporated water from the mixed layer
-  !!                in previously ice covered areas if all ice is gone      [kg/m�]
+  !!                in previously ice covered areas if all ice is gone      [kg/m^3]
   !! ice % heatOceI to contain the energy that is available to the mixed layer
   !!                in previously ice covered areas if all ice is gone      [J]
   !!
@@ -259,7 +257,7 @@ CONTAINS
    !!Local variables
     REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::         &
       & zHeatOceI,   & ! Oceanic heat flux                                  [W/m^2]
-      & Tfw,         & ! Ocean freezing temperature [°C]
+      & Tfw,         & ! Ocean freezing temperature [C]
       & Q_surplus   ! energy surplus during ice growth
     
     TYPE(t_subset_range), POINTER :: all_cells

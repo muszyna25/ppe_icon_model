@@ -1552,7 +1552,7 @@ CONTAINS
 
         Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4 &
           &     - 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
-        Qatm%dLWdT (:,i,:)  = 4._wp*zemiss_def*StBo*tafoK(:,:)**3
+        Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*StBo*tafoK(:,:)**3
         Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
         Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) &
