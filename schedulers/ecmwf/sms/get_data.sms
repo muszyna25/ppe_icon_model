@@ -24,8 +24,13 @@ echo "GET_DATA.SMS"
 
 module load python
 
+if [ %NENS% -gt 0 ]
+  then DIRENS=/%NMEM%
+  else DIRENS=''
+fi
+
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon${DIRENS}
 TMPDIR="${TEMP}"
 mkdir -p ${IFSDATADIR}
 
@@ -42,7 +47,10 @@ cd ${IFSDATADIR}
 
 # Retrieve data from MARS ---------------------
 
-${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+ %YMD%%INIHOUR% 0 255 1/to/91
+if [ %NENS% -gt 0 ]
+  then ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda %YMD%%INIHOUR% 0 255 1/to/91 %NMEM%
+  else ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+     %YMD%%INIHOUR% 0 255 1/to/91
+fi
 ls -lrt ${IFSDATADIR}
 
 

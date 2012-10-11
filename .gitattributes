@@ -701,11 +701,13 @@ run/run_ICONAM_R2B4_NWP -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
 schedulers/ecmwf/def/icon.def -text
+schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/ifs_trigger.def -text
 schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_eps -text
 schedulers/ecmwf/gen/date_calc.py -text
 schedulers/ecmwf/gen/dot_cdprc -text
 schedulers/ecmwf/gen/icon_restart -text

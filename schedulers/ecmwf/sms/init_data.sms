@@ -25,10 +25,15 @@ echo "INIT_DATA.SMS"
 
 module load python
 
+if [ %NENS% -gt 0 ]
+  then DIRENS=/%NMEM%
+  else DIRENS=''
+fi
+
 IFSCONFIGFILE=%SCBASEDIR%/gen/ifs2icon_1279.conf
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon${DIRENS}
 IFSCELLDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon/cellweights
-IFSDATAOUTDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%
+IFSDATAOUTDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 GRIDDIR=%SCPERM%/icon_input/grids
 CDOBIN=%SCSOFT%/software/cdo-1.5.4_build/bin/cdo
 RUBYBIN=%SCSOFT%/software/ruby-1.9.3-p125/ruby

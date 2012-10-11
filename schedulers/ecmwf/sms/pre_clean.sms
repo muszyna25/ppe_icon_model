@@ -25,9 +25,13 @@ echo "PRE_CLEAN.SMS"
 set -x
 module load python
 
+if [ %NENS% -gt 0 ]
+  then DIRENS=/%NMEM%
+  else DIRENS=''
+fi
 
 # Change directory ----------------------------
-MODELOUTDIR="%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%"
+MODELOUTDIR=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%${DIRENS}
 cd %SCTEMP%
 ls -lrt
 

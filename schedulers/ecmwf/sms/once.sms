@@ -22,16 +22,32 @@
 
 echo "ONCE.SMS"
 
-# Create setup directory on ecgate
+# Create setup directory on c1a and copy ICON namelist there
  
-SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup
-mkdir -p ${SETDIRTMP}
+if [ %NENS% -eq 0 ]
+then 
+ 
+  SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup
+  mkdir -p ${SETDIRTMP}
 
-# Copy ICON namelist to experiment directory
+  SETDIR=%SCBASEDIR%/gen
+  cp ${SETDIR}/case_setup        ${SETDIRTMP}
+  cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
 
-SETDIR=%SCBASEDIR%/gen
-cp ${SETDIR}/case_setup        ${SETDIRTMP}
-cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
+else
+
+  for NMEM in 001 002 003 004 005 006 007 008 009 010 ; do
+
+    SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup/${NMEM}
+    mkdir -p ${SETDIRTMP}
+
+    SETDIR=%SCBASEDIR%/gen
+    cp ${SETDIR}/case_setup_eps    ${SETDIRTMP}/case_setup
+    cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
+
+  done
+
+fi
 
 
 # -------------------------------------------------

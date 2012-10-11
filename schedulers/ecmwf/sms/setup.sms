@@ -31,14 +31,13 @@ then
 fi
 
 
-# NOTE: For the time being, dump state creation is
-#       enabled for every run:
-# smsevent enable_dumpstate
-
-
 # Create data directory on ecgate
  
-mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
+if [ %NENS% -gt 0 ]
+  then mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%/%NMEM%
+  else mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
+fi
+
 
 # -------------------------------------------------
 

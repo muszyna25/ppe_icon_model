@@ -1,22 +1,16 @@
 # -------------------------------------------------
-# ICON.DEF
+# ICON_EPS.DEF
 # -------------------------------------------------
 #
 # SMS suite definition file.
 #
 # This script is part of the ICON SMS suite
-# Initial implementation: F. Prill, DWD (2012-05-07)
+# Initial implementation: M. Koehler, DWD (2012-10)
 #
 # Corresponding author:
-#   Florian Prill, DWD, mailto:florian.prill@dwd.de
+#   Martin Koehler, DWD, mailto:martin.koehler@dwd.de
 #
-# Some parts of this definition file are based
-# on the "bceps" SMS suite (H. Frank, DWD), cf.
-# "ecgate:/home/ms/de/zde/BCeps"
-#
-# 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
-# 2012-summer: Upgrade to multi-experiment, multi-user,
-#              catch-up-mode, plotting (Martin Koehler)
+# 2012-10 : First verson (Martin Koehler
 #
 
 # import environment variables:
@@ -26,7 +20,7 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "003"                #---experiment number---
+set EXPNUM        "005"                #---experiment number---
 set FIRST_DATE    20120901
 set LAST_DATE     20121231
 set ICON_HOME     /home/ms/de/deia 
@@ -70,8 +64,8 @@ set NSTEPS       14400
 #set NSTEPS       2880
 
 # no. of ensemble members
-#set NENS         10
-set NENS         0   # default for no ensemble run
+set NENS         10
+#set NENS         0   # default for no ensemble run
 
 # wait interval between file checks:
 set WAITINTVL    10
@@ -191,47 +185,39 @@ suite $USER
         trigger (init:YMD le ( forecast:YMD + 2 )) and (once == complete)
         complete ($ENABLE_INIT == 0)
 
-        extern /ifs_trigger/fct_ifs
+        family get
+          trigger (../init:YMD le /${USER}:SMSDATE-3)
+          for set 1 10 ; do
+            set tsk `printf %3.3i $set`
 
-        task setup
-           #time 06:00                                  # use this for tasks running daily (not catch-up mode)
-            trigger (../init:YMD le /${USER}:SMSDATE-3) or \
-                    (/ifs_trigger/fct_ifs == complete)
-            on_ecgate
-            if ($ENABLE_INIT == 0) then
-                label status "skipped"
-            endif
-           #label date "???"
-            event enable_build
-            event enable_dumpstate
+            family $tsk  
+              edit NMEM $tsk
+              task setup
+                on_ecgate
+                event enable_build
 
-        task get_data
-            trigger (setup == complete) and (../once == complete)
-            complete ($ENABLE_GET_DATA == 0)
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 02:00:00
-            if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
-                label status "skipped"
-            endif
+              task get_data
+                trigger (setup == complete)
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 02:00:00
+    
+              task init_data
+                trigger (get_data == complete)
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 00:60:00
+                event compute_weights
+                event ifs2icon
+            endfamily
 
-        task init_data
-            trigger (get_data == complete)
-            complete ($ENABLE_INIT_DATA == 0)
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 00:60:00
-            if (($ENABLE_INIT == 0) or ($ENABLE_INIT_DATA == 0)) then
-                label status "skipped"
-            endif
-           #event change_dir
-            event compute_weights
-            event ifs2icon
+          endfor
+        endfamily
 
         family build
-            trigger (setup == complete) and (../once == complete)
+            trigger (get == complete) and (../once == complete)
 
             task init_svn 
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
-                  ($ENABLE_BUILD == 0) or not (../setup:enable_build)
+                  ($ENABLE_BUILD == 0) or not (../get/001/setup:enable_build)
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
                     label status "skipped"
@@ -246,7 +232,7 @@ suite $USER
 
             task init_build
                 trigger (init_svn == complete)
-                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../setup:enable_build)
+                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../get/001/setup:enable_build)
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
@@ -279,50 +265,40 @@ suite $USER
         trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 2 ))
         complete ($ENABLE_FORECAST == 0)
 
-        family prepare
-            task pre_clean
-               #trigger (../../../init/setup == complete)
-                on_hpc_serial
-                edit SCWALLCLOCKLIMIT 00:20:00
-                if ($ENABLE_FORECAST == 0) then
-                    label status "skipped"
-                endif
+        for set 1 10 ; do
+            set tsk `printf %3.3i $set`
+            family $tsk
+              edit NMEM $tsk
 
-            task dumpstate
-                trigger (pre_clean == complete)
-                complete ($ENABLE_DUMPSTATE == 0) or not (/${USER}/${EXPNUM}/init/setup:enable_dumpstate)
+              family prepare
+                task pre_clean
+                  on_hpc_serial
+                  edit SCWALLCLOCKLIMIT 00:20:00
+	      
+                task dumpstate
+                  trigger (pre_clean == complete)
+                  complete ($ENABLE_DUMPSTATE == 0)
+                  on_hpc_parallel
+                  event prepare
+                  event create_dumpstate
+              endfamily
+	      
+              task model
+                trigger (prepare == complete)
+                complete ($ENABLE_MODEL == 0)
                 on_hpc_parallel
-                edit SCWALLCLOCKLIMIT 00:20:00
-                if (($ENABLE_FORECAST == 0) or ($ENABLE_DUMPSTATE == 0)) then
-                    label status "skipped"
-                endif
-                event prepare
-                event create_dumpstate
+                edit SCWALLCLOCKLIMIT 02:00:00
+                event model_complete
+	      
+              task check_progress
+                trigger  (model == active)
+                complete (model == complete)
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 02:00:00
+                meter timesteps 0 $NSTEPS $NSTEPS
 
-        endfamily
-
-        task model
-            trigger (prepare == complete)
-            complete ($ENABLE_MODEL == 0)
-            on_hpc_parallel
-            edit SCWALLCLOCKLIMIT 02:00:00
-            if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
-                label status "skipped"
-            endif
-            event model_complete
-            # auto-shutdown of "check_progress" subtask:
-            #action abort    $SMSFILES/cancel_check_progress
-            #action complete $SMSFILES/cancel_check_progress
-
-        task check_progress
-            trigger (model == active)
-            complete (model == complete)
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 02:00:00
-            if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
-                label status "skipped"
-            endif
-            meter timesteps 0 $NSTEPS $NSTEPS
+            endfamily
+        endfor
 
     endfamily
 
