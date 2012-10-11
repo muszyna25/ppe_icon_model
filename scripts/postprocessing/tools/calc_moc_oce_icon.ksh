@@ -120,7 +120,8 @@ begin
   res@cnMissingValPerimDashPattern = 1;           set the dash pattern of the missing value perimeter to 1
   res@cnMissingValPerimThicknessF  = 3.0;         increase the thickness of the missing value perimeter 3X
 
-  res@gsnRightString	       = "$timmnfile    [Sv]"
+  res@gsnRightString	       = "[Sv]"
+  res@gsnLeftString	       = "$basename"
   res@trYReverse = True	                 	; reverse the Y-axis
   res@tiXAxisString            = "latitude"
   res@tiYAxisString            = "depth in m"
@@ -142,7 +143,7 @@ begin
   res@tmXBValues 	       = ispan(0,180,10)
   res@tmXBLabels 	       = ispan(-90,90,10)
 ; res@tiMainString	       = "MOC Global "  ; + infilename
-; res@tiMainString	       = "MOC Global - $timmnfile "  ; + infilename
+; res@tiMainString	       = "MOC Global - $basename "  ; + infilename
   res@tiMainString	       = "MOC Global"
 
   plot = gsn_csm_contour(wks,moc_glo,res)
@@ -165,8 +166,8 @@ EOF
 
 
 ncl scr_plot_moc_my.ncl
-#rm scr_plot_moc_my.ncl
-#rm scr_moc_???.nc
+rm scr_plot_moc_my.ncl
+rm scr_moc_???.nc
 
 
 
