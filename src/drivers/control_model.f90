@@ -53,7 +53,7 @@ PROGRAM control_model
 
   USE mo_atmo_model,          ONLY: atmo_model
   USE mo_ocean_model,         ONLY: ocean_model
-  USE mo_radiation_model,     ONLY: radiation_model
+!   USE mo_radiation_model,     ONLY: radiation_model
   USE mo_icon_testbed,        ONLY: icon_testbed
   
   USE mo_master_control,      ONLY: init_master_control,  &
@@ -128,8 +128,8 @@ PROGRAM control_model
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 
-  CASE (radiation_process)
-    CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
+!   CASE (radiation_process)
+!     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (testbed_process)
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))

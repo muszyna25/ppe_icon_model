@@ -39,7 +39,7 @@ MODULE mo_icon_testbed
   USE mo_master_control,      ONLY: get_my_process_name
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
-    & test_communication_model, test_jitter_model
+    & test_jitter_model, test_halo_communication,test_radiation_communication
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
   USE mo_test_coupler,        ONLY: test_coupler
@@ -76,7 +76,7 @@ CONTAINS
     CASE(test_coupler_model)
       CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
 
-    CASE(test_communication_model)
+    CASE(test_halo_communication,test_radiation_communication)
       CALL test_communication(testbed_namelist_filename,shr_namelist_filename)
 
     CASE(test_jitter_model)

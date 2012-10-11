@@ -41,7 +41,9 @@ MODULE mo_icon_testbed_config
   PRIVATE
   
   ! Exported parameters
-  PUBLIC :: null_model, test_coupler_model, test_communication_model, test_jitter_model
+  PUBLIC :: null_model, test_coupler_model, test_jitter_model, test_halo_communication, &
+    & test_radiation_communication
+    
   ! Exported variables
   PUBLIC :: testbed_model
   PUBLIC :: testbed_iterations
@@ -52,8 +54,9 @@ MODULE mo_icon_testbed_config
   ! the tesbed modes
   INTEGER, PARAMETER :: null_model          = 0  ! does nothing
   INTEGER, PARAMETER :: test_coupler_model  = 1  ! test the coupler
-  INTEGER, PARAMETER :: test_communication_model  = 2  ! test the mpi communication
   INTEGER, PARAMETER :: test_jitter_model   = 3  ! test the jitter
+  INTEGER, PARAMETER :: test_halo_communication  = 4  ! test the mpi communication
+  INTEGER, PARAMETER :: test_radiation_communication  = 5  ! test the mpi communication
   
   INTEGER  :: testbed_model
   ! ---------------

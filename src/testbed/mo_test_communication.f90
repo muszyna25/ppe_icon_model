@@ -59,6 +59,8 @@ MODULE mo_test_communication
   USE mo_rrtm_data_interface, ONLY: t_rrtm_data, init_rrtm_data, recv_rrtm_input, &
     & construct_rrtm_model_repart
 
+  USE mo_icon_testbed_config, ONLY: testbed_model, test_halo_communication, &
+    & test_radiation_communication
 
 
 !-------------------------------------------------------------------------
@@ -96,8 +98,18 @@ CONTAINS
     ltimer = .true.
     activate_sync_timers = .true.
     CALL init_timer()
-!     CALL test_communication_3D()
-    CALL test_radiation_communication()
+    SELECT CASE(testbed_model)
+    
+    CASE(test_halo_communication)
+      CALL halo_communication_3D_testbed()
+
+    CASE(test_radiation_communication)
+      CALL radiation_communication_testbed()
+
+    CASE default
+      CALL finish(method_name, "Unrecognized testbed_model")
+
+    END SELECT    
     !---------------------------------------------------------------------
 
     !---------------------------------------------------------------------
@@ -126,7 +138,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-  SUBROUTINE test_radiation_communication()
+  SUBROUTINE radiation_communication_testbed()
         
     TYPE(t_rrtm_data), TARGET :: rrtm_local_data
     TYPE(t_rrtm_data), POINTER :: rrtm_rad_data
@@ -188,7 +200,7 @@ CONTAINS
     ENDDO
     
 
-  END SUBROUTINE test_radiation_communication
+  END SUBROUTINE radiation_communication_testbed
   !-------------------------------------------------------------------------
     
   
@@ -196,7 +208,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-  SUBROUTINE test_communication_3D()
+  SUBROUTINE halo_communication_3D_testbed()
     
     
     !---------------------------------------------------------------------
@@ -214,7 +226,7 @@ CONTAINS
     
 
     RETURN
-  END SUBROUTINE test_communication_3D
+  END SUBROUTINE halo_communication_3D_testbed
   !-------------------------------------------------------------------------
     
   
