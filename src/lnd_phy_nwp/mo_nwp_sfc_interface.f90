@@ -215,7 +215,10 @@ CONTAINS
     INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(2*nproma), it1(nproma), it2(nproma)
     REAL(wp) :: tmp1, tmp2, tmp3
     REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma)
-    REAL(wp) :: tracer_rate(nproma, p_patch%nblks_c, 4, ntiles_total)
+    REAL(wp) :: rain_gsp_rate(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: snow_gsp_rate(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: rain_con_rate(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: snow_con_rate(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
@@ -286,10 +289,10 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-           tracer_rate(jc,jb,1,isubs) = prm_diag%tracer_rate(jc,jb,1)
-           tracer_rate(jc,jb,2,isubs) = prm_diag%tracer_rate(jc,jb,2)
-           tracer_rate(jc,jb,3,isubs) = prm_diag%tracer_rate(jc,jb,3)
-           tracer_rate(jc,jb,4,isubs) = prm_diag%tracer_rate(jc,jb,4)
+           rain_gsp_rate(jc,jb,isubs) = prm_diag%rain_gsp_rate(jc,jb)
+           snow_gsp_rate(jc,jb,isubs) = prm_diag%snow_gsp_rate(jc,jb)
+           rain_con_rate(jc,jb,isubs) = prm_diag%rain_con_rate(jc,jb)
+           snow_con_rate(jc,jb,isubs) = prm_diag%snow_con_rate(jc,jb)
          END DO
        END DO
 
@@ -313,10 +316,10 @@ CONTAINS
              ! If there is no snow tile so far at all, precipitation falls on the snow-free tile,
              ! and the snow tile will be created after TERRA.
              IF(lnd_prog_now%t_snow_t(jc,jb,isubs) > tmelt) THEN
-               tracer_rate(jc,jb,1,isubs) = 0._wp
-               tracer_rate(jc,jb,2,isubs) = 0._wp
-               tracer_rate(jc,jb,3,isubs) = 0._wp
-               tracer_rate(jc,jb,4,isubs) = 0._wp
+               rain_gsp_rate(jc,jb,isubs) = 0._wp
+               snow_gsp_rate(jc,jb,isubs) = 0._wp
+               rain_con_rate(jc,jb,isubs) = 0._wp
+               snow_con_rate(jc,jb,isubs) = 0._wp
              END IF
            END DO
          END DO
@@ -336,10 +339,10 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
           ps_t(ic,jb)           =  p_diag%pres_sfc(jc,jb)    
-          prr_con_t(ic,jb)      =  tracer_rate(jc,jb,3,isubs)
-          prs_con_t(ic,jb)      =  tracer_rate(jc,jb,4,isubs)
-          prr_gsp_t(ic,jb)      =  tracer_rate(jc,jb,1,isubs)
-          prs_gsp_t(ic,jb)      =  tracer_rate(jc,jb,2,isubs)
+          prr_con_t(ic,jb)      =  rain_con_rate(jc,jb,isubs)
+          prs_con_t(ic,jb)      =  snow_con_rate(jc,jb,isubs)
+          prr_gsp_t(ic,jb)      =  rain_gsp_rate(jc,jb,isubs)
+          prs_gsp_t(ic,jb)      =  snow_gsp_rate(jc,jb,isubs)
 
           u_t(ic,jb)      =  p_diag%u         (jc,nlev,jb)     
           v_t(ic,jb)      =  p_diag%v         (jc,nlev,jb)     

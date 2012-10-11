@@ -72,11 +72,14 @@ CONTAINS
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! - Call modified for emission of volcanic ash
   SUBROUTINE art_washout_interface(            & !>in
-                 dt_phy_jg,                    & !>in
+      &          dt_phy_jg,                    & !>in
       &          p_patch,                      & !>in
       &          p_prog_list,                  & !>in
-      &          p_tracer_rate,                & !>in     
-      &          p_rho,                    & !>in
+      &          p_rain_gsp_rate,              & !>in
+      &          p_snow_gsp_rate,              & !>in
+      &          p_rain_con_rate,              & !>in
+      &          p_snow_con_rate,              & !>in
+      &          p_rho,                        & !>in
       &          p_tracer_new)                  !>inout
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
@@ -85,12 +88,19 @@ CONTAINS
     REAL(wp), INTENT(IN) ::dt_phy_jg         !< time interval, fast physics
 
     TYPE(t_var_list), INTENT(IN) :: & !current prognostic state list
-     &  p_prog_list
+      &  p_prog_list
 
-    REAL(wp), INTENT(INOUT) ::  &       !<density of air 
-      &  p_tracer_rate(:,:,:)               !< at current time level n (before transport)
-                                        !< [kg/m3]
-                                        !< dim: (nproma,nblks_c,ntracer)
+    REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface rain rate  [kg/m2/s]
+      &  p_rain_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
+
+    REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface snow rate  [kg/m2/s]
+      &  p_snow_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
+
+    REAL(wp), INTENT(IN)    ::  &       !< convective surface rain rate  [kg/m2/s]
+      &  p_rain_con_rate(:,:)           !< dim: (nproma,nblks_c)
+
+    REAL(wp), INTENT(IN)    ::  &       !< convective surface snow rate  [kg/m2/s]
+      &  p_snow_con_rate(:,:)           !< dim: (nproma,nblks_c)
 
     REAL(wp), INTENT(INOUT) ::  &       !< density of air 
       &  p_rho(:,:,:)               !< 
@@ -138,11 +148,14 @@ CONTAINS
 
           WRITE(0,*) 'WASHOUT of ', var_name,' with idx= ',jsp
 
-         CALL art_washout_volc(dt_phy_jg,       & !>in
-         &          p_patch,                    & !>in
-         &          p_tracer_rate,               & !>in                       
-         &          p_rho,                   & !>in
-         &          p_tracer_new,jsp)                !>inout 
+!!$         CALL art_washout_volc(dt_phy_jg,       & !>in
+!!$         &          p_patch,                    & !>in
+!!$         &          p_rain_gsp_rate,              & !>in
+!!$         &          p_snow_gsp_rate,              & !>in
+!!$         &          p_rain_con_rate,              & !>in
+!!$         &          p_snow_con_rate,              & !>in
+!!$         &          p_rho,                   & !>in
+!!$         &          p_tracer_new,jsp)                !>inout 
         ENDIF
       ENDIF !lis_tracer
 

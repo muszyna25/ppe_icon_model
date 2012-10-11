@@ -583,7 +583,10 @@ CONTAINS
        CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
                   &          pt_patch,                           & !>in
                   &          p_prog_list,                        & !>in
-                  &          prm_diag%tracer_rate,               & !>in      
+                  &          prm_diag%rain_gsp_rate,             & !>in
+                  &          prm_diag%snow_gsp_rate,             & !>in
+                  &          prm_diag%rain_con_rate,             & !>in
+                  &          prm_diag%snow_con_rate,             & !>in
                   &          pt_prog%rho,                        & !>in               
                   &          pt_prog_rcf%tracer)                   !>inout             
 
@@ -1698,20 +1701,22 @@ CONTAINS
       ENDDO
 
 
-      prm_diag%rain_con(i_startidx:i_endidx,jb) =                                        &
-        &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)   &
-        &                                  + pdtime                                          &
-        &                                  * prm_diag%tracer_rate(i_startidx:i_endidx,jb,3)
-      prm_diag%snow_con(i_startidx:i_endidx,jb) =                                        &
-        &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)   &
-        &                                  + pdtime                                          &
-        &                                  * prm_diag%tracer_rate(i_startidx:i_endidx,jb,4)
+      prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
+        &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
+        &                                  + pdtime                                     &
+        &                                  * prm_diag%rain_con_rate(i_startidx:i_endidx,jb)
 
-      prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                        &
-        &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)      &
-        &                              +  pdtime                                             &
-        &                              * (prm_diag%tracer_rate (i_startidx:i_endidx,jb,3)&
-        &                              +  prm_diag%tracer_rate (i_startidx:i_endidx,jb,4))
+      prm_diag%snow_con(i_startidx:i_endidx,jb) =                                       &
+        &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)    &
+        &                                  + pdtime                                     &
+        &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
+
+      !grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+      prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
+        &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
+        &                              +  pdtime                                        &
+        &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
+        &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
 
     ENDDO
 !$OMP END DO NOWAIT

@@ -104,7 +104,6 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_phy),ALLOCATABLE :: cfm_ptr(:)  !< pointer array: average of cfm
     TYPE(t_ptr_phy),ALLOCATABLE :: cfh_ptr(:)  !< pointer array: average of cfh
     TYPE(t_ptr_phy),ALLOCATABLE :: z0m_ptr(:)  !< pointer array: average of z0m
-    TYPE(t_ptr_phy),ALLOCATABLE :: tra_rate_ptr(:)   !< pointer array: tracer rates
     TYPE(t_ptr_phy),ALLOCATABLE :: albvisdif_t_ptr(:)!< pointer array: tile-specific albedo
     TYPE(t_ptr_phy),ALLOCATABLE :: swflxsfc_t_ptr(:) !< pointer array: shortwave net flux at surface
     TYPE(t_ptr_phy),ALLOCATABLE :: lwflxsfc_t_ptr(:) !< pointer array: longwave net flux at surface
@@ -124,7 +123,10 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_phy),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
 
     REAL(wp), POINTER ::  &
-      &   tracer_rate(:,:,:) , & !> (nproma,nblks,4) precipitation rate of rain and snow [kg/m2/s]
+      &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
+      &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
+      &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
+      &   snow_con_rate(:,:),  & !! convective surface snow_rate                         [kg/m2/s]
       &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain                  [kg/m2]
       &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
       &   rain_con(:,:),       & !! accumulated convective surface rain                  [kg/m2]

@@ -195,10 +195,10 @@ CONTAINS
 
         ! get total precipitation rate [kg/m2/s] ==> input for gwdrag_wms
         DO jc =  i_startidx, i_endidx
-          ztot_prec_rate(jc) = prm_diag%tracer_rate (jc,jb,1) &  ! rain_gsp
-            &                + prm_diag%tracer_rate (jc,jb,2) &  ! snow_gsp
-            &                + prm_diag%tracer_rate (jc,jb,3) &  ! rain_con
-            &                + prm_diag%tracer_rate (jc,jb,4)    ! snow_con
+          ztot_prec_rate(jc) = prm_diag%rain_gsp_rate (jc,jb) &  ! rain_gsp
+            &                + prm_diag%snow_gsp_rate (jc,jb) &  ! snow_gsp
+            &                + prm_diag%rain_con_rate (jc,jb) &  ! rain_con
+            &                + prm_diag%snow_con_rate (jc,jb)    ! snow_con
         ENDDO
 
 

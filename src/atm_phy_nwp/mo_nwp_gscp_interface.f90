@@ -154,16 +154,16 @@ CONTAINS
 !                ! version unified with COSMO scheme
                  ! unification version: COSMO_V4_23
 
-          CALL hydci_pp (                                &
-            & nvec   =nproma                            ,    & !> in:  actual array size
-            & ke     =nlev                              ,    & !< in:  actual array size
-            & ivstart=i_startidx                        ,    & !< in:  start index of calculation
-            & ivend  =i_endidx                          ,    & !< in:  end index of calculation
-            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
-            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
-            & qi0    = atm_phy_nwp_config(jg)%qi0       ,    & 
-            & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 
-            & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & !< in:  vertical layer thickness
+          CALL hydci_pp (                                   &
+            & nvec   =nproma                           ,    & !> in:  actual array size
+            & ke     =nlev                             ,    & !< in:  actual array size
+            & ivstart=i_startidx                       ,    & !< in:  start index of calculation
+            & ivend  =i_endidx                         ,    & !< in:  end index of calculation
+            & kstart =kstart_moist(jg)                 ,    & !< in:  vertical start index
+            & zdt    =tcall_gscp_jg                    ,    & !< in:  timestep
+            & qi0    = atm_phy_nwp_config(jg)%qi0      ,    & 
+            & qc0    = atm_phy_nwp_config(jg)%qc0      ,    & 
+            & dz     =p_metrics%ddqz_z_full(:,:,jb)    ,    & !< in:  vertical layer thickness
             & t      =p_diag%temp   (:,:,jb)           ,    & !< in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)           ,    & !< in:  full level pres
             & rho    =p_prog%rho    (:,:,jb  )         ,    & !< in:  density
@@ -172,9 +172,9 @@ CONTAINS
             & qi     =p_prog_rcf%tracer (:,:,jb,iqi)   ,    & !< in:  cloud ice
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)   ,    & !< in:  rain water
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
-            & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
-            & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level/2                          ,    &
+            & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
+            & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & idbg=msg_level/2                         ,    &
             & l_cv=.TRUE. )
           
 
@@ -185,16 +185,16 @@ CONTAINS
 
         CASE(3)  ! improved ice nucleation scheme by C. Koehler based on hydci_pp
 
-          CALL hydci_pp_ice (                                &
-            & nvec   =nproma                            ,    & !> in:  actual array size
-            & ke     =nlev                              ,    & !< in:  actual array size
-            & ivstart=i_startidx                        ,    & !< in:  start index of calculation
-            & ivend  =i_endidx                          ,    & !< in:  end index of calculation
-            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
-            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
-            & qi0    = atm_phy_nwp_config(jg)%qi0       ,    & 
-            & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 
-            & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & !< in:  vertical layer thickness
+          CALL hydci_pp_ice (                               &
+            & nvec   =nproma                           ,    & !> in:  actual array size
+            & ke     =nlev                             ,    & !< in:  actual array size
+            & ivstart=i_startidx                       ,    & !< in:  start index of calculation
+            & ivend  =i_endidx                         ,    & !< in:  end index of calculation
+            & kstart =kstart_moist(jg)                 ,    & !< in:  vertical start index
+            & zdt    =tcall_gscp_jg                    ,    & !< in:  timestep
+            & qi0    = atm_phy_nwp_config(jg)%qi0      ,    & 
+            & qc0    = atm_phy_nwp_config(jg)%qc0      ,    & 
+            & dz     =p_metrics%ddqz_z_full(:,:,jb)    ,    & !< in:  vertical layer thickness
             & t      =p_diag%temp   (:,:,jb)           ,    & !< in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)           ,    & !< in:  full level pres
             & rho    =p_prog%rho    (:,:,jb  )         ,    & !< in:  density
@@ -203,9 +203,9 @@ CONTAINS
             & qi     =p_prog_rcf%tracer (:,:,jb,iqi)   ,    & !< in:  cloud ice
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)   ,    & !< in:  rain water
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
-            & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
-            & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level/2                          ,    &
+            & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
+            & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & idbg=msg_level/2                         ,    &
             & l_cv=.TRUE. )
 
         CASE(4)  ! two-moment scheme 
@@ -230,7 +230,7 @@ CONTAINS
             & qv     =p_prog_rcf%tracer (:,:,jb,iqv)    ,    & ! in:  spec. humidity
             & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & ! in:  rain water
-            & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & ! out: precipitation rate of rain
+            & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & ! out: precipitation rate of rain
             & idbg   =msg_level/2                       ,    &
             & l_cv    =.TRUE. )
 
@@ -238,16 +238,16 @@ CONTAINS
         CASE(10)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
                   ! old version from COSMO V4.14
 
-          CALL hydci_pp_old (                                           &
-            & ie     =nproma                            ,    & !> in:  actual array size
-            & ke     =nlev                              ,    & !< in:  actual array size
-            & istart =i_startidx                        ,    & !< in:  start index of calculation
-            & iend   =i_endidx                          ,    & !< in:  end index of calculation
-            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
-            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
-            & qi0    = atm_phy_nwp_config(jg)%qi0       ,    & 
-            & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 
-            & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & !< in:  vertical layer thickness
+          CALL hydci_pp_old (                               &
+            & ie     =nproma                           ,    & !> in:  actual array size
+            & ke     =nlev                             ,    & !< in:  actual array size
+            & istart =i_startidx                       ,    & !< in:  start index of calculation
+            & iend   =i_endidx                         ,    & !< in:  end index of calculation
+            & kstart =kstart_moist(jg)                 ,    & !< in:  vertical start index
+            & zdt    =tcall_gscp_jg                    ,    & !< in:  timestep
+            & qi0    = atm_phy_nwp_config(jg)%qi0      ,    & 
+            & qc0    = atm_phy_nwp_config(jg)%qc0      ,    & 
+            & dz     =p_metrics%ddqz_z_full(:,:,jb)    ,    & !< in:  vertical layer thickness
             & t      =p_diag%temp   (:,:,jb)           ,    & !< in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)           ,    & !< in:  full level pres
             & rho    =p_prog%rho    (:,:,jb  )         ,    & !< in:  density
@@ -256,9 +256,9 @@ CONTAINS
             & qi     =p_prog_rcf%tracer (:,:,jb,iqi)   ,    & !< in:  cloud ice
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)   ,    & !< in:  rain water
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
-            & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
-            & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level/2                          ,    &
+            & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
+            & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & idbg=msg_level/2                         ,    &
             & l_cv=.TRUE. )
 
 
@@ -282,17 +282,17 @@ CONTAINS
         DO jc =  i_startidx, i_endidx
 
           prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)        &
- &                                      + tcall_gscp_jg              &
- &                                      * prm_diag%tracer_rate (jc,jb,1)
+ &                                 + tcall_gscp_jg                   &
+ &                                 * prm_diag%rain_gsp_rate (jc,jb)
 
           prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)        &
- &                                      +tcall_gscp_jg               &
- &                                      * prm_diag%tracer_rate (jc,jb,2)
+ &                                 + tcall_gscp_jg                   &
+ &                                 * prm_diag%snow_gsp_rate (jc,jb)
 
-          prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)            &
- &                                      +  tcall_gscp_jg                 &
- &                                      * ( prm_diag%tracer_rate (jc,jb,1)   &
- &                                      +   prm_diag%tracer_rate (jc,jb,2) )
+          prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)         &
+ &                                 +  tcall_gscp_jg                   &
+ &                                 * ( prm_diag%rain_gsp_rate (jc,jb) &
+ &                                 +   prm_diag%snow_gsp_rate (jc,jb) )
         ENDDO
       ENDDO
 !$OMP END DO NOWAIT

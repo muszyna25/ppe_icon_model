@@ -1803,10 +1803,10 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       z_aux3dp_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
       z_aux3dp_p(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
       z_aux3dp_p(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
-      z_aux3dp_p(jc,6,jb) = prm_diag(jg)%tracer_rate(jc,jb,1)
-      z_aux3dp_p(jc,7,jb) = prm_diag(jg)%tracer_rate(jc,jb,2)
-      z_aux3dp_p(jc,8,jb) = prm_diag(jg)%tracer_rate(jc,jb,3)
-      z_aux3dp_p(jc,9,jb) = prm_diag(jg)%tracer_rate(jc,jb,4)
+      z_aux3dp_p(jc,6,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
+      z_aux3dp_p(jc,7,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
+      z_aux3dp_p(jc,8,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
+      z_aux3dp_p(jc,9,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
       z_aux3dp_p(jc,10,jb) = prm_diag(jg)%gz0(jc,jb)
       z_aux3dp_p(jc,11,jb) = prm_diag(jg)%tcm(jc,jb)
       z_aux3dp_p(jc,12,jb) = prm_diag(jg)%tch(jc,jb)
@@ -1912,10 +1912,10 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%snow_gsp(jc,jb)       = z_aux3dp_c(jc,3,jb)
       prm_diag(jgc)%rain_con(jc,jb)       = z_aux3dp_c(jc,4,jb)
       prm_diag(jgc)%snow_con(jc,jb)       = z_aux3dp_c(jc,5,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,1)  = z_aux3dp_c(jc,6,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,2)  = z_aux3dp_c(jc,7,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,3)  = z_aux3dp_c(jc,8,jb)
-      prm_diag(jgc)%tracer_rate(jc,jb,4)  = z_aux3dp_c(jc,9,jb)
+      prm_diag(jgc)%rain_gsp_rate(jc,jb)  = z_aux3dp_c(jc,6,jb)
+      prm_diag(jgc)%snow_gsp_rate(jc,jb)  = z_aux3dp_c(jc,7,jb)
+      prm_diag(jgc)%rain_con_rate(jc,jb)  = z_aux3dp_c(jc,8,jb)
+      prm_diag(jgc)%snow_con_rate(jc,jb)  = z_aux3dp_c(jc,9,jb)
       prm_diag(jgc)%gz0(jc,jb)            = z_aux3dp_c(jc,10,jb)
       prm_diag(jgc)%tcm(jc,jb)            = z_aux3dp_c(jc,11,jb)
       prm_diag(jgc)%tch(jc,jb)            = z_aux3dp_c(jc,12,jb)
@@ -2199,16 +2199,16 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
         prm_diag(jg)%snow_gsp(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
       p_aux3d(jc,6,jb) =                                         &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,1),iblk(jc,jb,1),1)*p_fbkwgt(jc,jb,1) + &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,2),iblk(jc,jb,2),1)*p_fbkwgt(jc,jb,2) + &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,3),iblk(jc,jb,3),1)*p_fbkwgt(jc,jb,3) + &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,4),iblk(jc,jb,4),1)*p_fbkwgt(jc,jb,4)
+        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
       p_aux3d(jc,7,jb) =                                         &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,1),iblk(jc,jb,1),2)*p_fbkwgt(jc,jb,1) + &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,2),iblk(jc,jb,2),2)*p_fbkwgt(jc,jb,2) + &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,3),iblk(jc,jb,3),2)*p_fbkwgt(jc,jb,3) + &
-        prm_diag(jg)%tracer_rate(iidx(jc,jb,4),iblk(jc,jb,4),2)*p_fbkwgt(jc,jb,4)
+        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
     ENDDO
 
@@ -2240,8 +2240,8 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
       prm_diag(jgp)%snow_con(jc,jb)      = p_aux3d(jc,3,jb)
       prm_diag(jgp)%rain_gsp(jc,jb)      = p_aux3d(jc,4,jb)
       prm_diag(jgp)%snow_gsp(jc,jb)      = p_aux3d(jc,5,jb)
-      prm_diag(jgp)%tracer_rate(jc,jb,1) = p_aux3d(jc,6,jb)
-      prm_diag(jgp)%tracer_rate(jc,jb,2) = p_aux3d(jc,7,jb)
+      prm_diag(jgp)%rain_gsp_rate(jc,jb) = p_aux3d(jc,6,jb)
+      prm_diag(jgp)%snow_gsp_rate(jc,jb) = p_aux3d(jc,7,jb)
     ENDDO
 
   ENDDO

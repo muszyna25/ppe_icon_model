@@ -319,7 +319,6 @@ CONTAINS
 !     ENDDO
 
 
-!          p_diag%extra(:,:,jb,1)= bkaba
 
           prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =  &
             &    z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
@@ -329,8 +328,8 @@ CONTAINS
             &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
             &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
 
-          prm_diag%tracer_rate(i_startidx:i_endidx,jb,3) = z_mflxr(i_startidx:i_endidx,nlevp1)
-          prm_diag%tracer_rate(i_startidx:i_endidx,jb,4) = z_mflxs(i_startidx:i_endidx,nlevp1)
+          prm_diag%rain_con_rate(i_startidx:i_endidx,jb) = z_mflxr(i_startidx:i_endidx,nlevp1)
+          prm_diag%snow_con_rate(i_startidx:i_endidx,jb) = z_mflxs(i_startidx:i_endidx,nlevp1)
 
 
         ENDIF !inwp_conv

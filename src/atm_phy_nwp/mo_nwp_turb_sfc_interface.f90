@@ -865,10 +865,10 @@ endif
         & , wliq_snow_ex    = lnd_prog_new%wliq_snow_t (:,:,jb,:) & ! -
         & , wtot_snow_ex    = lnd_prog_new%wtot_snow_t (:,:,jb,:) & ! -
         & , dzh_snow_ex     = lnd_prog_new%dzh_snow_t  (:,:,jb,:) & ! -
-        & , prr_con_ex      = prm_diag%tracer_rate     (:,jb,3)   & !in
-        & , prs_con_ex      = prm_diag%tracer_rate     (:,jb,4)   & ! -
-        & , prr_gsp_ex      = prm_diag%tracer_rate     (:,jb,1)   & ! -
-        & , prs_gsp_ex      = prm_diag%tracer_rate     (:,jb,2)   & ! -
+        & , prr_con_ex      = prm_diag%rain_con_rate   (:,jb)     & !in
+        & , prs_con_ex      = prm_diag%snow_con_rate   (:,jb)     & ! -
+        & , prr_gsp_ex      = prm_diag%rain_gsp_rate   (:,jb)     & ! -
+        & , prs_gsp_ex      = prm_diag%snow_gsp_rate   (:,jb)     & ! -
         & , tch_ex          = tch_ex                   (:,:)      & !inout
         & , tcm_ex          = tcm_ex                   (:,:)      & ! -
         & , tfv_ex          = tfv_ex                   (:,:)      & ! -

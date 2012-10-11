@@ -3007,8 +3007,8 @@ CONTAINS
       CASE ('TCC_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,icc)
       CASE ('ZF3');             ptr3 => p_nh_state(jg)%metrics%z_mc
       CASE ('ZH3');             ptr3 => p_nh_state(jg)%metrics%z_ifc
-      CASE ('PRR_GSP');         ptr2 => prm_diag(jg)%tracer_rate(:,:,1)
-      CASE ('PRS_GSP');         ptr2 => prm_diag(jg)%tracer_rate(:,:,2)
+      CASE ('PRR_GSP');         ptr2 => prm_diag(jg)%rain_gsp_rate(:,:)
+      CASE ('PRS_GSP');         ptr2 => prm_diag(jg)%snow_gsp_rate(:,:)
       CASE ('RAIN_GSP');        ptr2 => prm_diag(jg)%rain_gsp(:,:)
       CASE ('SNOW_GSP');        ptr2 => prm_diag(jg)%snow_gsp(:,:)
       CASE ('RAIN_CON');        ptr2 => prm_diag(jg)%rain_con(:,:)
