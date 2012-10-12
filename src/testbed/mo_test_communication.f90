@@ -44,17 +44,20 @@ MODULE mo_test_communication
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
 
-  USE mo_model_domain,        ONLY:  p_patch  
+  USE mo_model_domain,        ONLY: p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn!, initcond_ha_dyn
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
   USE mo_math_gradients,      ONLY: grad_fd_norm
+
+  !nh utils
+  USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_atmo_nonhydrostatic, ONLY: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
   
   USE mo_parallel_config,    ONLY: itype_comm, iorder_sendrecv
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
 !   USE mo_icon_comm_interface,ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_icon_comm_lib
-  USE mo_atmo_nonhydrostatic, ONLY: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
   USE mo_rrtm_data_interface, ONLY: t_rrtm_data, init_rrtm_data, recv_rrtm_input, &
     & construct_rrtm_model_repart
@@ -90,7 +93,7 @@ CONTAINS
     timers_level = 0
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL prepare_ha_dyn( p_patch(1:) )
+    CALL construct_atmo_nonhydrostatic()
     !---------------------------------------------------------------------
         
     !---------------------------------------------------------------------
@@ -125,7 +128,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
     !---------------------------------------------------------------------
-    CALL destruct_icoham_dyn_state()
+    CALL destruct_atmo_nonhydrostatic()
     CALL destruct_atmo_model()
 !     CALL destruct_icon_communication()
     CALL message(TRIM(method_name),'clean-up finished')
@@ -267,10 +270,11 @@ CONTAINS
 
     patch_no=1
     
-    pnt_3D_cells_1 => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
-    pnt_3D_cells_2 => p_hydro_state(patch_no)%diag%qx(:,:,:)
-    pnt_3D_cells_3 => p_hydro_state(patch_no)%diag%u(:,:,:)
-    pnt_3D_cells_4 => p_hydro_state(patch_no)%diag%v(:,:,:)
+    pnt_3D_cells_1 => p_nh_state(patch_no)%prog(1)%w(:,:,:)
+    pnt_3D_cells_2 => p_nh_state(patch_no)%prog(1)%rho(:,:,:)
+    pnt_3D_cells_3 => p_nh_state(patch_no)%prog(1)%exner(:,:,:)
+    pnt_3D_cells_4 => p_nh_state(patch_no)%prog(1)%theta_v(:,:,:)
+    
     pnt_3D_cells_1(:,:,:) = 0.0_wp
     pnt_3D_cells_2(:,:,:) = 0.0_wp
     pnt_3D_cells_3(:,:,:) = 0.0_wp
@@ -317,10 +321,11 @@ CONTAINS
 
     patch_no=1
     
-    pnt_3D_edges_1 => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
-    pnt_3D_edges_2 => p_hydro_state(patch_no)%diag%vt(:,:,:)
-    pnt_3D_edges_3 => p_hydro_state(patch_no)%diag%delp_e(:,:,:)
-    pnt_3D_edges_4 => p_hydro_state(patch_no)%diag%mass_flux_e(:,:,:)
+    pnt_3D_edges_1 => p_nh_state(patch_no)%diag%ddt_vn_phy(:,:,:)
+    pnt_3D_edges_2 => p_nh_state(patch_no)%diag%mass_fl_e(:,:,:)
+    pnt_3D_edges_3 => p_nh_state(patch_no)%diag%vt(:,:,:)
+    pnt_3D_edges_3 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
+    
     pnt_3D_edges_1(:,:,:) = 0.0_wp
     pnt_3D_edges_2(:,:,:) = 0.0_wp
     pnt_3D_edges_3(:,:,:) = 0.0_wp
