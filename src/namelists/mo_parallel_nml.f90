@@ -224,8 +224,8 @@ MODULE mo_parallel_nml
     ldiv_phys_dom = .TRUE.
 
     ! Parameter for reordering the owner assignment in the domain decomposition according to
-    ! their geographical position
-    ntasks_per_node = 8
+    ! their geographical position (0 means that the reordering is turned off)
+    ntasks_per_node = 0
 
     ! Flag if checks in a verification run should be logged
     l_log_checks = .FALSE.

@@ -2155,7 +2155,7 @@ CONTAINS
 
     DEALLOCATE(cell_desc)
 
-    IF (divide_for_radiation .OR. lsplit_merged_domains .OR. n_proc < 16) RETURN
+    IF (divide_for_radiation .OR. lsplit_merged_domains .OR. n_proc < 16 .OR. ntasks_per_node == 0) RETURN
 
     ! Determine parameters for sorting the owners according to the geographical position
     ! of their subdomain

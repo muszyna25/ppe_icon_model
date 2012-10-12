@@ -83,8 +83,8 @@ MODULE mo_parallel_config
   LOGICAL :: ldiv_phys_dom = .FALSE.
 
   ! Parameter for reordering the owner assignment in the domain decomposition according to
-  ! their geographical position
-  INTEGER :: ntasks_per_node = 8
+  ! their geographical position (0 means that the reordering is turned off)
+  INTEGER :: ntasks_per_node = 0
 
   ! Flag if checks in a verification run should be logged
   LOGICAL :: l_log_checks = .false.
