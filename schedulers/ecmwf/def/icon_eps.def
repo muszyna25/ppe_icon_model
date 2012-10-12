@@ -319,7 +319,7 @@ suite $USER
 
            task post_prepare   
                on_hpc_serial
-               edit SCWALLCLOCKLIMIT 00:40:00
+               edit SCWALLCLOCKLIMIT 01:00:00
                event meteogram_data
    
            task meteogram

@@ -18,8 +18,8 @@
 # include the header file for remote jobs
 %include <init_job.h> 
 
-
 # -------------------------------------------------
+
 
 echo "INIT_DATA.SMS"
 

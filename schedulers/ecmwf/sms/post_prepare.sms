@@ -16,22 +16,24 @@
   - generate plots 
 %end
 
-# -------------------------------------------------
 # include the header file for remote jobs
 %include <init_job.h> 
 
+# -------------------------------------------------
+
+
 echo "POST_PREPARE.SMS" 
 
-module load python
-module load netcdf
-module load grib_api
+## module load python
+## module load netcdf
+## module load grib_api
 
 
 #-----------------------------------------------------------------------------
 # directories
 
 outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
-gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 rsh ecgate mkdir -p ${gatedir}
 cd ${outdir}
 ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
@@ -44,40 +46,58 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 #-----------------------------------------------------------------------------
 # namelist: copy to ecgate
 
-rcp    NAMELIST_${basename} ecgate:${gatedir}
-ecp -o NAMELIST_${basename} $ecfsdir
-
-
-#-----------------------------------------------------------------------------
-# meteogram: rename and copy to ecgate
-
-outfile_mtg1=${outdir}"METEOGRAM_patch001.nc"
-outfile_mtg2=${outdir}${basename}"_meteogram.nc"
-mv $outfile_mtg1 $outfile_mtg2 || true
-rcp $outfile_mtg2 ecgate:${gatedir}
-ecp -o $outfile_mtg2 $ecfsdir
+#rcp   NAMELIST_${basename} ecgate:${gatedir}
+if [ %NENS% -gt 0 ] ; then
+  for nmem in 001 002 003 004 005 006 007 008 009 010 ; do
+    ecp -o     ${nmem}/NAMELIST_${basename}_${nmem} \
+      $ecfsdir/${nmem}/NAMELIST_${basename}_${nmem}
+  done
+else
+  ecp -o NAMELIST_${basename} $ecfsdir
+fi
 
 
 #-----------------------------------------------------------------------------
 # ensemble mean for EPS run
 
 CDOBIN=%SCSOFT%/software/cdo-1.5.4_build/bin/cdo
-if [ %NENS% -gt 0 ]
-then
+if [ %NENS% -gt 0 ] ; then
   for levtype in ML PL HL ; do
-    ${CDOBIN} ensmean  ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb /
-                       ${outdir}/002/${basename}_002_DOM01_${levtype}_0001.grb /
-                       ${outdir}/003/${basename}_003_DOM01_${levtype}_0001.grb /
-                       ${outdir}/004/${basename}_004_DOM01_${levtype}_0001.grb /
-                       ${outdir}/005/${basename}_005_DOM01_${levtype}_0001.grb /
-                       ${outdir}/006/${basename}_006_DOM01_${levtype}_0001.grb /
-                       ${outdir}/007/${basename}_007_DOM01_${levtype}_0001.grb /
-                       ${outdir}/008/${basename}_008_DOM01_${levtype}_0001.grb /
-                       ${outdir}/009/${basename}_009_DOM01_${levtype}_0001.grb /
-                       ${outdir}/010/${basename}_010_DOM01_${levtype}_0001.grb /
-                       ${outdir}${basename}_DOM01_${levtype}_0001.grb
+    ${CDOBIN} ensmean ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb \
+                      ${outdir}/002/${basename}_002_DOM01_${levtype}_0001.grb \
+                      ${outdir}/003/${basename}_003_DOM01_${levtype}_0001.grb \
+                      ${outdir}/004/${basename}_004_DOM01_${levtype}_0001.grb \
+                      ${outdir}/005/${basename}_005_DOM01_${levtype}_0001.grb \
+                      ${outdir}/006/${basename}_006_DOM01_${levtype}_0001.grb \
+                      ${outdir}/007/${basename}_007_DOM01_${levtype}_0001.grb \
+                      ${outdir}/008/${basename}_008_DOM01_${levtype}_0001.grb \
+                      ${outdir}/009/${basename}_009_DOM01_${levtype}_0001.grb \
+                      ${outdir}/010/${basename}_010_DOM01_${levtype}_0001.grb \
+                      ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
+  ${CDOBIN} ensmean   ${outdir}/001/"METEOGRAM_patch001.nc" \
+                      ${outdir}/002/"METEOGRAM_patch001.nc" \
+                      ${outdir}/003/"METEOGRAM_patch001.nc" \
+                      ${outdir}/004/"METEOGRAM_patch001.nc" \
+                      ${outdir}/005/"METEOGRAM_patch001.nc" \
+                      ${outdir}/006/"METEOGRAM_patch001.nc" \
+                      ${outdir}/007/"METEOGRAM_patch001.nc" \
+                      ${outdir}/008/"METEOGRAM_patch001.nc" \
+                      ${outdir}/009/"METEOGRAM_patch001.nc" \
+                      ${outdir}/010/"METEOGRAM_patch001.nc" \
+                      ${outdir}/"METEOGRAM_patch001.nc"
 fi
+
+
+#-----------------------------------------------------------------------------
+# meteogram: rename and copy to ecgate
+
+outfile_mtg1=${outdir}/"METEOGRAM_patch001.nc"
+outfile_mtg2=${outdir}/${basename}"_meteogram.nc"
+mv $outfile_mtg1 $outfile_mtg2 || true
+rcp $outfile_mtg2 ecgate:${gatedir}
+ecp -o $outfile_mtg2 $ecfsdir
+smsevent meteogram_data
 
 
 #-----------------------------------------------------------------------------
@@ -86,7 +106,6 @@ fi
 for levtype in ML PL HL ; do
   ecp -o ${outdir}${basename}_DOM01_${levtype}_0001.grb $ecfsdir || true
 done
-smsevent meteogram_data
 
 
 #-----------------------------------------------------------------------------
