@@ -99,7 +99,7 @@ EOF
 
    find ${GRIDDIR} -name "*.nc" -exec ${IFSCELLDIR}/create_cellweights {} \;
 
-   rm ${IFSCELLDIR}/create_cellweights
+  #rm ${IFSCELLDIR}/create_cellweights
    touch "initialized.flag"
    cd ${IFSDATADIR}
 fi

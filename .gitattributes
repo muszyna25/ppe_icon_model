@@ -745,6 +745,7 @@ schedulers/ecmwf/sms/post_archive.sms -text
 schedulers/ecmwf/sms/post_prepare.sms -text
 schedulers/ecmwf/sms/pre_clean.sms -text
 schedulers/ecmwf/sms/setup.sms -text
+schedulers/ecmwf/sms/setup_eps.sms -text
 schedulers/ecmwf/sms/testday.sms -text
 scripts/.gmtcommands -text
 scripts/buildbot_scripts/ICON.cfg -text

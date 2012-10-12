@@ -33,16 +33,7 @@ fi
 
 # Create data directory on ecgate
  
-mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-
-
-# Create data directories on SCHOST
-
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon
-rsh %SCHOST% mkdir -p ${IFSDATADIR}
-
-MODELOUTDIR=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
-rsh %SCHOST% mkdir -p ${MODELOUTDIR}
+mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%/%NMEM%
 
 
 # -------------------------------------------------

@@ -20,7 +20,7 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "005"                #---experiment number---
+set EXPNUM        "006"                #---experiment number---
 set FIRST_DATE    20120901
 set LAST_DATE     20121231
 set ICON_HOME     /home/ms/de/deia 
@@ -31,9 +31,9 @@ set SCHOST      c1a
 set SCTEMP      /$SCHOST/tmp/ms/de/$ICON_ID/icon
 set ECTEMP      /scratch/ms/de/$ICON_ID/icon_data
 set SCPERM      /perm/ms/de/$USER
-set ECPERM      /c1a$SCPERM            # mounted c1a perm on ecgate
+set ECPERM      /$SCHOST$SCPERM            # mounted c1a perm on ecgate
 set SCPERMIII   /perm/ms/de/$ICON_ID
-set ECPERMIII   /c1a$SCPERMIII         # mounted c1a perm on ecgate
+set ECPERMIII   /$SCHOST$SCPERMIII         # mounted c1a perm on ecgate
 set SCBASEDIR   $SCPERM/icon-dev/schedulers/ecmwf
 set ECBASEDIR   $ECPERM/icon-dev/schedulers/ecmwf
 set SCSOFT      /perm/ms/de/deia
@@ -185,19 +185,22 @@ suite $USER
         trigger (init:YMD le ( forecast:YMD + 2 )) and (once == complete)
         complete ($ENABLE_INIT == 0)
 
+        task setup
+          on_ecgate
+          event enable_build
         family get
-          trigger (../init:YMD le /${USER}:SMSDATE-3)
+          trigger (../init:YMD le /${USER}:SMSDATE-3) and setup == complete
           for set 1 10 ; do
             set tsk `printf %3.3i $set`
 
             family $tsk  
               edit NMEM $tsk
-              task setup
+              task setup_eps
                 on_ecgate
                 event enable_build
 
               task get_data
-                trigger (setup == complete)
+                trigger (setup_eps == complete)
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 02:00:00
     
@@ -217,7 +220,7 @@ suite $USER
 
             task init_svn 
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
-                  ($ENABLE_BUILD == 0) or not (../get/001/setup:enable_build)
+                  ($ENABLE_BUILD == 0) or not (../setup:enable_build)
                 on_ecgate
                 if (($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or ($ENABLE_INIT_SVN == 0)) then
                     label status "skipped"
@@ -232,7 +235,7 @@ suite $USER
 
             task init_build
                 trigger (init_svn == complete)
-                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../get/001/setup:enable_build)
+                complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../setup:enable_build)
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
