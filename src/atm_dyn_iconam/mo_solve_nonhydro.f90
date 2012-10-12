@@ -49,12 +49,13 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      rayleigh_type
-  USE mo_dynamics_config,      ONLY: idiv_method
-  USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
-  USE mo_run_config,         ONLY: ltimer, timers_level, lvert_nest
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_grid_config,        ONLY: l_limited_area, nroot, grid_sphere_radius
-  USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_dynamics_config,   ONLY: idiv_method
+  USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
+    & use_icon_comm
+  USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
+  USE mo_model_domain,      ONLY: t_patch
+  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
+  USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_intp,              ONLY: cells2edges_scalar
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
   USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
@@ -76,6 +77,7 @@ MODULE mo_solve_nonhydro
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop, &
                                   timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
+  USE mo_icon_comm_lib,     ONLY: icon_comm_sync
 
   IMPLICIT NONE
 
@@ -1362,25 +1364,50 @@ MODULE mo_solve_nonhydro
 
 !$OMP END PARALLEL
 
-    IF (itype_comm == 1) THEN
+    !-------------------------
+    ! communication phase
+    IF (use_icon_comm) THEN 
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_p1)
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
       IF (istep == 1) THEN
         IF (idiv_method == 1) THEN
-          CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e)
+          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned)
         ELSE
-          CALL sync_patch_array_mult(SYNC_E,p_patch,3,p_nh%prog(nnew)%vn,z_rho_e,z_theta_v_e)
-      ENDIF
+          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, z_theta_v_e, &
+            & p_patch%sync_edges_not_owned)
+        ENDIF
       ELSE
-        CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
+        CALL icon_comm_sync(p_nh%prog(nnew)%vn, p_patch%sync_edges_not_owned)
       ENDIF
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)
         CALL timer_start(timer_solve_nh_p2)
       ENDIF
+    ELSE
+      IF (itype_comm == 1) THEN
+        IF (timers_level > 5) THEN
+          CALL timer_stop(timer_solve_nh_p1)
+          CALL timer_start(timer_solve_nh_exch)
+        ENDIF
+        IF (istep == 1) THEN
+          IF (idiv_method == 1) THEN
+            CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e)
+          ELSE
+            CALL sync_patch_array_mult(SYNC_E,p_patch,3,p_nh%prog(nnew)%vn,z_rho_e,z_theta_v_e)
+        ENDIF
+        ELSE
+          CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
+        ENDIF
+        IF (timers_level > 5) THEN
+          CALL timer_stop(timer_solve_nh_exch)
+          CALL timer_start(timer_solve_nh_p2)
+        ENDIF
+      ENDIF
     ENDIF
+    ! end communication phase
+    !-------------------------
 
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
@@ -2052,23 +2079,46 @@ MODULE mo_solve_nonhydro
 
 !$OMP END PARALLEL
 
-    IF (itype_comm == 1) THEN
+    !-------------------------
+    ! communication phase
+    IF (use_icon_comm) THEN 
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_p2)
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
       IF (istep == 1) THEN ! Only w is updated in the predictor step
-        CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
+        CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned)
       ELSE IF (istep == 2) THEN
         ! Synchronize all prognostic variables
-        CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho,  &
-                                   p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
+        CALL icon_comm_sync(p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w, &
+          & p_patch%sync_cells_not_owned)
       ENDIF
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)
         IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
       ENDIF
+    
+    ELSE
+      IF (itype_comm == 1) THEN
+        IF (timers_level > 5) THEN
+          CALL timer_stop(timer_solve_nh_p2)
+          CALL timer_start(timer_solve_nh_exch)
+        ENDIF
+        IF (istep == 1) THEN ! Only w is updated in the predictor step
+          CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
+        ELSE IF (istep == 2) THEN
+          ! Synchronize all prognostic variables
+          CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho,  &
+                                    p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
+        ENDIF
+        IF (timers_level > 5) THEN
+          CALL timer_stop(timer_solve_nh_exch)
+          IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
+        ENDIF
+      ENDIF
     ENDIF
+    ! end communication phase
+    !-------------------------
 
     ENDDO ! istep-loop
 
