@@ -293,6 +293,7 @@ MODULE mo_icon_comm_lib
     MODULE PROCEDURE icon_comm_sync_3D_1
     MODULE PROCEDURE icon_comm_sync_3D_2
     MODULE PROCEDURE icon_comm_sync_3D_3
+    MODULE PROCEDURE icon_comm_sync_3D_4
   END INTERFACE
   
   !-------------------------------------------------------------------------
@@ -1509,6 +1510,34 @@ CONTAINS
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_3
+  !-----------------------------------------------------------------------
+        
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE icon_comm_sync_3D_4(var1,  var2, var3, var4, comm_pattern_index)
+    INTEGER, INTENT(IN)       :: comm_pattern_index
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
+    REAL(wp), TARGET   :: var1(:,:,:)
+    REAL(wp), TARGET   :: var2(:,:,:)
+    REAL(wp), TARGET   :: var3(:,:,:)
+    REAL(wp), TARGET   :: var4(:,:,:)
+    
+    INTEGER :: comm_var_1, comm_var_2, comm_var_3, comm_var_4
+
+    IF(this_is_mpi_sequential) RETURN
+
+    comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, &
+      & status=is_ready, scope=until_sync)
+    comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, &
+      & status=is_ready, scope=until_sync)
+    comm_var_3 = new_icon_comm_variable(var3,  comm_pattern_index, &
+      & status=is_ready, scope=until_sync)
+    comm_var_4 = new_icon_comm_variable(var4,  comm_pattern_index, &
+      & status=is_ready, scope=until_sync)
+    CALL icon_comm_sync_all
+ 
+  END SUBROUTINE icon_comm_sync_3D_4
   !-----------------------------------------------------------------------
         
   

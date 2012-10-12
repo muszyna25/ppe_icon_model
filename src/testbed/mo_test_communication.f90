@@ -39,7 +39,7 @@ MODULE mo_test_communication
   USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
     & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, icon_comm_method
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
@@ -224,9 +224,130 @@ CONTAINS
     CALL test_oldsync_cells_3D("sync_1_3")
     CALL test_oldsync_edges_3D("sync_1_3")
     
-
+    icon_comm_method = 1
+    CALL test_iconcom_cells_3D("comm_1")
+    CALL test_iconcom_edges_3D("iconcomm_1")
+    
+    icon_comm_method = 2
+    CALL test_iconcom_cells_3D("com_2")
+    CALL test_iconcom_edges_3D("com_2")
+    
+    icon_comm_method = 3
+    CALL test_iconcom_cells_3D("com_3")
+    CALL test_iconcom_edges_3D("com_3")
+    
+    icon_comm_method = 102
+    CALL test_iconcom_cells_3D("com_102")
+    CALL test_iconcom_edges_3D("com_102")
+    
+    icon_comm_method = 103
+    CALL test_iconcom_cells_3D("com_103")
+    CALL test_iconcom_edges_3D("com_103")
+    
     RETURN
   END SUBROUTINE halo_communication_3D_testbed
+  !-------------------------------------------------------------------------
+    
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_iconcom_cells_3D(timer_descr)
+    CHARACTER(len=*), INTENT(in) :: timer_descr
+
+    ! 3D variables
+    REAL(wp), POINTER :: pnt_3D_cells_1(:,:,:), pnt_3D_cells_2(:,:,:), pnt_3D_cells_3(:,:,:), &
+      & pnt_3D_cells_4(:,:,:)
+          
+    INTEGER :: timer_3D_cells_1, timer_3D_cells_2, timer_3D_cells_3, timer_3D_cells_4
+    
+    INTEGER :: timer_sync_1_2_3D_cells
+    
+    
+    INTEGER :: patch_no
+
+    patch_no=1
+    
+    pnt_3D_cells_1 => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
+    pnt_3D_cells_2 => p_hydro_state(patch_no)%diag%qx(:,:,:)
+    pnt_3D_cells_3 => p_hydro_state(patch_no)%diag%u(:,:,:)
+    pnt_3D_cells_4 => p_hydro_state(patch_no)%diag%v(:,:,:)
+    pnt_3D_cells_1(:,:,:) = 0.0_wp
+    pnt_3D_cells_2(:,:,:) = 0.0_wp
+    pnt_3D_cells_3(:,:,:) = 0.0_wp
+    pnt_3D_cells_4(:,:,:) = 0.0_wp
+    
+    timer_3D_cells_1  = new_timer  (timer_descr//"_3dcells_1")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_cells_1, &
+      & timer_id=timer_3D_cells_1)
+      
+    timer_3D_cells_2  = new_timer  (timer_descr//"_3dcells_2")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
+      & timer_id=timer_3D_cells_2)
+      
+    timer_3D_cells_3  = new_timer  (timer_descr//"_3dcells_3")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
+      & var3=pnt_3D_cells_3, &
+      & timer_id=timer_3D_cells_3)
+      
+    timer_3D_cells_4  = new_timer  (timer_descr//"_3dcells_4")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
+      & var3=pnt_3D_cells_3,var4=pnt_3D_cells_4, &
+      & timer_id=timer_3D_cells_4)
+  
+  END SUBROUTINE test_iconcom_cells_3D
+  !-------------------------------------------------------------------------
+    
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_iconcom_edges_3D(timer_descr)
+    CHARACTER(len=*), INTENT(in) :: timer_descr
+    
+    ! 3D variables
+    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:), &
+      & pnt_3D_edges_4(:,:,:)
+          
+    INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3, timer_3D_edges_4
+        
+    INTEGER :: patch_no
+
+    patch_no=1
+    
+    pnt_3D_edges_1 => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
+    pnt_3D_edges_2 => p_hydro_state(patch_no)%diag%vt(:,:,:)
+    pnt_3D_edges_3 => p_hydro_state(patch_no)%diag%delp_e(:,:,:)
+    pnt_3D_edges_4 => p_hydro_state(patch_no)%diag%mass_flux_e(:,:,:)
+    pnt_3D_edges_1(:,:,:) = 0.0_wp
+    pnt_3D_edges_2(:,:,:) = 0.0_wp
+    pnt_3D_edges_3(:,:,:) = 0.0_wp
+    pnt_3D_edges_4(:,:,:) = 0.0_wp
+    
+    timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_edges_1, timer_id=timer_3D_edges_1)
+      
+    timer_3D_edges_2  = new_timer  (timer_descr//"_3dedges_2")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+      & timer_id=timer_3D_edges_2)
+      
+    timer_3D_edges_3  = new_timer  (timer_descr//"_3dedges_3")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+      & var3=pnt_3D_edges_3, &
+      & timer_id=timer_3D_edges_3)
+      
+    timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
+    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+      & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
+      & timer_id=timer_3D_edges_4)
+  
+  END SUBROUTINE test_iconcom_edges_3D
   !-------------------------------------------------------------------------
     
   
@@ -543,6 +664,52 @@ CONTAINS
     !---------------------------------------------------------------------
   END SUBROUTINE test_communication_2D
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE test_iconcom_3D(comm_pattern, var1, var2, var3, var4, timer_id)
+    INTEGER :: comm_pattern, timer_id, patch_no
+    REAL(wp) , POINTER:: var1(:,:,:)
+    REAL(wp) , POINTER, OPTIONAL :: var2(:,:,:), var3(:,:,:), var4(:,:,:)
+
+    INTEGER :: i
+
+    CALL work_mpi_barrier()
+    
+    IF (.NOT. PRESENT(var2)) THEN
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL icon_comm_sync(var1, comm_pattern)
+        CALL timer_stop(timer_id)
+      ENDDO
+      RETURN
+    ENDIF
+
+    IF (PRESENT(var4)) THEN
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL icon_comm_sync(var1, var2, var3, var4, comm_pattern)
+        CALL timer_stop(timer_id)
+      ENDDO
+        
+   ELSEIF (PRESENT(var3)) THEN
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL icon_comm_sync(var1, var2, var3,  comm_pattern)
+        CALL timer_stop(timer_id)
+      ENDDO
+   ELSE
+      DO i=1,testbed_iterations
+        CALL timer_start(timer_id)
+        CALL icon_comm_sync(var1, var2,  comm_pattern)
+        CALL timer_stop(timer_id)
+      ENDDO
+   ENDIF
+    
+   CALL work_mpi_barrier()
+    
+  END SUBROUTINE test_iconcom_3D
+  !-------------------------------------------------------------------------
+
     
   !-------------------------------------------------------------------------
   SUBROUTINE test_oldsync_3D(comm_pattern, var1, var2, var3, var4, timer_id, patch_no)
