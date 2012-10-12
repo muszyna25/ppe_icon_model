@@ -73,7 +73,7 @@ MODULE mo_advection_config
 
   TYPE t_scheme
     INTEGER :: iadv_min_slev     !< scheme dependent minimum vertical start level
-                                 !< needed for tracer-independent computations
+                                 !< required for tracer-independent computations
     !INTEGER :: iadv_max_elev
     !LOGICAL :: lcompute (MAX_NTRACER)
     !LOGICAL :: lcleanup (MAX_NTRACER)

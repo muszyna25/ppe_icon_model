@@ -286,10 +286,12 @@ CONTAINS
           &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),    &! in
           &                 lcleanup%miura_h(jt), p_igrad_c_miura,         &! in
           &                 p_itype_hlimit(jt), p_iord_backtraj,           &! in
-          &                 p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,&! inout,in
-          &                 opt_real_vt=z_real_vt,                         &! in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend,   &! in
-          &                 opt_ti_slev=iadv_min_slev                      )! in
+          &                 p_upflux(:,:,:,jt),                            &! inout
+          &                 opt_lconsv  = llsq_lin_consv,                  &! in
+          &                 opt_real_vt = z_real_vt,                       &! in
+          &                 opt_rlend   = i_rlend,                         &! in
+          &                 opt_slev    = p_iadv_slev(jt),                 &! in
+          &                 opt_ti_slev = iadv_min_slev                    )! in
 
 
       CASE( MIURA3 )
@@ -300,9 +302,11 @@ CONTAINS
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &                 p_vn, p_dtime, p_int, lcompute%miura3_h(jt), &! in
           &                 lcleanup%miura3_h(jt), p_itype_hlimit(jt),   &! in
-          &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,   &! inout,in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend, &! in
-          &                 opt_ti_slev=iadv_min_slev                    )! in
+          &                 p_upflux(:,:,:,jt),                          &! inout
+          &                 opt_real_vt = z_real_vt,                     &! in
+          &                 opt_rlend   = i_rlend,                       &! in
+          &                 opt_slev    = p_iadv_slev(jt),               &! in
+          &                 opt_ti_slev = iadv_min_slev                  )! in
 
       CASE( FFSL )
 
@@ -313,10 +317,12 @@ CONTAINS
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, p_dtime, p_int, lcompute%ffsl_h(jt),    &! in
           &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
-          &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,    &! inout,in
-          &                 opt_lconsv= llsq_high_consv,                  &! in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend,  &! in
-          &                 opt_ti_slev=iadv_min_slev                     )! in
+          &                 p_upflux(:,:,:,jt),                           &! inout
+          &                 opt_real_vt = z_real_vt,                      &! in
+          &                 opt_lconsv  = llsq_high_consv,                &! in
+          &                 opt_rlend   = i_rlend,                        &! in
+          &                 opt_slev    = p_iadv_slev(jt),                &! in
+          &                 opt_ti_slev = iadv_min_slev                   )! in
 
 
       CASE( UP3 )
@@ -336,9 +342,11 @@ CONTAINS
           &             lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),       &! in
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
-          &             opt_lconsv= llsq_lin_consv, opt_real_vt=z_real_vt,&! in 
-          &             opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend,      &! in
-          &             opt_ti_slev=iadv_min_slev                         )! in
+          &             opt_lconsv  = llsq_lin_consv,                     &! in
+          &             opt_real_vt = z_real_vt,                          &! in
+          &             opt_rlend   = i_rlend,                            &! in 
+          &             opt_slev    = p_iadv_slev(jt),                    &! in
+          &             opt_ti_slev = iadv_min_slev                       )! in
 
 
       CASE( MIURA_MCYCL )
@@ -348,16 +356,16 @@ CONTAINS
         ! CALL standard MIURA for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
-          &            p_vn, p_dtime, p_int, lcompute%miura_h(jt),       &! in
-          &            lcleanup%miura_h(jt), p_igrad_c_miura,            &! in
-          &            p_itype_hlimit(jt), p_iord_backtraj,              &! in
-          &            p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,   &! inout,in
-          &            opt_real_vt = z_real_vt,                          &! in
-          &            opt_rlend   = i_rlend,                            &! in
-          &            opt_slev    = qvsubstep_elev+1,                   &! in
-          &            opt_elev    = p_patch%nlev,                       &! in
-          &            opt_ti_slev = qvsubstep_elev+1,                   &! in
-          &            opt_ti_elev = p_patch%nlev                        )! in
+          &              p_vn, p_dtime, p_int, lcompute%miura_h(jt),     &! in
+          &              lcleanup%miura_h(jt), p_igrad_c_miura,          &! in
+          &              p_itype_hlimit(jt), p_iord_backtraj,            &! in
+          &              p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv, &! inout,in
+          &              opt_real_vt = z_real_vt,                        &! in
+          &              opt_rlend   = i_rlend,                          &! in
+          &              opt_slev    = qvsubstep_elev+1,                 &! in
+          &              opt_elev    = p_patch%nlev,                     &! in
+          &              opt_ti_slev = qvsubstep_elev+1,                 &! in
+          &              opt_ti_elev = p_patch%nlev                      )! in
 
 
         ! Note that lcompute/lcleanup%miura_mcycl_h is only used for miura 
@@ -385,14 +393,15 @@ CONTAINS
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
-          &           p_vn, p_dtime, p_int, lcompute%miura3_h(jt),       &! in
-          &           lcleanup%miura3_h(jt), p_itype_hlimit(jt),         &! in
-          &           p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,         &! inout,in
-          &           opt_rlend   = i_rlend,                             &! in
-          &           opt_slev    = qvsubstep_elev+1,                    &! in
-          &           opt_elev    = p_patch%nlev,                        &! in
-          &           opt_ti_slev = qvsubstep_elev+1,                    &! in
-          &           opt_ti_elev = p_patch%nlev                         )! in
+          &              p_vn, p_dtime, p_int, lcompute%miura3_h(jt),    &! in
+          &              lcleanup%miura3_h(jt), p_itype_hlimit(jt),      &! in
+          &              p_upflux(:,:,:,jt),                             &! inout
+          &              opt_real_vt = z_real_vt,                        &! in
+          &              opt_rlend   = i_rlend,                          &! in
+          &              opt_slev    = qvsubstep_elev+1,                 &! in
+          &              opt_elev    = p_patch%nlev,                     &! in
+          &              opt_ti_slev = qvsubstep_elev+1,                 &! in
+          &              opt_ti_elev = p_patch%nlev                      )! in
 
         IF (qvsubstep_elev > 0) THEN
 
