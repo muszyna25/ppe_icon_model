@@ -64,8 +64,8 @@ USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_a
 
 ! Control parameters: run control, dynamics, i/o
 !
-USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,     &
-  &                                iadv_rcf, kend_qvsubstep, l_open_ubc, &
+USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, iadv_rcf, &
+  &                                kend_qvsubstep, l_open_ubc,      &
   &                                configure_nonhydrostatic
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
@@ -78,9 +78,10 @@ USE mo_run_config,           ONLY: configure_run, &
   & nproc_dd,             &
   & nlev,nlevp1,          &
   & num_lev,num_levp1,    &
-  & iqv, nshift,          &
-  & lvert_nest, ntracer,  &
-  & msg_level, dtime, output_mode
+  & iqc, iqi, iqr, iqs,   &
+  & nshift, lvert_nest,   &
+  & ntracer, msg_level,   &
+  & dtime, output_mode
 
 USE mo_impl_constants, ONLY:&
   & ihs_atm_temp,         & !    :
@@ -170,8 +171,7 @@ USE mo_io_restart_attributes,ONLY: read_restart_attributes
 USE mo_read_namelists,       ONLY: read_atmo_namelists
 USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
-!USE mo_interpol_config,    ONLY: configure_interpolation 
-USE mo_interpol_config
+USE mo_interpol_config,      ONLY: configure_interpolation 
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_diffusion_config,     ONLY: configure_diffusion
 
@@ -686,8 +686,8 @@ CONTAINS
 
     DO jg =1,n_dom
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-       &                      iequations, iforcing, iqv, kstart_moist(jg), &
-       &                      kstart_qv(jg), kend_qvsubstep(jg),           &
+       &                      iequations, iforcing, iqc, iqi, iqr, iqs,    &
+       &                      kstart_moist(jg), kend_qvsubstep(jg),        &
        &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 

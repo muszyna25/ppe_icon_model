@@ -76,10 +76,6 @@ MODULE mo_nonhydrostatic_config
     REAL(wp):: htop_moist_proc          ! Top height (in m) of the part of the model domain
                                         ! where processes related to moist physics are computed
     INTEGER :: kstart_moist(max_dom)    ! related flow control variable (NOT a namelist variable)
-    INTEGER :: kstart_qv(max_dom)       ! related flow control variable (NOT a namelist variable)
-    REAL(wp):: htop_qvadv               ! Top height (in m) up to which water vapor is advected
-                                        ! workaround to circumvent CFL instability in the 
-                                        ! stratopause region
     REAL(wp):: hbot_qvsubstep           ! Bottom height (in m) down to which water vapor is 
                                         ! advected with internal substepping (to circumvent CFL 
                                         ! instability in the stratopause region).
@@ -164,21 +160,6 @@ CONTAINS
       CALL message(TRIM(routine),message_text)
     ENDIF
 
-    ! Determine start level for QV advection (specified by htop_qvadv)
-    kstart_qv(jg) = 1
-    DO jk = 1, nlev
-      jk1 = jk + nshift_total
-      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
-        kstart_qv(jg) = jk
-        EXIT
-      ENDIF
-    ENDDO
-
-    IF ( kstart_qv(jg) >= 1 ) THEN
-      WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-        '; QV advection starts in layer ', kstart_qv(jg)
-      CALL message(TRIM(routine),message_text)
-    ENDIF
 
     ! Determine end level for qv-advection substepping (specified by hbot_qvsubstep)
     kend_qvsubstep(jg) = 0

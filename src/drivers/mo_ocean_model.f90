@@ -70,8 +70,8 @@ MODULE mo_ocean_model
     & iforcing,             & !  
     & nlev, nlevp1,         & !
     & num_lev, num_levp1,   &
-    & iqv, nshift,          &
-    & ntracer
+    & iqc, iqi, iqr, iqs,   &
+    & nshift, ntracer
   USE mo_nml_crosscheck,    ONLY: oce_crosscheck
 
 !  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
@@ -412,8 +412,8 @@ CONTAINS
 !                             & nlev, vct_a, vct_b, apzero      )
 
     DO jg =1,n_dom
-      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev, &
-        &                      iequations, iforcing, iqv, 0, &
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,   &
+        &                      iequations, iforcing, iqc, iqi, iqr, iqs, &
         &                      0, 1, .false., .true., ntracer )
     ENDDO
 

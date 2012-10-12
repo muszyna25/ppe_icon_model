@@ -54,7 +54,6 @@ MODULE mo_nonhydrostatic_nml
                                     & config_divdamp_order    => divdamp_order    , &
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
-                                    & config_htop_qvadv       => htop_qvadv       , &
                                     & config_hbot_qvsubstep   => hbot_qvsubstep   , &
                                     & config_damp_height      => damp_height      , &
                                     & config_rayleigh_type    => rayleigh_type    , &
@@ -103,9 +102,6 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
   REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
                                      ! where processes related to moist physics are computed
-  REAL(wp):: htop_qvadv              ! Top height (in m) up to which water vapor is advected
-                                     ! workaround to circumvent CFL instability in the 
-                                     ! stratopause region for aquaplanet experiments
   REAL(wp):: hbot_qvsubstep          ! Bottom height (in m) down to which water vapor is 
                                      ! advected with internal substepping (to circumvent CFL 
                                      ! instability in the stratopause region).
@@ -138,12 +134,12 @@ MODULE mo_nonhydrostatic_nml
                                      ! coefficient in the upper damping zone
 
 
-  NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
-                              & htop_qvadv, hbot_qvsubstep, damp_height, rayleigh_type,    &
-                              & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,   &
-                              & divdamp_fac, igradp_method, exner_expol, l_open_ubc,       &
-                              & l_nest_rcf, l_masscorr_nest, l_zdiffu_t, thslp_zdiffu,     &
-                              & thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, upstr_beta,  &
+  NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,         &
+                              & hbot_qvsubstep, damp_height, rayleigh_type,               &
+                              & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
+                              & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
+                              & l_nest_rcf, l_masscorr_nest, l_zdiffu_t, thslp_zdiffu,    &
+                              & thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, upstr_beta, &
                               & ltheta_up_vert, k2_updamp_coeff, divdamp_order
 
 CONTAINS
@@ -197,9 +193,8 @@ CONTAINS
 
     ! Turn off moist physics above 22.5 km
     htop_moist_proc = 22500._wp
-    ! Do not use the option to turn off QV advection in the stratosphere ...
-    htop_qvadv      = 250000._wp
-    ! ... but use half the transport time step above 24 km to ensure CFL stability
+
+    !use half the transport time step above 24 km to ensure CFL stability
     !     (requires choosing ihadv_tracer(1) = 22 or 32!)
     hbot_qvsubstep  = 24000._wp
 
@@ -340,7 +335,6 @@ CONTAINS
        config_k2_updamp_coeff   = k2_updamp_coeff
        config_l_masscorr_nest   = l_masscorr_nest
        config_htop_moist_proc   = htop_moist_proc
-       config_htop_qvadv        = htop_qvadv
        config_hbot_qvsubstep    = hbot_qvsubstep
   
     !-----------------------------------------------------

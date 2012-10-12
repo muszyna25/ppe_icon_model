@@ -18,7 +18,7 @@
 !!   systems.
 !! Modification by Daniel Reinert, DWD (2010-05-17)
 !! - added subroutines back_traj_dreg_o1, prep_gauss_quadrature and function
-!!   jac which are part of the Gauss-Legendre quadrature apllied in the
+!!   jac which are part of the Gauss-Legendre quadrature applied in the
 !!   Miura-scheme.
 !! Modification by Daniel Reinert, DWD (2010-10-14)
 !! - added subroutine prep_gauss_quadrature_c for integrating a cubic polynomial.

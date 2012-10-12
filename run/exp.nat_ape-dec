@@ -191,12 +191,10 @@ cat >> ${atmo_namelist} << EOF
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
  damp_height     = 60000.   ! damping height (set about 10km below top)
  ! htop_moist_proc = 50000.   ! height above which moist physics and cld/precip advection off
- ! htop_qvadv      = 55000.
  ! hbot_qvsubstep  = 60000.
 
  !damp_height     = 88000.   ! damping height (set about 10km below top)
  !htop_moist_proc = 45000.   ! height above which moist physics and cld/precip advection off
- !htop_qvadv      = 85000.
  !hbot_qvsubstep  = 86000.
 /
 &transport_nml

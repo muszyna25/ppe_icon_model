@@ -56,7 +56,8 @@ MODULE mo_advection_config
 
 
 
-  ! Derived types to allow for the onetime computation of tracer independent parts
+  ! Derived type to allow for the onetime computation and cleanup 
+  ! of tracer independent parts
   !
   TYPE t_compute                                                               
     LOGICAL :: muscl_v  (MAX_NTRACER)                                           
@@ -68,18 +69,18 @@ MODULE mo_advection_config
     LOGICAL :: miura_mcycl_h (MAX_NTRACER)
     LOGICAL :: miura3_mcycl_h(MAX_NTRACER)                                          
   END TYPE t_compute                                                           
-                                                                               
-  TYPE t_cleanup                                                              
-    LOGICAL :: muscl_v  (MAX_NTRACER)                                           
-    LOGICAL :: ppm_v    (MAX_NTRACER)                                           
-    LOGICAL :: miura_h  (MAX_NTRACER)                                           
-    LOGICAL :: miura3_h (MAX_NTRACER)
-    LOGICAL :: ffsl_h   (MAX_NTRACER)
-    LOGICAL :: mcycl_h  (MAX_NTRACER)
-    LOGICAL :: miura_mcycl_h (MAX_NTRACER)
-    LOGICAL :: miura3_mcycl_h(MAX_NTRACER)                                          
-  END TYPE t_cleanup
 
+
+!!$  TYPE t_minslev                                                               
+!!$    INTEGER :: muscl_v                                           
+!!$    INTEGER :: ppm_v                                           
+!!$    INTEGER :: miura_h                                           
+!!$    INTEGER :: miura3_h
+!!$    INTEGER :: ffsl_h
+!!$    INTEGER :: mcycl_h
+!!$    INTEGER :: miura_mcycl_h
+!!$    INTEGER :: miura3_mcycl_h                                          
+!!$  END TYPE t_minslev
 
 
   !!--------------------------------------------------------------------------
@@ -163,6 +164,10 @@ MODULE mo_advection_config
     INTEGER ::  &                !< selects vertical start level for each patch  
       &  iadv_slev(MAX_NTRACER)  !< and each tracer.
 
+    INTEGER ::  &                !< minimum vertical start level (maximum height)  
+      &  iadv_min_slev(MAX_NTRACER)  !< for each patch. Needed for tracer-
+                                     !< independent parts of the transport algorithm
+
     INTEGER ::  &                !< vertical end level down to which qv is 
       &  iadv_qvsubstep_elev     !< advected with internal substepping (to 
                                  !< circumvent CFL instability in the 
@@ -181,7 +186,7 @@ MODULE mo_advection_config
 !DR For the time being lcompute and lcleanup are not added to the 
 !DR advection_config state
   TYPE(t_compute) :: lcompute
-  TYPE(t_cleanup) :: lcleanup
+  TYPE(t_compute) :: lcleanup
 
 
   ! for first order Gauss-Legendre quadrature
@@ -221,9 +226,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations,    &
-    &                            iforcing, iqv, kstart_moist, kstart_qv, &
-    &                            kend_qvsubstep, lvert_nest, l_open_ubc, &
+  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations,         &
+    &                            iforcing, iqc, iqi, iqr, iqs, kstart_moist,  &
+    &                            kend_qvsubstep, lvert_nest, l_open_ubc,      &
     &                            ntracer )
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
@@ -231,9 +236,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: num_lev_1    !< vertical levels of global patch
     INTEGER, INTENT(IN) :: iequations
     INTEGER, INTENT(IN) :: iforcing
-    INTEGER, INTENT(IN) :: iqv
+    INTEGER, INTENT(IN) :: iqc, iqi, iqr, iqs !< hydrometeor indices
     INTEGER, INTENT(IN) :: kstart_moist
-    INTEGER, INTENT(IN) :: kstart_qv
     INTEGER, INTENT(IN) :: kend_qvsubstep
     INTEGER, INTENT(IN) :: ntracer
     LOGICAL, INTENT(IN) :: lvert_nest
@@ -269,18 +273,21 @@ CONTAINS
       advection_config(jg)%coeff_grid = 1._wp
     ENDIF
 
+
     !
     ! set vertical start level for each patch and each tracer
     !
+    advection_config(jg)%iadv_slev(:) = 1
+    advection_config(jg)%iadv_qvsubstep_elev = 1
     IF (iforcing == inwp) THEN
-      ! Set iadv_slev to kstart_moist for all tracers but QV
-      advection_config(jg)%iadv_slev(:)   = kstart_moist
-      advection_config(jg)%iadv_slev(iqv) = kstart_qv
+      ! Set iadv_slev to kstart_moist for all moisture fields but QV
+      advection_config(jg)%iadv_slev(iqc) = kstart_moist
+      advection_config(jg)%iadv_slev(iqi) = kstart_moist
+      advection_config(jg)%iadv_slev(iqr) = kstart_moist
+      advection_config(jg)%iadv_slev(iqs) = kstart_moist
       advection_config(jg)%iadv_qvsubstep_elev = kend_qvsubstep
-    ELSE
-      advection_config(jg)%iadv_slev(:) = 1
-      advection_config(jg)%iadv_qvsubstep_elev = 1
     ENDIF
+
 
 
     ! set boundary condition for vertical transport

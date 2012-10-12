@@ -89,8 +89,7 @@ MODULE mo_advection_hflux
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
     &                               UP, MIURA, MIURA3, FFSL, MCYCL,             &
     &                               MIURA_MCYCL, MIURA3_MCYCL, UP3, ifluxl_m,   &
-    &                               ifluxl_sm  !DR, INH_ATMOSPHERE, IHS_ATM_TEMP,    &
-!DR    &                               ISHALLOW_WATER, IHS_ATM_THETA
+    &                               ifluxl_sm
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell
@@ -122,9 +121,7 @@ MODULE mo_advection_hflux
   USE mo_advection_traj,      ONLY: btraj, btraj_o2, btraj_dreg,                &
     &                               btraj_dreg_nosort, divide_flux_area 
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
-!DR  USE mo_df_test,             ONLY: df_distv_barycenter !, df_cell_indices
-!DR  USE mo_ha_testcases,        ONLY: ctest_name
-!DR  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
+
 
   IMPLICIT NONE
 
@@ -654,7 +651,6 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
-!DR    INTEGER  :: itime_scheme
 
    !-------------------------------------------------------------------------
 
@@ -822,49 +818,6 @@ CONTAINS
           &            opt_slev=slev, opt_elev=elev                   )! in
 
       ENDIF
-
-
-      !
-      ! This section has been included for testing purposes
-      !
-!DR      SELECT CASE (iequations)
-!DR      CASE (inh_atmosphere)
-!DR        itime_scheme = itime_scheme_nh_atm
-!DR
-!DR      CASE (ihs_atm_temp, ihs_atm_theta, ishallow_water)
-!DR        itime_scheme = ha_dyn_config%itime_scheme
-!DR
-!DR      CASE DEFAULT
-!DR        CALL finish(TRIM(routine),'cannot get the value of itime_scheme')
-!DR      END SELECT
-!DR
-!DR      SELECT CASE (itime_scheme)
-!DR       !------------------
-!DR       ! Pure advection
-!DR       !------------------
-!DR       CASE (TRACER_ONLY)
-
-!DR         SELECT CASE ( TRIM(ctest_name) )
-!DR           CASE ('DF1', 'DF2', 'DF3', 'DF4') ! deformational flow
-
-!DR           z_cell_indices(:,:,:,:) = df_cell_indices(:,:,:,:)
-!DR           z_distv_bary(:,:,:,:)   = df_distv_barycenter(:,:,:,:)
-
-!DR            ! compute difference between distance vector based on 3rd order
-!DR            ! Taylor series approximation and operational distance vector of either
-!DR            ! first or second order accurracy.
-!DR            df_distv_barycenter(:,:,:,:) = df_distv_barycenter(:,:,:,:)      &
-!DR              &                          - z_distv_bary(:,:,:,:)
-
-!DR            ! now compute length of distance vectors and store them in the first
-!DR            ! position of the df_distv_barycenter field.
-!DR            df_distv_barycenter(:,:,:,1) = SQRT(df_distv_barycenter(:,:,:,1) &
-!DR              &                          * df_distv_barycenter(:,:,:,1)      &
-!DR              &                          + df_distv_barycenter(:,:,:,2)      &
-!DR              &                          * df_distv_barycenter(:,:,:,2))
-
-!DR         END SELECT
-!DR      END SELECT
 
     END IF ! ld_compute
 
