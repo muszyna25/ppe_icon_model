@@ -625,16 +625,6 @@ CONTAINS
     ENDDO
 
 
-write(0,*) "muscl_v%iadv_min_slev: ", advection_config(jg)%muscl_v%iadv_min_slev
-write(0,*) "ppm_v%iadv_min_slev: ", advection_config(jg)%ppm_v%iadv_min_slev
-write(0,*) "miura_h%iadv_min_slev: ", advection_config(jg)%miura_h%iadv_min_slev
-write(0,*) "miura3_h%iadv_min_slev: ", advection_config(jg)%miura3_h%iadv_min_slev
-write(0,*) "ffsl_h%iadv_min_slev: ", advection_config(jg)%ffsl_h%iadv_min_slev
-write(0,*) "mcycl_h%iadv_min_slev: ", advection_config(jg)%mcycl_h%iadv_min_slev
-write(0,*) "miura_mcycl_h%iadv_min_slev: ", advection_config(jg)%miura_mcycl_h%iadv_min_slev
-write(0,*) "miura3_mcycl_h%iadv_min_slev: ", advection_config(jg)%miura3_mcycl_h%iadv_min_slev
-
-
 
     !
     ! Compute shape functions for mapping the departure region onto the
