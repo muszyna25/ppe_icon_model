@@ -224,11 +224,17 @@ CONTAINS
     INTEGER :: jg                   !< patch ID
     INTEGER :: i_rlend, i_rlend_vt  
     INTEGER :: qvsubstep_elev       !< end level for qv-substepping
+    INTEGER :: iadv_min_slev        !< scheme specific minimum slev
+                                    !< i.e. minimum slev of all tracers which 
+                                    !< are advected with the given scheme 
 
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
 
     !-----------------------------------------------------------------------
+
+    ! get patch ID
+    jg = p_patch%id
 
     IF ( PRESENT(opt_rlend) ) THEN
       i_rlend = opt_rlend
@@ -272,6 +278,9 @@ CONTAINS
 
 
       CASE( MIURA )
+
+        iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
+
         ! CALL MIURA with second order accurate reconstruction
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),    &! in
@@ -279,18 +288,26 @@ CONTAINS
           &                 p_itype_hlimit(jt), p_iord_backtraj,           &! in
           &                 p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,&! inout,in
           &                 opt_real_vt=z_real_vt,                         &! in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend    )! in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend,   &! in
+          &                 opt_ti_slev=iadv_min_slev                      )! in
 
 
       CASE( MIURA3 )
+
+        iadv_min_slev = advection_config(jg)%miura3_h%iadv_min_slev
+
         ! CALL MIURA with third order accurate reconstruction
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &                 p_vn, p_dtime, p_int, lcompute%miura3_h(jt), &! in
           &                 lcleanup%miura3_h(jt), p_itype_hlimit(jt),   &! in
           &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,   &! inout,in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend, &! in
+          &                 opt_ti_slev=iadv_min_slev                    )! in
 
       CASE( FFSL )
+
+        iadv_min_slev = advection_config(jg)%ffsl_h%iadv_min_slev
+
         ! CALL Flux form semi Lagrangian scheme (extension of MIURA3-scheme) 
         ! with second or third order accurate reconstruction
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
@@ -298,7 +315,8 @@ CONTAINS
           &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
           &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,    &! inout,in
           &                 opt_lconsv= llsq_high_consv,                  &! in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend   )! in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend,  &! in
+          &                 opt_ti_slev=iadv_min_slev                     )! in
 
 
       CASE( UP3 )
@@ -309,6 +327,9 @@ CONTAINS
 
 
       CASE ( MCYCL )
+
+        iadv_min_slev = advection_config(jg)%mcycl_h%iadv_min_slev
+
         ! CALL MIURA with second order accurate reconstruction and subcycling
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
           &             p_mass_flx_e, p_vn, p_dtime, 2, p_int,            &! in
@@ -316,13 +337,12 @@ CONTAINS
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
           &             opt_lconsv= llsq_lin_consv, opt_real_vt=z_real_vt,&! in 
-          &             opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend       )! in
+          &             opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend,      &! in
+          &             opt_ti_slev=iadv_min_slev                         )! in
 
 
       CASE( MIURA_MCYCL )
 
-        ! get patch ID
-        jg = p_patch%id
         qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
         ! CALL standard MIURA for lower atmosphere and the subcycling version of 
@@ -332,8 +352,13 @@ CONTAINS
           &            lcleanup%miura_h(jt), p_igrad_c_miura,            &! in
           &            p_itype_hlimit(jt), p_iord_backtraj,              &! in
           &            p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,   &! inout,in
-          &            opt_real_vt=z_real_vt, opt_slev=qvsubstep_elev+1, &! in
-          &            opt_elev=p_patch%nlev, opt_rlend=i_rlend          )! in
+          &            opt_real_vt = z_real_vt,                          &! in
+          &            opt_rlend   = i_rlend,                            &! in
+          &            opt_slev    = qvsubstep_elev+1,                   &! in
+          &            opt_elev    = p_patch%nlev,                       &! in
+          &            opt_ti_slev = qvsubstep_elev+1,                   &! in
+          &            opt_ti_elev = p_patch%nlev                        )! in
+
 
         ! Note that lcompute/lcleanup%miura_mcycl_h is only used for miura 
         ! with substepping. This prevents us from computing the backward 
@@ -344,15 +369,17 @@ CONTAINS
           &              lcleanup%miura_mcycl_h(jt),                     &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              opt_lconsv= llsq_lin_consv,                     &! in
-          &              opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt),&! in
-          &              opt_elev=qvsubstep_elev, opt_rlend=i_rlend      )! in
+          &              opt_lconsv  = llsq_lin_consv,                   &! in
+          &              opt_real_vt = z_real_vt,                        &! in
+          &              opt_rlend   = i_rlend,                          &! in
+          &              opt_slev    = p_iadv_slev(jt),                  &! in
+          &              opt_elev    = qvsubstep_elev,                   &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
+          &              opt_ti_elev = qvsubstep_elev                    )! in
 
 
       CASE( MIURA3_MCYCL )
 
-        ! get patch ID
-        jg = p_patch%id
         qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
@@ -361,10 +388,14 @@ CONTAINS
           &           p_vn, p_dtime, p_int, lcompute%miura3_h(jt),       &! in
           &           lcleanup%miura3_h(jt), p_itype_hlimit(jt),         &! in
           &           p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,         &! inout,in
-          &           opt_slev=qvsubstep_elev+1, opt_elev=p_patch%nlev,  &! in
-          &           opt_rlend=i_rlend                                  )! in
+          &           opt_rlend   = i_rlend,                             &! in
+          &           opt_slev    = qvsubstep_elev+1,                    &! in
+          &           opt_elev    = p_patch%nlev,                        &! in
+          &           opt_ti_slev = qvsubstep_elev+1,                    &! in
+          &           opt_ti_elev = p_patch%nlev                         )! in
 
-        IF (qvsubstep_elev > 0) &
+        IF (qvsubstep_elev > 0) THEN
+
         ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
@@ -374,9 +405,15 @@ CONTAINS
           &              lcleanup%miura3_mcycl_h(jt),                    &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              opt_lconsv= llsq_lin_consv,                     &! in
-          &              opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt),&! in
-          &              opt_elev=qvsubstep_elev, opt_rlend=i_rlend      )! in
+          &              opt_lconsv  = llsq_lin_consv,                   &! in
+          &              opt_real_vt = z_real_vt,                        &! in
+          &              opt_rlend   = i_rlend,                          &! in
+          &              opt_slev    = p_iadv_slev(jt),                  &! in
+          &              opt_elev    = qvsubstep_elev,                   &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
+          &              opt_ti_elev = qvsubstep_elev                    )! in
+        ENDIF
+
       END SELECT
 
     END DO  ! Tracer loop
@@ -544,7 +581,7 @@ CONTAINS
     &                   p_int, ld_compute, ld_cleanup, p_igrad_c_miura,       &
     &                   p_itype_hlimit, p_iord_backtraj, p_out_e, opt_lconsv, &
     &                   opt_rlstart, opt_rlend, opt_lout_edge, opt_real_vt,   &
-    &                   opt_slev, opt_elev )
+    &                   opt_slev, opt_elev, opt_ti_slev, opt_ti_elev )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -606,6 +643,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
+      &  opt_ti_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
+      &  opt_ti_elev
+
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
 
@@ -645,6 +688,7 @@ CONTAINS
     INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
+    INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
@@ -670,6 +714,17 @@ CONTAINS
       elev = opt_elev
     ELSE
       elev = nlev
+    END IF
+
+    IF ( PRESENT(opt_ti_slev) ) THEN
+      slev_ti = opt_ti_slev
+    ELSE
+      slev_ti = 1
+    END IF
+    IF ( PRESENT(opt_ti_elev) ) THEN
+      elev_ti = opt_ti_elev
+    ELSE
+      elev_ti = nlev
     END IF
 
     IF ( PRESENT(opt_lconsv) ) THEN
@@ -807,7 +862,7 @@ CONTAINS
         CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
           &            z_cell_indices, z_distv_bary,                  &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev, opt_elev=elev                   )! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
       ELSE
 
@@ -815,7 +870,7 @@ CONTAINS
         CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
           &            z_cell_indices, z_distv_bary,                  &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev, opt_elev=elev                   )! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
       ENDIF
 
@@ -966,7 +1021,7 @@ CONTAINS
     &                   p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,          &
     &                   p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, p_out_e, &
     &                   opt_lconsv, opt_rlstart, opt_rlend, opt_real_vt,           &
-    &                   opt_slev, opt_elev  )
+    &                   opt_slev, opt_elev, opt_ti_slev, opt_ti_elev  )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1033,6 +1088,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
+      &  opt_ti_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
+      &  opt_ti_elev
+
     REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
       &  z_grad(nproma,p_patch%nlev,2,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
@@ -1084,6 +1145,7 @@ CONTAINS
     INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
+    INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
     INTEGER  :: jc, je, jk, jb     !< index of cell, edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
@@ -1115,6 +1177,17 @@ CONTAINS
       elev = opt_elev
     ELSE
       elev = nlev
+    END IF
+
+    IF ( PRESENT(opt_ti_slev) ) THEN
+      slev_ti = opt_ti_slev
+    ELSE
+      slev_ti = 1
+    END IF
+    IF ( PRESENT(opt_ti_elev) ) THEN
+      elev_ti = opt_ti_elev
+    ELSE
+      elev_ti = nlev
     END IF
 
     IF ( PRESENT(opt_lconsv) ) THEN
@@ -1227,7 +1300,7 @@ CONTAINS
         CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
           &            z_cell_indices, z_distv_bary,                  &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev, opt_elev=elev                   )! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
       ELSE
 
@@ -1235,7 +1308,7 @@ CONTAINS
         CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
           &            z_cell_indices, z_distv_bary,                  &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev, opt_elev=elev                   )! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
       ENDIF
 
@@ -1515,7 +1588,8 @@ CONTAINS
   SUBROUTINE upwind_hflux_miura3( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,   &
     &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
     &                      p_out_e, opt_rlstart, opt_rlend, opt_lout_edge,      &
-    &                      opt_real_vt, opt_slev, opt_elev )
+    &                      opt_real_vt, opt_slev, opt_elev, opt_ti_slev,        &
+    &                      opt_ti_elev )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1569,6 +1643,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
+      &  opt_ti_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
+      &  opt_ti_elev
+
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
 
@@ -1604,6 +1684,7 @@ CONTAINS
 
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
+    INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: dim_unk
@@ -1629,6 +1710,17 @@ CONTAINS
       elev = opt_elev
     ELSE
       elev = nlev
+    END IF
+
+    IF ( PRESENT(opt_ti_slev) ) THEN
+      slev_ti = opt_ti_slev
+    ELSE
+      slev_ti = 1
+    END IF
+    IF ( PRESENT(opt_ti_elev) ) THEN
+      elev_ti = opt_ti_elev
+    ELSE
+      elev_ti = nlev
     END IF
 
     IF ( PRESENT(opt_lout_edge) ) THEN
@@ -1766,7 +1858,7 @@ CONTAINS
       CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
         &              z_cell_indices, z_coords_dreg_v,            &! out
         &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
-        &              opt_slev=slev, opt_elev=elev                )! in
+        &              opt_slev=slev_ti, opt_elev=elev_ti          )! in
 
 
 
@@ -1780,7 +1872,7 @@ CONTAINS
         CALL prep_gauss_quadrature_q( p_patch, z_coords_dreg_v,           &! in
           &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
       ELSE IF (lsq_high_ord == 30) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -1788,7 +1880,7 @@ CONTAINS
         CALL prep_gauss_quadrature_cpoor( p_patch, z_coords_dreg_v,       &! in
           &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -1796,7 +1888,7 @@ CONTAINS
         CALL prep_gauss_quadrature_c( p_patch, z_coords_dreg_v,           &! in
           &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
       ENDIF
 
 
@@ -2019,7 +2111,8 @@ CONTAINS
   SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,     &
     &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
     &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend,         &
-    &                      opt_lout_edge, opt_real_vt, opt_slev, opt_elev )
+    &                      opt_lout_edge, opt_real_vt, opt_slev, opt_elev,      &
+    &                      opt_ti_slev, opt_ti_elev  )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -2075,6 +2168,12 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
+      &  opt_ti_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
+      &  opt_ti_elev
 
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
@@ -2134,6 +2233,7 @@ CONTAINS
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
+    INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: dim_unk
@@ -2159,6 +2259,17 @@ CONTAINS
       elev = opt_elev
     ELSE
       elev = nlev
+    END IF
+
+    IF ( PRESENT(opt_ti_slev) ) THEN
+      slev_ti = opt_ti_slev
+    ELSE
+      slev_ti = 1
+    END IF
+    IF ( PRESENT(opt_ti_elev) ) THEN
+      elev_ti = opt_ti_elev
+    ELSE
+      elev_ti = nlev
     END IF
 
     IF ( PRESENT(opt_lconsv) ) THEN
@@ -2324,7 +2435,7 @@ CONTAINS
         &                     patch0_cell_idx, patch0_cell_blk,           &! out
         &                     arrival_pts, depart_pts,                    &! out
         &                     opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
-        &                     opt_slev=slev, opt_elev=elev                )! in
+        &                     opt_slev=slev_ti, opt_elev=elev_ti          )! in
 
 
 
@@ -2336,7 +2447,7 @@ CONTAINS
         &                   patch1_cell_idx, patch1_cell_blk,              &! out
         &                   patch2_cell_idx, patch2_cell_blk,              &! out
         &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,      &! in
-        &                   opt_slev=slev, opt_elev=elev                   )! in
+        &                   opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
 
 
@@ -2350,17 +2461,17 @@ CONTAINS
         CALL prep_gauss_quadrature_l( p_patch, dreg_patch0,               &! in
           &                      z_quad_vector_sum0, z_dreg_area0,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_l( p_patch, dreg_patch1,               &! in
           &                      z_quad_vector_sum1, z_dreg_area1,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_l( p_patch, dreg_patch2,               &! in
           &                      z_quad_vector_sum2, z_dreg_area2,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
       ELSE IF (lsq_high_ord == 2) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -2368,17 +2479,17 @@ CONTAINS
         CALL prep_gauss_quadrature_q( p_patch, dreg_patch0,               &! in
           &                      z_quad_vector_sum0, z_dreg_area0,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_q( p_patch, dreg_patch1,               &! in
           &                      z_quad_vector_sum1, z_dreg_area1,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_q( p_patch, dreg_patch2,               &! in
           &                      z_quad_vector_sum2, z_dreg_area2,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
       ELSE IF (lsq_high_ord == 30) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -2386,17 +2497,17 @@ CONTAINS
         CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch0,           &! in
           &                      z_quad_vector_sum0, z_dreg_area0,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch1,           &! in
           &                      z_quad_vector_sum1, z_dreg_area1,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch2,           &! in
           &                      z_quad_vector_sum2, z_dreg_area2,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -2404,17 +2515,17 @@ CONTAINS
         CALL prep_gauss_quadrature_c( p_patch, dreg_patch0,               &! in
           &                      z_quad_vector_sum0, z_dreg_area0,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_c( p_patch, dreg_patch1,               &! in
           &                      z_quad_vector_sum1, z_dreg_area1,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_c( p_patch, dreg_patch2,               &! in
           &                      z_quad_vector_sum2, z_dreg_area2,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev, opt_elev=elev             )! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
       ENDIF
 

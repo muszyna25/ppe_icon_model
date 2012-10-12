@@ -95,8 +95,11 @@ MODULE mo_advection_vflux
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: vert_upwind_flux, upwind_vflux_up, upwind_vflux_muscl,  &
-    &       upwind_vflux_ppm, upwind_vflux_ppm_cfl
+  PUBLIC :: vert_upwind_flux
+  PUBLIC :: upwind_vflux_up
+  PUBLIC :: upwind_vflux_muscl
+  PUBLIC :: upwind_vflux_ppm
+  PUBLIC :: upwind_vflux_ppm_cfl
 
   !-------------------------------------------------------------------------
 
@@ -214,11 +217,17 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
-    INTEGER :: jt                   !< tracer loop index
-    INTEGER :: jc, jb               !< cell and block loop index
+    INTEGER :: jt                      !< tracer loop index
+    INTEGER :: jg                      !< patch ID
+    INTEGER :: jc, jb                  !< cell and block loop index
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart_c, i_rlend_c, i_nchdom
+    INTEGER :: iadv_min_slev           !< scheme specific minimum slev
     !-----------------------------------------------------------------------
+
+    ! get patch ID
+    jg = p_patch%id
+
     !
     ! Loop over different tracers
     !
@@ -246,6 +255,7 @@ CONTAINS
 
 
         CASE( imuscl_vcfl, imuscl_v )
+
           ! CALL second order MUSCL
           CALL upwind_vflux_muscl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,      &! in
             &                      p_mflx_contra_v, p_w_contra, p_dtime,     &! in
@@ -259,6 +269,9 @@ CONTAINS
             &                      opt_rlstart=opt_rlstart,                  &! in
             &                      opt_rlend=opt_rlend                       )! in
         CASE( ippm_vcfl )
+
+          iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
+
           ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
           CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
             &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
@@ -267,6 +280,7 @@ CONTAINS
             &                  p_upflux(:,:,:,jt),                           &! out
             &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
             &                  opt_slev=p_iadv_slev(jt),                     &! in
+            &                  opt_ti_slev=iadv_min_slev,                    &! in
             &                  opt_rlstart=opt_rlstart,                      &! in
             &                  opt_rlend=opt_rlend                           )! in
         CASE( ippm_v )
@@ -343,6 +357,9 @@ CONTAINS
             &                      opt_rlend=opt_rlend                       )! in
 
         CASE( ippm_vcfl )
+
+          iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
+
           ! CALL third order PPM which handles long time steps (i.e. CFL>1)
           CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
             &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
@@ -350,6 +367,7 @@ CONTAINS
             &                  p_cellhgt_mc_now, p_cellmass_now,             &! in
             &                  p_upflux(:,:,:,jt),                           &! out
             &                  opt_slev=p_iadv_slev(jt),                     &! in
+            &                  opt_ti_slev=iadv_min_slev,                    &! in
             &                  opt_rlstart=opt_rlstart,                      &! in
             &                  opt_rlend=opt_rlend                           )! in
 
@@ -1991,7 +2009,7 @@ CONTAINS
     &                      p_dtime,  ld_compute, ld_cleanup, p_itype_vlimit,   &
     &                      p_cellhgt_mc_now, p_cellmass_now, p_upflux,         &
     &                      opt_lout_edge, opt_topflx_tra, opt_slev,            &
-    &                      opt_rlstart, opt_rlend )
+    &                      opt_ti_slev, opt_rlstart, opt_rlend )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_vflux:upwind_vflux_ppm_cfl'
@@ -2043,6 +2061,9 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
       &  opt_slev
 
+    INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level (tracer independent part)
+      &  opt_ti_slev
+
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'cell value'
 
@@ -2079,6 +2100,7 @@ CONTAINS
     INTEGER  :: ikm1, ikp1, ikp1_ic, &   !< vertical level minus and plus one, plus two
       &  ikp2
     INTEGER  :: slev, slevp1             !< vertical start level and start level +1
+    INTEGER  :: slev_ti, slevp1_ti       !< vertical start level (+1)  (tracer independent part)
     INTEGER  :: nlev, nlevp1             !< number of full and half levels
 
     INTEGER  :: ji_p, ji_m               !< loop variable for index list
@@ -2160,6 +2182,15 @@ CONTAINS
     ELSE
       slev  = 1
       slevp1= 2
+    END IF
+
+    ! check optional arguments
+    IF ( PRESENT(opt_ti_slev) ) THEN
+      slev_ti  = opt_ti_slev
+      slevp1_ti= opt_ti_slev + 1
+    ELSE
+      slev_ti  = 1
+      slevp1_ti= 2
     END IF
 
     IF ( PRESENT(opt_lout_edge) ) THEN
@@ -2276,8 +2307,8 @@ CONTAINS
       i_listdim_m(1:nlist_max,jb) = 0
 
       ! (fractional) Courant number at top
-      z_cflfrac_p(i_startidx:i_endidx,slev,jb) = 0._wp
-      z_cflfrac_m(i_startidx:i_endidx,slev,jb) = 0._wp
+      z_cflfrac_p(i_startidx:i_endidx,slev_ti,jb) = 0._wp
+      z_cflfrac_m(i_startidx:i_endidx,slev_ti,jb) = 0._wp
       ! (fractional) Courant number at bottom
       z_cflfrac_p(i_startidx:i_endidx,nlevp1,jb) = 0._wp
       z_cflfrac_m(i_startidx:i_endidx,nlevp1,jb) = 0._wp
@@ -2286,7 +2317,7 @@ CONTAINS
       !
       ! compute (fractional) Courant number
       !
-      DO jk = slevp1, nlev
+      DO jk = slevp1_ti, nlev
 
         ikm1 = jk-1
 
@@ -2309,14 +2340,14 @@ CONTAINS
 
       ENDDO
 
-      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1:nlev))
+      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1_ti:nlev))
 
 
       ! If CFL>1 then split the CFL number into the fractional CFL number 
       ! and the index shift s.
       IF ( max_cfl_blk(jb) > 1._wp ) THEN
 
-        DO jk = slevp1, nlev
+        DO jk = slevp1_ti, nlev
 
           IF (max_cfl_lay(jk) <= 1._wp) CYCLE
 
@@ -2394,7 +2425,7 @@ CONTAINS
             DO jc = i_startidx, i_endidx
 
               IF ( z_aux_m(jc) > p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)    &
-                &  .AND. jk_int_m(jc,jk,jb) >= slevp1                        &
+                &  .AND. jk_int_m(jc,jk,jb) >= slevp1_ti                     &
                 &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) > 0._wp ) THEN
 
                 z_aux_m(jc) = z_aux_m(jc) - p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)

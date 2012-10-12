@@ -71,16 +71,13 @@ MODULE mo_advection_config
   END TYPE t_compute                                                           
 
 
-!!$  TYPE t_minslev                                                               
-!!$    INTEGER :: muscl_v                                           
-!!$    INTEGER :: ppm_v                                           
-!!$    INTEGER :: miura_h                                           
-!!$    INTEGER :: miura3_h
-!!$    INTEGER :: ffsl_h
-!!$    INTEGER :: mcycl_h
-!!$    INTEGER :: miura_mcycl_h
-!!$    INTEGER :: miura3_mcycl_h                                          
-!!$  END TYPE t_minslev
+  TYPE t_scheme
+    INTEGER :: iadv_min_slev     !< scheme dependent minimum vertical start level
+                                 !< needed for tracer-independent computations
+    !INTEGER :: iadv_max_elev
+    !LOGICAL :: lcompute (MAX_NTRACER)
+    !LOGICAL :: lcleanup (MAX_NTRACER)
+  END TYPE t_scheme
 
 
   !!--------------------------------------------------------------------------
@@ -164,10 +161,6 @@ MODULE mo_advection_config
     INTEGER ::  &                !< selects vertical start level for each patch  
       &  iadv_slev(MAX_NTRACER)  !< and each tracer.
 
-    INTEGER ::  &                !< minimum vertical start level (maximum height)  
-      &  iadv_min_slev(MAX_NTRACER)  !< for each patch. Needed for tracer-
-                                     !< independent parts of the transport algorithm
-
     INTEGER ::  &                !< vertical end level down to which qv is 
       &  iadv_qvsubstep_elev     !< advected with internal substepping (to 
                                  !< circumvent CFL instability in the 
@@ -176,7 +169,20 @@ MODULE mo_advection_config
     REAL(wp) :: coeff_grid       !< parameter which is used to make the vertical 
                                  !< advection scheme applicable to a height      
                                  !< based coordinate system (coeff_grid=-1)      
-                   
+
+    ! scheme specific derived variables
+    !
+    TYPE(t_scheme) :: muscl_v    !< vertical muscl scheme
+    TYPE(t_scheme) :: ppm_v      !< vertical PPM scheme
+    TYPE(t_scheme) :: miura_h    !< horizontal miura scheme (linear reconstr.)
+    TYPE(t_scheme) :: miura3_h   !< horizontal miura scheme (higher order reconstr.)
+    TYPE(t_scheme) :: ffsl_h     !< horizontal FFSL scheme
+    TYPE(t_scheme) :: mcycl_h    !< horizontal miura scheme (linear) with subcycling
+    TYPE(t_scheme) ::  &         !< combination of horizontal miura scheme and miura 
+      &  miura_mcycl_h           !< scheme with subcycling
+    TYPE(t_scheme) ::  &         !< combination of horizontal miura3 scheme and miura
+      &  miura3_mcycl_h          !< scheme with subcycling
+ 
   END TYPE t_advection_config
 
   !>
@@ -185,8 +191,8 @@ MODULE mo_advection_config
 
 !DR For the time being lcompute and lcleanup are not added to the 
 !DR advection_config state
-  TYPE(t_compute) :: lcompute
-  TYPE(t_compute) :: lcleanup
+  TYPE(t_compute)  :: lcompute
+  TYPE(t_compute)  :: lcleanup
 
 
   ! for first order Gauss-Legendre quadrature
@@ -329,7 +335,19 @@ CONTAINS
     lcompute%muscl_v(:) = .FALSE.
     lcleanup%muscl_v(:) = .FALSE.
 
+    advection_config(jg)%muscl_v%iadv_min_slev = HUGE(1)
+
     IF ( ANY(ivadv_tracer == imuscl_v) .OR. ANY(ivadv_tracer == imuscl_vcfl)  ) THEN
+
+      ! compute minimum required slev for this group of tracers
+      DO jt=1,ntracer
+        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
+          advection_config(jg)%muscl_v%iadv_min_slev =                          &
+            &                  MIN( advection_config(jg)%muscl_v%iadv_min_slev, &
+            &                       advection_config(jg)%iadv_slev(jt) )
+        ENDIF
+      ENDDO
+
       ! Search for the first tracer jt for which vertical advection of
       ! type MUSCL has been selected.
       DO jt=1,ntracer
@@ -355,7 +373,19 @@ CONTAINS
     lcompute%ppm_v(:)   = .FALSE.
     lcleanup%ppm_v(:)   = .FALSE.
 
+    advection_config(jg)%ppm_v%iadv_min_slev = HUGE(1)
+
     IF ( ANY(ivadv_tracer == ippm_v) .OR. ANY(ivadv_tracer == ippm_vcfl)  ) THEN
+
+      ! compute minimum required slev for this group of tracers
+      DO jt=1,ntracer
+        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
+          advection_config(jg)%ppm_v%iadv_min_slev =                           &
+            &                  MIN( advection_config(jg)%ppm_v%iadv_min_slev,  &
+            &                        advection_config(jg)%iadv_slev(jt) )
+        ENDIF
+      ENDDO
+
       ! Search for the first tracer jt for which vertical advection of
       ! type PPM has been selected.
       DO jt=1,ntracer
@@ -382,7 +412,19 @@ CONTAINS
     lcompute%miura_h(:) = .FALSE.
     lcleanup%miura_h(:) = .FALSE.
 
+    advection_config(jg)%miura_h%iadv_min_slev = HUGE(1)
+
     IF ( ANY(ihadv_tracer(1:ntracer) == MIURA) ) THEN
+
+      ! compute minimum required slev for this group of tracers
+      DO jt=1,ntracer
+        IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+          advection_config(jg)%miura_h%iadv_min_slev =  &
+            &                  MIN( advection_config(jg)%miura_h%iadv_min_slev, &
+            &                       advection_config(jg)%iadv_slev(jt) )
+        ENDIF
+      ENDDO
+
       ! Search for the first tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=1,ntracer
@@ -409,6 +451,17 @@ CONTAINS
     lcompute%miura3_h(:) = .FALSE.
     lcleanup%miura3_h(:) = .FALSE.
 
+    advection_config(jg)%miura3_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ANY( (/MIURA3, MIURA3_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        advection_config(jg)%miura3_h%iadv_min_slev =   &
+          &                  MIN( advection_config(jg)%miura3_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
+
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=1,ntracer
@@ -433,6 +486,17 @@ CONTAINS
     !
     lcompute%ffsl_h(:) = .FALSE.
     lcleanup%ffsl_h(:) = .FALSE.
+
+    advection_config(jg)%ffsl_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ANY( (/FFSL/) == ihadv_tracer(jt) ) ) THEN
+        advection_config(jg)%ffsl_h%iadv_min_slev =   &
+          &                  MIN( advection_config(jg)%ffsl_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
 
     ! Search for the first tracer jt for which horizontal advection of
     ! type FFSL has been selected.
@@ -459,6 +523,17 @@ CONTAINS
     lcompute%mcycl_h(:) = .FALSE.
     lcleanup%mcycl_h(:) = .FALSE.
 
+    advection_config(jg)%mcycl_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == MCYCL ) THEN
+        advection_config(jg)%mcycl_h%iadv_min_slev =   &
+          &                  MIN( advection_config(jg)%mcycl_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
+
     ! Search for the first tracer jt for which horizontal advection of
     ! type MCYCL has been selected.
     DO jt=1,ntracer
@@ -483,6 +558,17 @@ CONTAINS
     !
     lcompute%miura_mcycl_h(:) = .FALSE.
     lcleanup%miura_mcycl_h(:) = .FALSE.
+
+    advection_config(jg)%miura_mcycl_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == MIURA_MCYCL ) THEN
+        advection_config(jg)%miura_mcycl_h%iadv_min_slev =  &
+          &                  MIN( advection_config(jg)%miura_mcycl_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
 
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA_MCYCL has been selected.
@@ -509,6 +595,17 @@ CONTAINS
     lcompute%miura3_mcycl_h(:) = .FALSE.
     lcleanup%miura3_mcycl_h(:) = .FALSE.
 
+    advection_config(jg)%miura3_mcycl_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == MIURA3_MCYCL ) THEN
+        advection_config(jg)%miura3_mcycl_h%iadv_min_slev =  &
+          &                  MIN( advection_config(jg)%miura3_mcycl_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
+
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA3_MCYCL has been selected.
     DO jt=1,ntracer
@@ -526,6 +623,16 @@ CONTAINS
         exit
       ENDIF
     ENDDO
+
+
+write(0,*) "muscl_v%iadv_min_slev: ", advection_config(jg)%muscl_v%iadv_min_slev
+write(0,*) "ppm_v%iadv_min_slev: ", advection_config(jg)%ppm_v%iadv_min_slev
+write(0,*) "miura_h%iadv_min_slev: ", advection_config(jg)%miura_h%iadv_min_slev
+write(0,*) "miura3_h%iadv_min_slev: ", advection_config(jg)%miura3_h%iadv_min_slev
+write(0,*) "ffsl_h%iadv_min_slev: ", advection_config(jg)%ffsl_h%iadv_min_slev
+write(0,*) "mcycl_h%iadv_min_slev: ", advection_config(jg)%mcycl_h%iadv_min_slev
+write(0,*) "miura_mcycl_h%iadv_min_slev: ", advection_config(jg)%miura_mcycl_h%iadv_min_slev
+write(0,*) "miura3_mcycl_h%iadv_min_slev: ", advection_config(jg)%miura3_mcycl_h%iadv_min_slev
 
 
 
