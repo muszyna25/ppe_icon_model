@@ -207,14 +207,15 @@ CONTAINS
         & 'deallocate for patch vert data failed')
     ENDIF
 
-    IF (l_ddmode) RETURN
-
     DEALLOCATE(p_patch%cells%phys_id,    &
       & stat=ist )
     IF(ist/=success)THEN
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch cell physical ID failed')
     ENDIF
+
+    IF (l_ddmode) RETURN
+
     DEALLOCATE( p_patch%cells%edge_orientation,  &
       & stat=ist )
     IF(ist/=success)THEN
