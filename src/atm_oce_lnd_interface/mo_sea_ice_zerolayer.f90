@@ -158,7 +158,7 @@ CONTAINS
             END IF
 
             ! F_S conductive heat flux through the ice
-            F_S(jc,k,jb) = k_effective(jc,k,jb) * (Tf - ice%Tsurf(jc,k,jb))  
+            F_S(jc,k,jb) = k_effective(jc,k,jb) * (Tfw(jc,k,jb) - ice%Tsurf(jc,k,jb))  
 
 
 
@@ -201,7 +201,7 @@ CONTAINS
               ice%Qtop(jc,k,jb) = 0.0_wp
               
               ! pos. flux means into lowest ice layer
-              ice%Qbot(jc,k,jb) =  k_effective(jc,k,jb) * (ice%Tsurf(jc,k,jb) - Tf)
+              ice%Qbot(jc,k,jb) =  k_effective(jc,k,jb) * (ice%Tsurf(jc,k,jb) - Tfw(jc,k,jb))
               !!! ice%Qbot = - new F_S
               ! NB: flux from ocean to ice still missing, this is done in
               !                       ice_growth_zerolayer
