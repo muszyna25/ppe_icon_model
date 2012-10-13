@@ -324,7 +324,7 @@ CONTAINS
     pnt_3D_edges_1 => p_nh_state(patch_no)%diag%ddt_vn_phy(:,:,:)
     pnt_3D_edges_2 => p_nh_state(patch_no)%diag%mass_fl_e(:,:,:)
     pnt_3D_edges_3 => p_nh_state(patch_no)%diag%vt(:,:,:)
-    pnt_3D_edges_3 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
+    pnt_3D_edges_4 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
     
     pnt_3D_edges_1(:,:,:) = 0.0_wp
     pnt_3D_edges_2(:,:,:) = 0.0_wp
