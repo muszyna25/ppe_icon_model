@@ -98,9 +98,11 @@ CONTAINS
         
     !---------------------------------------------------------------------
     ! DO the tests
-    ltimer = .true.
-    activate_sync_timers = .true.
-    CALL init_timer()
+!     ltimer = .true.
+!     activate_sync_timers = .true.
+    ltimer = .false.
+    timers_level = 0
+    activate_sync_timers = .false.
     SELECT CASE(testbed_model)
     
     CASE(test_halo_communication)
@@ -229,7 +231,7 @@ CONTAINS
     
     icon_comm_method = 1
     CALL test_iconcom_cells_3D("comm_1")
-    CALL test_iconcom_edges_3D("iconcomm_1")
+    CALL test_iconcom_edges_3D("comm_1")
     
     icon_comm_method = 2
     CALL test_iconcom_cells_3D("com_2")
@@ -324,12 +326,12 @@ CONTAINS
     pnt_3D_edges_1 => p_nh_state(patch_no)%diag%ddt_vn_phy(:,:,:)
     pnt_3D_edges_2 => p_nh_state(patch_no)%diag%mass_fl_e(:,:,:)
     pnt_3D_edges_3 => p_nh_state(patch_no)%diag%vt(:,:,:)
-    pnt_3D_edges_4 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
+!     pnt_3D_edges_4 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
     
     pnt_3D_edges_1(:,:,:) = 0.0_wp
     pnt_3D_edges_2(:,:,:) = 0.0_wp
     pnt_3D_edges_3(:,:,:) = 0.0_wp
-    pnt_3D_edges_4(:,:,:) = 0.0_wp
+!     pnt_3D_edges_4(:,:,:) = 0.0_wp
     
     timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
     CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
@@ -346,11 +348,11 @@ CONTAINS
       & var3=pnt_3D_edges_3, &
       & timer_id=timer_3D_edges_3)
       
-    timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
-      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
-      & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
-      & timer_id=timer_3D_edges_4)
+!     timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
+!     CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+!       & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+!       & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
+!       & timer_id=timer_3D_edges_4)
   
   END SUBROUTINE test_iconcom_edges_3D
   !-------------------------------------------------------------------------
@@ -375,10 +377,10 @@ CONTAINS
 
     patch_no=1
     
-    pnt_3D_cells_1 => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
-    pnt_3D_cells_2 => p_hydro_state(patch_no)%diag%qx(:,:,:)
-    pnt_3D_cells_3 => p_hydro_state(patch_no)%diag%u(:,:,:)
-    pnt_3D_cells_4 => p_hydro_state(patch_no)%diag%v(:,:,:)
+    pnt_3D_cells_1 => p_nh_state(patch_no)%prog(1)%w(:,:,:)
+    pnt_3D_cells_2 => p_nh_state(patch_no)%prog(1)%rho(:,:,:)
+    pnt_3D_cells_3 => p_nh_state(patch_no)%prog(1)%exner(:,:,:)
+    pnt_3D_cells_4 => p_nh_state(patch_no)%prog(1)%theta_v(:,:,:)
     pnt_3D_cells_1(:,:,:) = 0.0_wp
     pnt_3D_cells_2(:,:,:) = 0.0_wp
     pnt_3D_cells_3(:,:,:) = 0.0_wp
@@ -421,14 +423,14 @@ CONTAINS
 
     patch_no=1
     
-    pnt_3D_edges_1 => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
-    pnt_3D_edges_2 => p_hydro_state(patch_no)%diag%vt(:,:,:)
-    pnt_3D_edges_3 => p_hydro_state(patch_no)%diag%delp_e(:,:,:)
-    pnt_3D_edges_4 => p_hydro_state(patch_no)%diag%mass_flux_e(:,:,:)
+    pnt_3D_edges_1 => p_nh_state(patch_no)%diag%ddt_vn_phy(:,:,:)
+    pnt_3D_edges_2 => p_nh_state(patch_no)%diag%mass_fl_e(:,:,:)
+    pnt_3D_edges_3 => p_nh_state(patch_no)%diag%vt(:,:,:)
+!     pnt_3D_edges_4 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
     pnt_3D_edges_1(:,:,:) = 0.0_wp
     pnt_3D_edges_2(:,:,:) = 0.0_wp
     pnt_3D_edges_3(:,:,:) = 0.0_wp
-    pnt_3D_edges_4(:,:,:) = 0.0_wp
+!     pnt_3D_edges_4(:,:,:) = 0.0_wp
     
     timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
     CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1, &
@@ -443,10 +445,10 @@ CONTAINS
       & var3=pnt_3D_edges_3, &
       & timer_id=timer_3D_edges_3, patch_no=patch_no)
       
-    timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
-    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
-      & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
-      & timer_id=timer_3D_edges_4, patch_no=patch_no)
+!     timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
+!     CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+!       & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
+!       & timer_id=timer_3D_edges_4, patch_no=patch_no)
   
   END SUBROUTINE test_oldsync_edges_3D
   !-------------------------------------------------------------------------

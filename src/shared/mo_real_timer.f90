@@ -61,7 +61,7 @@ MODULE mo_real_timer
   PUBLIC :: timer_reset, timer_reset_all
   PUBLIC :: timer_report
 
-  INTEGER, PARAMETER :: timer_max = 256
+  INTEGER, PARAMETER :: timer_max = 512
 
   INTEGER :: top_timer = 0
 
