@@ -64,14 +64,8 @@ USE mo_model_domain,              ONLY: t_patch
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_exception,                 ONLY: message, finish, message_text
 USE mo_loopindices,               ONLY: get_indices_c!, get_indices_e
-!USE mo_oce_math_operators,        ONLY: height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_intp_data_strc,            ONLY: t_int_state
-USE mo_scalar_product,            ONLY: calc_scalar_product_veloc_3D
-USE mo_intp_data_strc,            ONLY: t_int_state
-USE mo_intp_rbf,                  ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
-USE mo_oce_ab_timestepping,       ONLY: calc_vert_velocity
 USE mo_datetime,                  ONLY: t_datetime
 
 IMPLICIT NONE
