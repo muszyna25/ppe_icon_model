@@ -76,9 +76,9 @@ CONTAINS
       &          p_patch,                      & !>in
       &          p_prog_list,                  & !>in
       &          p_rain_gsp_rate,              & !>in
-      &          p_snow_gsp_rate,              & !>in
+!      &          p_snow_gsp_rate,              & !>in
       &          p_rain_con_rate,              & !>in
-      &          p_snow_con_rate,              & !>in
+!      &          p_snow_con_rate,              & !>in
       &          p_rho,                        & !>in
       &          p_tracer_new)                  !>inout
 
@@ -93,14 +93,14 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface rain rate  [kg/m2/s]
       &  p_rain_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
 
-    REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface snow rate  [kg/m2/s]
-      &  p_snow_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
+!    REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface snow rate  [kg/m2/s]
+!      &  p_snow_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
 
     REAL(wp), INTENT(IN)    ::  &       !< convective surface rain rate  [kg/m2/s]
       &  p_rain_con_rate(:,:)           !< dim: (nproma,nblks_c)
 
-    REAL(wp), INTENT(IN)    ::  &       !< convective surface snow rate  [kg/m2/s]
-      &  p_snow_con_rate(:,:)           !< dim: (nproma,nblks_c)
+!    REAL(wp), INTENT(IN)    ::  &       !< convective surface snow rate  [kg/m2/s]
+!      &  p_snow_con_rate(:,:)           !< dim: (nproma,nblks_c)
 
     REAL(wp), INTENT(INOUT) ::  &       !< density of air 
       &  p_rho(:,:,:)               !< 
@@ -148,14 +148,14 @@ CONTAINS
 
           WRITE(0,*) 'WASHOUT of ', var_name,' with idx= ',jsp
 
-!!$         CALL art_washout_volc(dt_phy_jg,       & !>in
-!!$         &          p_patch,                    & !>in
-!!$         &          p_rain_gsp_rate,              & !>in
+         CALL art_washout_volc(dt_phy_jg,       & !>in
+         &          p_patch,                    & !>in
+         &          p_rain_gsp_rate,              & !>in
 !!$         &          p_snow_gsp_rate,              & !>in
-!!$         &          p_rain_con_rate,              & !>in
+         &          p_rain_con_rate,              & !>in
 !!$         &          p_snow_con_rate,              & !>in
-!!$         &          p_rho,                   & !>in
-!!$         &          p_tracer_new,jsp)                !>inout 
+         &          p_rho,                   & !>in
+         &          p_tracer_new,jsp)                !>inout 
         ENDIF
       ENDIF !lis_tracer
 

@@ -588,9 +588,9 @@ CONTAINS
                   &          pt_patch,                           & !>in
                   &          p_prog_list,                        & !>in
                   &          prm_diag%rain_gsp_rate,             & !>in
-                  &          prm_diag%snow_gsp_rate,             & !>in
+!                  &          prm_diag%snow_gsp_rate,             & !>in
                   &          prm_diag%rain_con_rate,             & !>in
-                  &          prm_diag%snow_con_rate,             & !>in
+!                  &          prm_diag%snow_con_rate,             & !>in
                   &          pt_prog%rho,                        & !>in               
                   &          pt_prog_rcf%tracer)                   !>inout             
 
