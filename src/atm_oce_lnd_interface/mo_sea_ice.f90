@@ -1375,7 +1375,7 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     REAL(wp) :: sst(nproma,p_patch%nblks_c)
-    REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [°C]
+    REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [C]
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1385,14 +1385,14 @@ CONTAINS
     
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
-      &      dtime*p_sfc_flx%forc_tracer(:,:,1)/ice%zUnderIce(:,:)
+      &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
     ice % newice(:,:) = 0.0_wp
     WHERE (sst < Tfw(:,:) .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
       ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
-      p_sfc_flx%forc_tracer(:,:,1) = &
-        &     ice%zUnderIce(:,:) * ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
+      p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
+        &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
     END WHERE
 
     WHERE(ice%newice(:,:)>0.0_wp)
