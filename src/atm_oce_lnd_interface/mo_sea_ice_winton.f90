@@ -74,11 +74,11 @@ CONTAINS
   !!           doi: 10.1175/1520-0426(2000)017<0525:ARTLSI> (put into google)
   !!
   !! This function changes:
-  !! ice % Tsurf    the new surface temperature   for each ice category     [�C]
-  !! ice % T1       the new upper ice+snow temp.  for each ice category     [�C]
-  !! ice % T2       the new lower ice temperature for each ice category     [�C]
-  !! ice % Qbot     Heat flux available for freezing/melting at ice bottom  [W/m�]
-  !! ice % Qtop     Heat flux available for melting at ice surface          [W/m�]
+  !! ice % Tsurf    the new surface temperature   for each ice category     [C]
+  !! ice % T1       the new upper ice+snow temp.  for each ice category     [C]
+  !! ice % T2       the new lower ice temperature for each ice category     [C]
+  !! ice % Qbot     Heat flux available for freezing/melting at ice bottom  [W/m^2]
+  !! ice % Qtop     Heat flux available for melting at ice surface          [W/m^2]
   !!
   !!           all "dtime" in this function are atmospheric time step
   !! @par Revision History
@@ -383,7 +383,7 @@ CONTAINS
             ! 1. Evaporation
             ! #eoo# Not in Winton - does this count the latent fluxes twice?
             
-            !subli(jc,k,jb) = lat  / als * dtime;    ![kg/m�]
+            !subli(jc,k,jb) = lat  / als * dtime;    ![kg/m^3]
             !WHERE     (subli <= ice%hs*rhos )         
             !  ice%hs(jc,k,jb) = ice%hs - subli / rhos
             !ELSEWHERE (subli <= ice%hs*rhos + h1*rhoi )              ! if all snow is gone
@@ -450,7 +450,7 @@ CONTAINS
                 END IF
               END IF
               ! Calculate average temperature of surface melt water 
-              ! T(snow) = 0�C, T(ice) = -muS �C
+              ! T(snow) = 0C, T(ice) = -muS C
               ice%surfmeltT(jc,k,jb) =   (surfmelti1(jc,k,jb) + surfmelti2(jc,k,jb)) &
                 &                      * (-muS) /  ice%surfmelt(jc,k,jb)
             END IF
