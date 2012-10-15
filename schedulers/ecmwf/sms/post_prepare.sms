@@ -104,7 +104,7 @@ smsevent meteogram_data
 # GRIB: copy to ecgate
 
 for levtype in ML PL HL ; do
-  ecp -o ${outdir}${basename}_DOM01_${levtype}_0001.grb $ecfsdir || true
+  ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir || true
 done
 
 
@@ -160,7 +160,7 @@ fi
 if [[ $ldeldata = 1 ]] ; then
   \rm -rf grb_data 
   for levtype in ML PL HL ; do
-    \rm -rf ${outdir}${basename}_DOM01_${levtype}_0001.grb
+    \rm -rf ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
 fi
 
