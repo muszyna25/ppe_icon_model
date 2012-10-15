@@ -34,39 +34,39 @@
 !! software.
 !! 
 MODULE mo_oce_diagnostics
-!-------------------------------------------------------------------------  
-!
-!    ProTeX FORTRAN source: Style 2  
-!    modified for ICON project, DWD/MPI-M 2006
-!  
-!-------------------------------------------------------------------------  
-!  
-!   
-! 
-USE mo_kind,                      ONLY: wp, dp, i8
-USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-USE mo_mpi,                       ONLY: my_process_is_stdio, p_field_sum, &
-  &                                     p_comm_work_test, p_comm_work, p_io, p_bcast
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
-USE mo_math_constants,            ONLY: rad2deg
-USE mo_impl_constants,            ONLY: sea_boundary,sea, &
-  &                                     min_rlcell, min_rledge, min_rlcell, &
-  &                                     max_char_length, MIN_DOLIC
-USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
-  &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
-USE mo_dynamics_config,           ONLY: nold,nnew
-USE mo_parallel_config,           ONLY: nproma, p_test_run
-USE mo_run_config,                ONLY: dtime, nsteps
-USE mo_physical_constants,        ONLY: grav, rho_ref
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
-  &                                     set_lateral_boundary_values
-USE mo_model_domain,              ONLY: t_patch
-USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_exception,                 ONLY: message, finish, message_text
-USE mo_loopindices,               ONLY: get_indices_c!, get_indices_e
-USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_datetime,                  ONLY: t_datetime
+  USE mo_kind,               ONLY: wp, dp, i8
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
+    &                              p_comm_work_test, p_comm_work, p_io, p_bcast
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates!, gc2cc
+  USE mo_math_constants,     ONLY: rad2deg
+  USE mo_impl_constants,     ONLY: sea_boundary,sea, &
+    &                              min_rlcell, min_rledge, min_rlcell, &
+    &                              max_char_length, MIN_DOLIC
+  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
+      &                            ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
+  USE mo_dynamics_config,    ONLY: nold,nnew
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
+  USE mo_run_config,         ONLY: dtime, nsteps
+  USE mo_physical_constants, ONLY: grav, rho_ref
+  USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
+    &                              set_lateral_boundary_values
+  USE mo_model_domain,       ONLY: t_patch
+  USE mo_ext_data_types,     ONLY: t_external_data
+  USE mo_exception,          ONLY: message, finish, message_text
+  USE mo_loopindices,        ONLY: get_indices_c!, get_indices_e
+  USE mo_oce_physics,        ONLY: t_ho_params
+  USE mo_sea_ice_types,      ONLY: t_sfc_flx
+  USE mo_datetime,           ONLY: t_datetime
+  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_list,           ONLY: add_var,                  &
+    &                              new_var_list,             &
+    &                              delete_var_list,          &
+    &                              default_var_list_settings,&
+    &                              add_ref
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
 
 IMPLICIT NONE
 
