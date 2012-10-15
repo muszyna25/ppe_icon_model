@@ -105,6 +105,9 @@ TYPE t_oce_timeseries
 END TYPE t_oce_timeseries
 
 
+TYPE(t_var_list)         , PUBLIC                      :: ocean_diagnostics_list
+
+
 CONTAINS
 !-------------------------------------------------------------------------  
 !
@@ -369,6 +372,9 @@ TYPE(t_oce_monitor), POINTER :: ptr_monitor
 CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
 !-----------------------------------------------------------------------
+CHARACTER(len=max_char_length) :: listname
+INTEGER :: jg
+!-----------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
 
@@ -491,6 +497,15 @@ write(*,*)'INIIAL VALUES OF KINETIC ENERGY   :',oce_ts%oce_diagnostics(0)%kin_en
 write(*,*)'INITIAL VALUES OF POTENTIAL ENERGY:',oce_ts%oce_diagnostics(0)%pot_energy
 write(*,*)'INITIAL VALUES OF TOTAL ENERGY    :',oce_ts%oce_diagnostics(0)%total_energy
 
+!ram create a separate diagnostics varlist
+
+      ! construction loop: create components of state array
+      ! !TODO organize var_lists for the multiple timesteps of prog. state
+      WRITE(listname,'(a)')  'ocean_diagnostics_list'
+      CALL new_var_list(ocean_diagnostics_list, listname, patch_id=p_patch%id)
+      CALL default_var_list_settings( ocean_diagnostics_list,            &
+                                    & lrestart=.FALSE.,           &
+                                    & model_type='oce' )
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
