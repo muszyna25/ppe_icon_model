@@ -135,7 +135,7 @@ for filename in $exp_list
 do
   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status && -r $input_folder/$filename ]] ; then
 
-    if [[ $use_openmp = "yes"  &&  ( $filename = *oce* || $filename = *hom* ) ]] ; then
+    if [[ $use_openmp = "yes"  &&  ( $filename = test.*oce* || $filename = test.*hom* ) ]] ; then
       echo "${filename}: Ocean runscripts are not created for openmp"
     else
       name=${filename#*.}
