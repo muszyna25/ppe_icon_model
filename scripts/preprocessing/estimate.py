@@ -15,12 +15,10 @@ vertical_layers   = 95
 #nodes_list=[ 32.0 ]
 #opnemp_threads_list=[1.0, 4.0, 8.0, 16.0, 32.0]
 #opnemp_threads_list=[ 8.0 ]
-nproma_list=[ 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0,
-21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, 32.0, 33.0,
-34.0, 35.0, 36.0, 37.0, 38.0, 39.0, 40.0  ]
+nproma_list=[ 4.0, 6.0, 8.0, 12.0, 16.0, 18.0, 22.0, 24.0,  32.0 ]
 
-nodes_list=[   2.0 ]
-openmp_threads_list=[ 4.0 ]
+mpi_procs_list=[ 128.0, 256.0, 512.0, 541.0, 640.0, 768.0,  1082.0 ]
+openmp_threads_list=[ 2.0 ]
 # 64=compute decompositions SMT mode
 # 32=compute decompositions ST mode
 total_threads_per_node=64.0
@@ -31,6 +29,11 @@ cells = (20*grid_refine_root*grid_refine_root)*(4**grid_refine_level)
 verts = (10*grid_refine_root*grid_refine_root)*4**grid_refine_level+2
 edges = (30*grid_refine_root*grid_refine_root)*4**grid_refine_level
 
+# iconR2B05-grid_dec-1082.nc
+cells = 25920
+verts = 12962
+edges = 38880
+
 print "==============================================================="
 print "= grid info: R",grid_refine_root,"B",grid_refine_level
 print "  cells=",cells, " edges=", edges, " vertices=", verts
@@ -39,17 +42,18 @@ print "==============================================================="
 #------------------------------------------------------------------------------
 
 def display_thread_load(message, entities, threads, block_size):
-  blocks = entities / block_size
+  blocks = round(entities / block_size+ 0.5)  
   blocks_per_thread = blocks / threads
-  blocks_per_thread_i = int(blocks_per_thread + 0.49)
-  remain_block = (int(blocks + 0.49)) % (int(threads))
+  blocks_per_thread_i = round(blocks_per_thread)
+  iterations = int(entities / blocks_per_thread_i)
+  remain_block = entities - (blocks_per_thread_i * threads * iterations)
+  remain_block = blocks % threads
   #------------------------------------------------------------------------------
   print message, " blocks=",blocks, " blocks_per_thread=", blocks_per_thread,\
   blocks_per_thread_i, " remain_block=", remain_block
 
-def compute_decomposition(nodes, opnemp_threads):
-  mpi_procs_per_node = total_threads_per_node / opnemp_threads
-  subdomains = mpi_procs_per_node * nodes
+def compute_decomposition(mpi_procs, opnemp_threads):
+  subdomains = mpi_procs
   owned_cells = cells / subdomains
   halo_cells = 4.4 * math.sqrt(owned_cells)
   domain_cells = owned_cells + halo_cells
@@ -60,7 +64,7 @@ def compute_decomposition(nodes, opnemp_threads):
   #------------------------------------------------------------------------------
   print "==============================================================="
   print "= decomposition info"
-  print "  nodes=",nodes, " openmp threads=", opnemp_threads, " mpi_procs_per_node=", mpi_procs_per_node
+  print "  mpi_procs=",mpi_procs, " openmp threads=", opnemp_threads
   print "  subdomains=", subdomains
   print "  Per domain:  own cells=",owned_cells, " halo cells=", halo_cells, "total_cells=", domain_cells
   print "  Per domain:  own edges=", owned_edges, " own vertices=", owned_verts
@@ -68,10 +72,10 @@ def compute_decomposition(nodes, opnemp_threads):
   #------------------------------------------------------------------------------
   # compute nproma parameters
   for nproma in nproma_list:
-    blocks_own_cell   = owned_cells   / nproma
-    blocks_total_cell = domain_cells  / nproma
-    blocks_own_edges  = owned_edges   / nproma
-    blocks_own_verts  = owned_verts   / nproma
+    blocks_own_cell   = round(owned_cells/nproma + 0.5)
+    blocks_total_cell = round(domain_cells  / nproma+ 0.5)
+    blocks_own_edges  = round(owned_edges   / nproma+ 0.5)
+    blocks_own_verts  = round(owned_verts   / nproma+ 0.5)
     #------------------------------------------------------------------------------
     print "= threads info, nproma=", nproma
     display_thread_load("own cells",   owned_cells, opnemp_threads, nproma)
@@ -82,9 +86,9 @@ def compute_decomposition(nodes, opnemp_threads):
 
 #------------------------------------------------------------------------------
 
-for no_nodes in nodes_list:
+for mpi_procs in mpi_procs_list:
   for omp_threads in openmp_threads_list:
-    compute_decomposition(no_nodes, omp_threads)
+    compute_decomposition(mpi_procs, omp_threads)
 
 
 sys.exit(0)

@@ -602,7 +602,6 @@ lapack/iparmq.f -text
 lapack/izmax1.f -text
 /make_my_runscript -text
 /make_nat-ape-dec_runs -text
-/make_performance_runscripts -text
 /make_runscripts -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
@@ -934,6 +933,7 @@ scripts/preprocessing/testdata/iconR2B04-grid.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/oro_R2B04.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/vct -text
 scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
 scripts/run_scripts/test/test_experiments.rb -text
 src/advection/mo_advection_hflux.f90 -text
