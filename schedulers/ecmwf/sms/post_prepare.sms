@@ -63,6 +63,7 @@ fi
 CDOBIN=%SCSOFT%/software/cdo-1.5.4_build/bin/cdo
 if [ %NENS% -gt 0 ] ; then
   for levtype in ML PL HL ; do
+    \rm -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb
     ${CDOBIN} ensmean ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb \
                       ${outdir}/002/${basename}_002_DOM01_${levtype}_0001.grb \
                       ${outdir}/003/${basename}_003_DOM01_${levtype}_0001.grb \
@@ -75,25 +76,26 @@ if [ %NENS% -gt 0 ] ; then
                       ${outdir}/010/${basename}_010_DOM01_${levtype}_0001.grb \
                       ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
-  ${CDOBIN} ensmean   ${outdir}/001/"METEOGRAM_patch001.nc" \
-                      ${outdir}/002/"METEOGRAM_patch001.nc" \
-                      ${outdir}/003/"METEOGRAM_patch001.nc" \
-                      ${outdir}/004/"METEOGRAM_patch001.nc" \
-                      ${outdir}/005/"METEOGRAM_patch001.nc" \
-                      ${outdir}/006/"METEOGRAM_patch001.nc" \
-                      ${outdir}/007/"METEOGRAM_patch001.nc" \
-                      ${outdir}/008/"METEOGRAM_patch001.nc" \
-                      ${outdir}/009/"METEOGRAM_patch001.nc" \
-                      ${outdir}/010/"METEOGRAM_patch001.nc" \
-                      ${outdir}/"METEOGRAM_patch001.nc"
+  \rm -f ${outdir}/METEOGRAM_patch001.nc
+  ${CDOBIN} ensmean   ${outdir}/001/METEOGRAM_patch001.nc \
+                      ${outdir}/002/METEOGRAM_patch001.nc \
+                      ${outdir}/003/METEOGRAM_patch001.nc \
+                      ${outdir}/004/METEOGRAM_patch001.nc \
+                      ${outdir}/005/METEOGRAM_patch001.nc \
+                      ${outdir}/006/METEOGRAM_patch001.nc \
+                      ${outdir}/007/METEOGRAM_patch001.nc \
+                      ${outdir}/008/METEOGRAM_patch001.nc \
+                      ${outdir}/009/METEOGRAM_patch001.nc \
+                      ${outdir}/010/METEOGRAM_patch001.nc \
+                      ${outdir}/METEOGRAM_patch001.nc
 fi
 
 
 #-----------------------------------------------------------------------------
 # meteogram: rename and copy to ecgate
 
-outfile_mtg1=${outdir}/"METEOGRAM_patch001.nc"
-outfile_mtg2=${outdir}/${basename}"_meteogram.nc"
+outfile_mtg1=${outdir}/METEOGRAM_patch001.nc
+outfile_mtg2=${outdir}/${basename}_meteogram.nc
 mv $outfile_mtg1 $outfile_mtg2 || true
 rcp $outfile_mtg2 ecgate:${gatedir}
 ecp -o $outfile_mtg2 $ecfsdir

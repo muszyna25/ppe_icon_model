@@ -124,7 +124,7 @@ for levtype1 in PL HL ML; do
 # delete data
 
     if [[ $ldeldata = 1 ]] ; then
-      outfile2=${outdir}${basename}_DOM01_${levtype1}_0001.grb
+      outfile2=${outdir}/${basename}_DOM01_${levtype1}_0001.grb
       \rm -rf ${outfile2}
       smsmeter deldata ${dd}
     fi
