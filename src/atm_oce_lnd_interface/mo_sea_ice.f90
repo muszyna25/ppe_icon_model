@@ -97,7 +97,6 @@ MODULE mo_sea_ice
   PUBLIC :: ice_fast
   PUBLIC :: ice_slow
   PUBLIC :: upper_ocean_TS
-  PUBLIC :: new_ice_growth
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: prepareAfterRestart
@@ -905,7 +904,7 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,ice%kice, p_patch%nblks_c) :: &
       & Tinterface, & ! temperature at snow-ice interface
       & draft,      & ! position of ice-ocean interface below sea level
-      & Tfw           ! Ocean freezing temperature [°C]
+      & Tfw           ! Ocean freezing temperature [C]
 
     !INTEGER i,j,k      ! counter for loops
     INTEGER k      ! counter for loops
@@ -1034,6 +1033,7 @@ CONTAINS
     CALL ave_fluxes     (ice, QatmAve)
     !CALL ice_dynamics   (ice, QatmAve)
     
+    ice%hiold(:,:,:) = ice%hi(:,:,:)
     ! #achim
     IF      ( i_sea_ice == 1 ) THEN
       CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
@@ -1042,7 +1042,7 @@ CONTAINS
     END IF
 
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
-    CALL new_ice_growth (p_patch,ice, p_os,p_sfc_flx)
+    CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,QatmAve,1,ie,je)
     CALL ice_zero       (ice, QatmAve)
@@ -1248,7 +1248,7 @@ CONTAINS
   !! ! upper_ocean_TS: Adjusts the temperature and salinity of the upper ocean grid
   !!                 cell according to atmospheric heat and fresh-water fluxes,
   !!                 surface melting, ice growth, etc. The upper ocean temperature
-  !!                 is also changed in subroutine new_ice_growth and at the
+  !!                 is also changed in subroutine ice_conc_change and at the
   !!                beginning of subroutine ice_growth
   !!
   !! @par Revision History
@@ -1358,16 +1358,15 @@ CONTAINS
   !
   !  
   !>
-  !! !! new_ice_growth: Calculates the grid-cell average thickness of new ice 
-  !                 forming in open-water areas
+  !! !! ice_conc_change: Calculates the changes in concentration as well as the grid-cell average
+  !                     thickness of new ice forming in open-water areas
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
+  !! Einar Olason, renamed and added support for changing concentration
   !!
-  ! TODO: This needs to be rewritten to take in to account cases where the ice concentration can vary
-  ! between 0 and 1
-  SUBROUTINE new_ice_growth(p_patch,ice, p_os,p_sfc_flx)
+  SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
     TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
@@ -1376,6 +1375,9 @@ CONTAINS
 
     REAL(wp) :: sst(nproma,p_patch%nblks_c)
     REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [C]
+    REAL(wp) :: old_conc(nproma,p_patch%nblks_c)
+    ! h_0 from Hibler (1979)
+    REAL(wp), PARAMETER :: hnull = 0.5_wp
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1388,33 +1390,38 @@ CONTAINS
       &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
     ice % newice(:,:) = 0.0_wp
+    ! This is where new ice forms
     WHERE (sst < Tfw(:,:) .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
       ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
       p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
-    END WHERE
 
-    WHERE(ice%newice(:,:)>0.0_wp)
+      ! New ice forms over open water - set temperature to Tfw
       WHERE(.NOT.ice%isice(:,1,:))
         ice%Tsurf(:,1,:) = Tfw(:,:)
         ice%T2   (:,1,:) = Tfw(:,:)
         ice%T1   (:,1,:) = Tfw(:,:)
       ENDWHERE
-      ice % isice(:,1,:) = .TRUE.
-      ice % hi   (:,1,:) = ice%newice(:,:)* (1.0_wp-sum(ice%conc(:,:,:),2))&
-                         &+ice%hi(:,1,:)*sum(ice%conc(:,:,:),2)
-      !ice % hs   (:,:,1) = 0
-      !ice % Tsurf(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-  !!!!!!!!!!!DIRK: Where is rhs coming from ???????????????
 
-      !ice % T1   (:,:,1) = T1(:,:,1)
-      !ice % T2   (:,:,1) = T2(:,:,1)
-      ice % conc (:,1,:) = 1.0_wp
+      ice%isice(:,1,:) = .TRUE.
+      old_conc (:,:)   = ice%conc(:,1,:)
+      ice%conc (:,1,:) = min( 1._wp, & 
+        &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
+      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
+      !  => hi <- newice/conc + hi*old_conc/conc
+      ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
     ENDWHERE
+
+    ! This is where concentration changes due to ice melt
+    WHERE (ice%hiold(:,1,:)-ice%hi(:,1,:) > 0._wp )
+      ice%conc(:,1,:) = max( 0._wp, ice%conc(:,1,:) - &
+        &        ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+    ENDWHERE
+
     ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
 
-  END SUBROUTINE new_ice_growth
+  END SUBROUTINE ice_conc_change
 
 
   !-------------------------------------------------------------------------
