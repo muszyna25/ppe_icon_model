@@ -134,58 +134,62 @@ omp_stacksize=200M
 for filename in $exp_list
 do
   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status && -r $input_folder/$filename ]] ; then
-    # Note: hydrostatic ocean model (hom) not yet parallelized
-    name=${filename#*.}
-    if [[ ${name} == test* ]]; then
-      queue="$use_queue"
-    else
-      queue="default"
-    fi
-    case $name in
-    test_hom_*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      memory_model="large" cpu_time="01:00:00" queue="express"
-      ;;    
- #   hom_*)
- #     $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
- #     mpi_procs=1 memory_model="large" cpu_time="08:00:00"
- #     ;;
-    *_nwp_*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
-      ;;    
-    *_nah_jww*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
-      ;;    
-    *_nh35_tri_jws*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="03:00:00" memory_model="small" queue="$queue"
-      ;;    
-    *oce_default*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize
-      ;;
-    *)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
-      ;;
-    esac
 
-    # special cases for queuing on blizzard
-    if [ $use_target = "blizzard" ] ; then
-      if [ $name = test_nh3_tri_tracer_solid_body ] ; then
-        $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-        EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+    if [[ $use_openmp = "yes"  &&  ( $filename = *oce* || $filename = *hom* ) ]] ; then
+      echo "${filename}: Ocean runscripts are not created for openmp"
+    else
+      name=${filename#*.}
+      if [[ ${name} == test* ]]; then
+        queue="$use_queue"
+      else
+        queue="default"
       fi
-      if [ $use_openmp = "yes" ] ; then
-        if [ $name = test_nh35_tri_jws ] ; then
+      case $name in
+      test_hom_*)
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        memory_model="large" cpu_time="01:00:00" queue="express"
+        ;;    
+  #   hom_*)
+  #     $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+  #     mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+  #     ;;
+      *_nwp_*)
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
+        ;;    
+      *_nah_jww*)
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+        ;;    
+      *_nh35_tri_jws*)
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="03:00:00" memory_model="small" queue="$queue"
+        ;;    
+      *oce_default*)
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize
+        ;;
+      *)
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
+        ;;
+      esac
+
+      # special cases for queuing on blizzard
+      if [ $use_target = "blizzard" ] ; then
+        if [ $name = test_nh3_tri_tracer_solid_body ] ; then
           $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-          EXPNAME="$name"  memory_model="small" queue="express"
+          EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+        fi
+        if [ $use_openmp = "yes" ] ; then
+          if [ $name = test_nh35_tri_jws ] ; then
+            $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+            EXPNAME="$name"  memory_model="small" queue="express"
+          fi
         fi
       fi
-    fi
     
+    fi
   fi
 done
 #==============================================================================
@@ -290,22 +294,27 @@ fi
 # special treatment for exp.test_hom_lsm
 # this includes the restart in the exp.test_hom_lsm_restart
 #
-queue="express"
 
-name=test_hom_lsm
+if [ $use_openmp = "no" ] ; then
 
-if [ $make_restart_exp = "true" ] ; then
+  queue="express"
 
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"  test_restart="true" \
-    queue="$queue" cpu_time="01:00:00"
-  
-fi
+  name=test_hom_lsm
 
-# postprocessing for comparing the restarts
-if [ $make_restart_post = "true" ] ; then
-  $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" 
+  if [ $make_restart_exp = "true" ] ; then
+
+    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+      in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"  test_restart="true" \
+      queue="$queue" cpu_time="01:00:00"
+    
+  fi
+
+  # postprocessing for comparing the restarts
+  if [ $make_restart_post = "true" ] ; then
+    $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
+      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" 
+  fi
+
 fi
 
 #==============================================================================
