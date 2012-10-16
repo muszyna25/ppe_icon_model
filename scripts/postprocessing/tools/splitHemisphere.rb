@@ -4,6 +4,10 @@ require "numru/netcdf"
 require 'numru/netcdf_miss'
 include NumRu
 
+# 
+# This script splits the glocal cell grid into northern and southern hemisphere.
+#
+# Requirements: ruby, ruby modules: ruby-netcdf
 
 iFilename = ARGV[0]
 
