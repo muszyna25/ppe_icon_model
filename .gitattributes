@@ -917,6 +917,7 @@ scripts/postprocessing/tools/plot_vcs_driver.bash -text
 scripts/postprocessing/tools/rhopot.rb -text
 scripts/postprocessing/tools/rhopot.sh -text
 scripts/postprocessing/tools/scatterPlot.rb -text
+scripts/postprocessing/tools/splitHemisphere.rb -text
 scripts/preprocessing/IFS2ICON_README.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/ifs2icon-hs.conf -text
