@@ -1017,8 +1017,7 @@ CONTAINS
 
     ! print some info
     IF ( .NOT. process_is_mpi_parallel) THEN
-      WRITE (nerr,'(a,a)')  TRIM(process_mpi_name), &
-      ': Single processor run.'
+      WRITE (nerr,'(a)')  'Single processor run.'
     ELSEIF (process_is_stdio) THEN
       WRITE (nerr,'(a,a,i6,a)') TRIM(process_mpi_name), &
         '  runs on ', process_mpi_all_size, ' mpi processes.'
