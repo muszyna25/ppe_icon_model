@@ -197,8 +197,7 @@ suite $USER
 
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
-            trigger (../init:YMD le /${USER}:SMSDATE-3) or \
-                    (/ifs_trigger/fct_ifs == complete)
+            trigger  /ifs_trigger/fct_ifs == complete
             on_ecgate
             if ($ENABLE_INIT == 0) then
                 label status "skipped"
