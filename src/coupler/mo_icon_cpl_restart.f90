@@ -429,8 +429,6 @@ CONTAINS
          &  TRIM(fptr%field_name)
     ENDIF
 
-    CLOSE ( unit = rest_unit )
-
     DO i = 1, field_shape(3)
        jj = 0
        DO j = field_shape(1), field_shape(2)
