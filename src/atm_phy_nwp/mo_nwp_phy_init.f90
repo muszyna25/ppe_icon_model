@@ -304,11 +304,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         DO jc = i_startidx, i_endidx
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
         ENDDO
-        DO jt = 1, ntiles_total
-          DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
+        IF (.NOT. ltestcase) THEN ! the t_g_t does not exist for inwp_surface=0
+          DO jt = 1, ntiles_total
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
+            ENDDO            
           ENDDO
-        ENDDO
+        ENDIF
 
       ENDDO
 
