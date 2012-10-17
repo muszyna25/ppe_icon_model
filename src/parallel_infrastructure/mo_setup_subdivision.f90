@@ -70,7 +70,7 @@ MODULE mo_setup_subdivision
     & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
     & get_my_mpi_all_id, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, ntasks_per_node, &
+  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file, div_geometric
     
 #ifdef HAVE_METIS
@@ -80,7 +80,7 @@ MODULE mo_setup_subdivision
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, l_limited_area
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
@@ -594,7 +594,7 @@ CONTAINS
 
         IF(division_method==div_geometric) THEN
           wrk_divide_patch => wrk_p_parent_patch_g
-          CALL divide_subset_geometric( flag_c, n_proc, tmp, wrk_p_patch_g%id)
+          CALL divide_subset_geometric( flag_c, n_proc, tmp)
 #ifdef HAVE_METIS
         ELSE IF(division_method==div_metis) THEN
           wrk_divide_patch => wrk_p_parent_patch_g
@@ -633,7 +633,7 @@ CONTAINS
 
         IF(division_method==div_geometric) THEN
           wrk_divide_patch => wrk_p_patch_g
-          CALL divide_subset_geometric(flag_c, n_proc, cell_owner, wrk_p_patch_g%id)
+          CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
 #ifdef HAVE_METIS
         ELSE IF(division_method==div_metis) THEN
           wrk_divide_patch => wrk_p_patch_g
@@ -1818,24 +1818,19 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner, id)
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    INTEGER, INTENT(in)    :: id       ! Domain ID 
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
     INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1), js, np
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
-               ncell_offset(0:max_phys_dom), nlatbands, nlonsegments, nbins_hem, nbins
-    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:), aux_lat(:), aux_lon(:), aux_clat(:), &
-                             minlat_bin(:), maxlat_bin(:), minlon_bin(:), maxlon_bin(:)
-    INTEGER,  ALLOCATABLE :: aux_owner(:)
-    REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom), newproc(0:n_proc-1), &
-                minlat, maxlat, minlon, maxlon, avglat(0:n_proc-1), avglon(0:n_proc-1), &
-                thrlat1, thrlat2, thrlon1, thrlon2
+               ncell_offset(0:max_phys_dom)
+    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
+    REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains
 
     !-----------------------------------------------------------------------
@@ -2154,136 +2149,6 @@ CONTAINS
     ENDIF
 
     DEALLOCATE(cell_desc)
-
-    IF (divide_for_radiation .OR. lsplit_merged_domains .OR. n_proc < 16 .OR. ntasks_per_node == 0) RETURN
-
-    ! Determine parameters for sorting the owners according to the geographical position
-    ! of their subdomain
-
-    IF (id == 1 .AND. .NOT. l_limited_area) THEN
-      ! Number of latitude bands per hemisphere
-      nlatbands = MAX(2,NINT(SQRT(REAL(n_proc,wp)/(2._wp*REAL(ntasks_per_node)))))
-      ! Number of bins per hemisphere and total number
-      nbins_hem = nlatbands**2
-      nbins     = 2*nbins_hem
-    ELSE
-      ! Total number of latitude bands
-      nlatbands = MAX(2,NINT(SQRT(REAL(n_proc,wp)/(REAL(ntasks_per_node)))))
-      ! Number of bins
-      IF (nlatbands <= 3) THEN
-        nlonsegments = 1
-        nbins        = nlatbands**2
-        nlatbands    = nbins
-      ELSE
-        nlonsegments = nlatbands
-        nbins        = nlatbands*nlonsegments
-      ENDIF
-    ENDIF
-
-    nc = wrk_divide_patch%n_patch_cells
-    ALLOCATE (aux_lat(nc),aux_clat(nc),aux_lon(nc),aux_owner(nc),minlat_bin(nbins), &
-              maxlat_bin(nbins),minlon_bin(nbins),maxlon_bin(nbins))
-
-    ! Compute average latitude and longitude of each subdomain for owner reordering
-    DO j = 1, wrk_divide_patch%n_patch_cells
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-
-      aux_lat(j)  = wrk_divide_patch%cells%center(jl,jb)%lat
-      aux_clat(j) = COS(wrk_divide_patch%cells%center(jl,jb)%lat)
-      aux_lon(j)  = wrk_divide_patch%cells%center(jl,jb)%lon
-      aux_owner(j) = owner(j)
-    ENDDO
-
-    DO i = 0, n_proc-1
-      avglat(i) = SUM(aux_lat(:)*aux_clat(:),MASK=owner(:)==i) / &
-                  SUM(aux_clat(:),MASK=owner(:)==i)
-      avglon(i) = SUM(aux_lon(:)*aux_clat(:),MASK=owner(:)==i) / &
-                  SUM(aux_clat(:),MASK=owner(:)==i)
-    ENDDO
-
-    IF (id == 1 .AND. .NOT. l_limited_area) THEN ! global domain
-      nn = 0
-      npt = nbins+1
-
-      ! Divide the earth surface in nbins pieces of equal area
-      IF (nlatbands <= 3) THEN ! Use latitude bands only
-        DO i = 1, nbins_hem
-          thrlat1 = ASIN(1._wp - REAL(i-1,wp)/REAL(nbins_hem,wp))
-          thrlat2 = ASIN(1._wp - REAL(i  ,wp)/REAL(nbins_hem,wp))
-          thrlon1 = -pi 
-          thrlon2 = pi 
-          nn = nn+1
-          maxlat_bin(nn) = thrlat1
-          minlat_bin(nn) = thrlat2
-          minlon_bin(nn) = thrlon1
-          maxlon_bin(nn) = thrlon2
-          minlat_bin(npt-nn) = -thrlat1
-          maxlat_bin(npt-nn) = -thrlat2
-          minlon_bin(npt-nn) = thrlon1
-          maxlon_bin(npt-nn) = thrlon2
-        ENDDO
-      ELSE ! Use a combination of latitude bands and longitude segments
-        DO i = 1, nlatbands
-          thrlat1 = ASIN(1._wp - REAL(i-1,wp)**2/REAL(nbins_hem,wp))
-          thrlat2 = ASIN(1._wp - REAL(i  ,wp)**2/REAL(nbins_hem,wp))
-          nlonsegments = 2*i-1
-          DO j = 1, nlonsegments
-            thrlon1 = -pi + 2._wp*pi*REAL(j-1,wp)/REAL(nlonsegments,wp)
-            thrlon2 = -pi + 2._wp*pi*REAL(j  ,wp)/REAL(nlonsegments,wp)
-            nn = nn+1
-            maxlat_bin(nn) = thrlat1
-            minlat_bin(nn) = thrlat2
-            minlon_bin(nn) = thrlon1
-            maxlon_bin(nn) = thrlon2
-            minlat_bin(npt-nn) = -thrlat1
-            maxlat_bin(npt-nn) = -thrlat2
-            minlon_bin(npt-nn) = thrlon1
-            maxlon_bin(npt-nn) = thrlon2
-          ENDDO
-        ENDDO
-      ENDIF
-
-    ELSE ! regional domain
-      minlat = MINVAL(aux_lat(:),MASK=owner(:)>=0)
-      maxlat = MAXVAL(aux_lat(:),MASK=owner(:)>=0)
-      minlon = MINVAL(aux_lon(:),MASK=owner(:)>=0)
-      maxlon = MAXVAL(aux_lon(:),MASK=owner(:)>=0)
-
-      nn = 0
-      npt = nbins+1
-      DO i = 1, nlatbands
-        thrlat1 = minlat + (maxlat-minlat)*REAL(i-1,wp)/REAL(nlatbands,wp)
-        thrlat2 = minlat + (maxlat-minlat)*REAL(i  ,wp)/REAL(nlatbands,wp)
-        DO j = 1, nlonsegments
-          thrlon1 = minlon + (maxlon-minlon)*REAL(j-1,wp)/REAL(nlonsegments,wp)
-          thrlon2 = minlon + (maxlon-minlon)*REAL(j  ,wp)/REAL(nlonsegments,wp)
-          nn = nn+1
-          minlat_bin(nn) = thrlat1
-          maxlat_bin(nn) = thrlat2
-          minlon_bin(nn) = thrlon1
-          maxlon_bin(nn) = thrlon2
-        ENDDO
-      ENDDO
-    ENDIF
-
-    np = -1
-    DO nn = 1, nbins
-      DO i = 0, n_proc-1
-        IF (avglat(i) >= minlat_bin(nn) .AND. avglat(i) < maxlat_bin(nn) .AND. &
-            avglon(i) >= minlon_bin(nn) .AND. avglon(i) < maxlon_bin(nn) ) THEN
-          np = np + 1
-          newproc(i) = np
-        ENDIF
-      ENDDO
-      js = jn
-    ENDDO
-
-    DO j = 1, wrk_divide_patch%n_patch_cells
-      IF (owner(j) >= 0)  owner(j) = newproc(aux_owner(j))
-    ENDDO
-
-    DEALLOCATE(aux_lat,aux_clat,aux_lon,aux_owner,minlat_bin,maxlat_bin,minlon_bin,maxlon_bin)
 
   END SUBROUTINE divide_subset_geometric
 

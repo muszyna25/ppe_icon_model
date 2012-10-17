@@ -49,7 +49,6 @@ MODULE mo_parallel_nml
     & config_division_method     => division_method,     &
     & config_division_file_name  => division_file_name,  &
     & config_ldiv_phys_dom       => ldiv_phys_dom,       &
-    & config_ntasks_per_node     => ntasks_per_node,     &
     & config_rad_division_file_name  => radiation_division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
     & config_l_fast_sum          => l_fast_sum,          &
@@ -115,10 +114,6 @@ MODULE mo_parallel_nml
     ! Flag if (in case of merged domains) physical domains shall be considered for 
     ! computing the domain decomposition
     LOGICAL :: ldiv_phys_dom
-
-    ! Parameter for reordering the owner assignment in the domain decomposition according to
-    ! their geographical position
-    INTEGER :: ntasks_per_node
 
     ! Flag if checks in a verification run should be logged
     LOGICAL :: l_log_checks
@@ -200,7 +195,7 @@ MODULE mo_parallel_nml
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, radiation_division_file_name, use_dycore_barrier, &
       & use_sp_output, itype_exch_barrier, exch_msgsize, &
-      & icon_comm_method, max_no_of_comm_variables, ntasks_per_node, &
+      & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier
 
@@ -222,10 +217,6 @@ MODULE mo_parallel_nml
     ! Flag if (in case of merged domains) physical domains shall be considered for 
     ! computing the domain decomposition
     ldiv_phys_dom = .TRUE.
-
-    ! Parameter for reordering the owner assignment in the domain decomposition according to
-    ! their geographical position (0 means that the reordering is turned off)
-    ntasks_per_node = 0
 
     ! Flag if checks in a verification run should be logged
     l_log_checks = .FALSE.
@@ -331,7 +322,6 @@ MODULE mo_parallel_nml
     config_division_method     = division_method
     config_division_file_name  = division_file_name
     config_ldiv_phys_dom       = ldiv_phys_dom
-    config_ntasks_per_node     = ntasks_per_node
     config_rad_division_file_name  = radiation_division_file_name
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
