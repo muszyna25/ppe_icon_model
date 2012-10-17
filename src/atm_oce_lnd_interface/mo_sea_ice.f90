@@ -1027,11 +1027,24 @@ CONTAINS
     !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
+
+    REAL(wp), PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
     
     !-------------------------------------------------------------------------------
 
     CALL ave_fluxes     (ice, QatmAve)
     !CALL ice_dynamics   (ice, QatmAve)
+    !! At the moment we just pretend the ice movement is zero and modify the oceanic stress
+    !! accordingly
+    ! This does not appear to work well. Keeping the ice steady produces instabilities in the
+    ! ocean. For the moment we then just multiply the applied stress with 1-concentration.
+    p_sfc_flx%forc_wind_u(:,:) = p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) ) 
+!      & + ice%concSum(:,:)*( rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2) ) &
+!      &         *p_os%p_diag%u(:,1,:)
+    p_sfc_flx%forc_wind_v(:,:) = p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) ) 
+!      & + ice%concSum(:,:)*( rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2) ) &
+!      &         *p_os%p_diag%v(:,1,:)
+
     
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ! #achim
