@@ -1226,6 +1226,13 @@ CONTAINS
           
     !------------------------------------------------------------ 
     ! sync here the slowphys for aggregation
+    !-------------------------------------------------------------------
+    IF (use_physics_barrier) THEN
+      CALL timer_start(timer_barrier)
+      CALL work_mpi_barrier()
+      CALL timer_stop(timer_barrier)
+    ENDIF
+    !-------------------------------------------------------------------
     IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
     IF (use_icon_comm) THEN
     
@@ -1622,13 +1629,6 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_physics)
 
-    !-------------------------------------------------------------------
-    IF (use_physics_barrier) THEN
-      CALL timer_start(timer_barrier)
-      CALL work_mpi_barrier()
-      CALL timer_stop(timer_barrier)
-    ENDIF
-    !-------------------------------------------------------------------
 
   END SUBROUTINE nwp_nh_interface
 
