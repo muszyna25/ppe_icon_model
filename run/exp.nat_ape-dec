@@ -12,104 +12,11 @@
 #
 #
 #-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
-# the grid files if not defined
-atmo_dyn_grids=${atmo_dyn_gridname}.nc
-if [ x$atmo_rad_gridname = x ] ; then
-  lredgrid_phys=".false."
-else
-  atmo_rad_grids=${atmo_rad_gridname}.nc
-  lredgrid_phys=".true."
-fi  
-
-cell_type=${cell_type:=3}
-nlevels=${nlevels:=78}              # number of full levels
-#-----------------------------------------------------------------------------
-# global timing
-start_date=${start_date:="2000-07-01T00:00:00Z"}
-ndays_restart=${ndays_restart:=3650}              # restart every 10 year
-dt_restart=`expr ${ndays_restart} \* 86400`
-ndays_checkpoint=${ndays_checkpoint:=3650}         # write restart file 10 year
-dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 ` 
-#
-#-----------------------------------------------------------------------------
-# model timing
-dtime=${dtime:=72}
-ndays=${ndays:=10}
-nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
-advection_substepping=${advection_substepping:=4}
-dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
-dt_conv=${dt_conv:=$dtime}         # every advection step
-dt_sso=${dt_sso:=$dt_conv}         # every advection step
-#
-#-----------------------------------------------------------------------------
-#output=${output:='"vlist","totint"'}
-#output=${output:='"none"'}
-#out_diag_hours=${out_diag_hours:=7200}         # global integral output each 300 days
-#out_data_hours=${out_data_hours:=7200}         # write output every 6 hours
-#dt_diag=`expr ${out_diag_hours} \* 3600  `   
-#dt_data=`expr ${out_data_hours} \* 3600  `
-#out_newfile_days=${out_newfile_days:=1}     # 1 day per file
-#dt_file=`expr ${out_newfile_days} \* 86400 `
-
-dt_diag=${dtime}
-dt_data=`expr ${dtime} \* 120  `
-out_newfile_days=${out_newfile_days:=1}     # 1 day per file
-dt_file=${dtime}
-
-msg_level=${msg_level:=0}
-
-#-----------------------------------------------------------------------------
-# parallel parameters
-division_method=${division_method:=1}
-division_file_name=${division_file_name:=""}
-parallel_radiation_mode=${parallel_radiation_mode:=0}
-use_icon_comm=${use_icon_comm:=".false."}
-icon_comm_method=${icon_comm_method:=1}
-iorder_sendrecv=${iorder_sendrecv:=3}
-ltimer=${ltimer:=".true."}
-timers_level=${timers_level:=100}
-activate_sync_timers=${activate_sync_timers:=".true."}
-use_barrier=${use_barrier:=".false."}
-use_icon_comm=${use_icon_comm:=".false."}
-icon_comm_method=${icon_comm_method:=1}
-max_send_recv_buffer_size=${max_send_recv_buffer_size:=262144}
-max_mpi_message_size=${max_mpi_message_size:=8192}
-
-p_test_run=${p_test_run:=".false."}
-if [ $p_test_run = ".true." ] ; then
-  l_test_openmp=".true."
-  l_log_checks=".true."
-else
-  l_test_openmp=".false."
-  l_log_checks=".false."
-fi
-
-#-----------------------------------------------------------------------------
-# model setup
-initial_conditions=${initial_conditions:=1}
-ntracer=${ntracer:=5}
-
-iforcing=3
-        # forcing to the equation system
-#                     0 = no external forcing
-#                     1 = Held-Suarez forcing
-#                     2 = ECHAM6 physics
-#                     3 = NWP forcing
-
-itime_scheme=${itime_scheme:=5}        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
-vwind_implicitness=${vwind_implicitness:=0.15}
-#-----------------------------------------------------------------------------
-ldump_states=".false."
-lrestore_states=".false."
-
-
-#-----------------------------------------------------------------------------
-
+. ./nat_ape.default_values
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
