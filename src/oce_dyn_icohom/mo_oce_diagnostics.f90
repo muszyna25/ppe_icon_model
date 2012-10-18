@@ -50,7 +50,7 @@ MODULE mo_oce_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
-    &                              set_lateral_boundary_values
+    &                              set_lateral_boundary_values, t_ocean_diagnostics
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
@@ -373,7 +373,9 @@ CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
 !-----------------------------------------------------------------------
 CHARACTER(len=max_char_length) :: listname
-INTEGER :: jg
+TYPE(t_subset_range), POINTER :: all_cells
+TYPE(t_ocean_diagnostics), POINTER  :: ocean_diagnostics
+INTEGER :: nblks_c,nblks_e,nblks_v
 !-----------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
@@ -499,13 +501,35 @@ write(*,*)'INITIAL VALUES OF TOTAL ENERGY    :',oce_ts%oce_diagnostics(0)%total_
 
 !ram create a separate diagnostics varlist
 
+ALLOCATE(ocean_diagnostics)
       ! construction loop: create components of state array
       ! !TODO organize var_lists for the multiple timesteps of prog. state
       WRITE(listname,'(a)')  'ocean_diagnostics_list'
       CALL new_var_list(ocean_diagnostics_list, listname, patch_id=p_patch%id)
       CALL default_var_list_settings( ocean_diagnostics_list,            &
-                                    & lrestart=.FALSE.,           &
+                                    & lrestart=.TRUE.,           &
+                                    & restart_type=FILETYPE_NC2, &
                                     & model_type='oce' )
+     !CALL default_var_list_settings( ocean_diagnostics_list,            &
+     !                              & lrestart=.TRUE.,           &
+     !                              & model_type='oce' )
+    all_cells => p_patch%cells%all
+
+    ! determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+    CALL add_var(ocean_diagnostics_list, 'volume', ocean_diagnostics%volume , GRID_UNSTRUCTURED_CELL,&
+    &            ZAXIS_SURFACE, &
+    &            t_cf_var('volumne', 'm^3', 'global_volume', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_diagnostics_list, 'kinetic_energy', ocean_diagnostics%kin_energy , &
+        & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+    &            t_cf_var('kin_energy', 'J', 'kinetic_energy', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,nblks_c/))
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics

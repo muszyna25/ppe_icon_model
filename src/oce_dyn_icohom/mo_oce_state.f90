@@ -113,6 +113,7 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_prog
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
+  PUBLIC :: t_ocean_diagnostics
   PUBLIC :: t_ptr3d
   PUBLIC :: t_oce_config
 
@@ -418,7 +419,20 @@ MODULE mo_oce_state
 
   END TYPE t_hydro_ocean_aux
 
-!
+  TYPE t_ocean_diagnostics
+    REAL(wp), POINTER ::         &
+      &  volume(:,:)             , & 
+      &  kin_energy(:,:)         , &
+      &  pot_energy(:,:)         , &
+      &  total_energy(:,:)       , &
+      &  vorticity(:,:)          , &
+      &  potential_enstrophy(:,:), &
+      &  ice_volume(:,:)         , & 
+      &  ice_area(:,:)           , & 
+      &  tracer(:,:,:)
+    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+  END TYPE t_ocean_diagnostics
+
 !! array of states
 !
   TYPE t_hydro_ocean_state
