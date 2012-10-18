@@ -132,12 +132,12 @@ CONTAINS
             ! --- total heat conductivity for the ice-snow system
             k_effective(jc,k,jb) = ki*ks/(ks*ice%hi(jc,k,jb) + ki*ice%hs(jc,k,jb))
 
-! as of now, I_0 is zero anyway            ! --- calculate (1-I_0)
-!            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
-!              one_minus_I_0=1.0_wp-I_0
-!            ELSE
+! --- calculate (1-I_0)
+            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
               one_minus_I_0=1.0_wp
-!            END IF
+            ELSE
+              one_minus_I_0=1.0_wp-I_0
+            END IF
                     
             ! --- F_A, F_S : pos=upward flux
 

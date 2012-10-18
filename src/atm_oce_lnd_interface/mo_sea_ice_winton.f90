@@ -106,7 +106,8 @@ CONTAINS
       & K1,          & ! Winton's K 1/2 (eq. 5)
       & K2,          & ! Winton's K 3/2 (eq. 10)
       & SWin3D,      & ! Short-wave radiation field splitted into ice categories
-      & Tsurfm         ! Surface melting temperature
+      & Tsurfm,      & ! Surface melting temperature
+      & I              ! Penetrating shortwave radiation (taking snow cover into account)
     
     REAL(wp) :: idt2 ! 1 / (2*dt)
 
@@ -131,6 +132,13 @@ CONTAINS
       DO k=1,ice%kice
         DO jc = i_startidx_c,i_endidx_c
           IF (ice%isice(jc,k,jb)) THEN
+
+            ! No surface penetrating shortwave if there's snow on top
+            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
+              I(jc,k,jb)=0._wp
+            ELSE
+              I(jc,k,jb)=I_0
+            END IF
             
             ! Create array of shortwave radiation split up into ice categories
             ! (purely for computational reasons)
@@ -145,7 +153,7 @@ CONTAINS
 
             A   (jc,k,jb) = - Qatm% lat(jc,k,jb) - Qatm% sens(jc,k,jb) &
               &             - Qatm% LWnet(jc,k,jb) &
-              &             - (1.0_wp - ice% alb(jc,k,jb)) * I_0 *  SWin3d(jc,k,jb)  &
+              &             - (1.0_wp - ice% alb(jc,k,jb)) * (1._wp-I(jc,k,jb)) *  SWin3d(jc,k,jb)  &
               &             - ice%Tsurf(jc,k,jb)* B(jc,k,jb)                            ! Eq.  7
 
             K1  (jc,k,jb)  =  4.0_wp * ki * ks &
@@ -176,7 +184,7 @@ CONTAINS
             B1a       (jc,k,jb)  = - rhoi * ice%hi(jc,k,jb) &
               &                       * (ci * ice%T1(jc,k,jb) &
               &                          - alf * muS/ice%T1(jc,k,jb)) * idt2 &
-              &                    - I_0 & 
+              &                    - I(jc,k,jb) & 
               &                    - K2(jc,k,jb) * (4.0_wp * dtime &
               &                                     * K2(jc,k,jb) * Tfw(jc,k,jb)&
               &                    + rhoi * ice%hi(jc,k,jb) * ci &
