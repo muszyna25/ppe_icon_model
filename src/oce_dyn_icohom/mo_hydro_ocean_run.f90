@@ -196,7 +196,7 @@ CONTAINS
 !   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
   IF (idiag_oce == 1) &
-    & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
+    & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), oce_ts)
 
   IF (ltimer) CALL timer_start(timer_total)
 

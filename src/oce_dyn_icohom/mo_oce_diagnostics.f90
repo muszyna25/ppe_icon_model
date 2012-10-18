@@ -351,11 +351,10 @@ END SUBROUTINE calculate_oce_diagnostics
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
-SUBROUTINE construct_oce_diagnostics(p_patch, p_os, p_ext_data, oce_ts)
+SUBROUTINE construct_oce_diagnostics(p_patch, p_os, oce_ts)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
 TYPE(t_hydro_ocean_state), TARGET             :: p_os
-TYPE(t_external_data), TARGET, INTENT(IN)     :: p_ext_data 
 TYPE(t_oce_timeseries),POINTER                :: oce_ts
 !
 !local variables
@@ -522,7 +521,7 @@ ALLOCATE(ocean_diagnostics)
 
     CALL add_var(ocean_diagnostics_list, 'volume', ocean_diagnostics%volume , GRID_UNSTRUCTURED_CELL,&
     &            ZAXIS_SURFACE, &
-    &            t_cf_var('volumne', 'm^3', 'global_volume', DATATYPE_FLT32),&
+    &            t_cf_var('volume', 'm^3', 'global_volume', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))
     CALL add_var(ocean_diagnostics_list, 'kinetic_energy', ocean_diagnostics%kin_energy , &
@@ -533,6 +532,64 @@ ALLOCATE(ocean_diagnostics)
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
+SUBROUTINE calc_diagnostics(ocean_diagnostics,p_os,p_patch)
+  TYPE(t_ocean_diagnostics), POINTER :: ocean_diagnostics
+  TYPE(t_hydro_ocean_state), TARGET             :: p_os
+  TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
+
+  TYPE(t_subset_range), POINTER      :: all_cells
+  INTEGER                            :: jb,jc,jk,istart,iend,i
+  REAL(wp) :: delta_z, prism_vol
+  REAL(wp) :: z_w
+
+  all_cells => p_patch%cells%all
+
+  DO jk=1,n_zlev
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, istart, iend)
+      DO jc = istart, iend
+
+        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+          delta_z = v_base%del_zlev_m(jk)
+          IF (jk == 1) THEN
+            delta_z = v_base%del_zlev_m(jk)&
+                & + p_os%p_prog(nold(1))%h(jc,jb)
+          ENDIF
+
+          prism_vol = p_patch%cells%area(jc,jb)*delta_z
+
+          !Fluid volume 
+          ocean_diagnostics%volume = ocean_diagnostics%volume + prism_vol
+
+          !kinetic energy
+          ocean_diagnostics%kin_energy = ocean_diagnostics%kin_energy&
+              &+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
+
+          !Potential energy
+          IF(jk==1)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
+                & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
+                &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+          ELSEIF(jk<n_zlev)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
+                & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
+                &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
+          ENDIF 
+
+          ocean_diagnostics%pot_energy = ocean_diagnostics%pot_energy&
+              &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
+
+          !Tracer content
+          DO i=1, no_tracer
+            ocean_diagnostics%tracer(:,:,1) = ocean_diagnostics%tracer(:,:,1)&
+                & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i)*v_base%wet_c(jc,jk,jb)
+          END DO
+        ENDIF
+      END DO
+    END DO
+  END DO
+END SUBROUTINE calc_diagnostics
 
 !-------------------------------------------------------------------------  
 !
