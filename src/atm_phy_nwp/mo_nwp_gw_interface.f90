@@ -222,6 +222,16 @@ CONTAINS
            & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
            & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: merid. GWD vertical mom flux
 
+        ! Limit also gwdrag wind tendencies. They can become numerically unstable in the upper mesosphere
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MAX(-0.01_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MIN( 0.01_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MAX(-0.01_wp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MIN( 0.01_wp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
+          ENDDO
+        ENDDO
+
       ENDIF
 
     ENDDO ! jb
