@@ -353,7 +353,7 @@ MODULE mo_prepicon_utils
       ENDIF
 
       ! Skip reading the atmospheric input data if a model domain is not active at initial time
-  !    IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       IF(p_pe == p_io .AND. i_oper_mode >= 2) THEN ! Read in data from IFS2ICON
         !
