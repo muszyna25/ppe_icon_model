@@ -363,6 +363,7 @@ CONTAINS
     lrewind = .TRUE.
 
     IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
+
     DO
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
@@ -424,9 +425,6 @@ CONTAINS
       ENDIF
       
       nnamelists = nnamelists+1
-!LK      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", number = ', nnamelists
-!LK      CALL message('',message_text)
-
       ! Check input
 
       ! We need dtime for this check
@@ -701,7 +699,6 @@ CONTAINS
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
-
 
     DO i = 1, nvar_lists
 
