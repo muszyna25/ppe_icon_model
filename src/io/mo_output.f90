@@ -243,7 +243,7 @@ CONTAINS
 
   SUBROUTINE close_output_files
 
-    INTEGER jg
+    INTEGER :: jg
 
     IF (.NOT. output_mode%l_vlist) RETURN
     

@@ -2,6 +2,7 @@
 MODULE mo_io_restart
   !
   USE mo_kind,                  ONLY: wp
+  USE mo_mpi,                   ONLY: p_barrier,p_comm_work
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
@@ -1545,6 +1546,7 @@ CONTAINS
                 IF (my_process_is_stdio()) THEN
                   CALL streamReadVar(fileID, varID, r5d, nmiss)
                 END IF
+                CALL p_barrier(comm=p_comm_work)
                 !
                 IF (info%lcontained) THEN
                   nindex = info%ncontained
