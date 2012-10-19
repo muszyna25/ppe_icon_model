@@ -14,6 +14,10 @@
 # on the "bceps" SMS suite (H. Frank, DWD), cf.
 # "ecgate:/home/ms/de/zde/BCeps"
 #
+# Help:
+#  * set current time on cdp:
+#    CDP> alter -g /dei2 19.10.2012
+#
 # 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
@@ -26,8 +30,8 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "002"                #---experiment number---
-set FIRST_DATE    20121013
+set EXPNUM        "001"                #---experiment number---
+set FIRST_DATE    20120701
 set LAST_DATE     20121231
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
@@ -61,9 +65,6 @@ set SMSHOME     "$ICON_HOME/sms"
 
 # place for SMS output
 set SMSOUT      "$ICON_HOME/sms"
-
-# no. of files to check for:
-set MAXFILES     1
 
 # no. of time steps (10x86400s/60s)
 set NSTEPS       14400
@@ -123,7 +124,7 @@ define on_hpc_serial {
 
 suite $USER
 
-  clock real 16.10.2012     # set todays date
+  clock real 0      # set todays date
 
   # EXP ---------------------------------------------
 
@@ -156,7 +157,6 @@ suite $USER
     edit SMSOUT     $SMSOUT
 
     edit EXPNUM     $EXPNUM
-    edit MAXFILES   $MAXFILES
     edit NSTEPS     $NSTEPS
     edit NENS       $NENS
     edit NMEM       $NMEM
@@ -183,7 +183,6 @@ suite $USER
     # ONCE --------------------------------------------
 
     task once
-       #complete (/${EXPNUM}:YMD gt ${FIRST_DATE})
         on_hpc_serial
         edit SCWALLCLOCKLIMIT 00:02:00
 
@@ -200,12 +199,8 @@ suite $USER
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
            #trigger  /ifs_trigger/fct_ifs == complete
-           trigger  ../init:YMD le /${USER}:SMSDATE-2
+            trigger  ../init:YMD le /${USER}:SMSDATE-2
             on_ecgate
-            if ($ENABLE_INIT == 0) then
-                label status "skipped"
-            endif
-           #label date "???"
             event enable_build
             event enable_dumpstate
 
@@ -214,19 +209,12 @@ suite $USER
             complete ($ENABLE_GET_DATA == 0)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 02:00:00
-            if (($ENABLE_INIT == 0) or ($ENABLE_GET_DATA == 0)) then
-                label status "skipped"
-            endif
 
         task init_data
             trigger (get_data == complete)
             complete ($ENABLE_INIT_DATA == 0)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 00:60:00
-            if (($ENABLE_INIT == 0) or ($ENABLE_INIT_DATA == 0)) then
-                label status "skipped"
-            endif
-           #event change_dir
             event compute_weights
             event ifs2icon
 
@@ -234,8 +222,7 @@ suite $USER
             trigger (setup == complete) and (../once == complete)
 
             task init_svn
-                trigger  /${USER}:DD == 07     #sunday
-               #day sunday
+                trigger  /${USER}:DOW == 01       # Monday
                 on_ecgate
                 event svn_update
                 event make_distclean
@@ -246,7 +233,6 @@ suite $USER
 
             task init_build
                 trigger (init_svn == complete)
-               #day sunday
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
@@ -258,8 +244,8 @@ suite $USER
                 event make
 
             task init_cp_binary
-                trigger (init_build == complete) or  ../../init:YMD == ${FIRST_DATE}
-                day sunday
+                trigger (init_build == complete) or  
+                  ( (../../init:YMD == ${FIRST_DATE}) and /${USER}:DOW ne 01 )
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:02:00
 
@@ -277,21 +263,14 @@ suite $USER
 
         family prepare
             task pre_clean
-               #trigger (../../../init/setup == complete)
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:20:00
-                if ($ENABLE_FORECAST == 0) then
-                    label status "skipped"
-                endif
 
             task dumpstate
                 trigger (pre_clean == complete)
                 complete ($ENABLE_DUMPSTATE == 0) or not (/${USER}/${EXPNUM}/init/setup:enable_dumpstate)
                 on_hpc_parallel
                 edit SCWALLCLOCKLIMIT 00:20:00
-                if (($ENABLE_FORECAST == 0) or ($ENABLE_DUMPSTATE == 0)) then
-                    label status "skipped"
-                endif
                 event prepare
                 event create_dumpstate
 
@@ -302,9 +281,6 @@ suite $USER
             complete ($ENABLE_MODEL == 0)
             on_hpc_parallel
             edit SCWALLCLOCKLIMIT 02:00:00
-            if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
-                label status "skipped"
-            endif
             event model_complete
             # auto-shutdown of "check_progress" subtask:
             #action abort    $SMSFILES/cancel_check_progress
@@ -315,9 +291,6 @@ suite $USER
             complete (model == complete)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 02:00:00
-            if (($ENABLE_FORECAST == 0) or ($ENABLE_MODEL == 0)) then
-                label status "skipped"
-            endif
             meter timesteps 0 $NSTEPS $NSTEPS
 
     endfamily
@@ -329,8 +302,6 @@ suite $USER
        family post
            repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
            trigger (forecast:YMD gt post:YMD)
-           #repeat integer VALUE 1 $MAXFILES
-           #
            #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
            #trigger (../forecast/model:model_complete)
 
@@ -395,16 +366,16 @@ suite $USER
             on_ecgate_submit
 
         family eom_metview_all 
-             trigger (eom_prepare == complete) and (eom_getmars == complete)
-             complete (testday==complete) and not (testday:time_eom)
-             for set 1 4 ; do
+            trigger (eom_prepare == complete) and (eom_getmars == complete)
+            complete (testday==complete) and not (testday:time_eom)
+            for set 1 4 ; do
                set tsk `printf %3.3i $set`
                family $tsk
                  task eom_metview
                    on_ecgate_submit
                    edit metproc $set
                endfamily
-             endfor  
+            endfor  
         endfamily
 
         task eom_archive
