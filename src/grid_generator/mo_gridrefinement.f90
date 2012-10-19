@@ -127,7 +127,10 @@ MODULE mo_gridref
 
   ! Namelist variables
   INTEGER :: grid_root, start_lev, n_dom, parent_id(max_phys_dom-1), &
-    & bdy_indexing_depth, logical_id(max_phys_dom-1), n_phys_dom, write_hierarchy
+    & bdy_indexing_depth, logical_id(max_phys_dom-1), write_hierarchy
+    
+  INTEGER :: n_phys_dom=1 ! default value is 1
+  
   LOGICAL :: l_circ, l_rotate, l_plot
   REAL(wp), DIMENSION(max_phys_dom-1) :: radius, center_lon, center_lat, &
     & hwidth_lon, hwidth_lat

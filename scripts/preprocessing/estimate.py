@@ -7,7 +7,7 @@ import getopt, sys, math
 #------------------------------------------------------------------------------
 # set grid parameters
 grid_refine_root  = 2
-grid_refine_level = 3
+grid_refine_level = 4
 vertical_layers   = 95
 
 #------------------------------------------------------------------------------
@@ -15,10 +15,12 @@ vertical_layers   = 95
 #nodes_list=[ 32.0 ]
 #opnemp_threads_list=[1.0, 4.0, 8.0, 16.0, 32.0]
 #opnemp_threads_list=[ 8.0 ]
-nproma_list=[ 4.0, 6.0, 8.0, 12.0, 16.0, 18.0, 22.0, 24.0,  32.0 ]
+nproma_list=[ 6.0, 8.0, 12.0, 16.0, 18.0, 22.0, 24.0,  32.0 ]
 
 mpi_procs_list=[ 128.0, 256.0, 512.0, 541.0, 640.0, 768.0,  1082.0 ]
-openmp_threads_list=[ 2.0 ]
+mpi_nodes_list=[ 2.0, 4.0, 8.0, 16.0, 24.0, 34.0 ]
+omp_threads=2.0
+mpi_procs_pernode=32
 # 64=compute decompositions SMT mode
 # 32=compute decompositions ST mode
 total_threads_per_node=64.0
@@ -30,9 +32,13 @@ verts = (10*grid_refine_root*grid_refine_root)*4**grid_refine_level+2
 edges = (30*grid_refine_root*grid_refine_root)*4**grid_refine_level
 
 # iconR2B05-grid_dec-1082.nc
-cells = 25920
-verts = 12962
-edges = 38880
+#cells = 25920
+#verts = 12962
+#edges = 38880
+# iconR2B05-grid_dec-362.nc
+cells = 34560
+verts = 17282
+edges = 51840
 
 print "==============================================================="
 print "= grid info: R",grid_refine_root,"B",grid_refine_level
@@ -86,9 +92,10 @@ def compute_decomposition(mpi_procs, opnemp_threads):
 
 #------------------------------------------------------------------------------
 
-for mpi_procs in mpi_procs_list:
-  for omp_threads in openmp_threads_list:
-    compute_decomposition(mpi_procs, omp_threads)
+#for mpi_procs in mpi_procs_list:
+    #compute_decomposition(mpi_procs, omp_threads)
+for mpi_nodes in mpi_nodes_list:
+    compute_decomposition(mpi_nodes * mpi_procs_pernode, omp_threads)
 
 
 sys.exit(0)
