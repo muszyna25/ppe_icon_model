@@ -100,7 +100,7 @@ INCLUDE 'netcdf.inc'
   INTEGER  :: ifeedback_type
   REAL(wp) :: start_time(max_dom)      ! Time at which execution of a (nested) model domain starts
   REAL(wp) :: end_time(max_dom)        ! Time at which execution of a (nested) model domain terminates
-  INTEGER  :: n_phys_dom               ! Number of physical domains, computed when reading the patches
+  INTEGER  :: n_phys_dom=1             ! Number of physical domains, computed when reading the patches
 
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
