@@ -1315,7 +1315,6 @@ src/oce_dyn_icohom/mo_oce_tracer_transport_horz.f90 -text
 src/oce_dyn_icohom/mo_oce_tracer_transport_vert.f90 -text
 src/oce_dyn_icohom/mo_oce_veloc_advection.f90 -text
 src/oce_dyn_icohom/mo_scalar_product.f90 -text
-src/oce_dyn_icohom/mo_simple_expl_run.f90 -text
 src/oce_phy_icohom/mo_oce_forcing.f90 -text
 src/oce_phy_icohom/mo_oce_physics.f90 -text
 src/oce_phy_icohom/mo_oce_thermodyn.f90 -text
