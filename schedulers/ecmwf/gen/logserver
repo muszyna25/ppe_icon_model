@@ -13,4 +13,3 @@ set -x
 #TEMP=$TEMP/sms
 #/usr/local/bin/start_logserver -d ${TEMP}
 #/usr/local/bin/start_logserver -d /c1a/tmp/ms/de/deia/sms
-

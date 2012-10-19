@@ -66,6 +66,9 @@ set SMSHOME     "$ICON_HOME/sms"
 # place for SMS output
 set SMSOUT      "$ICON_HOME/sms"
 
+# week day of compilation
+set compday     1  # 1=Monday, 7=Sunday, 0=never
+
 # no. of time steps (10x86400s/60s)
 set NSTEPS       14400
 #set NSTEPS       2880
@@ -222,7 +225,9 @@ suite $USER
             trigger (setup == complete) and (../once == complete)
 
             task init_svn
-                trigger  /${USER}:DOW == 01       # Monday
+                trigger   /${USER}:DOW == $compday       # e.g. mondays
+                complete (/${USER}:DOW ne $compday)
+               #day sunday
                 on_ecgate
                 event svn_update
                 event make_distclean
@@ -233,6 +238,7 @@ suite $USER
 
             task init_build
                 trigger (init_svn == complete)
+                complete (/${USER}:DOW ne $compday)
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
@@ -244,8 +250,8 @@ suite $USER
                 event make
 
             task init_cp_binary
-                trigger (init_build == complete) or  
-                  ( (../../init:YMD == ${FIRST_DATE}) and /${USER}:DOW ne 01 )
+                trigger (init_build == complete) 
+                complete (../../init:YMD gt ${FIRST_DATE}) and (/${USER}:DOW ne $compday)
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:02:00
 
