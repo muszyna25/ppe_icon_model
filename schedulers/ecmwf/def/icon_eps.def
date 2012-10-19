@@ -113,6 +113,8 @@ define on_hpc_serial {
 
 suite $USER
 
+  clock real 0      # set todays date
+
   # EXP ---------------------------------------------
 
   family ${EXPNUM}
