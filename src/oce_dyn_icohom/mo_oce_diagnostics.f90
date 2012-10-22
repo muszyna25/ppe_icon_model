@@ -505,10 +505,8 @@ ALLOCATE(ocean_diagnostics)
       ! !TODO organize var_lists for the multiple timesteps of prog. state
       WRITE(listname,'(a)')  'ocean_diagnostics_list'
       CALL new_var_list(ocean_diagnostics_list, listname, patch_id=p_patch%id)
-      CALL default_var_list_settings( ocean_diagnostics_list,            &
-                                    & lrestart=.TRUE.,           &
-                                    & restart_type=FILETYPE_NC2, &
-                                    & model_type='oce' )
+      CALL default_var_list_settings( ocean_diagnostics_list, &
+                                    & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
      !CALL default_var_list_settings( ocean_diagnostics_list,            &
      !                              & lrestart=.TRUE.,           &
      !                              & model_type='oce' )
@@ -521,10 +519,10 @@ ALLOCATE(ocean_diagnostics)
 
     CALL add_var(ocean_diagnostics_list, 'volume', ocean_diagnostics%volume , GRID_UNSTRUCTURED_CELL,&
     &            ZAXIS_SURFACE, &
-    &            t_cf_var('volume', 'm^3', 'global_volume', DATATYPE_FLT32),&
+    &            t_cf_var('volume', 'm^3', 'volume', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))
-    CALL add_var(ocean_diagnostics_list, 'kinetic_energy', ocean_diagnostics%kin_energy , &
+    CALL add_var(ocean_diagnostics_list, 'kin_energy', ocean_diagnostics%kin_energy , &
         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
     &            t_cf_var('kin_energy', 'J', 'kinetic_energy', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&

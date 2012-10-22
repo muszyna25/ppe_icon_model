@@ -11,6 +11,8 @@
 #   - options: give masked file, which can be computed from the input like this:
 #     cdo -setmisstoc,0.0 -div timmean_moc_0185-0190.ext timmean_moc_0185-0190.ext mocMask.nc
 
+set -x
+
 ifile=moc.bliz.r9368.2420-2470ym
 ifile=moc.loc.r9558.2046.2y
 ifile=moc.loc.r9513.2042.2y
@@ -75,6 +77,7 @@ begin
 ;************************************************************************
   wks = gsn_open_wks("ps","$basename")
 ; wks = gsn_open_wks("pdf","$basename")
+ wks = gsn_open_wks("png","$basename")
 
   gsn_define_colormap(wks,"BlWhRe")
 

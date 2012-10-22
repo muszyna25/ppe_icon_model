@@ -528,13 +528,13 @@ CONTAINS
       WRITE(listname,'(a)')  'ocean_restart_list'
       CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch(jg)%id)
       CALL default_var_list_settings( ocean_restart_list,            &
-                                    & lrestart=.TRUE.,           &
+                                    & lrestart=.TRUE.,loutput=.TRUE.,           &
                                     & restart_type=FILETYPE_NC2, &
                                     & model_type='oce' )
       WRITE(listname,'(a)')  'ocean_default_list'
       CALL new_var_list(ocean_default_list, listname, patch_id=p_patch(jg)%id)
       CALL default_var_list_settings( ocean_default_list,            &
-                                    & lrestart=.FALSE.,model_type='oce' )
+                                    & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO

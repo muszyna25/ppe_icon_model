@@ -20,8 +20,8 @@ files.each {|file|
 
 q         = JobQueue.new([JobQueue.maxnumber_of_processors,8].min)
 lock      = Mutex.new
-maskFile  = "mask-L40.nc"
-#maskFile  = "mask.nc"
+#maskFile  = "mask-L40.nc"
+maskFile  = "mask.nc"
 diff2init = true
 
 hostname = Socket.gethostname
@@ -58,6 +58,7 @@ experimentFiles, experimentAnalyzedData = {},{}
 experiments.each {|experiment|
   experimentFiles[experiment] = files.grep(/#{experiment}/)
   experimentFiles[experiment].each {|file| files.delete(file)}
+  experimentFiles[experiment].sort!
 
   experimentAnalyzedData[experiment] = []
 }
@@ -127,7 +128,7 @@ experimentAnalyzedData.each {|experiment,files|
            : '../../scripts/postprocessing/tools/icon_plot.ncl'
   plotter  = 'thingol' == Socket.gethostname \
            ? IconPlot.new(ENV['HOME']+'/local/bin/nclsh', plotFile, File.dirname(plotFile),'png','qiv',true,true) \
-           : IconPlot.new(ENV['HOME']+'/local/bin/nclsh', plotFile, File.dirname(plotFile), 'ps','evince',true,true)
+           : IconPlot.new('/sw/rhel55-x64/ncl-5.2.1/bin/ncl', plotFile, File.dirname(plotFile), 'ps','evince',true,true)
   images = []
   images << plotter.scalarPlot(ofile,'T_'+     File.basename(ofile,'.nc'),'T',     :tStrg => "#{experiment}", :bStrg => ' ',:hov => true,:minVar => -1.0,:maxVar => 5.0,:numLevs => 24,:rStrg => 'Temperature')
   images << plotter.scalarPlot(ofile,'S_'+     File.basename(ofile,'.nc'),'S',     :tStrg => "#{experiment}", :bStrg => ' ',:hov => true,:minVar => -0.2,:maxVar => 0.2,:numLevs => 16,:rStrg => 'Salinity')

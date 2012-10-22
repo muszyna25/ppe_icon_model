@@ -770,6 +770,7 @@ CONTAINS
     DO jp = 1, n_dom_out
       IF(l_output_phys_patch) THEN
         patch_info(jp)%log_patch_id = p_phys_patch(jp)%logical_id
+        write(0,*)'JP(physPatch): ',jp
         IF (.NOT. my_process_is_io()) THEN
           patch_info(jp)%p_pat_c    => p_phys_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_phys_patch(jp)%n_patch_cells-1)/nproma + 1
@@ -780,6 +781,7 @@ CONTAINS
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
+        write(0,*)'JP: ',jp
         IF (.NOT. my_process_is_io()) THEN
           patch_info(jp)%p_pat_c    => p_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_patch(jp)%n_patch_cells_g-1)/nproma + 1
@@ -1994,7 +1996,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+ !     CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
    
       ! Verts
 
@@ -2009,7 +2011,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+ !     CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
 
       ! Edges
 
@@ -2024,7 +2026,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+  !    CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
 
       of%cdiLonLatGridID = CDI_UNDEFID
 
