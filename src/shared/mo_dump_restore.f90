@@ -211,6 +211,7 @@ MODULE mo_dump_restore
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: dump_patch_state_netcdf
+  PUBLIC :: dump_patch_state_netcdf_oce
   PUBLIC :: dump_domain_decomposition
   PUBLIC :: dump_all_domain_decompositions
   PUBLIC :: restore_patches_netcdf
@@ -2616,6 +2617,120 @@ CONTAINS
 
   END SUBROUTINE dump_patch_state_netcdf
 
+
+  !-------------------------------------------------------------------------
+  ! Public interface routines
+  !-------------------------------------------------------------------------
+  !
+  !> Dumps state of one patch to NetCDF, including interpolation and
+  !! grid refinement variables
+
+  SUBROUTINE dump_patch_state_netcdf_oce(p)
+
+    TYPE(t_patch), INTENT(INOUT)                   :: p
+
+    !---local variables
+    INTEGER :: old_mode, ip
+    TYPE(t_patch), POINTER :: lp ! pointer to local parent
+
+    !-------------------------------------------------------------------------
+
+    ! use_one_file is set according to l_one_file_per_patch
+    use_one_file = l_one_file_per_patch
+
+    netcdf_read = .FALSE. ! Set I/O routines to write mode
+
+    CALL set_dump_restore_filename(p%grid_filename, model_base_dir)
+
+    WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(filename)
+    CALL message ('', TRIM(message_text))
+
+    ! Set pointer to local parent
+    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
+      lp => p_patch_local_parent(p%id)
+    ELSE
+      lp => NULL()
+    ENDIF
+
+    IF(use_one_file) THEN
+      ! Only the first PE defines common dimensions and attributes, all others check
+      output_defines = (get_my_mpi_work_id()==0)
+    ELSE
+      ! Every PE defines common dimensions and attributes
+      output_defines = .TRUE.
+    ENDIF
+
+    prefix = ' '
+
+    IF(output_defines) THEN
+      ! Open new output file
+      CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
+      CALL nf(nf_create(TRIM(filename), nf_clobber, ncid))
+    ELSE
+      ncid = -1
+    ENDIF
+
+    IF(output_defines) CALL set_atts_and_dims(p, num_work_procs)
+ 
+    ! Emit additional dimensions and variable definitions for patch/int state/grf state
+
+    ! Output attributes and dimensions
+    CALL set_max_patch_dims(p)
+    CALL def_patch(p, .TRUE.)
+    CALL def_comm_patterns(p)
+
+    ! Definitions for local parent
+
+    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
+      prefix = 'lp.'
+      CALL set_max_patch_dims(lp)
+      CALL def_patch(lp, .TRUE.)
+      CALL def_comm_patterns(lp)
+    ENDIF
+
+    !-------------------------------------------------------------------------
+
+    ! End of definition mode
+
+    IF(output_defines) THEN
+      CALL nf(nf_enddef(ncid))
+      CALL nf(nf_close(ncid))
+    ENDIF
+
+
+    IF(use_one_file) THEN
+      my_record = get_my_mpi_work_id()+1
+    ELSE
+      my_record = 1
+    ENDIF
+
+    ! Output all variables
+
+    DO ip = 0, num_work_procs-1
+
+      IF(use_one_file) CALL p_barrier(comm=p_comm_work)
+
+      IF(ip /= get_my_mpi_work_id()) CYCLE
+
+      CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
+      prefix = ' '
+
+      CALL patch_io(p, .TRUE.)
+
+ 
+      IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
+        prefix = 'lp.'
+        CALL patch_io(lp, .TRUE.)
+      ENDIF
+
+      ! Close NetCDF file
+      CALL nf(nf_close(ncid))
+
+    ENDDO
+
+    IF(use_one_file) CALL p_barrier(comm=p_comm_work)
+
+  END SUBROUTINE dump_patch_state_netcdf_oce
 
   !-------------------------------------------------------------------------
   !

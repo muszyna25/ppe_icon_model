@@ -66,7 +66,7 @@ USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
 USE mo_sea_ice_types,       ONLY: t_sfc_flx
-! USE mo_run_config,          ONLY: dtime
+USE mo_run_config,          ONLY: dtime
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
@@ -228,8 +228,8 @@ CONTAINS
 !         DO jb = all_edges%start_block, all_edges%end_block
 !            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 !            DO je = i_startidx_e, i_endidx_e
-!              p_phys_param%K_veloc_h(je,:,jb) = &
-!              &(ppatch%edges%primal_edge_length(je,jb)**4)*z_diff_multfac
+!              p_phys_param%K_veloc_h(je,:,jb) = z_diff_multfac*&
+!              &maxval(ppatch%edges%primal_edge_length)**4
 !            END DO
 !          END DO
 
@@ -698,8 +698,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           z_dolic = v_base%dolic_c(jc,jb)
           IF ( z_dolic >= MIN_DOLIC ) THEN        
             DO jk = 2, z_dolic 
-              dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
 
+              dz_inv = p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
               !This calculates the localshear at cells
               ! - add small epsilon to avoid division by zero
               z_shear_c(jc,jk,jb) = dbl_eps + &
@@ -762,7 +762,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           IF ( z_dolic >= MIN_DOLIC ) THEN
             DO jk = 2, z_dolic
 
-             dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
+             dz_inv = p_os%p_diag%inv_prism_center_dist_e(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
 
               !calculate vertical tracer mixing based on local Richardson number
               DO itracer = 1, no_tracer

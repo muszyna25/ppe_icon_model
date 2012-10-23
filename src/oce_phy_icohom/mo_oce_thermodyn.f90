@@ -53,14 +53,14 @@ MODULE mo_oce_thermodyn
 USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, EOS_TYPE, no_tracer
 USE mo_model_domain,        ONLY: t_patch
-USE mo_impl_constants,      ONLY: min_rlcell,sea_boundary, sea_boundary !, &
+USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
 USE mo_oce_state,           ONLY: v_base
 !USE mo_exception,           ONLY: message, finish
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
 USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_T, b_S, &
   &                               SItodBar, sfc_press_bar
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-
+USE mo_parallel_config,     ONLY: nproma
 IMPLICIT NONE
 
 !PRIVATE
@@ -250,8 +250,7 @@ END INTERFACE
   END DO
   END SUBROUTINE calc_internal_press_new
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
+ !-------------------------------------------------------------------------
   !>
   !! Calculation the hydrostatic pressure
   !!
@@ -266,12 +265,13 @@ END INTERFACE
   !!  - division by rho_ref included
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE calc_internal_press(ppatch, rho, h, press_hyd)
+  SUBROUTINE calc_internal_press(p_patch, rho, prism_thick_c, h, press_hyd)
   !
-  TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
-  REAL(wp),    INTENT(IN)       :: rho      (:,:,:)  !< density
-  REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
-  REAL(wp),   INTENT(INOUT)     :: press_hyd(:,:,:)  !< hydrostatic pressure
+  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+  REAL(wp), INTENT(IN)              :: rho      (1:nproma,1:n_zlev,p_patch%nblks_c)  !< density
+  REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev,p_patch%nblks_c)
+  REAL(wp), INTENT(IN)              :: h        (1:nproma,p_patch%nblks_c)           !< surface elevation at cells
+  REAL(wp), INTENT(INOUT)           :: press_hyd(1:nproma,1:n_zlev,p_patch%nblks_c)  !< hydrostatic pressure
 
   ! local variables:
   !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -281,14 +281,15 @@ END INTERFACE
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   REAL(wp) :: z_full, z_box
+  REAL(wp), POINTER :: del_zlev_m(:)
   REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv*grav
   TYPE(t_subset_range), POINTER :: all_cells
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
   !press_hyd(:,:,:) = 0.0_wp
-  all_cells => ppatch%cells%all
-  
+  all_cells => p_patch%cells%all
+
   slev = 1
   !
   !  loop through all patch cells
@@ -308,77 +309,30 @@ END INTERFACE
       z_full  = 0.0_wp
       end_lev = v_base%dolic_c(jc,jb)
 
-!       IF(end_lev>=3)THEN
-     !    (v_base%lsm_oce_c(jc,slev,jb) <= sea_boundary ) THEN   
-!           z_box                 = (v_basee%del_zlev_m(slev)+h(jc,jb))*rho(jc,slev,jb) !-rho_ref)&!pressure in single box at layer jk
-! 
-!           press_hyd(jc,slev,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv         !rho_inv*grav  !hydrostatic press at level jk
-!                                                                                    ! =half of pressure at actual box+ sum of all boxes above
-            ! =half of pressure at actual box+ sum of all boxes above
-!         ELSE
-!           press_hyd(jc,slev,jb) = 0.0_wp
-!        ENDIF
+      IF(end_lev>=min_dolic)THEN
+        DO jk = slev, end_lev
+          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            del_zlev_m => prism_thick_c(jc,:,jb)
+            z_box               = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
+            !z_box                = v_base%del_zlev_m(jk)*rho(jc,jk,jb)
 
-      DO jk = slev, end_lev
-        IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
-          z_box               = v_base%del_zlev_m(jk)*rho(jc,jk,jb)!-rho_ref!&!     pressure in single box at layer jk
-            ! -rho_ref)&!     pressure in single box at layer jk
-          press_hyd(jc,jk,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv         
+
+            press_hyd(jc,jk,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv
             ! rho_inv*grav  !hydrostatic press at level jk
             ! =half of pressure at actual box+ sum of all boxes above
-          z_full              = z_full + z_box
-        ELSE
-          press_hyd(jc,jk,jb) = 0.0_wp
-        ENDIF
-!  IF(press_hyd(jc,jk,jb)/=0.0_wp)THEN
-!    write(123,*)'press',jc,jb,jk,&
-!    &press_hyd(jc,jk,jb), rho(jc,jk,jb)
-!  ENDIF
-      END DO
-
-! !       !the code within the level loop below is identical to the level loop above.
-! !       !It is a bit more transparentr 
-!        p_hyd(:) = 0.0_wp
-!        p_hyd(1) = grav*(rho(jc,1,jb)-p_phys_param%rho_ref)*v_base%del_zlev_m(1)* p_phys_param%rho_inv*0.5_wp
-!        DO jk = slev+1, end_lev
-!         IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
-! 
-!             z_press = v_base%zlev_i(jk)*rho_ref*0.0001_wp!grav
-!             !density of upper cell w.r.t.to pressure at intermediate level
-!             z_rho_up(jc,jk,jb) = calc_density(&
-!             & p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1),&
-!             & p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2),&
-!             & z_press)
-!             !density of lower cell w.r.t.to pressure at intermediate level
-!             z_rho_down(jc,jk,jb) = calc_density(&
-!             & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
-!             & p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-!             & z_press)
-! 
-! !           z_box = (rho(jc,jk-1,jb)-rho_ref)*v_base%del_zlev_m(jk-1)&
-! !                &+ (rho(jc,jk,jb)  -rho_ref)*v_base%del_zlev_m(jk)
-! !           p_hyd(jk) = p_hyd(jk-1)&
-! !                    &+ rho_inv*grav*0.5_wp*z_box
-!          ELSE
-!            press_hyd(jc,jk,jb) = 0.0_wp
-!         ENDIF
-!       END DO 
-! DO jk = slev, end_lev
-!  IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN 
-! ! IF(jk==1)THEN
-!  write(*,*)'pressure',jk,jc,jb,press_hyd(jc,jk,jb),p_hyd(jk)
-! ! ENDIF
-!  ENDIF
-! END DO
-! ! IF(jb==900.and. jk==3)THEN
-! ! write(*,*)'pressure sample',jc,jk,jb, press_hyd(jc,jk,jb), rho(jc,jk,jb)
-! ! ENDIF
+            z_full              = z_full + z_box
+          ELSE
+            press_hyd(jc,jk,jb) = 0.0_wp
+          ENDIF
+        END DO
+      ENDIF
     END DO
   END DO
+
   END SUBROUTINE calc_internal_press
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
+!-------------------------------------------------------------------------
   !>
   !! Calculates the density via a call to the equation-of-state.
   !! Several options for EOS are provided.
@@ -387,10 +341,10 @@ END INTERFACE
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
-  SUBROUTINE calc_density(ppatch,tracer, rho)
+  SUBROUTINE calc_density(p_patch,tracer, rho)
   !
   !!
-  TYPE(t_patch), INTENT(IN), TARGET :: ppatch
+  TYPE(t_patch), INTENT(IN), TARGET :: p_patch
   REAL(wp),    INTENT(IN)  , TARGET :: tracer(:,:,:,:)     !< input of S and T
   REAL(wp), INTENT(INOUT)  , TARGET :: rho   (:,:,:)       !< density
 
@@ -404,12 +358,12 @@ END INTERFACE
    !internally.
    SELECT CASE (EOS_TYPE)
      CASE(1)
-       CALL calc_density_lin_EOS(ppatch, tracer, rho)
+       CALL calc_density_lin_EOS(p_patch, tracer, rho)
      CASE(2)
-       CALL calc_density_MPIOM(ppatch, tracer, rho)
+       CALL calc_density_MPIOM(p_patch, tracer, rho)
      CASE(3)
-       CALL calc_density_JMDWFG06_EOS(ppatch, tracer, rho)
-       !CALL calc_density_JM_EOS(ppatch, tracer, rho)
+       CALL calc_density_JMDWFG06_EOS(p_patch, tracer, rho)
+       !CALL calc_density_JM_EOS(p_patch, tracer, rho)
      CASE DEFAULT
 
    END SELECT
@@ -426,10 +380,10 @@ END INTERFACE
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
   !!  mpi parallelized LL
-  SUBROUTINE  calc_density_lin_EOS(ppatch, tracer, rho)
+  SUBROUTINE  calc_density_lin_EOS(p_patch, tracer, rho)
   !
   !!
-  TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
+  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
   REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)     !< input of S and T
   REAL(wp), INTENT(INOUT)       :: rho   (:,:,:)       !< density
 
@@ -438,7 +392,7 @@ END INTERFACE
   INTEGER :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
   !-------------------------------------------------------------------------
-  all_cells => ppatch%cells%all
+  all_cells => p_patch%cells%all
 
   IF(no_tracer==2)THEN
 
@@ -685,9 +639,9 @@ END INTERFACE
   !! the AWI Finite-Volume model. 
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE calc_density_JM_EOS(ppatch, tracer, rho)
+  SUBROUTINE calc_density_JM_EOS(p_patch, tracer, rho)
   !
-  TYPE(t_patch), TARGET, INTENT(IN)     :: ppatch
+  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch
   REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)  
   REAL(wp), INTENT(OUT)         :: rho(:,:,:) 
 
@@ -700,7 +654,7 @@ END INTERFACE
   INTEGER  :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
   !---------------------------------------------------------------------------
-  all_cells => ppatch%cells%all
+  all_cells => p_patch%cells%all
 
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -1072,6 +1026,5 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
       temp_insitu=t - fne/fst
     !ENDDO
   END function adisit
-
 END MODULE mo_oce_thermodyn
 

@@ -88,14 +88,14 @@ MODULE mo_ocean_model
     & finalize_decomposition,        &
     & copy_processor_splitting,      &
     & set_patch_communicators
-  USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
-    & restore_patches_netcdf,        &
-    & restore_interpol_state_netcdf
+  USE mo_dump_restore,        ONLY: dump_patch_state_netcdf_oce,&!dump_patch_state_netcdf, &
+    & restore_patches_netcdf!,        &
+    !& restore_interpol_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
   USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
-  USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent
-  USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
+  !USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent!p_int_state, p_int_state_local_parent
+  !USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
   ! Horizontal grid
   !
@@ -110,9 +110,10 @@ MODULE mo_ocean_model
   !
 !  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
   USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-    & destruct_2d_interpol_state, transfer_interpol_state
+    & destruct_2d_interpol_state, transfer_interpol_state 
+  USE mo_intp_coeffs, ONLY: complete_patchinfo
 
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_ocean_state
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_ocean_state,complete_patchinfo_oce
 
 !0  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
 !0    &                               destruct_mpiom_phy_state
@@ -120,7 +121,7 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
   ! External data
-  USE mo_ext_data_state,       ONLY: ext_data, init_ext_data, destruct_ext_data
+  USE mo_ext_data_state,       ONLY: ext_data, init_ext_data, init_ext_data_oce,destruct_ext_data
 
   USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
@@ -168,7 +169,7 @@ CONTAINS
 
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: p_atm_f
-    TYPE(t_operator_coeff)                          :: ptr_op_coeff
+    TYPE(t_operator_coeff)                          :: p_op_coeff
     TYPE(t_datetime)                                :: datetime
 
     INTEGER :: n_io, jg, jgp, jfile, ist
@@ -190,7 +191,7 @@ CONTAINS
     INTEGER :: patch_no
 !    INTEGER, POINTER :: grid_glob_index(:)
     LOGICAL :: lsuccess, l_have_output
-
+    !TYPE(t_int_state), ALLOCATABLE :: p_int_state(:)
     !-------------------------------------------------------------------
 
     IF (is_restart_run()) THEN
@@ -318,6 +319,10 @@ CONTAINS
 
     ENDIF
 
+    DO jg = n_dom_start, n_dom
+      CALL complete_patchinfo_oce(p_patch(jg))
+    END DO
+
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
 
@@ -325,51 +330,52 @@ CONTAINS
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
-    CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level )
+ !   CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level )
 
     ! Allocate array for interpolation state
 
-    ALLOCATE( p_int_state(n_dom_start:n_dom), &
-            & p_grf_state(n_dom_start:n_dom),STAT=error_status)
-    IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
-    ENDIF
+!     ALLOCATE( p_int_state(n_dom_start:n_dom), &
+!             & p_grf_state(n_dom_start:n_dom),STAT=error_status)
+!     ALLOCATE( p_int_state(n_dom_start:n_dom),STAT=error_status)
+!     IF (error_status /= SUCCESS) THEN
+!       CALL finish(TRIM(routine),'allocation for p_int_state failed')
+!     ENDIF
 
-    IF(my_process_is_mpi_parallel()) THEN
-      ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
-              & p_grf_state_local_parent(n_dom_start+1:n_dom), &
-              & STAT=error_status)
-      IF (error_status /= SUCCESS) &
-        CALL finish(TRIM(routine),'allocation for local parents failed')
-    ENDIF
+!     IF(my_process_is_mpi_parallel()) THEN
+!       ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
+!               & p_grf_state_local_parent(n_dom_start+1:n_dom), &
+!               & STAT=error_status)
+!       IF (error_status /= SUCCESS) &
+!         CALL finish(TRIM(routine),'allocation for local parents failed')
+!     ENDIF
 
-    IF(lrestore_states) THEN !TODOram
-      ! Interpolation state is read from NetCDF
-      ! On the test PE it is constructed at the same time to be able to check
-      ! the state read in with the constructed state
-      IF( .NOT. my_process_is_mpi_test()) THEN
-        CALL restore_interpol_state_netcdf(p_patch, p_int_state)
-      ELSE
-        ! construct_2d_interpol_state makes sync calls for checking the
-        ! results on the parallel PEs to the results on the test PE.
-        ! These checks must be disabled here!
-        CALL disable_sync_checks
-        CALL construct_2d_interpol_state(p_patch, p_int_state)
-        CALL enable_sync_checks
-      ENDIF
-    ELSE
-      ! Construct interpolation state
-      ! Please note that for pararllel runs the divided state is constructed here
-      CALL construct_2d_interpol_state(p_patch, p_int_state)
-      IF(my_process_is_mpi_parallel()) THEN
-        ! Transfer interpolation state to local parent
-        DO jg = n_dom_start+1, n_dom
-          jgp = p_patch(jg)%parent_id
-          CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
-                                    &  p_int_state(jgp), p_int_state_local_parent(jg))
-        ENDDO
-      ENDIF
-    ENDIF
+!     IF(lrestore_states) THEN !TODOram
+!       ! Interpolation state is read from NetCDF
+!       ! On the test PE it is constructed at the same time to be able to check
+!       ! the state read in with the constructed state
+!       IF( .NOT. my_process_is_mpi_test()) THEN
+!         CALL restore_interpol_state_netcdf(p_patch, p_int_state)
+!       ELSE
+!         ! construct_2d_interpol_state makes sync calls for checking the
+!         ! results on the parallel PEs to the results on the test PE.
+!         ! These checks must be disabled here!
+!         CALL disable_sync_checks
+         !CALL construct_2d_interpol_state(p_patch, p_int_state)
+!         CALL enable_sync_checks
+!       ENDIF
+!     ELSE
+!       ! Construct interpolation state
+!       ! Please note that for pararllel runs the divided state is constructed here
+!       CALL construct_2d_interpol_state(p_patch, p_int_state)
+!       IF(my_process_is_mpi_parallel()) THEN
+!         ! Transfer interpolation state to local parent
+         !DO jg = n_dom_start+1, n_dom
+         !  jgp = p_patch(jg)%parent_id
+!           CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
+!                                     &  p_int_state(jgp), p_int_state_local_parent(jg))
+!         ENDDO
+!       ENDIF
+!     ENDIF
 
 
     !------------------------------------------------------------------
@@ -389,23 +395,25 @@ CONTAINS
 
     ENDIF
 
-    IF(ldump_states)THEN
-
-      ! Dump divided patches with interpolation and grf state to NetCDF file and exit
-
-      CALL message(TRIM(routine),'ldump_states is set: '//&
-                  'dumping patches+states and finishing')
-
-      IF(.NOT. my_process_is_mpi_test()) THEN
-        DO jg = n_dom_start, n_dom
-          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
-        ENDDO
-      ENDIF
-
-      CALL p_stop
-      STOP
-
-    ENDIF
+!!Commented out for potential later use. In this case dumping of operator coeffs has to implemented within dump_patch_state_netcdf_oce (PK, 8/2012)
+! !     IF(ldump_states)THEN
+! ! 
+! !       ! Dump divided patches with interpolation and grf state to NetCDF file and exit
+! ! 
+! !       CALL message(TRIM(routine),'ldump_states is set: '//&
+! !                   'dumping patches+states and finishing')
+! ! 
+! !       IF(.NOT. my_process_is_mpi_test()) THEN
+! !         DO jg = n_dom_start, n_dom
+! !           !CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
+! !           CALL dump_patch_state_netcdf_oce(p_patch(jg))
+! !         ENDDO
+! !       ENDIF
+! ! 
+! !       CALL p_stop
+! !       STOP
+! ! 
+! !     ENDIF
 
     !---------------------------------------------------------------------
     ! 9. Horizontal and vertical grid(s) are now defined.
@@ -433,8 +441,8 @@ CONTAINS
 
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
-    CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-
+    !CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
+    CALL init_ext_data_oce(p_patch(1:), ext_data)
     !------------------------------------------------------------------
     ! Prepare the coupling
     !
@@ -500,7 +508,7 @@ CONTAINS
 
     ! Prepare time integration
     CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
-      &                         v_params, p_as, p_atm_f, v_sea_ice,ptr_op_coeff,p_int_state(1:))
+      &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff)!,p_int_state(1:))
 
     !------------------------------------------------------------------
     ! Daniel: Suggestion for point 5 of Feature #333
@@ -586,9 +594,9 @@ CONTAINS
       &                       ext_data, datetime, n_io,                     &
       &                       jfile,                                        &
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
-      &                       p_int_state(1:),                              &
+     ! &                       p_int_state(1:),                              &
       &                       v_sfc_flx,                                    &
-      &                       v_params, p_as, p_atm_f,v_sea_ice,ptr_op_coeff,&
+      &                       v_params, p_as, p_atm_f,v_sea_ice,p_op_coeff,&
       &                       l_have_output)
 
     IF (ltimer) CALL print_timer
@@ -618,11 +626,11 @@ CONTAINS
     ! Deallocate interpolation fields
     ! interpolation state not used for ocean model
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-    CALL destruct_2d_interpol_state( p_int_state )
-    DEALLOCATE (p_int_state, stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
-    ENDIF
+!     CALL destruct_2d_interpol_state( p_int_state )
+!     DEALLOCATE (p_int_state, stat=ist)
+!     IF (ist /= success) THEN
+!       CALL finish(TRIM(routine),'deallocation for p_int_state failed')
+!     ENDIF
 
     ! Deallocate grid patches
 

@@ -129,7 +129,8 @@ MODULE mo_ext_data_state
   PUBLIC :: nmonths
   PUBLIC :: nlev_o3
 
-  PUBLIC :: init_ext_data
+  PUBLIC :: init_ext_data  
+  PUBLIC :: init_ext_data_oce
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
 
@@ -292,6 +293,65 @@ CONTAINS
   END SUBROUTINE init_ext_data
 
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Init external data for atmosphere and ocean
+  !!
+  !! Init external data for atmosphere and ocean.
+  !! 1. Build data structure, including field lists and 
+  !!    memory allocation.
+  !! 2. External data are read in from netCDF file or set analytically
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-07-16)
+  !!
+  SUBROUTINE init_ext_data_oce (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+
+    INTEGER :: jg
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:init_ext_data'
+
+    !-------------------------------------------------------------------------
+    CALL message (TRIM(routine), 'Start')
+
+    !-------------------------------------------------------------------------
+    !  1.  inquire external files for their data structure
+    !-------------------------------------------------------------------------
+
+    ALLOCATE(nclass_lu(n_dom))
+    ! Set default value for nclass_lu. Will be overwritten, if external data 
+    ! are read from file
+    nclass_lu(1:n_dom) = 1
+
+    ALLOCATE(nmonths_ext(n_dom))
+    ! Set default value for nmonths_ext. Will be overwritten, if external data 
+    ! are read from file
+    nmonths_ext(1:n_dom) = 1
+
+    CALL inquire_external_files(p_patch)
+
+    !------------------------------------------------------------------
+    !  2.  construct external fields for the model
+    !------------------------------------------------------------------
+
+    ! top-level procedure for building data structures for 
+    ! external data.
+    CALL construct_ext_data(p_patch, ext_data)
+
+    !-------------------------------------------------------------------------
+    !  3.  read the data into the fields
+    !-------------------------------------------------------------------------
+
+    ! Check, whether external data should be read from file
+    ! 
+
+      CALL read_ext_data_oce (p_patch, ext_data)
+  END SUBROUTINE init_ext_data_oce
 
   !-------------------------------------------------------------------------
   !>

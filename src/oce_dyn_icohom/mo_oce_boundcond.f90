@@ -225,12 +225,13 @@ CONTAINS
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
   !!  mpi parallelized LL
   !!
-  SUBROUTINE bot_bound_cond_horz_veloc( p_patch, p_os, p_phys_param, div_coeff)
+  SUBROUTINE bot_bound_cond_horz_veloc( p_patch, p_os, p_phys_param, p_op_coeff)
     !
     TYPE(t_patch), TARGET, INTENT(in)        :: p_patch         ! patch on which computation is performed
     TYPE(t_hydro_ocean_state), INTENT(inout) :: p_os            ! ocean state variable
     TYPE(t_ho_params), INTENT(in)            :: p_phys_param    ! physical parameters
-    REAL(wp), INTENT(in)                     :: div_coeff(:,:,:,:)
+    TYPE(t_operator_coeff), INTENT(IN)       :: p_op_coeff
+    !REAL(wp), INTENT(in)                     :: div_coeff(:,:,:,:)
     
     ! Local variables
     INTEGER :: jb, je,jc
@@ -286,7 +287,7 @@ CONTAINS
         END DO
       END DO
       
-      CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
+      CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
       CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)
       
     CASE(2) !Bottom friction and topographic slope
@@ -316,7 +317,7 @@ CONTAINS
       END DO
       
       z_depth(:,1,:)=p_os%p_diag%thick_e
-      CALL div_oce_3d( z_depth, p_patch, div_coeff, z_div_depth, opt_slev=1,opt_elev=1 )
+      CALL div_oce_3d( z_depth, p_patch, p_op_coeff%div_coeff, z_div_depth, opt_slev=1,opt_elev=1 )
 
       
       ! LL: the whole loop seems to be doing nothing,
@@ -350,7 +351,7 @@ CONTAINS
         END DO
       END DO
       
-      CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
+      CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
       CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)
       
       !p_os%p_aux%bc_bot_vn(:,:) = p_os%p_aux%bc_bot_vn(:,:) - z_e(:,1,:)

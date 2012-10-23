@@ -57,9 +57,9 @@ MODULE mo_oce_state
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
-    &                               success, max_char_length,                          &
+    &                               success, max_char_length, min_dolic,               &
     &                               full_coriolis, beta_plane_coriolis,                &
-    &                               f_plane_coriolis, zero_coriolis
+    &                               f_plane_coriolis, zero_coriolis,min_rlcell, min_rledge
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom,          &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
@@ -67,12 +67,15 @@ MODULE mo_oce_state
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
+  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: rho_ref
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array, global_sum_array
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V,sync_patch_array, global_sum_array, sync_idx
+USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+!USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -105,6 +108,7 @@ MODULE mo_oce_state
   PUBLIC :: set_del_zlev, set_zlev
   PUBLIC :: is_initial_timestep
   PUBLIC :: init_oce_config
+  PUBLIC :: complete_patchinfo_oce
 
   !
   ! types
@@ -262,9 +266,24 @@ MODULE mo_oce_state
                                   ! dimension: (nproma,n_zlev, nblks_e)
       &  div_mass_flx_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].
                                   ! dimension: (nproma,n_zlev, nblks_c)
-      &  cons_thick_c(:,:,:)   ,& ! individual fluid column thickness at cells. Unit [m].
+      &  prism_thick_c(:,:,:)   ,& ! individual prism thickness at cells. Unit [m]. This array includes the free surface.
                                   ! dimension: (nproma,n_zlev, nblks_c)
-      &  depth_c(:,:,:)        ,& ! individual fluid column thickness at cells. Unit [m].
+      &  prism_thick_e(:,:,:)   ,& ! individual prism thickness at edges. Unit [m]. This array includes the free surface.
+                                  ! dimension: (nproma,n_zlev, nblks_e)
+      &  prism_thick_flat_sfc_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].This array assumes a flat surface
+                                  ! dimension: (nproma,n_zlev, nblks_c)
+      &  prism_thick_flat_sfc_e(:,:,:) ,& ! individual fluid column thickness at edges. Unit [m].This array assumes a flat surface
+                                  ! dimension: (nproma,n_zlev, nblks_c)
+      & prism_center_dist_c(:,:,:),&! distance between prism centers at cells. Unit [m].
+                                     ! dimension: (nproma,n_zlev, nblks_c)
+     &  inv_prism_thick_c(:,:,:) ,& ! inverse individual fluid column thickness at cells. Unit [m].This array assumes a flat surface
+                                  ! dimension: (nproma,n_zlev, nblks_c)
+      &  inv_prism_thick_e(:,:,:) ,& ! inverse individual fluid column thickness at edges. Unit [m].This array assumes a flat surface
+                                  ! dimension: (nproma,n_zlev, nblks_e)
+      &  inv_prism_center_dist_c(:,:,:) ,& ! inverse vertical distance between prism centers at cells. Unit [m].This array assumes a 
+                                           !flat surface  dimension: (nproma,n_zlev, nblks_c)
+      &  inv_prism_center_dist_e(:,:,:) ,& ! inverse vertical distance between prism centers at edges. Unit [m].This array assumes a 
+                                           !flat surface dimension: (nproma,n_zlev, nblks_e)
                                   ! dimension: (nproma,n_zlev, nblks_c)
       &  w(:,:,:)              ,& ! vertical velocity. Unit [m/s].
                                   ! dimension: (nproma, n_zlev+1, nblks_c)
@@ -848,11 +867,12 @@ CONTAINS
     ! local variables
 
     TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: all_edges
 
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v
- !  INTEGER :: jb, jc, je, jv, jk, rl_start, rl_end
- !  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: jb, jc, jk, je
+    INTEGER :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
@@ -861,7 +881,7 @@ CONTAINS
     !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
 
     all_cells => p_patch%cells%all
-
+    all_edges => p_patch%edges%all
     ! determine size of arrays
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
@@ -903,18 +923,63 @@ CONTAINS
     &            t_cf_var('div mass flux','','divergence mass flux at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-    CALL add_var(ocean_restart_list, 'cons_thick_c', p_os_diag%cons_thick_c, &
+
+
+    CALL add_var(ocean_restart_list, 'prism_thick_c', p_os_diag%prism_thick_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
-    &            t_cf_var('cons thick','','consistent thickness at cells', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            t_cf_var('cons thick','','prism thickness at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_UNSTRUCTURED_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-    CALL add_var(ocean_restart_list, 'depth_c', p_os_diag%depth_c, &
+    CALL add_var(ocean_restart_list, 'prism_thick_e', p_os_diag%prism_thick_e, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
-    &            t_cf_var('depth_c','','time dependent depth at cells', DATATYPE_FLT32),&
+    &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_c', p_os_diag%prism_thick_flat_sfc_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_e', p_os_diag%prism_thick_flat_sfc_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'inverse prism_thick_c', p_os_diag%inv_prism_thick_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('inverse prism_thick_c','','time independent depth at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'prism_center_dist_c', p_os_diag%prism_center_dist_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_center_dist_c','','dist between prism centers', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'inverse prism_thick_e', p_os_diag%inv_prism_thick_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+
+    CALL add_var(ocean_restart_list, 'inverse prism center distance at cell', p_os_diag%inv_prism_center_dist_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('inverse inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'inverse prism center distance at edge', p_os_diag%inv_prism_center_dist_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('inverse inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'mass_flux', p_os_diag%mass_flx_e, &
     &            GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_DEPTH_BELOW_SEA, t_cf_var('mass flux','',' mass flux', DATATYPE_FLT32),&
@@ -1164,6 +1229,89 @@ CONTAINS
       &          ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
 
     !CALL message(TRIM(routine), 'construction of hydrostatic ocean diagnostic state finished')
+    !At this point the hydro-ocean-base-type containing the topography and depth data is already initialized.
+    !Therefore we init the following two arrays that describe the prism thickness (with and without free surface)
+    !Note that only wet cells are initialized, land cells have thickness zero.
+    !During model integration only the first layer of prism_thick_c and prism_thick_e are updated, all other
+    !values remains as initialized.
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        DO jk=1,n_zlev
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
+            p_os_diag%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
+            p_os_diag%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
+
+
+            p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+            p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+          ELSE
+            p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
+            p_os_diag%prism_thick_c(jc,jk,jb)          = 0.0_wp
+            p_os_diag%prism_center_dist_c(jc,jk,jb)    = 0.0_wp
+
+            p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
+            p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
+          ENDIF
+        END DO
+      END DO
+    END DO
+
+    !If column has not enough wet layers set all 4 depth-arrays to zero
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        DO jk=1,n_zlev
+          IF ( v_base%dolic_c(jc,jb) < min_dolic) THEN
+
+            p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
+            p_os_diag%prism_thick_c(jc,jk,jb)          = 0.0_wp
+
+            p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
+            p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
+          ENDIF
+        END DO
+      END DO
+    END DO
+
+
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        DO jk=1,n_zlev
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+            p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
+            p_os_diag%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
+
+            p_os_diag%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+            p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+          ELSE
+            p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
+            p_os_diag%prism_thick_e(je,jk,jb)          = 0.0_wp
+
+            p_os_diag%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
+            p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
+          ENDIF
+        END DO
+      END DO
+    END DO
+    !If column has not enough wet layers set all 4 depth-arrays to zero
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        DO jk=1,n_zlev
+          IF ( v_base%dolic_e(je,jb) < min_dolic) THEN
+
+            p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
+            p_os_diag%prism_thick_e(je,jk,jb)          = 0.0_wp
+
+            p_os_diag%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
+            p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
+          ENDIF
+        END DO
+      END DO
+    END DO
 
   END SUBROUTINE construct_hydro_ocean_diag
 
@@ -2843,5 +2991,423 @@ CONTAINS
       is_initial_timestep = .FALSE.
     END IF
   END FUNCTION is_initial_timestep
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes the local orientation of the edge primal normal and dual normal.
+!!
+!! Computes the local orientation of the edge primal normal and dual normal
+!! at the location of the cell centers and vertices.
+!! Moreover, the Cartesian orientation vectors of the edge primal normals
+!! are stored for use in the RBF initialization routines, and inverse
+!! primal and dual edge lengths are computed
+!!
+!! @par Revision History
+!!  developed by Guenther Zaengl, 2009-03-31
+!!
+SUBROUTINE complete_patchinfo_oce( ptr_patch)
+!
+
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+
+!
+
+INTEGER :: jb, je, jc
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER :: ilc1, ibc1, ilv1, ibv1, ilc2, ibc2, ilv2, ibv2, &
+           ilv3, ibv3, ilv4, ibv4, ile1, ibe1
+
+REAL(wp) :: z_nu, z_nv, z_lon, z_lat, z_nx1(3), z_nx2(3), z_norm
+
+TYPE(t_cartesian_coordinates) :: cc_edge, cc_ev3, cc_ev4
+
+!-----------------------------------------------------------------------
+
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+
+!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+rl_start = 1
+rl_end = min_rlcell
+
+! values for the blocking
+i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+rl_start = 1
+rl_end = min_rledge
+
+! values for the blocking
+i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
+!
+! First step: compute Cartesian coordinates and Cartesian vectors on full domain
+! this is needed to vectorize RBF initialization; the existing field carrying
+! the Cartesian orientation vectors (primal_cart_normal) did not work for that
+! because it is a derived data type
+! In addition, the fields for the inverse primal and dual edge lengths are
+! initialized here.
+!
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge) ICON_OMP_DEFAULT_SCHEDULE
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end)
+
+  DO je =  i_startidx, i_endidx
+
+    IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+    ! compute Cartesian coordinates (needed for RBF initialization)
+    ptr_patch%edges%inv_primal_edge_length(je,jb) = &
+      1._wp/ptr_patch%edges%primal_edge_length(je,jb)
+
+  ENDDO
+
+END DO !block loop
+!$OMP END DO
+
+rl_start = 2
+rl_end = min_rledge
+
+! Second step: computed projected orientation vectors and related information
+i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
+
+! Initialization of lateral boundary points
+IF (ptr_patch%id > 1) THEN
+!$OMP WORKSHARE
+  ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
+  ptr_patch%edges%vertex_idx(:,1:i_startblk,3)            = 0
+  ptr_patch%edges%vertex_idx(:,1:i_startblk,4)            = 0
+  ptr_patch%edges%vertex_blk(:,1:i_startblk,3)            = 0
+  ptr_patch%edges%vertex_blk(:,1:i_startblk,4)            = 0
+  ptr_patch%edges%inv_vert_vert_length(:,1:i_startblk)    = 0._wp
+  ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v1 = 0._wp
+  ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v1 = 0._wp
+  ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v1 = 0._wp
+  ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v1 = 0._wp
+  ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v2 = 0._wp
+  ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v2 = 0._wp
+  ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2 = 0._wp
+  ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2 = 0._wp
+!$OMP END WORKSHARE
+ENDIF
+!
+! loop through all patch edges
+!
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
+!$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
+!$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end)
+
+  DO je =  i_startidx, i_endidx
+
+    IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+    ! compute inverse dual edge length (undefined for refin_ctrl=1)
+
+    ptr_patch%edges%inv_dual_edge_length(je,jb) = &
+      1._wp/ptr_patch%edges%dual_edge_length(je,jb)
+
+    ! compute edge-vertex indices (and blocks) 3 and 4, which
+    ! are the outer vertices of cells 1 and 2, respectively,
+    ! and the inverse length bewtween vertices 3 and 4
+
+    ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
+    ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+    ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
+    ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+
+    ilv1 = ptr_patch%edges%vertex_idx(je,jb,1)
+    ibv1 = ptr_patch%edges%vertex_blk(je,jb,1)
+    ilv2 = ptr_patch%edges%vertex_idx(je,jb,2)
+    ibv2 = ptr_patch%edges%vertex_blk(je,jb,2)
+
+    IF ((ptr_patch%cells%vertex_idx(ilc1,ibc1,1) /= &
+         ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
+         ptr_patch%cells%vertex_blk(ilc1,ibc1,1) /= &
+         ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
+        (ptr_patch%cells%vertex_idx(ilc1,ibc1,1) /= &
+         ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
+         ptr_patch%cells%vertex_blk(ilc1,ibc1,1) /= &
+         ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
+
+      ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,1)
+      ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,1)
+
+    ELSE IF ((ptr_patch%cells%vertex_idx(ilc1,ibc1,2) /= &
+              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc1,ibc1,2) /= &
+              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
+             (ptr_patch%cells%vertex_idx(ilc1,ibc1,2) /= &
+              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc1,ibc1,2) /= &
+              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
+
+      ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,2)
+      ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,2)
+
+    ELSE IF ((ptr_patch%cells%vertex_idx(ilc1,ibc1,3) /= &
+              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc1,ibc1,3) /= &
+              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
+             (ptr_patch%cells%vertex_idx(ilc1,ibc1,3) /= &
+              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc1,ibc1,3) /= &
+              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
+
+      ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,3)
+      ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,3)
+
+    ENDIF
+
+    IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,1) /= &
+         ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
+         ptr_patch%cells%vertex_blk(ilc2,ibc2,1) /= &
+         ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
+        (ptr_patch%cells%vertex_idx(ilc2,ibc2,1) /= &
+         ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
+         ptr_patch%cells%vertex_blk(ilc2,ibc2,1) /= &
+         ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
+
+      ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,1)
+      ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,1)
+
+    ELSE IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,2) /= &
+              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc2,ibc2,2) /= &
+              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
+             (ptr_patch%cells%vertex_idx(ilc2,ibc2,2) /= &
+              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc2,ibc2,2) /= &
+              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
+
+      ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,2)
+      ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,2)
+
+    ELSE IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,3) /= &
+              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc2,ibc2,3) /= &
+              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
+             (ptr_patch%cells%vertex_idx(ilc2,ibc2,3) /= &
+              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
+              ptr_patch%cells%vertex_blk(ilc2,ibc2,3) /= &
+              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
+
+      ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,3)
+      ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,3)
+
+    ENDIF
+
+    ilv3 = ptr_patch%edges%vertex_idx(je,jb,3)
+    ibv3 = ptr_patch%edges%vertex_blk(je,jb,3)
+    ilv4 = ptr_patch%edges%vertex_idx(je,jb,4)
+    ibv4 = ptr_patch%edges%vertex_blk(je,jb,4)
+
+    cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
+    cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
+
+    ! inverse length bewtween vertices 3 and 4
+    IF (ptr_patch%cell_type == 3 ) THEN
+      ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
+        & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4))
+    ENDIF
+
+    ! next step: compute projected orientation vectors for cells and vertices
+    ! bordering to each edge (incl. vertices 3 and 4 intorduced above)
+
+    ! transform orientation vectors at local edge center to Cartesian space
+    z_lon = ptr_patch%edges%center(je,jb)%lon
+    z_lat = ptr_patch%edges%center(je,jb)%lat
+
+    ! transform primal normal to cartesian vector z_nx1
+    z_nx1(:)=ptr_patch%edges%primal_cart_normal(je,jb)%x(:)
+
+    ! transform dual normal to cartesian vector z_nx2
+    z_nx2(:)=ptr_patch%edges%dual_cart_normal(je,jb)%x(:)
+
+    ! get location of cell 1
+
+    z_lon = ptr_patch%cells%center(ilc1,ibc1)%lon
+    z_lat = ptr_patch%cells%center(ilc1,ibc1)%lat
+
+    ! compute local primal and dual normals at cell 1
+
+    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 = z_nu/z_norm
+    ptr_patch%edges%primal_normal_cell(je,jb,1)%v2 = z_nv/z_norm
+
+    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 = z_nu/z_norm
+    ptr_patch%edges%dual_normal_cell(je,jb,1)%v2 = z_nv/z_norm
+
+    ! get location of cell 2
+
+    z_lon = ptr_patch%cells%center(ilc2,ibc2)%lon
+    z_lat = ptr_patch%cells%center(ilc2,ibc2)%lat
+
+    ! compute local primal and dual normals at cell 2
+
+    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 = z_nu/z_norm
+    ptr_patch%edges%primal_normal_cell(je,jb,2)%v2 = z_nv/z_norm
+
+    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 = z_nu/z_norm
+    ptr_patch%edges%dual_normal_cell(je,jb,2)%v2 = z_nv/z_norm
+
+    ! get location of vertex 1
+
+    z_lon = ptr_patch%verts%vertex(ilv1,ibv1)%lon
+    z_lat = ptr_patch%verts%vertex(ilv1,ibv1)%lat
+
+    ! compute local primal and dual normals at vertex 1
+
+    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%primal_normal_vert(je,jb,1)%v1 = z_nu/z_norm
+    ptr_patch%edges%primal_normal_vert(je,jb,1)%v2 = z_nv/z_norm
+
+    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%dual_normal_vert(je,jb,1)%v1 = z_nu/z_norm
+    ptr_patch%edges%dual_normal_vert(je,jb,1)%v2 = z_nv/z_norm
+
+    ! get location of vertex 2
+
+    z_lon = ptr_patch%verts%vertex(ilv2,ibv2)%lon
+    z_lat = ptr_patch%verts%vertex(ilv2,ibv2)%lat
+
+    ! compute local primal and dual normals at vertex 2
+
+    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%primal_normal_vert(je,jb,2)%v1 = z_nu/z_norm
+    ptr_patch%edges%primal_normal_vert(je,jb,2)%v2 = z_nv/z_norm
+
+    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%dual_normal_vert(je,jb,2)%v1 = z_nu/z_norm
+    ptr_patch%edges%dual_normal_vert(je,jb,2)%v2 = z_nv/z_norm
+
+    ! get location of vertex 3
+
+    z_lon = ptr_patch%verts%vertex(ilv3,ibv3)%lon
+    z_lat = ptr_patch%verts%vertex(ilv3,ibv3)%lat
+
+    ! compute local primal and dual normals at vertex 3
+
+    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%primal_normal_vert(je,jb,3)%v1 = z_nu/z_norm
+    ptr_patch%edges%primal_normal_vert(je,jb,3)%v2 = z_nv/z_norm
+
+    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%dual_normal_vert(je,jb,3)%v1 = z_nu/z_norm
+    ptr_patch%edges%dual_normal_vert(je,jb,3)%v2 = z_nv/z_norm
+
+    ! get location of vertex 4
+
+    z_lon = ptr_patch%verts%vertex(ilv4,ibv4)%lon
+    z_lat = ptr_patch%verts%vertex(ilv4,ibv4)%lat
+
+    ! compute local primal and dual normals at vertex 2
+
+    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%primal_normal_vert(je,jb,4)%v1 = z_nu/z_norm
+    ptr_patch%edges%primal_normal_vert(je,jb,4)%v2 = z_nv/z_norm
+
+    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
+
+    ptr_patch%edges%dual_normal_vert(je,jb,4)%v1 = z_nu/z_norm
+    ptr_patch%edges%dual_normal_vert(je,jb,4)%v2 = z_nv/z_norm
+
+  ENDDO
+
+END DO !block loop
+!$OMP END DO NOWAIT
+
+!$OMP END PARALLEL
+
+  ! primal_normal_cell must be sync'd before next loop,
+  ! so do a sync for all above calculated quantities
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_primal_edge_length)
+
+  CALL sync_idx(SYNC_E,SYNC_V,ptr_patch,ptr_patch%edges%vertex_idx(:,:,3), &
+                                      & ptr_patch%edges%vertex_blk(:,:,3))
+  CALL sync_idx(SYNC_E,SYNC_V,ptr_patch,ptr_patch%edges%vertex_idx(:,:,4), &
+                                      & ptr_patch%edges%vertex_blk(:,:,4))
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_dual_edge_length)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_vert_vert_length)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,3)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,4)%v1)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,3)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v1)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,3)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,4)%v2)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,3)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v2)
+
+
+!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+
+!$OMP END PARALLEL
+
+END SUBROUTINE complete_patchinfo_oce
+
+  !----------------------------------------------------------------------------
+
 
 END MODULE mo_oce_state

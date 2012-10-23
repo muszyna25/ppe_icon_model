@@ -1,4 +1,4 @@
-!>
+!> 
 !!  General comments: provide an implementation of the GMRES solver for.
 !!
 !!  General comments: provide an implementation of the GMRES solver for
@@ -916,7 +916,7 @@ TYPE(t_patch), INTENT(IN) :: curr_patch
 REAL(wp), INTENT(IN) :: coeff  
 TYPE(t_operator_coeff), INTENT(IN):: p_op_coeff
 ! right-hand side: same shape as x
-REAL(wp), INTENT(IN) :: b(:,:) ! same size as x
+REAL(wp), INTENT(INOUT) :: b(:,:) ! same size as x
 REAL(wp), INTENT(IN) :: tolerance ! (relative or absolute) tolerance
 LOGICAL,  INTENT(IN) :: abstol    ! .true. for absolute tolerance,
                                   ! .false. for relative tolerance
@@ -949,9 +949,14 @@ INTERFACE   ! left-hand-side: A*x
 END INTERFACE
 
 INTERFACE   ! preconditioner
-  SUBROUTINE preconditioner(r)
+  SUBROUTINE preconditioner(r,curr_patch,p_op_coeff,h_e)
     USE mo_kind, ONLY: wp
-    REAL(wp), INTENT(inout) :: r(:,:)
+    USE mo_model_domain, ONLY: t_patch
+    USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff 
+    REAL(wp), INTENT(inout)           :: r(:,:)
+    TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+    TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
+    REAL(wp),    INTENT(in)           :: h_e(:,:)
   END SUBROUTINE preconditioner
 END INTERFACE
 
@@ -1008,7 +1013,8 @@ INTEGER :: mnblks, mnpromz
    r(:,:)    = 0.0_wp
 
    ! 1) compute the preconditioned residual
-
+ !IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),curr_patch,p_op_coeff,h_e)
+ !IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),curr_patch,p_op_coeff,h_e)
    w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff)
    
 #ifndef __SX__
@@ -1032,7 +1038,7 @@ INTEGER :: mnblks, mnpromz
    ENDDO
 !$OMP END DO
 
-   IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
+    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),curr_patch,p_op_coeff,h_e)
 
 #ifdef NOMPI_DISABLED
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
@@ -1107,7 +1113,7 @@ INTEGER :: mnblks, mnpromz
 !$OMP PARALLEL PRIVATE(rh, h_aux, myThreadNo, k)
 !$   myThreadNo = OMP_GET_THREAD_NUM()
 
-     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
+     IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),curr_patch,p_op_coeff,h_e)
 
      gs_orth: DO k = 1, i
 

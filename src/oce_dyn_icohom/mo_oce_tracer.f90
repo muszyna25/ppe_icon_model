@@ -44,15 +44,14 @@ MODULE mo_oce_tracer
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+!USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     expl_vertical_tracer_diff, &
-  &                                     iswm_oce, l_edge_based, &
-  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
-  &                                     UPWIND, CENTRAL, MIMETIC, MIMETIC_MIURA
+  &                                     expl_vertical_tracer_diff, iswm_oce,&! l_edge_based,    &
+  &                                     FLUX_CALCULATION_HORZ, &!FLUX_CALCULATION_VERT, &
+  &                                     MIMETIC_MIURA
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -65,7 +64,7 @@ USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_scalar_product,            ONLY:  map_cell2edges_3D,map_edges2cell_3D
+!USE mo_scalar_product,            ONLY:  map_cell2edges_3D,map_edges2cell_3D
 !USE mo_oce_math_operators,        ONLY: div_oce_3D
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_impl_hom!, tracer_diffusion_vert_expl,&
 USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_flux_horz
@@ -115,15 +114,12 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
   REAL(wp) :: z_relax
   INTEGER  :: iloc(2)
   REAL(wp) :: zlat, zlon
-  REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch%nblks_c)
   REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
   !-------------------------------------------------------------------------------
 
-  z_cellthick_intmed=0.0_wp
   CALL prepare_tracer_transport( p_patch,           &
                                & p_os,              &
-                               & p_op_coeff,        &
-                               & z_cellthick_intmed)
+                               & p_op_coeff)
 
   DO i_no_t = 1,no_tracer
 !CALL sync_patch_array(SYNC_C, p_patch,p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t))
@@ -139,11 +135,11 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
 
     CALL advect_individual_tracer_ab( p_patch,                                &
                                  & p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t), &
-                                 & p_os, p_op_coeff,  z_cellthick_intmed,     &
+                                 & p_os, p_op_coeff,                          &
                                  & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
                                  & p_os%p_aux%bc_bot_tracer(:,:,i_no_t),      &
                                  & p_param%K_tracer_h(:,:,:,i_no_t ),         &
-                                 & p_param%A_tracer_v(:,:,:, i_no_t),         &
+                                 & p_param%A_tracer_v(:,:,:,i_no_t),          &
                                  & p_os%p_prog(nnew(1))%tracer(:,:,:,i_no_t), &
                                  & i_no_t )
   END DO
@@ -257,28 +253,20 @@ END SUBROUTINE advect_tracer_ab
 !! Developed  by  Peter Korn, MPI-M (2012).
 !!
 !! mpi parallelized, sync required
-SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff,z_cellthick_intmed)
+SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff)
 
   TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-  REAL(wp),INTENT(INOUT)               :: z_cellthick_intmed(nproma,n_zlev, p_patch%nblks_c)
   !
   !Local variables
   INTEGER  :: slev, elev
-  INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: i_startidx_e, i_endidx_e
-  INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
   INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
   INTEGER  :: il_c, ib_c
-  REAL(wp) :: delta_z
-  TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
-  INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc 
-  TYPE(t_cartesian_coordinates):: flux_sum
+  INTEGER  :: je, jk, jb!,jc         !< index of edge, vert level, block
+  TYPE(t_subset_range), POINTER :: edges_in_domain
   !-------------------------------------------------------------------------------
-  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-  !-------------------------------------------------------------------------------
-  cells_in_domain => p_patch%cells%in_domain
   edges_in_domain => p_patch%edges%in_domain
 
   slev = 1
@@ -286,15 +274,7 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff,z_cellthick_intmed
 
   p_os%p_diag%w_time_weighted(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)= 0.0_wp
 
-  z_vn_c(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(1) = 0.0_wp
-  z_vn_c(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(2) = 0.0_wp
-  z_vn_c(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(3) = 0.0_wp
-
-  p_os%p_diag%w_time_weighted(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)&
-              &=p_os%p_diag%w(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)
-  !!  ! p_os%p_diag%w_time_weighted=ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
-
-  IF( .NOT.l_edge_based .OR. FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN
+  IF( FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN
     DO jk = slev, elev
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
@@ -349,51 +329,9 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_op_coeff,z_cellthick_intmed
   CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%w_time_weighted )
 
 
-  !calculate (dummy) height consistent with divergence of mass fluxx (UPPERMOST LEVEL)
-  jk = 1
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-        delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
-                &*v_base%wet_c(jc,jk,jb)
-
-        p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-        z_cellthick_intmed(jc,jk,jb)= delta_z
-        !z_cellthick_intmed(jc,jk,jb)= (v_base%del_zlev_m(jk)&
-        !&+p_os%p_prog(nnew(1))%h(jc,jb))*v_base%wet_c(jc,jk,jb)
-        !z_cellthick_intmed(jc,jk,jb)=& 
-        !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-        !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
-        !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
-      ENDIF
-    END DO
-  END DO
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 2, n_zlev
-      delta_z = v_base%del_zlev_m(jk)
-      DO jc = i_startidx_c, i_endidx_c
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          p_os%p_diag%depth_c(jc,jk,jb)= delta_z
-          z_cellthick_intmed(jc,jk,jb) = delta_z
-          !z_cellthick_intmed(jc,jk,jb)= &
-          !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-          !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
-          !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
-        ENDIF
-      END DO
-    END DO
-  END DO
-  CALL sync_patch_array(SYNC_C, p_patch,z_cellthick_intmed )
-  CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%depth_c)
-
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=4  ! output print level (1-5, fix)
-  CALL dbg_print('PrepTrans: depth_c'        ,p_os%p_diag%depth_c         ,str_module,idt_src)
-  CALL dbg_print('PrepTrans: mass_flx_e'     ,p_os%p_diag%mass_flx_e      ,str_module,idt_src)
-  CALL dbg_print('PrepTrans: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+!   idt_src=4  ! output print level (1-5, fix)
+!   CALL dbg_print('PrepTrans: prism thickness'  ,p_os%p_diag%prism_thick_c      ,str_module,idt_src)
   !---------------------------------------------------------------------
 
 END SUBROUTINE prepare_tracer_transport
@@ -407,7 +345,7 @@ END SUBROUTINE prepare_tracer_transport
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
-                                     & p_os, p_op_coeff,z_cellthick_intmed,&
+                                     & p_os, p_op_coeff,                   &
                                      & bc_top_tracer, bc_bot_tracer,       &
                                      & K_h, A_v,                           &
                                      & trac_new, tracer_id)
@@ -416,7 +354,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   REAL(wp), INTENT(INOUT)              :: trac_old(nproma,n_zlev, p_patch%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-  REAL(wp), INTENT(inout)              :: z_cellthick_intmed(nproma,n_zlev, p_patch%nblks_c)
   REAL(wp), INTENT(in)                 :: bc_top_tracer(nproma, p_patch%nblks_c)
   REAL(wp), INTENT(in)                 :: bc_bot_tracer(nproma, p_patch%nblks_c)
   REAL(wp), INTENT(in)                 :: K_h(:,:,:)       !horizontal mixing coeff
@@ -487,8 +424,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
                              & bc_top_tracer,     &
                              & bc_bot_tracer,     &
                              & flux_vert,         &
-                             & z_cellthick_intmed,&
                              & tracer_id)
+!       DO jk=1,n_zlev
+!        write(*,*)'FLX:HORZ:VERT',jk,&
+!        &minval(flux_horz(:,jk,:)),maxval(flux_horz(:,jk,:)),&
+!        &minval(flux_vert(:,jk,:)),maxval(flux_vert(:,jk,:))
+!        END DO
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -510,13 +451,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
             z_dolic = v_base%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              delta_z =v_base%del_zlev_m(jk)!+p_os%p_prog(nold(1))%h(jc,jb)
+              delta_z = p_os%p_diag%inv_prism_thick_c(jc,jk,jb)!v_base%del_zlev_m(jk)!+p_os%p_prog(nold(1))%h(jc,jb)
 
                 z_temp(jc,jk,jb)= trac_old(jc,jk,jb) &
-                & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
+                & -(delta_t*delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
 
-               z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t/delta_z)*bc_top_tracer(jc,jb)
-
+               z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t*delta_z)*bc_top_tracer(jc,jb)
             ENDIF
         END DO
       END DO
@@ -528,10 +468,10 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
             !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                delta_z = v_base%del_zlev_m(jk)
+                delta_z = p_os%p_diag%inv_prism_thick_c(jc,jk,jb)
 
                 z_temp(jc,jk,jb)= trac_old(jc,jk,jb)&
-                & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
+                & -(delta_t*delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
 
               ENDIF
             ENDDO
@@ -544,13 +484,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
       CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src)
       CALL dbg_print('BefImplDiff: z_temp'  ,z_temp  , str_module,idt_src)
       !---------------------------------------------------------------------
-
-      ! DO jk=1,n_zlev
-      ! write(*,*)'BEFORE DIFF: TRACER old:new',jk,&
-      ! &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-      ! &minval(z_temp(1:nproma,jk,1:p_patch%nblks_c)),maxval(z_temp(1:nproma,jk,1:p_patch%nblks_c))
-      ! END DO
-
+       !DO jk=1,n_zlev
+       !write(*,*)'BEFORE DIFF: TRACER old:new',jk,&
+       !&minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
+       !&minval(z_temp(1:nproma,jk,1:p_patch%nblks_c)),maxval(z_temp(1:nproma,jk,1:p_patch%nblks_c)),&
+      !&minval(A_v(:,jk,:)),maxval(A_v(:,jk,:)) 
+       !END DO
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
 
@@ -558,8 +497,16 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
       CALL tracer_diffusion_vert_impl_hom( p_patch,                                           &
                                          & z_temp(1:nproma,1:n_zlev,1:p_patch%nblks_c),       &
                                          & p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c),&
-                                         & A_v,                   &
+                                         & A_v,                                               &
+                                         & p_op_coeff,                                        &
                                          & trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c))
+
+       !DO jk=1,n_zlev
+       !write(*,*)'AFTER DIFF: TRACER old:new',jk,&
+       !&minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
+       !&minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
+       !END DO
+
 
       CALL sync_patch_array(SYNC_C, p_patch, trac_new)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -575,7 +522,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
     ENDIF ! lvertical_diff_implicit
     IF (ltimer) CALL timer_stop(timer_dif_vert)
   ENDIF
-
+     DO jk=1,n_zlev
+      write(*,*)'TRACER old:new',jk,&
+      &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
+      &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
+      END DO
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('aft. AdvIndivTrac: trac_old',trac_old                 ,str_module,idt_src)
