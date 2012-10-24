@@ -49,7 +49,7 @@ MODULE mo_sea_ice
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
-  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
@@ -57,7 +57,7 @@ MODULE mo_sea_ice
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, ocean_restart_list !, v_base
   USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
@@ -893,8 +893,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_init( p_patch, p_os, ice) !, Qatm, QatmAve)
+  SUBROUTINE ice_init( p_patch, p_patch_3D, p_os, ice) !, Qatm, QatmAve)
     TYPE(t_patch), INTENT(in)             :: p_patch 
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
@@ -939,13 +940,13 @@ CONTAINS
     ! Stupid initialisation trick for Levitus initialisation
     IF (init_oce_prog == 1) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.0_wp &
-          &     .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+          &     .and. p_patch_3D%lsm_oce_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:) = 2._wp
         ice%conc(:,1,:) = 1._wp
       ENDWHERE
       IF ( no_tracer < 2 ) THEN
         WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
-          &     .and. v_base%lsm_oce_c(:,:,:) <= sea_boundary )   &
+          &     .and. p_patch_3D%lsm_oce_c(:,:,:) <= sea_boundary )   &
           &             p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
       ENDIF
     ENDIF
@@ -965,7 +966,7 @@ CONTAINS
     
     !ice%zUnderIce (:,:)   = dzw(1) + zo (:,:) &
     !  &                     - sum(draft(:,:,:) * ice%conc(:,:,:),2)
-    ice%zUnderIce (:,:)   = v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
+    ice%zUnderIce (:,:)   = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
       &                      - sum(draft(:,:,:) * ice%conc(:,:,:),2)
 
     CALL message(TRIM(routine), 'end' )
@@ -1019,8 +1020,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)  
+  SUBROUTINE ice_slow(p_patch,p_patch_3D, p_os,ice, QatmAve, p_sfc_flx)  
     TYPE(t_patch),            INTENT(IN)     :: p_patch 
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
@@ -1054,8 +1056,8 @@ CONTAINS
       CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
     END IF
 
-    CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
-    CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+    CALL upper_ocean_TS (p_patch,p_patch_3D,p_os,ice, QatmAve, p_sfc_flx)
+    CALL ice_conc_change(p_patch,p_patch_3D,ice, p_os,p_sfc_flx)
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,QatmAve,1,ie,je)
     CALL ice_zero       (ice, QatmAve)
@@ -1268,8 +1270,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, QatmAve, p_sfc_flx)
+  SUBROUTINE upper_ocean_TS(p_patch, p_patch_3D, p_os,ice, QatmAve, p_sfc_flx)
     TYPE(t_patch),             INTENT(IN)    :: p_patch 
+   TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
@@ -1317,7 +1320,7 @@ CONTAINS
     zUnderIceOld    (:,:)   = ice%zUnderIce(:,:)
     draft           (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
-    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
+    ice%zUnderIce   (:,:)   = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
    
     ! Calculate average change in ice thickness and the snow-to-ice conversion 
     Delhice         (:,:)   = sum((ice% hi(:,:,:) - ice% hiold(:,:,:))*          &
@@ -1344,7 +1347,7 @@ CONTAINS
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
     !  &                                    (clw*rho_ref * ice%zUnderIce)
-    ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
+    ! TODO: should we also divide with ice%zUnderIce / ( p_patch_3D%p_patch_1D(1)%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
     !p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (clw*rho_ref)
     p_sfc_flx%forc_hflx(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
@@ -1379,8 +1382,9 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !! Einar Olason, renamed and added support for changing concentration
   !!
-  SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+  SUBROUTINE ice_conc_change(p_patch,p_patch_3D,ice, p_os,p_sfc_flx)
     TYPE(t_patch),             INTENT(IN)    :: p_patch 
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D 
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
@@ -1402,29 +1406,29 @@ CONTAINS
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
       &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
-    ice % newice(:,:) = 0.0_wp
+    ice%newice(:,:) = 0.0_wp
     ! This is where new ice forms
-    WHERE (sst < Tfw(:,:) .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-      ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
-      ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
-      p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
-        &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
+   !WHERE (sst(:,:) < Tfw(:,:) .AND. p_patch_3D%lsm_oce_c(:,1,:) <= sea_boundary )
+   !  ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
+   !  ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
+   !  p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
+   !    &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
-      ! New ice forms over open water - set temperature to Tfw
-      WHERE(.NOT.ice%isice(:,1,:))
-        ice%Tsurf(:,1,:) = Tfw(:,:)
-        ice%T2   (:,1,:) = Tfw(:,:)
-        ice%T1   (:,1,:) = Tfw(:,:)
-      ENDWHERE
+   !  ! New ice forms over open water - set temperature to Tfw
+   !  WHERE(.NOT.ice%isice(:,1,:))
+   !    ice%Tsurf(:,1,:) = Tfw(:,:)
+   !    ice%T2   (:,1,:) = Tfw(:,:)
+   !    ice%T1   (:,1,:) = Tfw(:,:)
+   !  ENDWHERE
 
-      ice%isice(:,1,:) = .TRUE.
-      old_conc (:,:)   = ice%conc(:,1,:)
-      ice%conc (:,1,:) = min( 1._wp, & 
-        &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
-      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
-      !  => hi <- newice/conc + hi*old_conc/conc
-      ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
-    ENDWHERE
+   !  ice%isice(:,1,:) = .TRUE.
+   !  old_conc (:,:)   = ice%conc(:,1,:)
+   !  ice%conc (:,1,:) = min( 1._wp, &
+   !    &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
+   !  ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
+   !  !  => hi <- newice/conc + hi*old_conc/conc
+   !  ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
+   !ENDWHERE
 
     ! This is where concentration changes due to ice melt
     WHERE (ice%hiold(:,1,:)-ice%hi(:,1,:) > 0._wp )

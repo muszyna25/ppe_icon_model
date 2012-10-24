@@ -48,7 +48,7 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_model_domain,           ONLY: t_patch
+USE mo_model_domain,           ONLY: t_patch, t_patch_3D_oce
 USE mo_grid_config,            ONLY: n_dom
 USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
@@ -72,14 +72,15 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
 USE mo_util_dbg_prnt,          ONLY: init_dbg_index
-USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
-  &                                  init_ho_base, init_ho_basins, v_base, &
-  &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, &!t_hydro_ocean_base, &
+  !&                                  init_ho_base, init_ho_basins, &!v_base, &
+  !&                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
-  &                                  set_lateral_boundary_values
+  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D,&
+  &                                  init_patch_3D_vert, init_patch_3D_basins
 USE mo_oce_math_operators,     ONLY: height_related_quantities
-USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,&
+USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,&!par_init_operator_coeff,&
   &                                  par_init_operator_coeff2,&
   &                                  update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
@@ -107,7 +108,7 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output, &
   &                                  output_file
-USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
+USE mo_oce_diagnostics,        ONLY: &!calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
@@ -142,14 +143,15 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE perform_ho_stepping( p_patch, p_state_oce, p_ext_data,               &
+  SUBROUTINE perform_ho_stepping( p_patch, p_patch_3D, p_os, p_ext_data,               &
                                 & datetime, n_io, jfile, lwrite_restart,&! p_int, &
                                 & p_sfc_flx, p_phys_param,                      &
                                 & p_as, p_atm_f, p_ice,p_op_coeff,            &
                                 & l_have_output)
 
   TYPE(t_patch),             TARGET, INTENT(INOUT) :: p_patch(n_dom)
-  TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: p_state_oce(n_dom)
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)      :: p_patch_3D
+  TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: p_os(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
   INTEGER, INTENT(IN)                              :: n_io
@@ -189,7 +191,7 @@ CONTAINS
 
 
   IF (idiag_oce == 1) &
-    & CALL construct_oce_diagnostics( p_patch(jg), p_state_oce(jg), oce_ts)
+    & CALL construct_oce_diagnostics( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), oce_ts)
 
   IF (ltimer) CALL timer_start(timer_total)
 
@@ -203,7 +205,7 @@ CONTAINS
   !END IF
 
   ! call of MOC before time loop
-  !CALL calc_moc (p_patch(jg), p_state_oce(jg)%p_diag%w(:,:,:), datetime)
+  !CALL calc_moc (p_patch(jg), p_os(jg)%p_diag%w(:,:,:), datetime)
 
   sim_time(:) = 0.0_wp
 
@@ -217,35 +219,35 @@ CONTAINS
     CALL message (TRIM(routine), message_text)
 
     IF(itestcase_oce==28)THEN
-      CALL height_related_quantities(p_patch(jg), p_state_oce(jg), p_ext_data(jg))
-      CALL calc_vert_velocity( p_patch(jg), p_state_oce(jg),p_op_coeff)
-      CALL advect_tracer_ab(p_patch(jg), p_state_oce(jg), &
+      CALL height_related_quantities( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_ext_data(jg))
+      CALL calc_vert_velocity(  p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg),p_op_coeff)
+      CALL advect_tracer_ab( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), &
                            &p_phys_param,p_sfc_flx,&
                            & p_op_coeff,&
                            & jstep)
     ELSE
       !In case of a time-varying forcing:
       IF (ltimer) CALL timer_start(timer_upd_flx)
-      CALL update_sfcflx(p_patch(jg), p_state_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+      CALL update_sfcflx( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
 
       IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
-        CALL height_related_quantities(p_patch(jg), p_state_oce(jg), p_ext_data(jg))
+        CALL height_related_quantities( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_ext_data(jg))
 
         !This is required in top boundary condition for
         !vertical velocity: the time derivative of the surface height
         !is used there and needs special treatment in the first timestep.
         !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
-        p_state_oce(jg)%p_prog(nnew(1))%h = p_state_oce(jg)%p_prog(nold(1))%h
+        p_os(jg)%p_prog(nnew(1))%h = p_os(jg)%p_prog(nold(1))%h
 
-        CALL set_lateral_boundary_values(p_patch(jg), p_state_oce(jg)%p_prog(nold(1))%vn)
-        CALL sync_patch_array(sync_e, p_patch(jg),  p_state_oce(jg)%p_prog(nold(1))%vn)
+        CALL set_lateral_boundary_values( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg)%p_prog(nold(1))%vn)
+        CALL sync_patch_array(sync_e,  p_patch_3D%p_patch_2D(jg),  p_os(jg)%p_prog(nold(1))%vn)
 
-        CALL calc_scalar_product_veloc_3d( p_patch(jg), &
-          & p_state_oce(jg)%p_prog(nold(1))%vn,         &
-          & p_state_oce(jg)%p_prog(nold(1))%vn,         &
-          & p_state_oce(jg)%p_diag,                     &
+        CALL calc_scalar_product_veloc_3D( p_patch_3D%p_patch_2D(jg),p_patch_3D, &
+          & p_os(jg)%p_prog(nold(1))%vn,         &
+          & p_os(jg)%p_prog(nold(1))%vn,         &
+          & p_os(jg)%p_diag,                     &
           & p_op_coeff)
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)
@@ -253,26 +255,25 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_upd_phys)
       ! Calc density globally
       !CALL calc_density(p_patch(jg),&
-      !  &               p_state_oce(jg)%p_prog(nold(1))%tracer,&
-      !  &               p_state_oce(jg)%p_diag%rho)
+      !  &               p_os(jg)%p_prog(nold(1))%tracer,&
+      !  &               p_os(jg)%p_diag%rho)
 
       SELECT CASE (EOS_TYPE)
        CASE(1)
-         CALL update_ho_params(p_patch(jg), p_state_oce(jg), p_sfc_flx, p_phys_param,&
+         CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
            &                   calc_density_lin_EOS_func)
  
        CASE(2)
-         CALL update_ho_params(p_patch(jg), p_state_oce(jg), p_sfc_flx, p_phys_param,&
+         CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
            &                   calc_density_MPIOM_func)
        CASE(3)
-         CALL update_ho_params(p_patch(jg), p_state_oce(jg), p_sfc_flx, p_phys_param,&
+         CALL update_ho_params(p_patch_3D,p_os(jg), p_sfc_flx, p_phys_param,&
            &                   calc_density_JMDWFG06_EOS_func)
       CASE DEFAULT
       END SELECT
       IF (ltimer) CALL timer_stop(timer_upd_phys)
 
-      CALL update_diffusion_matrices( p_patch(jg),                   &
-                                    & p_state_oce(jg),               &
+      CALL update_diffusion_matrices( p_patch_3D%p_patch_2D(jg),p_patch_3D, &
                                     & p_phys_param,                 &
                                     & p_op_coeff%matrix_vert_diff_e,&
                                     & p_op_coeff%matrix_vert_diff_c)
@@ -280,14 +281,14 @@ CONTAINS
 
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
-      CALL solve_free_surface_eq_ab (p_patch(jg), p_state_oce(jg), p_ext_data(jg), &
+      CALL solve_free_surface_eq_ab (p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_ext_data(jg), &
         &                            p_sfc_flx, p_phys_param, jstep, p_op_coeff)!, p_int(jg))
       IF (ltimer) CALL timer_stop(timer_solve_ab)
 
       ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
       !         and updated surface height
       IF (ltimer) CALL timer_start(timer_normal_veloc)
-      CALL calc_normal_velocity_ab(p_patch(jg), p_state_oce(jg),&
+      CALL calc_normal_velocity_ab(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg),&
                                   &p_op_coeff, p_ext_data(jg), p_phys_param)
       IF (ltimer) CALL timer_stop(timer_normal_veloc)
 
@@ -295,14 +296,14 @@ CONTAINS
       ! in the non-shallow-water case
       IF ( iswm_oce /= 1 ) THEN
         IF (ltimer) CALL timer_start(timer_vert_veloc)
-        CALL calc_vert_velocity( p_patch(jg), p_state_oce(jg),p_op_coeff)
+        CALL calc_vert_velocity( p_patch(jg),p_patch_3D, p_os(jg),p_op_coeff)
         IF (ltimer) CALL timer_stop(timer_vert_veloc)
       ENDIF
 
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
         IF (ltimer) CALL timer_start(timer_tracer_ab)
-        CALL advect_tracer_ab(p_patch(jg), p_state_oce(jg), p_phys_param,&
+        CALL advect_tracer_ab(p_patch(jg),p_patch_3D, p_os(jg), p_phys_param,&
                               &p_sfc_flx,&
                              &p_op_coeff,&
                              & jstep)
@@ -312,14 +313,14 @@ CONTAINS
     ENDIF  ! testcase 28
 
    ! Actually diagnostics for 3D not implemented, PK March 2011
-    IF (idiag_oce == 1 ) THEN
-      CALL calculate_oce_diagnostics( p_patch(jg),    &
-                                    & p_state_oce(jg),&
-                                    & p_sfc_flx,     &
-                                    & p_phys_param,  &
-                                    & jstep,         &
-                                    & oce_ts)
-    ENDIF
+   !IF (idiag_oce == 1 ) THEN
+   !  CALL calculate_oce_diagnostics( p_patch(jg),p_patch_3D,    &
+   !                                & p_os(jg),&
+   !                                & p_sfc_flx,     &
+   !                                & p_phys_param,  &
+   !                                & jstep,         &
+   !                                & oce_ts)
+   !ENDIF
 
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
@@ -330,10 +331,10 @@ CONTAINS
     l_outputtime = (MOD(jstep,n_io) == 0)
     IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
 
-      CALL calc_moc (p_patch(jg), p_state_oce(jg)%p_diag%w(:,:,:), datetime)
-      CALL calc_psi (p_patch(jg), p_state_oce(jg)%p_diag%u(:,:,:), &
-        &                        p_state_oce(jg)%p_prog(nold(1))%h(:,:), &
-        &                        p_state_oce(jg)%p_diag%u_vint, datetime)
+      CALL calc_moc (p_patch(jg),p_patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
+      CALL calc_psi (p_patch(jg),p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
+        &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
+        &                        p_os(jg)%p_diag%u_vint, datetime)
 
       IF (output_mode%l_nml) THEN
         write(0,*)'NML-OUTPUT <<<<<<<<<<<<<<<<,======================='
@@ -360,7 +361,7 @@ CONTAINS
     ! this HAS to ge into the restart files, because the start with the following loop
     CALL update_time_indices(jg)
     ! update intermediate timestepping variables for the tracers
-    CALL update_intermediate_tracer_vars(p_state_oce(jg))
+    CALL update_intermediate_tracer_vars(p_os(jg))
 
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
@@ -391,12 +392,13 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE prepare_ho_integration(p_patch, p_state_oce, p_ext_data, p_sfc_flx, &
+  SUBROUTINE prepare_ho_integration(p_patch, p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
                                   & p_phys_param, p_as,&
                                   & p_atm_f, p_ice, p_op_coeff)!, p_int)
 
     TYPE(t_patch),                INTENT(INOUT)  :: p_patch(n_dom)
-    TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_state_oce(n_dom)
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_os(n_dom)
     TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
     TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
     TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param
@@ -404,7 +406,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
     TYPE(t_operator_coeff),       INTENT(INOUT)  :: p_op_coeff
-    !TYPE(t_int_state),TARGET,     INTENT(inout)  :: p_int(n_dom)
+   ! TYPE(t_int_state),TARGET,     INTENT(inout)  :: p_int(n_dom)
 
     ! local variables
     !TYPE(t_hydro_ocean_base)                  :: p_base
@@ -412,6 +414,9 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_test_hydro_ocean:prepare_ho_integration'
 
+
+   ! TYPE(t_hydro_ocean_base) , TARGET :: v_base
+   
     CALL message (TRIM(routine),'start')
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
@@ -430,57 +435,69 @@ CONTAINS
     CALL init_oce_config
 
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
-    CALL init_dbg_index(p_patch(1))
+    CALL init_dbg_index(p_patch_3D%p_patch_2D(jg))!(p_patch(jg))
 
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
-    CALL construct_hydro_ocean_base(p_patch(jg), v_base)
-    CALL init_ho_base     (p_patch(jg), p_ext_data(jg), v_base)
-    CALL init_ho_basins   (p_patch(jg),                 v_base)
-    CALL init_coriolis_oce( p_patch(jg) )
+!     CALL construct_hydro_ocean_base(p_patch(jg), v_base)
+!     CALL init_ho_base     (p_patch(jg), p_ext_data(jg), v_base)
+!     CALL init_ho_basins   (p_patch(jg),                 v_base)
+!     CALL init_coriolis_oce( p_patch(jg) )
+    !CALL construct_hydro_ocean_base(p_patch_3D%p_patch_2D(jg), v_base)
+    !CALL init_ho_base     (p_patch_3D%p_patch_2D(jg), p_ext_data(jg), v_base)
+    !!CALL init_ho_basins   (p_patch_3D%p_patch_2D(jg),                 v_base)
+    !!CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
 
+    CALL construct_patch_3D(p_patch_3D)
+    CALL init_patch_3D_vert( p_patch_3D, p_ext_data(jg))
+    CALL init_patch_3D_basins( p_patch_3D)
+    CALL init_patch_3D(p_patch_3D)!, v_base)
+    CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
 
-    ! p_patch and p_state_oce have dimension n_dom
-    CALL construct_hydro_ocean_state(p_patch, p_state_oce)
+    ! p_patch and p_os have dimension n_dom
+    CALL construct_hydro_ocean_state(p_patch_3D%p_patch_2D, p_os)!(p_patch, p_os)
 
     ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index ( p_patch, p_state_oce, p_ext_data )
+    CALL init_oce_index( p_patch_3D%p_patch_2D,p_patch_3D, p_os, p_ext_data )! ( p_patch, p_os, p_ext_data )
 
-    CALL construct_ho_params(p_patch(jg), p_phys_param)
-    CALL init_ho_params(p_patch(jg), p_phys_param)
+    CALL construct_ho_params(p_patch_3D%p_patch_2D(jg), p_phys_param)!(p_patch(jg), p_phys_param)
+    CALL init_ho_params(p_patch_3D%p_patch_2D(jg), p_patch_3D, p_phys_param)!(p_patch(jg), p_phys_param)
 
     !------------------------------------------------------------------
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
 
-    CALL construct_sfcflx(p_patch(jg), p_sfc_flx)
-    CALL      init_sfcflx(p_patch(jg), p_sfc_flx)
+    CALL construct_sfcflx(p_patch_3D%p_patch_2D(jg),p_sfc_flx)!(p_patch(jg), p_sfc_flx)
+    CALL      init_sfcflx(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_sfc_flx)!(p_patch(jg), p_sfc_flx)
 
-    CALL construct_sea_ice(p_patch(jg), p_ice, kice)
-    CALL construct_atmos_for_ocean(p_patch(jg), p_as)
-    CALL construct_atmos_fluxes(p_patch(jg), p_atm_f, kice)
+    CALL construct_sea_ice(p_patch_3D%p_patch_2D(jg), p_ice, kice)!(p_patch(jg), p_ice, kice)
+    CALL construct_atmos_for_ocean(p_patch_3D%p_patch_2D(jg), p_as)!(p_patch(jg), p_as)
+    CALL construct_atmos_fluxes(p_patch_3D%p_patch_2D(jg), p_atm_f, kice)!(p_patch(jg), p_atm_f, kice)
 
     IF (init_oce_prog == 0) THEN
-      CALL init_ho_testcases(p_patch(jg), p_state_oce(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
+      !CALL init_ho_testcases(p_patch(jg), p_os(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
+      CALL init_ho_testcases(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
     ELSE IF (init_oce_prog == 1) THEN
-      CALL init_ho_prog(p_patch(jg), p_state_oce(jg), p_sfc_flx)
+      !CALL init_ho_prog(p_patch(jg), p_os(jg), p_sfc_flx)
+      CALL init_ho_prog(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
     END IF
 
     IF (init_oce_relax == 1) THEN
-      CALL init_ho_relaxation(p_patch(jg), p_state_oce(jg), p_sfc_flx)
+      CALL init_ho_relaxation(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)!(p_patch(jg), p_os(jg), p_sfc_flx)
     END IF
 
-    CALL init_ho_coupled(p_patch(jg), p_state_oce(jg))
+    CALL init_ho_coupled(p_patch_3D%p_patch_2D(jg), p_os(jg))!(p_patch(jg), p_os(jg))
     IF (i_sea_ice >= 1) &
-      &   CALL ice_init(p_patch(jg), p_state_oce(jg), p_ice)
+      &   CALL ice_init(p_patch_3D%p_patch_2D(jg), p_patch_3D, p_os(jg), p_ice)!(p_patch(jg), p_os(jg), p_ice)
 
 
-    CALL allocate_exp_coeff( p_patch(jg), p_op_coeff)
-    !CALL par_init_operator_coeff( p_patch(jg),p_state_oce(jg), p_phys_param, p_op_coeff, p_int(jg))
-    CALL par_init_operator_coeff2( p_patch(jg),p_state_oce(jg), p_phys_param, p_op_coeff)
-    CALL init_ho_recon_fields( p_patch(jg), p_state_oce(jg), p_op_coeff)
+    CALL allocate_exp_coeff( p_patch_3D%p_patch_2D(jg), p_op_coeff)!( p_patch(jg), p_op_coeff)
+    !CALL par_init_operator_coeff( p_patch(jg),p_os(jg), p_phys_param, p_op_coeff, p_int(jg))
+    !CALL par_init_operator_coeff2( p_patch(jg),p_os(jg), p_phys_param, p_op_coeff)
+    CALL par_init_operator_coeff2( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_phys_param, p_op_coeff)
+    CALL init_ho_recon_fields( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_op_coeff)!( p_patch(jg), p_os(jg), p_op_coeff)
 
   ! IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')

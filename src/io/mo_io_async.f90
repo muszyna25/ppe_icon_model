@@ -68,6 +68,7 @@ MODULE mo_io_async
     &                               ihs_atm_theta, inh_atmosphere, ishallow_water, ihs_ocean
 
   USE mo_datetime,            ONLY: t_datetime
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state
   USE mo_parallel_config,     ONLY: pio_type
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_run_config,          ONLY: ldump_states, ldump_dd, ltestcase
@@ -87,7 +88,7 @@ MODULE mo_io_async
   !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
 
-  USE mo_model_domain,        ONLY: p_patch
+  USE mo_model_domain,        ONLY: p_patch,t_patch_3D_oce 
   USE mo_vertical_coord_table,ONLY: vct
 
   ! End of needed only for compute PEs
@@ -1184,10 +1185,12 @@ CONTAINS
   !>
   !! Async output routine
 
-  SUBROUTINE output_async(datetime, z_sim_time)
+  SUBROUTINE output_async(datetime, z_sim_time,p_patch_3D,p_os)
 
     TYPE(t_datetime),   INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
+    TYPE(t_patch_3D_oce ),OPTIONAL,TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state), OPTIONAL,TARGET, INTENT(IN) :: p_os(n_dom)
 
     INTEGER jg, jk, n, i, mpierr, n_own, n_tot, nlev_ptr, nblk_ptr
     INTEGER (KIND=MPI_ADDRESS_KIND) :: ioff ! If amount of data should exceed 2 GB
@@ -1242,7 +1245,7 @@ CONTAINS
           CASE (inh_atmosphere)
             CALL get_outvar_ptr_nh(outvar_desc(n,jg)%name,jg, ptr2, ptr3, reset, delete)
           CASE (ihs_ocean)
-            CALL get_outvar_ptr_oce(outvar_desc(n,jg)%name, jg, ptr2, ptr3,reset, delete)
+            CALL get_outvar_ptr_oce(outvar_desc(n,jg)%name, jg, ptr2, ptr3,reset, delete,p_patch_3D,p_os)
           CASE DEFAULT
             CALL finish(modname,'Unsupported value of iequations')
         END SELECT

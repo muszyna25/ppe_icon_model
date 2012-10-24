@@ -70,11 +70,11 @@ USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 !USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_util_dbg_prnt,      ONLY: dbg_print, c_i, c_b
-USE mo_model_domain,       ONLY: t_patch
+USE mo_model_domain,       ONLY: t_patch, t_patch_3D_oce
 USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
-USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
+USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
 USE mo_scalar_product,     ONLY: map_edges2cell_3D, calc_scalar_product_veloc_3D
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_3D !,&
 !  &                              height_related_quantities
@@ -119,8 +119,9 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
-  SUBROUTINE init_ho_prog(ppatch, p_os, p_sfc_flx)
-    TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
+  SUBROUTINE init_ho_prog(p_patch, p_patch_3D, p_os, p_sfc_flx)
+    TYPE(t_patch),TARGET, INTENT(IN)  :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     !TYPE(t_external_data)             :: p_ext_data 
     TYPE(t_sfc_flx)                   :: p_sfc_flx
@@ -136,11 +137,8 @@ CONTAINS
     !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
     INTEGER :: i_startidx_c, i_endidx_c
 
-    REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
-    ! files ts_phc_season-iconR2B04-L11.nc have 11 levels
-    !REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
-    ! files ts_phc_season-iconR2B04-L10-25_5000.nc have n_zlev=10 levels
-    REAL(wp):: z_prog(nproma,n_zlev,ppatch%nblks_c)
+    REAL(wp):: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_prog(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
@@ -149,12 +147,12 @@ CONTAINS
     sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
 
-    all_cells => ppatch%cells%all
+    all_cells => p_patch%cells%all
 
     IF(my_process_is_stdio()) THEN
       !
       ! Prognostic variables are read from prog_init_file
-      i_lev = ppatch%level
+      i_lev = p_patch%level
       WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
       !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
       !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
@@ -185,7 +183,7 @@ CONTAINS
       !
       WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
       CALL message(TRIM(routine),TRIM(message_text))
-      IF(ppatch%n_patch_cells_g /= no_cells) THEN
+      IF(p_patch%n_patch_cells_g /= no_cells) THEN
         CALL finish(TRIM(ROUTINE),&
         & 'Number of patch cells and cells in ocean prognostic input file do not match - ABORT')
       ENDIF
@@ -220,8 +218,8 @@ CONTAINS
     ! read temperature
     !  - 2011-11-01, >r7005: read one data set, annual mean only
     !  - "T": annual mean temperature
-    CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
-      &                    ppatch%cells%glb_index, n_zlev, z_prog)
+    CALL read_netcdf_data (ncid, 'T', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
+      &                    p_patch%cells%glb_index, n_zlev, z_prog)
 
     IF (no_tracer>=1) THEN
       !p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
@@ -234,8 +232,8 @@ CONTAINS
     ! read salinity
     !  - "S": annual mean salinity
     IF (no_tracer > 1) THEN
-      CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
-        &                    ppatch%cells%glb_index, n_zlev, z_prog)
+      CALL read_netcdf_data (ncid, 'S', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
+        &                    p_patch%cells%glb_index, n_zlev, z_prog)
       p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
 
@@ -248,7 +246,7 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
 
             ! set values on land to zero/reference
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
               &convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
@@ -273,7 +271,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           ! set values on land to zero/reference
-          IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
             IF (no_tracer>=2) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
           ENDIF
@@ -306,9 +304,10 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
-  SUBROUTINE init_ho_relaxation(ppatch, p_os, p_sfc_flx)
+  SUBROUTINE init_ho_relaxation(p_patch, p_patch_3D, p_os, p_sfc_flx)
 
-    TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
+    TYPE(t_patch),TARGET, INTENT(IN)  :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     TYPE(t_sfc_flx)                   :: p_sfc_flx
 
@@ -322,19 +321,19 @@ CONTAINS
     INTEGER :: ncid, dimid
     INTEGER :: i_startidx_c, i_endidx_c
 
-    REAL(wp):: z_c(nproma,1,ppatch%nblks_c)
-    REAL(wp):: z_relax(nproma,ppatch%nblks_c)
+    REAL(wp):: z_c(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_relax(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
     sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
-    all_cells => ppatch%cells%all
+    all_cells => p_patch%cells%all
 
     CALL message (TRIM(routine), 'start')
 
-    i_lev        = ppatch%level
+    i_lev        = p_patch%level
 
     IF (my_process_is_stdio()) THEN
       !
@@ -368,7 +367,7 @@ CONTAINS
       !
       WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
       CALL message(TRIM(routine),TRIM(message_text))
-      IF (ppatch%n_patch_cells_g /= no_cells) THEN
+      IF (p_patch%n_patch_cells_g /= no_cells) THEN
         CALL finish(TRIM(ROUTINE),&
         & 'Number of patch cells and cells in T/S relaxation input file do not match - ABORT')
       ENDIF
@@ -401,8 +400,8 @@ CONTAINS
     ! read temperature
     !  - read one data set, annual mean only
     !  - "T": annual mean temperature
-    CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
-      &                    ppatch%cells%glb_index, z_relax)
+    CALL read_netcdf_data (ncid, 'T', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
+      &                    p_patch%cells%glb_index, z_relax)
 
     IF (no_tracer>=1) THEN
       p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
@@ -413,8 +412,8 @@ CONTAINS
     ! read salinity
     !  - "S": annual mean salinity
     IF (no_tracer > 1) THEN
-      CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
-        &                    ppatch%cells%glb_index, z_relax)
+      CALL read_netcdf_data (ncid, 'S', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
+        &                    p_patch%cells%glb_index, z_relax)
       p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
     END IF
 
@@ -424,7 +423,7 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-        IF ( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+        IF ( p_patch_3D%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
           p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
           IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
         ENDIF
@@ -490,8 +489,9 @@ CONTAINS
 
   END SUBROUTINE nf
 
-  SUBROUTINE init_ho_recon_fields( p_patch, p_os, p_op_coeff)
+  SUBROUTINE init_ho_recon_fields( p_patch,p_patch_3D, p_os, p_op_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
     TYPE(t_operator_coeff)                        :: p_op_coeff
 
@@ -500,7 +500,7 @@ CONTAINS
     
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
-      CALL calc_scalar_product_veloc_3d( p_patch,&
+      CALL calc_scalar_product_veloc_3D( p_patch,p_patch_3D,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_diag,            &
@@ -540,9 +540,10 @@ CONTAINS
   !! Modified        by Stephan Lorenz, MPI-M (2012-06)
   !!
   !
-  SUBROUTINE init_oce_index (ppatch, pstate_oce, p_ext_data)
+  SUBROUTINE init_oce_index (p_patch, p_patch_3D, pstate_oce, p_ext_data)
 
-    TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch(n_dom)
+    TYPE(t_patch),             TARGET, INTENT(IN)     :: p_patch(n_dom)
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)       :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
     TYPE(t_external_data),     TARGET, INTENT(IN)     :: p_ext_data(n_dom)
    
@@ -575,9 +576,9 @@ CONTAINS
       &   ', nproma  =', nproma
     CALL message ('', message_text)
     WRITE(message_text,'(3(a,i8))')          &
-      &   '  nblks_c =', ppatch(jg)%nblks_c, &
-      &   ', nblks_e =', ppatch(jg)%nblks_e, &
-      &   ', nblks_v =', ppatch(jg)%nblks_v
+      &   '  nblks_c =', p_patch(jg)%nblks_c, &
+      &   ', nblks_e =', p_patch(jg)%nblks_e, &
+      &   ', nblks_v =', p_patch(jg)%nblks_v
     CALL message ('', message_text)
     WRITE(message_text,'(3(a,i8))')          &
       &   '  nold(jg)=', nold(jg),           &
@@ -602,13 +603,13 @@ CONTAINS
     ! ! values for the blocking: cells
     ! rl_start = 1
     ! rl_end = min_rlcell
-    ! i_startblk = ppatch(jg)%cells%start_blk(rl_start,1)
-    ! i_endblk   = ppatch(jg)%cells%end_blk(rl_end,1)
+    ! i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+    ! i_endblk   = p_patch(jg)%cells%end_blk(rl_end,1)
     ! ! first block
-    ! CALL get_indices_c(ppatch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
+    ! CALL get_indices_c(p_patch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
     !   &                            rl_start, rl_end)
     ! ! last block
-    ! CALL get_indices_c(ppatch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
+    ! CALL get_indices_c(p_patch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
     !   &                            rl_start, rl_end)
     ! WRITE(message_text,'(8(a,i5))')                         &
     !   &   ' Cells: rl_start=',rl_start,' rl_end=',rl_end,   &
@@ -619,13 +620,13 @@ CONTAINS
    
     ! ! values for the blocking: edges
     ! rl_end = min_rledge
-    ! i_startblk = ppatch(jg)%edges%start_blk(rl_start,1)
-    ! i_endblk   = ppatch(jg)%edges%end_blk(rl_end,1)
+    ! i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+    ! i_endblk   = p_patch(jg)%edges%end_blk(rl_end,1)
     ! ! first block
-    ! CALL get_indices_e(ppatch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
+    ! CALL get_indices_e(p_patch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
     !   &                            rl_start, rl_end)
     ! ! last block
-    ! CALL get_indices_e(ppatch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
+    ! CALL get_indices_e(p_patch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
     !   &                            rl_start, rl_end)
     ! WRITE(message_text,'(8(a,i5))')                         &
     !   &   ' Edges: rl_start=',rl_start,' rl_end=',rl_end,   &
@@ -636,13 +637,13 @@ CONTAINS
    
     ! ! values for the blocking: verts
     ! rl_end = min_rlvert
-    ! i_startblk = ppatch(jg)%verts%start_blk(rl_start,1)
-    ! i_endblk   = ppatch(jg)%verts%end_blk(rl_end,1)
+    ! i_startblk = p_patch(jg)%verts%start_blk(rl_start,1)
+    ! i_endblk   = p_patch(jg)%verts%end_blk(rl_end,1)
     ! ! first block
-    ! CALL get_indices_v(ppatch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
+    ! CALL get_indices_v(p_patch(jg), i_startblk, i_startblk, i_endblk, i_startidxf, i_endidxf, &
     !   &                            rl_start, rl_end)
     ! ! last block
-    ! CALL get_indices_v(ppatch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
+    ! CALL get_indices_v(p_patch(jg), i_endblk, i_startblk, i_endblk, i_startidxl, i_endidxl, &
     !   &                            rl_start, rl_end)
     ! WRITE(message_text,'(8(a,i5))')                         &
     !   &   ' Verts: rl_start=',rl_start,' rl_end=',rl_end,   &
@@ -656,11 +657,11 @@ CONTAINS
     !------------------------------------------------------------------
    
     ! slm and coordinates of this point:
-    islmval = v_base%lsm_oce_c(c_i,c_k,c_b)
-    idolic  = v_base%dolic_c  (c_i,    c_b)
+    islmval = p_patch_3D%lsm_oce_c(c_i,c_k,c_b)
+    idolic  = p_patch_3D%p_patch_1D(1)%dolic_c  (c_i,    c_b)
     bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
-    zlat = ppatch(jg)%cells%center(c_i,c_b)%lat * 180.0_wp / pi
-    zlon = ppatch(jg)%cells%center(c_i,c_b)%lon * 180.0_wp / pi
+    zlat = p_patch(jg)%cells%center(c_i,c_b)%lat * 180.0_wp / pi
+    zlon = p_patch(jg)%cells%center(c_i,c_b)%lon * 180.0_wp / pi
    
     ! output format
     99 FORMAT(a,i4,a,i4,a,i3,a,i3,3(a,f9.2))
@@ -692,13 +693,13 @@ CONTAINS
    
     DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
       ! slm and coordinates of edges
-      ne_b(i)=ppatch(jg)%cells%edge_blk(c_i,c_b,i)
-      ne_i(i)=ppatch(jg)%cells%edge_idx(c_i,c_b,i)
-      islmval = v_base%lsm_oce_e  (ne_i(i),c_k,ne_b(i))
-      idolic  = v_base%dolic_e    (ne_i(i),ne_b(i))
+      ne_b(i)=p_patch(jg)%cells%edge_blk(c_i,c_b,i)
+      ne_i(i)=p_patch(jg)%cells%edge_idx(c_i,c_b,i)
+      islmval = p_patch_3D%lsm_oce_e  (ne_i(i),c_k,ne_b(i))
+      idolic  = p_patch_3D%p_patch_1D(1)%dolic_e    (ne_i(i),ne_b(i))
       bathy   = p_ext_data(jg)%oce%bathymetry_e (ne_i(i),ne_b(i))
-      zlat    = ppatch(jg)%edges%center         (ne_i(i),ne_b(i))%lat * 180.0_wp / pi
-      zlon    = ppatch(jg)%edges%center         (ne_i(i),ne_b(i))%lon * 180.0_wp / pi
+      zlat    = p_patch(jg)%edges%center         (ne_i(i),ne_b(i))%lat * 180.0_wp / pi
+      zlon    = p_patch(jg)%edges%center         (ne_i(i),ne_b(i))%lon * 180.0_wp / pi
       ! output
       WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i),              &
         &                    '  lsm_e=', islmval,'  dolic_e=',idolic,'  bathy_e=', bathy, &
@@ -708,13 +709,13 @@ CONTAINS
    
     DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
       ! slm and coordinates of vertices
-      nv_b(i)=ppatch(jg)%cells%vertex_blk(c_i,c_b,i)
-      nv_i(i)=ppatch(jg)%cells%vertex_idx(c_i,c_b,i)
-      islmval = v_base%lsm_oce_c(c_i,c_k,c_b)
-      idolic  = v_base%dolic_c  (c_i,    c_b)
+      nv_b(i)=p_patch(jg)%cells%vertex_blk(c_i,c_b,i)
+      nv_i(i)=p_patch(jg)%cells%vertex_idx(c_i,c_b,i)
+      islmval = p_patch_3D%lsm_oce_c(c_i,c_k,c_b)
+      idolic  = p_patch_3D%p_patch_1D(1)%dolic_c  (c_i,    c_b)
       bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
-      zlat    = ppatch(jg)%edges%center         (nv_i(i),nv_b(i))%lat * 180.0_wp / pi
-      zlon    = ppatch(jg)%edges%center         (nv_i(i),nv_b(i))%lon * 180.0_wp / pi
+      zlat    = p_patch(jg)%edges%center         (nv_i(i),nv_b(i))%lat * 180.0_wp / pi
+      zlon    = p_patch(jg)%edges%center         (nv_i(i),nv_b(i))%lon * 180.0_wp / pi
       ! output
       WRITE(message_text,97) ' Vert V',i,' block=',nv_b(i),'  index=',nv_i(i),              &
         &                    '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
@@ -725,18 +726,18 @@ CONTAINS
     DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
       ! slm and coordinates of neighbouring cells
       ! #slo# - careful at index-boundaries: in ocean grid exist cells without neighbours !!
-      nc_b(i)=ppatch(jg)%cells%neighbor_blk(c_i,c_b,i)
-      nc_i(i)=ppatch(jg)%cells%neighbor_idx(c_i,c_b,i)
+      nc_b(i)=p_patch(jg)%cells%neighbor_blk(c_i,c_b,i)
+      nc_i(i)=p_patch(jg)%cells%neighbor_idx(c_i,c_b,i)
       IF ( nc_i(i) == 0 .OR. nc_b(i) == 0) THEN
         nc_i(i) = c_i
         nc_b(i) = c_b
         WRITE(message_text,'(a)') ' Neighbor Cell is on LAND - NOT DEFINED'
       ELSE
-        islmval = v_base%lsm_oce_c  (nc_i(i),c_k,nc_b(i))
-        idolic  = v_base%dolic_c    (nc_i(i),    nc_b(i))
+        islmval = p_patch_3D%lsm_oce_c  (nc_i(i),c_k,nc_b(i))
+        idolic  = p_patch_3D%p_patch_1D(1)%dolic_c    (nc_i(i),    nc_b(i))
         bathy   = p_ext_data(jg)%oce%bathymetry_c (nc_i(i),nc_b(i))
-        zlat    = ppatch(jg)%cells%center         (nc_i(i),nc_b(i))%lat * 180.0_wp / pi
-        zlon    = ppatch(jg)%cells%center         (nc_i(i),nc_b(i))%lon * 180.0_wp / pi
+        zlat    = p_patch(jg)%cells%center         (nc_i(i),nc_b(i))%lat * 180.0_wp / pi
+        zlon    = p_patch(jg)%cells%center         (nc_i(i),nc_b(i))%lon * 180.0_wp / pi
         WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
           &                    '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
           &                    '  lat=',zlat,'  lon=',zlon
@@ -754,8 +755,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M, 2011-09
   !
-  SUBROUTINE init_ho_coupled(ppatch, p_os)
-  TYPE(t_patch)                     :: ppatch
+  SUBROUTINE init_ho_coupled(p_patch, p_os)
+  TYPE(t_patch)                     :: p_patch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
 
     sphere_radius = grid_sphere_radius
@@ -774,8 +775,8 @@ CONTAINS
 !rr
 !rr  IF ( is_coupled_run() ) THEN
 !rr
-!rr     nbr_hor_points = ppatch%n_patch_cells
-!rr     nbr_points     = nproma * ppatch%nblks_c
+!rr     nbr_hor_points = p_patch%n_patch_cells
+!rr     nbr_points     = nproma * p_patch%nblks_c
 !rr     ALLOCATE(buffer(nbr_points,1))
 !rr     !
 !rr     !  see drivers/mo_atmo_model.f90:
@@ -795,7 +796,7 @@ CONTAINS
 !rr     CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
 !rr     !
 !rr     field_shape(1) = 1
-!rr     field_shape(2) = ppatch%n_patch_cells
+!rr     field_shape(2) = p_patch%n_patch_cells
 !rr     field_shape(3) = 1
 !rr
 !rr     !
@@ -835,8 +836,9 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
-  SUBROUTINE init_ho_testcases(ppatch, p_os, p_ext_data, p_op_coeff,p_sfc_flx)
-  TYPE(t_patch),TARGET,INTENT(IN)   :: ppatch
+  SUBROUTINE init_ho_testcases(p_patch, p_patch_3D,p_os, p_ext_data, p_op_coeff,p_sfc_flx)
+  TYPE(t_patch),TARGET,INTENT(IN)   :: p_patch
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_external_data)             :: p_ext_data
   TYPE(t_operator_coeff)            :: p_op_coeff
@@ -846,7 +848,7 @@ CONTAINS
   INTEGER :: i_startidx_c, i_endidx_c
   INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: z_dolic
-  REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
+  REAL(wp):: z_c(nproma,n_zlev,p_patch%nblks_c)
   REAL(wp):: z_lat, z_lon
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
@@ -887,8 +889,8 @@ CONTAINS
   sphere_radius = grid_sphere_radius
   u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
   
-  all_cells => ppatch%cells%all
-  all_edges => ppatch%edges%all
+  all_cells => p_patch%cells%all
+  all_edges => p_patch%edges%all
 
   ! initialize salinity with reference value rather than with zero
   !  - mainly for plotting purpose
@@ -907,7 +909,7 @@ CONTAINS
 
     CASE (oce_testcase_file)
       CALL finish(TRIM(routine), 'Initialization from file NOT SUPPORTED YET - TERMINATE')
-      !CALL init_from_file(ppatch)
+      !CALL init_from_file(p_patch)
 
     CASE (30, 31)
       CALL message(TRIM(routine), 'Simple Initialization of testcases (30, 31)')
@@ -927,7 +929,7 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
 
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 IF(no_tracer==1)THEN
                  !Temperature
                   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
@@ -947,7 +949,7 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 IF(no_tracer==1)THEN
                  !Temperature
                   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
@@ -977,11 +979,11 @@ CONTAINS
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
 
-            z_lat = ppatch%cells%center(jc,jb)%lat
-            z_lon = ppatch%cells%center(jc,jb)%lon
+            z_lat = p_patch%cells%center(jc,jb)%lat
+            z_lon = p_patch%cells%center(jc,jb)%lon
 
             ! #slo#: simple elevation between 30W and 30E (pi/3.)
-            IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
                 &    sin(z_lon*6.0_wp) * cos(z_lat*3.0_wp)
             ENDIF
@@ -1000,14 +1002,14 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat = p_patch%cells%center(jc,jb)%lat
           !transer to latitude in degrees
           z_lat_deg = z_lat*rad2deg
           !Impose emperature profile. Profile
           !depends on latitude only and is uniform across
           !all vertical layers
           DO jk=1,n_zlev
-           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+           IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
              ! #slo# 2011-09-02: testcase now with warm water in first layer only
              !IF ( jk == 1 ) THEN
 !p_os%p_diag%temp_insitu = 30.0_wp
@@ -1071,10 +1073,10 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
             !latitude given in radians
             !transer to latitude in degrees
-            z_lon_deg = ppatch%cells%center(jc,jb)%lon*rad2deg
+            z_lon_deg = p_patch%cells%center(jc,jb)%lon*rad2deg
             !Impose temperature profile. Profile
             !depends on latitude only and is uniform across
             !all vertical layers
@@ -1095,16 +1097,16 @@ CONTAINS
       !p_pos%lat = 0.0_wp
 
 !       DO jb = i_startblk_c, i_endblk_c
-!         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+!         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 !         DO jc = i_startidx_c, i_endidx_c
 !
 !           p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
 !
-!           z_lat = ppatch%cells%center(jc,jb)%lat
-!           z_lon = ppatch%cells%center(jc,jb)%lon
+!           z_lat = p_patch%cells%center(jc,jb)%lat
+!           z_lon = p_patch%cells%center(jc,jb)%lon
 !
-!           z_dolic = v_base%dolic_c(jc,jb)
+!           z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 !           IF (z_dolic > 0) THEN
 !             ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
 !             ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
@@ -1137,10 +1139,10 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_lat = ppatch%cells%center(jc,jb)%lat
-            z_lon = ppatch%cells%center(jc,jb)%lon
+            z_lat = p_patch%cells%center(jc,jb)%lat
+            z_lon = p_patch%cells%center(jc,jb)%lon
 
-            z_dolic = v_base%dolic_c(jc,jb)
+            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             IF (z_dolic > 0) THEN
               ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
               ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
@@ -1156,11 +1158,11 @@ CONTAINS
                  & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
                  &   + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
 !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
-                 &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
+                 &   * sin(pi*p_patch_3D%p_patch_1D(1)%zlev_m(jk)/p_patch_3D%p_patch_1D(1)%zlev_i(z_dolic+1))
                  !&v_base%del_zlev_i(z_dolic))
                  write(0,*)'temp init',jc,jb,jk,p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
                  &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-                 & * sin(pi*v_base%zlev_m(jk)/4000.0_wp)
+                 & * sin(pi*p_patch_3D%p_patch_1D(1)%zlev_m(jk)/4000.0_wp)
               END DO
               ENDIF
             END IF
@@ -1185,12 +1187,12 @@ CONTAINS
 ! !         z_permax  = -2.0_wp
 ! !         z_perwid  =  5.0_wp
 !         DO jb = i_startblk_c, i_endblk_c
-!           CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+!           CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 !            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 !           DO jc = i_startidx_c, i_endidx_c
-!             z_lat = ppatch%cells%center(jc,jb)%lat
-!             z_lon = ppatch%cells%center(jc,jb)%lon
-!             z_dolic = v_base%dolic_c(jc,jb)
+!             z_lat = p_patch%cells%center(jc,jb)%lat
+!             z_lon = p_patch%cells%center(jc,jb)%lon
+!             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 !             IF (z_dolic > 0) THEN
 !               ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
 !               ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
@@ -1221,9 +1223,9 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lon = ppatch%cells%center(jc,jb)%lon
-          z_dolic = v_base%dolic_c(jc,jb)
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
           IF (z_dolic > 0) THEN
             z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
             !IF(z_dst<=15.5_wp*deg2rad) cycle
@@ -1241,12 +1243,12 @@ CONTAINS
 !----------------An old version of surface forcing corresponds to this
 ! !     CASE (32) !from Sergy Danilov
 ! !       DO jb = i_startblk_c, i_endblk_c
-! !         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+! !         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 ! !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !         DO jc = i_startidx_c, i_endidx_c
-! !           z_lat = ppatch%cells%center(jc,jb)%lat
-! !           z_lon = ppatch%cells%center(jc,jb)%lon
-! !           z_dolic = v_base%dolic_c(jc,jb)
+! !           z_lat = p_patch%cells%center(jc,jb)%lat
+! !           z_lon = p_patch%cells%center(jc,jb)%lon
+! !           z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 ! !           IF (z_dolic > 0) THEN
 ! !             ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
 ! !             ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
@@ -1265,12 +1267,12 @@ CONTAINS
 ! !       z_perwid  =  5.0_wp!1.5_wp
 ! !       IF (no_tracer > 0 ) THEN
 ! !         DO jb = i_startblk_c, i_endblk_c
-! !           CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+! !           CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 ! !            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !           DO jc = i_startidx_c, i_endidx_c
-! !             z_lat = ppatch%cells%center(jc,jb)%lat
-! !             z_lon = ppatch%cells%center(jc,jb)%lon
-! !             z_dolic = v_base%dolic_c(jc,jb)
+! !             z_lat = p_patch%cells%center(jc,jb)%lat
+! !             z_lon = p_patch%cells%center(jc,jb)%lon
+! !             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 ! !             IF (z_dolic > 0) THEN
 ! !               z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
 ! !               !Local hot perturbation
@@ -1303,11 +1305,11 @@ CONTAINS
 ! !       !The vertical grid spacing is unchanged and as specified in the namelist.
 ! !       !1a) bathymetry at edges
 ! !       DO jb = i_startblk_c, i_endblk_c
-! !         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+! !         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 ! !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !         DO jc = i_startidx_c, i_endidx_c
-! !           z_lat = ppatch%cells%center(jc,jb)%lat
-! !           z_lon = ppatch%cells%center(jc,jb)%lon
+! !           z_lat = p_patch%cells%center(jc,jb)%lat
+! !           z_lon = p_patch%cells%center(jc,jb)%lon
 ! !           z_dst = sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
 ! !           p_ext_data%oce%bathymetry_c(jc,jb)= z_H_0 &
 ! !           &-z_permax*exp(-(z_dst/z_perwid)**2)
@@ -1315,13 +1317,13 @@ CONTAINS
 ! !       END DO
 ! !       !ab) the edges
 ! !       DO jb = i_startblk_e, i_endblk_e
-! !         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e, &
+! !         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
 ! !          &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 ! !         DO je = i_startidx_e, i_endidx_e
-! !           ic1 = ppatch%edges%cell_idx(je,jb,1)
-! !           ib1 = ppatch%edges%cell_blk(je,jb,1)
-! !           ic2 = ppatch%edges%cell_idx(je,jb,2)
-! !           ib2 = ppatch%edges%cell_blk(je,jb,2)
+! !           ic1 = p_patch%edges%cell_idx(je,jb,1)
+! !           ib1 = p_patch%edges%cell_blk(je,jb,1)
+! !           ic2 = p_patch%edges%cell_idx(je,jb,2)
+! !           ib2 = p_patch%edges%cell_blk(je,jb,2)
 ! !           DO jk=1,n_zlev
 ! !             p_ext_data%oce%bathymetry_e(je,jb) = 0.5_wp*(p_ext_data%oce%bathymetry_c(ic1,ib1)&
 ! !                                                 &        +p_ext_data%oce%bathymetry_c(ic2,ib2))
@@ -1331,7 +1333,7 @@ CONTAINS
 ! !        !Step 2: create land-sea mask for edges and cells from bathymetry
 ! !        !2a) the cells
 ! !        DO jb = i_startblk_c, i_endblk_c
-! !          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+! !          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 ! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !          DO jc = i_startidx_c, i_endidx_c
 ! !            DO jk=1,n_zlev
@@ -1346,13 +1348,13 @@ CONTAINS
 ! !        END DO
 ! !        !2b) the edges
 ! !        DO jb = i_startblk_e, i_endblk_e
-! !          CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e, &
+! !          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
 ! !           &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 ! !          DO je = i_startidx_e, i_endidx_e
-! !            ic1 = ppatch%edges%cell_idx(je,jb,1)
-! !            ib1 = ppatch%edges%cell_blk(je,jb,1)
-! !            ic2 = ppatch%edges%cell_idx(je,jb,2)
-! !            ib2 = ppatch%edges%cell_blk(je,jb,2)
+! !            ic1 = p_patch%edges%cell_idx(je,jb,1)
+! !            ib1 = p_patch%edges%cell_blk(je,jb,1)
+! !            ic2 = p_patch%edges%cell_idx(je,jb,2)
+! !            ib2 = p_patch%edges%cell_blk(je,jb,2)
 ! !            DO jk=1,n_zlev
 ! !              !get neighbor cells: if both have different type, the edge is boundary, if they are
 ! !              !of the same type, this type is assigned to the edge
@@ -1373,15 +1375,15 @@ CONTAINS
 ! !        !loop over cells and check if all edges are wet or not, in
 ! !        !the later case the cell is a boundary cell
 ! !        DO jb = i_startblk_c, i_endblk_c
-! !          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+! !          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 ! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !          DO jc = i_startidx_c, i_endidx_c
-! !            ile1 = ppatch%cells%edge_idx(jc,jb,1)
-! !            ibe1 = ppatch%cells%edge_blk(jc,jb,1)
-! !            ile2 = ppatch%cells%edge_idx(jc,jb,2)
-! !            ibe2 = ppatch%cells%edge_blk(jc,jb,2)
-! !            ile3 = ppatch%cells%edge_idx(jc,jb,3)
-! !            ibe3 = ppatch%cells%edge_blk(jc,jb,3)
+! !            ile1 = p_patch%cells%edge_idx(jc,jb,1)
+! !            ibe1 = p_patch%cells%edge_blk(jc,jb,1)
+! !            ile2 = p_patch%cells%edge_idx(jc,jb,2)
+! !            ibe2 = p_patch%cells%edge_blk(jc,jb,2)
+! !            ile3 = p_patch%cells%edge_idx(jc,jb,3)
+! !            ibe3 = p_patch%cells%edge_blk(jc,jb,3)
 ! !            DO jk=1,n_zlev
 ! !              i_ctr=0
 ! !              !CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
@@ -1425,13 +1427,13 @@ CONTAINS
 ! !        END DO
 ! !        !check for boundary edges
 ! !        DO jb = i_startblk_e, i_endblk_e
-! !          CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e, &
+! !          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
 ! !           &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 ! !          DO je = i_startidx_e, i_endidx_e
-! !            ic1 = ppatch%edges%cell_idx(je,jb,1)
-! !            ib1 = ppatch%edges%cell_blk(je,jb,1)
-! !            ic2 = ppatch%edges%cell_idx(je,jb,2)
-! !            ib2 = ppatch%edges%cell_blk(je,jb,2)
+! !            ic1 = p_patch%edges%cell_idx(je,jb,1)
+! !            ib1 = p_patch%edges%cell_blk(je,jb,1)
+! !            ic2 = p_patch%edges%cell_idx(je,jb,2)
+! !            ib2 = p_patch%edges%cell_blk(je,jb,2)
 ! !            DO jk=1,n_zlev
 ! !              !get neighbor cells: if both have different type, the edge is boundary, if they are
 ! !              !of the same type, this type is assigned to the edge
@@ -1445,13 +1447,13 @@ CONTAINS
 ! !           END DO
 ! !        END DO
 ! !        !Step 3: create 3D-lsm (=dolic_c)
-! !        !CALL fill_vertical_ocean_domain(ppatch)
+! !        !CALL fill_vertical_ocean_domain(p_patch)
 ! !        DO jb = i_startblk_c, i_endblk_c
-! !          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+! !          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
 ! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !          DO jc = i_startidx_c, i_endidx_c
 ! !            p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
-! !            !z_dolic = v_base%dolic_c(jc,jb)
+! !            !z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 ! !            !IF (z_dolic > 0) THEN
 ! !              DO jk = 1, n_zlev!z_dolic
 ! !                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)     &
@@ -1465,15 +1467,15 @@ CONTAINS
 ! !        END DO
 ! !     !init normal velocity
 ! !       DO jb = i_startblk_e, i_endblk_e
-! !         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
+! !         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
 ! !                     & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 ! !         DO je = i_startidx_e, i_endidx_e
-! !           z_lat = ppatch%edges%center(je,jb)%lat
-! !           z_lon = ppatch%edges%center(je,jb)%lon
+! !           z_lat = p_patch%edges%center(je,jb)%lat
+! !           z_lon = p_patch%edges%center(je,jb)%lon
 ! !           IF(v_base%lsm_oce_e(je,1,jb)<=sea_boundary)THEN
 ! !             p_os%p_prog(nold(1))%vn(je,1,jb) = &
-! !             &   (test5_u(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v1  &
-! !             & + test5_v(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v2)/30.0_wp
+! !             &   (test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
+! !             & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2)/30.0_wp
 ! !             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
 ! !             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
 ! !             p_os%p_diag%h_e(je,jb) = 1.0_wp
@@ -1505,7 +1507,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat = p_patch%cells%center(jc,jb)%lat
           !transer to latitude in degrees
           z_lat_deg = z_lat*rad2deg
 
@@ -1513,7 +1515,7 @@ CONTAINS
           !         does not effect 4 levels
           z_tpols = z_tpol
           DO jk=1,n_zlev
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
             ! set maximum tropical temperature from profile above
             !IF(n_zlev<=10)THEN
@@ -1573,12 +1575,12 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat = p_patch%cells%center(jc,jb)%lat
           !transer to latitude in degrees
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
             ! set maximum tropical temperature from profile above
             z_ttrop = tprof_var(jk)
@@ -1639,12 +1641,12 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat = p_patch%cells%center(jc,jb)%lat
           !transer to latitude in degrees
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             IF ( jk == 1 ) THEN
 
               !constant salinity
@@ -1698,12 +1700,12 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN
+          !IF(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)>=MIN_DOLIC)THEN
             p_os%p_prog(nold(1))%tracer(:,1,:,1)=30.5_wp
             p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=0.5_wp
           !ENDIF
           DO jk=2,n_zlev-1
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
             &=p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
 
@@ -1723,7 +1725,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
 
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
               IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
@@ -1747,7 +1749,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
 
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               ! #slo# 2011-11-17 - for MPIOM comparison - set T/S to 5C/35psu
               ! #slo# 2012-05-02 - for MPIOM comparison - set T/S to 1C/34.8psu
               ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
@@ -1777,8 +1779,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
           END IF
         END DO
@@ -1797,7 +1799,7 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr,0.0_wp)
             ELSE
@@ -1813,7 +1815,7 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               ENDIF
@@ -1835,17 +1837,17 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
-          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN
+          !IF(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)>=MIN_DOLIC)THEN
           !ENDIF
 
-          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
           ENDIF
-          IF ( v_base%lsm_oce_c(jc,n_zlev,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_oce_c(jc,n_zlev,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,n_zlev,jb,1)=0.5_wp
           ENDIF
           DO jk=2,n_zlev-1
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
             &=p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
@@ -1859,11 +1861,11 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat = p_patch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
             z_temp_max=0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
 
@@ -1879,13 +1881,13 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat = p_patch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
-          z_lon = ppatch%cells%center(jc,jb)%lon
+          z_lon = p_patch%cells%center(jc,jb)%lon
           z_lon_deg = z_lon*rad2deg
 
           DO jk=1,n_zlev
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
               IF(abs(z_lon_deg)<2.5_wp&
            &.AND.abs(z_lat_deg-basin_center_lat)<0.25_wp*basin_height_deg)THEN
@@ -1930,14 +1932,14 @@ ELSEIF( iswm_oce == 1 )THEN
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
       CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
 
-      v_base%lsm_oce_c(:,:,:) = sea
-      v_base%lsm_oce_e(:,:,:) = sea
+      p_patch_3D%lsm_oce_c(:,:,:) = sea
+      p_patch_3D%lsm_oce_e(:,:,:) = sea
       !init height
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lon = ppatch%cells%center(jc,jb)%lon
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
 
           p_os%p_prog(nold(1))%h(jc,jb) = test_usbr_h( z_lon, z_lat, 0.0_wp)
 
@@ -1954,13 +1956,13 @@ ELSEIF( iswm_oce == 1 )THEN
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
-          z_lat = ppatch%edges%center(je,jb)%lat
-          z_lon = ppatch%edges%center(je,jb)%lon
+          z_lat = p_patch%edges%center(je,jb)%lat
+          z_lon = p_patch%edges%center(je,jb)%lon
 
           p_os%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(z_lon, z_lat,0.0_wp)* &
-            &                                ppatch%edges%primal_normal(je,jb)%v1&
+            &                                p_patch%edges%primal_normal(je,jb)%v1&
             &                                + test_usbr_v(z_lon, z_lat,0.0_wp)* &
-            &                                ppatch%edges%primal_normal(je,jb)%v2
+            &                                p_patch%edges%primal_normal(je,jb)%v2
           ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
 
         END DO
@@ -1969,14 +1971,14 @@ ELSEIF( iswm_oce == 1 )THEN
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
       CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
 
-      v_base%lsm_oce_c(:,:,:) = sea
-      v_base%lsm_oce_e(:,:,:) = sea
+      p_patch_3D%lsm_oce_c(:,:,:) = sea
+      p_patch_3D%lsm_oce_e(:,:,:) = sea
       !init height
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lon = ppatch%cells%center(jc,jb)%lon
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
 
          p_os%p_prog(nold(1))%h(jc,jb) = test5_h( z_lon, z_lat, 0.0_wp)
          ! #slo# - bathymetry not taken into account due to constant bottom cell depth
@@ -1985,25 +1987,25 @@ ELSEIF( iswm_oce == 1 )THEN
         p_ext_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
-!       CALL height_related_quantities( ppatch, p_os)
+!       CALL height_related_quantities( p_patch, p_os)
 !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
-!                  & ppatch,    &
+!                  & p_patch,    &
 !                  & p_os%p_diag%grad(:,1,:))
 !       p_os%p_diag%grad(:,1,:)= -p_os%p_diag%grad(:,1,:)*grav
 !       p_os%p_prog(nold(1))%vn(:,1,:) = &
-!       &geo_balance_mim(ppatch, p_os%p_diag%h_e, p_os%p_diag%grad(:,1,:))
+!       &geo_balance_mim(p_patch, p_os%p_diag%h_e, p_os%p_diag%grad(:,1,:))
 
 
       !init normal velocity
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
-          z_lat = ppatch%edges%center(je,jb)%lat
-          z_lon = ppatch%edges%center(je,jb)%lon
+          z_lat = p_patch%edges%center(je,jb)%lat
+          z_lon = p_patch%edges%center(je,jb)%lon
 
           p_os%p_prog(nold(1))%vn(je,1,jb) = &
-          &   test5_u(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v1  &
-          & + test5_v(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v2
+          &   test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
+          & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2
 !           write(*,*)'vn:expl: inverse', je,jb,&
 !           &p_os%p_prog(nold(1))%vn(je,1,jb),p_os%p_prog(nnew(1))%vn(je,1,jb)
         END DO
@@ -2019,10 +2021,10 @@ ELSEIF( iswm_oce == 1 )THEN
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
          p_ext_data%oce%bathymetry_c(jc,jb) = -200._wp
-         v_base%dolic_c(jc,jb)      = 1
+         p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)      = 1
 
           !latitude given in radians
-           z_lat = ppatch%cells%center(jc,jb)%lat
+           z_lat = p_patch%cells%center(jc,jb)%lat
            z_lat_deg = z_lat*rad2deg
            !Impose emperature profile. Profile
            !depends on latitude only
@@ -2042,12 +2044,12 @@ ELSEIF( iswm_oce == 1 )THEN
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
-          z_lat = ppatch%edges%center(je,jb)%lat
-          z_lon = ppatch%edges%center(je,jb)%lon
-          IF(v_base%lsm_oce_e(je,1,jb)<=sea_boundary)THEN
+          z_lat = p_patch%edges%center(je,jb)%lat
+          z_lon = p_patch%edges%center(je,jb)%lon
+          IF(p_patch_3D%lsm_oce_e(je,1,jb)<=sea_boundary)THEN
             p_os%p_prog(nold(1))%vn(je,1,jb) = &
-            &   (test5_u(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v1  &
-            & + test5_v(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v2) !/30.0_wp
+            &   (test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
+            & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2) !/30.0_wp
             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
             p_os%p_diag%h_e(je,jb) = 1.0_wp
@@ -2063,10 +2065,10 @@ ELSEIF( iswm_oce == 1 )THEN
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lon = ppatch%cells%center(jc,jb)%lon
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
 
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 0.0_wp
             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 0.0_wp
 
@@ -2137,8 +2139,8 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
 
      vn_e2(:,:) = rhs_e(:,:)
-     rhstemp(:,:) = rhs_e(:,:)&
-       & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,p_patch,jk,zimpl_coeff,grad_coeff,h_e)
+     !rhstemp(:,:) = rhs_e(:,:)&
+     !  & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,p_patch,jk,zimpl_coeff,grad_coeff,h_e)
 
      If (maxval (ABS (rhstemp (:,:))) <= tolerance) THEN
        vn_e(:,:) = vn_e2(:,:)
@@ -2147,8 +2149,8 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
      ELSE
       vn_e2 = 0.0_wp!rhs_e(:,jk,:)
 
-        rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),p_patch, jk,&
-          &            zimpl_coeff,grad_coeff, h_e)
+      !  rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),p_patch, jk,&
+      !    &            zimpl_coeff,grad_coeff, h_e)
        WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
       &jk, maxval(rhstemp),minval(rhstemp)
 
@@ -2186,8 +2188,9 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
    END FUNCTION geo_balance_mim
    !--------------------------------------------------------------------
-   FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff,grad_coeff, h_e) RESULT(llhs)
+   FUNCTION lhs_geo_balance_mim( x, p_patch, p_patch_3D, lev,p_coeff,grad_coeff, h_e) RESULT(llhs)
      TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
+     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
      INTEGER                         :: lev
      REAL(wp),INTENT(inout)          :: x(nproma,p_patch%nblks_e)!(:,:)
      REAL(wp),INTENT(in)             :: p_coeff
@@ -2228,7 +2231,7 @@ stop
      END DO
 
      CALL grad_fd_norm_oce_3D( z_kin,  &
-                          & p_patch,   &
+                          & p_patch, p_patch_3D,  &
                           & grad_coeff,&
                           & z_grad)
 

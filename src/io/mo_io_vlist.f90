@@ -117,7 +117,7 @@ MODULE mo_io_vlist
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
-    &                                 irelax_2d_S !, i_apply_bulk
+    &                                 irelax_2d_S
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, nnow_rcf, lcoriolis
@@ -156,7 +156,7 @@ MODULE mo_io_vlist
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
     &                                 n_dom_start
-  USE mo_model_domain,          ONLY: t_patch, p_patch
+  USE mo_model_domain,          ONLY: t_patch, p_patch, t_patch_3D_oce
   USE mo_physical_constants,    ONLY: grav
   USE mo_mpi,                   ONLY: my_process_is_stdio, p_recv, p_send, &
     &                                 num_work_procs, get_my_mpi_all_id
@@ -164,9 +164,9 @@ MODULE mo_io_vlist
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
   USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
-       &                              t_hydro_ocean_diag, t_hydro_ocean_base,        &
+       &                              t_hydro_ocean_diag, &!t_hydro_ocean_base,        &
        &                              t_hydro_ocean_aux,                             &
-       &                              v_base, set_zlev, v_ocean_state
+       &                              set_zlev!, v_ocean_state!, v_base
 !  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
   ! #
   USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
@@ -949,7 +949,7 @@ CONTAINS
               meaning = "averaged"
             ELSE 
               sufix = ""
-              meaning = "instant."     
+              meaning = "instantan"     
             END IF
 
             WRITE(name,'(A8,A4)') "swflxsfc", sufix
@@ -2192,8 +2192,7 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    !IF (temperature_relaxation /= 0 .OR. i_sea_ice >= 1 .OR. i_apply_bulk==1 ) THEN
-    IF (iforc_oce > 11) THEN   !  e.g. OMIP forcing or coupled
+    IF (temperature_relaxation /= 0 .OR. i_sea_ice >= 1 ) THEN
       CALL addVar(TimeVar('forc_hflx',&
       &                   'net surface heat flux',&
       &                   'W/m2',16,128,&
@@ -3270,13 +3269,14 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------------------------
-  SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete)
+  SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete,p_patch_3D, p_os)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
     INTEGER, INTENT(IN) :: jg
     REAL(wp), POINTER :: ptr2d(:,:)
     REAL(wp), POINTER :: ptr3d(:,:,:)
-
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(IN) :: p_os(n_dom)
 
     LOGICAL, INTENT(OUT) :: reset, delete
 
@@ -3292,9 +3292,12 @@ CONTAINS
     REAL(wp),                 POINTER :: r_dolic_c(:,:), r_dolic_e(:,:)
     INTEGER                           :: s_isice(3), shp_dolic(2)
 
-    p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
-    p_diag  => v_ocean_state(jg)%p_diag
-    p_aux   => v_ocean_state(jg)%p_aux
+!     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
+!     p_diag  => v_ocean_state(jg)%p_diag
+!     p_aux   => v_ocean_state(jg)%p_aux
+    p_prog  => p_os(jg)%p_prog(nold(jg))
+    p_diag  => p_os(jg)%p_diag
+    p_aux   => p_os(jg)%p_aux
     forcing => v_sfc_flx 
     p_params=> v_params
     p_ice   => v_sea_ice
@@ -3306,19 +3309,19 @@ CONTAINS
     not_found = .FALSE.
 
     SELECT CASE(varname)
-      CASE ('wet_c');        ptr3d => v_base%wet_c
-      CASE ('wet_e');        ptr3d => v_base%wet_e
-      CASE ('rbasin_c');     ptr2d => v_base%rbasin_c(:,:)
-      CASE ('rregio_c');     ptr2d => v_base%rregio_c(:,:)
+      CASE ('wet_c');        ptr3d => p_patch_3D%wet_c
+      CASE ('wet_e');        ptr3d => p_patch_3D%wet_e
+      CASE ('rbasin_c');     ptr2d => p_patch_3D%rbasin_c(:,:)
+      CASE ('rregio_c');     ptr2d => p_patch_3D%rregio_c(:,:)
       CASE ('dolic_c')
-        shp_dolic = SHAPE(v_base%dolic_c)
+        shp_dolic = SHAPE(p_patch_3D%p_patch_1D(1)%dolic_c)
         ALLOCATE(r_dolic_c(shp_dolic(1),shp_dolic(2)))
-        r_dolic_c(:,:) = REAL(v_base%dolic_c(:,:))
+        r_dolic_c(:,:) = REAL(p_patch_3D%p_patch_1D(1)%dolic_c(:,:))
         ptr2d => r_dolic_c
       CASE ('dolic_e')
-        shp_dolic = SHAPE(v_base%dolic_e)
+        shp_dolic = SHAPE(p_patch_3D%p_patch_1D(1)%dolic_e)
         ALLOCATE(r_dolic_e(shp_dolic(1),shp_dolic(2)))
-        r_dolic_e(:,:) = REAL(v_base%dolic_e(:,:))
+        r_dolic_e(:,:) = REAL(p_patch_3D%p_patch_1D(1)%dolic_e(:,:))
         ptr2d => r_dolic_e
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc_u');       ptr2d => forcing%forc_wind_u
@@ -3444,7 +3447,7 @@ CONTAINS
   END SUBROUTINE get_outvar_ptr_oce
 
   !-------------------------------------------------------------------------------------------------
-  SUBROUTINE write_vlist (datetime, z_sim_time)
+  SUBROUTINE write_vlist (datetime, z_sim_time, p_patch_3D, p_state_oce)
 
     !=========================================================================
     !> Write output directly: PE 0 gathers and writes, others send
@@ -3452,6 +3455,9 @@ CONTAINS
 
     TYPE(t_datetime),            INTENT(in) :: datetime
     REAL(wp), OPTIONAL,          INTENT(in) :: z_sim_time(n_dom)
+    !TYPE(t_patch), OPTIONAL,     INTENT(IN) ::  p_patch_2D(:) 
+    TYPE(t_patch_3D_oce ), OPTIONAL, INTENT(IN)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state), OPTIONAL, INTENT(IN) :: p_state_oce(n_dom)
     INTEGER :: idate, itime
     INTEGER :: istatus, ierrstat
     INTEGER :: jg, ivar, n_tot
@@ -3498,55 +3504,103 @@ CONTAINS
             CALL get_outvar_ptr_nh &
               & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (ihs_ocean)
-            CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete)
+            CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete,&
+                                  & p_patch_3D, p_state_oce)
           CASE DEFAULT
             CALL finish('write_vlist','Unsupported value of iequations')
         END SELECT
 
-        SELECT CASE(outvar_desc(ivar, jg)%type)
-          CASE (GATHER_C)
-            n_tot = p_patch(jg)%n_patch_cells_g
-          CASE (GATHER_E)
-            n_tot = p_patch(jg)%n_patch_edges_g
-          CASE (GATHER_V)
-            n_tot = p_patch(jg)%n_patch_verts_g
-          CASE DEFAULT
+        IF(present(p_patch_3D))THEN
+          SELECT CASE(outvar_desc(ivar, jg)%type)
+            CASE (GATHER_C)
+              n_tot = p_patch_3D%p_patch_2D(jg)%n_patch_cells_g
+            CASE (GATHER_E)
+              n_tot = p_patch_3D%p_patch_2D(jg)%n_patch_edges_g
+            CASE (GATHER_V)
+              n_tot = p_patch_3D%p_patch_2D(jg)%n_patch_verts_g
+            CASE DEFAULT
             CALL finish('write_vlist', 'Illegal type in outvar_desc')
-        END SELECT
-
+          END SELECT
+        ELSEIF(.NOT.present(p_patch_3D))THEN
+          SELECT CASE(outvar_desc(ivar, jg)%type)
+            CASE (GATHER_C)
+              n_tot = p_patch(jg)%n_patch_cells_g
+            CASE (GATHER_E)
+              n_tot = p_patch(jg)%n_patch_edges_g
+            CASE (GATHER_V)
+              n_tot = p_patch(jg)%n_patch_verts_g
+            CASE DEFAULT
+            CALL finish('write_vlist', 'Illegal type in outvar_desc')
+          END SELECT
+        ENDIF
         klev = outvar_desc(ivar, jg)%nlev
 
         ! Pack and output variable
         IF_2D_3D : IF(ASSOCIATED(ptr2)) THEN
 
-          IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
+          IF(PRESENT(p_patch_3D))THEN
+            IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
 
-          CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
-            &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
+            CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch_3D%p_patch_2D(jg), ptr2, &
+              &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
+  
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
+              DEALLOCATE(streamvar1)
+            ENDIF
+            IF(reset) ptr2 = 0._wp
+            IF(delete) DEALLOCATE(ptr2)
 
-          IF(my_process_is_stdio()) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
-            DEALLOCATE(streamvar1)
-          ENDIF
-          IF(reset) ptr2 = 0._wp
-          IF(delete) DEALLOCATE(ptr2)
+            nlev = 1
+          ELSEIF(.NOT. PRESENT(p_patch_3D))THEN
+               
+            IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
 
-          nlev = 1
+            CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
+              &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
+  
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
+              DEALLOCATE(streamvar1)
+            ENDIF
+            IF(reset) ptr2 = 0._wp
+            IF(delete) DEALLOCATE(ptr2)
 
-        ELSE
-          IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
-          CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,  &
+            nlev = 1
+          ENDIF!(PRESENT(p_patch_2D))
+
+        ELSEIF(.NOT.ASSOCIATED(ptr2))THEN          
+          IF(PRESENT(p_patch_3D))THEN
+
+            IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
+            CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch_3D%p_patch_2D(jg), ptr3,  &
             &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
 
-          IF(my_process_is_stdio()) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
-            DEALLOCATE(streamvar2)
-          ENDIF
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
+              DEALLOCATE(streamvar2)
+            ENDIF
 
-          nlev = SIZE(ptr3(:,:,:), 2)
-          IF(reset) ptr3 = 0._wp
-          IF(delete) DEALLOCATE(ptr3)
+            nlev = SIZE(ptr3(:,:,:), 2)
+            IF(reset) ptr3 = 0._wp
+            IF(delete) DEALLOCATE(ptr3)
 
+
+          ELSEIF(.NOT. PRESENT(p_patch_3D))THEN
+            IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
+            CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,  &
+            &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
+
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
+              DEALLOCATE(streamvar2)
+            ENDIF
+
+            nlev = SIZE(ptr3(:,:,:), 2)
+            IF(reset) ptr3 = 0._wp
+            IF(delete) DEALLOCATE(ptr3)
+          
+          ENDIF!(PRESENT(p_patch_2D))
         END IF IF_2D_3D
 
         ! clean up: collected 3d field on triangular grid no longer needed

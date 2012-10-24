@@ -54,11 +54,11 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref, &
     &                               coriolis_type, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message, finish
-  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_state,           ONLY: v_base,t_hydro_ocean_state
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state
   USE mo_oce_physics,         ONLY: t_ho_params
   !USE mo_intp_data_strc,      ONLY: t_int_state
   !USE mo_intp_coeffs,         ONLY: par_init_scalar_product_oce
@@ -79,7 +79,7 @@ MODULE mo_operator_ocean_coeff_3d
   PRIVATE :: copy_2D_to_3D_coeff
   PRIVATE :: par_apply_boundary2coeffs
   PRIVATE :: init_geo_factors_oce_3d
-  PUBLIC :: update_diffusion_matrices
+  PUBLIC  :: update_diffusion_matrices
   !PRIVATE  :: par_init_operator_coeff
   !PRIVATE :: copy_2D_to_3D_intp_coeff
   !PRIVATE :: init_operator_coeff 
@@ -184,7 +184,6 @@ CONTAINS
 
     INTEGER :: nblks_c, nblks_e, nblks_v, nz_lev
     INTEGER :: ist,ie
-    INTEGER :: rl_start,rl_end
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: jc,je,jk,jb
 
@@ -192,7 +191,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: all_verts
 
-    INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
+    !INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
     INTEGER :: i_startidx_e, i_endidx_e
 
     !-----------------------------------------------------------------------
@@ -452,10 +451,10 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-  SUBROUTINE par_init_operator_coeff2( patch, p_os, p_phys_param, ocean_coeff)
+  SUBROUTINE par_init_operator_coeff2( patch, p_patch_3D, p_phys_param, ocean_coeff)
     !
     TYPE(t_patch),            INTENT(inout) :: patch
-    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
     TYPE(t_operator_coeff),   INTENT(inout) :: ocean_coeff
 
@@ -497,16 +496,15 @@ CONTAINS
                             & edge2vert_coeff_cc_t, &
                             & dist_cell2edge,       &
                             & fixed_vol_norm,       &
-                            & variable_vol_norm,    &
-                            & variable_dual_vol_norm)
+                            & variable_vol_norm)!,    &
+                            !& variable_dual_vol_norm)
 !write(*,*)'before init_geo_factors_oce_3d'
     CALL init_geo_factors_oce_3d ( patch, ocean_coeff )
     !---------------------------------------------------------
-    CALL par_apply_boundary2coeffs(patch, ocean_coeff)
+    CALL par_apply_boundary2coeffs(patch, p_patch_3D, ocean_coeff)
 
 
-     CALL update_diffusion_matrices( patch,                         &
-                                     & p_os,                          &
+     CALL update_diffusion_matrices( patch, p_patch_3D,               &
                                      & p_phys_param,                  &
                                      & ocean_coeff%matrix_vert_diff_e,&
                                      & ocean_coeff%matrix_vert_diff_c)
@@ -545,14 +543,13 @@ CONTAINS
   !! Parellelized by Leonidas Linardakis 2012-3
  
  
-   SUBROUTINE update_diffusion_matrices( patch,              &
-                                         & p_os,               &  
+   SUBROUTINE update_diffusion_matrices( patch, p_patch_3D,    &
                                          & p_phys_param,       &
                                          & matrix_vert_diff_e, &
                                          & matrix_vert_diff_c)
  
-     TYPE(t_patch), TARGET, INTENT(INOUT) :: patch
-     TYPE(t_hydro_ocean_state),INTENT(IN) :: p_os
+     TYPE(t_patch), TARGET, INTENT(INOUT)  :: patch
+     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
      TYPE (t_ho_params),       INTENT(IN) :: p_phys_param
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:patch%nblks_e,1:3)
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:patch%nblks_c,1:3)
@@ -583,15 +580,19 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_dolic = v_base%dolic_c(jc,jb)
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
 
-          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+          !IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
             IF ( z_dolic >=MIN_DOLIC ) THEN
 
               !inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
               !inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
-              inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_c(jc,:,jb)
-              inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_c(jc,:,jb)
+               !inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_c(jc,:,jb)
+               !inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_c(jc,:,jb)
+              inv_zinv_i(:) = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
+              inv_zinv_m(:) = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
+
 
               !Fill triangular matrix
               !b is diagonal a and c are upper and lower band
@@ -639,15 +640,18 @@ CONTAINS
   DO jb = all_edges%start_block, all_edges%end_block
     CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
     DO je = i_startidx_e, i_endidx_e
-      z_dolic = v_base%dolic_e(je,jb)
+      z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!v_base%dolic_e(je,jb)
 
-      IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      !IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      IF (  p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
-          inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
-          inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
+          !inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
+          !inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
           !inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_e(je,:,jb)
           !inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_e(je,:,jb)
+          inv_zinv_i(:) = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,:,jb)
+          inv_zinv_m(:) = p_patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,:,jb)
 
 
           !Fill triangular matrix
@@ -1039,7 +1043,7 @@ CONTAINS
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
             orientation = DOT_PRODUCT( dist_vector%x,                         &
                & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
-            IF (orientation < 0) dist_vector%x = - dist_vector%x
+            IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
 
               edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
@@ -1222,8 +1226,8 @@ CONTAINS
                                & edge2vert_coeff_cc_t, &
                                & dist_cell2edge,       &
                                & fixed_vol_norm,       &
-                               & variable_vol_norm,    &
-                               & variable_dual_vol_norm)
+                               & variable_vol_norm)!,    &
+                               !& variable_dual_vol_norm)
     TYPE(t_patch)    , TARGET, INTENT(INOUT)     :: patch
     TYPE(t_operator_coeff), INTENT(inout) :: ocean_coeff
     TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2cell_coeff_cc(1:nproma,1:patch%nblks_c,1:patch%cell_type)
@@ -1233,7 +1237,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: dist_cell2edge(1:nproma,1:patch%nblks_e,1:2)
     REAL(wp), INTENT(IN) :: fixed_vol_norm(1:nproma,patch%nblks_c)
     REAL(wp), INTENT(IN) :: variable_vol_norm(1:nproma,1:patch%nblks_c,1:3)
-    REAL(wp), INTENT(IN) :: variable_dual_vol_norm(1:nproma,1:patch%nblks_v,1:6)
+    !REAL(wp), INTENT(IN) :: variable_dual_vol_norm(1:nproma,1:patch%nblks_v,1:6)
     !
     !Local variables
     !
@@ -1242,7 +1246,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_verts
 
     INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
-    INTEGER :: je,jk, i_startidx_e, i_endidx_e
+    INTEGER :: je,i_startidx_e, i_endidx_e
 
     all_cells => patch%cells%all
     all_edges => patch%edges%all
@@ -1365,9 +1369,10 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-  SUBROUTINE par_apply_boundary2coeffs( patch, ocean_coeff)
+  SUBROUTINE par_apply_boundary2coeffs( patch, p_patch_3D, ocean_coeff)
     ! !
     TYPE(t_patch), TARGET,  INTENT(inout) :: patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_operator_coeff), INTENT(inout) :: ocean_coeff
 
     !Local variables
@@ -1398,9 +1403,13 @@ CONTAINS
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
-    all_cells   => patch%cells%all
-    all_edges   => patch%edges%all
-    owned_verts => patch%verts%owned
+    !all_cells   => patch%cells%all
+    !all_edges   => patch%edges%all
+    !owned_verts => patch%verts%owned
+
+    all_cells   => p_patch_3D%p_patch_2D(1)%cells%all
+    all_edges   => p_patch_3D%p_patch_2D(1)%edges%all
+    owned_verts => p_patch_3D%p_patch_2D(1)%verts%owned
 
     i_v_ctr(:,:,:)          = 0
     ! this should not be done here
@@ -1425,7 +1434,8 @@ CONTAINS
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
 
-          IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
+          !IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
+          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) /= sea ) THEN
             ocean_coeff%grad_coeff          (je,jk,jb) = 0.0_wp
             ocean_coeff%edge2cell_coeff_cc_t(je,jk,jb,1)%x(1:3) = 0.0_wp
             ocean_coeff%edge2cell_coeff_cc_t(je,jk,jb,2)%x(1:3) = 0.0_wp
@@ -1451,7 +1461,8 @@ CONTAINS
 
             ile = patch%cells%edge_idx(jc,jb,je)
             ibe = patch%cells%edge_blk(jc,jb,je)
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
+            !IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
+            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) /= sea ) THEN
               ocean_coeff%div_coeff(jc,jk,jb,je) = 0.0_wp
               ocean_coeff%edge2cell_coeff_cc(jc,jk,jb,je)%x(1:3) = 0.0_wp
             ENDIF
@@ -1483,9 +1494,10 @@ CONTAINS
             ! edge with indices ile, ibe is sea edge
             ! edge with indices ile, ibe is boundary edge
 
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+            !IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == sea ) THEN
               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
-            ELSEIF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+            ELSEIF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
 
               !increase boundary edge counter
 !               i_v_bnd_edge_ctr(jv,jk,jb)=i_v_bnd_edge_ctr(jv,jk,jb)+1
@@ -1592,11 +1604,12 @@ CONTAINS
               !Check, if edge is sea or boundary edge and take care of dummy edge
               !edge with indices ile, ibe is sea edge
               !Add up for wet dual area.
-              IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+              !IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
                 zarea_fraction = zarea_fraction  &
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge
-              ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+              ELSE IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
                 zarea_fraction = zarea_fraction  &
                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
               END IF
@@ -1685,7 +1698,8 @@ CONTAINS
           DO je = 1, patch%verts%num_edges(jv,jb)
             ile = patch%verts%edge_idx(jv,jb,je)
             ibe = patch%verts%edge_blk(jv,jb,je)
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
+            !IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
+             IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) /= sea) THEN
               ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,je)%x(1:3) = 0.0_wp
               ocean_coeff%variable_dual_vol_norm(jv,jk,jb,je)=0.0_wp
             ENDIF
@@ -1757,11 +1771,13 @@ CONTAINS
               ! Note that this should be modified.
               !   sea_boundary means an open boundary
               !   boundary means that only the sea cell are should be added
-              IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+              !IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
                 zarea_fraction = zarea_fraction  &
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
-              ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+              !ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+              ELSE IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
                 zarea_fraction = zarea_fraction  &
                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
               END IF
@@ -2135,8 +2151,8 @@ CONTAINS
 
   END FUNCTION triangle_area
  !-------------------------------------------------------------------------
-!---------------------------------------------------------------------------------------
-!> Initialize expansion coefficients.
+! !---------------------------------------------------------------------------------------
+! !> Initialize expansion coefficients.
 !   !!
 !   !! @par Revision History
 !   !! Peter Korn (2012-2)
@@ -2167,11 +2183,11 @@ CONTAINS
 !     !---------------------------------------------------------
 !     CALL par_apply_boundary2coeffs(patch, ocean_coeff)
 ! 
-!     CALL update_diffusion_matrices( patch,                          &
-!                                      & p_os,                          &
-!                                      & p_phys_param,                  &
-!                                      & ocean_coeff%matrix_vert_diff_e,&
-!                                      & ocean_coeff%matrix_vert_diff_c)
+! !     CALL update_diffusion_matrices( patch,                          &
+! !                                      & p_os,                          &
+! !                                      & p_phys_param,                  &
+! !                                      & ocean_coeff%matrix_vert_diff_e,&
+! !                                      & ocean_coeff%matrix_vert_diff_c)
 ! 
 !     RETURN
 !     !---------------------------------------------------------
@@ -2204,9 +2220,9 @@ CONTAINS
 ! !      STOP
 ! 
 !   END SUBROUTINE par_init_operator_coeff
-!   !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
  
-! !   !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
 ! !   !> Initialize 3D expansion coefficients.
 ! !   !!
 ! !   !! @par Revision History

@@ -43,18 +43,18 @@ MODULE mo_oce_veloc_advection
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
-  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
   USE mo_impl_constants,      ONLY: sea_boundary, sea, boundary, min_dolic!, &
   !  &                               min_rlcell, min_rledge, min_rlvert
   USE mo_ocean_nml,           ONLY: n_zlev!, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_diag, v_base
+  USE mo_oce_state,           ONLY: t_hydro_ocean_diag!, v_base
   USE mo_oce_math_operators,  ONLY: rot_vertex_ocean_rbf, &
     &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
     &                               rot_vertex_ocean_3d!, rot_vertex_ocean
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product!,cc2gc, gvec2cvec, gc2cc
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3d!, map_edges2edges, map_edges2cell
-  USE mo_intp_data_strc,      ONLY: t_int_state
+  !USE mo_intp_data_strc,      ONLY: t_int_state
   !USE mo_intp,                ONLY: verts2edges_scalar
   !USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -94,7 +94,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!  
   !!   mpi parallelized LL
-  SUBROUTINE veloc_adv_horz_mimetic( p_patch,         &
+  SUBROUTINE veloc_adv_horz_mimetic( p_patch, p_patch_3D,        &
     & vn_old,          &
     & vn_new,          &
     & p_diag,          &
@@ -104,6 +104,7 @@ CONTAINS
     !
     !
     TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(inout)          :: vn_old(1:nproma,1:n_zlev,1:p_patch%nblks_e)
     REAL(wp), INTENT(inout)          :: vn_new(1:nproma,1:n_zlev,1:p_patch%nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
@@ -114,14 +115,14 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
-      CALL veloc_adv_horz_mimetic_rot( p_patch,         &
+      CALL veloc_adv_horz_mimetic_rot( p_patch, p_patch_3D,        &
         & vn_old,          &
         & vn_new,          &
         & p_diag,          &
         & veloc_adv_horz_e,&
         & p_op_coeff)!,p_int)
     ELSEIF (velocity_advection_form == divergence_form) THEN
-      CALL veloc_adv_horz_mimetic_div( p_patch,       &
+      CALL veloc_adv_horz_mimetic_div( p_patch, p_patch_3D,      &
         & vn_old,        &
         & p_diag,        &
         & p_op_coeff,    &
@@ -140,20 +141,21 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
   !!   mpi parallelized LL
-  SUBROUTINE veloc_adv_vert_mimetic( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:p_patch%nblks_e)
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
-      CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)!veloc_adv_vert_mim_rot_flux2
+      CALL veloc_adv_vert_mimetic_rot( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)!veloc_adv_vert_mim_rot_flux2
       !CALL veloc_adv_vert_mimetic_rot_flux2(p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
       !CALL veloc_adv_vert_mimetic_rot_flux( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
     ELSEIF (velocity_advection_form == divergence_form) THEN
-      CALL veloc_adv_vert_mimetic_div( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+      CALL veloc_adv_vert_mimetic_div( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
     ENDIF
 
   END SUBROUTINE veloc_adv_vert_mimetic
@@ -178,7 +180,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch,         &
+  SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch, p_patch_3D,     &
     & vn_old,          &
     & vn_new,          &
     & p_diag,          &
@@ -189,6 +191,7 @@ CONTAINS
     !
     !  patch on which computation is performed
     TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     !
     ! normal velocity  of which advection is computed
     REAL(wp), INTENT(inout) :: vn_old(1:nproma,1:n_zlev,1:p_patch%nblks_e)
@@ -206,18 +209,16 @@ CONTAINS
 
 
     INTEGER :: slev, elev     ! vertical start and end level
-    INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: jk, jb, je
     INTEGER :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_e            (nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_vort_flx     (nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: z_kin_rbf_e    (nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: z_kin_rbf_c    (nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_vort_e       (nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: z_vort_flx_rbf (nproma,n_zlev,p_patch%nblks_e)
-    INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
-    REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3
+    !REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch%nblks_e)
+    !REAL(wp) :: z_kin_rbf_e    (nproma,n_zlev,p_patch%nblks_e)
+    !REAL(wp) :: z_kin_rbf_c    (nproma,n_zlev,p_patch%nblks_c)
+    !REAL(wp) :: z_vort_e       (nproma,n_zlev,p_patch%nblks_e)
+    !REAL(wp) :: z_vort_flx_rbf (nproma,n_zlev,p_patch%nblks_e)
+    !REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3
     LOGICAL, PARAMETER :: l_debug = .FALSE.
     !LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
     TYPE(t_subset_range), POINTER :: all_edges, all_cells
@@ -235,7 +236,7 @@ CONTAINS
 
     !calculate vorticity flux across dual edge
     !   LL: nonlinear_coriolis_3d is mpi parallized. p_diag%vort must have been synced
-    CALL nonlinear_coriolis_3d( p_patch,         &
+    CALL nonlinear_coriolis_3d( p_patch, p_patch_3D, &
       & vn_old,          &
       & p_diag%p_vn,     &
       & p_diag%p_vn_dual,&
@@ -255,7 +256,7 @@ CONTAINS
 
     !calculate gradient of kinetic energy
     CALL grad_fd_norm_oce_3d( p_diag%kin, &
-      & p_patch,    &
+      & p_patch,  p_patch_3D,  &
       & p_op_coeff%grad_coeff,&
       & p_diag%grad)
 
@@ -392,7 +393,8 @@ CONTAINS
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
-         IF(v_base%lsm_oce_e(je,jk,jb)<= boundary)THEN
+         !IF(v_base%lsm_oce_e(je,jk,jb)<= boundary)THEN
+         IF(p_patch_3D%lsm_oce_e(je,jk,jb)<= boundary)THEN
           !veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
           !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
           !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
@@ -424,13 +426,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !!  mpi parallelized LL
-  SUBROUTINE veloc_adv_horz_mimetic_div( p_patch,        &
+  SUBROUTINE veloc_adv_horz_mimetic_div( p_patch,p_patch_3D,   &
     & vn,             &
     & p_diag,         &
     & p_op_coeff,     &
     & veloc_adv_horz_e)
     !
     TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(inout)          :: vn(1:nproma,1:n_zlev,1:p_patch%nblks_e) ! dim: (nproma,n_zlev,nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
     TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
@@ -466,7 +469,8 @@ CONTAINS
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          IF(p_patch_3D%lsm_oce_e(je,jk,jb)<= boundary)THEN
             !Neighbouring cells
             il_c1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_c1 = p_patch%edges%vertex_blk(je,jb,1)
@@ -516,13 +520,13 @@ CONTAINS
 
 !     CALL map_cell2edges( p_patch, z_div_vec_c, veloc_adv_horz_e, &
 !       & opt_slev=slev, opt_elev=elev )
-    CALL map_cell2edges_3D( p_patch, z_div_vec_c, veloc_adv_horz_e,p_op_coeff)
+    CALL map_cell2edges_3D( p_patch,p_patch_3D, z_div_vec_c, veloc_adv_horz_e,p_op_coeff)
 
 
     !calculates the curl. This is needed in Laplace-beltrami operator (velocity diffusion).
     !It is not needed for velocity advection.
     !CALL rot_vertex_ocean( p_patch, vn, p_diag%p_vn_dual, p_diag%vort)
-      CALL rot_vertex_ocean_3D( p_patch,             &
+      CALL rot_vertex_ocean_3D( p_patch, p_patch_3D, &
                               & vn,                  &
                               & p_diag%p_vn_dual,    &
                               & p_op_coeff,          &
@@ -678,9 +682,10 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:p_patch%nblks_e)
@@ -714,20 +719,20 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
 
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_i => p_diag%inv_prism_center_dist_c(jc,:,jb)
+          del_zlev_i => p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
           !1a) ocean surface
           z_adv_u_i(jc,slev,jb)%x =               &
-          & p_diag%w(jc,slev,jb)*del_zlev_i(slev)*&  !/v_base%del_zlev_i(slev)
-          & (p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
+            & p_diag%w(jc,slev,jb)*&  !/v_base%del_zlev_i(slev)
+            & (p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)/del_zlev_i(slev)
 
           ! 1b) ocean interior
           DO jk = slev+1, z_dolic-1
             z_adv_u_i(jc,jk,jb)%x                  &
-            & = p_diag%w(jc,jk,jb)*del_zlev_i(jk)* & !/ v_base%del_zlev_i(jk)
-            &(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)
+             & = p_diag%w(jc,jk,jb)* & !/ v_base%del_zlev_i(jk)
+             &(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)/del_zlev_i(jk)
           END DO
           ! z_adv_u_i(jc,slev,jb)%x=0.0_wp!z_adv_u_i(jc,slev+1,jb)%x
         ENDIF
@@ -739,9 +744,9 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!  v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_i => p_diag%prism_center_dist_c(jc,:,jb)
+          del_zlev_i => p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
           DO jk = slev+1,z_dolic-1
             !This seems to work well
             !z_adv_u_m(jc,jk,jb)%x &
@@ -759,7 +764,7 @@ CONTAINS
     END DO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( p_patch, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
+    CALL map_cell2edges_3D( p_patch, p_patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
 
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
@@ -796,9 +801,10 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mim_rot_flux2( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mim_rot_flux2( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch%nblks_e)
@@ -839,10 +845,11 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
 
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_m=>p_diag%inv_prism_thick_c(jc,:,jb)
+          !del_zlev_m=>p_diag%inv_prism_thick_c(jc,:,jb)
+          del_zlev_m => p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
           DO jk = slev, z_dolic-1
             z_w_ave(jc,jk,jb) = 0.5_wp*       (p_diag%w(jc,jk,jb)+p_diag%w(jc,jk+1,jb))
             z_w_diff(jc,jk,jb)=del_zlev_m(jk)*(p_diag%w(jc,jk,jb)-p_diag%w(jc,jk+1,jb))
@@ -858,9 +865,10 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_i=>p_diag%inv_prism_center_dist_c(jc,:,jb)
+          !del_zlev_i=>p_diag%inv_prism_center_dist_c(jc,:,jb)
+          del_zlev_i => p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
           DO jk = slev,z_dolic-1
             !The last term is the correction term to the constructed flux form.
             !The result of this calculation lives on prism top or bottom.
@@ -881,9 +889,11 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_i=>p_diag%prism_center_dist_c(jc,:,jb)
+          !del_zlev_i=>p_diag%prism_center_dist_c(jc,:,jb)
+          del_zlev_i=>p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
+
           DO jk = slev,z_dolic-1!DO jk = slev+1,z_dolic-1
             !This seems to work well
             !z_adv_u_m(jc,jk,jb)%x &
@@ -905,7 +915,7 @@ CONTAINS
     END DO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( p_patch, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
+    CALL map_cell2edges_3D( p_patch,p_patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
 
 
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
@@ -944,9 +954,10 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_rot_flux( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_rot_flux( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch%nblks_e)
@@ -975,9 +986,10 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_m=>p_diag%inv_prism_thick_c(jc,:,jb)
+          !del_zlev_m=>p_diag%inv_prism_thick_c(jc,:,jb)
+          del_zlev_m=>p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
 
           DO jk = slev, z_dolic-1
             z_w_diff(jc,jk,jb)=del_zlev_m(jk)*(p_diag%w(jc,jk,jb)-p_diag%w(jc,jk+1,jb))
@@ -1002,7 +1014,7 @@ CONTAINS
       END DO
     END DO
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( p_patch, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
+    CALL map_cell2edges_3D( p_patch,p_patch_3D, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
 
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 
@@ -1040,9 +1052,10 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_div( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_div( p_patch,p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch%nblks_e)
@@ -1071,9 +1084,10 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        z_dolic = v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
-          del_zlev_m=>p_diag%inv_prism_thick_c(jc,:,jb)
+          !del_zlev_m=>p_diag%inv_prism_thick_c(jc,:,jb)
+          del_zlev_m=>p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
 
           DO jk = slev, z_dolic-1
             z_w_diff(jc,jk,jb)=del_zlev_m(jk)*(p_diag%w(jc,jk,jb)-p_diag%w(jc,jk+1,jb))
@@ -1096,7 +1110,7 @@ CONTAINS
       END DO
     END DO
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( p_patch, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
+    CALL map_cell2edges_3D( p_patch,p_patch_3D, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
 
     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
 

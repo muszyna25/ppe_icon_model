@@ -55,8 +55,8 @@ MODULE mo_scalar_product
   !  &                             land, land_boundary, boundary  &
     & min_rlcell, min_rledge , min_rlvert
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_oce_state,          ONLY: t_hydro_ocean_diag, v_base!, t_hydro_ocean_state
+  USE mo_model_domain,       ONLY: t_patch, t_patch_3D_oce
+  USE mo_oce_state,          ONLY: t_hydro_ocean_diag!, v_base!, t_hydro_ocean_state
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce !, ab_gam
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product,&
     & gvec2cvec, cvec2gvec
@@ -142,10 +142,11 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
     !!  mpi parallelized by LL
-  SUBROUTINE calc_scalar_product_veloc_3d( p_patch, vn_e_old, vn_e_new,&
+  SUBROUTINE calc_scalar_product_veloc_3d( p_patch,p_patch_3D, vn_e_old, vn_e_new,&
     & p_diag, p_op_coeff)
     
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch            ! patch on which computation is performed
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(in)      :: vn_e_old(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     TYPE(t_hydro_ocean_diag)  :: p_diag
@@ -166,11 +167,11 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-    CALL map_edges2vert_3d(p_patch, vn_e_old, p_op_coeff%edge2vert_coeff_cc, &
+    CALL map_edges2vert_3d(p_patch_3D%p_patch_2D(1), vn_e_old, p_op_coeff%edge2vert_coeff_cc, &
       & p_diag%p_vn_dual)
 
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
-    CALL map_edges2cell_3d(p_patch, vn_e_old, p_op_coeff, p_diag%p_vn)
+    CALL map_edges2cell_3d(p_patch_3D%p_patch_2D(1),p_patch_3D, vn_e_old, p_op_coeff, p_diag%p_vn)
 
     !--------------------------------------------------------------    
     DO jb = all_cells%start_block, all_cells%end_block
@@ -182,7 +183,8 @@ CONTAINS
       DO jk = slev, elev
         DO jc =  i_startidx_c, i_endidx_c
 
-          IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+          !IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+          IF(p_patch_3D%lsm_oce_c(jc,jk,jb) > sea_boundary)THEN
             p_diag%kin(jc,jk,jb) = 0.0_wp
           ELSE
             p_diag%kin(jc,jk,jb) = 0.5_wp * &
@@ -220,7 +222,7 @@ CONTAINS
     ! LL: no sync is required
     !--------------------------------------------------------------    
 
-    CALL map_cell2edges_3D( p_patch, p_diag%p_vn, p_diag%ptp_vn, p_op_coeff)
+    CALL map_cell2edges_3D( p_patch,p_patch_3D, p_diag%p_vn, p_diag%ptp_vn, p_op_coeff)
 
     CALL sync_patch_array(SYNC_E, p_patch, p_diag%ptp_vn)    
 
@@ -232,10 +234,11 @@ CONTAINS
   !>
   !!
   !! mpi parallelized by LL, openmp corrected
-  SUBROUTINE nonlinear_coriolis_3d(p_patch, vn, p_vn, p_vn_dual, h_e, vort_v, &
+  SUBROUTINE nonlinear_coriolis_3d(p_patch,p_patch_3D, vn, p_vn, p_vn_dual, h_e, vort_v, &
     & p_op_coeff, vort_flux)
 
-    TYPE(t_patch), TARGET, INTENT(in)         :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in)         :: p_patch 
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(inout)                   :: vn(nproma,n_zlev,p_patch%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn(nproma,n_zlev,p_patch%nblks_c)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
@@ -246,18 +249,9 @@ CONTAINS
 
     !Local variables
     !
-    REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary
-    !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
-    REAL(wp) :: zarea_fraction
-    REAL(wp) :: z_area_scaled
-
     INTEGER :: slev, elev     ! vertical start and end level
-    INTEGER :: jv, jk, jb, jev,je
-    INTEGER :: ile, ibe!, il, ib
+    INTEGER :: jk, jb, je
     INTEGER :: i_startidx_e, i_endidx_e
-
-    INTEGER :: icell_idx_1, icell_blk_1
-    INTEGER :: icell_idx_2, icell_blk_2
     INTEGER :: il_v1, il_v2, ib_v1, ib_v2
     TYPE(t_cartesian_coordinates) :: u_v1_cc, u_v2_cc
 
@@ -268,7 +262,7 @@ CONTAINS
     slev         = 1
     elev         = n_zlev
 
-    CALL rot_vertex_ocean_3d( p_patch, vn, p_vn_dual, p_op_coeff, vort_v)
+    CALL rot_vertex_ocean_3d( p_patch, p_patch_3D, vn, p_vn_dual, p_op_coeff, vort_v)
     CALL sync_patch_array(SYNC_V, p_patch, vort_v)
 
 
@@ -281,7 +275,8 @@ CONTAINS
 
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 
-          IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+          !IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+          IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
             !Get indices of two adjacent vertices
             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
@@ -353,10 +348,11 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_with_height_3d( p_patch, vn_e, p_op_coeff, p_vn_c, h_e,&
+  SUBROUTINE map_edges2cell_with_height_3d( p_patch,p_patch_3D, vn_e, p_op_coeff, p_vn_c, h_e,&
     & opt_slev, opt_elev, subset_range)
 
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
     TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
@@ -416,7 +412,9 @@ CONTAINS
               il_e = p_patch%cells%edge_idx(jc,jb,ie)
               ib_e = p_patch%cells%edge_blk(jc,jb,ie)
 
-              z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)
+              !z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)!
+              z_thick_e =p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(il_e,jk,ib_e)&
+              & + h_e(il_e,ib_e)  
               z_weight = z_weight + p_op_coeff%variable_vol_norm(jc,jk,jb,ie) * z_thick_e
 
               p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x&
@@ -447,7 +445,9 @@ CONTAINS
             il_e = p_patch%cells%edge_idx(jc,jb,ie)
             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
 
-            z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)
+            !z_thick_e =  v_base%del_zlev_m(slev) + h_e(il_e,ib_e)!
+            z_thick_e = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(il_e,slev,ib_e)&
+            & + h_e(il_e,ib_e) 
             z_weight = z_weight + p_op_coeff%variable_vol_norm(jc,slev,jb,ie) * z_thick_e
 
             p_vn_c(jc,slev,jb)%x = p_vn_c(jc,slev,jb)%x&
@@ -467,7 +467,7 @@ CONTAINS
         level_loop: DO jk = slev+1, elev
           cell_idx_loop: DO jc =  i_startidx_c, i_endidx_c
             p_vn_c(jc,jk,jb)%x = 0.0_wp
-            z_weight = 0.0_wp
+            !z_weight = 0.0_wp
             DO ie=1, no_cell_edges
 
               il_e = p_patch%cells%edge_idx(jc,jb,ie)
@@ -497,10 +497,11 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e, p_op_coeff, p_vn_c, opt_slev, opt_elev, &
+  SUBROUTINE map_edges2cell_no_height_3d( p_patch,p_patch_3D, vn_e, p_op_coeff, p_vn_c, opt_slev, opt_elev, &
     &                                     subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,nblks_c)
@@ -573,10 +574,11 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_no_h_3d_1vl( p_patch, vn_e,p_op_coeff, p_vn_c, level, &
+  SUBROUTINE map_edges2cell_no_h_3d_1vl( p_patch,p_patch_3D,vn_e,p_op_coeff, p_vn_c, level, &
     &  subset_range)
 
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
+TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
@@ -636,10 +638,11 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-  SUBROUTINE map_cell2edges_3D_mlevels( p_patch, p_vn_c, ptp_vn, p_op_coeff,&
+  SUBROUTINE map_cell2edges_3D_mlevels( p_patch,p_patch_3D, p_vn_c, ptp_vn, p_op_coeff,&
                                    & opt_slev, opt_elev, subset_range )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(out)                     :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                    :: p_op_coeff
@@ -685,8 +688,9 @@ CONTAINS
       level_loop_e: DO jk = slev, elev
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
           
-          IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-            
+          !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+
             !Get indices of two adjacent triangles
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -724,9 +728,10 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-  SUBROUTINE map_cell2edges_3D_1level( p_patch, p_vn_c, ptp_vn,p_op_coeff, level, subset_range )
+  SUBROUTINE map_cell2edges_3D_1level( p_patch,p_patch_3D, p_vn_c, ptp_vn,p_op_coeff, level, subset_range )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(out)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                    :: p_op_coeff
@@ -755,8 +760,8 @@ CONTAINS
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)          
       edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 
-        IF(v_base%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
-
+        !IF(v_base%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
+        IF(p_patch_3D%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -793,9 +798,10 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL, result not synced
-  SUBROUTINE map_cell2edges_2d( p_patch, p_vn_c, ptp_vn, p_op_coeff)
+  SUBROUTINE map_cell2edges_2d( p_patch,p_patch_3D, p_vn_c, ptp_vn, p_op_coeff)
     
     TYPE(t_patch), TARGET, INTENT(in)         :: p_patch        ! patch on which computation is performed
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c) 
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                    :: p_op_coeff
@@ -819,8 +825,8 @@ CONTAINS
       
       edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
         
-        IF(v_base%lsm_oce_e(je,1,jb) < sea_boundary)THEN
-          
+        !IF(v_base%lsm_oce_e(je,1,jb) < sea_boundary)THEN
+        IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN          
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
