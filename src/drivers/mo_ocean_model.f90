@@ -553,7 +553,7 @@ CONTAINS
     !CALL prepare_ho_integration(p_patch(1:), p_patch_3D,v_ocean_state, ext_data, v_sfc_flx, &
     !  &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff,p_int_state(1:))
     !The 3D-ocean version of previous calls 
-     CALL prepare_ho_integration(p_patch(1:), p_patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
+     CALL prepare_ho_integration(p_patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
       &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff)!,p_int_state(1:)) 
  
     !------------------------------------------------------------------
@@ -638,11 +638,10 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_model_init)
 
-    CALL perform_ho_stepping( p_patch_3D%p_patch_2D(1:),p_patch_3D, v_ocean_state,&!p_patch(1:), v_ocean_state,                   &
+    CALL perform_ho_stepping( p_patch_3D, v_ocean_state,&!p_patch(1:), v_ocean_state,                   &
       &                       ext_data, datetime, n_io,                     &
       &                       jfile,                                        &
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
-     ! &                       p_int_state(1:),                              &
       &                       v_sfc_flx,                                    &
       &                       v_params, p_as, p_atm_f,v_sea_ice,p_op_coeff,&
       &                       l_have_output)

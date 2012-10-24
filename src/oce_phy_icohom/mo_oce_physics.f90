@@ -148,10 +148,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !! mpi parallelized, syncs p_phys_param%K_tracer_h, p_phys_param%K_veloc_h
-  SUBROUTINE init_ho_params(  p_patch, p_patch_3D, p_phys_param )
-    TYPE(t_patch),TARGET, INTENT(IN)  :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
-    TYPE (t_ho_params)         :: p_phys_param
+  SUBROUTINE init_ho_params(  p_patch_3D, p_phys_param )
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE (t_ho_params)                          :: p_phys_param
 
     ! Local variables
     INTEGER  :: i, i_no_trac 
@@ -161,6 +160,9 @@ CONTAINS
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
     TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_patch), POINTER        :: p_patch 
+    !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_edges => p_patch%edges%all
     !-------------------------------------------------------------------------
@@ -220,8 +222,10 @@ CONTAINS
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
-             p_phys_param%K_veloc_h(je,:,jb) = &
-             &p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
+             p_phys_param%K_veloc_h(je,:,jb) = z_diff_multfac*0.5_wp*&
+             &maxval(p_patch%edges%primal_edge_length)*maxval(p_patch%edges%primal_edge_length)&
+             &*maxval(p_patch%edges%dual_edge_length)*maxval(p_patch%edges%dual_edge_length)
+             !&p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
           END DO
         END DO
 
@@ -234,12 +238,15 @@ CONTAINS
 !            END DO
 !          END DO
 
-write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),&
-&minval(p_phys_param%K_veloc_h(:,1,:))
+write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
+&minval(p_phys_param%K_veloc_h(:,1,:))!, &
+!&maxval(p_patch%edges%area_edge),minval(p_patch%edges%area_edge),&
+!&maxval(p_patch%edges%primal_edge_length),minval(p_patch%edges%primal_edge_length),&
+!&maxval(p_patch%edges%dual_edge_length),minval(p_patch%edges%dual_edge_length)
 
 
     ENDIF
-    CALL smooth_lapl_diff( p_patch, p_patch_3D, p_phys_param%K_veloc_h )
+    CALL smooth_lapl_diff( p_patch, p_patch_3D,  p_phys_param%K_veloc_h )
 
 
     DO i=1,no_tracer
@@ -566,11 +573,11 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !! mpi parallelized, sync required:
   !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
   SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density)
-    
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_sfc_flx),   INTENT(IN)     :: p_sfc_flx
-    TYPE(t_ho_params), INTENT(INOUT)  :: params_oce
+
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_hydro_ocean_state), TARGET           :: p_os
+    TYPE(t_sfc_flx),   INTENT(IN)               :: p_sfc_flx
+    TYPE(t_ho_params), INTENT(INOUT)            :: params_oce
     INTERFACE !This contains the function version of the actual EOS as chosen in namelist
       FUNCTION calc_density(tpot, sal, press) RESULT(rho)
         USE mo_kind, ONLY: wp
@@ -589,13 +596,14 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     INTEGER  :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_stabio(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-!   REAL(wp) :: buoyance_frequence
-    REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_rho_up(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_rho_down(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_Ri_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_Ri_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_stabio             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_shear_c            (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_rho_up             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_rho_down           (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+
 !    REAL(wp) :: dz_inv
 !    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
 !   REAL(wp) :: z_lambda_frac 
@@ -617,14 +625,13 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp) :: z_press!, z_frac
     REAL(wp) :: A_T_tmp!, A_v_tmp
     REAL(wp) :: z_s1, z_s2, density_grad_e, mean_z_r
-    REAL(wp) :: z_c(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_patch), POINTER :: p_patch
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
-    !-------------------------------------------------------------------------
+    TYPE(t_patch), POINTER        :: p_patch 
+    !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
-
+    !-------------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all

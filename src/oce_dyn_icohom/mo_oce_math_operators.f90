@@ -112,13 +112,13 @@ CONTAINS
     !INTEGER :: icell_idx_1, icell_blk_1
     !INTEGER :: icell_idx_2, icell_blk_2
 
-    INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
+    !INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
     INTEGER,PARAMETER :: ino_dual_edges = 6
     TYPE(t_subset_range), POINTER :: verts_in_domain
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
 
-    i_v_ctr(:,:,:) = 0
+    !i_v_ctr(:,:,:) = 0
     slev         = 1
     elev         = n_zlev
 
@@ -309,17 +309,14 @@ CONTAINS
   !! - abandon grid for the sake of patch
   !!Boundary handling for triangles by P. Korn (2009)
   !!  mpi note: the result is not synced. Should be done in the calling method if required
-  SUBROUTINE grad_fd_norm_oce_3d( psi_c, p_patch,p_patch_3D, grad_coeff, grad_norm_psi_e)
+  SUBROUTINE grad_fd_norm_oce_3d( psi_c, p_patch_3D, grad_coeff, grad_norm_psi_e)
 
     !  patch on which computation is performed
     !
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
-    REAL(wp), INTENT(in)              :: grad_coeff(:,:,:)
-    !  cell based variable of which normal derivative is computed
-    REAL(wp), INTENT(in)              ::  psi_c(:,:,:)       ! dim: (nproma,n_zlev,nblks_c)
-    !  edge based variable in which normal derivative is stored
-    REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:,:)  ! dim: (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(IN)                          :: grad_coeff(:,:,:)!(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(INOUT)                       :: grad_norm_psi_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 
     !
     !Local variables
@@ -331,8 +328,9 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: edges_in_domain
-
+    TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
 
     slev = 1
@@ -709,34 +707,33 @@ CONTAINS
   !! does the tangential velocity calculate from velocity vector at vertices (p_vn_dual), while RBF uses
   !! a specific routine for that purpose.
   !!   mpi note: the results is not synced. should be done by the calling method if necessary
-  SUBROUTINE rot_vertex_ocean_3d( p_patch,p_patch_3D, vn, p_vn_dual, p_op_coeff, rot_vec_v)
+  SUBROUTINE rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
-    TYPE(t_patch), TARGET, INTENT(in)         :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
     REAL(wp), INTENT(in)                      :: vn(:,:,:)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),TARGET, INTENT(in) :: p_op_coeff
-    REAL(wp), INTENT(inout)                   :: rot_vec_v(:,:,:)
+    REAL(wp), INTENT(inout)                   :: rot_vec_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
 
     !Local variables
     !
     REAL(wp) :: z_vort_int
-    REAL(wp) :: z_vort_boundary(nproma,n_zlev,p_patch%nblks_v)
+    REAL(wp) :: z_vort_boundary(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: slev, elev
     INTEGER :: jv, jk, jb, jev
     INTEGER :: ile, ibe
     INTEGER :: il_v1, il_v2,ib_v1, ib_v2
     INTEGER :: i_startidx_v, i_endidx_v
 
-    REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
-    !INTEGER,PARAMETER :: ino_dual_edges = 6
+    REAL(wp) :: z_vt(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     INTEGER, POINTER :: ibnd_edge_idx(:,:,:,:), ibnd_edge_blk(:,:,:,:), i_edge_idx(:,:,:,:)
     REAL(wp), POINTER :: z_orientation(:,:,:,:)
 
     TYPE(t_subset_range), POINTER :: verts_in_domain
-
+    TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
     verts_in_domain => p_patch%verts%in_domain
     slev         = 1
     elev         = n_zlev
@@ -1404,10 +1401,9 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL
   !!
-  SUBROUTINE height_related_quantities( p_patch, p_patch_3D, p_os, p_ext_data)
+  SUBROUTINE height_related_quantities( p_patch_3D, p_os, p_ext_data)
     !
     ! Patch on which computation is performed
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     !
     ! Type containing ocean state
@@ -1428,6 +1424,7 @@ CONTAINS
     INTEGER, PARAMETER :: upwind          = 2
 
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
+    TYPE(t_patch), POINTER        :: p_patch
 
     !TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0
     !TYPE(t_cartesian_coordinates)    :: cc_c1, cc_c2, cc_e0
@@ -1436,7 +1433,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-
+    p_patch => p_patch_3D%p_patch_2D(1)
     ! sync before run
     CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
 
@@ -1463,8 +1460,11 @@ CONTAINS
 
             !p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
             !  &  + v_base%zlev_i(v_base%dolic_c(jc,jb)+1)
+!            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
+!              &  + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
+
             p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-              &  + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
+              &  + p_ext_data%oce%bathymetry_c(jc,jb)
           ELSE
             p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF

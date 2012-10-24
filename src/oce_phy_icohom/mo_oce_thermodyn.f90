@@ -1,5 +1,5 @@
 !>
-!! Provide an implementation of the ocean thermodynamics.
+!! Provide an implementation of the ocean thermodynamics
 !!
 !! Provide an implementation of the parameters used for the thermodynamics
 !! of the hydrostatic ocean model.
@@ -52,9 +52,8 @@ MODULE mo_oce_thermodyn
 !
 USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, EOS_TYPE, no_tracer
-USE mo_model_domain,        ONLY: t_patch,t_patch_3D_oce
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
 USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
-!USE mo_oce_state,           ONLY: v_base
 !USE mo_exception,           ONLY: message, finish
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
 USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_T, b_S, &
@@ -164,10 +163,9 @@ CONTAINS
   !!  - division by rho_ref included
   !!  mpi parallelized LL (no sync required)
 
-  SUBROUTINE calc_internal_press_new(p_patch, p_patch_3D,trac_t, trac_s, h, calc_density, press_hyd)
+  SUBROUTINE calc_internal_press_new(p_patch_3D, trac_t, trac_s, h, calc_density, press_hyd)
   !
-  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
   REAL(wp),    INTENT(IN)       :: trac_t   (:,:,:)  !temperature
   REAL(wp),    INTENT(IN)       :: trac_s   (:,:,:)  !salinity
   REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
@@ -187,9 +185,11 @@ END INTERFACE
   INTEGER :: slev, end_lev     ! vertical start and end level
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx, i_endidx
-  REAL(wp) :: z_box, z_press, z_rho_up, z_rho_down
+  REAL(wp) :: z_full, z_box, z_press, z_rho_up, z_rho_down
   TYPE(t_subset_range), POINTER :: all_cells
-
+  TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
@@ -266,25 +266,28 @@ END INTERFACE
   !!  - division by rho_ref included
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE calc_internal_press(p_patch, p_patch_3D, rho, prism_thick_c, h, press_hyd)
+  SUBROUTINE calc_internal_press(p_patch_3D, rho, prism_thick_c, h, press_hyd)
   !
-  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-  REAL(wp), INTENT(IN)              :: rho      (1:nproma,1:n_zlev,p_patch%nblks_c)  !< density
-  REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev,p_patch%nblks_c)
-  REAL(wp), INTENT(IN)              :: h        (1:nproma,p_patch%nblks_c)           !< surface elevation at cells
-  REAL(wp), INTENT(INOUT)           :: press_hyd(1:nproma,1:n_zlev,p_patch%nblks_c)  !< hydrostatic pressure
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  REAL(wp), INTENT(IN)              :: rho          (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< density
+  REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(IN)              :: h            (1:nproma, p_patch_3D%p_patch_2D(1)%nblks_c)           !< surface elevation at cells
+  REAL(wp), INTENT(INOUT)           :: press_hyd    (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< hydrostatic pressure
 
   ! local variables:
   !CHARACTER(len=max_char_length), PARAMETER :: &
   !       & routine = (this_mod_name//':calc_internal_pressure')
   INTEGER :: slev, end_lev     ! vertical start and end level
   INTEGER :: jc, jk, jb
-  INTEGER :: i_startidx, i_endidx
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   REAL(wp) :: z_full, z_box
   REAL(wp), POINTER :: del_zlev_m(:)
   REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv*grav
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
@@ -314,9 +317,7 @@ END INTERFACE
         DO jk = slev, end_lev
           IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             del_zlev_m => prism_thick_c(jc,:,jb)
-            z_box               = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
-            !z_box                = v_base%del_zlev_m(jk)*rho(jc,jk,jb)
-
+            z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
 
             press_hyd(jc,jk,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv
             ! rho_inv*grav  !hydrostatic press at level jk
@@ -342,17 +343,19 @@ END INTERFACE
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
-  SUBROUTINE calc_density(p_patch,p_patch_3D, tracer, rho)
+  SUBROUTINE calc_density(p_patch_3D,tracer, rho)
   !
   !!
-  TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-  REAL(wp),    INTENT(IN)  , TARGET :: tracer(:,:,:,:)     !< input of S and T
-  REAL(wp), INTENT(INOUT)  , TARGET :: rho   (:,:,:)       !< density
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  REAL(wp),    INTENT(IN), TARGET             :: tracer(:,:,:,:)     !< input of S and T
+  REAL(wp), INTENT(INOUT), TARGET             :: rho   (:,:,:)       !< density
 
   ! local variables:
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !      & routine = (this_mod_name//':calc_density')
+   TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
   !---------------------------------------------------------------------
   ! CALL message (TRIM(routine), 'start')
 
@@ -360,11 +363,11 @@ END INTERFACE
    !internally.
    SELECT CASE (EOS_TYPE)
      CASE(1)
-       CALL calc_density_lin_EOS(p_patch,p_patch_3D, tracer, rho)
+       CALL calc_density_lin_EOS(p_patch_3D, tracer, rho)
      CASE(2)
-       CALL calc_density_MPIOM(p_patch,p_patch_3D, tracer, rho)
+       CALL calc_density_MPIOM(p_patch_3D, tracer, rho)
      CASE(3)
-       CALL calc_density_JMDWFG06_EOS(p_patch,p_patch_3D, tracer, rho)
+       CALL calc_density_JMDWFG06_EOS(p_patch_3D, tracer, rho)
        !CALL calc_density_JM_EOS(p_patch, tracer, rho)
      CASE DEFAULT
 
@@ -382,11 +385,10 @@ END INTERFACE
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
   !!  mpi parallelized LL
-  SUBROUTINE  calc_density_lin_EOS(p_patch, p_patch_3D, tracer, rho)
+  SUBROUTINE  calc_density_lin_EOS(p_patch_3D, tracer, rho)
   !
   !!
-  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
   REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)     !< input of S and T
   REAL(wp), INTENT(INOUT)       :: rho   (:,:,:)       !< density
 
@@ -394,6 +396,9 @@ END INTERFACE
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   all_cells => p_patch%cells%all
 
@@ -462,7 +467,7 @@ END INTERFACE
 
   !---------------------------------------------------------------------------
   !!  mpi parallelized LL (no sync required)
-   SUBROUTINE calc_density_JMDWFG06_EOS(p_patch,p_patch_3D, tracer, rho)
+   SUBROUTINE calc_density_JMDWFG06_EOS(p_patch_3D, tracer, rho)
 !
 ! !DESCRIPTION:
 !
@@ -490,11 +495,9 @@ END INTERFACE
 ! !REVISION HISTORY:
 ! implemented by Peter Herrmann (2009)
 !
-    TYPE(t_patch), TARGET         :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-    REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)
-    !REAL(wp)                      :: dz(:)
-    REAL(wp), INTENT(INOUT)       :: rho(:,:,:)       !< density
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    REAL(wp),    INTENT(IN)                    :: tracer(:,:,:,:)
+    REAL(wp), INTENT(INOUT)                    :: rho(:,:,:)       !< density
 
 ! !LOCAL VARIABLES:
   REAL(wp)::  z_p
@@ -502,6 +505,9 @@ END INTERFACE
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
 !-------------------------------------------------------------------------------------------------------
 !write(*,*)'inside EOS 06' 
   all_cells => p_patch%cells%all
@@ -579,7 +585,7 @@ END INTERFACE
     REAL(wp)                   :: rho       !< density
 
 ! EOS variables, following the naming of the MITgcm implementation
-    REAL (wp)  :: t1, t2, s1, p1, rhoNum, sp5, p1t1, den, rhoDen
+    REAL (wp)  :: locPres, t1, t2, s1, p1, rhoNum, sp5, p1t1, den, rhoDen
 !-------------------------------------------------------------------------------------------------------
 !write(*,*)'inside EOS 06' 
 
@@ -643,12 +649,11 @@ END INTERFACE
   !! the AWI Finite-Volume model. 
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE calc_density_JM_EOS(p_patch, p_patch_3D, tracer, rho)
+  SUBROUTINE calc_density_JM_EOS(p_patch_3D, tracer, rho)
   !
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-  REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)  
-  REAL(wp), INTENT(OUT)         :: rho(:,:,:) 
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  REAL(wp),    INTENT(IN)                     :: tracer(:,:,:,:)  
+  REAL(wp), INTENT(OUT)                       :: rho(:,:,:) 
 
   ! local variables:              
   REAL(wp) :: z_t
@@ -658,6 +663,9 @@ END INTERFACE
   INTEGER  :: jc, jk, jb
   INTEGER  :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
   !---------------------------------------------------------------------------
   all_cells => p_patch%cells%all
 
@@ -722,7 +730,7 @@ END SUBROUTINE calc_density_JM_EOS
 
   !----------------------------------------------------------------
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE calc_density_MPIOM(p_patch, p_patch_3D, tracer, rho)
+  SUBROUTINE calc_density_MPIOM(p_patch_3D, tracer, rho)
 !
 ! !DESCRIPTION:
 !
@@ -733,19 +741,21 @@ END SUBROUTINE calc_density_JM_EOS
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch), TARGET         :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-    REAL(wp), INTENT(IN)          :: tracer(:,:,:,:)
-    REAL(wp), INTENT(INOUT)       :: rho(:,:,:)       !< density
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    REAL(wp), INTENT(IN)                          :: tracer(:,:,:,:)
+    REAL(wp), INTENT(INOUT)                       :: rho(:,:,:)       !< density
 
 ! !LOCAL VARIABLES:
 ! loop indices
   REAL(wp):: z_p
   INTEGER :: jc, jk, jb
-  !INTEGER :: rl_start, rl_end
-  INTEGER :: i_startidx, i_endidx
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
- !-------------------------------------------------------------------------------------------------------
+  TYPE(t_patch), POINTER        :: p_patch 
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
+ !-------------------------------------------------------------------------
   all_cells => p_patch%cells%all
  !i_len      = SIZE(dz)
 
@@ -847,7 +857,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 
   !-------------------------------------------------------------------------------------
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE convert_insitu2pot_temp(p_patch,p_patch_3D, temp_insitu, sal, temp_pot)
+  SUBROUTINE convert_insitu2pot_temp(p_patch_3D, rho_ref, temp_insitu, sal, temp_pot)
 !
 ! !DESCRIPTION:
 !
@@ -857,8 +867,8 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch), TARGET         :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    REAL(wp)                      :: rho_ref
     REAL(wp)                      :: temp_insitu(:,:,:)
     REAL(wp)                      :: sal(:,:,:)
     REAL(wp)                      :: temp_pot(:,:,:)
@@ -869,7 +879,10 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
- !-------------------------------------------------------------------------------------------------------
+  TYPE(t_patch), POINTER        :: p_patch 
+  !-----------------------------------------------------------------------
+  p_patch   => p_patch_3D%p_patch_2D(1)
+  !-------------------------------------------------------------------------------------------------------
   all_cells => p_patch%cells%all
 
    DO jb = all_cells%start_block, all_cells%end_block
@@ -922,7 +935,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
 
 !-------------------------------------------------------------------------------------
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE convert_pot_temp2insitu(p_patch,p_patch_3D, trac_t, trac_s, temp_insitu)
+  SUBROUTINE convert_pot_temp2insitu(p_patch_3D,trac_t, trac_s, temp_insitu)
 !
 ! !DESCRIPTION:
 !
@@ -931,12 +944,11 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
-!
-    TYPE(t_patch), TARGET         :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-    REAL(wp)                      :: trac_t(:,:,:)
-    REAL(wp)                      :: trac_s(:,:,:)
-    REAL(wp)                      :: temp_insitu(:,:,:)
+
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    REAL(wp)                                    :: trac_t(:,:,:)
+    REAL(wp)                                    :: trac_s(:,:,:)
+    REAL(wp)                                    :: temp_insitu(:,:,:)
 
 ! !LOCAL VARIABLES:
 ! loop indices
@@ -944,7 +956,10 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx, i_endidx
   TYPE(t_subset_range), POINTER :: all_cells
- !-------------------------------------------------------------------------------------------------------
+  TYPE(t_patch), POINTER        :: p_patch 
+  !-----------------------------------------------------------------------
+  p_patch   => p_patch_3D%p_patch_2D(1)
+  !-------------------------------------------------------------------------------------------------------
   all_cells => p_patch%cells%all
 
   DO jb = all_cells%start_block, all_cells%end_block

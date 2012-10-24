@@ -1,5 +1,5 @@
 !>
-!! Provide an implementation of the ocean forcing.
+!! Provide an implementation of the ocean forcing.  
 !!
 !! Provide an implementation of the parameters used for surface forcing
 !! of the hydrostatic ocean model.
@@ -54,12 +54,10 @@ USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc, &
   &                               wstress_coeff, iforc_stat_oce, basin_height_deg
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
 USE mo_util_dbg_prnt,       ONLY: dbg_print
-!USE mo_oce_state,           ONLY: v_base
 USE mo_exception,           ONLY: finish, message
 USE mo_math_constants,      ONLY: pi, deg2rad
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary
-USE mo_math_utilities,      ONLY: gvec2cvec!, cvec2gvec
-!USE mo_param_ice !,           ONLY: kice
+USE mo_math_utilities,      ONLY: gvec2cvec
 USE mo_sea_ice_types,       ONLY: t_sfc_flx
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -85,11 +83,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2011-09)
   !
-  SUBROUTINE init_sfcflx(p_patch, p_patch_3D, p_sfc_flx)
+  SUBROUTINE init_sfcflx(p_patch_3D, p_sfc_flx)
   !
-  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-  TYPE(t_sfc_flx)                   :: p_sfc_flx
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_sfc_flx)                             :: p_sfc_flx
 
   ! Local variables
   INTEGER :: jc, jb
@@ -104,6 +101,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER        :: p_patch 
+  !-----------------------------------------------------------------------
+  p_patch   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   CALL message(TRIM(routine), 'start' )
 

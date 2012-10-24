@@ -77,7 +77,7 @@ USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_dbg_nml,             ONLY: idbg_mxmn
-USE mo_oce_state,           ONLY: t_hydro_ocean_state!, v_base
+USE mo_oce_state,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, tmelt, tf, &
@@ -122,17 +122,16 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx(p_patch,p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
+  SUBROUTINE update_sfcflx(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
-    TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
-    TYPE(t_hydro_ocean_state)           :: p_os
-    TYPE(t_atmos_for_ocean)             :: p_as
-    TYPE(t_atmos_fluxes)                :: Qatm
-    TYPE(t_sea_ice)                     :: p_ice
-    TYPE(t_sfc_flx)                     :: p_sfc_flx
-    INTEGER, INTENT(IN)                 :: jstep
-    TYPE(t_datetime), INTENT(INOUT)     :: datetime
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_hydro_ocean_state)                   :: p_os
+    TYPE(t_atmos_for_ocean)                     :: p_as
+    TYPE(t_atmos_fluxes)                        :: Qatm
+    TYPE(t_sea_ice)                             :: p_ice
+    TYPE(t_sfc_flx)                             :: p_sfc_flx
+    INTEGER, INTENT(IN)                         :: jstep
+    TYPE(t_datetime), INTENT(INOUT)             :: datetime
     !
     ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
@@ -141,9 +140,9 @@ CONTAINS
     INTEGER  :: jc, jb, i, no_set, k
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
-    REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_c2(nproma,p_patch%nblks_c)
-    REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
+    REAL(wp) :: z_c (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: Tfw (nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_c)
 
     ! Local declarations for coupling:
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
@@ -154,8 +153,10 @@ CONTAINS
     INTEGER               :: field_shape(3)
     REAL(wp), ALLOCATABLE :: buffer(:,:)
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp 
-    !-------------------------------------------------------------------------
+    TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_cells => p_patch%cells%all
 
@@ -168,7 +169,7 @@ CONTAINS
 
     CASE (ANALYT_FORC)
 
-      CALL update_sfcflx_analytical(p_patch, p_patch_3D, p_os, p_sfc_flx)
+      CALL update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
     CASE (FORCING_FROM_FILE_FLUX)    !  12
 
@@ -232,7 +233,7 @@ CONTAINS
 
         END IF
 
-      END IF
+      END IF!IF (iforc_type == 5) THEN
 
       !
       ! use annual forcing-data:
@@ -284,7 +285,7 @@ CONTAINS
           jmon2=jmon1
         ENDIF
 
-      END IF
+      END IF!(iforc_len == 1)
 
       !
       ! OMIP data read in mo_ext_data into variable ext_data
@@ -315,7 +316,7 @@ CONTAINS
 
        ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
-      END IF
+      END IF!(iforc_type >= 1)
 
       IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
@@ -354,7 +355,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
         !---------------------------------------------------------------------
 
-      END IF
+      END IF!IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
       IF (iforc_type == 3) THEN
 
@@ -390,7 +391,7 @@ CONTAINS
 
         ENDIF
 
-      END IF
+      END IF !IF (iforc_type == 3) THEN
       
       ! this is used for "intermediate complexity flux forcing"
       IF (iforc_type == 4) THEN
@@ -453,7 +454,7 @@ CONTAINS
 
         ENDIF
 
-      END IF
+      END IF !IF (iforc_type == 4) THEN
 
       IF (temperature_relaxation == 2)  THEN
 
@@ -524,7 +525,7 @@ CONTAINS
         Qatm%counter = 2
         p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
         p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
-        CALL ice_slow(p_patch, p_patch_3D, p_os, p_ice, Qatm, p_sfc_flx)
+        CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
@@ -561,7 +562,7 @@ CONTAINS
           ENDDO
 
           ! for the setup with bulk and without sea ice the threshold for temperature is set to tf
-          WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) .LT. Tf)
+          WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) < Tf)
             p_os%p_prog(nold(1))%tracer(:,1,:,1) = Tf
           ENDWHERE
 
@@ -577,7 +578,7 @@ CONTAINS
 
         ENDIF
 
-      ENDIF  !  sea ice
+      ENDIF  ! IF (i_sea_ice >= 1) 
 
     CASE (FORCING_FROM_FILE_FIELD)                                    !  13
       ! 1) Read field data from file
@@ -757,7 +758,7 @@ CONTAINS
           ENDIF
           CALL set_ice_temp_winton(p_patch,p_ice,Tfw,Qatm)
           Qatm%counter = 1
-          CALL ice_slow(p_patch, p_patch_3D, p_os, p_ice, Qatm, p_sfc_flx)
+          CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS
@@ -1054,9 +1055,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
   !
-  SUBROUTINE update_sfcflx_from_atm_flx(p_patch, p_patch_3D, p_as, p_os, p_ice, Qatm, p_sfc_flx)
-    TYPE(t_patch),TARGET,         INTENT(IN)    :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+  SUBROUTINE update_sfcflx_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, Qatm, p_sfc_flx)
+
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
     TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
@@ -1070,12 +1071,14 @@ CONTAINS
 
     INTEGER :: jc, jb, i
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_evap(nproma,p_patch%nblks_c)
-    REAL(wp):: z_Q_freshwater(nproma,p_patch%nblks_c)
+    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp 
-    !-------------------------------------------------------------------------
+    TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------  
+    p_patch         => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
@@ -1153,8 +1156,7 @@ CONTAINS
 !          &/p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)&
           & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
           & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
-          & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)&
-          &-p_sfc_flx%forc_tracer_relax(jc,jb,2))
+          & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
 
         !calculate wind stress    
@@ -1197,12 +1199,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx_analytical(p_patch,p_patch_3D, p_os, p_sfc_flx)
+  SUBROUTINE update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
-  TYPE(t_hydro_ocean_state)             :: p_os
-  TYPE(t_sfc_flx)                       :: p_sfc_flx
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_hydro_ocean_state)                   :: p_os
+  TYPE(t_sfc_flx)                             :: p_sfc_flx
   !
   ! local variables
   INTEGER :: jc, jb
@@ -1216,13 +1217,16 @@ CONTAINS
                                      !=2.0: double gyre
                                      !=n.0: n-gyre
   REAL(wp) :: y_length               !basin extension in y direction in degrees
-  REAL(wp) :: z_T_init(nproma,p_patch%nblks_c)
+  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
   REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
   !-------------------------------------------------------------------------
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER :: p_patch
+  !-----------------------------------------------------------------------  
+  p_patch         => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   all_cells => p_patch%cells%all
 
@@ -1300,7 +1304,7 @@ CONTAINS
                  &        * sin(pi*p_patch_3D%p_patch_1D(1)%zlev_m(1)/4000.0_wp)
                  !   write(*,*)'z init',jc,jb,p_os%p_prog(nold(1))%tracer(jc,1,jb,1),&
                  !   &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-                 !   & * sin(pi*p_patch_3D%p_patch_1D(1)%zlev_m(1)/4000.0_wp)
+                 !   & * sin(pi*v_base%zlev_m(1)/4000.0_wp)
                ENDIF
                ! up to here z_init is identically initialized than temperature
 

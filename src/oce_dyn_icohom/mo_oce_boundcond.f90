@@ -100,10 +100,9 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!  mpi parallelized LL
   !!
-  SUBROUTINE top_bound_cond_horz_veloc( p_patch,p_patch_3D, p_os, p_op_coeff, p_sfc_flx, &
+  SUBROUTINE top_bound_cond_horz_veloc( p_patch_3D, p_os, p_op_coeff, p_sfc_flx, &
     & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
-    TYPE(t_patch), TARGET                      :: p_patch 
     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D 
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: p_os            ! ocean state variable
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
@@ -115,11 +114,13 @@ CONTAINS
     !Local variables
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_scale(nproma,p_patch%nblks_c)
+    REAL(wp):: z_scale(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_subset_range), POINTER :: all_cells   
+    TYPE(t_patch), POINTER        :: p_patch 
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !& routine = ('mo_oce_boundcond:top_bound_cond_veloc')
     !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
     !-----------------------------------------------------------------------
     
@@ -140,17 +141,17 @@ CONTAINS
 
     SELECT CASE (i_bc_veloc_top)
 
-   !CASE (0)
+   CASE (0)
 
    !  ! CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
-   !  DO jb = all_cells%start_block, all_cells%end_block
-   !    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-   !    DO jc = i_startidx_c, i_endidx_c
-   !      top_bc_u_c(jc,jb)    =0.0_wp
-   !      top_bc_v_c(jc,jb)    =0.0_wp
-   !      top_bc_u_cc(jc,jb)%x =0.0_wp
-   !    END DO
-   !  END DO
+     DO jb = all_cells%start_block, all_cells%end_block
+       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+       DO jc = i_startidx_c, i_endidx_c
+         top_bc_u_c(jc,jb)    =0.0_wp
+         top_bc_v_c(jc,jb)    =0.0_wp
+         top_bc_u_cc(jc,jb)%x =0.0_wp
+       END DO
+     END DO
 
     CASE (1) ! Forced by wind stress stored in p_sfc_flx
 
@@ -194,7 +195,7 @@ CONTAINS
       END DO
     END SELECT
 
-    CALL map_cell2edges_3D( p_patch,p_patch_3D, top_bc_u_cc,p_os%p_aux%bc_top_vn,p_op_coeff,  level=1)
+    CALL map_cell2edges_3D( p_patch_3D, top_bc_u_cc,p_os%p_aux%bc_top_vn,p_op_coeff,  level=1)
     CALL sync_patch_array(SYNC_E, p_patch_3D%p_patch_2D(1), p_os%p_aux%bc_top_vn)
 
     !---------Debug Diagnostics-------------------------------------------
@@ -223,9 +224,8 @@ CONTAINS
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
   !!  mpi parallelized LL
   !!
-  SUBROUTINE bot_bound_cond_horz_veloc( p_patch, p_patch_3D, p_os, p_phys_param, p_op_coeff)
+  SUBROUTINE bot_bound_cond_horz_veloc( p_patch_3D, p_os, p_phys_param, p_op_coeff)
     !
-    TYPE(t_patch), TARGET, INTENT(in)        :: p_patch         ! patch on which computation is performed
     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout) :: p_os            ! ocean state variable
     TYPE(t_ho_params), INTENT(in)            :: p_phys_param    ! physical parameters
@@ -239,16 +239,18 @@ CONTAINS
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: z_dolic, z_dolic_c1,z_dolic_c2
     REAL(wp) :: z_norm
-    REAL(wp) :: z_e(nproma,1,p_patch%nblks_e)
-    REAL(wp) :: z_depth(nproma,1,p_patch%nblks_e)
-    REAL(wp) :: z_div_depth(nproma,1,p_patch%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,1,p_patch%nblks_e)
+    REAL(wp)                      :: z_e        (nproma,1,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)                      :: z_depth    (nproma,1,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)                      :: z_div_depth(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    TYPE(t_cartesian_coordinates) :: z_grad_u   (nproma,1,p_patch_3D%p_patch_2D(1)%nblks_e)
     
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
-      
+    TYPE(t_patch), POINTER        :: p_patch 
+    !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
     !-----------------------------------------------------------------------
     all_cells       => p_patch%cells%all
     edges_in_domain => p_patch%edges%in_domain
@@ -287,7 +289,7 @@ CONTAINS
         END DO
       END DO
       
-      CALL map_cell2edges_2d( p_patch,p_patch_3D, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
+      CALL map_cell2edges_2d( p_patch_3D, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
       CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)
       
     CASE(2) !Bottom friction and topographic slope
@@ -355,7 +357,7 @@ CONTAINS
         END DO
       END DO
       
-      CALL map_cell2edges_2d( p_patch,p_patch_3D, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
+      CALL map_cell2edges_2d(p_patch_3D, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
       CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)
       
       !p_os%p_aux%bc_bot_vn(:,:) = p_os%p_aux%bc_bot_vn(:,:) - z_e(:,1,:)
@@ -493,8 +495,8 @@ CONTAINS
     REAL(wp) :: z_grad_h(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_u_times_gradh_c
     TYPE(t_cartesian_coordinates) :: z_grad_h_cc_vec(1:nproma,1,1:p_patch%nblks_c)
-    !REAL(wp) :: grad_h_u(1:nproma,1,1:p_patch%nblks_c)
-    !REAL(wp) :: grad_h_v(1:nproma,1,1:p_patch%nblks_c)
+    REAL(wp) :: grad_h_u(1:nproma,1,1:p_patch%nblks_c)
+    REAL(wp) :: grad_h_v(1:nproma,1,1:p_patch%nblks_c)
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !          & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
     !-----------------------------------------------------------------------

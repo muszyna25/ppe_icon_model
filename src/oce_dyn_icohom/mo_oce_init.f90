@@ -500,7 +500,7 @@ CONTAINS
     
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
-      CALL calc_scalar_product_veloc_3D( p_patch,p_patch_3D,&
+      CALL calc_scalar_product_veloc_3d( p_patch_3D,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_diag,            &
@@ -2230,8 +2230,8 @@ stop
        END DO
      END DO
 
-     CALL grad_fd_norm_oce_3D( z_kin,  &
-                          & p_patch, p_patch_3D,  &
+     CALL grad_fd_norm_oce_3d( z_kin,  &
+                          & p_patch_3D,  &
                           & grad_coeff,&
                           & z_grad)
 
