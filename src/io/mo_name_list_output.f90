@@ -781,7 +781,6 @@ CONTAINS
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
-        write(0,*)'JP: ',jp
         IF (.NOT. my_process_is_io()) THEN
           patch_info(jp)%p_pat_c    => p_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_patch(jp)%n_patch_cells_g-1)/nproma + 1
@@ -1251,9 +1250,30 @@ CONTAINS
 
       ! Check that at least one element with this name has been found
 
-      IF(.NOT. found_1) &
+      IF (.NOT. found_1) THEN
+
+        DO i = 1, nvar_lists
+          IF (my_process_is_stdio()) THEN
+            WRITE(message_text,'(3a, i2)') &
+                 'Variable list name: ',TRIM(var_lists(i)%p%name), &
+                 ' Patch: ',var_lists(i)%p%patch_id
+            CALL message('',message_text)
+            element => var_lists(i)%p%first_list_element
+            DO
+              IF(.NOT. ASSOCIATED(element)) EXIT
+              WRITE (message_text,'(a,a,l1,a,a)') &
+                   &     '    ',element%field%info%name,              &
+                   &            element%field%info%loutput, '  ',     &
+                   &            trim(element%field%info%cf%long_name)
+              CALL message('',message_text)
+              element => element%next_list_element
+            ENDDO
+          ENDIF
+        ENDDO
+        
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
-      
+      ENDIF
+
       ! append variable descriptor to list; append two different
       ! variables (X and Y) if we have a lon-lat interpolated variable
       ! defined on edges:
@@ -3505,9 +3525,6 @@ CONTAINS
     REAL(wp) :: sim_time
     INTEGER :: jg
 
-
-    print '(a,i0)','============================================ Hello from I/O PE ',p_pe
-
     ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
 
@@ -3563,7 +3580,6 @@ CONTAINS
 
     ! Finalization sequence:
 
-    print '(a,i0,a)','============================================ I/O PE ',p_pe,' shutting down'
     CALL close_name_list_output
 
     ! finalize meteogram output
