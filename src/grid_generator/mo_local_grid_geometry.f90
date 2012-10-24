@@ -46,7 +46,8 @@ MODULE mo_local_grid_geometry
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,  triangle_area, &
     & inter_section, t_geographical_coordinates, angle_of_vectors,  &
-    & sphere_cartesian_midpoint
+    & sphere_cartesian_midpoint, cartesian_to_geographical,         &
+    & geographical_to_cartesian
   USE mo_io_units,       ONLY: nnml, filename_max
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
@@ -61,7 +62,6 @@ MODULE mo_local_grid_geometry
 
   PUBLIC :: compute_sphere_geometry
   PUBLIC :: compute_sphere_grid_geometry
-  PUBLIC :: geographical_to_cartesian, cartesian_to_geographical
   PUBLIC :: order_cell_connectivity     ! Reorders the cell vertices, edges, neigbors
   PUBLIC :: get_cell_barycenters
   PUBLIC :: get_triangle_circumcenters
@@ -811,74 +811,6 @@ CONTAINS
   END SUBROUTINE order_cell_connectivity
   !-------------------------------------------------------------------------
     
-  !-------------------------------------------------------------------------
-  SUBROUTINE cartesian_to_geographical(cartesian, no_of_points, geo_coordinates )
-    TYPE(t_cartesian_coordinates), POINTER :: cartesian(:)
-    TYPE(t_geographical_coordinates), POINTER :: geo_coordinates(:)
-    INTEGER, INTENT(in) :: no_of_points
-
-    INTEGER :: i
-
-    IF (.NOT. ASSOCIATED(geo_coordinates)) THEN
-      ALLOCATE (geo_coordinates(no_of_points), stat=i)
-      IF (i >0) THEN
-        CALL finish ('cartesian_to_geographical', 'Problem in allocating local arrays')
-      ENDIF
-    ENDIF
-    
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i)
-    DO i=1,no_of_points
-        geo_coordinates(i) = cc2gc(cartesian(i))
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-    
-  END SUBROUTINE cartesian_to_geographical
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE geographical_to_cartesian(geo_coordinates, no_of_points, cartesian)
-    TYPE(t_geographical_coordinates), POINTER :: geo_coordinates(:)
-    TYPE(t_cartesian_coordinates), POINTER :: cartesian(:)
-    INTEGER, INTENT(in) :: no_of_points
-
-    INTEGER :: i
-    REAL(wp) :: cos_lat
-    REAL(wp) :: check
-
-    IF (.NOT. ASSOCIATED(cartesian)) THEN
-      ALLOCATE (cartesian(no_of_points), stat=i)
-      IF (i >0) THEN
-        CALL finish ('geographical_to_cartesian', 'Problem in allocating local arrays')
-      ENDIF
-    ENDIF
-
-
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i, cos_lat, check)
-    DO i=1,no_of_points
-      cos_lat           = COS(geo_coordinates(i)%lat)
-      cartesian(i)%x(1) = COS(geo_coordinates(i)%lon) * cos_lat
-      cartesian(i)%x(2) = SIN(geo_coordinates(i)%lon) * cos_lat
-      cartesian(i)%x(3) = SIN(geo_coordinates(i)%lat)
-
-      check = d_norma_3d(cartesian(i))
-      IF (ABS(check-1.0_wp) > 1.0e-8_wp) &
-        & CALL finish ('geographicalToCartesian', 'Error in calculation')
-
-      !    WRITE(*,*) i, " LonLat=", geoCoordinates(i)
-      !    WRITE(*,*) i, " Cart=", cartesian(i)
-
-    ENDDO ! i=1,noOfPoints
-!$OMP END DO
-!$OMP END PARALLEL
-
-    RETURN
-
-  END SUBROUTINE geographical_to_cartesian
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   SUBROUTINE get_celledge_vertices(in_grid_id, edge1, edge2, vertex1, common_vertex, vertex2)

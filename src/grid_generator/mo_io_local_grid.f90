@@ -678,7 +678,7 @@ CONTAINS
     !  read decompositions
     netcd_status = nf_inq_varid(ncid, 'cell_domain_id', varid)
     IF (netcd_status == nf_noerr) THEN
-      CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%get_domain_id(:,:)))
+      CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%domain_id(:,:)))
       CALL nf(nf_inq_varid(ncid, 'cell_no_of_domains', varid))
       CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%no_of_domains))
     ENDIF
@@ -1670,7 +1670,7 @@ CONTAINS
     CALL nf(nf_put_var_int   (ncid, varid_cell_sea_land_mask,&
       cells%sea_land_mask(1:no_of_cells)))
     CALL nf(nf_put_var_int   (ncid, varid_cell_domain_id,&
-      cells%get_domain_id(:,1:no_of_cells)))
+      cells%domain_id(:,1:no_of_cells)))
     CALL nf(nf_put_var_int   (ncid, varid_cell_no_of_domains,&
       cells%no_of_domains(:)))
     CALL nf(nf_put_var_double(ncid, varid15, verts%dual_area(1:no_of_verts)))
@@ -2019,7 +2019,7 @@ CONTAINS
     file_id = find_next_free_unit(100,1000)
     OPEN (file_id, FILE=TRIM(ascii_file_name),IOSTAT=error_status)
     DO cell_no = 1,cells%no_of_existcells
-      WRITE(file_id,*) cells%get_domain_id(decomposition_id, cell_no)
+      WRITE(file_id,*) cells%domain_id(decomposition_id, cell_no)
     ENDDO
     CLOSE(file_id)    
 

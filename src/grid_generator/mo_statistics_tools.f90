@@ -50,10 +50,22 @@ MODULE mo_statistics_tools
 
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
   PUBLIC :: new_statistic, delete_statistic
-  PUBLIC :: add_statistic_to, max_statistic_of, min_statistic_of
+  PUBLIC :: add_statistic_to, add_data_to
+  PUBLIC :: min, max, mean
+  PUBLIC :: max_statistic_of, min_statistic_of
   PUBLIC :: mean_statistic_of
 
   PUBLIC :: ADD_MAX_RATIO
+
+  PUBLIC :: new, delete
+  
+  PUBLIC :: t_statistic
+  !-------------------------------------------------------------------------
+  TYPE :: t_statistic
+      INTEGER :: id
+  END TYPE t_statistic
+  !-------------------------------------------------------------------------
+  
 
   !-------------------------------------------------------------------------
   ! Parameters
@@ -63,7 +75,7 @@ MODULE mo_statistics_tools
   !--------------------------------------------------------------
   ! TYPE definitions
   !> Basic statistics type
-  TYPE t_statistic
+  TYPE t_data_statistics
     LOGICAL  :: is_active
     INTEGER  :: no_of_values
     REAL(wp) :: sum_of_values
@@ -80,13 +92,13 @@ MODULE mo_statistics_tools
                           ! ADD_VALUE
                           ! ADD_MAX_RATIO, input twos values
     
-  END TYPE t_statistic
+  END TYPE t_data_statistics
 
   !--------------------------------------------------------------
   !> The maximum number of statistic objects.
   INTEGER, PARAMETER ::  max_no_of_statistic_objects = 50
   !> The array of the statistic objects.
-  TYPE(t_statistic), ALLOCATABLE, TARGET :: statistic_object(:)
+  TYPE(t_data_statistics), ALLOCATABLE, TARGET :: statistic_object(:)
   !> The number of allocated statistic objects.
   INTEGER :: no_of_allocated_statistics = 0        ! the size of the statistic objects array
   !> The number of actual active statistic objects.
@@ -94,6 +106,28 @@ MODULE mo_statistics_tools
   !> The maximum id of the active statistics
   INTEGER :: max_active_statistics
   !> True if the statistic object is active.
+  
+  INTERFACE new
+    MODULE PROCEDURE new_statistic_operator
+  END INTERFACE
+  INTERFACE delete
+    MODULE PROCEDURE delete_statistic_operator
+  END INTERFACE
+  
+  INTERFACE add_data_to
+    MODULE PROCEDURE add_data_one_value_real
+    MODULE PROCEDURE add_data_one_value_int
+  END INTERFACE
+  
+  INTERFACE min
+    MODULE PROCEDURE min_statistic
+  END INTERFACE
+  INTERFACE max
+    MODULE PROCEDURE max_statistic
+  END INTERFACE
+  INTERFACE mean
+    MODULE PROCEDURE mean_statistic
+  END INTERFACE
   
   INTERFACE new_statistic
     MODULE PROCEDURE new_statistic_no_bars
@@ -104,9 +138,33 @@ MODULE mo_statistics_tools
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
   END INTERFACE
+  
 
 CONTAINS
 
+
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE new_statistic_operator(statistic)
+    TYPE(t_statistic), INTENT(inout) :: statistic
+
+    statistic%id = new_statistic_no_bars()
+    
+  END SUBROUTINE new_statistic_operator
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE delete_statistic_operator(statistic)
+    TYPE(t_statistic), INTENT(inout) :: statistic
+
+    CALL delete_statistic(statistic%id)
+    statistic%id = -1
+    
+  END SUBROUTINE delete_statistic_operator
+  !-----------------------------------------------------------------------
+
+  
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
@@ -115,8 +173,6 @@ CONTAINS
     INTEGER,  INTENT(in) :: no_of_bars
     REAL(wp), INTENT(in) :: min_value, max_value
     INTEGER,  INTENT(in), OPTIONAL :: mode
-
-    INTEGER :: statistic_id
 
     IF (PRESENT(mode)) THEN
       new_statistic_with_bars = new_statistic(mode)
@@ -206,10 +262,29 @@ CONTAINS
     statistic_object(statistic_id)%is_active = .false.
     active_statistics = active_statistics - 1
     
-
   END SUBROUTINE delete_statistic
   !-----------------------------------------------------------------------
 
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE add_data_one_value_real(statistic, value)
+    TYPE(t_statistic), INTENT(inout) :: statistic
+    REAL(wp), INTENT(in) :: value
+    
+    CALL add_statistic_one_value(statistic%id, value)
+  END SUBROUTINE add_data_one_value_real
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE add_data_one_value_int(statistic, value)
+    TYPE(t_statistic), INTENT(inout) :: statistic
+    INTEGER, INTENT(in) :: value
+    
+    CALL add_statistic_one_value(statistic%id, REAL(value,wp))
+  END SUBROUTINE add_data_one_value_int
+  !-----------------------------------------------------------------------
+  
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_statistic_one_value(statistic_id, value)
@@ -256,6 +331,41 @@ CONTAINS
   
   END SUBROUTINE add_statistic_two_values
   !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  REAL(wp) FUNCTION min_statistic(statistic)
+    TYPE(t_statistic), INTENT(in) :: statistic
+    
+    CALL check_active_statistic_id(statistic%id)
+    min_statistic = statistic_object(statistic%id)%min_of_values
+
+  END FUNCTION min_statistic
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  REAL(wp) FUNCTION max_statistic(statistic)
+    TYPE(t_statistic), INTENT(in) :: statistic
+    
+    CALL check_active_statistic_id(statistic%id)
+    max_statistic = statistic_object(statistic%id)%max_of_values
+
+  END FUNCTION max_statistic
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  REAL(wp) FUNCTION mean_statistic(statistic)
+    TYPE(t_statistic), INTENT(in) :: statistic
+    
+    CALL check_active_statistic_id(statistic%id)
+    mean_statistic = statistic_object(statistic%id)%sum_of_values / &
+      & REAL(statistic_object(statistic%id)%no_of_values, wp)
+
+  END FUNCTION mean_statistic
+  !-----------------------------------------------------------------------
+  
   
   !-----------------------------------------------------------------------
   !>

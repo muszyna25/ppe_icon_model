@@ -66,6 +66,8 @@ MODULE mo_base_geometry
   PUBLIC :: rotate_z,rotate_x,rotate_y
   PUBLIC :: norma_of_vector_product
   PUBLIC :: x_rot_angle,y_rot_angle,z_rot_angle
+  PUBLIC :: middle
+  PUBLIC :: cartesian_to_geographical, geographical_to_cartesian
   PUBLIC :: operator(+), operator(-)
 
   TYPE t_cartesian_coordinates
@@ -98,18 +100,30 @@ MODULE mo_base_geometry
 CONTAINS
 
 
-  PURE FUNCTION add_cartesian(v1, v2) result(v)
+  !--------------------------------------------------------------------
+  ELEMENTAL FUNCTION add_cartesian(v1, v2) result(v)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v1, v2
     TYPE(t_cartesian_coordinates)  :: v
     v%x = v1%x + v2%x
   END FUNCTION add_cartesian
 
-  PURE FUNCTION subtract_cartesian(v1, v2) result(v)
+  ELEMENTAL FUNCTION subtract_cartesian(v1, v2) result(v)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v1, v2
     TYPE(t_cartesian_coordinates)  :: v
     v%x = v1%x - v2%x
   END FUNCTION subtract_cartesian
 
+  !--------------------------------------------------------------------
+  !>
+  ELEMENTAL FUNCTION middle(p1,p2)
+
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p1,p2
+    TYPE(t_cartesian_coordinates) :: middle
+
+    middle%x = (p1%x + p2%x) / 2.0_wp
+  
+  END FUNCTION middle
+  !--------------------------------------------------------------------
 
   !--------------------------------------------------------------------
   !>
@@ -162,6 +176,83 @@ CONTAINS
     END IF
 
   END FUNCTION cc2gc
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE cartesian_to_geographical(cartesian, no_of_points, geo_coordinates, &
+    & start_point, end_point )
+    TYPE(t_cartesian_coordinates), POINTER :: cartesian(:)
+    TYPE(t_geographical_coordinates), POINTER :: geo_coordinates(:)
+    INTEGER, INTENT(in) :: no_of_points
+    INTEGER, INTENT(in), OPTIONAL :: start_point, end_point
+
+    INTEGER :: i, start_p, end_p
+
+    IF (PRESENT(start_point)) THEN
+      start_p = start_point
+      end_p   = end_point
+    ELSE
+      start_p = 1
+      end_p   = no_of_points
+    ENDIF
+    IF (.NOT. ASSOCIATED(geo_coordinates)) THEN
+      ALLOCATE (geo_coordinates(start_p:end_p), stat=i)
+      IF (i >0) THEN
+        CALL finish ('cartesian_to_geographical', 'Problem in allocating local arrays')
+      ENDIF
+    ENDIF
+    
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i)
+    DO i=start_p, end_p
+        geo_coordinates(i) = cc2gc(cartesian(i))
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+    
+  END SUBROUTINE cartesian_to_geographical
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE geographical_to_cartesian(geo_coordinates, no_of_points, cartesian)
+    TYPE(t_geographical_coordinates), POINTER :: geo_coordinates(:)
+    TYPE(t_cartesian_coordinates), POINTER :: cartesian(:)
+    INTEGER, INTENT(in) :: no_of_points
+
+    INTEGER :: i
+    REAL(wp) :: cos_lat
+    REAL(wp) :: check
+
+    IF (.NOT. ASSOCIATED(cartesian)) THEN
+      ALLOCATE (cartesian(no_of_points), stat=i)
+      IF (i >0) THEN
+        CALL finish ('geographical_to_cartesian', 'Problem in allocating local arrays')
+      ENDIF
+    ENDIF
+
+
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i, cos_lat, check)
+    DO i=1,no_of_points
+      cos_lat           = COS(geo_coordinates(i)%lat)
+      cartesian(i)%x(1) = COS(geo_coordinates(i)%lon) * cos_lat
+      cartesian(i)%x(2) = SIN(geo_coordinates(i)%lon) * cos_lat
+      cartesian(i)%x(3) = SIN(geo_coordinates(i)%lat)
+
+      check = d_norma_3d(cartesian(i))
+      IF (ABS(check-1.0_wp) > 1.0e-8_wp) &
+        & CALL finish ('geographicalToCartesian', 'Error in calculation')
+
+      !    WRITE(*,*) i, " LonLat=", geoCoordinates(i)
+      !    WRITE(*,*) i, " Cart=", cartesian(i)
+
+    ENDDO ! i=1,noOfPoints
+!$OMP END DO
+!$OMP END PARALLEL
+
+    RETURN
+
+  END SUBROUTINE geographical_to_cartesian
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -220,7 +311,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Computes area of triangular cell on sphere
+  !! Computes area of triangular cell.
   !!
   !! @par Revision History
   !! Developed  by Luis Kornblueh  (2004).

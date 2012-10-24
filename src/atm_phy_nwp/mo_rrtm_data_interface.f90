@@ -50,7 +50,9 @@ MODULE mo_rrtm_data_interface
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydro_types,      ONLY: t_nh_diag
   
-  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, nproma
+  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
+    & nproma, division_method, ext_div_medial_redrad, ext_div_medial_redrad_cluster,       &
+    & div_from_file, use_icon_comm
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
     & get_my_mpi_work_communicator, p_bcast
@@ -69,6 +71,7 @@ MODULE mo_rrtm_data_interface
   PUBLIC :: destruct_rrtm_model_repart
   PUBLIC :: recv_rrtm_input, send_rrtm_output
   PUBLIC :: init_rrtm_data
+  PUBLIC :: radiation_owner
     
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
@@ -149,6 +152,7 @@ MODULE mo_rrtm_data_interface
 
   TYPE(t_rrtm_data), TARGET :: rrtm_model_data
     
+  INTEGER, POINTER :: radiation_owner(:)
 
 CONTAINS
 
@@ -159,7 +163,6 @@ CONTAINS
   SUBROUTINE construct_rrtm_model_repart(patch)
     TYPE(t_patch), INTENT(in), TARGET :: patch
 
-    INTEGER, POINTER :: radiation_owner(:)
     INTEGER :: my_radiation_cells
     
     INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
@@ -172,55 +175,67 @@ CONTAINS
       parallel_radiation_mode = 0
       RETURN
     ENDIF
-
+    
+    IF (.NOT.use_icon_comm) &
+      & CALL finish(method_name, "repartitioned radiation cannot be used without icon_comm")
+     
     my_mpi_work_id           = get_my_mpi_work_id()
     my_mpi_work_comm_size    = get_my_mpi_work_comm_size()
     workroot_mpi_id          = get_mpi_all_workroot_id()
     my_mpi_work_communicator = get_my_mpi_work_communicator()
 
-    ! NOTE: this global array should be eventully replaced by local arrays
-    !       this is a first implementation
-    ALLOCATE(radiation_owner(patch%n_patch_cells_g), STAT=return_status)
-    IF (return_status /= 0 ) &
-      CALL finish (method_name,'ALLOCATE(radiation_owner) failed')
+    SELECT CASE (division_method)
+    CASE(div_from_file) 
+      ! read the radiation re-distribution from file
+      
+      ! NOTE: this global array should be eventully replaced by local arrays
+      !       this is a first implementation
+      ALLOCATE(radiation_owner(patch%n_patch_cells_g), STAT=return_status)
+      IF (return_status /= 0 ) &
+        CALL finish (method_name,'ALLOCATE(radiation_owner) failed')
     
-    ! read the radiation re-distribution from file
-    IF (my_mpi_work_id == workroot_mpi_id) THEN
+      IF (my_mpi_work_id == workroot_mpi_id) THEN
 
-      ! read all the radiation owners and sent the info to each procs
-        
-      IF (radiation_division_file_name == "") THEN
-        radiation_division_file_name = &
-          & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
-      ENDIF
-        
-      WRITE(0,*) "Read radiation redistribution from file: ", TRIM(radiation_division_file_name), &
-        & " total cells=", patch%n_patch_cells_g
-      file_id = find_next_free_unit(10,900)
-      OPEN(file_id,FILE=TRIM(radiation_division_file_name), STATUS='OLD', IOSTAT=return_status)
-      IF(return_status /= 0) CALL finish(method_name,&
-        & 'Unable to open input file: '//TRIM(radiation_division_file_name))
-        
-      DO j = 1, patch%n_patch_cells_g
-        READ(file_id,*,IOSTAT=return_status) radiation_owner(j)
+        ! read all the radiation owners and sent the info to each procs
+          
+        IF (radiation_division_file_name == "") THEN
+          radiation_division_file_name = &
+            & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
+        ENDIF
+          
+        WRITE(0,*) "Read radiation redistribution from file: ", TRIM(radiation_division_file_name), &
+          & " total cells=", patch%n_patch_cells_g
+        file_id = find_next_free_unit(10,900)
+        OPEN(file_id,FILE=TRIM(radiation_division_file_name), STATUS='OLD', IOSTAT=return_status)
         IF(return_status /= 0) CALL finish(method_name,&
-          & 'Error reading: '//TRIM(radiation_division_file_name))
-      ENDDO
-      
-      CLOSE(file_id)
-
-      ! some checks
-      IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
-         & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
-        WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
-        & " MINAVAL=", MINVAL(radiation_owner(:)), &
-          " MAXVAL=",  MAXVAL(radiation_owner(:))
-        CALL finish(method_name,'Invalid redistribution')
+          & 'Unable to open input file: '//TRIM(radiation_division_file_name))
+          
+        DO j = 1, patch%n_patch_cells_g
+          READ(file_id,*,IOSTAT=return_status) radiation_owner(j)
+          IF(return_status /= 0) CALL finish(method_name,&
+            & 'Error reading: '//TRIM(radiation_division_file_name))
+        ENDDO        
+        CLOSE(file_id)
+        ! some checks
+        IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
+          & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
+          WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
+          & " MINAVAL=", MINVAL(radiation_owner(:)), &
+            " MAXVAL=",  MAXVAL(radiation_owner(:))
+          CALL finish(method_name,'Invalid redistribution')
+        ENDIF
+        
       ENDIF
       
-    ENDIF
+      CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
+    
+    CASE(ext_div_medial_redrad, ext_div_medial_redrad_cluster)      
+       !  radiation_owner should be already filled   
+    CASE DEFAULT
+      CALL finish(method_name, &
+        & 'value of division_method not compatible with redistributed radiation')
+    END SELECT
       
-    CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
 
     !-------------------------------
     ! get my radiation cells

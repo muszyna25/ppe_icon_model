@@ -79,7 +79,8 @@ MODULE mo_parallel_nml
     & config_max_no_of_comm_patt => max_no_of_comm_patterns,  &
     & config_sync_barrier_mode   => sync_barrier_mode,        &
     & config_max_mpi_message_size => max_mpi_message_size,    &
-    & config_use_physics_barrier  => use_physics_barrier
+    & config_use_physics_barrier  => use_physics_barrier,     &
+    & config_redrad_split_factor => redrad_split_factor
 
   IMPLICIT NONE
   PRIVATE
@@ -110,6 +111,7 @@ MODULE mo_parallel_nml
 
     CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
     CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if div_from_file
+    INTEGER :: redrad_split_factor
 
     ! Flag if (in case of merged domains) physical domains shall be considered for 
     ! computing the domain decomposition
@@ -197,7 +199,8 @@ MODULE mo_parallel_nml
       & use_sp_output, itype_exch_barrier, exch_msgsize, &
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
-      & sync_barrier_mode, max_mpi_message_size, use_physics_barrier
+      & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
+      & redrad_split_factor
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -213,6 +216,7 @@ MODULE mo_parallel_nml
     division_method = div_geometric
     division_file_name = ""
     radiation_division_file_name = ""
+    redrad_split_factor = config_redrad_split_factor
      
     ! Flag if (in case of merged domains) physical domains shall be considered for 
     ! computing the domain decomposition
@@ -323,6 +327,7 @@ MODULE mo_parallel_nml
     config_division_file_name  = division_file_name
     config_ldiv_phys_dom       = ldiv_phys_dom
     config_rad_division_file_name  = radiation_division_file_name
+    config_redrad_split_factor = redrad_split_factor
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run

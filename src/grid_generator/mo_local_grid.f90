@@ -391,7 +391,7 @@ MODULE mo_local_grid
 
     !> Holds the multiple domain ids for domain decompositions
     ! domain_id(max_decompositions, no_of_cells)
-    INTEGER, POINTER :: a_domain_id(:,:)
+    INTEGER, POINTER :: domain_id(:,:)
     !> The number of domains for each domain decompositions
     INTEGER, POINTER :: no_of_domains(:)
     
@@ -1235,7 +1235,7 @@ CONTAINS
       to_cells%child_index     (to_index,:) = from_cells%child_index     (i,:)
       to_cells%child_id        (to_index)   = from_cells%child_id        (i)
       to_cells%subgrid_id      (to_index)   = from_cells%subgrid_id      (i) + add_subgrid_id
-      to_cells%get_domain_id  (:,to_index)  = from_cells%get_domain_id (:,i)
+      to_cells%domain_id  (:,to_index)  = from_cells%domain_id (:,i)
 
     ENDDO
 !$OMP END DO
@@ -1543,9 +1543,9 @@ CONTAINS
     ist=ist+istat
     cells%area(:)=0.0_wp
 
-    ALLOCATE(cells%get_domain_id(max_decompositions, no_of_cells),stat=istat)
+    ALLOCATE(cells%domain_id(max_decompositions, no_of_cells),stat=istat)
     ist=ist+istat
-    cells%get_domain_id(:,:)=-1
+    cells%domain_id(:,:)=-1
     
     ALLOCATE(cells%no_of_domains(max_decompositions),stat=istat)
     ist=ist+istat
@@ -1918,7 +1918,7 @@ CONTAINS
     ist=ist+istat
     DEALLOCATE(cells%area,stat=istat)
     ist=ist+istat
-    DEALLOCATE(cells%a_domain_id,stat=istat)
+    DEALLOCATE(cells%domain_id,stat=istat)
     ist=ist+istat
     DEALLOCATE(cells%no_of_domains,stat=istat)
     ist=ist+istat

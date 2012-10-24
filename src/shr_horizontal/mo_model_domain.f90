@@ -284,6 +284,10 @@ MODULE mo_model_domain
     ! Global array of owners
     INTEGER, ALLOCATABLE :: owner_g(:)
     
+    ! The owner when running the radiation
+    ! only used whit redistriuted radiation
+    INTEGER, POINTER :: radiation_owner(:)
+    
     ! Please note that the following array is only needed on local parent patches
     ! for storing the corresponding variable from nh_metrics.
     ! It is not allocated/deallocated with the regular patch (de)allocation routines

@@ -45,8 +45,8 @@ MODULE mo_grid_checktools
   USE mo_local_grid
   USE mo_io_local_grid
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
-    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area!, sphere_tanget_coordinates
-  USE mo_math_constants, ONLY: rad2deg, deg2rad
+    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area, middle, angle_of_points
+  USE mo_math_constants, ONLY: rad2deg, deg2rad, pi
   USE mo_local_grid_geometry,  ONLY: edges_cell_angle, edges_normal_angle, no_angle, &
     & get_cell_barycenters
     !, get_triangle_circumcenters, geographical_to_cartesian
@@ -409,7 +409,7 @@ CONTAINS
     TYPE(t_grid_vertices), POINTER :: verts
     INTEGER :: edge_no
     INTEGER :: vert1,vert2, cell1, cell2
-    REAL(wp):: min_prime_edge, min_dual_edge, max_prime_edge, max_dual_edge
+    REAL(wp):: min_prime_edge, min_dual_edge, mean_dual_edge, max_prime_edge, max_dual_edge
     REAL(wp):: area_ratio, max_min_cell_area, max_min_dual_area, max_edge_cell_ratio
     TYPE(t_cartesian_coordinates) :: x1,x2,x3,v1,v2,v3,v4,v5,vn
     TYPE(t_cartesian_coordinates) :: x_unit,y_unit,z_unit,xy
@@ -603,6 +603,7 @@ CONTAINS
 
     min_dual_edge  = min_statistic_of(dual_edge_stat)
     max_dual_edge  = max_statistic_of(dual_edge_stat)
+    mean_dual_edge  = mean_statistic_of(dual_edge_stat)
     
     WRITE(0,*) "Adjacent dual max area ratio:", max_min_dual_area
     WRITE(0,*) "Adjacent cell max area ratio:", max_min_cell_area
@@ -622,10 +623,12 @@ CONTAINS
     CALL delete_statistic(edge_cell_offcenter_stat)
     CALL delete_statistic(dual_edge_stat)
    
-    WRITE(latex_file_e, '( " & ", f6.3, " & ", f6.3," & ",f6.3, " & ",f6.3, " & ",f6.3)',&
+    WRITE(latex_file_e, '( " & ", f6.2, " & ", f6.3, " & ", f6.3, " & ", &
+      & f6.3," & ", f6.1, " & ", f6.1, " & ",f6.3, " & ",f6.3)',&
       advance='no')  &
-      & max_min_cell_area, max_min_dual_area, &
-      & max_prime_edge/min_prime_edge, max_dual_edge/min_dual_edge, &
+      & mean_dual_edge/1000.0_wp, max_min_cell_area, max_min_dual_area, &
+      & max_prime_edge/min_prime_edge, min_dual_edge/1000.0_wp, max_dual_edge/1000.0_wp, &
+      & max_dual_edge/min_dual_edge, &
       & max_edge_cell_offcenter
 
   END SUBROUTINE check_grid_geometry_edges
@@ -638,9 +641,11 @@ CONTAINS
     TYPE(t_grid), POINTER :: in_grid
     TYPE(t_grid_cells), POINTER :: cells
     TYPE(t_grid_edges), POINTER :: edges
-!    TYPE(t_grid_vertices), POINTER :: verts
+    TYPE(t_grid_vertices), POINTER :: verts
+    
     INTEGER :: no_of_cells
-    INTEGER :: cell_no,edge,k,max_no_of_vertices
+    INTEGER :: cell_no, edge, k, max_no_of_vertices
+    INTEGER :: this_vertex, prev_vertex, next_vertex
 
     REAL(wp):: angle,min_cell_angle, max_cell_angle, ratio
     REAL(wp):: max_edge_ratio, max_prime_edge_cell, min_prime_edge_cell
@@ -649,15 +654,20 @@ CONTAINS
     INTEGER :: min_cell_angle_idx, max_cell_angle_idx
 
     TYPE(t_cartesian_coordinates), POINTER :: barycenters(:)
+    TYPE(t_cartesian_coordinates) :: p1, p2
     REAL(wp):: max_centers_diff, centers_diff
     REAL(wp):: max_area, min_area
     REAL(wp):: edge_cell_length, max_cell_edge_cell_length, min_cell_edge_cell_length
     REAL(wp):: max_edge_cell_length_ratio, max_centers_diff_ratio
 
+    TYPE(t_statistic) :: cell_edge_centers_angle_stats
+
+    CALL new(cell_edge_centers_angle_stats)
+
     in_grid => get_grid(in_grid_id)
     cells => in_grid%cells
     edges => in_grid%edges
-!    verts => in_grid%verts
+    verts => in_grid%verts
     no_of_cells = cells%no_of_existcells
     max_no_of_vertices =cells%max_no_of_vertices
 
@@ -715,10 +725,28 @@ CONTAINS
           ENDIF
           max_cell_edge_cell_length = MAX(max_cell_edge_cell_length,edge_cell_length)
           min_cell_edge_cell_length = MIN(min_cell_edge_cell_length,edge_cell_length)
-          
+
      !     print *, "max/min dual", max_dual_edge, min_dual_edge
         ENDIF
 
+        ! get statistics for the angle between the:
+        !   center of this edge, cell circumcenter, enter of next edge
+        this_vertex = cells%get_vertex_index(cell_no, k)
+        IF (k == 1) THEN
+          prev_vertex = cells%get_vertex_index(cell_no, max_no_of_vertices)
+        ELSE
+          prev_vertex = cells%get_vertex_index(cell_no, k-1)
+        ENDIF
+        IF (k == max_no_of_vertices) THEN
+          next_vertex = cells%get_vertex_index(cell_no, 1)
+        ELSE
+          next_vertex = cells%get_vertex_index(cell_no, k+1)
+        ENDIF
+        p1 = middle(verts%cartesian(prev_vertex), verts%cartesian(this_vertex))
+        p2 = middle(verts%cartesian(this_vertex), verts%cartesian(next_vertex))
+        angle = angle_of_points(p1, cells%cartesian_center(cell_no), p2)     
+        CALL add_data_to(cell_edge_centers_angle_stats, angle)
+      
       ENDDO  ! k=1,max_no_of_vertices
 
       max_edge_cell_length_ratio = MAX(max_edge_cell_length_ratio, &
@@ -754,20 +782,26 @@ CONTAINS
 
     ENDDO ! cell_no=1,no_of_cells
 
+    write(0,*) 'sphere_radius:', in_grid%sphere_radius
     write(0,*) 'Max barycenter-center distance:', max_centers_diff *  in_grid%sphere_radius
     write(0,*) 'Min/Max cell area:', min_area, max_area, max_area/min_area
     write(0,*) 'Min/Max cell angle:', min_cell_angle * rad2deg, max_cell_angle * rad2deg
     write(0,*) 'cell max_edge_ratio:', min_prime_edge_cell, max_prime_edge_cell, max_edge_ratio
     write(0,*) 'cell max_dualedge_ratio:', &
       & min_dual_edge_cell, max_dual_edge_cell, max_dualedge_ratio
+    write(0,*) 'cell_edge_centers_angle_stats:', min(cell_edge_centers_angle_stats) * rad2deg, &
+      & max(cell_edge_centers_angle_stats) * rad2deg
 
     DEALLOCATE(barycenters)
 
-    WRITE(latex_file_c, '( " & ", f6.3, " & ", f6.3," & ",&
+    WRITE(latex_file_c, '( " & ", i7, " & ", f6.1," & ", f6.3, " & ", f6.3," & ",&
       & f6.3 ," & ",f6.3, " & ",f8.2," & ",f6.3)', &
-      & advance='no')  &
+      & advance='no')  no_of_cells, &
+      & (2._wp * SQRT(pi) * in_grid%sphere_radius) / (1000._wp * SQRT(REAL(no_of_cells,wp))), &
       & max_area/min_area, max_edge_ratio, max_dualedge_ratio, max_edge_cell_length_ratio, &
       & max_centers_diff /1000.0_wp, max_centers_diff_ratio
+
+   CALL delete(cell_edge_centers_angle_stats)
    
    ! CALL print_cell_angles(in_grid_id, min_cell_angle_idx, 'Cell with min edge angle')
    ! CALL print_cell_angles(in_grid_id, max_cell_angle_idx, 'Cell with max edge angle')

@@ -55,7 +55,10 @@ MODULE mo_parallel_config
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
-       &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier
+       &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
+       &  redrad_split_factor
+  PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
+       & ext_div_medial_redrad_cluster
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -73,10 +76,15 @@ MODULE mo_parallel_config
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
+  INTEGER, PARAMETER :: ext_div_medial = 101
+  INTEGER, PARAMETER :: ext_div_medial_cluster = 102
+  INTEGER, PARAMETER :: ext_div_medial_redrad = 103
+  INTEGER, PARAMETER :: ext_div_medial_redrad_cluster = 104
 
   INTEGER :: division_method = 1
   CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if parallel_radiation_mode = 1
+  INTEGER :: redrad_split_factor = 6
 
   ! Flag if (in case of merged domains) physical domains shall be considered for 
   ! computing the domain decomposition
@@ -213,7 +221,8 @@ CONTAINS
 
     ! check division_method
     SELECT CASE (division_method)
-    CASE(div_from_file, div_geometric)
+    CASE(div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
+      & ext_div_medial_redrad, ext_div_medial_redrad_cluster)
       ! ok
     CASE(div_metis)
 #ifdef HAVE_METIS
