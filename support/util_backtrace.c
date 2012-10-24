@@ -26,7 +26,6 @@ FCALLSCSUB0(cf_util_backtrace, UTIL_BACKTRACE, util_backtrace)
 #include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 
 #if defined (__GNUC__)
 
@@ -36,10 +35,6 @@ void cf_util_backtrace(void)
   size_t size;
   char **strings;
   size_t i;
-
-  fflush(stderr);
-  fflush(stdout);
-  raise(SIGSEGV);
 
   size = backtrace (array, 32);
   strings = backtrace_symbols (array, size);
