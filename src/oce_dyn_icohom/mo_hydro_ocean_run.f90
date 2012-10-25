@@ -103,7 +103,7 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func, calc_density
 USE mo_output,                 ONLY: init_output_files, write_output, &
-  &                                  create_restart_file
+  &                                  create_restart_file, write_output_oce
 USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output, &
   &                                  output_file
@@ -344,7 +344,7 @@ CONTAINS
       ENDIF
       IF (output_mode%l_vlist) THEN
         write(0,*)'VLIST-OUTPUT <<<<<<<<<<<<<<<<,======================='
-        CALL write_output( datetime )
+          CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
       ENDIF
 
       CALL message (TRIM(routine),'Write output at:')
