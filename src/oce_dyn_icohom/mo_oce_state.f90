@@ -67,6 +67,7 @@ MODULE mo_oce_state
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D_oce
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_dynamics_config,     ONLY: nnew,nnow
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
@@ -808,6 +809,13 @@ CONTAINS
       &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
+      IF (nnew(1) == timelevel) THEN
+        CALL add_var(ocean_restart_list, 'h', p_os_prog%h , &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+      &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/))
+      ENDIF
 
     !! normal velocity component
     CALL add_var(ocean_restart_list,'vn'//TRIM(var_suffix),p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, &
@@ -815,6 +823,14 @@ CONTAINS
     &            t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
+    IF (nnew(1)==timelevel) THEN
+      CALL add_ref(ocean_restart_list,'vn'//TRIM(var_suffix),'vn', &
+          &p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, &
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    ENDIF
 
     !! Tracers
     IF ( no_tracer > 0 ) THEN
