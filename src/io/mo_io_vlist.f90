@@ -265,11 +265,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !BOC
-  SUBROUTINE setup_vlist(grid_filename, k_jg, l_do_io)
+  SUBROUTINE setup_vlist(grid_filename, k_jg, l_do_io,mypatch)
 
     CHARACTER(len=*), INTENT(in) :: grid_filename
     INTEGER, INTENT(in) :: k_jg
     LOGICAL, INTENT(in) :: l_do_io
+    TYPE(t_patch),OPTIONAL :: mypatch
 
     INTEGER :: ncid, dimid, varid
     INTEGER :: i_nc, i_ne, i_nv
@@ -361,9 +362,15 @@ CONTAINS
       END SELECT
       CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     ELSE
-      i_nc = p_patch(k_jg)%n_patch_cells_g
-      i_ne = p_patch(k_jg)%n_patch_edges_g
-      i_nv = p_patch(k_jg)%n_patch_verts_g
+     !IF (PRESENT(mypatch)) THEN
+     !  i_nc = mypatch(k_jg)%n_patch_cells_g
+     !  i_ne = mypatch(k_jg)%n_patch_edges_g
+     !  i_nv = mypatch(k_jg)%n_patch_verts_g
+     !ELSE
+        i_nc = p_patch(k_jg)%n_patch_cells_g
+        i_ne = p_patch(k_jg)%n_patch_edges_g
+        i_nv = p_patch(k_jg)%n_patch_verts_g
+     !ENDIF
     ENDIF
 
     !

@@ -426,8 +426,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   !The 3D-case: first vertical fluxes than preliminary tracer value and
   !finally implicit vertical diffusion
   ELSEIF( iswm_oce /= 1) THEN
-write(*,*)'dolic_c21',maxval(p_patch_3D%p_patch_1D(1)%dolic_c),minval(p_patch_3D%p_patch_1D(1)%dolic_c)
-write(*,*)'dolic_e21',maxval(p_patch_3D%p_patch_1D(1)%dolic_e),minval(p_patch_3D%p_patch_1D(1)%dolic_e)
+!write(*,*)'dolic_c21',maxval(p_patch_3D%p_patch_1D(1)%dolic_c),minval(p_patch_3D%p_patch_1D(1)%dolic_c)
+!write(*,*)'dolic_e21',maxval(p_patch_3D%p_patch_1D(1)%dolic_e),minval(p_patch_3D%p_patch_1D(1)%dolic_e)
     CALL advect_flux_vertical( p_patch_3D,        &
                              & trac_old,          &
                              & p_os,              &
@@ -535,11 +535,11 @@ write(*,*)'dolic_e21',maxval(p_patch_3D%p_patch_1D(1)%dolic_e),minval(p_patch_3D
     ENDIF ! lvertical_diff_implicit
     IF (ltimer) CALL timer_stop(timer_dif_vert)
   ENDIF
-     DO jk=1,n_zlev
-      write(*,*)'TRACER old:new',jk,&
-      &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-      &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
-      END DO
+    !DO jk=1,n_zlev
+    ! write(*,*)'TRACER old:new',jk,&
+    ! &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
+    ! &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
+    ! END DO
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('aft. AdvIndivTrac: trac_old',trac_old                 ,str_module,idt_src)

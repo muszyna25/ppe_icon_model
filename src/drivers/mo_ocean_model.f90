@@ -425,6 +425,7 @@ CONTAINS
       !CALL finalize_decomposition()
       !The 3D-ocean version of previous calls 
       CALL finalize_decomposition_oce(p_patch_3D%p_patch_2D)
+      p_patch = p_patch_3D%p_patch_2D
 
     ENDIF
 
