@@ -45,7 +45,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom,success,&
     &                               max_char_length, beta_plane_coriolis,full_coriolis, &
     &                               min_rledge_int,min_rlcell_int,min_rlvert_int,&
-    &                               sea_boundary, boundary, sea, min_dolic
+    &                               SEA_BOUNDARY, BOUNDARY, SEA, min_dolic
   USE mo_math_constants,      ONLY: deg2rad, pi, rad2deg
   USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
@@ -580,7 +580,7 @@ CONTAINS
           z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
 
           !IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
-          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= SEA_BOUNDARY ) THEN 
             IF ( z_dolic >=MIN_DOLIC ) THEN
 
               !inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
@@ -640,7 +640,7 @@ CONTAINS
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!v_base%dolic_e(je,jb)
 
       !IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-      IF (  p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      IF (  p_patch_3D%lsm_oce_e(je,1,jb) <= SEA_BOUNDARY ) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
           !inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
@@ -2993,7 +2993,6 @@ CONTAINS
         ENDDO ! jc = i_startidx_c, i_endidx_c
       END DO ! jk=1,n_zlev
     END DO ! jb = all_cells%start_block, all_cells%end_block
-
     !-------------------------------------------------------------
     !2) prepare coefficients for rot at boundary edges
     ! this is done on owned vertices, so sync is required
@@ -3017,9 +3016,9 @@ CONTAINS
             ! edge with indices ile, ibe is sea edge
             ! edge with indices ile, ibe is boundary edge
 
-            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == sea ) THEN
+            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == SEA ) THEN
               i_v_ctr(jv,jk,jb) = i_v_ctr(jv,jk,jb)+1
-            ELSEIF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+            ELSEIF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == BOUNDARY ) THEN
 
               !increase boundary edge counter
               boundary_counter = boundary_counter + 1

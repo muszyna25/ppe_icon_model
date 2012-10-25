@@ -579,7 +579,7 @@ CONTAINS
 #else
       jg = 1 !no nesting
      !DO jg = n_dom_start,n_dom
-     CALL read_restart_files( p_patch(jg) )
+     CALL read_restart_files( p_patch_3D%p_patch_2D(jg) )
      !END DO
 #endif
       CALL message(TRIM(routine),'normal exit from read_restart_files')

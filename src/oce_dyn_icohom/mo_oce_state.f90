@@ -3578,9 +3578,10 @@ END SUBROUTINE complete_patchinfo_oce
 !! Developed  by  Peter korn, MPI-M (2012/08).
 !!
 
-  SUBROUTINE init_patch_3D(p_patch_3D)
+  SUBROUTINE init_patch_3D(p_patch_3D,v_base)
 
     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
     ! local variables
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie

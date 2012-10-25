@@ -2571,8 +2571,8 @@ CONTAINS
         jgp = p_patch_global(jg)%parent_id
 
         IF(jgp /= 1) THEN
-          p_patch_2D(jg)%n_proc = p_patch(jgp)%n_proc
-          p_patch_2D(jg)%proc0  = p_patch(jgp)%proc0
+          p_patch_2D(jg)%n_proc = p_patch_2D(jgp)%n_proc
+          p_patch_2D(jg)%proc0  = p_patch_2D(jgp)%proc0
         ENDIF
 
       ENDDO
@@ -2706,7 +2706,7 @@ CONTAINS
       ELSE
 
         wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(p_patch(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        CALL divide_patch(p_patch_2D(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
 
         IF(jg > n_dom_start) THEN
           wrk_p_patch_g => p_patch_global(jgp)

@@ -73,8 +73,8 @@ USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_co
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
 USE mo_util_dbg_prnt,          ONLY: init_dbg_index
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, &!t_hydro_ocean_base, &
-  !&                                  init_ho_base, init_ho_basins, &!v_base, &
-  !&                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
+  &                                  init_ho_base, init_ho_basins, v_base, &
+  &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D
@@ -449,7 +449,14 @@ CONTAINS
     !!CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
 
     CALL construct_patch_3D(p_patch_3D)
+
+    CALL construct_hydro_ocean_base(p_patch_3D%p_patch_2D(jg), v_base)
+    CALL init_ho_base     (p_patch_3D%p_patch_2D(jg), p_ext_data(jg), v_base)
+    CALL init_ho_basins   (p_patch_3D%p_patch_2D(jg),                 v_base)
     CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
+
+!    CALL construct_patch_3D(p_patch_3D)
+    CALL init_patch_3D(p_patch_3D, v_base)
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
