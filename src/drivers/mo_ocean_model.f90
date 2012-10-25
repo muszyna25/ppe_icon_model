@@ -473,6 +473,7 @@ CONTAINS
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
+    write(0,*)'ALLOCATED ext_data'
 
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.

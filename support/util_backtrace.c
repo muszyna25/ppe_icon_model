@@ -39,7 +39,7 @@ void cf_util_backtrace(void)
 
   fflush(stderr);
   fflush(stdout);
-  raise(SIGSEGV);
+  raise(SIGTERM);
 
   size = backtrace (array, 32);
   strings = backtrace_symbols (array, size);
