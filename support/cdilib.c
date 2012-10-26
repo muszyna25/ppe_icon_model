@@ -31007,7 +31007,7 @@ int gribapiScanTimestep1(int streamID)
 	}
 
       gh = grib_handle_new_from_message(NULL, (void *) gribbuffer, recsize);
-      GRIB_CHECK(grib_set_double(gh, "missingValue", GRIBAPI_MISSVAL), 0);
+      GRIB_CHECK(grib_set_double(gh, "missingValue", cdiDefaultMissval), 0);
 
       GRIB_CHECK(grib_get_long(gh, "editionNumber", &editionNumber), 0);
 
@@ -31332,7 +31332,7 @@ int gribapiScanTimestep2(int streamID)
 	}
 
       gh = grib_handle_new_from_message(NULL, (void *) gribbuffer, recsize);
-      GRIB_CHECK(grib_set_double(gh, "missingValue", GRIBAPI_MISSVAL), 0);
+      GRIB_CHECK(grib_set_double(gh, "missingValue", cdiDefaultMissval), 0);
 
       GRIB_CHECK(grib_get_long(gh, "editionNumber", &editionNumber), 0);
 
@@ -31642,7 +31642,7 @@ int gribapiScanTimestep(int streamID)
 	    }
 
 	  gh = grib_handle_new_from_message(NULL, (void *) gribbuffer, recsize);
-	  GRIB_CHECK(grib_set_double(gh, "missingValue", GRIBAPI_MISSVAL), 0);
+	  GRIB_CHECK(grib_set_double(gh, "missingValue", cdiDefaultMissval), 0);
 
 	  GRIB_CHECK(grib_get_long(gh, "editionNumber", &editionNumber), 0);
 
