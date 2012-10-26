@@ -146,9 +146,13 @@ CONTAINS
       ELSE
         rad_subdomain_split = 6
       ENDIF
-      
-      CALL decompose_round_robin_opp(decomposition_struct,  &
+
+      CALL reorder_lonlat_subdomains(decomposition_struct,  &
         & in_decomposition_id = medial_decomposition_id,    &
+        & out_decomposition_id = rad_decomposition_id)
+          
+      CALL decompose_round_robin_opp(decomposition_struct,  &
+        & in_decomposition_id = rad_decomposition_id,    &
         & out_decomposition_id = rad_decomposition_id,      &
         & subdomain_partition = rad_subdomain_split)
     
@@ -608,7 +612,7 @@ CONTAINS
     & in_decomposition_id, out_decomposition_id, &
     & new_subdomain_id, new_no_of_domains)
 
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure)  :: decomposition_struct
     INTEGER, INTENT(in) :: in_decomposition_id, out_decomposition_id, new_no_of_domains
     INTEGER, POINTER, INTENT(in) ::  new_subdomain_id(:)
 
