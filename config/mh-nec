@@ -86,7 +86,7 @@ INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
 INLINE   = $INLINE -pi rexp=p_wait
 
 # standard flags for C compiler
-CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.9.16/include
+CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/1.9.16/include
 
 NETCDFROOT = /usr/local/pkg-sx9/
 LAPACKROOT = /SX/opt/mathkeisan/inst
@@ -329,7 +329,7 @@ MPI_LIB =
 LAPACK_LIB  = -llapack -lblas
 
 LIBS        = -L../lib -lsupport \
-              -L/usr/local/pkg-sx9/grib_api/prerelease-1.9.16/lib -lgrib_api_f90 -lgrib_api
+              -L/usr/local/pkg-sx9/grib_api/1.9.16/lib -lgrib_api_f90 -lgrib_api
 
 
 AR       = sxar
