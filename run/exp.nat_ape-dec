@@ -12,11 +12,102 @@
 #
 #
 #-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
-. ./nat_ape.default_values
+# the grid files if not defined
+atmo_dyn_grids=${atmo_dyn_gridname}.nc
+if [ x$atmo_rad_gridname = x ] ; then
+  lredgrid_phys=".false."
+else
+  atmo_rad_grids=${atmo_rad_gridname}.nc
+  lredgrid_phys=".true."
+fi  
+
+#-----------------------------------------------------------------------------
+cell_type=${cell_type:=3}
+nlevels=${nlevels:=78}              # number of full levels
+#-----------------------------------------------------------------------------
+# global timing
+start_date=${start_date:="2000-07-01T00:00:00Z"}
+ndays_restart=${ndays_restart:=3650}              # restart every 10 year
+dt_restart=`expr ${ndays_restart} \* 86400`
+ndays_checkpoint=${ndays_checkpoint:=3650}         # write restart file 10 year
+dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 ` 
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=${dtime:=60}
+ndays=${ndays:=10}
+nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
+advection_substepping=${advection_substepping:=4}
+dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
+dt_conv=${dt_conv:=$dtime}         # every advection step
+dt_sso=${dt_sso:=$dt_conv}         # every advection step
+#
+#-----------------------------------------------------------------------------
+#output=${output:='"vlist","totint"'}
+output=${output:='"none"'}
+out_diag_hours=${out_diag_hours:=1000}         # global integral output each 1 day
+out_data_hours=${out_data_hours:=24000}      # write output every  1000 days
+dt_diag=`expr ${out_diag_hours} \* 3600  `   
+dt_data=`expr ${out_data_hours} \* 3600  `
+out_newfile_days=${out_newfile_days:=1000}     # 1 day per file
+dt_file=`expr ${out_newfile_days} \* 86400 `
+msg_level=${msg_level:=0}
+
+#-----------------------------------------------------------------------------
+# parallel parameters
+division_method=${division_method:=1}
+division_file_name=${division_file_name:=""}
+parallel_radiation_mode=${parallel_radiation_mode:=0}
+redrad_split_factor=${redrad_split_factor:=6}
+iorder_sendrecv=${iorder_sendrecv:=1}
+ltimer=${ltimer:=".true."}
+timers_level=${timers_level:=100}
+activate_sync_timers=${activate_sync_timers:=".true."}
+use_dycore_barrier=${use_dycore_barrier:=".false."}
+use_physics_barrier=${use_physics_barrier:=".false."}
+ntasks_per_node=${ntasks_per_node:=8}
+use_icon_comm=${use_icon_comm:=".true."}
+icon_comm_method=${icon_comm_method:=103}
+max_send_recv_buffer_size=${max_send_recv_buffer_size:=262144}
+max_mpi_message_size=${max_mpi_message_size:=8192}
+
+p_test_run=${p_test_run:=".false."}
+if [ $p_test_run = ".true." ] ; then
+  l_test_openmp=".true."
+  l_log_checks=".true."
+else
+  l_test_openmp=".false."
+  l_log_checks=".false."
+fi
+
+#-----------------------------------------------------------------------------
+# model setup
+initial_conditions=${initial_conditions:=1}
+ntracer=${ntracer:=5}
+
+iforcing=3
+        # forcing to the equation system
+#                     0 = no external forcing
+#                     1 = Held-Suarez forcing
+#                     2 = ECHAM6 physics
+#                     3 = NWP forcing
+
+itime_scheme=${itime_scheme:=4}        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
+vwind_implicitness=${vwind_implicitness:=0.15}
+top_of_atmo=${top_of_atmo:=75000.}
+damp_height=${damp_height:=60000.}
+#-----------------------------------------------------------------------------
+ldump_states=".false."
+lrestore_states=".false."
+
+
+#-----------------------------------------------------------------------------
+
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -56,7 +147,10 @@ cat >> ${atmo_namelist} << EOF
  division_method=${division_method}
  division_file_name="$division_file_name"
  parallel_radiation_mode=$parallel_radiation_mode
- use_dycore_barrier = ${use_barrier}
+ redrad_split_factor = $redrad_split_factor
+ use_dycore_barrier = ${use_dycore_barrier}
+ use_physics_barrier = ${use_physics_barrier}
+ ! ntasks_per_node=${ntasks_per_node}
  ! test_parallel_radiation = .true.
  ! icon_comm_debug = .true.
 /
@@ -91,17 +185,19 @@ cat >> ${atmo_namelist} << EOF
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 3        ! new default
- iadv_rcf        = 2 ! ${advection_substepping}   ! microphysics and turb and sat adj 
- exner_expol     = 0.5    ! exner function extrapolation?
+ iadv_rcf        = ${advection_substepping}   ! microphysics and turb and sat adj 
+ exner_expol     = 0.666    ! exner function extrapolation?
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = ${vwind_implicitness}     ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
- damp_height     = 60000.   ! damping height (set about 10km below top)
- ! htop_moist_proc = 50000.   ! height above which moist physics and cld/precip advection off
- ! hbot_qvsubstep  = 60000.
+ damp_height     = ${damp_height}  ! damping height (set about 10km below top)
+ !htop_moist_proc = 50000.   ! height above which moist physics and cld/precip advection off
+ !htop_qvadv      = 55000.
+ !hbot_qvsubstep  = 60000.
 
  !damp_height     = 88000.   ! damping height (set about 10km below top)
  !htop_moist_proc = 45000.   ! height above which moist physics and cld/precip advection off
+ !htop_qvadv      = 85000.
  !hbot_qvsubstep  = 86000.
 /
 &transport_nml
@@ -126,7 +222,7 @@ cat >> ${atmo_namelist} << EOF
 /
 &sleve_nml                  ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
- top_height      = 85000.
+ top_height      = ${top_of_atmo}
  flat_height     = 16000.
  stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
  decay_scale_1   = 4000.    ! decay scales for topography
