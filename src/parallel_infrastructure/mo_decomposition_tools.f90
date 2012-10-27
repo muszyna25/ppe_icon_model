@@ -374,7 +374,7 @@ CONTAINS
       & in_decomposition_id, out_decomposition_id
 
     !> if present allign the oppsite subdomain
-    INTEGER, POINTER, INTENT(in), OPTIONAL  :: opposite_subdomain_id(:) 
+    INTEGER, POINTER, OPTIONAL  :: opposite_subdomain_id(:)
 
     INTEGER, POINTER :: cells_per_domain(:), next_new_domain(:), remain_domain_space(:)
     
@@ -614,7 +614,7 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
     INTEGER, INTENT(in) :: in_decomposition_id, out_decomposition_id, new_no_of_domains
-    INTEGER, POINTER, INTENT(in) ::  new_subdomain_id(:)
+    INTEGER, POINTER ::  new_subdomain_id(:)
 
     INTEGER :: cell_no, in_domain_id
     CHARACTER(*), PARAMETER :: method_name = "fill_redecomposition"
@@ -641,7 +641,7 @@ CONTAINS
     & in_decomposition_id, opposite_subdomain_id)
     TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
     INTEGER, INTENT(in)  :: in_decomposition_id
-    INTEGER, POINTER, INTENT(inout) :: opposite_subdomain_id(:)
+    INTEGER, POINTER :: opposite_subdomain_id(:)
 
     TYPE(t_cartesian_coordinates), POINTER :: subdomain_center(:)
     TYPE(t_cartesian_coordinates) :: v
@@ -797,7 +797,7 @@ CONTAINS
     & in_decomposition_id, cells_per_domain)
     TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
     INTEGER, INTENT(in)  ::  in_decomposition_id
-    INTEGER, POINTER, INTENT(inout) :: cells_per_domain(:)
+    INTEGER, POINTER :: cells_per_domain(:)
     
     INTEGER :: cell_no, no_of_domains,domain_id
     INTEGER :: return_status
@@ -830,7 +830,7 @@ CONTAINS
     & decomposition_id, subdomain_centers)
     TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
     INTEGER, INTENT(in)  :: decomposition_id
-    TYPE(t_cartesian_coordinates), POINTER, INTENT(inout) :: subdomain_centers(:)
+    TYPE(t_cartesian_coordinates), POINTER :: subdomain_centers(:)
     
     TYPE(t_cartesian_coordinates) :: v
     TYPE(t_geographical_coordinates) :: geocoord
@@ -872,7 +872,7 @@ CONTAINS
   SUBROUTINE bubble_sort_lon_lat(geo_coord, start_index, end_index, sorted_list)
     TYPE(t_geographical_coordinates), POINTER :: geo_coord(:)
     INTEGER, INTENT(in)  :: start_index, end_index
-    INTEGER, POINTER, INTENT(inout)  :: sorted_list(:)
+    INTEGER, POINTER  :: sorted_list(:)
 
     LOGICAL :: keep_ordering 
     INTEGER :: i, exch, return_status
@@ -910,7 +910,7 @@ CONTAINS
   SUBROUTINE bubble_sort_lat_lon(geo_coord, start_index, end_index, sorted_list)
     TYPE(t_geographical_coordinates), POINTER :: geo_coord(:)
     INTEGER, INTENT(in)  :: start_index, end_index
-    INTEGER, POINTER, INTENT(inout)  :: sorted_list(:)
+    INTEGER, POINTER  :: sorted_list(:)
 
     LOGICAL :: keep_ordering 
     INTEGER :: i, exch, return_status
