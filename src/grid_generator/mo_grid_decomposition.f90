@@ -171,7 +171,7 @@ CONTAINS
     & in_decomposition_id, out_decomposition_id, opposite_subdomain_id)
     INTEGER, INTENT(in)  :: grid_id, subdomain_partition, &
       & in_decomposition_id, out_decomposition_id
-    INTEGER, POINTER, INTENT(in), OPTIONAL  :: opposite_subdomain_id(:)
+    INTEGER, POINTER, OPTIONAL  :: opposite_subdomain_id(:)
     
     TYPE(t_decomposition_structure) :: decomposition_struct
 
@@ -520,7 +520,7 @@ CONTAINS
   !! count the number of cells in each decomposition
   SUBROUTINE grid_no_of_cells_per_subdomain(grid_id, in_decomposition_id, cells_per_domain)
     INTEGER, INTENT(in)  :: grid_id, in_decomposition_id
-    INTEGER, POINTER, INTENT(inout) :: cells_per_domain(:)
+    INTEGER, POINTER :: cells_per_domain(:)
 
     TYPE(t_decomposition_structure) :: decomposition_struct
 
@@ -665,7 +665,7 @@ CONTAINS
   SUBROUTINE bubble_sort(in_values, start_index, end_index, sorted_list)
     REAL(wp), POINTER :: in_values(:)
     INTEGER, INTENT(in)  :: start_index, end_index
-    INTEGER, POINTER, INTENT(inout)  :: sorted_list(:)
+    INTEGER, POINTER :: sorted_list(:)
 
     LOGICAL :: keep_ordering 
     INTEGER :: i, exch, return_status
@@ -732,7 +732,7 @@ CONTAINS
 
     INTEGER, INTENT(in)  :: grid_id, &
       & in_decomposition_id, out_decomposition_id, new_no_of_domains
-    INTEGER, POINTER, INTENT(in) ::  new_subdomain_id(:)
+    INTEGER, POINTER ::  new_subdomain_id(:)
 
     TYPE(t_grid_cells), POINTER :: cells
     INTEGER :: cell_no, in_domain_id
