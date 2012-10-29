@@ -270,10 +270,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
  
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
-    shape2d    = (/nproma,            kblks            /)
-    shape3d    = (/nproma, klev,      kblks            /)
-    shape3dkp1 = (/nproma, klevp1,    kblks            /)
-    shape3dsubs = (/nproma, kblks,    ntiles_total        /)
+    shape2d      = (/nproma,           kblks            /)
+    shape3d      = (/nproma, klev,     kblks            /)
+    shape3dkp1   = (/nproma, klevp1,   kblks            /)
+    shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
     IF( atm_phy_nwp_config(k_jg)%inwp_turb == 4) THEN
@@ -336,6 +336,27 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'snow_con_rate', diag%snow_con_rate,             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d,                                              &
+                & isteptype=TSTEP_INSTANT )
+
+    ! &      diag%rain_con_rate_3d(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('rain_con_rate_3d', 'kg m-2 s-1',                &
+      &          '3d convective rain rate', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 76, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'rain_con_rate_3d', diag%rain_con_rate_3d,       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                & ldims=shape3dkp1,                                           &
+                & isteptype=TSTEP_INSTANT )
+
+
+    ! &      diag%snow_con_rate_3d(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('snow_con_rate_3d', 'kg m-2 s-1',                   &
+      &          '3d convective snow rate', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 14, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'snow_con_rate_3d', diag%snow_con_rate_3d,       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                & ldims=shape3dkp1,                                           &
                 & isteptype=TSTEP_INSTANT )
 
 
