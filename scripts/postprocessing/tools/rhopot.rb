@@ -88,7 +88,7 @@ experimentAnalyzedData.each {|experiment,files|
   tag   = diff2init ? 'diff2init' : ''
   ofile = [experiment,'T-S-rhopot',tag].join('_') + '.nc'
   unless File.exist?(ofile)
-    Cdo.cat(:in => file.sort.join(' '), :out => ofile, :options => '-r')
+    Cdo.cat(:in => files.sort.join(' '), :out => ofile, :options => '-r')
   end
   plotFile = 'thingol' == Socket.gethostname \
            ? '/home/ram/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl' \
