@@ -25,10 +25,10 @@ lock      = Mutex.new
 maskFile  = "mask.nc"
 diff2init = true
 
-CDP.setCDO
+Cdp.setCDO
 
 # compute the experiments from the data directories and link the corresponding files
-gridfile, experimentFiles, experimentAnalyzedData = CDP.splitFilesIntoExperiments(files)
+gridfile, experimentFiles, experimentAnalyzedData = Cdp.splitFilesIntoExperiments(files)
 
 # process the files
 #   start with selectiong the initial values from the first timestep
