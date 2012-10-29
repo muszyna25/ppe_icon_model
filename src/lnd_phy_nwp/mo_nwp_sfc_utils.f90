@@ -53,7 +53,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_physical_constants,  ONLY: tmelt, rdocp => rd_o_cpd  ! r_d / cp_d
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_sync,                ONLY: global_sum_array
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
@@ -572,7 +572,7 @@ CONTAINS
         DO ic = 1, icount_ice
           jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-          ! fields at time level now may have potentially been changed!
+          ! fields at time level now may have changed, potentially!
           p_prog_wtr_now%t_ice(jc,jb)    = tice_now(ic)
           p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
           p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
@@ -1668,7 +1668,7 @@ CONTAINS
   !!
   SUBROUTINE update_idx_lists_sea (hice_n, idx_lst_spw, spw_count, idx_lst_spi, &
     &                              spi_count, lc_frac, partial_frac_ice,        &
-    &                              partial_frac_water, fr_seaice )
+    &                              partial_frac_water, fr_seaice, t_g_t_n )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea ice depth at new time level  [m]
@@ -1690,18 +1690,20 @@ CONTAINS
     REAL(wp),    INTENT(INOUT) ::  &   !< seaice fraction
       &  fr_seaice(:)
 
+    REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (new)
+      &  t_g_t_n(:)
+
     ! Local variables
     INTEGER, DIMENSION(SIZE(idx_lst_spi,1)) :: &
       &   idx_lst_spi_old       !< seaice index list local copy               
     INTEGER  :: ic, jc          !< loop indices
-    INTEGER  :: icount_water    !< counter for water (i.e. ice-free) points
-    INTEGER  :: icount_ice      !< counter for sea-ice points
     INTEGER  :: spi_count_old   !< current seaice grid point count
+
+    REAL (wp), PARAMETER ::                             &
+      &   tf_salt      = 271.45_wp      !< salt-water freezing point [K] 
+
     !-------------------------------------------------------------------------
 
-
-    icount_water = spw_count
-    icount_ice   = 0
 
     ! save old seaice index list and grid point count
     idx_lst_spi_old(:) = idx_lst_spi(:)
@@ -1712,6 +1714,7 @@ CONTAINS
     spi_count      = 0
 
 
+
     !
     ! update index list for sea-ice and open water
     !
@@ -1720,28 +1723,26 @@ CONTAINS
     ! decrease with time. I.e. seaice points may be converted into water points, 
     ! but not vice versa. 
     !
-    ! Loop over seaice-points, only
+    ! Loop over old seaice-points, only
 !CDIR NODEP,VOVERTAKE,VOB
     DO ic = 1, spi_count_old
       jc = idx_lst_spi_old(ic)
 
       IF ( hice_n(ic) >= hice_min )  THEN ! still seaice point
-        icount_ice = icount_ice + 1
-        idx_lst_spi(icount_ice) = jc
-        spi_count = icount_ice
+        spi_count = spi_count + 1
+        idx_lst_spi(spi_count) = jc
       ELSE                          ! seaice point has turned into water point
         ! Check whether we need to initialize a new water tile, or whether a water tile 
         ! already exists for the given point:
         IF ( fr_seaice(jc) == 1._wp ) THEN   ! water tile does not exist for given point
           ! add new water tile to water-points index list and initialize
-          icount_water = icount_water + 1
-          idx_lst_spw(icount_water) = jc
-          spw_count = icount_water 
-          ! Initialize sea surface temperature
-          ! TO BE CODED
+          spw_count = spw_count + 1
+          idx_lst_spw(spw_count) = jc
+          ! Initialize temperature of water tile
+          t_g_t_n(jc) = tf_salt   ! ask Dimitrii or tmelt ?
         ENDIF
 
-        fr_seaice(jc) = 0._wp        ! reset fr_seaice
+        fr_seaice(jc) = 0._wp     ! reset fr_seaice
         partial_frac_water(jc) = lc_frac(jc) * (1._wp - fr_seaice(jc))
         partial_frac_ice(jc)   = lc_frac(jc) * fr_seaice(jc)
       ENDIF

@@ -859,7 +859,7 @@ CONTAINS
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
       CALL nwp_seaice(p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-        &             ext_data, lnd_diag, tcall_sfc_jg)
+        &             lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
 
@@ -877,12 +877,13 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
   SUBROUTINE nwp_seaice (p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-    &                    ext_data, p_lnd_diag, dtime)
+    &                    lnd_prog_new, ext_data, p_lnd_diag, dtime)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
     TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
+    TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new   !< prog vars for sfc
     TYPE(t_external_data),       INTENT(inout):: ext_data       !< external data
     TYPE(t_lnd_diag),            INTENT(inout):: p_lnd_diag     !< diag vars for sfc
     REAL(wp),                    INTENT(in)   :: dtime          !< time interval for 
@@ -1007,15 +1008,17 @@ CONTAINS
 
       ! Update dynamic seaice index list
       !
-      CALL update_idx_lists_sea (hice_n             = p_prog_wtr_new%h_ice(:,jb),              &
-        &                        idx_lst_spw        = ext_data%atm%idx_lst_spw(:,jb),          &
-        &                        spw_count          = ext_data%atm%spw_count(jb),              &
-        &                        idx_lst_spi        = ext_data%atm%idx_lst_spi(:,jb),          &
-        &                        spi_count          = ext_data%atm%spi_count(jb),              &
-        &                        lc_frac            = ext_data%atm%lc_frac_t(:,jb,isub_water), &
-        &                        partial_frac_ice   = ext_data%atm%frac_t(:,jb,isub_seaice),   &
-        &                        partial_frac_water = ext_data%atm%frac_t(:,jb,isub_water),    &
-        &                        fr_seaice          = p_lnd_diag%fr_seaice(:,jb)               )
+      CALL update_idx_lists_sea (                                                    &
+        &              hice_n             = p_prog_wtr_new%h_ice(:,jb),              &!in
+        &              idx_lst_spw        = ext_data%atm%idx_lst_spw(:,jb),          &!inout
+        &              spw_count          = ext_data%atm%spw_count(jb),              &!inout
+        &              idx_lst_spi        = ext_data%atm%idx_lst_spi(:,jb),          &!inout
+        &              spi_count          = ext_data%atm%spi_count(jb),              &!inout
+        &              lc_frac            = ext_data%atm%lc_frac_t(:,jb,isub_water), &!in
+        &              partial_frac_ice   = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
+        &              partial_frac_water = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
+        &              fr_seaice          = p_lnd_diag%fr_seaice(:,jb),              &!inout
+        &              t_g_t_n            = lnd_prog_new%t_g_t(:,jb,isub_water)      )!inout
 
 
     ENDDO  ! jb
