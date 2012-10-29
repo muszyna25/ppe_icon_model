@@ -18,7 +18,7 @@ files     = ( ARGV.size > 1 ) ? ARGV : Dir.glob(ARGV[0])
 files.each {|file|
   warn "Cannot read file '#{file}'" unless File.exist?(file)
 }
-gridFile = files.pop
+
 q         = JobQueue.new([JobQueue.maxnumber_of_processors,8].min)
 lock      = Mutex.new
 #maskFile  = "mask-L40.nc"
@@ -29,6 +29,9 @@ Cdp.setCDO
 
 # compute the experiments from the data directories and link the corresponding files
 gridfile, experimentFiles, experimentAnalyzedData = Cdp.splitFilesIntoExperiments(files)
+
+# compute meaked weight
+maskedAreaWeights = Cdp.manualMaskedAreaWeights("cell_area",gridfile,"wet_c",maskFile)
 
 # process the files
 #   start with selectiong the initial values from the first timestep
@@ -73,7 +76,7 @@ experimentFiles.each {|experiment, files|
         Cdo.sub(:in => [mergedFile,initFile].join(' '),:out => diffFile)
       end
       unless File.exist?(fldmeanFile)
-        Cdo.fldmean(:in => diffFile, :out => fldmeanFile,:options => '-r -f nc')
+        Cdo.fldsum(:in => "-mul #{diffFile} #{maskedAreaWeights}", :out => fldmeanFile,:options => '-r -f nc')
       end
       lock.synchronize {experimentAnalyzedData[experiment] << fldmeanFile }
     }
