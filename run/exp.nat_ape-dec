@@ -49,8 +49,9 @@ dt_sso=${dt_sso:=$dt_conv}         # every advection step
 #
 #-----------------------------------------------------------------------------
 #output=${output:='"vlist","totint"'}
-output=${output:='"none"'}
-out_diag_hours=${out_diag_hours:=1000}         # global integral output each 1 day
+#output=${output:='"none"'}
+output='"totint"'
+out_diag_hours=${out_diag_hours:=6}         # global integral output each 1 day
 out_data_hours=${out_data_hours:=24000}      # write output every  1000 days
 dt_diag=`expr ${out_diag_hours} \* 3600  `   
 dt_data=`expr ${out_data_hours} \* 3600  `

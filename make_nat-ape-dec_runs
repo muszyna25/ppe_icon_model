@@ -66,7 +66,11 @@ create_dec()
 
   if [ x$division_method == x0 ]; then
     division_file_name="${atmo_dyn_gridname}${division_keyword}.${cells_per_domain}_cell_domain_ids"
+    if [ x$parallel_radiation_mode == x1 ]; then
+       radiation_decomposition_file="${atmo_dyn_gridname}.radiation_cell_domain_ids"
+    fi
   fi
+
   if [ x$restart == "x.true." ]; then
     restart_atmo_from="restart_180days/${atmo_dyn_gridname}.${nlevels}levels"
   fi
@@ -98,6 +102,8 @@ create_dec()
   fi
 
   atmo_dyn_gridname=""
+  division_file_name=""
+  radiation_decomposition_file=""
   
 }
 #==============================================================================
@@ -612,11 +618,10 @@ create_nat_ape_lowres_on_blizzard()
   restart=".true." 
 
   # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
-  top_of_atmo=100000.
   top_of_atmo=80000.
   damp_height=60000.
   itime_scheme=4
-  setup_name='nat-ape_80km_10days'
+  setup_name='nat-ape_10days'
 
   run_160km="yes"
   run_140km="yes"
@@ -624,84 +629,62 @@ create_nat_ape_lowres_on_blizzard()
   run_105km="yes"
 
   #---------------------------------
-  run="true"
+  # run="true"
   #==============================================================================
+  itime_scheme=4
   iorder_sendrecv=4
   icon_comm_method=1
   use_icon_comm=".true."
+  icon_comm_method=1
+  division_method=104
+  parallel_radiation_mode=1
+  redrad_split_factor=8
+ 
  # use_physics_barrier=".true."
  # use_dycore_barrier=".true."
 
   nlevels=96
-  # nlevels=64
+  nlevels=64
   advection_substepping=3
   vwind_implicitness=0.5
-  dt_rad=3600
   dtime=200
+  dt_rad=3600
+
   #---------------------------------
  
 if [ $run_160km = yes ] ; then 
   setup_grid="iconR2B04-grid"
-  nodes_list=(  2  4  8 16 22 27)
-  nproma_list=(18 12 16 12  8 12)
-  nodes_list=(  4  8 16 22)
-  nproma_list=(12 16 12  8)
-  nodes_list=(27)
-  nproma_list=(12)
+  one_node_time=15
 
-  division_method=104
-  parallel_radiation_mode=1
+  nodes_list=(  1  4  8  16 20) 
+  nproma_list=(16 16 20  10  8)
   redrad_split_factor=8
-  create_strong_scaling "$setup_grid" "${setup_name}_8redrad"
+  create_strong_scaling "$setup_grid" "${setup_name}"
+
+  nodes_list=(  27)
+  nproma_list=( 12)
   redrad_split_factor=6
-  create_strong_scaling "$setup_grid" "${setup_name}_6redrad"
+  create_strong_scaling "$setup_grid" "${setup_name}"
 fi
-exit
 
   #---------------------------------
 if [ $run_140km = yes ] ; then
   setup_grid="iconR2B05-grid_dec-1082"
   setup_hexdec=1082
-  use_icon_comm=".false."
- 
-  nodes_list=(  2  4  8 16 24)
-  nproma_list=(12  8 18 18 16)
-  nodes_list=(   8 16 24)
-  nproma_list=( 18 18 16)
+  one_node_time=20
+
+  redrad_split_factor=8 
+  nodes_list=( 1  5 12 23)
+  nproma_list=(9  9  9  9)
   create_strong_scaling "$setup_grid" "$setup_name"
 
   # geometric decomposition
-  division_method=1
-  create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
-
-  use_icon_comm=".true."
+  #division_method=1
+  #create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
   division_method=0
-  division_keyword=""
-  create_weak_scaling "${setup_name}_pairop" 48 "$setup_hexdec" "12"
+  #create_weak_scaling "${setup_name}_pairop" 48 "$setup_hexdec" "12"
   create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
-
-  parallel_radiation_mode=1
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lat-lon-order.6_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_latlon-rad" 24 "$setup_hexdec" "12"
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lon-lat-order.6_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_lonlat-rad" 24 "$setup_hexdec"  "12"
-  parallel_radiation_mode=0
-  radiation_decomposition_file=""
-
-  # try cluster
-  division_keyword="_cluster"
-  create_weak_scaling "${setup_name}_pairop" 48 "$setup_hexdec" "12"
-  create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
-
-  parallel_radiation_mode=1
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lat-lon-order.6_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_latlon-rad" 24 "$setup_hexdec" "12"
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lon-lat-order.6_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_lonlat-rad" 24 "$setup_hexdec"  "12"
-  parallel_radiation_mode=0
-  radiation_decomposition_file=""
-  division_keyword=""
 
 fi
  
@@ -709,51 +692,21 @@ fi
 if [ $run_120km = yes ] ; then
   setup_grid="iconR2B05-grid_dec-362"
   setup_hexdec=362
-  use_icon_comm=".false."
- 
-  nodes_list=(   8 16 24 34)
-  nproma_list=( 12 18 12  8)
-  create_strong_scaling "$setup_grid" "$setup_name"
-  use_physics_barrier=".true."
-  nodes_list=(  2  4  8 16 24 34)
-  nproma_list=(12 18 12 18 12  8)
-  # create_strong_scaling "$setup_grid" "${setup_name}_phys-barrier"
-  use_physics_barrier=".false"  
+  one_node_time=28
 
-  # geometric decomposition
-  division_method=1
-  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
+  redrad_split_factor=8 
+  nodes_list=( 2 6 27)
+  nproma_list=(9 9 10)
+  create_strong_scaling "$setup_grid" "$setup_name"
 
   # hex decomposition
-  use_icon_comm=".true."
-
   division_method=0
-  create_weak_scaling "${setup_name}_pairop" 192 "$setup_hexdec" "12"
   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
  
-  parallel_radiation_mode=1
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lat-lon-order.24_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_latlon-rad" 96 "$setup_hexdec" "12"
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lon-lat-order.24_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_lonlat-rad" 96 "$setup_hexdec" "12"
-  parallel_radiation_mode=0
-  radiation_decomposition_file=""
-
-  # try cluster
-  division_keyword="_cluster"
-  create_weak_scaling "${setup_name}_pairop" 192 "$setup_hexdec" "12"
-  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
-
-  parallel_radiation_mode=1
- 
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lat-lon-order.12_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_latlon-rad" 96 "$setup_hexdec" "12"
-  radiation_decomposition_file="${setup_grid}${division_keyword}.lon-lat-order.12_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_lonlat-rad" 96 "$setup_hexdec" "12"
-  parallel_radiation_mode=0
-  radiation_decomposition_file=""
-
-  division_keyword=""
+  redrad_split_factor=6
+  nodes_list=( 45)
+  nproma_list=(12)
+  create_strong_scaling "$setup_grid" "$setup_name"
 
 fi
 
@@ -761,41 +714,25 @@ fi
 if [ $run_105km = yes ] ; then
   setup_grid="iconR2B05-grid_dec-1922"
   setup_hexdec=1922
-  dtime=180
-  use_icon_comm=".false."
-  
-  nodes_list=(  2  4  8 16 24 34)
-  nproma_list=(16 16 16 12 12 12)
+  dtime=192
+  dt_rad=2880
+ 
+  redrad_split_factor=8 
+  nodes_list=(  2  6 12 24)
+  nproma_list=(12 12 10 10)
   create_strong_scaling "$setup_grid" "$setup_name"
-fi
-  exit
 
-  use_physics_barrier=".true."
-  create_strong_scaling "$setup_grid" "${setup_name}_phys-barrier"
-  use_physics_barrier=".false"
-  exit
-
+  # hex decomposition
   division_method=0
-  create_weak_scaling "${setup_name}_pairop" 192 "$setup_hexdec" "12 24"
-  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12 24"
+  create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
-  parallel_radiation_mode=1
-  radiation_decomposition_file="iconR2B05-grid_dec-362.lat-lon-order.24_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_latlon-rad" 96 "$setup_hexdec" "12 24"
-  radiation_decomposition_file="iconR2B05-grid_dec-362.lon-lat-order.24_radiation_cell_domain_ids"
-  create_weak_scaling "${setup_name}_lonlat-rad" 96 "$setup_hexdec" "12 24"
-  parallel_radiation_mode=0
-  radiation_decomposition_file=""
-
-  division_method=1
-  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12 24"
-
+fi
 
   exit
-  #---------------------------------
 }
+#====================================================
 
-
+#====================================================
 create_nat_test-setups_on_blizzard()
 { 
   cpu_time="00:20:00"
@@ -991,11 +928,11 @@ create_comm_test_on_blizzard()
 
 }
 
-create_nat_ape_40-70km_restart
+#create_nat_ape_40-70km_restart
 #create_nat_ape_75-100km_restart
 
 # create_nat_ape_lowres_restart
-# create_nat_ape_lowres_on_blizzard
+ create_nat_ape_lowres_on_blizzard
 
 # create_nat_test-setups_on_blizzard
 
