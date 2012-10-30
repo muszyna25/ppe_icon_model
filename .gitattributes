@@ -1045,7 +1045,6 @@ src/atm_phy_echam/mo_surface.f90_off -text
 src/atm_phy_echam/mo_surface_diag.f90 -text
 src/atm_phy_echam/mo_turbulence_diag.f90 -text
 src/atm_phy_echam/mo_vdiff_downward_sweep.f90 -text
-src/atm_phy_echam/mo_vdiff_driver.f90 -text
 src/atm_phy_echam/mo_vdiff_solver.f90 -text
 src/atm_phy_echam/mo_vdiff_upward_sweep.f90 -text
 src/atm_phy_edmf/mo_cuadjtq_2.f90 -text
@@ -1099,6 +1098,7 @@ src/atm_phy_nwp/mo_nwp_turb_sfc_interface.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
+src/atm_phy_nwp/mo_vdiff_driver.f90 -text
 src/atm_phy_schemes/data_flake.f90 -text
 src/atm_phy_schemes/data_gscp.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
