@@ -62,6 +62,8 @@ PROGRAM control_model
   
   USE mo_time_config,        ONLY: restart_experiment
 
+  USE mo_util_signal
+
 #ifdef __INTEL_COMPILER
   USE, INTRINSIC :: ieee_arithmetic
 #endif
@@ -74,7 +76,10 @@ PROGRAM control_model
 
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
- 
+
+  INTEGER :: core_dump_flag, signals(1)
+  INTEGER :: iret
+
   !declaration of OpenMP Runtime Library Routines:
 ! !$  INTEGER omp_get_max_threads
 ! !!$  INTEGER omp_get_num_threads
@@ -120,6 +125,26 @@ PROGRAM control_model
   ! Initialize MPI, this should aleays be the first call
   CALL start_mpi('ICON')
   
+  !-------------------------------------------------------------------
+  !set up signal trapping on IBM: export USE_SIGNAL_HANDLING=yes
+
+#if defined (__xlC__) 
+  core_dump_flag = 0
+  signals(1)     = 0
+
+  iret = signal_trap(core_dump_flag, signals)
+
+  IF (iret == -2) THEN
+    PRINT *, 'Signal trapping disabled by environment'
+  ELSE IF (iret == -1) THEN
+    PRINT *, 'Error: ', iret
+  ELSE IF (iret == 0) THEN
+    PRINT *, 'FPE trapping is not set'
+  ELSE
+    PRINT *, 'FPE trapping mode =', iret
+  END IF
+#endif
+
   !-------------------------------------------------------------------
   ! Initialize the master control
 
