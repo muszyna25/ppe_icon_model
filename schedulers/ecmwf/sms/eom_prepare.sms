@@ -32,7 +32,7 @@ lecget=1
 lsplitdata=1
 lcatdata=1
 lcpdata=1
-ldeldata=0
+ldeldata=1
 
 
 #-----------------------------------------------------------------------------
@@ -160,8 +160,8 @@ if [[ $lcatdata = 1 ]] ; then
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
-      grib_copy  grb_data/${basename}_DOM01_0001_${var}.grb \
-        ${mondir}/tmp_dir/${basename}_DOM01_0001_${var}_[forecastTime].grb
+      grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
+        ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[forecastTime].grb
       if [[ $ldeldata = 1 ]] ; then
         \rm -rf grb_data
       fi
@@ -181,9 +181,9 @@ if [[ $lcatdata = 1 ]] ; then
     DD=`echo %YMD% | cut -c 7-8`   #e.g. 30 (last day)
     DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
     DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
-    cat ${basename}_DOM01_*_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
-    cat ${basename}_DOM01_*_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
-    cat ${basename}_DOM01_*_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
+    cat ${base}*_DOM01_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
+    cat ${base}*_DOM01_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
+    cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
 
     $cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
     $cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
