@@ -42,7 +42,6 @@ cd ${EXPDIR}
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
 
-
 #-----------------------------------------------------------------------------
 # quick plots (find standard output on oflws144:/uwork1/mkoehler/wq)
 
@@ -52,6 +51,7 @@ nstart=`awk -v var="$nstart" 'BEGIN{ print (var-1) }'` #awk requires indices [0,
 export nstart
 
 if [[ $lmetview = 1 ]] ; then
+
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
@@ -59,6 +59,7 @@ if [[ $lmetview = 1 ]] ; then
   export LMONTH=0
   export YYYYMM
   mkdir -p ${PLOTDIR}
+
   # add one day "-s -1"!!!
   VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s -1`
   VERDATE=`echo $VERDATEHOUR | cut -c1-8`
@@ -69,15 +70,18 @@ if [[ $lmetview = 1 ]] ; then
  #VERDATE=`echo $VERDATEHOUR | cut -c1-8`
  #VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
  #./many.error.s $VERDATE $VERHOUR %YMD% %INIHOUR% 1 r2B06 %EXPNUM%
-fi
 
 %nopp
 awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end
-echo "work:"
-cat met.job.${nstart}
-chmod u+x ./met.job.${nstart}
-./met.job.${nstart}
+  echo "work:"
+  cat met.job.${nstart}
+  chmod u+x ./met.job.${nstart}
+  ./met.job.${nstart}
+  \rm -rf met.job.all.${nstart} met.job.${nstart}
+
+fi
+
 
 #if [[ $lmetview = 1 ]] ; then
 #    2011010100) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110101 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.1 2>&1 &" ;;
@@ -87,8 +91,6 @@ chmod u+x ./met.job.${nstart}
 #  ssh oflws144 '. /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110102 00 10 ${res} ${EXPNUM}'
 #  ssh oflws144 '. /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110106 00  6 ${res} ${EXPNUM}'
 #fi
-
-
 
 
 # -------------------------------------------------

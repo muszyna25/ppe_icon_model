@@ -75,6 +75,7 @@ for levtype1 in PL HL ML; do
     basenameMM=%SUITE%_%EXPNUM%_${YYYYMM}
     base=%SUITE%_%EXPNUM%
 
+
 #-----------------------------------------------------------------------------
 # GRIB: rename and copy to ecgate
 
@@ -163,7 +164,7 @@ if [[ $lcatdata = 1 ]] ; then
       grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
         ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[forecastTime].grb
       if [[ $ldeldata = 1 ]] ; then
-        \rm -rf grb_data
+        \rm -rf  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
       fi
       ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
     done                         # end days

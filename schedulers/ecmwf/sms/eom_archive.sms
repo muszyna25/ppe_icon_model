@@ -32,8 +32,8 @@ ldeldata=1
 # directories
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-EXPDIR="%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM"
-cd ${EXPDIR}
+gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM"
+cd ${gatedir}
 ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM"
 
 
@@ -41,10 +41,9 @@ ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM"
 # archive plots to ecfs
 
 tar cvf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
-gzip    metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
-ecp     metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar /
-        metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz  
+gzip -f metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
+ecp  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
+\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz  
 
 
 #-----------------------------------------------------------------------------

@@ -32,7 +32,7 @@ ldeldata=1
 # directories
 
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-cd $gatedir
+cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 emkdir -p $ecfsdir
 
@@ -43,7 +43,7 @@ emkdir -p $ecfsdir
 tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
 gzip -f metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
 ecp  -o metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%EXPNUM%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
+\rm -rf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
 tar cvf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar meteo
 gzip -f meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
