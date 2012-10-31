@@ -437,11 +437,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   !-------------------------------------------------------------------------------
   delta_t  = dtime
 
-  z_temp(1:nproma,1:n_zlev,1:p_patch%nblks_c)     =0.0_wp
-  flux_horz(1:nproma,1:n_zlev,1:p_patch%nblks_c)  =0.0_wp
-  flux_vert(1:nproma,1:n_zlev,1:p_patch%nblks_c)  =0.0_wp
+  z_temp(1:nproma,1:n_zlev,1:p_patch%nblks_c)    = 0.0_wp
+  flux_horz(1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
+  flux_vert(1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
 
-  trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
+  trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c)  = 0.0_wp
 
   cells_in_domain => p_patch%cells%in_domain
 
