@@ -343,11 +343,9 @@ CONTAINS
         &                        pstate_oce(jg)%p_diag%u_vint, datetime)
 
       IF (output_mode%l_nml) THEN
-        write(0,*)'NML-OUTPUT <<<<<<<<<<<<<<<<,======================='
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
       ENDIF
       IF (output_mode%l_vlist) THEN
-        write(0,*)'VLIST-OUTPUT <<<<<<<<<<<<<<<<,======================='
         CALL write_output( datetime )
       ENDIF
 
