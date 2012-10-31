@@ -254,7 +254,6 @@ cat > ${atmo_namelist} << EOF
  thhgtd_zdiffu                = 125.
  htop_moist_proc              = 22500.
  hbot_qvsubstep               = 30000.
- htop_qvadv                   = 90000.
 /
 &sleve_nml
  min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
