@@ -851,6 +851,7 @@ CONTAINS
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
   REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
+  REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
   REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
   CHARACTER(len=max_char_length) :: sst_case
 
@@ -1758,6 +1759,53 @@ CONTAINS
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               END IF
+            END IF
+          END DO
+        END DO
+      END DO
+
+    CASE (47)
+    ! T and S are horizontally and vertically homegeneous
+    ! include some special init - here Indonesia set to warm/salty surface
+      CALL message(TRIM(routine), 'Initialization of testcases (47)')
+      CALL message(TRIM(routine), &
+        &  ' - here: horizontally and vertically homogen+warm/salty Indonesia')
+
+      ! 2012-10-31: Indonesian Archipelago - connected to Atlantic? (4 cpu)
+      z_lat1  =  -5.0_wp
+      z_lat2  =  10.0_wp
+      z_lon1  = 115.0_wp
+      z_lon2  = 135.0_wp
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk=1,n_zlev
+
+          !latitude given in radians
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lon = ppatch%cells%center(jc,jb)%lon
+          !transer to latitude in degrees
+          z_lat_deg = z_lat*rad2deg
+          z_lon_deg = z_lon*rad2deg
+
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              IF (no_tracer == 2) THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+              END IF
+
+              IF ( (z_lat_deg >= z_lat1 .AND. z_lat_deg <= z_lat2) .AND. &
+                &  (z_lon_deg >= z_lon1 .AND. z_lon_deg <= z_lon2) ) THEN
+
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 10.0_wp
+                IF (no_tracer == 2) THEN
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 30.0_wp
+                END IF
+
+              END IF
+
             END IF
           END DO
         END DO
