@@ -229,6 +229,12 @@ create_strong_scaling()
   division_file_name=""
   radiation_decomposition_file=""
 
+  iorder_sendrecv=4
+  use_icon_comm=".true."
+  icon_comm_method=1
+  division_method=104
+  parallel_radiation_mode=1
+
   nproma_bac=$nproma
 
   nodes_list_size=${#nodes_list[*]}
@@ -256,6 +262,11 @@ create_weak_scaling()
   cells_per_domain=$2
   dec_size_list="$3"
   weak_nproma_list="$4"
+
+  iorder_sendrecv=4
+  use_icon_comm=".true."
+  icon_comm_method=1
+  parallel_radiation_mode=1
 
   grid_base_level_dec_32=1
   grid_base_level_dec_92=2
@@ -692,19 +703,7 @@ create_nat_ape_lowres()
   run_120km="yes"
   run_105km="yes"
 
-  #---------------------------------
-  # run="true"
   #==============================================================================
-  iorder_sendrecv=4
-  icon_comm_method=1
-  use_icon_comm=".true."
-  icon_comm_method=1
-  division_method=104
-  parallel_radiation_mode=1
-  redrad_split_factor=8
- 
- # use_physics_barrier=".true."
- # use_dycore_barrier=".true."
 
   vwind_implicitness=0.5
   dtime=200
@@ -824,13 +823,6 @@ create_nat_ape_75-100km()
   setup_name='nat-ape_10days'
 
   #==============================================================================
-  iorder_sendrecv=4
-  icon_comm_method=1
-  use_icon_comm=".true."
-  icon_comm_method=1
-  division_method=104
-  parallel_radiation_mode=1
-  redrad_split_factor=8
  
   nlevels=96
   vwind_implicitness=0.45
@@ -924,12 +916,6 @@ create_nat_ape_35-70km()
   setup_name='nat-ape_10days'
 
   #==============================================================================
-  iorder_sendrecv=4
-  icon_comm_method=1
-  use_icon_comm=".true."
-  icon_comm_method=1
-  division_method=104
-  parallel_radiation_mode=1
  
   nlevels=96
 
