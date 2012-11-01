@@ -68,7 +68,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_vdiff_config,         ONLY: vdiff_config
-  USE mo_vdiff_driver,         ONLY: vdiff
+  USE mo_nwp_vdiff_driver,     ONLY: vdiff
   USE mo_vdfouter,             ONLY: vdfouter
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name

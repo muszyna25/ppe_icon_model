@@ -37,7 +37,7 @@
 @PROCESS HOT
 #endif
 
-MODULE mo_vdiff_driver
+MODULE mo_nwp_vdiff_driver
 
   USE mo_kind,               ONLY: wp
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
@@ -422,5 +422,5 @@ CONTAINS
   END SUBROUTINE vdiff
   !-------------
 
-END MODULE mo_vdiff_driver
+END MODULE mo_nwp_vdiff_driver
 

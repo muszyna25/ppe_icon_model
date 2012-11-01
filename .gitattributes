@@ -1095,10 +1095,10 @@ src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_sfc_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_vdiff_driver.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
-src/atm_phy_nwp/mo_vdiff_driver.f90 -text
 src/atm_phy_schemes/data_flake.f90 -text
 src/atm_phy_schemes/data_gscp.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
