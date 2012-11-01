@@ -49,6 +49,13 @@ use_shell=${use_shell:="/bin/ksh"}
 make_runscript="$use_shell ./config/make_target_runscript"
 
 #==============================================================================
+print_grid_info()
+{
+  echo  "======================================" >> $info_file
+  echo  "grid=${setup_grid}, resolution=$resolution  nlevels=$nlevels  simulated days=$ndays">> $info_file
+}
+
+#==============================================================================
 create_dec()
 {
   if [[ x$atmo_dyn_gridname == x ]] ; then  
@@ -83,6 +90,18 @@ create_dec()
   exp_name=${outname}_${division_method}decm_${comm_method}-comm_${iorder_sendrecv}sendrecv.${openmp_threads}threads.${nodes}nodes.${dec_size}procs.${nproma}nproma.${atmo_dyn_gridname}.${nlevels}levels
   runname=exp.${exp_name}.run
 
+
+  node_ratio=$(echo "scale=9; ${nodes} / ${reference_nodes} " | bc)
+  cpu_time=$(echo "scale=9; ($oneday_time * ${ndays}) * (1 + 0.01 * ${node_ratio}) / ${node_ratio} + 0.25" | bc)
+  years_per_day=$(echo "scale=9; (3.9452 *${ndays})  / ${cpu_time} " | bc)
+  round_cpu_time=$(echo "scale=1; ($cpu_time + 5.5) " | bc)
+  round_cpu_time=$(printf "%02.0f" $round_cpu_time)
+  cpu_time="00:${round_cpu_time}:00"
+
+#   echo  "grid=${atmo_dyn_gridname}, resolution=$resolution">> $info_file
+#   echo  "   nodes=$nodes cpu time=${cpu_time} 00:${round_cpu_time}:00  years_per_day=${years_per_day}" >> $info_file
+  echo  "   nodes=$nodes cpu time=00:${round_cpu_time}:00  years_per_day=${years_per_day}" >> $info_file
+  
   $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
     mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_dycore_barrier=$use_dycore_barrier testbed_mode=$testbed_mode division_method=$division_method \
@@ -92,9 +111,9 @@ create_dec()
     msg_level=${msg_level} top_of_atmo=${top_of_atmo} damp_height=${damp_height} ntasks_per_node=${ntasks_per_node} use_physics_barrier=$use_physics_barrier \
     restart_atmo_from="$restart_atmo_from" division_file_name="$division_file_name" radiation_decomposition_file="$radiation_decomposition_file" \
     cpcommand="$cpcommand" redrad_split_factor=$redrad_split_factor
-
-  # queue="express"
-
+# 
+#   # queue="express"
+# 
   if [ $run = "true" ]; then
     cd $input_folder
     $use_submit ${runname}
@@ -180,6 +199,7 @@ set_default_parameters()
   #---------------------------------
   grids_folder=/work/mh0287/leonidas.public/grids/grids.new
   run="false"
+  info_file="run_info.txt"
 }
 #==============================================================================
 
@@ -333,6 +353,50 @@ create_seq_on_blizzard()
 
   exit
 }
+#==============================================================================
+
+
+#==============================================================================
+create_comm_test_on_blizzard()
+{
+  set_default_parameters
+  exp_descriptor="icon-testbed_communication"
+  cpu_time="00:20:00"
+  dt_rad=1800
+  # parallel_radiation_mode=1
+  use_icon_comm=".true."
+  mpi_procs_pernode=32
+  openmp_threads=2
+  ndays=120
+
+  #---------------------------------
+   run="true"
+  #==============================================================================
+  setup_name="comm-test"
+  division_method=0
+  create_weak_scaling "${setup_name}" 96 "642"
+  division_method=1
+  create_weak_scaling "${setup_name}" 96 "642"
+ 
+  exit
+
+  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-4-16-cells
+  create_weak_scaling "rad-comm-test_4cells_2" 96 "1082"
+
+  exit
+  #==============================================================================
+  ndays=60
+  division_method=0
+  create_weak_scaling "comm-weaktest_hexdec" 24
+  create_weak_scaling "comm-weaktest_hexdec" 96
+  create_weak_scaling "comm-weaktest_hexdec" 384 
+  #==============================================================================
+  division_method=1
+  create_weak_scaling "comm-weaktest_hexdec" 96
+  create_weak_scaling "comm-weaktest_geomdec" 384
+
+}
+#==============================================================================
 
 
 
@@ -607,20 +671,20 @@ create_nat_ape_lowres_restart()
 }
 
 #==============================================================================
-create_nat_ape_lowres_on_blizzard()
+create_nat_ape_lowres()
 {
-  set_default_parameters
+#   set_default_parameters
   weak_dec_size_list_all="32 92 162 362 642 1082 1442 1922 2432"
   cpcommand="ln -s "
 
   ndays=10
-  cpu_time="00:10:00"
-  restart=".true." 
+  restart=".true."
 
   # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
   top_of_atmo=80000.
   damp_height=60000.
   itime_scheme=4
+  advection_substepping=3
   setup_name='nat-ape_10days'
 
   run_160km="yes"
@@ -631,7 +695,6 @@ create_nat_ape_lowres_on_blizzard()
   #---------------------------------
   # run="true"
   #==============================================================================
-  itime_scheme=4
   iorder_sendrecv=4
   icon_comm_method=1
   use_icon_comm=".true."
@@ -643,9 +706,6 @@ create_nat_ape_lowres_on_blizzard()
  # use_physics_barrier=".true."
  # use_dycore_barrier=".true."
 
-  nlevels=96
-  nlevels=64
-  advection_substepping=3
   vwind_implicitness=0.5
   dtime=200
   dt_rad=3600
@@ -654,10 +714,15 @@ create_nat_ape_lowres_on_blizzard()
  
 if [ $run_160km = yes ] ; then 
   setup_grid="iconR2B04-grid"
-  one_node_time=15
+  resolution="160km"
+  reference_nodes=1
+  oneday_time=1.5
+  print_grid_info
 
-  nodes_list=(  1  4  8  16 20) 
-  nproma_list=(16 16 20  10  8)
+#   nodes_list=(  1  4  8  16 20) 
+#   nproma_list=(16 16 20  10  8)
+  nodes_list=(  1  4  8  16 )
+  nproma_list=(16 16 20  10 )
   redrad_split_factor=8
   create_strong_scaling "$setup_grid" "${setup_name}"
 
@@ -671,7 +736,10 @@ fi
 if [ $run_140km = yes ] ; then
   setup_grid="iconR2B05-grid_dec-1082"
   setup_hexdec=1082
-  one_node_time=20
+  resolution="140km"
+  reference_nodes=1
+  oneday_time=1.8
+  print_grid_info
 
   redrad_split_factor=8 
   nodes_list=( 1  5 12 23)
@@ -692,21 +760,23 @@ fi
 if [ $run_120km = yes ] ; then
   setup_grid="iconR2B05-grid_dec-362"
   setup_hexdec=362
-  one_node_time=28
+  resolution="120km"
+  reference_nodes=2
+  oneday_time=1.25
+  print_grid_info
 
   redrad_split_factor=8 
   nodes_list=( 2 6 27)
   nproma_list=(9 9 10)
   create_strong_scaling "$setup_grid" "$setup_name"
-
-  # hex decomposition
-  division_method=0
-  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
- 
   redrad_split_factor=6
   nodes_list=( 45)
   nproma_list=(12)
   create_strong_scaling "$setup_grid" "$setup_name"
+
+  # hex decomposition
+  division_method=0
+  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
 
 fi
 
@@ -714,12 +784,18 @@ fi
 if [ $run_105km = yes ] ; then
   setup_grid="iconR2B05-grid_dec-1922"
   setup_hexdec=1922
+  resolution="105km"
   dtime=192
   dt_rad=2880
+  reference_nodes=2
+  oneday_time=1.5
+  print_grid_info
  
   redrad_split_factor=8 
-  nodes_list=(  2  6 12 24)
-  nproma_list=(12 12 10 10)
+#   nodes_list=(  2  6 12 24)
+#   nproma_list=(12 12 10 10)
+  nodes_list=(  6 12 24)
+  nproma_list=(12 10 10)
   create_strong_scaling "$setup_grid" "$setup_name"
 
   # hex decomposition
@@ -728,213 +804,247 @@ if [ $run_105km = yes ] ; then
 
 fi
 
-  exit
 }
 #====================================================
 
-#====================================================
-create_nat_test-setups_on_blizzard()
-{ 
-  cpu_time="00:20:00"
-  division_method=0
-  create_weak_scaling "${setup_name}" 96 "$setup_hexdec"
-  create_weak_scaling "${setup_name}" 192 "$setup_hexdec" 
-  # parallel_radiation_mode=1
-  # create_weak_scaling "${setup_name}_redrad_lonlat" 96 "$setup_hexdec"
-  exit
- 
-  setup_grid="iconR2B05_dec-1922"
-  setup_hexdec=1922
-  nproma=8
-  dtime=192
-  dt_rad=3960
-  cpu_time="01:00:00"
-#  create_strong_scaling "$setup_grid" "$setup_name" "6"
-  cpu_time="00:30:00"
-#  create_strong_scaling "$setup_grid" "$setup_name" "12"
-  cpu_time="00:15:00"
+#==============================================================================
+create_nat_ape_75-100km()
+{
+  set_default_parameters
+  cpcommand="ln -s "
+
+  ndays=10
+  restart=".true."
+
+  # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
+  top_of_atmo=80000.
+  damp_height=60000.
+  itime_scheme=4
+  advection_substepping=4
+  setup_name='nat-ape_10days'
+
+  #==============================================================================
+  iorder_sendrecv=4
   icon_comm_method=1
-#  create_strong_scaling "$setup_grid" "$setup_name" "24 32 48"
-
-  cpu_time="00:10:00"
-  division_method=0
+  use_icon_comm=".true."
   icon_comm_method=1
-  # parallel_radiation_mode=1
-  nproma=6
-  create_weak_scaling "${setup_name}" 24 "$setup_hexdec"
-  # create_weak_scaling "${setup_name}" 48 "$setup_hexdec"
-  exit
-
-
-  use_physics_barrier=".true."
-  cpu_time="00:15:00"
-  create_weak_scaling "${setup_name}_barrier" 24 "$setup_hexdec"
-
-  top_of_atmo=85000.
-  setup_name='nat-ape_85km_90days'
-  cpu_time="01:00:00"
-  create_strong_scaling "$setup_grid" "$setup_name" "4"
+  division_method=104
+  parallel_radiation_mode=1
+  redrad_split_factor=8
  
-  exit
+  nlevels=96
+  vwind_implicitness=0.45
+
+  #---------------------------------
   
+  #---------------------------------
+  setup_grid="iconR2B06-grid_dec-2432"
+  setup_hexdec=2432
+  dtime=150
+  dt_rad=3600
+  resolution="93km"
+  reference_nodes=4
+  oneday_time=1.3
+  print_grid_info
 
-  nlevels=96
+  redrad_split_factor=8 
+#   nodes_list=(  4 12 21 42)
+#   nproma_list=(12 11 11 11)
+  nodes_list=(  4 12 42)
+  nproma_list=(12 11 11)
+  create_strong_scaling "$setup_grid" "$setup_name"
 
-  # msg_level=100
- 
-  vwind_implicitness=0.5
-  advection_substepping=4
-  dtime=165
-  dt_rad=3960
-#  create_strong_scaling "iconR2B05_dec-1922" "$setup_name" "8 16"
-  cpu_time="00:30:00"
-  division_method=1
-  nproma=8
-  ntasks_per_node=32
-  create_weak_scaling "${setup_name}_32ntasks_per_node" 48 "1922"
-  exit
-
-
-  nlevels=96
- 
-  vwind_implicitness=0.45
-  advection_substepping=4
-  dtime=165
-  dt_rad=3960
   division_method=0
-  nproma=6
-  cpu_time="03:00:00" 
-  # create_strong_scaling "iconR2B06_dec-2432" "$setup_name" "8 16 24"
-  cpu_time="01:00:00"
-  # create_weak_scaling "${setup_name}" 48 "2432"
+  create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
-  vwind_implicitness=0.45
-  advection_substepping=4
-  dtime=165
-  dt_rad=3960
-  mpi_procs_pernode=32
-  openmp_threads=2
-  division_method=1
-  nproma=8
-  cpu_time="03:00:00"
-  # create_strong_scaling "iconR2B05_dec-642" "$setup_name" "8"
-  # use_barrier=".true."
+ 
+  #---------------------------------
+#   setup_grid="iconR2B05-grid_dec-642"
+#   setup_hexdec=642
+#   dtime=150
+#   dt_rad=3600
+#   resolution="91km"
+#   reference_nodes=4
+#   oneday_time=15
+#   print_grid_info
+# 
+#   redrad_split_factor=8 
+#   nodes_list=(  4 12 40 )
+#   nproma_list=(12 10 12 )
+#   create_strong_scaling "$setup_grid" "$setup_name"
+#   redrad_split_factor=6 
+#   nodes_list=( 80 )
+#   nproma_list=(12 )
+#   create_strong_scaling "$setup_grid" "$setup_name"
+# 
+#   # hex decomposition
+#   division_method=0
+#   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
+  #---------------------------------
 
-  vwind_implicitness=0.45
-  division_method=1
-  mpi_procs_pernode=16
-  openmp_threads=4
-  icon_comm_method=103
-  cpu_time="01:00:00"
-#  create_weak_scaling "${setup_name}" 192 "642"
-
-
-
-  vwind_implicitness=0.45
-  advection_substepping=4
+  #---------------------------------
+  setup_grid="iconR2B05-grid"
   dtime=144
-  dt_rad=3456
-  mpi_procs_pernode=16
-  openmp_threads=4
-  nproma=8
-  cpu_time="00:30:00"
-  create_strong_scaling "iconR2B05-grid" "${setup_name}" "80"
-  exit
+  dt_rad=2880
+  resolution="79km"
+  reference_nodes=4
+  oneday_time=1.8
+  print_grid_info
 
-  vwind_implicitness=0.45
-  advection_substepping=5
-  dtime=130
-  dt_rad=3250
-  mpi_procs_pernode=64
-  openmp_threads=1
-  division_method=0
-  create_weak_scaling "${setup_name}" 96 "1082"
+  redrad_split_factor=8
+#   nodes_list=(  4 10 20 40 80)
+#   nproma_list=(16 16 16 16  8)
+  nodes_list=( 10 20 40 80)
+  nproma_list=(16 16 16  8)
+  create_strong_scaling "$setup_grid" "${setup_name}"
 
-  exit
- 
-  vwind_implicitness=0.4
-  advection_substepping=5
-  dtime=94
-  dt_rad=2820
+  redrad_split_factor=6
+  nodes_list=(  107)
+  nproma_list=( 12)
+  create_strong_scaling "$setup_grid" "${setup_name}"
 
-  cpu_time="04:00:00"
-  # create_strong_scaling "iconR2B06_dec-1922" "$setup_name" "12"
-
- 
-  cpu_time="04:00:00"
-
- # exp_descriptor=nat_ape_gu.100km
- # setup_name='nat-ape_setup-tests_100km_gu'
-  max_send_recv_buffer_size=393216
- # msg_level=12
-  vwind_implicitness=0.4
-  advection_substepping=5
-  dtime=72
-  dt_rad=2160
-  create_strong_scaling "iconR2B06-grid" "${setup_name}_x5" "32"
-
-  cpu_time="08:00:00"
-  ndays=100
-  vwind_implicitness=0.3
-  advection_substepping=5
-  dtime=36
-  dt_rad=1800
- # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
-  create_strong_scaling "iconR2B07-grid" "${setup_name}_x5" "80"
- 
-  exit
 }
-   
+#====================================================
 
 
 #==============================================================================
-create_comm_test_on_blizzard()
+create_nat_ape_35-70km()
 {
   set_default_parameters
-  exp_descriptor="icon-testbed_communication"
-  cpu_time="00:20:00"
-  dt_rad=1800
-  # parallel_radiation_mode=1
+  cpcommand="ln -s "
+
+  ndays=10
+  restart=".true."
+
+  # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
+  top_of_atmo=80000.
+  damp_height=60000.
+  itime_scheme=4
+  advection_substepping=5
+  setup_name='nat-ape_10days'
+
+  #==============================================================================
+  iorder_sendrecv=4
+  icon_comm_method=1
   use_icon_comm=".true."
-  mpi_procs_pernode=32
-  openmp_threads=2
-  ndays=120
+  icon_comm_method=1
+  division_method=104
+  parallel_radiation_mode=1
+ 
+  nlevels=96
 
   #---------------------------------
-   run="true"
-  #==============================================================================
-  setup_name="comm-test"
-  division_method=0
-  create_weak_scaling "${setup_name}" 96 "642"
-  division_method=1
-  create_weak_scaling "${setup_name}" 96 "642"
- 
-  exit
+  
+  #---------------------------------
+  setup_grid="iconR2B06-grid_dec-1442"
+  setup_hexdec=1442
+  dtime=96
+  dt_rad=2880
+  vwind_implicitness=0.4
+  resolution="61km"
+  reference_nodes=8
+  oneday_time=2.32
+  print_grid_info
 
-  grids_folder=/work/mh0287/users/leonidas/icon/grids.radiation_4-4-16-cells
-  create_weak_scaling "rad-comm-test_4cells_2" 96 "1082"
+#   nodes_list=( 8  20   90   180)
+#   nproma_list=(9  12   12    12)
+  redrad_split_factor=8
+  nodes_list=( 20   90)
+  nproma_list=(12   12)
+  create_strong_scaling "$setup_grid" "$setup_name"
+  redrad_split_factor=6
+  nodes_list=( 180)
+  nproma_list=( 12)
+  create_strong_scaling "$setup_grid" "$setup_name"
 
-  exit
-  #==============================================================================
-  ndays=60
   division_method=0
-  create_weak_scaling "comm-weaktest_hexdec" 24
-  create_weak_scaling "comm-weaktest_hexdec" 96
-  create_weak_scaling "comm-weaktest_hexdec" 384 
-  #==============================================================================
-  division_method=1
-  create_weak_scaling "comm-weaktest_hexdec" 96
-  create_weak_scaling "comm-weaktest_geomdec" 384
+  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
+  
+  #---------------------------------
+  setup_grid="iconR2B07-grid_dec-2432"
+  setup_hexdec=2432
+  dtime=80
+  dt_rad=3600
+  vwind_implicitness=0.4
+  resolution="47km"
+  reference_nodes=9
+  oneday_time=4.2
+  print_grid_info
+
+#   nodes_list=( 19  38  152  228)
+#   nproma_list=(12  12   12   16)
+  redrad_split_factor=8
+  nodes_list=( 38  152)
+  nproma_list=(12   12)
+  create_strong_scaling "$setup_grid" "$setup_name"
+  redrad_split_factor=6
+  nodes_list=( 228)
+  nproma_list=( 16)
+  create_strong_scaling "$setup_grid" "$setup_name"
+
+  division_method=0
+  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
+
+  #---------------------------------
+  setup_grid="iconR2B06-grid"
+  dtime=72
+  dt_rad=1800
+  vwind_implicitness=0.4
+  resolution="40km"
+  reference_nodes=32
+  oneday_time=1.8
+  print_grid_info
+
+  redrad_split_factor=8
+#   nodes_list=( 32 64 128 214 234)
+#   nproma_list=(16 10  10  12  11)
+  nodes_list=( 32 64 128)
+  nproma_list=(16 10  10)
+  create_strong_scaling "$setup_grid" "$setup_name"
+  redrad_split_factor=6
+  nodes_list=( 244)
+  nproma_list=( 11)
+  create_strong_scaling "$setup_grid" "$setup_name"
+  
+  #---------------------------------
+  setup_grid="iconR2B07-grid_dec-4322"
+  setup_hexdec=4322
+  dtime=60
+  dt_rad=1800
+  vwind_implicitness=0.35
+  resolution="35km"
+  reference_nodes=34
+  oneday_time=2.6
+  print_grid_info
+
+  redrad_split_factor=8
+  nodes_list=( 34  70)
+  nproma_list=(12  12)
+  create_strong_scaling "$setup_grid" "$setup_name"
+  redrad_split_factor=6
+  nodes_list=( 240)
+  nproma_list=(  9)
+  create_strong_scaling "$setup_grid" "$setup_name"
+
+  division_method=0
+  create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
 
 }
+#====================================================
+
+  set_default_parameters
+  nlevels=64
+  create_nat_ape_lowres
+  nlevels=96
+  create_nat_ape_lowres
+
+  create_nat_ape_75-100km
+
+  create_nat_ape_35-70km
 
 #create_nat_ape_40-70km_restart
 #create_nat_ape_75-100km_restart
-
 # create_nat_ape_lowres_restart
- create_nat_ape_lowres_on_blizzard
-
-# create_nat_test-setups_on_blizzard
 
 #create_seq_on_blizzard
 # create_weak_scaling_on_blizzard
