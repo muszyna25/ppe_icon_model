@@ -718,7 +718,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('albvisdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
                & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.               )
+               & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
           ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total)

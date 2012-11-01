@@ -2946,7 +2946,7 @@ CONTAINS
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! set land-cover class
-             ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
+             ext_data(jg)%atm%lc_class_t(jc,jb,jt) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
              ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp-ext_data(jg)%atm%fr_land(jc,jb)
            ENDIF

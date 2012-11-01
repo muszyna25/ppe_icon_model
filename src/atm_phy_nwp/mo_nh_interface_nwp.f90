@@ -851,7 +851,8 @@ CONTAINS
            &              lnd_diag,              & ! in
            &              pt_prog,               & ! inout
            &              pt_diag,prm_diag,      & ! inout
-           &              lnd_prog_new           ) ! in
+           &              lnd_prog_new,          & ! in
+           &              wtr_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF

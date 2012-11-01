@@ -50,7 +50,7 @@ MODULE mo_nwp_rad_interface
   USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input_rg, downscale_rad_output_rg
@@ -92,7 +92,7 @@ MODULE mo_nwp_rad_interface
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, datetime, pt_patch,pt_par_patch, &
     & pt_par_int_state,pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_diag,prm_diag, &
-    & lnd_prog )
+    & lnd_prog, wtr_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -111,7 +111,8 @@ MODULE mo_nwp_rad_interface
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog   ! time level new
+    TYPE(t_wtr_prog),           INTENT(   in):: wtr_prog   ! time level new
 
     REAL(wp) :: &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -127,7 +128,7 @@ MODULE mo_nwp_rad_interface
 
 
     ! Compute tile-based and aggregated surface-albedo
-    CALL sfc_albedo(pt_patch, ext_data, lnd_prog, lnd_diag, prm_diag)
+    CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        

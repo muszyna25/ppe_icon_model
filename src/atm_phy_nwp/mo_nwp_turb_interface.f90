@@ -462,25 +462,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt)*area_frac
             prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt)*area_frac
 
-!DR Test
-!            IF (area_frac==0._wp) write(0,*) "area_frac zero at jc,jb,jt",jc,jb,jt1
-!            IF (prm_diag%gz0(jc,jb)==0._wp) write(0,*) "prm_diag%gz0(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%tcm(jc,jb)==0._wp) write(0,*) "prm_diag%tcm(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%tch(jc,jb)==0._wp) write(0,*) "prm_diag%tch(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%tfm(jc,jb)==0._wp) write(0,*) "prm_diag%tfm(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%tfh(jc,jb)==0._wp) write(0,*) "prm_diag%tfh(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%tfv(jc,jb)==0._wp) write(0,*) "prm_diag%tfv(jc,jb) zero at jc,jb,jt",jc,jb,jt
-
-!            IF (prm_diag%tkvm(jc,nlev,jb)==0._wp) write(0,*) "prm_diag%tkvm(jc,nlev,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%tkvh(jc,nlev,jb)==0._wp) write(0,*) "prm_diag%tkvh(jc,nlev,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%rcld(jc,nlevp1,jb)==0._wp) write(0,*) "prm_diag%rcld(jc,nlevp1,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%t_2m(jc,jb)==0._wp) write(0,*) "prm_diag%t_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%qv_2m(jc,jb)==0._wp) write(0,*) "prm_diag%qv_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%td_2m(jc,jb)==0._wp) write(0,*) "prm_diag%td_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%rh_2m(jc,jb)==0._wp) write(0,*) "prm_diag%rh_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%u_10m(jc,jb)==0._wp) write(0,*) "prm_diag%u_10m(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!            IF (prm_diag%v_10m(jc,jb)==0._wp) write(0,*) "prm_diag%v_10m(jc,jb) zero at jc,jb,jt",jc,jb,jt
-!DR Test
           ENDDO
 
         ENDDO
