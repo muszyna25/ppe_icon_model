@@ -646,14 +646,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
   !------------------------------------------
-  !< call for surface initialization
+  !< surface initialization
   !------------------------------------------
 
-  IF ( lseaice ) THEN
-     ! for both restart and non-restart runs. could not be included into 
-     ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
-     CALL init_seaice_lists(p_patch, ext_data, p_diag_lnd)
-  ENDIF
+  ! for both restart and non-restart runs. Could not be included into 
+  ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
+  CALL init_seaice_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
@@ -832,7 +830,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         jc = ext_data%atm%idx_lst_fp(ic,jb)
         ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
       ENDDO
-
+      ! Copy sai over water points to the seaice tile-index of tile-based variables
+      jt = ntiles_total + MIN(2,ntiles_water)
+      DO ic = 1, ext_data%atm%spi_count(jb)
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
+      ENDDO
     ENDDO
 !$OMP END DO
 

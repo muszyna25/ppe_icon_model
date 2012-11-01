@@ -66,7 +66,8 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water, ntiles_water
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water, ntiles_water, &
+    &                                isub_water, isub_seaice
 
   IMPLICIT NONE
 
@@ -88,7 +89,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                           & p_diag ,                           & !>inout
                           & prm_diag, prm_nwp_tend,            & !>inout
                           & wtr_prog_now,                      & !>in 
-                          & lnd_prog_now, lnd_prog_new,        & !>inout 
+                          & lnd_prog_now,                      & !>inout 
                           & lnd_diag                           ) !>inout
 
 
@@ -103,7 +104,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
-  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -111,7 +111,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ! Local array bounds
 
   INTEGER :: nblks_c, nblks_e        !> number of blocks for cells / edges
-  INTEGER :: npromz_e, npromz_c      !> length of last block line
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
@@ -160,15 +159,12 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   i_lc_si= ext_data%atm%i_lc_snow_ice
 
-  IF (msg_level >= 15) &
-        & CALL message('mo_nwp_turb:', 'turbulence')
+  IF (msg_level >= 15) CALL message('mo_nwp_turb:', 'turbulence')
     
   ! local variables related to the blocking
   
   nblks_c   = p_patch%nblks_int_c
-  npromz_c  = p_patch%npromz_int_c
   nblks_e   = p_patch%nblks_int_e
-  npromz_e  = p_patch%npromz_int_e
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
   
@@ -222,7 +218,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          END DO
         ELSE
          !
-         !> adjust  humidity at water surface because of changed surface pressure
+         !> adjust humidity at water surface because of changed surface pressure
          !
          DO jc = i_startidx, i_endidx
            lnd_diag%qv_s (jc,jb) = &
@@ -245,16 +241,21 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
       ! water points - preliminary implementation
-      jt = ntiles_total + MIN(1,ntiles_water)
 !CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, ext_data%atm%sp_count(jb)
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-        prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
+      DO ic = 1, ext_data%atm%spw_count(jb)
+        jc = ext_data%atm%idx_lst_spw(ic,jb)
+        prm_diag%gz0_t(jc,jb,isub_water) = prm_diag%gz0(jc,jb)
       ENDDO
 !CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0(jc,jb)
+        prm_diag%gz0_t(jc,jb,isub_water) = prm_diag%gz0(jc,jb)
+      ENDDO
+      ! seaice points - preliminary implementation
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, ext_data%atm%spi_count(jb)
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        prm_diag%gz0_t(jc,jb,isub_seaice) = prm_diag%gz0(jc,jb)
       ENDDO
       IF (ntiles_total == 1) THEN
 !CDIR NODEP,VOVERTAKE,VOB
@@ -324,24 +325,32 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         depth_lk_t(:) = 0._wp
         h_ice_t(:)    = 0._wp
 
-        ! Loop over index lists for land tile points, sea points and lake points
+        ! Loop over index lists for land tile points, sea/lake points and seaice points
         DO  jt = 1, ntiles_total + nlists_water
 
           IF (jt <= ntiles_total) THEN ! land tile points
             jt1 = jt
             i_count = ext_data%atm%gp_count_t(jb,jt)
             ilist => ext_data%atm%idx_lst_t(:,jb,jt)
-          ELSE IF (jt == ntiles_total + 1) THEN ! sea points
-            jt1 = jt
-            i_count = ext_data%atm%sp_count(jb)
-            ilist => ext_data%atm%idx_lst_sp(:,jb)
+          ELSE IF (jt == ntiles_total + 1) THEN ! sea points (seaice points excluded)
+            jt1 = isub_water   !jt
+            i_count = ext_data%atm%spw_count(jb)
+            ilist => ext_data%atm%idx_lst_spw(:,jb)
             fr_land_t(:) = 0._wp
-          ELSE ! IF (jt == ntiles_total + 2) THEN ! lake points
-            jt1 = ntiles_total + 1
+          ELSE IF (jt == ntiles_total + 2) THEN ! lake points
+            jt1 = isub_water   !ntiles_total + 1
             i_count = ext_data%atm%fp_count(jb)
             ilist => ext_data%atm%idx_lst_fp(:,jb)
             ! depth_lk_t(:) = ...
             ! h_ice_t(:) = ...
+          ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
+            jt1 = isub_seaice    !ntiles_total + 2
+            i_count = ext_data%atm%spi_count(jb)
+            ilist => ext_data%atm%idx_lst_spi(:,jb)
+            fr_land_t (:) = 0._wp
+            depth_lk_t(:) = 0._wp
+            h_ice_t   (:) = 1._wp  ! prelim. implementation. Only needed for checking whether 
+                                   ! ice is present or not
           ENDIF
 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
@@ -414,14 +423,18 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             jt1 = jt
             i_count = ext_data%atm%gp_count_t(jb,jt)
             ilist => ext_data%atm%idx_lst_t(:,jb,jt)
-          ELSE IF (jt == ntiles_total + 1) THEN ! sea points
-            jt1 = jt
-            i_count = ext_data%atm%sp_count(jb)
-            ilist => ext_data%atm%idx_lst_sp(:,jb)
-          ELSE ! IF (jt == ntiles_total + 2) THEN ! lake points
-            jt1 = ntiles_total + 1
+          ELSE IF (jt == ntiles_total + 1) THEN ! sea points (seaice points excluded)
+            jt1 = isub_water   !jt
+            i_count = ext_data%atm%spw_count(jb)
+            ilist => ext_data%atm%idx_lst_spw(:,jb)
+          ELSE IF (jt == ntiles_total + 2) THEN ! lake points
+            jt1 = isub_water   !ntiles_total + 1
             i_count = ext_data%atm%fp_count(jb)
             ilist => ext_data%atm%idx_lst_fp(:,jb)
+          ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
+            jt1 = isub_seaice   !ntiles_total + 2
+            i_count = ext_data%atm%spi_count(jb)
+            ilist => ext_data%atm%idx_lst_spi(:,jb)
           ENDIF
 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
@@ -449,13 +462,32 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt)*area_frac
             prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt)*area_frac
 
+!DR Test
+!            IF (area_frac==0._wp) write(0,*) "area_frac zero at jc,jb,jt",jc,jb,jt1
+!            IF (prm_diag%gz0(jc,jb)==0._wp) write(0,*) "prm_diag%gz0(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%tcm(jc,jb)==0._wp) write(0,*) "prm_diag%tcm(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%tch(jc,jb)==0._wp) write(0,*) "prm_diag%tch(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%tfm(jc,jb)==0._wp) write(0,*) "prm_diag%tfm(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%tfh(jc,jb)==0._wp) write(0,*) "prm_diag%tfh(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%tfv(jc,jb)==0._wp) write(0,*) "prm_diag%tfv(jc,jb) zero at jc,jb,jt",jc,jb,jt
+
+!            IF (prm_diag%tkvm(jc,nlev,jb)==0._wp) write(0,*) "prm_diag%tkvm(jc,nlev,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%tkvh(jc,nlev,jb)==0._wp) write(0,*) "prm_diag%tkvh(jc,nlev,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%rcld(jc,nlevp1,jb)==0._wp) write(0,*) "prm_diag%rcld(jc,nlevp1,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%t_2m(jc,jb)==0._wp) write(0,*) "prm_diag%t_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%qv_2m(jc,jb)==0._wp) write(0,*) "prm_diag%qv_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%td_2m(jc,jb)==0._wp) write(0,*) "prm_diag%td_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%rh_2m(jc,jb)==0._wp) write(0,*) "prm_diag%rh_2m(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%u_10m(jc,jb)==0._wp) write(0,*) "prm_diag%u_10m(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!            IF (prm_diag%v_10m(jc,jb)==0._wp) write(0,*) "prm_diag%v_10m(jc,jb) zero at jc,jb,jt",jc,jb,jt
+!DR Test
           ENDDO
 
         ENDDO
 
       ENDIF ! tiles / no tiles
 
-      ! Aggregation of of variables needed as input for turbdiff or as diagnostic output
+      ! Aggregation of variables needed as input for turbdiff or as diagnostic output
 
       CALL turbdiff(iini=0, lstfnct=.TRUE.,                                                     &
          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                 &

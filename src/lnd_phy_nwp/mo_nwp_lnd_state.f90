@@ -196,7 +196,7 @@ MODULE mo_nwp_lnd_state
             &                               '_and_timelev_',jt
 
           varname_prefix = ''
-          CALL  new_nwp_wtr_prog_list(jg, nblks_c, TRIM(listname),             &
+          CALL new_nwp_wtr_prog_list(jg, nblks_c, TRIM(listname),             &
             &     TRIM(varname_prefix), p_lnd_state(jg)%wtr_prog_nwp_list(jt), &
             &     p_lnd_state(jg)%prog_wtr(jt), jt)
 !        ENDIF

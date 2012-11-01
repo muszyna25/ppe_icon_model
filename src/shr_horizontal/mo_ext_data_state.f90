@@ -2927,7 +2927,10 @@ CONTAINS
            ENDIF
 
            jt = ntiles_total + MIN(1,ntiles_water)
-           IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN ! searching for lake-points 
+           !
+           ! searching for lake-points
+           !
+           IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN 
              i_count_flk=i_count_flk+1
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
@@ -2935,7 +2938,10 @@ CONTAINS
              ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
              ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = ext_data(jg)%atm%fr_lake(jc,jb)
-           ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN ! searching for sea points 
+           ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN
+             ! 
+             ! searching for sea points 
+             !
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea

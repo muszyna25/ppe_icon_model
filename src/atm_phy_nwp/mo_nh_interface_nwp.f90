@@ -540,7 +540,7 @@ CONTAINS
                               & pt_diag ,                         & !>inout
                               & prm_diag,prm_nwp_tend,            & !>inout
                               & wtr_prog_now,                     & !>in
-                              & lnd_prog_now, lnd_prog_new,       & !>inout 
+                              & lnd_prog_now,                     & !>inout 
                               & lnd_diag                          ) !>inout
       ELSE
         ! Turbulence schemes including the call to the surface scheme

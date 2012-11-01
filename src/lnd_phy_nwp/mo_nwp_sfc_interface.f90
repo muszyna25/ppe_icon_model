@@ -56,7 +56,8 @@ MODULE mo_nwp_sfc_interface
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
+    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
+    &                               isub_water, isub_seaice
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -804,37 +805,37 @@ CONTAINS
 
        ENDIF  !snow tiles
 
-       ! Final step: aggregate t_g and qv_s
-       i_count = ext_data%atm%lp_count(jb)
-
-       IF (ntiles_total == 1) THEN 
-!CDIR NODEP,VOVERTAKE,VOB
-         DO ic = 1, i_count
-           jc = ext_data%atm%idx_lst_lp(ic,jb)
-           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
-           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
-         ENDDO
-       ELSE ! aggregate fields over tiles
-         t_g_s(:)  =  0._wp
-         qv_s_s(:) =  0._wp
-         DO isubs = 1,ntiles_total+ntiles_water
-!CDIR NODEP,VOVERTAKE,VOB
-           DO ic = 1, i_count
-             jc = ext_data%atm%idx_lst_lp(ic,jb)
-             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
-               lnd_prog_new%t_g_t(jc,jb,isubs)**4
-             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* & 
-               lnd_diag%qv_s_t(jc,jb,isubs)
-           ENDDO
-         ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-         DO ic = 1, i_count
-           jc = ext_data%atm%idx_lst_lp(ic,jb)
-           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
-           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
-         ENDDO
-
-       ENDIF    ! with or without tiles
+!!$       ! Final step: aggregate t_g and qv_s
+!!$       i_count = ext_data%atm%lp_count(jb)
+!!$
+!!$       IF (ntiles_total == 1) THEN 
+!!$!CDIR NODEP,VOVERTAKE,VOB
+!!$         DO ic = 1, i_count
+!!$           jc = ext_data%atm%idx_lst_lp(ic,jb)
+!!$           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
+!!$           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
+!!$         ENDDO
+!!$       ELSE ! aggregate fields over tiles
+!!$         t_g_s(:)  =  0._wp
+!!$         qv_s_s(:) =  0._wp
+!!$         DO isubs = 1,ntiles_total+ntiles_water
+!!$!CDIR NODEP,VOVERTAKE,VOB
+!!$           DO ic = 1, i_count
+!!$             jc = ext_data%atm%idx_lst_lp(ic,jb)
+!!$             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
+!!$               lnd_prog_new%t_g_t(jc,jb,isubs)**4
+!!$             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* & 
+!!$               lnd_diag%qv_s_t(jc,jb,isubs)
+!!$           ENDDO
+!!$         ENDDO
+!!$!CDIR NODEP,VOVERTAKE,VOB
+!!$         DO ic = 1, i_count
+!!$           jc = ext_data%atm%idx_lst_lp(ic,jb)
+!!$           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
+!!$           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
+!!$         ENDDO
+!!$
+!!$       ENDIF    ! with or without tiles
 
 
     
@@ -861,6 +862,53 @@ CONTAINS
       CALL nwp_seaice(p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
         &             lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
+
+
+    !
+    ! Call Flake model
+    !
+!    IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (llake) ) THEN
+!    ENDIF
+
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Final step: aggregate t_g and qv_s            !!
+    !                                               !!
+    ! Loop over all points (land AND water points)  !!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+
+       IF (ntiles_total == 1) THEN 
+         DO jc = i_startidx, i_endidx
+           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
+           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
+         ENDDO
+       ELSE ! aggregate fields over tiles
+         t_g_s(:)  =  0._wp
+         qv_s_s(:) =  0._wp
+         DO isubs = 1,ntiles_total+ntiles_water
+           DO jc = i_startidx, i_endidx
+             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)  &
+               &       * lnd_prog_new%t_g_t(jc,jb,isubs)**4
+             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
+               &       * lnd_diag%qv_s_t(jc,jb,isubs)
+           ENDDO
+         ENDDO
+         DO jc = i_startidx, i_endidx
+           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
+           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
+         ENDDO
+
+       ENDIF    ! with or without tiles
+
+    ENDDO  ! jb
 
 
   END SUBROUTINE nwp_surface
@@ -914,21 +962,9 @@ CONTAINS
     !
     INTEGER :: jc, jb, ic              !loop indices
     INTEGER :: i_count
-    INTEGER :: isub_water
-    INTEGER :: isub_seaice
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
     !-------------------------------------------------------------------------
-
-
-    ! index for sea-ice tile (sanity check may be removed lateron)
-    IF ( ntiles_water==2 ) THEN
-      isub_water  = ntiles_total + ntiles_water - 1
-      isub_seaice = ntiles_total + ntiles_water
-    ELSE
-      CALL finish(TRIM(routine), 'requires ntiles_water=2')
-    ENDIF
-
 
     ! exclude nest boundary and halo points
     rl_start = grf_bdywidth_c+1
@@ -989,7 +1025,7 @@ CONTAINS
                             &   hice_n  = hice_new(:),         & !out
                             &   tsnow_n = tsnow_new(:),        & !out
                             &   hsnow_n = hsnow_new(:)         ) !out
-! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) neglected, so far
+! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) are neglected
 
 
 
@@ -1003,6 +1039,10 @@ CONTAINS
         p_prog_wtr_new%t_snow_si(jc,jb) = tsnow_new(ic)
         p_prog_wtr_new%h_snow_si(jc,jb) = hsnow_new(ic)
 
+        lnd_prog_new%t_g_t(jc,jb,isub_seaice) = tice_new(ic)
+        ! TO BE CODED
+        ! lnd_diag%qv_s_t = spec_humi(sat_pres_water(lnd_prog_new%t_g_t(jc,jb,isub_seaice),&
+        !   &                         p_diag%pres_sfc(jc,jb) )
       ENDDO  ! ic
 
 
@@ -1014,7 +1054,6 @@ CONTAINS
         &              spw_count          = ext_data%atm%spw_count(jb),              &!inout
         &              idx_lst_spi        = ext_data%atm%idx_lst_spi(:,jb),          &!inout
         &              spi_count          = ext_data%atm%spi_count(jb),              &!inout
-        &              lc_frac            = ext_data%atm%lc_frac_t(:,jb,isub_water), &!in
         &              partial_frac_ice   = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
         &              partial_frac_water = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
         &              fr_seaice          = p_lnd_diag%fr_seaice(:,jb),              &!inout

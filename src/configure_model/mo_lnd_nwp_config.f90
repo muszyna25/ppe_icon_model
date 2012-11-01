@@ -59,6 +59,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
+  PUBLIC :: isub_water, isub_seaice
 
   PUBLIC :: configure_lnd_nwp
 
@@ -104,6 +105,8 @@ MODULE mo_lnd_nwp_config
 
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
+  INTEGER ::  isub_water  !< (open) water points tile number
+  INTEGER ::  isub_seaice !< seaice tile number
 
 !  END TYPE t_nwp_lnd_config
 
@@ -164,9 +167,16 @@ CONTAINS
       ntiles_water = 2 
 !      ntiles_water = 1 ! currently one for lake and ocean points; will be increased to 2
                        ! when sea ice model becomes active
-      nlists_water = 2 ! currently one for lake and ocean points; will be increased to 3 
+      nlists_water = 3 ! 
+!      nlists_water = 2 ! currently one for lake and ocean points; will be increased to 3 
                        ! when sea ice model becomes active
     ENDIF
+
+    ! (open) water points tile number
+    isub_water  = MAX(1,ntiles_total + ntiles_water - 1)
+
+    ! seaice tile number
+    isub_seaice = ntiles_total + ntiles_water
 
   END SUBROUTINE configure_lnd_nwp
 

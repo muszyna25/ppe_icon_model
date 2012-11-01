@@ -230,6 +230,13 @@ MODULE mo_lnd_nwp_nml
         &  'nlev_snow must be >1 when running the multi-layer snow model')
     ENDIF
 
+    ! Seaice model
+    !
+    IF ( (ntiles==1) .AND. (lseaice) ) THEN
+      CALL finish( TRIM(routine),                                   &
+        &  'seaice model must be combined with tile approach (set ntiles>1)')
+    ENDIF 
+
 
     !----------------------------------------------------
     ! 5. Fill the configuration state

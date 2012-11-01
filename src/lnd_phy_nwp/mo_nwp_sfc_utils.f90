@@ -49,7 +49,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
-    &                               lsnowtile
+    &                               lsnowtile, isub_water, isub_seaice
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
@@ -956,11 +956,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD (2012-08-03)
   !!
-  SUBROUTINE init_seaice_lists(p_patch, ext_data, p_lnd_diag)
+  SUBROUTINE init_seaice_lists(p_patch, ext_data, p_lnd_diag, lseaice)
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !< grid/patch info.
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
     TYPE(t_lnd_diag)     , INTENT(IN)    :: p_lnd_diag     !< diag vars for sfc
+    LOGICAL              , INTENT(IN)    :: lseaice        !< seaice model on/off
     
     ! Local array bounds:
     
@@ -972,20 +973,11 @@ CONTAINS
     !
     INTEGER :: jb, ic, jc
     INTEGER :: jg
-    INTEGER :: jt1, jt2
     INTEGER :: i_count_sea, i_count_ice, i_count_water
     INTEGER :: npoints_ice, npoints_wtr
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
 !-------------------------------------------------------------------------
-
-    ! index for seaice tile (sanity check, may be removed lateron)
-    IF ( ntiles_water==2 ) THEN
-      jt1  = ntiles_total + ntiles_water - 1
-      jt2  = ntiles_total + ntiles_water
-    ELSE
-      CALL finish(TRIM(routine), 'requires ntiles_water=2')
-    ENDIF
 
 
     ! patch ID
@@ -1000,6 +992,11 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+
+    IF (lseaice) THEN
+
+    ! generate sea-ice and open-water index list
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jc,i_count_sea,i_count_ice,i_count_water), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
@@ -1031,9 +1028,9 @@ CONTAINS
            ext_data%atm%idx_lst_spi(i_count_ice,jb) = jc
            ext_data%atm%spi_count(jb)               = i_count_ice
            ! set land-cover class
-           ext_data%atm%lc_class_t(jc,jb,jt2) = ext_data%atm%i_lc_snow_ice
-           ! set also area fractions (copy from water tile)
-           ext_data%atm%lc_frac_t(jc,jb,jt2)  = ext_data%atm%lc_frac_t(jc,jb,jt1)
+           ext_data%atm%lc_class_t(jc,jb,isub_seaice)= ext_data%atm%i_lc_snow_ice
+           ! set sea-ice area fraction (static)
+           ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
          ENDIF
 
          !
@@ -1045,13 +1042,11 @@ CONTAINS
            ext_data%atm%spw_count(jb)                 = i_count_water
          ENDIF
 
-         ! Initialize frac_t with lc_frac_t
-!DR         !!!!! this can only be activated, once the turbulence interface has been 
-!DR         !!!!! adapted.
-         ext_data%atm%frac_t(jc,jb,jt1)  = ext_data%atm%lc_frac_t(jc,jb,jt1) !&
-!           &                                 * (1._wp - p_lnd_diag%fr_seaice(jc,jb))
-         ext_data%atm%frac_t(jc,jb,jt2)  = ext_data%atm%lc_frac_t(jc,jb,jt2) &
-           &                                 * p_lnd_diag%fr_seaice(jc,jb)
+         ! Initialize frac_t for seaice and update frac_t for water tile
+         ext_data%atm%frac_t(jc,jb,isub_water)  = ext_data%atm%lc_frac_t(jc,jb,isub_water)  &
+           &                                    * (1._wp - p_lnd_diag%fr_seaice(jc,jb))
+         ext_data%atm%frac_t(jc,jb,isub_seaice) = ext_data%atm%lc_frac_t(jc,jb,isub_seaice) &
+           &                                    * p_lnd_diag%fr_seaice(jc,jb)
 
        ENDDO  ! ic 
 
@@ -1060,17 +1055,31 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-       ! Some diagnostics
-       npoints_ice = SUM(ext_data%atm%spi_count(i_startblk:i_endblk))
-       npoints_ice = global_sum_array(npoints_ice)
-       npoints_wtr = SUM(ext_data%atm%spw_count(i_startblk:i_endblk))
-       npoints_wtr = global_sum_array(npoints_wtr)
-       WRITE(message_text,'(a,i3,a,i10)') 'Number of seaice points in domain',jg, &
-         &  ':',npoints_ice
-       CALL message('', TRIM(message_text))
-       WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in domain',jg, &
-         &  ':',npoints_wtr
-       CALL message('', TRIM(message_text))
+      ! Some diagnostics
+      npoints_ice = SUM(ext_data%atm%spi_count(i_startblk:i_endblk))
+      npoints_ice = global_sum_array(npoints_ice)
+      npoints_wtr = SUM(ext_data%atm%spw_count(i_startblk:i_endblk))
+      npoints_wtr = global_sum_array(npoints_wtr)
+      WRITE(message_text,'(a,i3,a,i10)') 'Number of seaice points in domain',jg, &
+        &  ':',npoints_ice
+      CALL message('', TRIM(message_text))
+      WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in domain',jg, &
+        &  ':',npoints_wtr
+      CALL message('', TRIM(message_text))
+
+
+    ELSE   ! seaice model switched off
+
+      ! copy sea points index list to open-water index list
+      !
+      ext_data%atm%spw_count(i_startblk:i_endblk)     =     &
+        &                     ext_data%atm%sp_count(i_startblk:i_endblk)
+      ext_data%atm%idx_lst_spw(:,i_startblk:i_endblk) =     &
+        &                     ext_data%atm%idx_lst_sp(:,i_startblk:i_endblk)
+
+      ext_data%atm%spi_count(i_startblk:i_endblk) = 0
+ 
+    ENDIF  ! lseaice
 
   END SUBROUTINE init_seaice_lists
 
@@ -1666,9 +1675,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Reinert (2012-08-31)
   !!
-  SUBROUTINE update_idx_lists_sea (hice_n, idx_lst_spw, spw_count, idx_lst_spi, &
-    &                              spi_count, lc_frac, partial_frac_ice,        &
-    &                              partial_frac_water, fr_seaice, t_g_t_n )
+  SUBROUTINE update_idx_lists_sea (hice_n, idx_lst_spw, spw_count, idx_lst_spi,    &
+    &                              spi_count, partial_frac_ice, partial_frac_water,&
+    &                              fr_seaice, t_g_t_n )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea ice depth at new time level  [m]
@@ -1680,9 +1689,6 @@ CONTAINS
 
     INTEGER ,    INTENT(INOUT) ::  &   !< dynamic sea ice point index list 
       &  idx_lst_spi(:), spi_count     !< and corresponding grid point counts
-
-    REAL(wp),    INTENT(IN)    ::  &   !< area fraction of water class
-      &  lc_frac(:)
 
     REAL(wp),    INTENT(INOUT) ::  &   !< ice-covered and ice-free ocean area fraction
       &  partial_frac_ice(:), partial_frac_water(:)
@@ -1699,6 +1705,7 @@ CONTAINS
     INTEGER  :: ic, jc          !< loop indices
     INTEGER  :: spi_count_old   !< current seaice grid point count
 
+    ! should be moved to mo_physical_constants
     REAL (wp), PARAMETER ::                             &
       &   tf_salt      = 271.45_wp      !< salt-water freezing point [K] 
 
@@ -1709,7 +1716,7 @@ CONTAINS
     idx_lst_spi_old(:) = idx_lst_spi(:)
     spi_count_old      = spi_count
 
-    ! re-initialize
+    ! re-initialize seaice index list and grid point count
     idx_lst_spi(:) = 0
     spi_count      = 0
 
@@ -1728,9 +1735,10 @@ CONTAINS
     DO ic = 1, spi_count_old
       jc = idx_lst_spi_old(ic)
 
-      IF ( hice_n(ic) >= hice_min )  THEN ! still seaice point
+      IF ( hice_n(jc) >= hice_min )  THEN ! still seaice point
         spi_count = spi_count + 1
         idx_lst_spi(spi_count) = jc
+        ! seaice fraction remains unchanged
       ELSE                          ! seaice point has turned into water point
         ! Check whether we need to initialize a new water tile, or whether a water tile 
         ! already exists for the given point:
@@ -1738,13 +1746,25 @@ CONTAINS
           ! add new water tile to water-points index list and initialize
           spw_count = spw_count + 1
           idx_lst_spw(spw_count) = jc
-          ! Initialize temperature of water tile
-          t_g_t_n(jc) = tf_salt   ! ask Dimitrii or tmelt ?
+          ! Initialize temperature of water tile with salt water freezing point
+          t_g_t_n(jc) = tf_salt   ! if the SST analysis contains a meaningful water 
+                                  ! temperature for this point, one may also take 
+                                  ! the latter
         ENDIF
 
-        fr_seaice(jc) = 0._wp     ! reset fr_seaice
-        partial_frac_water(jc) = lc_frac(jc) * (1._wp - fr_seaice(jc))
-        partial_frac_ice(jc)   = lc_frac(jc) * fr_seaice(jc)
+        ! re-set partial fractions of water and seaice
+        !
+        ! new water area fraction is the sum of the current water and seaice area fractions
+        partial_frac_water(jc)= partial_frac_water(jc) + partial_frac_ice(jc)
+        ! since seaice melted away, the seaice fraction is re-set to 0
+        fr_seaice(jc)         = 0._wp
+        partial_frac_ice(jc)  = 0._wp
+
+!DR Debug output: will be removed lateron
+        write(0,*) "ice->water: partial_frac_water(jc), partial_frac_ice(jc): ", &
+          & partial_frac_water(jc), partial_frac_ice(jc), jc
+!DR END DEBUG
+
       ENDIF
 
     ENDDO  ! ic
