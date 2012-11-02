@@ -64,7 +64,7 @@ MODULE mo_nonhydro_state
     &                                t_buffer_memory
   USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
   USE mo_grid_config,          ONLY: n_dom, l_limited_area
-  USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer,                    &
@@ -840,7 +840,8 @@ MODULE mo_nonhydro_state
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
       &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
-      &        shape3d_c3(3)
+      &        shape3d_c3(3), shape3d_ubcp(3), shape3d_ubcc(3),    &
+      &        shape3d_ubcp1(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: jt
@@ -877,6 +878,9 @@ MODULE mo_nonhydro_state
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
     shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
     shape3d_c3    = (/nproma, nblks_c, nqtendphy  /)
+    shape3d_ubcp  = (/nproma, nblks_c, iadv_rcf+2 /)
+    shape3d_ubcp1 = (/nproma, nblks_c, iadv_rcf+1 /)
+    shape3d_ubcc  = (/nproma, nblks_c, 2  /)
     shape3d_extra = (/nproma, nlev   , nblks_c, inextra_3d  /)
     shape4d_c     = (/nproma, nlev   , nblks_c, ntracer     /)
     shape4d_chalf = (/nproma, nlevp1 , nblks_c, ntracer     /)
@@ -1269,34 +1273,34 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_e, lrestart=.FALSE. )
 
 
-      ! drho_ic_int  p_diag%drho_ic_int(nproma,nblks_c)
+      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,iadv_rcf+2)
       !
-      cf_desc    = t_cf_var('rho_at_parent_interface_level', 'kg m-3',          &
-        &                   'rho at parent interface level', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('mass_flux_at_parent_interface_level', 'kg m-3',          &
+        &                   'mass flux at parent interface level', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'drho_ic_int', p_diag%drho_ic_int,             &
+      CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcp, lrestart=.FALSE. )
 
 
-      ! drho_ic_ubc  p_diag%drho_ic_ubc(nproma,nblks_c)
+      ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
       !
-      cf_desc    = t_cf_var('density_at_child_upper_boundary', 'kg m-3',        &
-        &                   'density at child upper boundary', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('mass_flux_at_child_upper_boundary', 'kg m-3',        &
+        &                   'mass flux at child upper boundary', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'drho_ic_ubc', p_diag%drho_ic_ubc,             &
+      CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcc, lrestart=.FALSE. )
 
 
-      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c)
+      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,iadv_rcf+1)
       !
       cf_desc    = t_cf_var('theta_at_parent_interface_level', 'K',             &
         &                   'potential temperature at parent interface level', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,     &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE. )
 
 
       ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
@@ -1309,14 +1313,14 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_c, lrestart=.FALSE. )
 
 
-      ! dw_int       p_diag%dw_int(nproma,nblks_c)
+      ! dw_int       p_diag%dw_int(nproma,nblks_c,iadv_rcf+1)
       !
       cf_desc    = t_cf_var('w_at_parent_interface_level', 'm s-1',             &
         &                   'vertical velocity at parent interface level', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,                       &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE. )
 
 
       ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)

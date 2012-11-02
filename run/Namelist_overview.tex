@@ -1621,7 +1621,18 @@ denom\_diffu\_v&
 R& 200& &
 Deniminator for lateral boundary diffusion of velocity&
 n\_dom>1\tabularnewline
+
 \hline 
+l\_mass\_consvcorr&
+L& .TRUE.& &
+.TRUE.: Apply mass conservation correction in feedback routine &
+n\_dom>1\tabularnewline
+
+\hline 
+l\_density\_nudging &
+L& .TRUE.& &
+.TRUE.: Apply density nudging near lateral nest boundary &
+n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
 
 \end{longtab}
 

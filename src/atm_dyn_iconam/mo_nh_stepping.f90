@@ -84,7 +84,8 @@ MODULE mo_nh_stepping
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
     &                               verts2cells_scalar
-  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state
+  USE mo_gridref_config,      ONLY: l_density_nudging
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
                                     complete_nesting_setup, prep_bdy_nudging,      &
@@ -728,7 +729,7 @@ MODULE mo_nh_stepping
     LOGICAL, PARAMETER :: l_straka=.FALSE.
     LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge
-    LOGICAL :: linit_vertnest(2)
+    INTEGER :: idyn_timestep
     LOGICAL :: l_recompute
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
@@ -1078,17 +1079,9 @@ MODULE mo_nh_stepping
             l_bdy_nudge = .FALSE.
           ENDIF
 
-          IF (.NOT. l_nest_rcf .OR. lclean_mflx) THEN
-            linit_vertnest(1) = .TRUE.
-          ELSE
-            linit_vertnest(1) = .FALSE.
-          ENDIF
-
-          IF (.NOT. l_nest_rcf .OR. lstep_adv(jg)) THEN
-            linit_vertnest(2) = .TRUE.
-          ELSE
-            linit_vertnest(2) = .FALSE.
-          ENDIF
+          ! index of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
+          idyn_timestep = MOD(jstep_adv(jg)%ntsteps,iadv_rcf)
+          IF (idyn_timestep == 0) idyn_timestep = iadv_rcf
 
           IF (iforcing == inwp .AND. lclean_mflx) THEN
             l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
@@ -1112,8 +1105,8 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),          &
-              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), n_now, n_new, &
+              linit_dyn(jg), l_recompute, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
@@ -1269,12 +1262,10 @@ MODULE mo_nh_stepping
           IF (ltimer)            CALL timer_start(timer_nesting)
           IF (timers_level >= 2) CALL timer_start(timer_nudging)
 
-          IF (lfeedback(jg)) THEN
-            CALL density_boundary_nudging(jg, &
-              &                        nnew(jg),REAL(iadv_rcf,wp))
-          ELSE
-            CALL nest_boundary_nudging(jg, &
-              &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+          IF (lfeedback(jg) .AND. l_density_nudging) THEN
+            CALL density_boundary_nudging(jg,nnew(jg),REAL(iadv_rcf,wp))
+          ELSE IF (.NOT. lfeedback(jg)) THEN
+            CALL nest_boundary_nudging(jg,nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
           ENDIF
 
           IF (timers_level >= 2) CALL timer_stop(timer_nudging)
@@ -1293,7 +1284,7 @@ MODULE mo_nh_stepping
       ! If there are nested domains...
       IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
         l_call_nests = .TRUE.
-        rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc ??
+        rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc
         n_now_grf    = nsav1(jg)
         nsteps_nest  = 2*iadv_rcf
       ELSE IF (.NOT. l_nest_rcf) THEN
@@ -1351,9 +1342,9 @@ MODULE mo_nh_stepping
           ! If feedback is turned off for child domain, compute parent-child
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
-          IF (lfeedback(jgc)) THEN
+          IF (lfeedback(jgc) .AND. l_density_nudging) THEN
             CALL prep_rho_bdy_nudging(jg,jgc)
-          ELSE
+          ELSE IF (.NOT. lfeedback(jgc)) THEN
             CALL prep_bdy_nudging(jg,jgc,lstep_adv(jg))
           ENDIF
         ENDDO

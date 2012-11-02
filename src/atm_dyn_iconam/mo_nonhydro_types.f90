@@ -153,11 +153,11 @@ MODULE mo_nonhydro_types
                                    ! (nproma,nlev,nblks_c,ntracer)          [kg/kg/s]
     &  dvn_ie_int(:,:),    & ! Storage field for vertical nesting: vn at parent interface level
     &  dvn_ie_ubc(:,:),    & ! Storage field for vertical nesting: vn at child upper boundary
-    &  drho_ic_int(:,:),   & ! Storage field for vertical nesting: rho at parent interface level
-    &  drho_ic_ubc(:,:),   & ! Storage field for vertical nesting: rho at child upper boundary
-    &  dtheta_v_ic_int(:,:),& ! Storage field for vertical nesting: theta at parent interface level
+    &  mflx_ic_int(:,:,:), & ! Storage field for vertical nesting: mass flux at parent interface level
+    &  mflx_ic_ubc(:,:,:), & ! Storage field for vertical nesting: mass flux at child upper boundary
+    &  dtheta_v_ic_int(:,:,:),& ! Storage field for vertical nesting: theta at parent interface level
     &  dtheta_v_ic_ubc(:,:),& ! Storage field for vertical nesting: theta at child upper boundary
-    &  dw_int(:,:),        & ! Storage field for vertical nesting: w at parent interface level
+    &  dw_int(:,:,:),      & ! Storage field for vertical nesting: w at parent interface level
     &  dw_ubc(:,:),        & ! Storage field for vertical nesting: w at child upper boundary
     &  q_int(:,:,:),       & ! Storage field for vertical nesting: q at parent interface level
     &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary

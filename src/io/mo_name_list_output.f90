@@ -770,7 +770,6 @@ CONTAINS
     DO jp = 1, n_dom_out
       IF(l_output_phys_patch) THEN
         patch_info(jp)%log_patch_id = p_phys_patch(jp)%logical_id
-        write(0,*)'JP(physPatch): ',jp
         IF (.NOT. my_process_is_io()) THEN
           patch_info(jp)%p_pat_c    => p_phys_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_phys_patch(jp)%n_patch_cells-1)/nproma + 1
