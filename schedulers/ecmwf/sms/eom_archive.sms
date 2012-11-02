@@ -43,7 +43,7 @@ ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM"
 tar cvf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
 gzip -f metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
 ecp  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz  
+\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
 
 
 #-----------------------------------------------------------------------------

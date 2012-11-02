@@ -35,6 +35,7 @@ use cdo
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
 cd %ECTEMP%
+mkdir -p ../ifs_data
 cd ../ifs_data
 
 
