@@ -176,7 +176,9 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,ic,jk,isubs_snow,t_g_s), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice,    &
+!$OMP            ic,jk,isubs_snow,t_g_s,frsi,tice_now,hice_now,tsnow_now,hsnow_now), &
+!$OMP            SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -197,7 +199,7 @@ CONTAINS
         END DO
       ENDIF
 
-      IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+!      IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
 !---------- Copy input fields for each tile
 
@@ -550,6 +552,10 @@ CONTAINS
 
         icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
 
+!IF (icount_ice > 0) THEN
+!write(0,*) "nwp_surface_init:ext_data%atm%spi_count(jb), jb: ", ext_data%atm%spi_count(jb), jb
+!ENDIF
+
         DO ic = 1, icount_ice
 
           jc = ext_data%atm%idx_lst_spi(ic,jb)
@@ -575,6 +581,13 @@ CONTAINS
           ! fields at time level now may have changed, potentially!
           p_prog_wtr_now%t_ice(jc,jb)    = tice_now(ic)
           p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
+IF (p_prog_wtr_now%t_ice(jc,jb) < 1._wp) THEN
+write(0,*) "after init tice_now(ic), hice_now(ic), lat/lon: ", &
+  &  p_prog_wtr_now%t_ice(jc,jb), p_prog_wtr_now%h_ice(jc,jb), &
+  &  p_patch%cells%center(jc,jb)%lat, p_patch%cells%center(jc,jb)%lon
+ENDIF
+
+
           p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
           p_prog_wtr_now%h_snow_si(jc,jb)= hsnow_now(ic)
 
@@ -1020,6 +1033,10 @@ CONTAINS
          jc = ext_data%atm%idx_lst_sp(ic,jb)
 
 
+         ! set sea-ice area fraction (static)
+         ! simply copy from water tile. time-dependent fraction will be set lateron
+         ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
+
          !
          ! seaice point
          !
@@ -1029,8 +1046,6 @@ CONTAINS
            ext_data%atm%spi_count(jb)               = i_count_ice
            ! set land-cover class
            ext_data%atm%lc_class_t(jc,jb,isub_seaice)= ext_data%atm%i_lc_snow_ice
-           ! set sea-ice area fraction (static)
-           ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
          ENDIF
 
          !
@@ -1080,6 +1095,7 @@ CONTAINS
       ext_data%atm%spi_count(i_startblk:i_endblk) = 0
  
     ENDIF  ! lseaice
+
 
   END SUBROUTINE init_seaice_lists
 
@@ -1750,6 +1766,9 @@ CONTAINS
           t_g_t_n(jc) = tf_salt   ! if the SST analysis contains a meaningful water 
                                   ! temperature for this point, one may also take 
                                   ! the latter
+          ! Initialize saturation specific humidity for new water tile
+          ! TO BE CODED
+          !qv_s_t = spec_humi(sat_pres_water(t_g_t_n(jc)),p_diag%pres_sfc(jc,jb))
         ENDIF
 
         ! re-set partial fractions of water and seaice

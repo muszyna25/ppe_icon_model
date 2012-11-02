@@ -119,7 +119,6 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-
     jg = pt_patch%id
     i_nchdom  = MAX(1,pt_patch%n_childdom)
 
@@ -133,7 +132,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow, &
 !$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea,    &
-!$OMP            i_count_flk, i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -411,6 +410,7 @@ CONTAINS
     ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
 
   END SUBROUTINE sfc_albedo
 

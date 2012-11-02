@@ -820,7 +820,22 @@ MODULE mo_prepicon_utils
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
-            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb)
+            !
+            ! In case of missing sea ice fraction values, we make use of the sea 
+            ! surface temperature (tskin over ocean points). For tskin<=271.45K, we set 
+            ! the sea ice fraction to one. For tskin>271.45K, we set it to 0.
+            ! Note: tf_salt=271.45K is the salt-water freezing point
+            ! TODO:  make use of tf_salt (=271.45), instead of the hardcoded value.  
+            !
+            IF ( prepicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
+              p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb) 
+            ELSE    ! missing value
+              IF ( prepicon(jg)%sfc%tskin(jc,jb) <= 271.45_wp ) THEN
+                p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp     ! sea ice point
+              ELSE
+                p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp     ! water point
+              ENDIF
+            ENDIF
           ENDDO
           ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
           ! be used to initialize lake points until something more reasonable becomes available

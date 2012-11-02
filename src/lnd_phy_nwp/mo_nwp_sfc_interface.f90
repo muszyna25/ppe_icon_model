@@ -254,7 +254,7 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,t_g_s,qv_s_s,isubs_snow,i_count_snow,&
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,&
 !$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2) ICON_OMP_GUIDED_SCHEDULE
 
     DO jb = i_startblk, i_endblk
@@ -879,6 +879,8 @@ CONTAINS
     ! Loop over all points (land AND water points)  !!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -909,7 +911,8 @@ CONTAINS
        ENDIF    ! with or without tiles
 
     ENDDO  ! jb
-
+!$OMP END DO
+!$OMP END PARALLEL
 
   END SUBROUTINE nwp_surface
 
@@ -990,6 +993,7 @@ CONTAINS
       !
       i_count = ext_data%atm%spi_count(jb) 
 
+
       IF (i_count == 0) CYCLE ! skip loop if the index list for the given block is empty
 
       DO ic = 1, i_count
@@ -1040,9 +1044,8 @@ CONTAINS
         p_prog_wtr_new%h_snow_si(jc,jb) = hsnow_new(ic)
 
         lnd_prog_new%t_g_t(jc,jb,isub_seaice) = tice_new(ic)
-        ! TO BE CODED
-        ! lnd_diag%qv_s_t = spec_humi(sat_pres_water(lnd_prog_new%t_g_t(jc,jb,isub_seaice),&
-        !   &                         p_diag%pres_sfc(jc,jb) )
+!        p_lnd_diag%qv_s_t(jc,jb,isub_seaice) = spec_humi(sat_pres_water(tice_new(ic)),&
+!           &                                  p_diag%pres_sfc(jc,jb) )
       ENDDO  ! ic
 
 
