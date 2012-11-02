@@ -194,7 +194,7 @@ for nd=1 to ndays do
        varname = 'RAIN_GSP'  or varname = 'SNOW_CON'  or varname = 'SNOW_GSP' then 
       temp_24h = read(
                 SOURCE   : source_ini_icon,
-  		date     : inidate,
+  	       #date     : inidate,         #attention: date maybe 1 day off in monthly means?
   		time     : initime,
                 step     : step-24
   	       )
