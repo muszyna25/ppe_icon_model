@@ -1776,6 +1776,9 @@ CONTAINS
       z_lat2  =  10.0_wp
       z_lon1  = 115.0_wp
       z_lon2  = 135.0_wp
+      ! 2012-10-31: different area
+  !   z_lon1  = 145.0_wp
+  !   z_lon2  = 160.0_wp
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1797,11 +1800,12 @@ CONTAINS
               END IF
 
               IF ( (z_lat_deg >= z_lat1 .AND. z_lat_deg <= z_lat2) .AND. &
-                &  (z_lon_deg >= z_lon1 .AND. z_lon_deg <= z_lon2) ) THEN
+                &  (z_lon_deg >= z_lon1 .AND. z_lon_deg <= z_lon2) .AND. &
+                   ( jk == 1 ) ) THEN
 
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 10.0_wp
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =  6.0_wp
                 IF (no_tracer == 2) THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 30.0_wp
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
                 END IF
 
               END IF
