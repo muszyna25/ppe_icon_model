@@ -96,7 +96,7 @@ experimentAnalyzedData.each {|experiment,files|
   end
   plotFile = 'thingol' == Socket.gethostname \
            ? '/home/ram/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl' \
-           : '../../scripts/postprocessing/tools/icon_plot.ncl'
+           : ENV['HOME'] +'/liz/icon/scripts/postprocessing/tools/icon_plot.ncl'
   plotter  = 'thingol' == Socket.gethostname \
            ? IconPlot.new(ENV['HOME']+'/local/bin/nclsh', plotFile, File.dirname(plotFile),'png','qiv',true,true) \
            : IconPlot.new("/home/zmaw/m300064/local/bin/nclsh", plotFile, File.dirname(plotFile), 'ps','evince',true,true)
@@ -104,8 +104,8 @@ experimentAnalyzedData.each {|experiment,files|
     im = plotter.scalarPlot(ofile,'T_'+     File.basename(ofile,'.nc'),'T',
                             :tStrg => experiment, :bStrg => '" "',
                             :hov => true,
-                            :minVar => -1.0,:maxVar => 5.0,
-                            :numLevs => 24,:rStrg => 'Temperature')#, :colormap => "BlueDarkRed18")
+                            :minVar => -3.0,:maxVar => 3.0,
+                            :numLevs => 21.0,:rStrg => 'Temperature', :colormap => "BlWhRe")
     lock.synchronize {images << im }
   }
   q.push {
@@ -113,7 +113,7 @@ experimentAnalyzedData.each {|experiment,files|
                              :tStrg => experiment, :bStrg => '" "',
                              :hov => true,
                              :minVar => -0.2,:maxVar => 0.2,
-                             :numLevs => 16,:rStrg => 'Salinity')#, :colormap => "BlueDarkRed18")
+                             :numLevs => 16,:rStrg => 'Salinity', :colormap => "BlWhRe")
     lock.synchronize {images << im }
   }
   q.push {
@@ -121,7 +121,7 @@ experimentAnalyzedData.each {|experiment,files|
                             :tStrg => experiment, :bStrg => '"  "',
                             :hov => true,
                             :minVar => -0.6,:maxVar => 0.6,
-                            :numLevs => 24,:rStrg => 'Pot.Density')#, :colormap => "BlueDarkRed18")
+                            :numLevs => 24,:rStrg => 'Pot.Density', :colormap => "BlWhRe")
     lock.synchronize {images << im }
   }
 }
