@@ -103,9 +103,18 @@ experimentAnalyzedData.each {|experiment,files|
   q.push {
     im = plotter.scalarPlot(ofile,'T_'+     File.basename(ofile,'.nc'),'T',
                             :tStrg => experiment, :bStrg => '" "',
-                            :hov => true,
                             :minVar => -3.0,:maxVar => 3.0,
                             :numLevs => 21.0,:rStrg => 'Temperature', :colormap => "BlWhRe")
+    lock.synchronize {images << im }
+    im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_200m'+     File.basename(ofile,'.nc'),'T',
+                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
+                            :levIndex => 6,
+                            :rStrg => 'Temperature')
+    lock.synchronize {images << im }
+    im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_100m'+     File.basename(ofile,'.nc'),'T',
+                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
+                            :levIndex => 12,
+                            :rStrg => 'Temperature')
     lock.synchronize {images << im }
   }
   q.push {
