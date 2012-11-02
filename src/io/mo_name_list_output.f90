@@ -2015,7 +2015,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
- !     CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
    
       ! Verts
 
@@ -2030,7 +2030,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
- !     CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
 
       ! Edges
 
@@ -2045,7 +2045,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-  !    CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
 
       of%cdiLonLatGridID = CDI_UNDEFID
 
