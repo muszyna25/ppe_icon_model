@@ -222,11 +222,16 @@ CONTAINS
   !! 
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
+  !! Modification by Daniel Reinert, DWD (2012-11-05)
+  !! - modified initialization procedure for the case that sea-ice thickness 
+  !!   field is not provided as input (i.e. when starting from IFS analysis)
   !!
 
   SUBROUTINE seaice_init_nwp (                                  & 
                           &  nsigb,                             &
                           &  frsi,                              &
+                          &  t_seasfc,                          &
+                          &  l_hice_in,                         &
                           &  tice_p, hice_p, tsnow_p, hsnow_p,  &
                           &  tice_n, hice_n, tsnow_n, hsnow_n   &
                           &  )
@@ -241,7 +246,14 @@ CONTAINS
                                   !< where the sea ice is present) 
 
     REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
-                                           &  frsi  !< sea-ice fraction [-] 
+                                           &  frsi      !< sea-ice fraction [-]
+ 
+    REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
+                                           &  t_seasfc  !< sea surface temperature (including sea-ice) [K]
+
+    LOGICAL, INTENT(IN)                   ::       &
+                                           &  l_hice_in !< Logical switch, if sea-ice thickness field is 
+                                                        !< provided as input                     
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) ::               &
                                               &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
@@ -266,6 +278,7 @@ CONTAINS
             &  lcallabort  !< logical switch, set .TRUE. if errors are encountered 
                            !< (used to call modell abort outside a DO loop)
 
+
     !===============================================================================================
     !  Start calculations
     !-----------------------------------------------------------------------------------------------
@@ -285,11 +298,18 @@ CONTAINS
         EXIT GridBoxesWithSeaIce 
       END IF 
  
-      ! Create new ice 
-      IF( hice_p(isi) < (hice_min-csmall) ) THEN 
+
+      IF ( l_hice_in ) THEN ! sea-ice thickness field provided as input
+        ! Create new ice 
+        IF( hice_p(isi) < (hice_min-csmall) ) THEN 
+          hice_p(isi) = hice_new
+          tice_p(isi) = tf_salt
+        END IF
+      ELSE  ! sea-ice thickness field NOT provided as input
         hice_p(isi) = hice_new
-        tice_p(isi) = tf_salt
-      END IF 
+        tice_p(isi) = t_seasfc(isi)  ! use sea surface temperature
+      ENDIF 
+
 
       ! Take security measures 
       hice_p(isi) = MAX(MIN(hice_p(isi), hice_max), hice_min) 

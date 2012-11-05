@@ -50,6 +50,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice
+  USE mo_prepicon_config,     ONLY: l_hice_in
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
@@ -150,6 +151,7 @@ CONTAINS
     ! local fields for sea ice model
     !
     REAL(wp) :: frsi     (nproma)   ! sea ice fraction
+    REAL(wp) :: t_seasfc (nproma)   ! sea surface temperature (including sea ice surface)
     REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time 
@@ -178,8 +180,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice,    &
-!$OMP            ic,jk,isubs_snow,t_g_s,frsi,tice_now,hice_now,tsnow_now,hsnow_now), &
-!$OMP            SCHEDULE(guided)
+!$OMP            ic,jk,isubs_snow,t_g_s,frsi,t_seasfc,tice_now,hice_now,tsnow_now,   &
+!$OMP            hsnow_now), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -200,7 +202,6 @@ CONTAINS
         END DO
       ENDIF
 
-!      IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
 !---------- Copy input fields for each tile
 
@@ -559,6 +560,7 @@ CONTAINS
           jc = ext_data%atm%idx_lst_spi(ic,jb)
 
           frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
+          t_seasfc (ic) = p_lnd_diag%t_seasfc(jc,jb)
           tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
           hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
           tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
@@ -566,7 +568,7 @@ CONTAINS
         ENDDO  ! jc
 
 
-        CALL seaice_init_nwp ( icount_ice, frsi,                         & ! in
+        CALL seaice_init_nwp ( icount_ice, frsi, t_seasfc, l_hice_in,    & ! in
           &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
           &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
 

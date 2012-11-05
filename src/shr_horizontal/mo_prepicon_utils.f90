@@ -56,8 +56,9 @@ MODULE mo_prepicon_utils
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
-  &                                 nlevsoil_in, l_sfc_in, l_extdata_out,  &
-  &                                 ifs2icon_filename, generate_filename
+  &                                 nlevsoil_in, l_sfc_in, l_hice_in,      &
+  &                                 l_extdata_out, ifs2icon_filename,      &
+  &                                 generate_filename
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
@@ -523,11 +524,33 @@ MODULE mo_prepicon_utils
           ENDIF
        ENDIF
 
+
+       ! Check, if sea-ice thickness field is provided as input
+       ! IF H_ICE is missing, set l_hice_in=.FALSE.
+        IF (p_pe == p_io) THEN
+          IF (nf_inq_varid(ncid, 'H_ICE', varid) == nf_noerr) THEN
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea-ice thickness available'
+            l_hice_in = .TRUE.
+          ELSE
+
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea-ice thickness not available. ', &
+              &  'initialize with constant value (0.5 m), instead.'
+            CALL message(TRIM(routine),TRIM(message_text))
+
+            l_hice_in = .FALSE.
+          ENDIF
+       ENDIF
+
+
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test 
         ELSE
           mpi_comm = p_comm_work
         ENDIF
+
+        CALL p_bcast(l_hice_in, p_io, mpi_comm)
 
         CALL p_bcast(alb_snow_var, p_io, mpi_comm)
 
