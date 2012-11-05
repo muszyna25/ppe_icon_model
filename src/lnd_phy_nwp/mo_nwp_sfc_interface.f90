@@ -268,14 +268,25 @@ CONTAINS
           lnd_diag%qv_s (:,jb) = 0._wp
         ELSE
           ! 
-          !> adjust  humidity at water surface because of changed surface pressure
+          !> adjust humidity at water surface because of changed surface pressure
           !
           DO jc = i_startidx, i_endidx
             lnd_diag%qv_s (jc,jb) = &
-                 &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
-                 &                                   p_diag%pres_sfc(jc,jb) )
+              &            spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
+              &                                      p_diag%pres_sfc(jc,jb) )
           ENDDO
         ENDIF
+      ELSE  ! inwp_surface/=0
+         ! 
+         !> adjust humidity at water surface because of changed surface pressure
+         !
+         DO ic=1,ext_data%atm%spw_count(jb)
+           jc = ext_data%atm%idx_lst_spw(ic,jb)
+ 
+           lnd_diag%qv_s_t(jc,jb,isub_water) = &
+             &         spec_humi(sat_pres_water(lnd_prog_now%t_g_t(jc,jb,isub_water)),&
+             &                                   p_diag%pres_sfc(jc,jb) )
+         ENDDO
       ENDIF
  
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
