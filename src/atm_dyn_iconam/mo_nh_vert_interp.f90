@@ -1385,7 +1385,7 @@ CONTAINS
       ENDIF
 
       IF (l_loglin) THEN
-        zf_in(1:nlen,1:nlevs_in) = LOG(f3d_in(1:nlen,1:nlevs_in,jb))
+        zf_in(1:nlen,1:nlevs_in) = LOG(MAX(1.e-20_wp,f3d_in(1:nlen,1:nlevs_in,jb)))
       ELSE
         zf_in(1:nlen,1:nlevs_in) =     f3d_in(1:nlen,1:nlevs_in,jb)
       ENDIF
