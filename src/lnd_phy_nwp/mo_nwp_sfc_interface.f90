@@ -816,39 +816,6 @@ CONTAINS
 
        ENDIF  !snow tiles
 
-!!$       ! Final step: aggregate t_g and qv_s
-!!$       i_count = ext_data%atm%lp_count(jb)
-!!$
-!!$       IF (ntiles_total == 1) THEN 
-!!$!CDIR NODEP,VOVERTAKE,VOB
-!!$         DO ic = 1, i_count
-!!$           jc = ext_data%atm%idx_lst_lp(ic,jb)
-!!$           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
-!!$           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
-!!$         ENDDO
-!!$       ELSE ! aggregate fields over tiles
-!!$         t_g_s(:)  =  0._wp
-!!$         qv_s_s(:) =  0._wp
-!!$         DO isubs = 1,ntiles_total+ntiles_water
-!!$!CDIR NODEP,VOVERTAKE,VOB
-!!$           DO ic = 1, i_count
-!!$             jc = ext_data%atm%idx_lst_lp(ic,jb)
-!!$             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
-!!$               lnd_prog_new%t_g_t(jc,jb,isubs)**4
-!!$             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* & 
-!!$               lnd_diag%qv_s_t(jc,jb,isubs)
-!!$           ENDDO
-!!$         ENDDO
-!!$!CDIR NODEP,VOVERTAKE,VOB
-!!$         DO ic = 1, i_count
-!!$           jc = ext_data%atm%idx_lst_lp(ic,jb)
-!!$           lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
-!!$           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
-!!$         ENDDO
-!!$
-!!$       ENDIF    ! with or without tiles
-
-
     
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 
 
@@ -1013,10 +980,12 @@ CONTAINS
         jc = ext_data%atm%idx_lst_spi(ic,jb)
 
 !DR !!! disaggregated fluxes should be used (shfl_s,lhfl_s,lwflxsfc,swflxsfc) !!!!
+!DR        shfl_s   (ic) = prm_diag%shfl_s_t(jc,jb,isub_seaice)     ! sensible heat flux at sfc    [W/m^2]
+!DR        lhfl_s   (ic) = prm_diag%lhfl_s_t(jc,jb,isub_seaice)     ! latent heat flux at sfc      [W/m^2]
         shfl_s   (ic) = prm_diag%shfl_s(jc,jb)     ! sensible heat flux at sfc    [W/m^2]
         lhfl_s   (ic) = prm_diag%lhfl_s(jc,jb)     ! latent heat flux at sfc      [W/m^2]
-        lwflxsfc (ic) = prm_diag%lwflxsfc(jc,jb)   ! net lw radiation flux at sfc [W/m^2]
-        swflxsfc (ic) = prm_diag%swflxsfc(jc,jb)   ! net solar radiation flux at sfc [W/m^2]
+        lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_seaice)   ! net lw radiation flux at sfc [W/m^2]
+        swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_seaice)   ! net solar radiation flux at sfc [W/m^2]
         tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
         hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
         tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)

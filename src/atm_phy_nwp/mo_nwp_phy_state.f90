@@ -721,18 +721,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
-          ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total)
+          ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
           cf_desc    = t_cf_var('SOB_S_T', 'W m-2', 'tile-based shortwave net flux at surface', &
                &                DATATYPE_FLT32)
           grib2_desc = t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'SOB_S_T', diag%swflxsfc_t,                       &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-            & ldims=shape3dsubs, lcontainer=.TRUE., lrestart=.FALSE., &
+            & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
             & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container swflxsfc_t
-          ALLOCATE(diag%swflxsfc_t_ptr(ntiles_total))
-          DO jsfc = 1,ntiles_total
+          ALLOCATE(diag%swflxsfc_t_ptr(ntiles_total+ntiles_water))
+          DO jsfc = 1,ntiles_total+ntiles_water
             WRITE(csfc,'(i1)') jsfc 
             CALL add_ref( diag_list, 'SOB_S_T',                                &
                & 'SOB_S_T_'//TRIM(ADJUSTL(csfc)),                              &
@@ -744,18 +744,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & in_group=groups("rad_vars"))
           ENDDO
 
-          ! &      diag%lwflxsfc_t(nproma,nblks_c,ntiles_total)
+          ! &      diag%lwflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
           cf_desc    = t_cf_var('THB_S_T', 'W m-2', 'tile_based longwave net flux at surface', &
                &                DATATYPE_FLT32)
           grib2_desc = t_grib2_var(0, 5, 0, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'THB_S_T', diag%lwflxsfc_t,                        &
             & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,             &
-            & ldims=shape3dsubs,lcontainer=.TRUE., lrestart=.FALSE.,   &
+            & ldims=shape3dsubsw,lcontainer=.TRUE., lrestart=.FALSE.,   &
             & loutput=.FALSE.)
 
           ! fill the seperate variables belonging to the container lwflxsfc_t
-          ALLOCATE(diag%lwflxsfc_t_ptr(ntiles_total))
-          DO jsfc = 1,ntiles_total
+          ALLOCATE(diag%lwflxsfc_t_ptr(ntiles_total+ntiles_water))
+          DO jsfc = 1,ntiles_total+ntiles_water
             WRITE(csfc,'(i1)') jsfc 
             CALL add_ref( diag_list, 'THB_S_T',                                &
                & 'THB_S_T_'//TRIM(ADJUSTL(csfc)),                              &
@@ -797,8 +797,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'SOB_S', diag%swflxsfc,                        &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-          & ldims=shape2d)
-
+          & ldims=shape2d,                                                      &
+          & in_group=groups("rad_vars"))
 
 
         ! &      diag%swflxtoa(nproma,nblks_c)

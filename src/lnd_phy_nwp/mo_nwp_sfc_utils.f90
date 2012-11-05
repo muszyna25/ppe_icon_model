@@ -553,9 +553,6 @@ CONTAINS
 
         icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
 
-!IF (icount_ice > 0) THEN
-!write(0,*) "nwp_surface_init:ext_data%atm%spi_count(jb), jb: ", ext_data%atm%spi_count(jb), jb
-!ENDIF
 
         DO ic = 1, icount_ice
 
@@ -582,13 +579,6 @@ CONTAINS
           ! fields at time level now may have changed, potentially!
           p_prog_wtr_now%t_ice(jc,jb)    = tice_now(ic)
           p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
-IF (p_prog_wtr_now%t_ice(jc,jb) < 1._wp) THEN
-write(0,*) "after init tice_now(ic), hice_now(ic), lat/lon: ", &
-  &  p_prog_wtr_now%t_ice(jc,jb), p_prog_wtr_now%h_ice(jc,jb), &
-  &  p_patch%cells%center(jc,jb)%lat, p_patch%cells%center(jc,jb)%lon
-ENDIF
-
-
           p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
           p_prog_wtr_now%h_snow_si(jc,jb)= hsnow_now(ic)
 

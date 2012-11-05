@@ -929,9 +929,11 @@ CONTAINS
           & albedo=prm_diag%albvisdif(:,jb),        &! in     grid-box average albedo
           & albedo_t=prm_diag%albvisdif_t(:,jb,:),  &! in     tile-specific albedo
           & lp_count=ext_data%atm%lp_count(jb),     &! in     number of land points
-          & gp_count_t=ext_data%atm%gp_count_t(jb,:), &! in   number of land points per tile
+          & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in   number of land points per tile
+          & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
+          & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
           & cosmu0=zcosmu0(:,jb),                   &! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
