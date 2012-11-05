@@ -57,6 +57,7 @@ MODULE mo_alloc_patches
     & radiation_grid_filename,  global_cell_type, lplane
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_mpi,                ONLY: my_process_is_mpi_seq
     
   IMPLICIT NONE
   
@@ -780,6 +781,14 @@ CONTAINS
       ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
       ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
       ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
+
+      IF (my_process_is_mpi_seq()) THEN
+        p_patch%cells%decomp_domain(:,:) = 0
+        p_patch%cells%owner_mask(:,:)    = .true.
+        p_patch%cells%owner_local(:)     = 0
+        p_patch%cells%owner_g(:)         = 0
+      ENDIF
+      
     ENDIF
     
     !
@@ -824,6 +833,14 @@ CONTAINS
       ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
       ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
       ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
+
+      IF (my_process_is_mpi_seq()) THEN
+        p_patch%edges%decomp_domain(:,:) = 0
+        p_patch%edges%owner_mask(:,:)    = .true.
+        p_patch%edges%owner_local(:)     = 0
+        p_patch%edges%owner_g(:)         = 0
+      ENDIF
+
     ENDIF
     
     !
@@ -850,6 +867,14 @@ CONTAINS
       ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
       ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
       ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
+      
+      IF (my_process_is_mpi_seq()) THEN
+        p_patch%verts%decomp_domain(:,:) = 0
+        p_patch%verts%owner_mask(:,:)    = .true.
+        p_patch%verts%owner_local(:)     = 0
+        p_patch%verts%owner_g(:)         = 0
+      ENDIF
+      
     ENDIF
     
     ! Set all newly allocated arrays to 0
