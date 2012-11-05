@@ -55,6 +55,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt, rdocp => rd_o_cpd  ! r_d / cp_d
   USE mo_seaice_nwp,          ONLY: frsi_min
+  USE mo_satad,               ONLY: sat_pres_water, spec_humi
   USE mo_sync,                ONLY: global_sum_array
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
   
@@ -1691,13 +1692,17 @@ ENDIF
   !! @par Revision History
   !! Initial release by Daniel Reinert (2012-08-31)
   !!
-  SUBROUTINE update_idx_lists_sea (hice_n, idx_lst_spw, spw_count, idx_lst_spi,    &
-    &                              spi_count, partial_frac_ice, partial_frac_water,&
-    &                              fr_seaice, t_g_t_n )
+  SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count, &
+    &                              idx_lst_spi, spi_count, partial_frac_ice, &
+    &                              partial_frac_water, fr_seaice, t_g_t_new, &
+    &                              qv_s_t )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea ice depth at new time level  [m]
       &  hice_n(:)                     !< dim: (nproma)
+
+    REAL(wp),    INTENT(IN)    ::  &   !< surface pressure                 [Pa]
+      &  pres_sfc(:)
 
     INTEGER ,    INTENT(INOUT) ::  &   !< dynamic sea water point index list 
       &  idx_lst_spw(:), spw_count     !< and corresponding grid point counts
@@ -1712,8 +1717,11 @@ ENDIF
     REAL(wp),    INTENT(INOUT) ::  &   !< seaice fraction
       &  fr_seaice(:)
 
-    REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (new)
-      &  t_g_t_n(:)
+    REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (new)  [K]
+      &  t_g_t_new(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< surface specific humidity        [kg/kg]
+      &  qv_s_t(:)
 
     ! Local variables
     INTEGER, DIMENSION(SIZE(idx_lst_spi,1)) :: &
@@ -1763,12 +1771,11 @@ ENDIF
           spw_count = spw_count + 1
           idx_lst_spw(spw_count) = jc
           ! Initialize temperature of water tile with salt water freezing point
-          t_g_t_n(jc) = tf_salt   ! if the SST analysis contains a meaningful water 
+          t_g_t_new(jc) = tf_salt ! if the SST analysis contains a meaningful water 
                                   ! temperature for this point, one may also take 
                                   ! the latter
-          ! Initialize saturation specific humidity for new water tile
-          ! TO BE CODED
-          !qv_s_t = spec_humi(sat_pres_water(t_g_t_n(jc)),p_diag%pres_sfc(jc,jb))
+          ! Initialize surface saturation specific humidity for new water tile
+          qv_s_t(jc) = spec_humi(sat_pres_water(tf_salt),pres_sfc(jc))
         ENDIF
 
         ! re-set partial fractions of water and seaice
@@ -1780,8 +1787,8 @@ ENDIF
         partial_frac_ice(jc)  = 0._wp
 
 !DR Debug output: will be removed lateron
-        write(0,*) "ice->water: partial_frac_water(jc), partial_frac_ice(jc): ", &
-          & partial_frac_water(jc), partial_frac_ice(jc), jc
+!DR        write(0,*) "ice->water: partial_frac_water(jc), partial_frac_ice(jc): ", &
+!DR          & partial_frac_water(jc), partial_frac_ice(jc), jc
 !DR END DEBUG
 
       ENDIF

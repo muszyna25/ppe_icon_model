@@ -58,7 +58,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
     &                               isub_water, isub_seaice
-  USE mo_satad,               ONLY: sat_pres_water, spec_humi  
+  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
@@ -859,7 +859,7 @@ CONTAINS
     ! Call seaice parameterization
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
-      CALL nwp_seaice(p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
+      CALL nwp_seaice(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
         &             lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
@@ -927,10 +927,12 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
-  SUBROUTINE nwp_seaice (p_patch, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-    &                    lnd_prog_new, ext_data, p_lnd_diag, dtime)
+  SUBROUTINE nwp_seaice (p_patch, p_diag, prm_diag, p_prog_wtr_now, &
+    &                    p_prog_wtr_new, lnd_prog_new, ext_data,    &
+    &                    p_lnd_diag, dtime)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
+    TYPE(t_nh_diag),      TARGET,INTENT(in)   :: p_diag         !< diag vars
     TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
@@ -1044,8 +1046,10 @@ CONTAINS
         p_prog_wtr_new%h_snow_si(jc,jb) = hsnow_new(ic)
 
         lnd_prog_new%t_g_t(jc,jb,isub_seaice) = tice_new(ic)
-!        p_lnd_diag%qv_s_t(jc,jb,isub_seaice) = spec_humi(sat_pres_water(tice_new(ic)),&
-!           &                                  p_diag%pres_sfc(jc,jb) )
+        ! surface saturation specific humidity (uses saturation water vapor pressure 
+        ! over ice)
+        p_lnd_diag%qv_s_t(jc,jb,isub_seaice) = spec_humi(sat_pres_ice(tice_new(ic)),&
+           &                                  p_diag%pres_sfc(jc,jb) )
       ENDDO  ! ic
 
 
@@ -1053,6 +1057,7 @@ CONTAINS
       !
       CALL update_idx_lists_sea (                                                    &
         &              hice_n             = p_prog_wtr_new%h_ice(:,jb),              &!in
+        &              pres_sfc           = p_diag%pres_sfc(:,jb),                   &!in
         &              idx_lst_spw        = ext_data%atm%idx_lst_spw(:,jb),          &!inout
         &              spw_count          = ext_data%atm%spw_count(jb),              &!inout
         &              idx_lst_spi        = ext_data%atm%idx_lst_spi(:,jb),          &!inout
@@ -1060,7 +1065,8 @@ CONTAINS
         &              partial_frac_ice   = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
         &              partial_frac_water = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
         &              fr_seaice          = p_lnd_diag%fr_seaice(:,jb),              &!inout
-        &              t_g_t_n            = lnd_prog_new%t_g_t(:,jb,isub_water)      )!inout
+        &              t_g_t_new          = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
+        &              qv_s_t             = p_lnd_diag%qv_s_t(:,jb,isub_seaice)      )!inout
 
 
     ENDDO  ! jb
