@@ -291,8 +291,8 @@ CONTAINS
               CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
               DO jc = jcs,jce
                 zlat = p_patch(jg)%cells%center(jc,jb)%lat
-                field% tsfc_tile(jc,jb,ilnd) = ape_sst(ape_sst_case,zlat)   ! SST (preliminary)
-                field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+                field% tsfc_tile(jc,jb,ilnd) = ext_data(jg)%atm%sst(jc,jb)   ! SST (preliminary)
+                field% tsfc_tile(jc,jb,iwtr) = ext_data(jg)%atm%sst(jc,jb)   ! SST
                 IF (ext_data(jg)%atm%lsm_ctr_c(jc,jb) > 0) THEN ! this is land
                   field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,ilnd)
                   field% lsmask(jc,jb) = 1._wp   ! a grid box is either completely land ...

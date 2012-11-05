@@ -456,6 +456,13 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
                   grib2_desc, ldims=shape2d_c )
+    ! SST  p_ext_atm%sst(nproma,nblks_c)
+    cf_desc    = t_cf_var('SST', 'K', &
+      &                   'SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'sst', p_ext_atm%sst,        &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
     ! albedo_vis_soil  p_ext_atm%albedo_vis_soil(nproma,nblks_c)
     cf_desc    = t_cf_var('soil surface albedo visible', '', &
       &                   'soil surface albedo in the visible range', DATATYPE_FLT32)
@@ -1829,7 +1836,7 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    ! Read land-sea mask, land surface albedo, and forest fraction if JSBACH is used
+    ! Read land-sea mask, sst, land surface albedo, and forest fraction if JSBACH is used
 
     IF (echam_phy_config%ljsbach) THEN
     DO jg = 1,n_dom
@@ -1849,6 +1856,18 @@ CONTAINS
           &                     ext_data(jg)%atm%lsm_ctr_c)
 
       ENDIF
+
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+
+      IF(my_process_is_stdio()) CALL nf(nf_open('sst.nc', NF_NOWRITE, ncid))
+
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid      
+
+        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%sst)      
+
+      END IF
 
       IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
 

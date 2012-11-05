@@ -103,7 +103,11 @@ fi
 #all_grids="${atmo_grids} ${ocean_grids}"
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
 if [ ${atmo_dyn_grids} = 'iconR2B04-ocean_etopo40_planet.nc' ] ; then
- ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
+ ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}\
+ rm ${EXPDIR}/sst.nc
+ ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
+ rm ${EXPDIR}/extpar_${atmo_dyn_grids}
+ ln -s /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
 fi
 for gridfile in ${all_grids}; do
   ls -l ${HGRIDDIR}/$gridfile
