@@ -33,9 +33,14 @@ for varname in ${varNames}; do
     -varName=$varname -maskName=${maskName} -noConfig \
     -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
   mv ${oFile}.${oType} plots/.
-  oFile=${varname}_transection_${iFile}
-  ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
-    -varName=$varname -maskName=${maskName} -noConfig -secLC=-45,-70 -secRC=30,80 -secPoints=100 -resolution=r360x180 -secMode=circle -rStrg=' '\
-    -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
-  mv ${oFile}.${oType} plots/.
+  if [ "ELEV" != "$varname" ] ; then
+    oFile=${varname}_transection_${iFile}
+    ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
+      -varName=$varname -maskName=${maskName} -noConfig -secLC=-45,-70 -secRC=30,80 -secPoints=100 -resolution=r360x180 -secMode=circle -rStrg=' '\
+      -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
+    mv ${oFile}.${oType} plots/.
+  fi
 done
+
+#
+# vim:ft=sh
