@@ -164,7 +164,7 @@ CONTAINS
                                 jn, 1, prepicon(jg)%atm%w, prepicon(jgc)%atm%w )
 
         CALL interpol2_vec_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
-                                jn, prepicon(jg)%atm%vn, prepicon(jgc)%atm%vn )
+                                jn, 1, prepicon(jg)%atm%vn, prepicon(jgc)%atm%vn )
 
       ENDDO
     ENDDO

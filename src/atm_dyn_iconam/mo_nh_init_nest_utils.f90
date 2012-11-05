@@ -325,7 +325,7 @@ MODULE mo_nh_init_nest_utils
     ! Step 1b: execute boundary interpolation
 
     CALL interpol2_vec_grf (p_patch(jg), p_pc, p_int_state(jg), &
-      p_grf_state(jg)%p_dom(i_chidx), i_chidx,                  &
+      p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
       p_parent_prog%vn, p_child_prog%vn)
 
     CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &

@@ -85,7 +85,7 @@ MODULE mo_nh_stepping
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
     &                               verts2cells_scalar
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
-  USE mo_gridref_config,      ONLY: l_density_nudging
+  USE mo_gridref_config,      ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
                                     complete_nesting_setup, prep_bdy_nudging,      &
@@ -724,13 +724,13 @@ MODULE mo_nh_stepping
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain
 
     REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
-    REAL(wp):: rdt_loc,  rdtadv_loc ! inverse time step for local grid level
+    REAL(wp):: rdt_loc,  rdtadv_loc, rdtmflx_loc ! inverse time step for local grid level
 
     LOGICAL, PARAMETER :: l_straka=.FALSE.
     LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge
     INTEGER :: idyn_timestep
-    LOGICAL :: l_recompute
+    LOGICAL :: l_recompute, lsave_mflx
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
@@ -1096,6 +1096,13 @@ MODULE mo_nh_stepping
             lcall_hdiff = .FALSE.
           ENDIF
 
+          IF (p_patch(jg)%n_childdom > 0 .AND. (jg == 1 .AND. MOD(nstep_global,iadv_rcf) == 1 &
+              .OR. jg > 1 .AND. MOD(jstep,iadv_rcf) == 1) ) THEN
+            lsave_mflx = .TRUE.
+          ELSE
+            lsave_mflx = .FALSE.
+          ENDIF   
+
           ! For real-data runs, perform an extra diffusion call before the first time
           ! step because no other filtering of the interpolated velocity field is done
           IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn) THEN
@@ -1105,8 +1112,8 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), n_now, n_new, &
-              linit_dyn(jg), l_recompute, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), prep_adv(jg)%mass_flx_me, &
+              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
@@ -1145,7 +1152,7 @@ MODULE mo_nh_stepping
 
         ! 5. tracer advection
         !-----------------------
-        IF ( ltransport ) THEN
+        IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
 
           ! Diagnose some velocity-related quantities for the tracer
           ! transport scheme
@@ -1159,7 +1166,9 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
             &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
 
+        ENDIF
 
+        IF ( ltransport ) THEN
           IF (lstep_adv(jg)) THEN
 
               IF (art_config(jg)%lart) THEN
@@ -1311,13 +1320,14 @@ MODULE mo_nh_stepping
         dt_sub     = dt_loc/2._wp    ! dyn. time step on next refinement level
         dtadv_sub  = dtadv_loc/2._wp ! adv. time step on next refinement level
         rdtadv_loc = 1._wp/dtadv_loc
+        rdtmflx_loc = 1._wp/(dt_loc*REAL(MAX(1,iadv_rcf-1),wp))
 
         IF (ltimer)            CALL timer_start(timer_nesting)
         IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
-        CALL compute_tendencies (jg,n_new,n_now_grf,n_new_rcf,            &
-          &                      n_now_rcf,rdt_loc,rdtadv_loc,lstep_adv(jg))
+        CALL compute_tendencies (jg,n_new,n_now_grf,n_new_rcf,n_now_rcf,     &
+          &                      rdt_loc,rdtadv_loc,rdtmflx_loc,lstep_adv(jg))
 
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
@@ -1327,7 +1337,8 @@ MODULE mo_nh_stepping
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
           IF (p_patch(jgc)%ldom_active) THEN
             CALL boundary_interpolation(jg, jgc,                         &
-              &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
+              &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg),&
+              &  prep_adv(jg)%mass_flx_me,prep_adv(jgc)%mass_flx_me)
           ENDIF
 
         ENDDO

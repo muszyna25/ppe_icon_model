@@ -286,8 +286,8 @@ END SUBROUTINE complete_nesting_setup
 !! @par Revision History
 !! Developed by Guenther Zaengl, DWD, 2010-02-10
 !!
-SUBROUTINE compute_tendencies (jg,n_new,n_now,n_new_rcf,&
-  &                            n_now_rcf,rdt,rdt_rcf,lstep_adv)
+SUBROUTINE compute_tendencies (jg,n_new,n_now,n_new_rcf,n_now_rcf,&
+  &                            rdt,rdt_rcf,rdt_mflx,lstep_adv)
 
 
 INTEGER,  INTENT(IN) :: jg  ! domain ID
@@ -301,6 +301,8 @@ REAL(wp), INTENT(IN) ::  rdt
 ! Inverse value of time step for integration with reduced calling frequency,
 ! needed for computing the tracer-tendencies
 REAL(wp), INTENT(IN) ::  rdt_rcf
+! Inverse value of time step needed for computing the mass flux tendencies
+REAL(wp), INTENT(IN) ::  rdt_mflx
 
 LOGICAL :: lstep_adv  ! determines wheter tracer-tendencies should be computed
                       ! (.true.) or not (.false.)
@@ -455,7 +457,9 @@ DO jb = i_startblk, i_endblk
   DO jk = 1, nlev
     DO je = i_startidx, i_endidx
       p_nh%diag%grf_tend_vn(je,jk,jb) = &
-      ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
+        ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
+      p_nh%diag%grf_tend_mflx(je,jk,jb) = &
+        ( p_nh%diag%mass_fl_e(je,jk,jb) - p_nh%diag%mass_fl_e_sv(je,jk,jb) )*rdt_mflx
     ENDDO
   ENDDO
 
@@ -481,7 +485,8 @@ END SUBROUTINE compute_tendencies
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2008-07-10
 !!
-SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv)
+SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv, &
+                                   mass_flx_p,mass_flx_c)
 
 CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
@@ -492,7 +497,10 @@ INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
 ! Parent and child time levels for dynamical variables and tracers
 INTEGER, INTENT(IN)     :: ntp_dyn, ntc_dyn, ntp_tr, ntc_tr
 
-LOGICAL :: lstep_adv  ! time tendencies are only interpolated if transport is called
+LOGICAL, INTENT(IN) :: lstep_adv  ! time tendencies are only interpolated if transport is called
+
+! Mass fluxes at parent and child level
+REAL(wp), DIMENSION(:,:,:), INTENT(INOUT) :: mass_flx_p, mass_flx_c
 
 ! local variables
 
@@ -786,10 +794,19 @@ IF (grf_intmethod_e == 1 .OR. grf_intmethod_e == 2) THEN
 
 ELSE IF (grf_intmethod_e == 3 .OR. grf_intmethod_e == 4) THEN
 
-  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, &
+  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1,&
     p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
 
+ELSE IF (grf_intmethod_e == 5 .OR. grf_intmethod_e == 6) THEN
+
+!  CALL sync_patch_array_mult(SYNC_E,p_pp,2,mass_flx_p,p_diagp%grf_tend_mflx)
+
+  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3,&
+    p_diagp%grf_tend_vn, p_diagc%grf_tend_vn, mass_flx_p, mass_flx_c,         &
+    p_diagp%grf_tend_mflx, p_diagc%grf_tend_mflx )
+
 ENDIF
+
 
 ! Perform interpolations needed for vertical nesting
 IF (l_child_vertnest) THEN

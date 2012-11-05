@@ -48,13 +48,14 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type
+                                     rayleigh_type, iadv_rcf
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
+  USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_intp,              ONLY: cells2edges_scalar
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
@@ -511,18 +512,22 @@ MODULE mo_solve_nonhydro
   !! Based on the initial release of divergent_modes by Almut Gassmann (2009-05-12)
   !! Modified by Guenther Zaengl starting on 2010-02-03
   !!
-  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, nnow, nnew, l_init, l_recompute, &
-                       idyn_timestep, jstep, l_bdy_nudge, dtime)
+  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, mflx_avg, nnow, nnew, l_init, l_recompute, &
+                       lsave_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
     TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
     TYPE(t_buffer_memory),     INTENT(INOUT) :: bufr
 
+    REAL(wp), INTENT(IN)                     :: mflx_avg(:,:,:)
+
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
     LOGICAL,                   INTENT(INOUT) :: l_init
     ! Switch to recompute velocity tendencies after a physics call irrespective of the time scheme option
     LOGICAL,                   INTENT(IN)    :: l_recompute
+    ! Switch if mass flux needs to be saved for nest boundary interpolation tendency computation
+    LOGICAL,                   INTENT(IN)    :: lsave_mflx
     ! Counter of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
     INTEGER,                   INTENT(IN)    :: idyn_timestep
     ! Time step count since last boundary interpolation (ranges from 0 to 2*iadv_rcf-1)
@@ -584,7 +589,7 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim, dt_shift
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -660,6 +665,9 @@ MODULE mo_solve_nonhydro
       scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
         & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
     ENDIF
+
+    ! Time increment for backward-shifting of lateral boundary mass flux 
+    dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
 
     ! Set pointer to velocity field that is used for mass flux computation
     IF (idiv_method == 1) THEN
@@ -1686,8 +1694,35 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
 
+      IF (lsave_mflx) THEN
+        p_nh%diag%mass_fl_e_sv(i_startidx:i_endidx,:,jb) = p_nh%diag%mass_fl_e(i_startidx:i_endidx,:,jb)
+      ENDIF
+
     ENDDO
+!$OMP END DO
+
+    IF (p_patch%id > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
+!$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
+        je = p_nh%metrics%bdy_mflx_e_idx(ic)
+        jb = p_nh%metrics%bdy_mflx_e_blk(ic)
+
+        IF (jstep == 0) THEN
+          DO jk = 1, nlev
+            p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
+            p_nh%diag%grf_bdy_mflx(jk,ic,1) = mflx_avg(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+          ENDDO
+        ENDIF
+
+        DO jk = 1, nlev
+          p_nh%diag%mass_fl_e(je,jk,jb) = p_nh%diag%grf_bdy_mflx(jk,ic,1) + &
+            REAL(jstep,wp)*dtime*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+          z_theta_v_fl_e(je,jk,jb) = p_nh%diag%mass_fl_e(je,jk,jb) * z_theta_v_e(je,jk,jb)
+        ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
+    ENDIF
+
 !$OMP END PARALLEL
 
 

@@ -129,6 +129,7 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlevp1,nblks_c,ntracer)
     &  div(:,:,:),          & ! divergence(nproma,nlev,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
+    &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
@@ -147,6 +148,10 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlevp1,nblks_c)                      [m/s^2]
     &  grf_tend_rho(:,:,:), & ! rho tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_c)                     [kg/m^3/s]
+    &  grf_tend_mflx(:,:,:),& ! rho*vn tendency field for use in grid refinement
+                              ! (nproma,nlev,nblks_e)                     [kg/m^2/s^2]
+    &  grf_bdy_mflx(:,:,:),&  ! rho*vn boundary field for use in grid refinement
+                              ! (nlev,npoints,2)                            [kg/m^2/s^2]
     &  grf_tend_thv(:,:,:), & ! theta_v tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_c)                          [K/s]
     &  grf_tend_tracer(:,:,:,:), & ! tracer tendency field for use in grid refinement
@@ -343,6 +348,10 @@ MODULE mo_nonhydro_types
    INTEGER,  POINTER :: ovlp_halo_c_dim(:)
    INTEGER,  POINTER :: ovlp_halo_c_idx(:,:)
    INTEGER,  POINTER :: ovlp_halo_c_blk(:,:)
+   ! d) index lists for mass fluxes at lateral nest boundary (including the required halo points)
+   INTEGER           :: bdy_mflx_e_dim  
+   INTEGER,  POINTER :: bdy_mflx_e_idx(:)
+   INTEGER,  POINTER :: bdy_mflx_e_blk(:)
    ! Correction term needed to use perturbation density for lateral boundary nudging
    ! (note: this field is defined on the local parent grid in case of MPI parallelization)
    REAL(wp), POINTER :: rho_ref_corr(:,:,:)

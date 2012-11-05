@@ -371,9 +371,9 @@ IF (n_dom_start == 0 .OR. n_dom > 1) THEN
   CALL compute_pe2ce_distances ( ptr_grf_state)
 
   CALL grf_index( ptr_grf_state)
-  IF (grf_intmethod_e == 2 .OR. grf_intmethod_e == 4) THEN
+  IF ( MOD(grf_intmethod_e,2) == 0) THEN
     CALL rbf_compute_coeff_grf_e ( ptr_grf_state)
-  ELSE IF (grf_intmethod_e == 1 .OR. grf_intmethod_e == 3) THEN
+  ELSE IF (MOD(grf_intmethod_e,2) == 1) THEN
     CALL idw_compute_coeff_grf_e ( ptr_grf_state)
   ENDIF
 

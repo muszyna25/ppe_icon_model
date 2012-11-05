@@ -63,7 +63,7 @@ MODULE mo_nonhydro_state
     &                                t_nh_ref, t_nh_metrics, t_ptr_nh,  &
     &                                t_buffer_memory
   USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
-  USE mo_grid_config,          ONLY: n_dom, l_limited_area
+  USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
@@ -167,11 +167,11 @@ MODULE mo_nonhydro_state
         nsav1(jg) = ntl
       ENDIF
 
-      ! In the presence of grid nesting, another extra time level is needed to save
-      ! the feedback increments
+      ! In the presence of grid nesting and incremental feedback, another extra time level is needed to
+      ! compute the feedback increments
       ! This extra time level is also used to store the driving-model data in the
       ! limited-area mode
-      IF (l_limited_area .OR. jg > 1) ntl = ntl + 1
+      IF (ifeedback_type == 1 .AND. jg > 1 .OR. l_limited_area .AND. jg == 1) ntl = ntl + 1
       nsav2(jg) = ntl
 
       !
@@ -1118,6 +1118,16 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_e, lrestart=.FALSE. )
 
 
+    ! mass_fl_e_sv    p_diag%mass_fl_e_sv(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('storage_field_for_horizontal_mass_flux_at_edges', 'kg m-1 s-1',  &
+       &         'storage field for horizontal mass flux at edges', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_diag_list, 'mass_fl_e_sv', p_diag%mass_fl_e_sv,             &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=shape3d_e, lrestart=.FALSE. )
+
+
     ! rho_ic       p_diag%rho_ic(nproma,nlevp1,nblks_c)
     !
     cf_desc    = t_cf_var('density', 'kg m-3', 'density at half level', DATATYPE_FLT32)
@@ -1217,6 +1227,16 @@ MODULE mo_nonhydro_state
         &                   'normal wind tendency (grid refinement)', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 2, 203, ibits, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_e, lrestart=.FALSE. )
+
+
+      ! grf_tend_mflx  p_diag%grf_tend_mflx(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('normal_mass_flux_tendency', 'kg m-2 s-2',                    &
+        &                   'normal mass flux tendency (grid refinement)', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 2, 203, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_diag_list, 'grf_tend_mflx', p_diag%grf_tend_mflx,         &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_e, lrestart=.FALSE. )
 

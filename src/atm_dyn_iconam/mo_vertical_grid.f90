@@ -61,7 +61,7 @@ MODULE mo_vertical_grid
   USE mo_sleve_config,          ONLY: lread_smt
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
-    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell
+    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
@@ -740,8 +740,79 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
 
-      ! Index list for halo points belonging to the nest overlap zone
+      ! Index list for which interpolated mass fluxes along the lateral nest boundary need to be updated
+      ! part 1: count nest boundary points of row 9
+      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e,1)
+      i_endblk   = p_patch(jg)%edges%end_blk(grf_bdywidth_e,1)
 
+      ic = 0
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e, 1)
+
+        DO je = i_startidx, i_endidx
+          ic = ic+1
+        ENDDO
+      ENDDO
+
+      ! part 2: count halo points of levels 1 and 2 belonging to nest boundary points of row 9
+      i_startblk = p_patch(jg)%edges%start_blk(min_rledge_int-1,i_nchdom)
+      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2, i_nchdom)
+
+        DO je = i_startidx, i_endidx
+          IF (p_patch(jg)%edges%refin_ctrl(je,jb) == grf_bdywidth_e) THEN
+            ic = ic+1
+          ENDIF
+        ENDDO
+      ENDDO
+      p_nh(jg)%metrics%bdy_mflx_e_dim = ic
+
+      ! Allocate index lists and storage field for boundary mass flux
+      ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
+               p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+
+      ! part 3: fill index list with nest boundary points of row 9
+      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e,1)
+      i_endblk   = p_patch(jg)%edges%end_blk(grf_bdywidth_e,1)
+
+      ic = 0
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e, 1)
+
+        DO je = i_startidx, i_endidx
+          ic = ic+1
+          p_nh(jg)%metrics%bdy_mflx_e_idx(ic) = je
+          p_nh(jg)%metrics%bdy_mflx_e_blk(ic) = jb
+        ENDDO
+      ENDDO
+
+      ! part 4: fill index list with halo points of levels 1 and 2 belonging to nest boundary points of row 9
+      i_startblk = p_patch(jg)%edges%start_blk(min_rledge_int-1,i_nchdom)
+      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2, i_nchdom)
+
+        DO je = i_startidx, i_endidx
+          IF (p_patch(jg)%edges%refin_ctrl(je,jb) == grf_bdywidth_e) THEN
+            ic = ic+1
+            p_nh(jg)%metrics%bdy_mflx_e_idx(ic) = je
+            p_nh(jg)%metrics%bdy_mflx_e_blk(ic) = jb
+          ENDIF
+        ENDDO
+      ENDDO
+
+      ! Index list for halo points belonging to the nest overlap zone
       i_startblk = p_patch(jg)%cells%start_blk(min_rlcell_int-1,i_nchdom)
       i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
       ica(:)     = 0
