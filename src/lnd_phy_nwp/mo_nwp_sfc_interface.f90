@@ -965,7 +965,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_count,ic,jc,shfl_s,lhfl_s,lwflxsfc,swflxsfc,tice_now, &
-!$OMP            hice_now,tsnow_now,hsnow_now) ICON_OMP_GUIDED_SCHEDULE
+!$OMP            hice_now,tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,  &
+!$OMP            hsnow_new) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       !

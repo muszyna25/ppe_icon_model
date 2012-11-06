@@ -181,7 +181,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice,    &
 !$OMP            ic,jk,isubs_snow,t_g_s,frsi,t_seasfc,tice_now,hice_now,tsnow_now,   &
-!$OMP            hsnow_now), SCHEDULE(guided)
+!$OMP            hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1068,7 +1068,7 @@ CONTAINS
       npoints_ice = global_sum_array(npoints_ice)
       npoints_wtr = SUM(ext_data%atm%spw_count(i_startblk:i_endblk))
       npoints_wtr = global_sum_array(npoints_wtr)
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of seaice points in domain',jg, &
+      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea-ice points in domain',jg, &
         &  ':',npoints_ice
       CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in domain',jg, &

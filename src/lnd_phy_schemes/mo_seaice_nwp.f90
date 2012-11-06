@@ -223,7 +223,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
   !! Modification by Daniel Reinert, DWD (2012-11-05)
-  !! - modified initialization procedure for the case that sea-ice thickness 
+  !! - modified initialization procedure for the case that the sea-ice thickness 
   !!   field is not provided as input (i.e. when starting from IFS analysis)
   !!
 
@@ -261,6 +261,7 @@ CONTAINS
                                               &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
                                               &  hsnow_p , &  !< snow thickness at previous time level [m] 
                                               &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
+
                                               &  hice_n  , &  !< ice thickness at new time level [m] 
                                               &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
                                               &  hsnow_n      !< snow thickness at new time level [m] 
