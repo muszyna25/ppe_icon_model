@@ -1,0 +1,84 @@
+#!/bin/ksh
+# -------------------------------------------------------
+# MARS request to read SST (monthly means of daily means) for a given year.
+# run as: mars4icon_sst  2011
+#
+# versions:
+#   mars4icon_smi_32r3+:      conversion of SWVL to soil moisture index SMI
+#                             for horizontal interpolation (assuming post 32r3
+#                             soil model input - 6 soil types)
+#   mars4icon_smi_32r2-:      assuming model input from pre 32r3 cycles
+#                             (single soil type)
+#   mars4icon_smi_ERAinterim: using ERA-Interim data 
+#                             (31r1 model with 36r4 land model data)
+#                             2 options:
+#                             exp=fiv7: ERA-Interim forced land model
+#                             exp=fiv8: ERA-Interim + GPCP corrected precip
+#   mars4icon_sst           : using ERA-Interim data monthlymeans of daily means 
+#
+# attention: 
+#   * at DWD requires ECMWF login by eccert
+#   * requires mars version 1.9.9       ?????????????????????????
+#     (. ${GRIB_API}/bin/grib_api-setenv -r -V1.9.9)
+#
+# history:
+#  Pilar Ripodas 
+# -------------------------------------------------------
+
+# --- argument list ---
+
+set -x
+
+# --- data output ---
+
+year=${1:-2011}
+yearm1=`expr ${year} \- 1`
+yearp1=`expr ${year} \+ 1`
+ydate="${yearm1}-12-01/${year}-01-01/${year}-02-01/${year}-03-01/${year}-04-01/${year}-05-01/${year}-06-01/${year}-07-01/${year}-08-01/${year}-09-01/${year}-10-01/${year}-11-01/${year}-12-01/${yearp1}-01-01,"
+
+# define data directory (if not set otherwise)
+datadir=${IFSDATADIR:-/e/uwork/${USER}/icon/ifs.data}
+mkdir -p $datadir
+tempdir=${TMPDIR}
+
+
+grib_file=${datadir}/ifs_ei_SST_${year}.grb
+
+cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
+# MARS request for ifs2icon
+retrieve,
+        class    = ei,
+        expver   = 1,
+        domain   = g,
+        stream   = moda,
+        type     = an,
+        date     = ${ydate}
+        target   = "${grib_file}",
+        #param    = 34.128,                               #sst
+        param    = sst,                               #sst
+        repres   = gg,                                  # gaussian grid
+        gaussian = regular,
+        grid     = 128,                                 # ERA interim !
+        levtype  = sfc
+MARS_IFS2ICON_EOF.$$
+
+mars ${tempdir}/MARS_IN.$$
+rc_mars=$?
+
+if [ $rc_mars -ne 0 ]; then
+    { print -- "Error $rc_mars executing mars"
+      print -- "Input file to MARS:"
+      cat ${tempdir}/MARS_IN.$$
+    } >&2
+     rm ${tempdir}/MARS_IN.$$
+    exit $rc_mars
+fi
+
+print ""
+print "Retrieved ERA interim analysis for SST 2011 "
+
+ls -al ${grib_file}
+rm -f ${tempdir}/MARS_IN.$$
+
+
+exit 0
