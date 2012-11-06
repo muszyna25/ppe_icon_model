@@ -177,7 +177,7 @@ CONTAINS
 
     ! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 8
+    INTEGER, PARAMETER :: no_of_fields = 9
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
@@ -479,6 +479,7 @@ CONTAINS
       field_name(6) = "SST"
       field_name(7) = "OCEANU"
       field_name(8) = "OCEANV"
+      field_name(9) = "ALBEDO"
 
       field_shape(1:2) = grid_shape(1:2)
 

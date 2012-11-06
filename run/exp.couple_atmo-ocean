@@ -187,6 +187,16 @@ cat > $atmo_namelist << EOF
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /
+&coupling_nml
+  name                = 'ALBEDO'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  lag                 = 1
+  l_diagnostic        = .TRUE.
+  l_activated         = .TRUE.
+/
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.
@@ -394,6 +404,15 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'OCEANV'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  l_diagnostic        = .TRUE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'ALBEDO'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.

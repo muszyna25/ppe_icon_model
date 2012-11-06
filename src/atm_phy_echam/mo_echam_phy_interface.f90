@@ -421,6 +421,7 @@ CONTAINS
        !   field_id(6) represents "SST"    sea surface temperature
        !   field_id(7) represents "OCEANU" u component of ocean surface current
        !   field_id(8) represents "OCEANV" v component of ocean surface current
+       !   field_id(9) represents "ALBEDO" ocean & ice albedo
        !
        CALL ICON_cpl_get_nbr_fields ( nbr_fields )
        ALLOCATE(field_id(nbr_fields))
@@ -505,6 +506,16 @@ CONTAINS
          prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
        ENDIF
+       !
+       ! ALBEDO
+       !
+       CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       !! Einar: replace.
+       !! IF ( info > 0 ) THEN
+       !!   buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+       !!   prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+       !!   CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
+       !! ENDIF
 
        DEALLOCATE(buffer)
        DEALLOCATE(field_id)

@@ -609,6 +609,8 @@ CONTAINS
       !   field_id(6) represents "SST"    sea surface temperature
       !   field_id(7) represents "OCEANU" u component of ocean surface current
       !   field_id(8) represents "OCEANV" v component of ocean surface current
+      !   field_id(9) represents "ALBEDO" ice & ocean albedo
+      !
       !
         CALL ICON_cpl_get_nbr_fields ( nbr_fields )
         ALLOCATE(field_id(nbr_fields))
@@ -642,6 +644,10 @@ CONTAINS
       ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
         CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+      !
+      ! ocean & ice albedo
+        !!Einar: replace buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+        CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
       ! Receive fields from atmosphere
       ! ------------------------------
