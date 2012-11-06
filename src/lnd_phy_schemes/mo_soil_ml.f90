@@ -1643,7 +1643,7 @@ END SUBROUTINE message
 
 
 ! In debugging mode and if transfer coefficient occured for at least one grid point
-  IF (m_limit > 0 .AND. ldebug) THEN
+  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 14) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
            'terra1: transfer coefficient had to be constrained',                     &
            'model time step                                 :', zdt     ,' seconds', &
@@ -2836,16 +2836,6 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
-IF (msg_level >= 14) THEN
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
-         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
-      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
-        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
-        '  ......  ', tch(i), tcm(i)
-    ENDIF
-  ENDIF
-ENDIF
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -2925,6 +2915,20 @@ ENDIF
         sum_weight(i) = 0.0_ireals
 !      END IF          ! land-points only
     END DO
+
+IF (msg_level >= 14) THEN
+  DO i = istarts, iends
+  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
+         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
+      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
+        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
+        '  ......  ', tch(i), tcm(i)
+    ENDIF
+  ENDIF
+  END DO
+ENDIF
+
     DO ksn = 1,ke_snow  
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN          ! land-points only
@@ -3104,17 +3108,6 @@ ENDIF
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
-IF (msg_level >= 14) THEN
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_s(i) )  >  500.0  .OR. & 
-         ABS( zlhfl_s(i) )  > 2000.0 ) THEN
-      write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
-        '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
-        '  ...CH,CM...  ', tch(i), tcm(i), &
-        '  ...const...  ', cp_d,lh_v,lh_s
-    ENDIF
-  ENDIF
-ENDIF
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3170,6 +3163,20 @@ ENDIF
 
 !      END IF          ! land-points only
     END DO
+
+IF (msg_level >= 14) THEN
+  DO i = istarts, iends
+  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_s(i) )  >  500.0  .OR. & 
+         ABS( zlhfl_s(i) )  > 2000.0 ) THEN
+      write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
+        '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
+        '  ...CH,CM...  ', tch(i), tcm(i), &
+        '  ...const...  ', cp_d,lh_v,lh_s
+    ENDIF
+  ENDIF
+  END DO
+ENDIF
 
   ENDIF ! lmulti_snow
 
@@ -3529,17 +3536,6 @@ ENDIF
           zlhfl_snow(i) = lh_s*zversn(i)
           zfor_snow     = zrnet_snow + zshfl_snow(i) + zlhfl_snow(i)
 
-IF (msg_level >= 14) THEN
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
-         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
-      write(*,*) 'soil: ', zshfl_snow(i), zlhfl_snow(i), '....', &
-        zth_low(i), ztsnow(i), '....', &
-        zwsnow(i), zrr(i), zrs(i), zdwsndt(i) 
-    ENDIF
-  ENDIF
-ENDIF
-
           ! forecast of snow temperature Tsnow
           IF (ztsnow(i) < t0_melt .AND. zwsnew(i) > zepsi) THEN
             ztsnown(i) = ztsnow(i) + zdt*2._ireals*(zfor_snow - zgsb(i))  &
@@ -3561,6 +3557,19 @@ ENDIF
         ENDIF
 !      END IF          ! land-points only
   END DO
+
+IF (msg_level >= 14) THEN
+  DO i = istarts, iends
+  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
+         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
+      write(*,*) 'soil: ', zshfl_snow(i), zlhfl_snow(i), '....', &
+        zth_low(i), ztsnow(i), '....', &
+        zwsnow(i), zrr(i), zrs(i), zdwsndt(i) 
+    ENDIF
+  ENDIF
+  END DO
+ENDIF
 
   IF (lmulti_snow) THEN
     DO ksn = 0, ke_snow
