@@ -209,37 +209,69 @@ SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timest
   END IF
 !!Commented out because of NAG-compiler, PK
   DO jk = 1, n_zlev
-    ! Abort if tracer is below threshold
-    ! Temperature: <-1.9 deg, may be possible, limit set to lower value
-    IF (minval(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<-4.0_wp) THEN
+
+    ! Abort if tracer is below or above threshold
+
+    ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
+    IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<-4.0_wp) THEN
       write(0,*) ' TEMPERATURE BELOW THRESHOLD:'
-      iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+      iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
       zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
       write(0,*) ' negative temperature at jk =', jk, &
-      &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+        &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
       write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
       CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
         &              'Temperature below threshold')
     ENDIF
+
+    ! Temperature: >100 deg C aborts
+    IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))>100.0_wp) THEN
+      write(0,*) ' TEMPERATURE ABOVE THRESHOLD:'
+      iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+      zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+      zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+      write(0,*) ' boiling temperature at jk =', jk, &
+        &        MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+      write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+      write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+      CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+        &              'Temperature above threshold')
+    ENDIF
   END DO
 
   IF (no_tracer>=2)THEN
     DO jk = 1, n_zlev
+
       ! Abort if salinity is negative:
-      IF (minval(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<0.0_wp) THEN
+      IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<0.0_wp) THEN
         write(0,*) ' SALINITY NEGATIVE:'
-        iloc(:) = minloc(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+        iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
         zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
         write(0,*) ' negative salinity at jk =', jk, &
-        &minval(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+          &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
         write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
         CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-        &              'SALINITY NEGATIVE')
+          &            'SALINITY NEGATIVE')
       ENDIF
+
+      ! Abort if salinity is >60 psu:
+      IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))>60.0_wp) THEN
+        write(0,*) ' SALINITY >60 PSU:'
+        iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+        write(0,*) ' too large salinity at jk =', jk, &
+        &MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+          &            'TOO LARGE SALINITY')
+      ENDIF
+
     END DO
   ENDIF
 

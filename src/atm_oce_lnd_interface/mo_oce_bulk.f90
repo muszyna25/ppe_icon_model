@@ -165,7 +165,7 @@ CONTAINS
     ! CALL message(TRIM(routine), 'No  forcing applied' )
       CONTINUE
 
-    CASE (ANALYT_FORC)
+    CASE (ANALYT_FORC)               !  11
 
       CALL update_sfcflx_analytical(p_patch, p_os, p_sfc_flx)
 
