@@ -510,12 +510,17 @@ CONTAINS
        ! ALBEDO
        !
        CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-       !! Einar: replace.
-       !! IF ( info > 0 ) THEN
-       !!   buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-       !!   prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-       !!   CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
-       !! ENDIF
+       IF ( info > 0 ) THEN
+         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+         prm_field(jg)%albvisdir(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%albvisdif(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%albnirdir(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%albnirdif(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albvisdir(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albvisdif(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albnirdir(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albnirdif(:,:))
+       ENDIF
 
        DEALLOCATE(buffer)
        DEALLOCATE(field_id)

@@ -140,7 +140,7 @@ CONTAINS
     INTEGER  :: jc, jb, i, no_set, k
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
-    REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+    !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_c2(nproma,p_patch%nblks_c)
     REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
 
@@ -525,6 +525,9 @@ CONTAINS
         p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        !  done in mo_sea_ice:upper_ocean_TS
+
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
         CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
@@ -628,13 +631,10 @@ CONTAINS
       ! ------------------------------------
       !
       ! SST/sea ice surface temperature:
-        WHERE (p_ice%isice(:,1,:))
-          z_c(:,1,:) = p_ice%Tsurf(:,1,:)
-        ELSEWHERE
-          z_c(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-        END WHERE
-        buffer(:,1) = RESHAPE(z_c(:,1,:), (/nbr_points /) ) + tmelt
-      ! buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp 
+      ! They need to be weighted now that p_ice%concSum is variable
+        buffer(:,1) = RESHAPE(p_ice%Tsurf(:,1,:)*p_ice%concSum(:,:) +           &
+          &     p_os%p_prog(nold(1))%tracer(:,1,:,1)*(1._wp-p_ice%concSum(:,:)),&
+          &           (/nbr_points /) ) + tmelt
         CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
       ! zonal velocity
@@ -646,7 +646,8 @@ CONTAINS
         CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
       ! ocean & ice albedo
-        !!Einar: replace buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+        buffer(:,1) = RESHAPE(p_ice%alb(:,1,:)*p_ice%concSum(:,:) +   &
+          &     albedoW*(1._wp-p_ice%concSum(:,:)), (/nbr_points /) )
         CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
       !
       ! Receive fields from atmosphere
@@ -749,10 +750,6 @@ CONTAINS
           Qatm%dlatdT (:,:,:) = 0.0_wp
           Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
-          ! This is a stripped down version of ice_fast, since we don't want to calculate albedo
-          ! For now the ice albedo is the same as ocean albedo
-          CALL prepareAfterRestart(p_ice)
-          ! CALL set_ice_albedo(p_patch,p_ice)
           IF ( no_tracer >= 2 ) THEN
             DO k=1,p_ice%kice
               Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -760,8 +757,14 @@ CONTAINS
           ELSE
             Tfw = Tf
           ENDIF
-          CALL set_ice_temp_winton(p_patch,p_ice,Tfw,Qatm)
-          Qatm%counter = 1
+
+          CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm, datetime%yeaday)
+          ! Ice_fast and ice_slow are designed for an ice model that's split between the
+          ! atmosphere and ocean models. For ice only in the ocean ocean we need to do some minor
+          ! corrections.
+          Qatm%counter = 2
+          p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
+          p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx

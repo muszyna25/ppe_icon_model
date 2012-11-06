@@ -1327,18 +1327,11 @@ CONTAINS
 
     ! Calculate heat input through formerly ice covered and through open water areas
     !heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
-    ! A temporary hack: For iforc_oce == 12 (FORCING_FROM_FILE_FLUX) we have OMIP data (or similar)
-    ! and need to apply oceanic albedo to the short-wave flux.  For other cases we assume that the
-    ! albedo has already been applied.
     !!! We need a unified albedo calculation !!!
-    heatOceI    (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
-    IF ( iforc_oce == FORCING_FROM_FILE_FLUX ) THEN
-      heatOceW  (:,:) = QatmAve%SWin(:,:) * (1.0_wp-albedoW)
-    ELSE
-      heatOceW  (:,:) = QatmAve%SWin(:,:)
-    ENDIF
-    heatOceW    (:,:) = ( heatOceW(:,:) + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+ &
-      &                 QatmAve%latw(:,:) ) *  (1.0_wp-sum(ice%conc(:,:,:),2))
+    heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
+    heatOceW(:,:) = ( QatmAve%SWin(:,:)*(1.0_wp-albedoW)    &
+      &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+ &
+      &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! Change temperature of upper ocean grid cell according to heat fluxes
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
