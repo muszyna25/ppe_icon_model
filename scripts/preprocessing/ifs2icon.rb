@@ -16,111 +16,112 @@ require 'extcsv'
 require 'optparse'
 require 'json'
 require 'open3'
+require 'cdo'
 
 
 # ==============================================================================
 # CDO calling mechnism
-module Cdo
-  State = {}
-  @@CDO = ENV['CDO'].nil? ? '/usr/bin/cdo' : ENV['CDO']
-
-  # Only operators with documentation are accessible vie the build-in help.
-  # Other have to be added manually
-  @@undocumentedOperators = %w[geopotheight pressure_fl pressure_hl]
-
-  def Cdo.Debug=(value)
-    State[:debug] = value
-  end
-  def Cdo.Debug
-    State[:debug]
-  end
-
-  # test if @@CDO can be used
-  def Cdo.checkCdo
-    unless (File.exists?(@@CDO) and File.executable?(@@CDO))
-      warn "Testing application #@@CDO is not available!"
-      exit 1
-    else
-      puts "Using CDO: #@@CDO"
-      puts IO.popen(@@CDO + " -V").readlines
-    end
-  end
-
-  def Cdo.setCdo(cdo)
-    puts "Will use #{cdo} instead of #@@CDO" if Cdo.Debug
-    @@CDO = cdo
-  end
-
-
-  def Cdo.getOperators
-    cmd       = @@CDO + ' 2>&1'
-    help      = IO.popen(cmd).readlines.map {|l| l.chomp.lstrip}
-    if 5 >= help.size
-      warn "Operators could not get listed by running the CDO binary (#{@@CDO})"
-      pp help if Cdo.Debug
-      exit
-    else
-      help[help.index("Operators:")+1].split
-    end
-  end
-  def Cdo.call(cmd)
-    if (State[:debug])
-      puts '# DEBUG ====================================================================='
-      puts cmd
-      puts '# DEBUG ====================================================================='
-      puts IO.popen(cmd).read
-    else
-      system(cmd + ' 1>/dev/null 2>&1 ')
-    end
-  end
-  def Cdo.run(cmd,ofile=nil,options='')
-    cmd = "#{@@CDO} -O #{options} #{cmd} "
-    case ofile
-    when $stdout
-      cmd << " 2>/dev/null"
-      return IO.popen(cmd).read.split
-    when nil
-      ofile = Tempfile.new("Ifs2Icon").path
-    end
-    cmd << "#{ofile}"
-    call(cmd)
-    return ofile
-  end
-
-  # Call an operator chain without checking opeartors
-  def Cdo.chainCall(chain,*args)
-    io = args.find {|a| a.class == Hash}
-    args.delete_if {|a| a.class == Hash}
-
-    chain   = chain.strip
-    firstOp = chain[0...[chain.index(','),chain.index(' ')].min]
-    firstOp = firstOp[1..-1] if firstOp[0] == '-'
-    if /(info|show|griddes)/.match(firstOp)
-      Cdo.run(" #{chain} #{io[:in]} ",$stdout)
-    else
-      opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
-      Cdo.run(" #{chain}#{opts} #{io[:in]} ",io[:out],io[:options])
-    end
-  end
-
-  def Cdo.method_missing(sym, *args, &block)
-    # args is expected to look like [opt1,...,optN,:in => iStream,:out => oStream] where
-    # iStream could be another CDO call (timmax(selname(Temp,U,V,ifile.nc))
-    puts "Operator #{sym.to_s} is called" if State[:debug]
-    if getOperators.include?(sym.to_s) or @@undocumentedOperators.include?(sym.to_s)
-      io = args.find {|a| a.class == Hash}
-      args.delete_if {|a| a.class == Hash}
-      if /(info|show|griddes)/.match(sym)
-        run(" -#{sym.to_s} #{io[:in]} ",$stdout)
-      else
-        opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
-        run(" -#{sym.to_s}#{opts} #{io[:in]} ",io[:out],io[:options])
-      end
-    else
-      warn "Operator #{sym.to_s} not found"
-    end
-  end
-end
+# module Cdo
+#   State = {}
+#   @@CDO = ENV['CDO'].nil? ? '/usr/bin/cdo' : ENV['CDO']
+# 
+#   # Only operators with documentation are accessible vie the build-in help.
+#   # Other have to be added manually
+#   @@undocumentedOperators = %w[geopotheight pressure_fl pressure_hl]
+# 
+#   def Cdo.Debug=(value)
+#     State[:debug] = value
+#   end
+#   def Cdo.Debug
+#     State[:debug]
+#   end
+# 
+#   # test if @@CDO can be used
+#   def Cdo.checkCdo
+#     unless (File.exists?(@@CDO) and File.executable?(@@CDO))
+#       warn "Testing application #@@CDO is not available!"
+#       exit 1
+#     else
+#       puts "Using CDO: #@@CDO"
+#       puts IO.popen(@@CDO + " -V").readlines
+#     end
+#   end
+# 
+#   def Cdo.setCdo(cdo)
+#     puts "Will use #{cdo} instead of #@@CDO" if Cdo.Debug
+#     @@CDO = cdo
+#   end
+# 
+# 
+#   def Cdo.getOperators
+#     cmd       = @@CDO + ' 2>&1'
+#     help      = IO.popen(cmd).readlines.map {|l| l.chomp.lstrip}
+#     if 5 >= help.size
+#       warn "Operators could not get listed by running the CDO binary (#{@@CDO})"
+#       pp help if Cdo.Debug
+#       exit
+#     else
+#       help[help.index("Operators:")+1].split
+#     end
+#   end
+#   def Cdo.call(cmd)
+#     if (State[:debug])
+#       puts '# DEBUG ====================================================================='
+#       puts cmd
+#       puts '# DEBUG ====================================================================='
+#       puts IO.popen(cmd).read
+#     else
+#       system(cmd + ' 1>/dev/null 2>&1 ')
+#     end
+#   end
+#   def Cdo.run(cmd,ofile=nil,options='')
+#     cmd = "#{@@CDO} -O #{options} #{cmd} "
+#     case ofile
+#     when $stdout
+#       cmd << " 2>/dev/null"
+#       return IO.popen(cmd).read.split
+#     when nil
+#       ofile = Tempfile.new("Ifs2Icon").path
+#     end
+#     cmd << "#{ofile}"
+#     call(cmd)
+#     return ofile
+#   end
+# 
+#   # Call an operator chain without checking opeartors
+#   def Cdo.chainCall(chain,*args)
+#     io = args.find {|a| a.class == Hash}
+#     args.delete_if {|a| a.class == Hash}
+# 
+#     chain   = chain.strip
+#     firstOp = chain[0...[chain.index(','),chain.index(' ')].min]
+#     firstOp = firstOp[1..-1] if firstOp[0] == '-'
+#     if /(info|show|griddes)/.match(firstOp)
+#       Cdo.run(" #{chain} #{io[:in]} ",$stdout)
+#     else
+#       opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
+#       Cdo.run(" #{chain}#{opts} #{io[:in]} ",io[:out],io[:options])
+#     end
+#   end
+# 
+#   def Cdo.method_missing(sym, *args, &block)
+#     # args is expected to look like [opt1,...,optN,:in => iStream,:out => oStream] where
+#     # iStream could be another CDO call (timmax(selname(Temp,U,V,ifile.nc))
+#     puts "Operator #{sym.to_s} is called" if State[:debug]
+#     if getOperators.include?(sym.to_s) or @@undocumentedOperators.include?(sym.to_s)
+#       io = args.find {|a| a.class == Hash}
+#       args.delete_if {|a| a.class == Hash}
+#       if /(info|show|griddes)/.match(sym)
+#         run(" -#{sym.to_s} #{io[:in]} ",$stdout)
+#       else
+#         opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
+#         run(" -#{sym.to_s}#{opts} #{io[:in]} ",io[:out],io[:options])
+#       end
+#     else
+#       warn "Operator #{sym.to_s} not found"
+#     end
+#   end
+# end
 # ==============================================================================
 # Option handling
 class PreProcOptions
@@ -891,7 +892,7 @@ class Ifs2Icon
     copyfile, outfile = tfile, tfile
 
     # Perform conservative remapping with pregenerated weights and rename to target variable names
-    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{outvar} -copy #{preselLevType}",
+    Cdo.remap(gridfile,weightfile, :in => " -setname,#{outvar} -copy #{preselLevType}",
                   :in => @invars[ivar],
                   :out => outfile,
                   :options => "-f nc2")
@@ -1159,11 +1160,12 @@ if __FILE__ == $0
   when 'cdo'
     include Cdo
     Cdo.Debug = ENV['debug'].nil? ? false : true
+    Cdo.checkCdo
     ifile = '/home/ram/data/examples/T.jan.nc'
-    puts Cdo.seltimestep(1,:in => Cdo.selname('T',:in =>ifile),:out => 'ofile.nc')
-    pp Cdo.showcode(:in => ifile)
-    pp Cdo.showcode(:in => 'ofile.nc')
-    pp Cdo.showname(:in => "IFS.grb")
+    puts Cdo.seltimestep(1,:in => Cdo.selname('t',:in =>ifile),:out => 'ofile.nc')
+    pp Cdo.showname(:in => ifile)
+    pp Cdo.showname(:in => 'ofile.nc')
+    pp Cdo.showcode(:in => "-setcode,123 -copy ofile.nc",:options => '-f grg')
   end
 end
 
