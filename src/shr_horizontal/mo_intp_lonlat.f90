@@ -1505,16 +1505,27 @@
           DO jc = i_startidx, i_endidx
 #endif
 
-!CDIR EXPAND=9
-            grad_x(jc,jk,jb) =  &
-              SUM( (/ ( ptr_coeff(i,1,jc,jb) *      &
-              &         p_vn_in(iidx(i,jc,jb),jk,iblk(i,jc,jb)) , &
-              &    i=1,9 ) /) )
-!CDIR EXPAND=9
-            grad_y(jc,jk,jb) =  &
-              SUM( (/ ( ptr_coeff(i,2,jc,jb) *      &
-              &         p_vn_in(iidx(i,jc,jb),jk,iblk(i,jc,jb)) , &
-              &    i=1,9 ) /) )
+            grad_x(jc,jk,jb) =                                               &
+              ptr_coeff(1,1,jc,jb)*p_vn_in(iidx(1,jc,jb),jk,iblk(1,jc,jb)) + &
+              ptr_coeff(2,1,jc,jb)*p_vn_in(iidx(2,jc,jb),jk,iblk(2,jc,jb)) + &
+              ptr_coeff(3,1,jc,jb)*p_vn_in(iidx(3,jc,jb),jk,iblk(3,jc,jb)) + &
+              ptr_coeff(4,1,jc,jb)*p_vn_in(iidx(4,jc,jb),jk,iblk(4,jc,jb)) + &
+              ptr_coeff(5,1,jc,jb)*p_vn_in(iidx(5,jc,jb),jk,iblk(5,jc,jb)) + &
+              ptr_coeff(6,1,jc,jb)*p_vn_in(iidx(6,jc,jb),jk,iblk(6,jc,jb)) + &
+              ptr_coeff(7,1,jc,jb)*p_vn_in(iidx(7,jc,jb),jk,iblk(7,jc,jb)) + &
+              ptr_coeff(8,1,jc,jb)*p_vn_in(iidx(8,jc,jb),jk,iblk(8,jc,jb)) + &
+              ptr_coeff(9,1,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb)) 
+
+            grad_y(jc,jk,jb) =                                               &
+              ptr_coeff(1,2,jc,jb)*p_vn_in(iidx(1,jc,jb),jk,iblk(1,jc,jb)) + &
+              ptr_coeff(2,2,jc,jb)*p_vn_in(iidx(2,jc,jb),jk,iblk(2,jc,jb)) + &
+              ptr_coeff(3,2,jc,jb)*p_vn_in(iidx(3,jc,jb),jk,iblk(3,jc,jb)) + &
+              ptr_coeff(4,2,jc,jb)*p_vn_in(iidx(4,jc,jb),jk,iblk(4,jc,jb)) + &
+              ptr_coeff(5,2,jc,jb)*p_vn_in(iidx(5,jc,jb),jk,iblk(5,jc,jb)) + &
+              ptr_coeff(6,2,jc,jb)*p_vn_in(iidx(6,jc,jb),jk,iblk(6,jc,jb)) + &
+              ptr_coeff(7,2,jc,jb)*p_vn_in(iidx(7,jc,jb),jk,iblk(7,jc,jb)) + &
+              ptr_coeff(8,2,jc,jb)*p_vn_in(iidx(8,jc,jb),jk,iblk(8,jc,jb)) + &
+              ptr_coeff(9,2,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb)) 
             
           ENDDO
         ENDDO
@@ -1678,8 +1689,8 @@
       INTEGER :: slev, elev,               &  ! vertical start and end level
         &        jc, jb, jk,               &  ! integer over lon-lat points, levels
         &        i_startidx, i_endidx,     &  ! start/end index
-        &        i, jb_cell, jc_cell, nstencil
-      REAL(wp) :: vintp, vmin, vmax
+        &        i, jb_cell, jc_cell
+      REAL(wp) :: vmin, vmax
       INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
       REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_coeff
 
@@ -1697,7 +1708,7 @@
       ptr_coeff => ptr_int%rbf_c2l_coeff
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,jb_cell, jc_cell, nstencil), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,jb_cell,jc_cell,vmin,vmax), SCHEDULE(runtime)
 
       DO jb = 1,nblks_lonlat
 
@@ -1713,27 +1724,22 @@
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
+            jc_cell = ptr_int%tri_idx(1,jc, jb)
+            jb_cell = ptr_int%tri_idx(2,jc, jb)
             DO jk = slev, elev
 #else
-!CDIR UNROLL=2
+!CDIR UNROLL=3
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
-#endif
               jc_cell = ptr_int%tri_idx(1,jc, jb)
               jb_cell = ptr_int%tri_idx(2,jc, jb)
-!CDIR EXPAND=4              
-              vmin =  MINVAL( &
-                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
-!CDIR EXPAND=4
-              vmax =  MAXVAL( &
-                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
-!CDIR EXPAND=4
-              vintp =  SUM( &
-                & (/ ( ptr_coeff(i, jc, jb) * &
-                &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,4 ) /) )
+#endif
+
+              p_out(jc,jk,jb) =                                                                       &
+                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) + &
+                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) + &
+                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) + &
+                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell))
 
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
@@ -1742,9 +1748,20 @@
               ! D. Majewski, "Documentation of the new global model (GME)
               !               of the DWD" (1996)
               IF (l_mono_c2l) THEN
-                p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
-              ELSE
-                p_out(jc,jk,jb) = vintp
+
+                vmin = MIN(                                                         &
+                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell))   )
+
+                vmax = MAX(                                                         &
+                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell))   )
+
+                p_out(jc,jk,jb) = MAX( MIN(p_out(jc,jk,jb), vmax), vmin )
               END IF
 
             ENDDO
@@ -1754,27 +1771,27 @@
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
+            jc_cell = ptr_int%tri_idx(1,jc, jb)
+            jb_cell = ptr_int%tri_idx(2,jc, jb)
             DO jk = slev, elev
 #else
-!CDIR UNROLL=2
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
-#endif
               jc_cell = ptr_int%tri_idx(1,jc, jb)
               jb_cell = ptr_int%tri_idx(2,jc, jb)
-!CDIR EXPAND=10              
-              vmin =  MINVAL( &
-                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
-!CDIR EXPAND=10
-              vmax =  MAXVAL( &
-                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
-!CDIR EXPAND=10
-              vintp =  SUM( &
-                & (/ ( ptr_coeff(i, jc, jb) * &
-                &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,10 ) /) )
+#endif
+
+              p_out(jc,jk,jb) =                                                                       &
+                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) + &
+                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) + &
+                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) + &
+                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) + &
+                ptr_coeff(5 ,jc,jb)*p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) + &
+                ptr_coeff(6 ,jc,jb)*p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) + &
+                ptr_coeff(7 ,jc,jb)*p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) + &
+                ptr_coeff(8 ,jc,jb)*p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) + &
+                ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) + &
+                ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell))
 
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
@@ -1783,9 +1800,32 @@
               ! D. Majewski, "Documentation of the new global model (GME)
               !               of the DWD" (1996)
               IF (l_mono_c2l) THEN
-                p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
-              ELSE
-                p_out(jc,jk,jb) = vintp
+
+                vmin = MIN(                                                         &
+                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell))   )
+
+                vmax = MAX(                                                         &
+                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell))   )
+
+                p_out(jc,jk,jb) = MAX( MIN(p_out(jc,jk,jb), vmax), vmin )
               END IF
 
             ENDDO
@@ -1795,27 +1835,30 @@
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
+            jc_cell = ptr_int%tri_idx(1,jc, jb)
+            jb_cell = ptr_int%tri_idx(2,jc, jb)
             DO jk = slev, elev
 #else
-!CDIR UNROLL=2
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
-#endif
               jc_cell = ptr_int%tri_idx(1,jc, jb)
               jb_cell = ptr_int%tri_idx(2,jc, jb)
-!CDIR EXPAND=13              
-              vmin =  MINVAL( &
-                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
-!CDIR EXPAND=13
-              vmax =  MAXVAL( &
-                & (/ ( p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
-!CDIR EXPAND=13
-              vintp =  SUM( &
-                & (/ ( ptr_coeff(i, jc, jb) * &
-                &      p_cell_in(iidx(i,jc_cell,jb_cell), jk,              &
-                &                iblk(i,jc_cell,jb_cell)) , i=1,13 ) /) )
+#endif
+
+              p_out(jc,jk,jb) =                                                                       &
+                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) + &
+                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) + &
+                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) + &
+                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) + &
+                ptr_coeff(5 ,jc,jb)*p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) + &
+                ptr_coeff(6 ,jc,jb)*p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) + &
+                ptr_coeff(7 ,jc,jb)*p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) + &
+                ptr_coeff(8 ,jc,jb)*p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) + &
+                ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) + &
+                ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell)) + &
+                ptr_coeff(11,jc,jb)*p_cell_in(iidx(11,jc_cell,jb_cell),jk,iblk(11,jc_cell,jb_cell)) + &
+                ptr_coeff(12,jc,jb)*p_cell_in(iidx(12,jc_cell,jb_cell),jk,iblk(12,jc_cell,jb_cell)) + &
+                ptr_coeff(13,jc,jb)*p_cell_in(iidx(13,jc_cell,jb_cell),jk,iblk(13,jc_cell,jb_cell))
 
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
@@ -1824,9 +1867,38 @@
               ! D. Majewski, "Documentation of the new global model (GME)
               !               of the DWD" (1996)
               IF (l_mono_c2l) THEN
-                p_out(jc,jk,jb) = MAX( MIN(vintp, vmax), vmin )
-              ELSE
-                p_out(jc,jk,jb) = vintp
+
+                vmin = MIN(                                                         &
+                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(11,jc_cell,jb_cell),jk,iblk(11,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(12,jc_cell,jb_cell),jk,iblk(12,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(13,jc_cell,jb_cell),jk,iblk(13,jc_cell,jb_cell))   )
+
+                vmax = MAX(                                                         &
+                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(11,jc_cell,jb_cell),jk,iblk(11,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(12,jc_cell,jb_cell),jk,iblk(12,jc_cell,jb_cell)) , &
+                  p_cell_in(iidx(13,jc_cell,jb_cell),jk,iblk(13,jc_cell,jb_cell))   )
+
+                p_out(jc,jk,jb) = MAX( MIN(p_out(jc,jk,jb), vmax), vmin )
               END IF
 
             ENDDO

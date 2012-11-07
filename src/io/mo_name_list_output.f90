@@ -3856,7 +3856,6 @@ CONTAINS
     INTEGER :: jp, i, iv, nlevs
     INTEGER :: nbytes_real, mpierr, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
-    TYPE (t_var_metadata), POINTER :: info
 #ifdef USE_CRAY_POINTER
     INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
     REAL(sp) :: tmp_sp
@@ -3887,16 +3886,15 @@ CONTAINS
 
       DO iv = 1, output_file(i)%num_vars
 
-        info => output_file(i)%var_desc(iv)%info
         jp = output_file(i)%phys_patch_id
 
-        IF(info%ndims == 2) THEN
+        IF(output_file(i)%var_desc(iv)%info%ndims == 2) THEN
           nlevs = 1
         ELSE
-          nlevs = info%used_dimensions(2)
+          nlevs = output_file(i)%var_desc(iv)%info%used_dimensions(2)
         ENDIF
 
-        SELECT CASE (info%hgrid)
+        SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
           CASE (GRID_UNSTRUCTURED_EDGE)
@@ -3904,7 +3902,7 @@ CONTAINS
           CASE (GRID_UNSTRUCTURED_VERT)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
           CASE (GRID_REGULAR_LONLAT)
-            lonlat_id = info%hor_interp%lonlat_id
+            lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
             i_log_dom = output_file(i)%log_patch_id
             n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
             mem_size  = mem_size + INT(nlevs*n_own,i8)
@@ -4071,7 +4069,7 @@ CONTAINS
     mb_wr   = 0._wp
 
     CALL date_and_time(TIME=ctime)
-    print '(a,i0,a)','#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    WRITE(0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
 
     ! Get maximum number of data points in a slice and allocate tmp variables
 
