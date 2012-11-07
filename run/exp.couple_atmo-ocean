@@ -452,7 +452,7 @@ cat > ${ocean_namelist} << EOF
                         500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
 /
 &ocean_physics_nml
-  i_sea_ice          =    2      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
