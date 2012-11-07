@@ -165,10 +165,10 @@ cat > ${ocean_namelist} << EOF
   k_veloc_v          = 0.001     ! [m/s]  vertical viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
   k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
+  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
+  k_sal_v            = 1.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
+  MAX_VERT_DIFF_TRAC = 1.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
