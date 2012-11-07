@@ -110,14 +110,15 @@ MODULE mo_seaice_nwp
                         &  message     !< external procedure, sends a message (error, warning, etc.)
 
 !_cdm>
-! Note that ki is equal to 2.03 in ICON, but is 2.29 in COSMO and GME. 
+! Note that ki is equal to 2.1656 in ICON, but is 2.29 in COSMO and GME. 
 !_cdm<
   USE mo_physical_constants, ONLY:                      &
-                                 &  tf_fresh => tmelt , &  !< fresh-water freezing point [K]
-                                 &              alf   , &  !< latent heat of fusion [J/kg]
-                                 &              rhoi  , &  !< density of ice [kg/m^3]
-                                 &              ci    , &  !< specific heat of ice [J/(kg K)]
-                                 &              ki         !< molecular heat conductivity of ice [J/(m s K)]  
+                                 & tf_fresh => tmelt  , &  !< fresh-water freezing point [K]
+                                 &             tf_salt, &  !< salt-water freezing point [K]
+                                 &             alf    , &  !< latent heat of fusion [J/kg]
+                                 &             rhoi   , &  !< density of ice [kg/m^3]
+                                 &             ci     , &  !< specific heat of ice [J/(kg K)]
+                                 &             ki          !< molecular heat conductivity of ice [J/(m s K)]  
 
   IMPLICIT NONE
 
@@ -125,12 +126,7 @@ MODULE mo_seaice_nwp
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-!_cdm>
-! The value of the salt-water freezing point is the same as in GME and COSMO (-1.7 dgr C).
-! Note that a different value (-1.8 dgr C) is defined in "mo_physical_constants".
-!_cdm<
   REAL (wp), PARAMETER ::                             &
-                       &  tf_salt      = 271.45_wp  , &  !< salt-water freezing point [K] 
                        &  frsi_min     = 0.03_wp    , &  !< minimum sea-ice fraction [-]
                        &  hice_min     = 0.05_wp    , &  !< minimum sea-ice thickness [m]
                        &  hice_max     = 3.0_wp     , &  !< maximum sea-ice thickness [m]
@@ -225,6 +221,8 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2012-11-05)
   !! - modified initialization procedure for the case that the sea-ice thickness 
   !!   field is not provided as input (i.e. when starting from IFS analysis)
+  !! Modification by Daniel Reinert, DWD (2012-11-07)
+  !! - moved tf_salt to mo_physical constant, since it is also needed elsewhere
   !!
 
   SUBROUTINE seaice_init_nwp (                                  & 

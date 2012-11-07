@@ -60,6 +60,7 @@ MODULE mo_prepicon_utils
   &                                 l_extdata_out, ifs2icon_filename,      &
   &                                 generate_filename
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
+  USE mo_physical_constants,  ONLY: tf_salt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -845,15 +846,14 @@ MODULE mo_prepicon_utils
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
             !
             ! In case of missing sea ice fraction values, we make use of the sea 
-            ! surface temperature (tskin over ocean points). For tskin<=271.45K, we set 
-            ! the sea ice fraction to one. For tskin>271.45K, we set it to 0.
+            ! surface temperature (tskin over ocean points). For tskin<=tf_salt, 
+            ! we set the sea ice fraction to one. For tskin>tf_salt, we set it to 0.
             ! Note: tf_salt=271.45K is the salt-water freezing point
-            ! TODO:  make use of tf_salt (=271.45), instead of the hardcoded value.  
             !
             IF ( prepicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb) 
             ELSE    ! missing value
-              IF ( prepicon(jg)%sfc%tskin(jc,jb) <= 271.45_wp ) THEN
+              IF ( prepicon(jg)%sfc%tskin(jc,jb) <= tf_salt ) THEN
                 p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp     ! sea ice point
               ELSE
                 p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp     ! water point

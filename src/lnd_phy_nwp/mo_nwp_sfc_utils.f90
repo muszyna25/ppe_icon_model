@@ -54,7 +54,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_satad,               ONLY: sat_pres_water, spec_humi
   USE mo_sync,                ONLY: global_sum_array
@@ -1720,10 +1720,6 @@ CONTAINS
       &   idx_lst_spi_old       !< seaice index list local copy               
     INTEGER  :: ic, jc          !< loop indices
     INTEGER  :: spi_count_old   !< current seaice grid point count
-
-    ! should be moved to mo_physical_constants
-    REAL (wp), PARAMETER ::                             &
-      &   tf_salt      = 271.45_wp      !< salt-water freezing point [K] 
 
     !-------------------------------------------------------------------------
 

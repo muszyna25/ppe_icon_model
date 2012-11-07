@@ -60,7 +60,7 @@ MODULE mo_albedo
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
-  USE mo_physical_constants,   ONLY: tmelt
+  USE mo_physical_constants,   ONLY: tmelt, tf_salt
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
 
@@ -281,7 +281,7 @@ CONTAINS
             jc = ext_data%atm%idx_lst_spw(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g(jc,jb) < tmelt-1.8_wp) THEN 
+            IF (lnd_prog%t_g(jc,jb) < tf_salt) THEN 
               ist = 10  ! sea ice
             ELSE
               ist = ext_data%atm%soiltyp(jc,jb)
@@ -303,7 +303,7 @@ CONTAINS
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g(jc,jb) < tmelt-1.8_wp) THEN ! sea ice
+            IF (lnd_prog%t_g(jc,jb) < tf_salt) THEN ! sea ice
               ist = 10
             ELSE
               ist = 9 ! water
@@ -358,7 +358,7 @@ CONTAINS
           
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.8_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tf_salt ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
 

@@ -114,6 +114,7 @@ REAL (KIND=ireals) ::          &
 
 REAL (KIND=ireals) ::          &
 !
+!!!DR in the long term, we should make use of tf_salt (see mo_physical_constants)
   zt_ice     = -1.7_ireals,    & !freezing temperature of sea ice
   z0_ice     =  0.001_ireals     !roughness length of sea ice
 
