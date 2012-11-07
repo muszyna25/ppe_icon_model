@@ -101,7 +101,8 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_seaice_lists
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, lseaice
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
+    &                               lseaice, isub_water, isub_seaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
@@ -320,8 +321,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !--------------------------------------------------------------
   !< characteristic gridlength needed by convection and turbulence
   !--------------------------------------------------------------
-  CALL mean_domain_values (p_patch%level, nroot, &
-    & phy_params%mean_charlen)
+  CALL mean_domain_values (p_patch%level, nroot, phy_params%mean_charlen)
 
 
   !--------------------------------------------------------------
@@ -821,20 +821,18 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
       ! Copy sai over water points to the water tile-index of tile-based variables
-      jt = ntiles_total + MIN(1,ntiles_water)
-      DO ic = 1, ext_data%atm%sp_count(jb)
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
+      DO ic = 1, ext_data%atm%spw_count(jb)
+        jc = ext_data%atm%idx_lst_spw(ic,jb)
+        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
       ! Copy sai over water points to the seaice tile-index of tile-based variables
-      jt = ntiles_total + MIN(2,ntiles_water)
       DO ic = 1, ext_data%atm%spi_count(jb)
         jc = ext_data%atm%idx_lst_spi(ic,jb)
-        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,isub_seaice) = prm_diag%sai(jc,jb)
       ENDDO
     ENDDO
 !$OMP END DO
@@ -861,14 +859,18 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Copy sai over water points to the water tile-index of tile-based variables
-      jt = ntiles_total + MIN(1,ntiles_water)
-      DO ic = 1, ext_data%atm%sp_count(jb)
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
+      DO ic = 1, ext_data%atm%spw_count(jb)
+        jc = ext_data%atm%idx_lst_spw(ic,jb)
+        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        ext_data%atm%sai_t(jc,jb,jt) = prm_diag%sai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
+      ENDDO
+      ! Copy sai over water points to the seaice tile-index of tile-based variables
+      DO ic = 1, ext_data%atm%spi_count(jb)
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        ext_data%atm%sai_t(jc,jb,isub_seaice) = prm_diag%sai(jc,jb)
       ENDDO
     ENDDO
 

@@ -1255,33 +1255,8 @@ MODULE mo_nwp_lnd_state
       END DO
 
 
-    ! & p_prog_lnd%subsfrac_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('subsfrac', '-', 'subscale fraction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'subsfrac_t', p_diag_lnd%subsfrac_t,    &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,              &
-           & loutput=.FALSE.,                                                      &
-           & initval_r=1._wp )
-
-
-    ! fill the separate variables belonging to the container subsfrac
-    ALLOCATE(p_diag_lnd%subsfrac_ptr(ntiles_total))
-      DO jsfc = 1,ntiles_total
-        WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( diag_list, vname_prefix//'subsfrac_t',                       &
-                 & vname_prefix//'subsfrac_t_'//ADJUSTL(TRIM(csfc)),               &
-                 & p_diag_lnd%subsfrac_ptr(jsfc)%p_2d,                             &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
-                 & t_cf_var('subsfrac_t_'//csfc, '', '', DATATYPE_FLT32),          &
-                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
-                 & ldims=shape2d )
-      END DO
-
-
 
     p_diag_lnd%qv_s_t(:,:,:)     = 0.001_wp
-    p_diag_lnd%subsfrac_t(:,:,:)  = 1._wp
 
     ENDIF
 

@@ -169,7 +169,7 @@ CONTAINS
 
       nlists_water = 3 ! one for ocean points
                        ! one for lake points
-                       ! one for seaice points 
+                       ! one for sea-ice points 
     ENDIF
 
     ! (open) water points tile number

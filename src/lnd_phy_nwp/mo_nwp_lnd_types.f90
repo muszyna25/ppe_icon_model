@@ -159,8 +159,7 @@ MODULE mo_nwp_lnd_types
     &  snowfrac_lc_t(:,:,:) , & ! snow-cover fraction per land-cover class      (  -  )
     &  snowfrac_t   (:,:,:) , & ! snow-cover fraction                           (  -  )
     &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
-    &  runoff_g_t   (:,:,:) , & ! soil water runoff; sum over forecast          (kg/m2)
-    &  subsfrac_t   (:,:,:)
+    &  runoff_g_t   (:,:,:)     ! soil water runoff; sum over forecast          (kg/m2)
 
     TYPE(t_ptr_lnd), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: h_snow_ptr(:)
@@ -170,7 +169,6 @@ MODULE mo_nwp_lnd_types
     TYPE(t_ptr_lnd), ALLOCATABLE :: w_snow_eff_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_s_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_g_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: subsfrac_ptr(:)
 
   END TYPE t_lnd_diag
 
