@@ -209,111 +209,112 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
     DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-             &  i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+           &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF (ltestcase .AND. (nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
+      IF (ltestcase .AND. (nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
 
-          ! t_g = ape_sst1
-          
-          DO jc = i_startidx, i_endidx
-            zlat = p_patch%cells%center(jc,jb)%lat
-            p_prog_lnd_now%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
-            p_prog_lnd_new%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
-            ! Humidity at water surface = humidity at saturation
-            p_diag_lnd%qv_s    (jc,jb) = &
-  !        & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
-          & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-          END DO
+        ! t_g = ape_sst1
+        
+        DO jc = i_startidx, i_endidx
+          zlat = p_patch%cells%center(jc,jb)%lat
+          p_prog_lnd_now%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
+          p_prog_lnd_new%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
+          ! Humidity at water surface = humidity at saturation
+          p_diag_lnd%qv_s    (jc,jb) = &
+  !      & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
+        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+        END DO
 
-!!          IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
-!            DO jc = i_startidx, i_endidx
-!              zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
-!            ENDDO
-!          END IF
+!        IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
+!          DO jc = i_startidx, i_endidx
+!            zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
+!          ENDDO
+!        END IF
 
-        ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN !
+      ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN !
  
-          DO jc = i_startidx, i_endidx
-            p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
-                      ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
-            p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
-           p_diag_lnd%qv_s     (jc,jb) = &
-          & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
-            p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
-                                       &     p_prog%tracer(jc,nlev,jb,iqv)) 
-          END DO
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
+                    ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
+          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
+         p_diag_lnd%qv_s     (jc,jb) = &
+        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
+                                     &     p_prog%tracer(jc,nlev,jb,iqv)) 
+        END DO
  
-        ELSE IF (ltestcase) THEN ! any other testcase
+      ELSE IF (ltestcase) THEN ! any other testcase
 
-          ! t_g  =  t(nlev)
-          ! qv_ s= qv(nlev)
-          ! KF increase the surface values to obtain fluxes          
+        ! t_g  =  t(nlev)
+        ! qv_ s= qv(nlev)
+        ! KF increase the surface values to obtain fluxes          
 
-          DO jc = i_startidx, i_endidx
-            p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
-            p_prog_lnd_new%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
-            ! KF NOTE: as long as we have only water as lower boundary
-            ! this is the same setting as for APE
-           p_diag_lnd%qv_s    (jc,jb) = &
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_new%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
+          ! KF NOTE: as long as we have only water as lower boundary
+          ! this is the same setting as for APE
+         p_diag_lnd%qv_s    (jc,jb) = &
 !                & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
-          & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
 
-          END DO
-        ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
+        END DO
+
+      ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+          p_diag_lnd%qv_s    (jc,jb)    = &
+          & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+        ENDDO
+         ! Water points are initialized with t_seasfc, which so far differs from t_g in having
+         ! a limiter for extremely warm temperatures
+        DO jt = 1, ntiles_total+ntiles_water
           DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
-            p_diag_lnd%qv_s    (jc,jb)    = &
-            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+            IF (p_diag_lnd%t_seasfc(jc,jb) > 10._wp) THEN ! SST is set to zero over land-only points
+              temp = p_diag_lnd%t_seasfc(jc,jb)
+            ELSE ! use t_g over land because qv_sat calculation fails for T = 0 K
+              temp = p_prog_lnd_now%t_g(jc,jb)
+            ENDIF
+            p_prog_lnd_now%t_g_t(jc,jb,jt) =  temp
+            p_prog_lnd_new%t_g_t(jc,jb,jt) =  temp
+            p_diag_lnd%qv_s_t(jc,jb,jt)    =  spec_humi(sat_pres_water(temp),p_diag%pres_sfc(jc,jb))
           ENDDO
-          ! Water points are initialized with t_seasfc, which so far differs from t_g in having
-          ! a limiter for extremely warm temperatures
-          DO jt = 1, ntiles_total+ntiles_water
-            DO jc = i_startidx, i_endidx
-              IF (p_diag_lnd%t_seasfc(jc,jb) > 10._wp) THEN ! SST is set to zero over land-only points
-                temp = p_diag_lnd%t_seasfc(jc,jb)
-              ELSE ! use t_g over land because qv_sat calculation fails for T = 0 K
-                temp = p_prog_lnd_now%t_g(jc,jb)
-              ENDIF
-              p_prog_lnd_now%t_g_t(jc,jb,jt) =  temp
-              p_prog_lnd_new%t_g_t(jc,jb,jt) =  temp
-              p_diag_lnd%qv_s_t(jc,jb,jt)    =  spec_humi(sat_pres_water(temp),p_diag%pres_sfc(jc,jb))
-            ENDDO
-          ENDDO
-        ENDIF
+        ENDDO
+      ENDIF
         
     END DO
     CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
 
   ELSE  ! if is_restart_run()
-      !
-      ! necessary, because only t_g(nnow_rcf) is written to the restart file
-      ! with the following copy statement the ocean points of t_g(nnew_rcf) are 
-      ! filled with the correct values.
-      !
-      rl_start = 1 ! Initialization should be done for all points
-      rl_end   = min_rlcell
+    !
+    ! necessary, because only t_g(nnow_rcf) is written to the restart file
+    ! with the following copy statement the ocean points of t_g(nnew_rcf) are 
+    ! filled with the correct values.
+    !
+    rl_start = 1 ! Initialization should be done for all points
+    rl_end   = min_rlcell
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &  i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &  i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jc = i_startidx, i_endidx
-          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
-        ENDDO
-        IF (.NOT. ltestcase) THEN ! the t_g_t does not exist for inwp_surface=0
-          DO jt = 1, ntiles_total+ntiles_water
-            DO jc = i_startidx, i_endidx
-              p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
-            ENDDO            
-          ENDDO
-        ENDIF
-
+      DO jc = i_startidx, i_endidx
+        p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
       ENDDO
+      IF (.NOT. ltestcase) THEN ! the t_g_t does not exist for inwp_surface=0
+        DO jt = 1, ntiles_total+ntiles_water
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
+          ENDDO            
+        ENDDO
+      ENDIF
+
+    ENDDO
 
   END IF
 

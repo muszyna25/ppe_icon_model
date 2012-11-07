@@ -92,7 +92,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_subs         !< type of subscale surface treatment =1 MOSAIC, =2 TILE 
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
-  LOGICAL ::  lseaice     !> forecast with sea ice model
+  LOGICAL ::  lseaice     !> forecast with sea-ice model
   LOGICAL ::  llake       !! forecast with lake model FLake
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
@@ -175,7 +175,7 @@ CONTAINS
     ! (open) water points tile number
     isub_water  = MAX(1,ntiles_total + ntiles_water - 1)
 
-    ! seaice tile number
+    ! sea-ice tile number
     isub_seaice = ntiles_total + ntiles_water
 
   END SUBROUTINE configure_lnd_nwp

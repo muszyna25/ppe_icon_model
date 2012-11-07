@@ -88,7 +88,7 @@ USE mo_impl_constants, ONLY:&
   & ihs_atm_theta,        & !    :
   & inh_atmosphere,       & !    :
   & ishallow_water,       &
-  & max_dom, inwp
+  & max_dom
 
 
 ! For the coupling
@@ -152,8 +152,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 ! Time integration
 !
 ! External data
-USE mo_ext_data_state,      ONLY: ext_data, init_ext_data, init_index_lists, &
-  &                               destruct_ext_data
+USE mo_ext_data_state,      ONLY: ext_data, init_ext_data, destruct_ext_data
 
 
 !-------------------------------------------------------------------------
@@ -706,11 +705,7 @@ CONTAINS
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    !
-    ! generation of tiles index lists
-    IF ( iequations == inh_atmosphere .AND. iforcing == inwp ) THEN
-      CALL init_index_lists (p_patch(1:), ext_data)
-    ENDIF
+
 
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib

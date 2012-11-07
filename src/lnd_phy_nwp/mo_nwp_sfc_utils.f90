@@ -1747,11 +1747,11 @@ CONTAINS
     DO ic = 1, spi_count_old
       jc = idx_lst_spi_old(ic)
 
-      IF ( hice_n(jc) >= hice_min )  THEN ! still seaice point
+      IF ( hice_n(jc) >= hice_min )  THEN ! still sea-ice point
         spi_count = spi_count + 1
         idx_lst_spi(spi_count) = jc
-        ! seaice fraction remains unchanged
-      ELSE                          ! seaice point has turned into water point
+        ! sea-ice fraction remains unchanged
+      ELSE                          ! sea-ice point has turned into water point
         ! Check whether we need to initialize a new water tile, or whether a water tile 
         ! already exists for the given point:
         IF ( fr_seaice(jc) == 1._wp ) THEN   ! water tile does not exist for given point
@@ -1766,11 +1766,11 @@ CONTAINS
           qv_s_t(jc) = spec_humi(sat_pres_water(tf_salt),pres_sfc(jc))
         ENDIF
 
-        ! re-set partial fractions of water and seaice
+        ! re-set partial fractions of water and sea-ice
         !
         ! new water area fraction is the sum of the current water and seaice area fractions
         partial_frac_water(jc)= partial_frac_water(jc) + partial_frac_ice(jc)
-        ! since seaice melted away, the seaice fraction is re-set to 0
+        ! since sea-ice melted away, the sea-ice fraction is re-set to 0
         fr_seaice(jc)         = 0._wp
         partial_frac_ice(jc)  = 0._wp
 

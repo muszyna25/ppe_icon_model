@@ -981,6 +981,7 @@ CONTAINS
         jc = ext_data%atm%idx_lst_spi(ic,jb)
 
 !DR !!! disaggregated fluxes should be used (shfl_s,lhfl_s,lwflxsfc,swflxsfc) !!!!
+!DR !!! TO BE CODED for shfl_s_t and lhfl_s_t
 !DR        shfl_s   (ic) = prm_diag%shfl_s_t(jc,jb,isub_seaice)     ! sensible heat flux at sfc    [W/m^2]
 !DR        lhfl_s   (ic) = prm_diag%lhfl_s_t(jc,jb,isub_seaice)     ! latent heat flux at sfc      [W/m^2]
         shfl_s   (ic) = prm_diag%shfl_s(jc,jb)     ! sensible heat flux at sfc    [W/m^2]
@@ -1030,7 +1031,7 @@ CONTAINS
         ! surface saturation specific humidity (uses saturation water vapor pressure 
         ! over ice)
         p_lnd_diag%qv_s_t(jc,jb,isub_seaice) = spec_humi(sat_pres_ice(tice_new(ic)),&
-           &                                  p_diag%pres_sfc(jc,jb) )
+          &                                   p_diag%pres_sfc(jc,jb) )
       ENDDO  ! ic
 
 

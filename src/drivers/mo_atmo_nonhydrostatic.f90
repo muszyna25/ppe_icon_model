@@ -82,7 +82,7 @@ USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
 USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation
-USE mo_ext_data_state,      ONLY: ext_data
+USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
@@ -162,7 +162,13 @@ CONTAINS
     ENDDO
 
     IF(iforcing == inwp) THEN
-     CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
+      !
+      ! - generate index lists for tiles (land, ocean, lake)
+      ! index lists for ice-covered and non-ice covered ocean points 
+      ! are initialized in init_nwp_phy
+      CALL init_index_lists (p_patch(1:), ext_data)
+
+      CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
     ENDIF
 
     IF (.NOT. ltestcase .AND. iforcing == inwp) THEN
