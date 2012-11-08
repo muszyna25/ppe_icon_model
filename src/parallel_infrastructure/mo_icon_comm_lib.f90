@@ -269,7 +269,7 @@ MODULE mo_icon_comm_lib
    
   LOGICAL :: comm_lib_is_initialized
 
-  INTEGER :: log_file_id
+  INTEGER :: log_file_id = 0
 
   !-------------------------------------------------------------------------
   INTEGER :: my_work_communicator
@@ -311,7 +311,7 @@ CONTAINS
 #endif
     
     DEALLOCATE(send_buffer, recv_buffer)
-    CLOSE(log_file_id)
+    IF (log_file_id > 0) CLOSE(log_file_id)
     
   END SUBROUTINE destruct_icon_comm_lib
   !-----------------------------------------------------------------------
@@ -382,17 +382,17 @@ CONTAINS
     my_work_comm_size    = get_my_mpi_work_comm_size()
     my_mpi_work_id       = get_my_mpi_work_id()
     
-!    IF (icon_comm_debug) THEN
-    DO log_file_id = 500, 5000
-      INQUIRE (UNIT=log_file_id, OPENED=unit_is_occupied)
-      IF ( .NOT. unit_is_occupied ) EXIT
-    ENDDO
-    IF (unit_is_occupied) &
-      CALL finish(method_name, "Cannot find avaliable file unit")
-    WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
-      & ".icon_comm.", my_mpi_work_id
-    OPEN (log_file_id, FILE=TRIM(message_text))
-!    ENDIF
+    IF (icon_comm_debug) THEN
+      DO log_file_id = 500, 5000
+        INQUIRE (UNIT=log_file_id, OPENED=unit_is_occupied)
+        IF ( .NOT. unit_is_occupied ) EXIT
+      ENDDO
+      IF (unit_is_occupied) &
+        CALL finish(method_name, "Cannot find avaliable file unit")
+      WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
+        & ".icon_comm.", my_mpi_work_id
+      OPEN (log_file_id, FILE=TRIM(message_text))
+    ENDIF
     
     RETURN
 
@@ -869,6 +869,8 @@ CONTAINS
   
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: i, min_points, max_points, tot_points
+    
+    IF ( log_file_id <= 0 ) RETURN
 
     grid_comm_pattern => grid_comm_pattern_list(comm_pattern_id)
     write(log_file_id,*) " === Communication stats for ", TRIM(grid_comm_pattern%name), &
@@ -912,7 +914,8 @@ CONTAINS
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: i
         
-    IF ( .NOT. icon_comm_debug) RETURN
+    IF ( log_file_id <= 0 ) RETURN
+    
     grid_comm_pattern => grid_comm_pattern_list(comm_pattern_id)
     
     write(log_file_id,*) " === Communication pattern info for ", TRIM(grid_comm_pattern%name), &

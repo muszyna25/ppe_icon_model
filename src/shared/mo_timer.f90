@@ -33,7 +33,7 @@
 !!
 MODULE mo_timer
 
-  USE mo_real_timer, ONLY: new_timer,                        &
+  USE mo_real_timer_rw, ONLY: new_timer,                        &
        &                   timer_start,                      &
        &                   timer_stop,                       &
        &                   print_timer   => timer_report,    &
