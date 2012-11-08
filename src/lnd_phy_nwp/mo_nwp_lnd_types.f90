@@ -133,6 +133,7 @@ MODULE mo_nwp_lnd_types
     &  t_snow_mult  (:,:,:) , & ! temperature of snow                           (  K  )
     &  t_s          (:,:)   , & ! temperature of the ground surface             (  K  )
     &  t_seasfc     (:,:)   , & ! temperature of the sea surface                (  K  )
+    &  t_skin       (:,:)   , & ! skin temperature                              (  K  )
     &  w_snow       (:,:)   , & ! snow water equivalent                         (m H2O)
     &  w_snow_eff_t (:,:,:) , & ! snow water equivalent / snow-cover fraction   (m H2O)
     &  rho_snow     (:,:)   , & ! snow density                                  (kg/m**3)

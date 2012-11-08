@@ -137,12 +137,16 @@ CONTAINS
       ! Note: land-sea-mask is currently unused
       DO jc = 1, nlen
         prepicon%sfc%skinres(jc,jb) = prepicon%sfc_in%skinres(jc,jb)
-
         prepicon%sfc%ls_mask(jc,jb) = prepicon%sfc_in%ls_mask(jc,jb)
         IF (prepicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
           prepicon%sfc%seaice(jc,jb)  = prepicon%sfc_in%seaice(jc,jb) 
         ELSE
           prepicon%sfc%seaice(jc,jb)  = -999.9_wp 
+        ENDIF
+        IF (prepicon%sfc_in%sst(jc,jb) > 10._wp) THEN
+          prepicon%sfc%sst(jc,jb)  = prepicon%sfc_in%sst(jc,jb) 
+        ELSE
+          prepicon%sfc%sst(jc,jb)  = -999.9_wp 
         ENDIF
       ENDDO
 

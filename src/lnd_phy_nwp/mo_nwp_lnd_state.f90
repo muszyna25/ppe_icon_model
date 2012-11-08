@@ -977,7 +977,13 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
     cf_desc    = t_cf_var('t_seasfc', 'K', 'sea surface temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,     &
+    CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,      &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
+         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
+    ! & p_diag_lnd%t_skin(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_skin', 'K', 'skin temperature', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'t_skin', p_diag_lnd%t_skin,          &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
 

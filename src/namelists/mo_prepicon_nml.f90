@@ -54,6 +54,7 @@ MODULE mo_prepicon_nml
     & config_l_w_in             => l_w_in,       &
     & config_l_sfc_in           => l_sfc_in,     &
     & config_l_hice_in          => l_hice_in,    &
+    & config_l_sst_in           => l_sst_in,    &
     & config_l_zp_out           => l_zp_out,     &
     & config_l_extdata_out      => l_extdata_out,&
     & config_ifs2icon_filename  => ifs2icon_filename, &
@@ -80,6 +81,7 @@ MODULE mo_prepicon_nml
   LOGICAL  :: l_w_in        ! Logical switch if w is provided as input
   LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
   LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
+  LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
   LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
@@ -91,7 +93,7 @@ MODULE mo_prepicon_nml
 
   NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
                           l_w_in, l_zp_out, nlevsoil_in, l_sfc_in, l_hice_in,     &
-                          l_extdata_out
+                          l_sst_in, l_extdata_out
   
 CONTAINS
 
@@ -125,6 +127,7 @@ CONTAINS
   l_w_in      = .FALSE.     ! true: w is provided as input
   l_sfc_in    = .TRUE.      ! true: surface fields are provided as input
   l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
+  l_sst_in    = .FALSE.     ! true: sea surface temperature field provided as input
   l_zp_out    = .FALSE.     ! true: diagnostic output on p and z levels
   l_extdata_out = .FALSE.   ! true: copy extdata fields into output
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -155,6 +158,7 @@ CONTAINS
   config_l_w_in            = l_w_in
   config_l_sfc_in          = l_sfc_in
   config_l_hice_in         = l_hice_in
+  config_l_sst_in          = l_sst_in
   config_l_zp_out          = l_zp_out
   config_l_extdata_out     = l_extdata_out
   config_ifs2icon_filename = ifs2icon_filename

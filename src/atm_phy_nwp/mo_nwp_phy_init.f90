@@ -117,6 +117,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
+  USE mo_prepicon_config,     ONLY: l_sst_in
 
   IMPLICIT NONE
 
@@ -199,6 +200,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   i_lc_si= ext_data%atm%i_lc_snow_ice
 
+
+  ! for both restart and non-restart runs. Could not be included into 
+  ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
+  CALL init_seaice_lists(p_patch, ext_data, p_diag_lnd, lseaice)
+
   IF (.NOT. is_restart_run())THEN
 
     rl_start = 1 ! Initialization should be done for all points
@@ -262,20 +268,29 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         END DO
 
       ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
+
+         ! 
+         ! If l_sst_in ist FALSE, then t_g contains the skin temperature (initialized in copy_prepicon2prog)
+         ! IF l_sst_in ist TRUE, then t_g contains the skin temperature in case of land 
+         !  or sea ice and the sea surface temperature in water points
+        IF (l_sst_in) THEN   ! over water take SST
+         DO ic=1, ext_data%atm%spw_count(jb)
+           jc = ext_data%atm%idx_lst_spw(ic,jb)
+           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+         END DO
+        ENDIF
+
         DO jc = i_startidx, i_endidx
           p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
           p_diag_lnd%qv_s    (jc,jb)    = &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
         ENDDO
-         ! Water points are initialized with t_seasfc, which so far differs from t_g in having
-         ! a limiter for extremely warm temperatures
+
+
         DO jt = 1, ntiles_total+ntiles_water
+          
           DO jc = i_startidx, i_endidx
-            IF (p_diag_lnd%t_seasfc(jc,jb) > 10._wp) THEN ! SST is set to zero over land-only points
-              temp = p_diag_lnd%t_seasfc(jc,jb)
-            ELSE ! use t_g over land because qv_sat calculation fails for T = 0 K
-              temp = p_prog_lnd_now%t_g(jc,jb)
-            ENDIF
+            temp = p_prog_lnd_now%t_g(jc,jb)
             p_prog_lnd_now%t_g_t(jc,jb,jt) =  temp
             p_prog_lnd_new%t_g_t(jc,jb,jt) =  temp
             p_diag_lnd%qv_s_t(jc,jb,jt)    =  spec_humi(sat_pres_water(temp),p_diag%pres_sfc(jc,jb))
@@ -650,9 +665,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !< surface initialization
   !------------------------------------------
 
-  ! for both restart and non-restart runs. Could not be included into 
-  ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
-  CALL init_seaice_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &

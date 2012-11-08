@@ -57,6 +57,7 @@ MODULE mo_prepicon_utils
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
   &                                 nlevsoil_in, l_sfc_in, l_hice_in,      &
+  &                                 l_sst_in,                              &
   &                                 l_extdata_out, ifs2icon_filename,      &
   &                                 generate_filename
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
@@ -106,7 +107,7 @@ MODULE mo_prepicon_utils
 
   TYPE :: t_pi_sfc_in
 
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowalb,snowweq, snowdens, &
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst, snowalb,snowweq, snowdens, &
                                               skinres, ls_mask, seaice, phi
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
@@ -128,7 +129,7 @@ MODULE mo_prepicon_utils
 
   TYPE :: t_pi_sfc
 
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowalb, snowweq, snowdens, &
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst,  snowalb, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
@@ -221,6 +222,7 @@ MODULE mo_prepicon_utils
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
     CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
+    LOGICAL :: l_sst_present = .FALSE.     !TRUE if SST is present in the IFS input file
 
 !-------------------------------------------------------------------------
 
@@ -544,6 +546,25 @@ MODULE mo_prepicon_utils
           ENDIF
        ENDIF
 
+       ! Check, if sea surface temperature field is provided as input
+       ! IF SST is missing, set l_sst_in=.FALSE.
+        IF (p_pe == p_io) THEN
+          IF (nf_inq_varid(ncid, 'SST', varid) == nf_noerr) THEN
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea surface temperature available'
+            l_sst_present = .TRUE.
+
+          ELSE
+
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea surface temperature not available. ', &
+              &  'initialize with skin temperature, instead.'
+            CALL message(TRIM(routine),TRIM(message_text))
+            l_sst_present = .FALSE.
+            l_sst_in = .FALSE.     !it has to be set to FALSE
+          ENDIF
+       ENDIF
+
 
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test 
@@ -552,6 +573,10 @@ MODULE mo_prepicon_utils
         ENDIF
 
         CALL p_bcast(l_hice_in, p_io, mpi_comm)
+
+        CALL p_bcast(l_sst_in, p_io, mpi_comm)
+
+        CALL p_bcast(l_sst_present, p_io, mpi_comm)
 
         CALL p_bcast(alb_snow_var, p_io, mpi_comm)
 
@@ -562,6 +587,13 @@ MODULE mo_prepicon_utils
         CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%tskin)
+        IF ( l_sst_present) THEN
+         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,                &
+           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+           &                     prepicon(jg)%sfc_in%sst)
+        ELSE 
+         prepicon(jg)%sfc_in%sst(:,:)=0.0_wp
+        END IF
 
         CALL read_netcdf_data (ncid, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -836,6 +868,7 @@ MODULE mo_prepicon_utils
           DO jc = 1, nlen
             p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = prepicon(jg)%sfc%tskin(jc,jb)
             p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
+            p_lnd_state(jg)%diag_lnd%t_skin(jc,jb)            = prepicon(jg)%sfc%tskin(jc,jb)
           ENDDO
           ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
           ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
@@ -843,7 +876,11 @@ MODULE mo_prepicon_utils
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+            IF ( l_sst_in .AND. prepicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
+              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = prepicon(jg)%sfc%sst(jc,jb)              
+            ELSE
+             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+            ENDIF
             !
             ! In case of missing sea ice fraction values, we make use of the sea 
             ! surface temperature (tskin over ocean points). For tskin<=tf_salt, 
@@ -1186,6 +1223,7 @@ MODULE mo_prepicon_utils
         ! The extra soil temperature levels are not read in; they are only used to simplify vertical interpolation
         ALLOCATE(prepicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%sst      (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
@@ -1214,6 +1252,7 @@ MODULE mo_prepicon_utils
 
         ! Allocate surface output data
         ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%sst      (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%tsnow    (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%snowalb  (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%snowweq  (nproma,nblks_c              ), &
@@ -1223,6 +1262,7 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%sfc%seaice   (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil+1), &
                  prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil+1)    )
+
 
       ENDIF
 
@@ -1297,6 +1337,7 @@ MODULE mo_prepicon_utils
         ! surface input data
         DEALLOCATE(prepicon(jg)%sfc_in%phi,      &
                    prepicon(jg)%sfc_in%tskin,    &
+                   prepicon(jg)%sfc_in%sst,    &
                    prepicon(jg)%sfc_in%tsnow,    &
                    prepicon(jg)%sfc_in%snowalb,  &
                    prepicon(jg)%sfc_in%snowweq,  &
@@ -1306,6 +1347,8 @@ MODULE mo_prepicon_utils
                    prepicon(jg)%sfc_in%seaice,   &
                    prepicon(jg)%sfc_in%tsoil,    &
                    prepicon(jg)%sfc_in%wsoil     )
+
+
 
         ! atmospheric output data
         DEALLOCATE(prepicon(jg)%atm%vn,      &
@@ -1325,6 +1368,7 @@ MODULE mo_prepicon_utils
 
         ! surface output data
         DEALLOCATE(prepicon(jg)%sfc%tskin,    &
+                   prepicon(jg)%sfc%sst,      &
                    prepicon(jg)%sfc%tsnow,    &
                    prepicon(jg)%sfc%snowalb,  &
                    prepicon(jg)%sfc%snowweq,  &
@@ -1334,6 +1378,7 @@ MODULE mo_prepicon_utils
                    prepicon(jg)%sfc%seaice,   &
                    prepicon(jg)%sfc%tsoil,    &
                    prepicon(jg)%sfc%wsoil     )
+
 
       ENDIF
 
@@ -1800,7 +1845,13 @@ MODULE mo_prepicon_utils
 
       CALL addVar(TimeVar('TSK',&
       &                   'skin temperature',&
-      &                   'm', 235, 128,&
+      &                   'K', 235, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SST',&
+      &                   'sea surface temperature',&
+      &                   'K', 235, 128,&
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
       &           k_jg)
 
@@ -2294,6 +2345,7 @@ MODULE mo_prepicon_utils
 
       CASE ('TSN');             ptr2 => prepicon(jg)%sfc%tsnow
       CASE ('TSK');             ptr2 => prepicon(jg)%sfc%tskin
+      CASE ('SST');             ptr2 => prepicon(jg)%sfc%sst
       CASE ('ALBSNOW');         ptr2 => prepicon(jg)%sfc%snowalb
       CASE ('SNWE');            ptr2 => prepicon(jg)%sfc%snowweq
       CASE ('SNDENS');          ptr2 => prepicon(jg)%sfc%snowdens
