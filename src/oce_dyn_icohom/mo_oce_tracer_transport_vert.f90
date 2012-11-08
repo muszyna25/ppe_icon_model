@@ -208,7 +208,7 @@ CONTAINS
   !! Seperated from vertical flux calculation
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE apply_tracer_flux_top_layer_oce( p_patch, pvar_c, pw_c,pupflux_i, tracer_id )
+  SUBROUTINE apply_tracer_flux_top_layer_oce( p_patch, pvar_c, pw_c, pupflux_i, tracer_id )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch                                    !< patch on which computation is performed
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch%nblks_c)     !< advected cell centered variable
@@ -455,6 +455,9 @@ CONTAINS
             ENDIF 
            !zero advective flux at bottom boundary
            c_flux_i(jc,z_dolic+1,jb)=0.0_wp
+
+    !      ! #slo# zero advective flux at top boundary
+    !      c_flux_i(jc,1,jb)=0.0_wp
         ENDDO
       END DO
     END DO
