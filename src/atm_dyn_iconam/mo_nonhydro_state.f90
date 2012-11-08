@@ -60,8 +60,7 @@ MODULE mo_nonhydro_state
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
-    &                                t_nh_ref, t_nh_metrics, t_ptr_nh,  &
-    &                                t_buffer_memory
+    &                                t_nh_ref, t_nh_metrics, t_buffer_memory
   USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf

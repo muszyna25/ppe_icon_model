@@ -39,6 +39,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: message, message_text
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
@@ -52,10 +53,8 @@ MODULE mo_nwp_sfc_utils
     &                               lsnowtile, isub_water, isub_seaice
   USE mo_prepicon_config,     ONLY: l_hice_in
   USE mo_soil_ml,             ONLY: terra_multlay_init
-  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min
+  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
-  USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_satad,               ONLY: sat_pres_water, spec_humi
   USE mo_sync,                ONLY: global_sum_array
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
@@ -151,7 +150,7 @@ CONTAINS
     ! local fields for sea ice model
     !
     REAL(wp) :: frsi     (nproma)   ! sea ice fraction
-    REAL(wp) :: t_seasfc (nproma)   ! sea surface temperature (including sea ice surface)
+    REAL(wp) :: t_skin   (nproma)   ! skin temperature (including sea ice surface)
     REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time 
@@ -180,7 +179,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice,    &
-!$OMP            ic,jk,isubs_snow,t_g_s,frsi,t_seasfc,tice_now,hice_now,tsnow_now,   &
+!$OMP            ic,jk,isubs_snow,t_g_s,frsi,t_skin,tice_now,hice_now,tsnow_now,     &
 !$OMP            hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
@@ -560,7 +559,7 @@ CONTAINS
           jc = ext_data%atm%idx_lst_spi(ic,jb)
 
           frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
-          t_seasfc (ic) = p_lnd_diag%t_seasfc(jc,jb)
+          t_skin   (ic) = p_lnd_diag%t_skin(jc,jb)
           tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
           hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
           tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
@@ -568,7 +567,7 @@ CONTAINS
         ENDDO  ! jc
 
 
-        CALL seaice_init_nwp ( icount_ice, frsi, t_seasfc, l_hice_in,    & ! in
+        CALL seaice_init_nwp ( icount_ice, frsi, t_skin, l_hice_in,      & ! in
           &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
           &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
 
@@ -1030,6 +1029,11 @@ CONTAINS
          ! simply copy from water tile. time-dependent fraction will be set lateron
          ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
 
+         ! NOTE:
+         ! Note that in copy_prepicon2prog
+         ! - for fr_seaice in ]0,frsi_min[, we have set fr_seaice to 0
+         ! - for fr_seaice in ]1-frsi_min,1[, we have set fr_seaice to 1
+
          !
          ! seaice point
          !
@@ -1039,23 +1043,43 @@ CONTAINS
            ext_data%atm%spi_count(jb)               = i_count_ice
            ! set land-cover class
            ext_data%atm%lc_class_t(jc,jb,isub_seaice)= ext_data%atm%i_lc_snow_ice
+
+           ext_data%atm%frac_t(jc,jb,isub_seaice) = ext_data%atm%lc_frac_t(jc,jb,isub_seaice) &
+             &                                    * p_lnd_diag%fr_seaice(jc,jb)
+         ELSE
+           ext_data%atm%frac_t(jc,jb,isub_seaice) = 0._wp 
          ENDIF
 
          !
          ! water point: all sea points with fr_ice < 1
          !
-         IF ( p_lnd_diag%fr_seaice(jc,jb) < 1._wp ) THEN
+         IF ( p_lnd_diag%fr_seaice(jc,jb) <= (1._wp-frsi_min) ) THEN
            i_count_water = i_count_water + 1
            ext_data%atm%idx_lst_spw(i_count_water,jb) = jc
            ext_data%atm%spw_count(jb)                 = i_count_water
+
+           ! Initialize frac_t for seaice and update frac_t for water tile
+           ext_data%atm%frac_t(jc,jb,isub_water)  = ext_data%atm%lc_frac_t(jc,jb,isub_water)  &
+             &                                    * (1._wp - p_lnd_diag%fr_seaice(jc,jb))
+         ELSE
+           ! necessary, since frac_t(jc,jb,isub_water) has already been initialized 
+           ! with nonzero values in init_index_lists
+           ext_data%atm%frac_t(jc,jb,isub_water)  = 0._wp
          ENDIF
+!!$
+!!$         ! Initialize frac_t for seaice and update frac_t for water tile
+!!$         ext_data%atm%frac_t(jc,jb,isub_water)  = ext_data%atm%lc_frac_t(jc,jb,isub_water)  &
+!!$           &                                    * (1._wp - p_lnd_diag%fr_seaice(jc,jb))
+!!$         ext_data%atm%frac_t(jc,jb,isub_seaice) = ext_data%atm%lc_frac_t(jc,jb,isub_seaice) &
+!!$           &                                    * p_lnd_diag%fr_seaice(jc,jb)
 
-         ! Initialize frac_t for seaice and update frac_t for water tile
-         ext_data%atm%frac_t(jc,jb,isub_water)  = ext_data%atm%lc_frac_t(jc,jb,isub_water)  &
-           &                                    * (1._wp - p_lnd_diag%fr_seaice(jc,jb))
-         ext_data%atm%frac_t(jc,jb,isub_seaice) = ext_data%atm%lc_frac_t(jc,jb,isub_seaice) &
-           &                                    * p_lnd_diag%fr_seaice(jc,jb)
+!!$         IF (ext_data%atm%frac_t(jc,jb,isub_water) &
+!!$           & + ext_data%atm%frac_t(jc,jb,isub_seaice) /= ext_data%atm%lc_frac_t(jc,jb,isub_water)) THEN
+!!$           write(0,*) "WARNING: fractions differ: frac_t_i+frac_t_w, lc_frac_t: ", &
+!!$             & ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice), &
+!!$             & ext_data%atm%lc_frac_t(jc,jb,isub_water), jc, jb
 
+         ENDIF
        ENDDO  ! ic 
 
     ENDDO  ! jb    

@@ -777,7 +777,6 @@ MODULE mo_nwp_lnd_state
     INTEGER,INTENT(IN) ::  p_jg  !< patch id
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
-    CHARACTER(LEN=2)            :: csfc
 
     TYPE(t_var_list),INTENT(INOUT) :: prog_list
     TYPE(t_wtr_prog),INTENT(INOUT) :: p_prog_wtr
@@ -791,7 +790,6 @@ MODULE mo_nwp_lnd_state
 
     INTEGER :: shape2d(2)
     INTEGER :: ibits
-    INTEGER :: jsfc          !< tile counter
 
     CHARACTER(len=4) suffix
 
@@ -819,28 +817,28 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_wtr%t_ice(nproma,nblks_c)
     cf_desc    = t_cf_var('t_ice', 'K', 'sea ice temperature', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(10, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_ice'//suffix, p_prog_wtr%t_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
 
 
     ! & p_prog_wtr%h_ice(nproma,nblks_c)
     cf_desc    = t_cf_var('h_ice', 'K', 'sea ice depth', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(10, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'h_ice'//suffix, p_prog_wtr%h_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
 
 
     ! & p_prog_wtr%t_snow_si(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow_si', 'K', 'temperature of snow on sea ice', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_si'//suffix, p_prog_wtr%t_snow_si,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
 
 
     ! & p_prog_wtr%h_snow_si(nproma,nblks_c)
     cf_desc    = t_cf_var('h_snow_si', 'K', 'depth of snow on sea ice', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'h_snow_si'//suffix, p_prog_wtr%h_snow_si,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d)
 
@@ -976,13 +974,13 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
     cf_desc    = t_cf_var('t_seasfc', 'K', 'sea surface temperature', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(10, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
     ! & p_diag_lnd%t_skin(nproma,nblks_c)
     cf_desc    = t_cf_var('t_skin', 'K', 'skin temperature', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 17, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_skin', p_diag_lnd%t_skin,          &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
@@ -1267,7 +1265,6 @@ MODULE mo_nwp_lnd_state
     ENDIF
 
     p_diag_lnd%qv_s(:,:)        = 0.001_wp
-    p_diag_lnd%fr_seaice(:,:)   = 0._wp
 
 
   END SUBROUTINE  new_nwp_lnd_diag_list

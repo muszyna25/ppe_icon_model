@@ -65,7 +65,7 @@ MODULE mo_ext_data_state
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
-                                   frlndtile_thrhld, frlake_thrhld, frsea_thrhld
+                                   frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
@@ -3026,9 +3026,8 @@ CONTAINS
              ext_data(jg)%atm%frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
            ENDDO
          ENDDO
-         jt = ntiles_total + MIN(1,ntiles_water)
          DO jc = i_startidx, i_endidx
-           ext_data(jg)%atm%frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
+           ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
          ENDDO
 ! part of mo_nwp_sfc_utils/init_seaice_lists which is called in init_nwp_phy
 !         jt = ntiles_total + MIN(2,ntiles_water)

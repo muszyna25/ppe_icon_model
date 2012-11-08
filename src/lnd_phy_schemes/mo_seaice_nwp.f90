@@ -228,7 +228,7 @@ CONTAINS
   SUBROUTINE seaice_init_nwp (                                  & 
                           &  nsigb,                             &
                           &  frsi,                              &
-                          &  t_seasfc,                          &
+                          &  t_skin,                            &
                           &  l_hice_in,                         &
                           &  tice_p, hice_p, tsnow_p, hsnow_p,  &
                           &  tice_n, hice_n, tsnow_n, hsnow_n   &
@@ -247,7 +247,7 @@ CONTAINS
                                            &  frsi      !< sea-ice fraction [-]
  
     REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
-                                           &  t_seasfc  !< sea surface temperature (including sea-ice) [K]
+                                           &  t_skin    !< skin temperature (including sea-ice) [K]
 
     LOGICAL, INTENT(IN)                   ::       &
                                            &  l_hice_in !< Logical switch, if sea-ice thickness field is 
@@ -306,7 +306,7 @@ CONTAINS
         END IF
       ELSE  ! sea-ice thickness field NOT provided as input
         hice_p(isi) = hice_new
-        tice_p(isi) = t_seasfc(isi)  ! use sea surface temperature
+        tice_p(isi) = t_skin(isi)  ! use skin temperature
       ENDIF 
 
 
