@@ -2894,7 +2894,7 @@ CONTAINS
   ! optionally overwrite some default meta data 
   !
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
-       &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
+       &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
@@ -2908,6 +2908,7 @@ CONTAINS
     INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
@@ -2949,12 +2950,24 @@ CONTAINS
              TRIM(name)//' not created.')
       ENDIF
       !
-      target_info%ncontained = target_info%ncontained+1
-      IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
-        WRITE (message_text, *) &
-          &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-          &  SIZE(target_ptr4d,4)      
-        CALL finish('add_var_list_reference_r3d', message_text)
+      ! Counting the number of existing references is deactivated, if the slice index 
+      ! to be referenced is given explicitly.
+      IF ( PRESENT(ref_idx) ) THEN
+        ! only check validity of given slice index
+        IF ( (ref_idx > SIZE(target_ptr4d,4)) .OR. (ref_idx < 1)) THEN
+          WRITE (message_text, *) &
+            &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
+            &  ' out of allowable range [1,',SIZE(target_ptr4d,4),']'      
+          CALL finish('add_var_list_reference_r3d', message_text)
+        ENDIF
+      ELSE
+        target_info%ncontained = target_info%ncontained+1
+        IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
+          WRITE (message_text, *) &
+            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+            &  SIZE(target_ptr4d,4)      
+          CALL finish('add_var_list_reference_r3d', message_text)
+        ENDIF
       ENDIF
       IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
            ldims(2) /=  target_info%used_dimensions(2) .OR. & 
@@ -2998,11 +3011,17 @@ CONTAINS
     !
     IF (target_info%lcontainer) THEN
       ref_info%lcontained = .TRUE.
-      ref_info%ncontained = target_info%ncontained
       ref_info%used_dimensions(4) = 1
       !
+      IF ( PRESENT(ref_idx) ) THEN
+        ref_info%ncontained = ref_idx
+        ptr => target_element%field%r_ptr(:,:,:,ref_idx,1)
+      ELSE
+        ref_info%ncontained = target_info%ncontained
+        ptr => target_element%field%r_ptr(:,:,:,target_info%ncontained,1)
+      ENDIF
+      !
       new_list_element%field%r_ptr => target_element%field%r_ptr
-      ptr => target_element%field%r_ptr(:,:,:,target_info%ncontained,1)
     ELSE
       new_list_element%field%r_ptr => target_element%field%r_ptr
       ptr => target_element%field%r_ptr(:,:,:,1,1)
@@ -3032,7 +3051,7 @@ CONTAINS
   ! optionally overwrite some default meta data 
   !
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
-       &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
+       &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
@@ -3046,6 +3065,7 @@ CONTAINS
     INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
     INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
@@ -3087,12 +3107,24 @@ CONTAINS
              TRIM(name)//' not created.')
       ENDIF
       !
-      target_info%ncontained = target_info%ncontained+1
-      IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
-        WRITE (message_text, *) &
-          &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-          &  SIZE(target_ptr3d,3)
-        CALL finish('add_var_list_reference_r2d', message_text)
+      ! Counting the number of existing references is deactivated, if the slice index 
+      ! to be referenced is given explicitly.
+      IF ( PRESENT(ref_idx) ) THEN
+        ! only check validity of given slice index
+        IF ( (ref_idx > SIZE(target_ptr3d,3)) .OR. (ref_idx < 1)) THEN
+          WRITE (message_text, *) &
+            &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
+            &  ' out of allowable range [1,',SIZE(target_ptr3d,3),']'      
+          CALL finish('add_var_list_reference_r2d', message_text)
+        ENDIF
+      ELSE
+        target_info%ncontained = target_info%ncontained+1
+        IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
+          WRITE (message_text, *) &
+            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+            &  SIZE(target_ptr3d,3)
+          CALL finish('add_var_list_reference_r2d', message_text)
+        ENDIF
       ENDIF
       IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
            ldims(2) /=  target_info%used_dimensions(2) ) THEN
@@ -3135,11 +3167,17 @@ CONTAINS
     !
     IF (target_info%lcontainer) THEN
       ref_info%lcontained = .TRUE.
-      ref_info%ncontained = target_info%ncontained
       ref_info%used_dimensions(3) = 1
       !
+      IF ( PRESENT(ref_idx) ) THEN
+        ref_info%ncontained = ref_idx
+        ptr => target_element%field%r_ptr(:,:,ref_idx,1,1)
+      ELSE
+        ref_info%ncontained = target_info%ncontained
+        ptr => target_element%field%r_ptr(:,:,target_info%ncontained,1,1)
+      ENDIF
+      !
       new_list_element%field%r_ptr => target_element%field%r_ptr
-      ptr => target_element%field%r_ptr(:,:,target_info%ncontained,1,1)
     ELSE
       new_list_element%field%r_ptr => target_element%field%r_ptr
       ptr => target_element%field%r_ptr(:,:,1,1,1)
@@ -3330,6 +3368,19 @@ CONTAINS
              'CF convention long name                     : ', &
              TRIM(this_list_element%field%info%cf%long_name)
         !
+        IF (this_list_element%field%info%lcontained) THEN
+          CALL message('', 'Field is in a container                     : yes.')
+          WRITE (message_text,'(a,i2)')                        &
+             ' Index in container                          : ',&
+             this_list_element%field%info%ncontained
+          CALL message('', message_text)
+        ELSE
+          CALL message('', 'Field is in a container                     : no.')
+          WRITE (message_text,'(a)')                           &
+             ' Index in container                          : --'
+          CALL message('', message_text)
+        ENDIF
+        !
         WRITE (message_text,'(a,i2)')                          &
              ' horizontal grid type used (C=1,V=2,E=3)     : ',&
              this_list_element%field%info%hgrid
@@ -3413,12 +3464,12 @@ CONTAINS
             CALL message('', 'Washout                                     : no.')
           ENDIF
 
-          WRITE (message_text,'(a,e20.12)') &
-             'Particle diameter in m                 : ', &
+          WRITE (message_text,'(a,e18.12)') &
+             'Particle diameter in m                      : ', &
              this_list_element%field%info%tracer%rdiameter_tracer
           CALL message('', message_text)
 
-          WRITE (message_text,'(a,e20.12)') &
+          WRITE (message_text,'(a,e18.12)') &
              'particle density in kg m^-3                 : ', &
              this_list_element%field%info%tracer%rrho_tracer
           CALL message('', message_text)
