@@ -1078,8 +1078,8 @@ CONTAINS
 !!$           write(0,*) "WARNING: fractions differ: frac_t_i+frac_t_w, lc_frac_t: ", &
 !!$             & ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice), &
 !!$             & ext_data%atm%lc_frac_t(jc,jb,isub_water), jc, jb
-
-         ENDIF
+!!$
+!!$         ENDIF
        ENDDO  ! ic 
 
     ENDDO  ! jb    
