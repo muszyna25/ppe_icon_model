@@ -114,10 +114,18 @@ CONTAINS
     ! fill subset for use in dbg_print without passing the patch in every call
 !    v_subdom_cell = ppatch%cells%in_domain
 
-    ! module variables for check of cells/edges/verts
+    ! local module variables for check of cells/edges/verts
     loc_nblks_c =ppatch%nblks_c
     loc_nblks_e =ppatch%nblks_e
     loc_nblks_v =ppatch%nblks_v
+ 
+ !  For a correct dicision of cells/edges/verts the number of points on domain would be better
+ !    but is not available as local dimension
+ !  In order to keep a difference in number of blocks please use a low number for nproma
+ !    i.e nproma=1 for debugging
+ !  loc_patch_c =ppatch%n_patch_cells
+ !  loc_patch_e =ppatch%n_patch_edges
+ !  loc_patch_v =ppatch%n_patch_verts
    
     ! module index/block for one cell output
     IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
@@ -580,6 +588,8 @@ CONTAINS
   ! for output at given index
 
   IF (idbg_val >= idetail_src) THEN
+
+    !write(iout,*) ' ndimblk and loc_nblks = ',ndimblk, loc_nblks_c, loc_nblks_e, loc_nblks_v
 
     ! write value at index
     IF (ndimblk == loc_nblks_c) THEN
