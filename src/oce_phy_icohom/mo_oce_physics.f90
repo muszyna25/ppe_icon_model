@@ -55,7 +55,9 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
-  &                               biharmonic_diffusion_factor
+  &                               biharmonic_diffusion_factor, &
+  &                               richardson_factor_tracer, richardson_factor_veloc,      &
+  &                               l_constant_mixing
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -606,10 +608,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
     REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
-    REAL(wp), PARAMETER :: z_av0             = 0.5E-2_wp
-    REAL(wp), PARAMETER :: z_dv0             = 0.5E-2_wp
+    REAL(wp)            :: z_av0             = 0.5E-2_wp ! later set via nml richardson_factor_veloc
+    REAL(wp)            :: z_dv0             = 0.5E-2_wp ! later set via nml richardson_factor_tracer
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
-    LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE. !TODO: in namelist
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
     REAL(wp) :: z_press!, z_frac
     REAL(wp) :: A_T_tmp!, A_v_tmp
@@ -618,6 +619,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
+    !-------------------------------------------------------------------------
+    z_av0 = richardson_factor_veloc
+    z_dv0 = richardson_factor_tracer
     !-------------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain

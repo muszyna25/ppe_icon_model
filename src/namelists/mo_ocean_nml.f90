@@ -202,6 +202,15 @@ MODULE mo_ocean_nml
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_diffusion_factor = 1.0_wp ! factor for adjusting the biharmonic diffusion coefficient
+
+  REAL(wp) :: richardson_factor_veloc  = 0.5E-2_wp ! Factor with which the richarseon related part of the vertical 
+                                                   ! diffusion is multiplied before it is added to the background 
+                                                   ! vertical diffusion ! coeffcient for the velocity. See usage in
+                                                   ! mo_oce_physics.f90, update_ho_params, variable z_av0
+  REAL(wp) :: richardson_factor_tracer = 0.5E-2_wp ! see above, valid for tracer instead velocity, see variable z_dv0 
+                                                   ! in update_ho_params
+  LOGICAL  :: l_constant_mixing     = .FALSE.    ! if set to .TRUE. the vertical mixing coefficients for velocity and tracer
+                                                 ! keep constant over time and are set to the background values
                                                 
   REAL(wp) :: t_ref                 = 15.0_wp    ! reference temperature for initialization
   REAL(wp) :: s_ref                 = 35.0_wp    ! reference salinity for initialization
@@ -266,7 +275,8 @@ MODULE mo_ocean_nml
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
     &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff, i_sea_ice, &
-    &                  biharmonic_diffusion_factor
+    &                 biharmonic_diffusion_factor,                         &
+    &                 richardson_factor_veloc, richardson_factor_tracer
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
