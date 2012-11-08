@@ -1195,7 +1195,7 @@ CONTAINS
   !=======================================================================
 
   SUBROUTINE cuctracer &
-    & ( kidia,    kfdia,   klon,   klev,  ktdia,  ktrac,&
+    & ( kidia,    kfdia,   klon,   ktdia, klev, ktrac,&
     & kctop,     kdtop,   &
     & ldcum,    lddraf,   ptsphy,   &
     & paph,     zdph,                       &
