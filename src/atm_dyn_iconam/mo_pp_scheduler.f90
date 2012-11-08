@@ -1,3 +1,8 @@
+! Option directive to avoid a possible SX compiler bug with OpenMP + MPI;
+! disable moving invariant expressions outside of a loop by the compiler.
+! [2012-11-08, F. Prill, DWD]
+!option! -O nomove
+
 !>
 !! Scheduler for internal post-processing.
 !!
