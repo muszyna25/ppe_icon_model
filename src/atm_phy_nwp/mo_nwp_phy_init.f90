@@ -278,6 +278,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
            jc = ext_data%atm%idx_lst_spw(ic,jb)
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
          END DO
+         DO ic=1, ext_data%atm%spi_count(jb)
+           jc = ext_data%atm%idx_lst_spi(ic,jb)
+           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
+         END DO
         ENDIF
 
         DO jc = i_startidx, i_endidx
@@ -290,7 +294,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         DO jt = 1, ntiles_total+ntiles_water
           
           DO jc = i_startidx, i_endidx
+           IF (p_diag_lnd%t_seasfc(jc,jb) > 10._wp .AND. .NOT. l_sst_in) THEN 
+            temp = p_diag_lnd%t_seasfc(jc,jb)
+           ELSE
             temp = p_prog_lnd_now%t_g(jc,jb)
+           ENDIF
             p_prog_lnd_now%t_g_t(jc,jb,jt) =  temp
             p_prog_lnd_new%t_g_t(jc,jb,jt) =  temp
             p_diag_lnd%qv_s_t(jc,jb,jt)    =  spec_humi(sat_pres_water(temp),p_diag%pres_sfc(jc,jb))
