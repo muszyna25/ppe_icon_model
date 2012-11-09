@@ -1035,20 +1035,20 @@ CONTAINS
       ENDDO  ! ic
 
 
-      ! Update dynamic seaice index list
+      ! Update dynamic sea-ice index list
       !
-      CALL update_idx_lists_sea (                                                    &
-        &              hice_n             = p_prog_wtr_new%h_ice(:,jb),              &!in
-        &              pres_sfc           = p_diag%pres_sfc(:,jb),                   &!in
-        &              idx_lst_spw        = ext_data%atm%idx_lst_spw(:,jb),          &!inout
-        &              spw_count          = ext_data%atm%spw_count(jb),              &!inout
-        &              idx_lst_spi        = ext_data%atm%idx_lst_spi(:,jb),          &!inout
-        &              spi_count          = ext_data%atm%spi_count(jb),              &!inout
-        &              partial_frac_ice   = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
-        &              partial_frac_water = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
-        &              fr_seaice          = p_lnd_diag%fr_seaice(:,jb),              &!inout
-        &              t_g_t_new          = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
-        &              qv_s_t             = p_lnd_diag%qv_s_t(:,jb,isub_seaice)      )!inout
+      CALL update_idx_lists_sea (                                               &
+        &              hice_n        = p_prog_wtr_new%h_ice(:,jb),              &!in
+        &              pres_sfc      = p_diag%pres_sfc(:,jb),                   &!in
+        &              idx_lst_spw   = ext_data%atm%idx_lst_spw(:,jb),          &!inout
+        &              spw_count     = ext_data%atm%spw_count(jb),              &!inout
+        &              idx_lst_spi   = ext_data%atm%idx_lst_spi(:,jb),          &!inout
+        &              spi_count     = ext_data%atm%spi_count(jb),              &!inout
+        &              frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
+        &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
+        &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
+        &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
+        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_seaice)      )!inout
 
 
     ENDDO  ! jb

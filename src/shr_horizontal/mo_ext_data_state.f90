@@ -85,7 +85,7 @@ MODULE mo_ext_data_state
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
   USE mo_var_list,           ONLY: default_var_list_settings, &
-    &                              add_var,                   &
+    &                              add_var, add_ref,          &
     &                              new_var_list,              &
     &                              delete_var_list
   USE mo_master_nml,         ONLY: model_base_dir
@@ -401,6 +401,10 @@ CONTAINS
     INTEGER :: shape3d_c(3), shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
+
+    INTEGER          :: jsfc
+    CHARACTER(LEN=1) :: csfc
+
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1012,7 +1016,19 @@ CONTAINS
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'frac_t', p_ext_atm%frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE.)
+
+      ! fill the separate variables belonging to the container frac_t
+      ALLOCATE(p_ext_atm%frac_t_ptr(ntiles_total+ntiles_water))
+      DO jsfc = 1,ntiles_total + ntiles_water
+      WRITE(csfc,'(i1)') jsfc
+      CALL add_ref( p_ext_atm_list, 'frac_t', 'frac_t_'//TRIM(ADJUSTL(csfc)),  &
+        &           p_ext_atm%frac_t_ptr(jsfc)%p_2d,                           &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape2d_c, loutput=.TRUE. )
+      ENDDO
+
+
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23
@@ -3029,12 +3045,7 @@ CONTAINS
          DO jc = i_startidx, i_endidx
            ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
          ENDDO
-! part of mo_nwp_sfc_utils/init_seaice_lists which is called in init_nwp_phy
-!         jt = ntiles_total + MIN(2,ntiles_water)
-!         DO jc = i_startidx, i_endidx
-!           ext_data(jg)%atm%frac_t(jc,jb,jt)  = ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
-!         ENDDO
-
+         ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
        END DO !jb
 !$OMP END DO NOWAIT

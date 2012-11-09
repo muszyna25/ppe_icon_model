@@ -26,8 +26,7 @@ MODULE mo_var_list
     &                            HINTP_TYPE_LONLAT,                 &
     &                            max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, STR_VINTP_TYPE
-  USE mo_fortran_tools,    ONLY: assign_if_present
-  USE mo_nonhydro_types,   ONLY: t_ptr_nh
+  USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
 
   IMPLICIT NONE
 
@@ -3695,7 +3694,7 @@ CONTAINS
     CHARACTER(len=*)    , INTENT(in)           :: target_name
     CHARACTER(len=*)    , INTENT(in)           :: tracer_name
     INTEGER             , INTENT(inout)        :: tracer_idx          ! index in 4D tracer container
-    TYPE(t_ptr_nh)      , INTENT(inout)        :: ptr_arr(:)
+    TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
     TYPE(t_cf_var)      , INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var)   , INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER             , INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking

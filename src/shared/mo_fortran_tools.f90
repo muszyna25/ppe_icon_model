@@ -43,7 +43,16 @@ MODULE mo_fortran_tools
   IMPLICIT NONE
   PRIVATE
 
+
+  TYPE t_ptr_2d3d
+    REAL(wp),POINTER :: p_3d(:,:,:)  ! pointer to 3D (spatial) array
+    REAL(wp),POINTER :: p_2d(:,:)    ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d3d
+
+
   PUBLIC :: assign_if_present
+  PUBLIC :: t_ptr_2d3d
+
 
   INTERFACE assign_if_present  ! purely internal
     MODULE PROCEDURE assign_if_present_character

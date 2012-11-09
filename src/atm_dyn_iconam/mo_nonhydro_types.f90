@@ -44,6 +44,7 @@
 MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -63,16 +64,6 @@ MODULE mo_nonhydro_types
 
   PUBLIC :: t_buffer_memory
 
-  PUBLIC :: t_ptr_nh
-
-
-  !>
-  !! Derived data type for building pointer arrays
-  !!
-  TYPE t_ptr_nh
-    REAL(wp),POINTER :: p_3d(:,:,:)  ! pointer to 3D (spatial) array
-    REAL(wp),POINTER :: p_2d(:,:)    ! pointer to 2D (spatial) array
-  END TYPE t_ptr_nh
 
 
   ! prognostic variables state vector
@@ -88,7 +79,7 @@ MODULE mo_nonhydro_types
       tracer(:,:,:,:),   & !! tracer concentration (nproma,nlev,nblks_c,ntracer) [kg/kg]
       tke   (:,:,:)        !! turbulent kinetic energy                         [m^2/s^2]
                            !! (defined on half levels) with 2 time levels
-    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_nh_prog
 
 
@@ -197,24 +188,24 @@ MODULE mo_nonhydro_types
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
      &  extra_3d(:,:,:,:)     !!                       3d
 
-    REAL(wp), POINTER :: &
-      vn_con(:,:,:),     &! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
-      omega_t(:,:,:)      ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
+    REAL(wp), POINTER ::   &
+     &  vn_con(:,:,:),     &  ! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
+     &  omega_t(:,:,:)        ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
 
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_grf_trc_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: hfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: vfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_trc_adv_ptr(:)  !< pointer array: one pointer for each tracer
 
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_vn_adv_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_w_adv_ptr (:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: q_int_ptr     (:)
-    TYPE(t_ptr_nh),ALLOCATABLE :: q_ubc_ptr     (:)
-
-    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_ptr(:)      !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_avg_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: extra_2d_ptr(:)
-    TYPE(t_ptr_nh),ALLOCATABLE :: extra_3d_ptr(:)
+    TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
+      &  ddt_grf_trc_ptr(:),   &  !< pointer array: one pointer for each tracer
+      &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
+      &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_w_adv_ptr  (:),   &  !< pointer array: one pointer for each tracer
+      &  q_int_ptr      (:),   &  
+      &  q_ubc_ptr      (:),   &
+      &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
+      &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
+      &  extra_2d_ptr   (:),   &
+      &  extra_3d_ptr   (:)
 
   END TYPE t_nh_diag
 

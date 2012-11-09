@@ -41,7 +41,7 @@
 MODULE mo_art_tracer_interface
     USE mo_model_domain,         ONLY: t_patch
     USE mo_linked_list,          ONLY: t_var_list
-    USE mo_nonhydro_types,       ONLY:t_ptr_nh
+    USE mo_fortran_tools,        ONLY: t_ptr_2d3d
 
 
 #ifdef __ICON_ART
@@ -74,7 +74,7 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
       &  p_patch
     TYPE(t_var_list), INTENT(INOUT)   :: p_prog_list!< current prognostic state list 
-    TYPE(t_ptr_nh)      , INTENT(inout)        :: ptr_arr(:)
+    TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
     INTEGER             , INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
     INTEGER             , INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     INTEGER, INTENT(IN) :: timelev

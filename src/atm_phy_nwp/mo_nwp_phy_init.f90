@@ -100,7 +100,7 @@ MODULE mo_nwp_phy_init
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
-  USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_seaice_lists
+  USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
     &                               lseaice, isub_water, isub_seaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
@@ -203,7 +203,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! for both restart and non-restart runs. Could not be included into 
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
-  CALL init_seaice_lists(p_patch, ext_data, p_diag_lnd, lseaice)
+  CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
   IF (.NOT. is_restart_run())THEN
 

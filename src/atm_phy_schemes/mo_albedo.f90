@@ -281,7 +281,7 @@ CONTAINS
             jc = ext_data%atm%idx_lst_spw(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g(jc,jb) < tf_salt) THEN 
+            IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
               ist = 10  ! sea ice
             ELSE
               ist = ext_data%atm%soiltyp(jc,jb)
@@ -303,7 +303,7 @@ CONTAINS
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g(jc,jb) < tf_salt) THEN ! sea ice
+            IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN ! sea ice
               ist = 10
             ELSE
               ist = 9 ! water
@@ -371,7 +371,6 @@ CONTAINS
 
 
 
-      !sea-ice model not yet implemented
 !      IF (atm_phy_nwp_config(jg)%lseaice) THEN
 !        DO jc = i_startidx,i_endidx
 !          ! In case the sea ice model is used AND water point AND ice is present,

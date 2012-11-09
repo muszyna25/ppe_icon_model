@@ -41,6 +41,7 @@
 MODULE mo_ext_data_types
 
   USE mo_kind,               ONLY: wp
+  USE mo_fortran_tools,      ONLY: t_ptr_2d3d
   USE mo_linked_list,        ONLY: t_var_list
 
   IMPLICIT NONE
@@ -54,7 +55,6 @@ MODULE mo_ext_data_types
   PUBLIC :: t_external_atmos
   PUBLIC :: t_external_atmos_td
   PUBLIC :: t_external_ocean
-
 
 
 
@@ -315,6 +315,9 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_snow_ice   !< Specification of land-use class for snow and ice
     INTEGER :: i_lc_water      !< Specification of land-use class for water
 
+
+    ! for output purposes.
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: frac_t_ptr(:)
 
   END TYPE t_external_atmos
 
