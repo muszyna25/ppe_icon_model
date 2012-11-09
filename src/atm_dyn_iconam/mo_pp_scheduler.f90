@@ -338,7 +338,7 @@ CONTAINS
         IF (var_lists(i)%p%vlevel_type/=ll_varlevs(ivar)) CYCLE LIST_LOOP
         ! loop only over variables on requested domains:
         jg = var_lists(i)%p%patch_id
-        IF (.NOT. lonlat_grid_list(ll_vargrid(nvars_ll))%l_dom(jg)) &
+        IF (.NOT. lonlat_grid_list(ll_vargrid(ivar))%l_dom(jg)) &
           &  CYCLE LIST_LOOP
           
         element => NULL()
