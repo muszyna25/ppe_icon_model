@@ -2634,7 +2634,8 @@ INTEGER :: ilc1, ibc1, ilv1, ibv1, ilc2, ibc2, ilv2, ibv2, &
 
 REAL(wp) :: z_nu, z_nv, z_lon, z_lat, z_nx1(3), z_nx2(3), z_norm
 
-TYPE(t_cartesian_coordinates) :: cc_edge, cc_cell, cc_ev3, cc_ev4
+TYPE(t_cartesian_coordinates) :: cc_edge, cc_cell, cc_ev3, cc_ev4, cc_v1, cc_v2, cc_v3, &
+                                 cc_dis1, cc_dis2, cc_dis3
 
 !-----------------------------------------------------------------------
 
@@ -3095,6 +3096,76 @@ DO jb = i_startblk, i_endblk
       ENDIF
 
     ENDDO
+
+  ENDDO
+
+END DO !block loop
+!$OMP END DO
+
+rl_start = 1
+rl_end = min_rlcell
+
+! Compute cell-vertex distances for gradient limiter
+i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+!
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
+!$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end)
+
+  DO jc =  i_startidx, i_endidx
+
+    cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
+    z_lon   = ptr_patch%cells%center(jc,jb)%lon
+    z_lat   = ptr_patch%cells%center(jc,jb)%lat
+
+    CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(1),z_nx1(2),z_nx1(3))
+    z_norm = SQRT( DOT_PRODUCT(z_nx1(1:3),z_nx1(1:3)) )
+    z_nx1(1:3)  = 1._wp/z_norm * z_nx1(1:3)
+
+    CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(1),z_nx2(2),z_nx2(3))
+    z_norm = SQRT( DOT_PRODUCT(z_nx2(1:3),z_nx2(1:3)) )
+    z_nx2(1:3)  = 1._wp/z_norm * z_nx2(1:3)
+
+    ilv1 = ptr_patch%cells%vertex_idx(jc,jb,1)
+    ibv1 = ptr_patch%cells%vertex_blk(jc,jb,1)
+    ilv2 = ptr_patch%cells%vertex_idx(jc,jb,2)
+    ibv2 = ptr_patch%cells%vertex_blk(jc,jb,2)
+    ilv3 = ptr_patch%cells%vertex_idx(jc,jb,3)
+    ibv3 = ptr_patch%cells%vertex_blk(jc,jb,3)
+
+    cc_v1 = gc2cc(ptr_patch%verts%vertex(ilv1,ibv1))
+    cc_v2 = gc2cc(ptr_patch%verts%vertex(ilv2,ibv2))
+    cc_v3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
+
+    cc_dis1%x(1:3) = cc_v1%x(1:3) - cc_cell%x(1:3)
+    z_norm = SQRT( DOT_PRODUCT(cc_dis1%x(1:3),cc_dis1%x(1:3)) )
+    cc_dis1%x(1:3) = cc_dis1%x(1:3)/z_norm
+
+    cc_dis2%x(1:3) = cc_v2%x(1:3) - cc_cell%x(1:3)
+    z_norm = SQRT( DOT_PRODUCT(cc_dis2%x(1:3),cc_dis2%x(1:3)) )
+    cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
+
+    cc_dis3%x(1:3) = cc_v3%x(1:3) - cc_cell%x(1:3)
+    z_norm = SQRT( DOT_PRODUCT(cc_dis3%x(1:3),cc_dis3%x(1:3)) )
+    cc_dis3%x(1:3) = cc_dis3%x(1:3)/z_norm
+
+    ptr_int%cell_vert_dist(jc,1,1,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
+    ptr_int%cell_vert_dist(jc,2,1,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
+    ptr_int%cell_vert_dist(jc,3,1,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
+
+    ptr_int%cell_vert_dist(jc,1,2,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
+    ptr_int%cell_vert_dist(jc,2,2,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
+    ptr_int%cell_vert_dist(jc,3,2,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
 
   ENDDO
 

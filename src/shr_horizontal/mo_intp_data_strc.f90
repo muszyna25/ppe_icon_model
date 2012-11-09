@@ -408,7 +408,12 @@ TYPE t_int_state
   REAL(wp), ALLOCATABLE :: edge_cell_length(:,:,:)   ! p_patch%edges%edge_cell_length stored on
                                                      ! the cell data type (nproma,nblks_c,3)
 
-  ! h) fields related to calculation of backward trajectories on local plane
+  ! h) distance from cells to vertices on local cartesian grid with origin at the cell center
+  !    (used for gradient limiter)
+  !------------------------------------------------------------------------------
+  REAL(wp), ALLOCATABLE :: cell_vert_dist(:,:,:,:)   ! (nproma,3,2,nblks_c)
+
+  ! i) fields related to calculation of backward trajectories on local plane
   !    tangential to the edge midpoint
   !------------------------------------------------------------------------------
   REAL(wp), ALLOCATABLE :: pos_on_tplane_e(:,:,:,:)  ! positions of various points on local plane
@@ -583,12 +588,14 @@ TYPE t_lon_lat_intp
   INTEGER, ALLOCATABLE  :: rbf_c2grad_blk(:,:,:)      ! ... dito for the blocks
 
   ! direct interpolation from cell centers to lon-lat points:
-  INTEGER, ALLOCATABLE  :: rbf_c2l_idx(:,:,:)         ! (rbf_dim_c2lnproma, nblks_c)
-  INTEGER, ALLOCATABLE  :: rbf_c2l_blk(:,:,:)         ! (rbf_dim_c2lnproma, nblks_c)
+  INTEGER, ALLOCATABLE  :: rbf_c2l_idx(:,:,:)         ! (rbf_dim_c2l, nproma, nblks_c)
+  INTEGER, ALLOCATABLE  :: rbf_c2l_blk(:,:,:)         ! (rbf_dim_c2l, nproma, nblks_c)
   INTEGER, ALLOCATABLE  :: rbf_c2l_stencil(:,:)       ! (nproma, nblks_c)
 
   ! distances from cell center to lon-lat grid point
   REAL(wp), ALLOCATABLE :: rdist(:,:,:)   ! 2, nproma, nblks_lonlat
+  ! distances from cell center to vertices; needed for gradient limiter
+  REAL(wp), ALLOCATABLE :: cell_vert_dist(:,:,:,:)   ! (nproma,3,2,nblks_lonlat)
   ! list of triangles containing lon-lat grid points (first dim: index and block)
   INTEGER, ALLOCATABLE  :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
 

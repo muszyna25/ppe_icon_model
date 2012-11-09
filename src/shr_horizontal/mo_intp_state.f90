@@ -1096,6 +1096,11 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &             'allocation for edge_cell_length failed')
   ENDIF
 
+  ALLOCATE (ptr_int%cell_vert_dist(nproma, ptr_patch%cell_type, 2, nblks_c), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:construct_int_state',                       &
+      &             'allocation for cell_vert_dist failed')
+  ENDIF
 
   IF (ptr_patch%cell_type == 6) THEN
 
@@ -1398,6 +1403,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ptr_int%cart_cell_coord = 0._wp
   ptr_int%primal_normal_ec = 0._wp
   ptr_int%edge_cell_length = 0._wp
+  ptr_int%cell_vert_dist = 0._wp
 
   IF(ptr_patch%cell_type==6) THEN
     ptr_int%dir_gradh_i1 = 0
@@ -1973,6 +1979,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%cart_cell_coord,po%cart_cell_coord)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%primal_normal_ec,po%primal_normal_ec)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%edge_cell_length,po%edge_cell_length)
+  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%cell_vert_dist,po%cell_vert_dist)
 !  IF (p_p%cell_type == 6) THEN
 !  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradh_i1,po%dir_gradh_i1, &
 !                                         & po%dir_gradh_i1,po%dir_gradh_i1)
@@ -2645,6 +2652,11 @@ INTEGER :: ist
       &             'deallocation for edge_cell_length failed')
   ENDIF
 
+  DEALLOCATE (ptr_int%cell_vert_dist, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                       &
+      &             'deallocation for cell_vert_dist failed')
+  ENDIF
 
   IF (global_cell_type == 6) THEN
 

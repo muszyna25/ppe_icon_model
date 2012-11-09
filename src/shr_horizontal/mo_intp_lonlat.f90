@@ -409,11 +409,12 @@
       ALLOCATE ( &
         &  ptr_int_lonlat%rbf_vec_coeff(rbf_vec_dim_c, 2, nproma, nblks_lonlat),     &
         &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
-        &  ptr_int_lonlat%rbf_vec_idx(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
-        &  ptr_int_lonlat%rbf_vec_blk(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
-        &  ptr_int_lonlat%rbf_vec_stencil(nproma, nblks_lonlat),                            &
-        &  ptr_int_lonlat%rbf_c2grad_idx(rbf_c2grad_dim, nproma, nblks_lonlat),             &
-        &  ptr_int_lonlat%rbf_c2grad_blk(rbf_c2grad_dim, nproma, nblks_lonlat),             &
+        &  ptr_int_lonlat%rbf_vec_idx(rbf_vec_dim_c, nproma, nblks_lonlat),          &
+        &  ptr_int_lonlat%rbf_vec_blk(rbf_vec_dim_c, nproma, nblks_lonlat),          &
+        &  ptr_int_lonlat%rbf_vec_stencil(nproma, nblks_lonlat),                     &
+        &  ptr_int_lonlat%rbf_c2grad_idx(rbf_c2grad_dim, nproma, nblks_lonlat),      &
+        &  ptr_int_lonlat%rbf_c2grad_blk(rbf_c2grad_dim, nproma, nblks_lonlat),      &
+        &  ptr_int_lonlat%cell_vert_dist(nproma, 3, 2, nblks_lonlat),                &
         &  STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
@@ -442,6 +443,7 @@
       ptr_int_lonlat%rbf_vec_blk       = 0
       ptr_int_lonlat%rbf_c2grad_idx    = 0
       ptr_int_lonlat%rbf_c2grad_blk    = 0
+      ptr_int_lonlat%cell_vert_dist    = 0._wp
       ptr_int_lonlat%rbf_vec_stencil   = 0
       ptr_int_lonlat%rbf_vec_coeff     = 0._wp
       ptr_int_lonlat%rbf_c2grad_coeff  = 0._wp
@@ -469,6 +471,7 @@
         &         ptr_int_lonlat%rbf_vec_stencil,         &
         &         ptr_int_lonlat%rbf_c2grad_idx,          &
         &         ptr_int_lonlat%rbf_c2grad_blk,          &
+        &         ptr_int_lonlat%cell_vert_dist,          &
         &         ptr_int_lonlat%rdist,                   &
         &         ptr_int_lonlat%tri_idx,                 &
         &         ptr_int_lonlat%global_idx,              &
@@ -1333,6 +1336,7 @@
           ptr_int_lonlat%rbf_c2grad_idx(:,jc_lonlat,jb_lonlat) = ptr_int%rbf_c2grad_idx(:,jc,jb)
           ptr_int_lonlat%rbf_c2grad_blk(:,jc_lonlat,jb_lonlat) = ptr_int%rbf_c2grad_blk(:,jc,jb)
 
+          ptr_int_lonlat%cell_vert_dist(jc_lonlat,1:3,1:2,jb_lonlat) = ptr_int%cell_vert_dist(jc,1:3,1:2,jb)
         ENDDO
       ENDDO
 !$OMP END DO
@@ -1583,8 +1587,14 @@
         &          jc, jb, jk,             &  ! integer over lon-lat points, levels
         &          i_startidx, i_endidx       ! start/end index
 
+      ! maximum and minimum difference between external stencil points and local point
+      REAL(wp), DIMENSION(nproma,UBOUND(p_cell_in,2)) :: maxdif, mindif
+
+      ! maximum and minimum extrapolation increments and reduction factor for gradient
+      REAL(wp) :: maxextr, minextr, redfac
+
       INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-      REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff
+      REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff, ptr_c2v_dist
 
       !-----------------------------------------------------------------------
 
@@ -1598,10 +1608,10 @@
       iblk => ptr_int%rbf_c2grad_blk
 
       ptr_coeff => ptr_int%rbf_c2grad_coeff
+      ptr_c2v_dist => ptr_int%cell_vert_dist
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
-
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,maxdif,mindif,maxextr,minextr,redfac), SCHEDULE(runtime)
       DO jb = 1,nblks_lonlat
 
         i_startidx = 1
@@ -1612,7 +1622,6 @@
         DO jc = i_startidx, i_endidx
           DO jk = slev, elev
 #else
-!CDIR UNROLL=2
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 #endif
@@ -1638,10 +1647,66 @@
               &              + ptr_coeff(8, 2,jc,jb) * p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) &
               &              + ptr_coeff(9, 2,jc,jb) * p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) &
               &              + ptr_coeff(10,2,jc,jb) * p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))
-            
+
+
+            IF (l_mono_c2l) THEN ! prepare input for gradient limiter
+              maxdif(jc,jk) = MAX(p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)), &
+                                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)), &
+                                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)), &
+                                  p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)), &
+                                  p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)), &
+                                  p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)), &
+                                  p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)), &
+                                  p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)), &
+                                  p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))) &
+                                - p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb))
+
+              mindif(jc,jk) = MIN(p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)), &
+                                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)), &
+                                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)), &
+                                  p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)), &
+                                  p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)), &
+                                  p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)), &
+                                  p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)), &
+                                  p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)), &
+                                  p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))) &
+                                - p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb))
+            ENDIF
+
           ENDDO
         ENDDO
-        
+
+        IF (l_mono_c2l) THEN ! apply gradient limiter in order to avoid overshoots
+
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+
+              maxextr = MAX(grad_x(jc,jk,jb)*ptr_c2v_dist(jc,1,1,jb)+grad_y(jc,jk,jb)*ptr_c2v_dist(jc,1,2,jb), &
+                            grad_x(jc,jk,jb)*ptr_c2v_dist(jc,2,1,jb)+grad_y(jc,jk,jb)*ptr_c2v_dist(jc,2,2,jb), &
+                            grad_x(jc,jk,jb)*ptr_c2v_dist(jc,3,1,jb)+grad_y(jc,jk,jb)*ptr_c2v_dist(jc,3,2,jb) )
+
+              minextr = MIN(grad_x(jc,jk,jb)*ptr_c2v_dist(jc,1,1,jb)+grad_y(jc,jk,jb)*ptr_c2v_dist(jc,1,2,jb), &
+                            grad_x(jc,jk,jb)*ptr_c2v_dist(jc,2,1,jb)+grad_y(jc,jk,jb)*ptr_c2v_dist(jc,2,2,jb), &
+                            grad_x(jc,jk,jb)*ptr_c2v_dist(jc,3,1,jb)+grad_y(jc,jk,jb)*ptr_c2v_dist(jc,3,2,jb) )
+
+              ! In the case of a local extremum, the gradient must be set to zero in order to avoid over-/undershoots
+              IF (maxdif(jc,jk) <= 0._wp .OR. mindif(jc,jk) >= 0._wp) THEN
+                redfac = 0._wp
+              ! If the gradients are zero anyway, no limitation is needed
+              ELSE IF (maxextr <= 0._wp .OR. minextr >= 0._wp) THEN
+                redfac = 1._wp
+              ELSE ! compute reduction factor for gradient
+                redfac = MIN(1._wp, maxdif(jc,jk)/maxextr, mindif(jc,jk)/minextr)
+              ENDIF
+
+              grad_x(jc,jk,jb) = grad_x(jc,jk,jb)*redfac
+              grad_y(jc,jk,jb) = grad_y(jc,jk,jb)*redfac
+
+            ENDDO
+          ENDDO
+
+        ENDIF  
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1974,6 +2039,9 @@
         !        and scalar values in cell centers (x_c, y_c)
 
         ! extrapolate: f(x_0i) = f(x_c) + (x_0i-x_c)*d_1 + (y_0i - y_c)*d_2
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
         DO jb=1,nblks_lonlat
           i_startidx = 1
           i_endidx   = nproma
@@ -1990,6 +2058,8 @@
             END DO
           END DO
         END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
       ELSE
 
