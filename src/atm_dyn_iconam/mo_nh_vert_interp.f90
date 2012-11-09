@@ -255,15 +255,15 @@ CONTAINS
         prepicon%atm_in%psfc(1:nlen,jb) = EXP(prepicon%atm_in%psfc(1:nlen,jb))
       ENDIF
 
-      CALL half_level_pressure(prepicon%atm_in%psfc(:,jb), nproma, nlen, pres_ic)
+      CALL half_level_pressure(prepicon%atm_in%psfc(:,jb), nproma, nlen, nlev_in, pres_ic)
 
-      CALL full_level_pressure(pres_ic,nproma, nlen, prepicon%atm_in%pres(:,:,jb))
+      CALL full_level_pressure(pres_ic,nproma, nlen, nlev_in, prepicon%atm_in%pres(:,:,jb))
 
-      CALL auxhyb(pres_ic, nproma, nlen,              & ! in
+      CALL auxhyb(pres_ic, nproma, nlen, nlev_in,     & ! in
                   delp, rdelp, lnp_ic, rdlnpr, rdalpha) ! out
 
       CALL geopot(temp_v_in(:,:,jb), rdlnpr, rdalpha, prepicon%atm_in%phi_sfc(:,jb), & ! in
-                  nproma, 1, nlen, geop_mc, geop_ic                                  ) ! inout
+                  nproma, 1, nlen, nlev_in, geop_mc, geop_ic ) ! inout
 
       ! Compute 3D height coordinate field
       prepicon%atm_in%z3d(1:nlen,1:nlev_in,jb) = geop_mc(1:nlen,1:nlev_in)/grav

@@ -220,7 +220,7 @@ CONTAINS
     !  Executable statements
 
     !-- 1. Initialize variables
-    nvclev = nlev_in+1
+    nvclev = nlev+1
 !ag    apzero    = 101325._wp ! changed for NCAR summer colloquium!
     apzero    = 100000._wp
     zrd       = rd
@@ -381,11 +381,11 @@ CONTAINS
   !!    H. Wan, MPI, Feb 2006, adapted for ICOHDC
   !!    H. Wan, MPI, Jan 2010, renamed the interface
   !!
-  SUBROUTINE half_level_pressure( ps,kdimp,klen,ph)
+  SUBROUTINE half_level_pressure( ps,kdimp,klen,nlev_in, ph)
 
     INTEGER ,INTENT(in)  :: kdimp
     REAL(wp),INTENT(in)  :: ps(kdimp)   !< surface pressure
-    INTEGER ,INTENT(in)  :: klen
+    INTEGER ,INTENT(in)  :: klen, nlev_in
 
     REAL(wp),INTENT(inout) :: ph(kdimp,nlev_in+1) !< half-level pressure
 
@@ -443,9 +443,9 @@ CONTAINS
   !! @par Revision History
   !!    H. Wan, MPI, 2006-08-17
   !!
-  SUBROUTINE full_level_pressure( pres_i, kdimp, klen, pres_m)
+  SUBROUTINE full_level_pressure( pres_i, kdimp, klen, nlev_in, pres_m)
 
-    INTEGER ,INTENT(in) :: kdimp, klen          !< dimension parameters
+    INTEGER ,INTENT(in) :: kdimp, klen, nlev_in    !< dimension parameters
     REAL(wp),INTENT(in) :: pres_i(kdimp,nlev_in+1) !< half-level pressure
 
     REAL(wp),INTENT(inout) :: pres_m(kdimp,nlev_in) !< full(/mid)-level pressure
@@ -512,10 +512,10 @@ CONTAINS
   !!    L. Kornblueh, MPI, May 1998, f90 rewrite
   !!    U. Schulzweida, MPI, May 1998, f90 rewrite
   !!
-  SUBROUTINE auxhyb( ph,kdim,klen,                   &
+  SUBROUTINE auxhyb( ph,kdim,klen,nlev_in,                   &
                      pdelp,prdelp,plnph,plnpr,palpha )
 
-    INTEGER ,INTENT(in)  :: kdim, klen
+    INTEGER ,INTENT(in)  :: kdim, klen, nlev_in
     REAL(wp),INTENT(in)  :: ph(kdim, nlev_in+1)
 
     REAL(wp), INTENT(inout) :: pdelp (kdim, nlev_in  ), prdelp(kdim, nlev_in)
@@ -635,10 +635,10 @@ CONTAINS
   !!    A. Seifert, DWD, 2010-06-21, add missing lower boundary by restructuring
   !!                                 the loop for half and full levels
 
-  SUBROUTINE geopot( ptv,plnpr,palpha,pgeop_sfc,kdim,kstart,kend, &
+  SUBROUTINE geopot( ptv,plnpr,palpha,pgeop_sfc,kdim,kstart,kend,nlev_in, &
                      pgeop_m, pgeop_i )
 
-    INTEGER ,INTENT(in) :: kdim, kstart, kend
+    INTEGER ,INTENT(in) :: kdim, kstart, kend, nlev_in
 
     REAL(wp) ,INTENT(in)    :: ptv   (kdim,nlev_in),     plnpr(kdim,nlev_in)
     REAL(wp) ,INTENT(in)    :: palpha(kdim,nlev_in), pgeop_sfc(kdim)
