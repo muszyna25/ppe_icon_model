@@ -753,7 +753,7 @@ INTEGER :: jc, jb, jk, je
 INTEGER :: i_dolic_c,i_dolic_e
 REAL(wp) :: z_e2D(nproma,p_patch%nblks_e)
 REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: div_z_depth_int_c(nproma,p_patch%nblks_e)
+REAL(wp) :: div_z_depth_int_c(nproma,p_patch%nblks_c)
 REAL(wp) :: gdt2, delta_z
 REAL(wp) :: div_z_c_2D(nproma,p_patch%nblks_c)
 REAL(wp) :: div_z_c(nproma,n_zlev,p_patch%nblks_c)
@@ -1596,8 +1596,11 @@ ENDIF
 CALL sync_patch_array(SYNC_C, p_patch, pw_c)
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
+idt_src=4  ! output print level (1-5, fix)
+CALL dbg_print('CalcVertVelMimBU: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
+CALL dbg_print('CalcVertVelMimBU: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
 idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMim: pw_c'        ,pw_c                     ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
 !---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mimetic
@@ -1807,10 +1810,10 @@ CALL sync_patch_array(SYNC_C,p_patch,pw_c)
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
 idt_src=4  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimTD: mass flx_e  '  ,p_os%p_diag%mass_flx_e,    str_module,idt_src)
-CALL dbg_print('CalcVertVelMimTD: div mass flx'  ,p_os%p_diag%div_mass_flx_c,str_module,idt_src)
+CALL dbg_print('CalcVertVelMimTD: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
+CALL dbg_print('CalcVertVelMimTD: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
 idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimTD: pw_c'      ,pw_c                     ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMimTD: pw_c =W' ,pw_c                      ,str_module,idt_src)
 !---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mim_topdown
