@@ -16,13 +16,6 @@
 # | SQUALL_nag    | squall    | squall_nag    |
 # | SQUALL_intel  | squall    | squall_intel  |
 # | SQUALL_pgi    | squall    | squall_pgi    |
-# | SQUALL_sun    | squall    | squall_sun    |
-# |               |           |               |
-# | TORNADO_gcc   | tornado   | tornado_gcc   |
-# | TORNADO_nag   | tornado   | tornado_nag   |
-# | TORNADO_intel | tornado   | tornado_intel |
-# | TORNADO_pgi   | tornado   | tornado_pgi   |
-# | TORNADO_sun   | tornado   | tornado_sun   |
 # |               |           |               |
 # +---------------+-----------+---------------+
 #

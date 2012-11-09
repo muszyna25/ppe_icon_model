@@ -758,7 +758,6 @@ scripts/buildbot_scripts/bb_run -text
 scripts/buildbot_scripts/bb_run_doc -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
 scripts/buildbot_scripts/buildbot.tac.squall1 -text
-scripts/buildbot_scripts/buildbot.tac.tornado1 -text
 scripts/buildbot_scripts/buildbot.tac_master -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/public_html/archive.css -text
