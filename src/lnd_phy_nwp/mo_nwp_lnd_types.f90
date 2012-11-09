@@ -47,6 +47,7 @@
 MODULE mo_nwp_lnd_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -62,12 +63,7 @@ MODULE mo_nwp_lnd_types
   PUBLIC :: t_lnd_prog   !!  for prognostic variables
   PUBLIC :: t_wtr_prog   !!  for prognostic variables related to lake and sea ice models
   PUBLIC :: t_lnd_diag   !!  for diagnostic variables
-  PUBLIC :: t_ptr_lnd
 
-  TYPE t_ptr_lnd
-    REAL(wp), POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array
-    REAL(wp), POINTER :: p_2d(:,:)   ! pointer to 2D (spatial) array
-  END TYPE t_ptr_lnd
 
   !
   ! prognostic variables state vector (land)
@@ -91,20 +87,20 @@ MODULE mo_nwp_lnd_types
     &  wtot_snow_t    (:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
     &  dzh_snow_t     (:,:,:,:)     ! layer thickness between half levels in snow   (  m  )
 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_mult_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_s_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_gt_ptr(:) 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_snow_ptr(:) 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_mult_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_i_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_so_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_so_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_so_ice_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: wliq_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: wtot_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: dzh_snow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_mult_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_s_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_gt_ptr(:) 
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: w_snow_ptr(:) 
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: rho_snow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: rho_snow_mult_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: w_i_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_so_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: w_so_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: w_so_ice_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: wliq_snow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: wtot_snow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: dzh_snow_ptr(:)
 
   END TYPE t_lnd_prog
 
@@ -162,14 +158,14 @@ MODULE mo_nwp_lnd_types
     &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
     &  runoff_g_t   (:,:,:)     ! soil water runoff; sum over forecast          (kg/m2)
 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: qv_st_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: h_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: freshsnow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: snowfrac_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: snowfrac_lc_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_snow_eff_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_s_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_g_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: qv_st_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: h_snow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: freshsnow_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: snowfrac_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: snowfrac_lc_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: w_snow_eff_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_s_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_g_ptr(:)
 
   END TYPE t_lnd_diag
 
