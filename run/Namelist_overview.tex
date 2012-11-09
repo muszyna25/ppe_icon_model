@@ -29,7 +29,7 @@
 \newenvironment{longtab}
 {
 \begin{longtable}
-{|>{\raggedright}p{3cm}
+{|>{\raggedright}p{4cm}
  |>{\raggedright}p{1.5cm}
  |>{\raggedright}p{1.5cm}
  |>{\raggedright}p{1cm}
@@ -4241,6 +4241,22 @@ lrmscon\_lat = .TRUE.
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
+
+\subsection{ocean\_physics\_nml}
+
+\begin{longtab}
+
+\hline
+i\_sea\_ice    & I & 0  && 1: Winton, 2:Semtner& \tabularnewline 
+&&&& .FALSE.: compute drag only & \tabularnewline
+\hline 
+richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
+\hline
+richardson\_factor\_veloc  & I & 0.5e-5 & m/s&  & \tabularnewline
+\hline
+l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
+
+\end{longtab}
 
 \section{Namelist parameters for testcases (NAMELIST\_ICON)}
 
