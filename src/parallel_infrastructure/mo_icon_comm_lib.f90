@@ -271,6 +271,8 @@ MODULE mo_icon_comm_lib
 
   INTEGER :: log_file_id = 0
 
+  INTEGER :: max_send_buffer_size, max_recv_buffer_size
+
   !-------------------------------------------------------------------------
   INTEGER :: my_work_communicator
   INTEGER :: my_work_comm_size
@@ -356,9 +358,10 @@ CONTAINS
     IF (return_status > 0) &
       CALL finish (method_name, 'ALLOCATE grid_comm_pattern_list failed')
 
-    
-    ALLOCATE(send_buffer(max_send_recv_buffer_size), &
-      & recv_buffer(max_send_recv_buffer_size),stat=return_status)
+    max_send_buffer_size = max_send_recv_buffer_size
+    max_recv_buffer_size = max_send_recv_buffer_size    
+    ALLOCATE(send_buffer(max_send_buffer_size), &
+      & recv_buffer(max_recv_buffer_size),stat=return_status)
     IF (return_status > 0) &
       CALL finish (method_name, 'ALLOCATE send,recv buffers failed')
 
@@ -397,6 +400,54 @@ CONTAINS
     RETURN
 
   END SUBROUTINE construct_icon_comm_lib
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE resize_send_buffer(new_size)
+    INTEGER, INTENT(in) :: new_size
+    
+    INTEGER :: return_status
+    CHARACTER(*), PARAMETER :: method_name = "resize_send_buffer"
+
+    IF (new_size <= max_send_buffer_size) THEN
+      CALL warning(method_name, "new_size <= max_send_buffer_size")
+      RETURN
+    ENDIF
+
+    max_send_buffer_size = new_size + 128
+    DEALLOCATE(send_buffer, stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'DEALLOCATE send_buffer failed')
+    ALLOCATE(send_buffer(max_send_buffer_size),stat=return_status)
+    IF (return_status > 0) &
+     CALL finish (method_name, 'ALLOCATE send_buffers failed')   
+    
+  END SUBROUTINE resize_send_buffer
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE resize_recv_buffer(new_size)
+    INTEGER, INTENT(in) :: new_size
+    
+    INTEGER :: return_status
+    CHARACTER(*), PARAMETER :: method_name = "resize_recv_buffer"
+
+    IF (new_size <= max_recv_buffer_size) THEN
+      CALL warning(method_name, "new_size <= max_recv_buffer_size")
+      RETURN
+    ENDIF
+
+    max_recv_buffer_size = new_size + 128
+    DEALLOCATE(recv_buffer, stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'DEALLOCATE recv_buffer failed')
+    ALLOCATE(recv_buffer(max_recv_buffer_size),stat=return_status)
+    IF (return_status > 0) &
+     CALL finish (method_name, 'ALLOCATE recv_buffers failed')
+    
+  END SUBROUTINE resize_recv_buffer
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -1710,7 +1761,6 @@ CONTAINS
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size,&
       & message_size, message_seq_id  
-!     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillandsend)
     
@@ -1815,9 +1865,10 @@ CONTAINS
       send_procs_buffer(bfid)%current_index = send_procs_buffer(bfid)%start_index
     ENDDO
     
-    ! check if we went over the max_send_recv_buffer_size
-    IF (buffer_start >= max_send_recv_buffer_size) &
-      CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
+    ! check if we went over the max_send_buffer_size
+    IF (buffer_start >= max_send_buffer_size) &
+      & CALL resize_send_buffer(buffer_start)
+!       CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
  
   END SUBROUTINE compute_send_buffer_sizes
   !-----------------------------------------------------------------------
@@ -2286,9 +2337,10 @@ CONTAINS
       recv_procs_buffer(bfid)%current_index = recv_procs_buffer(bfid)%start_index
     ENDDO
     
-    ! check if we went over the max_send_recv_buffer_size
-    IF (buffer_start >= max_send_recv_buffer_size) &
-      CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
+    ! check if we went over the max_recv_buffer_size
+    IF (buffer_start >= max_recv_buffer_size) &
+      & CALL resize_recv_buffer(buffer_start)
+!       CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
  
   END SUBROUTINE compute_recv_buffer_sizes
   !-----------------------------------------------------------------------
