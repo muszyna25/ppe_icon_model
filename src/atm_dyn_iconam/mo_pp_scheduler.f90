@@ -404,6 +404,7 @@ CONTAINS
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element,              &
+              &           isteptype=info%isteptype,                             &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ) )
           CASE (GRID_UNSTRUCTURED_EDGE)
@@ -416,12 +417,14 @@ CONTAINS
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element,              &
+              &           isteptype=info%isteptype,                             &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ))
             CALL add_var( p_opt_diag_list, TRIM(vname)//".Y", p_opt_field_r3d,  &
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element_2,            &
+              &           isteptype=info%isteptype,                             &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ))
           CASE DEFAULT
@@ -930,7 +933,8 @@ CONTAINS
 
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
-                &           ldims=shape3d, lrestart=.FALSE.,           &
+                &           ldims=shape3d, lrestart=.FALSE.,             &
+                &           isteptype=info%isteptype,                    &
                 &           loutput=.TRUE., new_element=new_element)
 
               !-- add post-processing task for interpolation
