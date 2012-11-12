@@ -788,7 +788,7 @@ CONTAINS
         &                 vcoeff%kpbl1, vcoeff%wfacpbl1,                & !out
         &                 vcoeff%kpbl2, vcoeff%wfacpbl2   )               !out
       ! Interpolate pressure on z-level "0": 
-      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_ifc,    &
+      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,     &
         &                pmsl_aux(:,1,:),                               &
         &                nblks, npromz, p_patch%nlev,                   &
         &                vcoeff%wfacpbl1, vcoeff%kpbl1,                 &
