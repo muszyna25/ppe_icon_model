@@ -278,11 +278,10 @@ if [[ $run_ocean = 'true' ]]; then
      ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
 
+     # link to fixed restart file for buildbot:
      if [ -f ${POOL_INIT}/${RESTARTNAME} ]; then
-       #copy to grids
-       cp -p ${POOL_INIT}/${RESTARTNAME} ${HGRIDDIR}/${RESTARTNAME}
-       #link to it form the experiment dir
-       ln -s ${HGRIDDIR}/${RESTARTNAME} ${EXPDIR}/restart_oce.nc
+       # direct link to it from the experiment dir
+       ln -s ${POOL_INIT}/${RESTARTNAME} ${EXPDIR}/restart_oce.nc
        #create default restart.info
        if [ ! -f "${EXPDIR}/restart.info" ];then
          echo "Create default ${EXPDIR}/restart.info"
