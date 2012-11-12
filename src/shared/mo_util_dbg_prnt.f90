@@ -152,7 +152,7 @@ CONTAINS
     CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
     WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
       &                    '  lat=',zlat,'  lon=',zlon,                        &
-      &                    '  cell-area = ', zarea
+      &                    '  cell-area  =', zarea
     CALL message (' ', message_text)
    
     !------------------------------------------------------------------
@@ -196,7 +196,7 @@ CONTAINS
         zarea= ppatch%cells%area(nc_i(i),nc_b(i))*1.0e-6_wp  ! in km2
         WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),  &
           &                    '  lat=',zlat,'  lon=',zlon,                       &
-          &                    '  cell-area = ', zarea
+          &                    '  cell-area  =', zarea
       END IF
       ! output
       CALL message (' ', message_text)
