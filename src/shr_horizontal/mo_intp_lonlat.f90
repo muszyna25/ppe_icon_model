@@ -408,22 +408,29 @@
       ! allocate memory only when needed.
       ALLOCATE ( &
         &  ptr_int_lonlat%rbf_vec_coeff(rbf_vec_dim_c, 2, nproma, nblks_lonlat),     &
-        &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
         &  ptr_int_lonlat%rbf_vec_idx(rbf_vec_dim_c, nproma, nblks_lonlat),          &
         &  ptr_int_lonlat%rbf_vec_blk(rbf_vec_dim_c, nproma, nblks_lonlat),          &
         &  ptr_int_lonlat%rbf_vec_stencil(nproma, nblks_lonlat),                     &
-        &  ptr_int_lonlat%rbf_c2grad_idx(rbf_c2grad_dim, nproma, nblks_lonlat),      &
-        &  ptr_int_lonlat%rbf_c2grad_blk(rbf_c2grad_dim, nproma, nblks_lonlat),      &
-        &  ptr_int_lonlat%cell_vert_dist(nproma, 3, 2, nblks_lonlat),                &
         &  STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
       ENDIF
 
+      ALLOCATE(ptr_int_lonlat%rdist(2, nproma, nblks_lonlat), stat=ist)
+      IF (ist /= SUCCESS)  CALL finish (routine, 'allocation for working arrays failed')
+
+      ptr_int_lonlat%rdist             = 0._wp
+      ptr_int_lonlat%rbf_vec_idx       = 0
+      ptr_int_lonlat%rbf_vec_blk       = 0
+      ptr_int_lonlat%rbf_vec_stencil   = 0
+      ptr_int_lonlat%rbf_vec_coeff     = 0._wp
+
       IF (l_intp_c2l) THEN
         ALLOCATE ( ptr_int_lonlat%rbf_c2l_coeff(rbf_dim_c2l, nproma, nblks_lonlat),         &
           &  ptr_int_lonlat%rbf_c2l_idx(rbf_dim_c2l, nproma, nblks_c),                      &
           &  ptr_int_lonlat%rbf_c2l_blk(rbf_dim_c2l, nproma, nblks_c),                      &
+          &  ptr_int_lonlat%rbf_c2lr_idx(rbf_dim_c2l, nproma, nblks_lonlat),                      &
+          &  ptr_int_lonlat%rbf_c2lr_blk(rbf_dim_c2l, nproma, nblks_lonlat),                      &
           &  ptr_int_lonlat%rbf_c2l_stencil(nproma, nblks_c),                               &
           STAT=ist )
         IF (ist /= SUCCESS) &
@@ -432,21 +439,24 @@
         ptr_int_lonlat%rbf_c2l_coeff   = 0._wp
         ptr_int_lonlat%rbf_c2l_idx     = 0
         ptr_int_lonlat%rbf_c2l_blk     = 0
+        ptr_int_lonlat%rbf_c2lr_idx    = 0
+        ptr_int_lonlat%rbf_c2lr_blk    = 0
         ptr_int_lonlat%rbf_c2l_stencil = 0
+      ELSE
+        ALLOCATE ( &
+          &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
+          &  ptr_int_lonlat%rbf_c2grad_idx(rbf_c2grad_dim, nproma, nblks_lonlat),      &
+          &  ptr_int_lonlat%rbf_c2grad_blk(rbf_c2grad_dim, nproma, nblks_lonlat),      &
+          &  ptr_int_lonlat%cell_vert_dist(nproma, 3, 2, nblks_lonlat),                &
+          &  STAT=ist )
+        IF (ist /= SUCCESS) THEN
+          CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
+        ENDIF
+        ptr_int_lonlat%rbf_c2grad_coeff  = 0._wp
+        ptr_int_lonlat%rbf_c2grad_idx    = 0
+        ptr_int_lonlat%rbf_c2grad_blk    = 0
+        ptr_int_lonlat%cell_vert_dist    = 0._wp
       END IF
-
-      ALLOCATE(ptr_int_lonlat%rdist(2, nproma, nblks_lonlat), stat=ist)
-      IF (ist /= SUCCESS)  CALL finish (routine, 'allocation for working arrays failed')
-
-      ptr_int_lonlat%rdist             = 0._wp
-      ptr_int_lonlat%rbf_vec_idx       = 0
-      ptr_int_lonlat%rbf_vec_blk       = 0
-      ptr_int_lonlat%rbf_c2grad_idx    = 0
-      ptr_int_lonlat%rbf_c2grad_blk    = 0
-      ptr_int_lonlat%cell_vert_dist    = 0._wp
-      ptr_int_lonlat%rbf_vec_stencil   = 0
-      ptr_int_lonlat%rbf_vec_coeff     = 0._wp
-      ptr_int_lonlat%rbf_c2grad_coeff  = 0._wp
 
     END SUBROUTINE allocate_int_state_lonlat_grid
 
@@ -465,13 +475,9 @@
       !-----------------------------------------------------------------------
 
       DEALLOCATE (ptr_int_lonlat%rbf_vec_coeff,           &
-        &         ptr_int_lonlat%rbf_c2grad_coeff,        &
         &         ptr_int_lonlat%rbf_vec_idx,             &
         &         ptr_int_lonlat%rbf_vec_blk,             &
         &         ptr_int_lonlat%rbf_vec_stencil,         &
-        &         ptr_int_lonlat%rbf_c2grad_idx,          &
-        &         ptr_int_lonlat%rbf_c2grad_blk,          &
-        &         ptr_int_lonlat%cell_vert_dist,          &
         &         ptr_int_lonlat%rdist,                   &
         &         ptr_int_lonlat%tri_idx,                 &
         &         ptr_int_lonlat%global_idx,              &
@@ -484,10 +490,21 @@
         DEALLOCATE ( ptr_int_lonlat%rbf_c2l_coeff,   &
           &          ptr_int_lonlat%rbf_c2l_idx,     &
           &          ptr_int_lonlat%rbf_c2l_blk,     &
+          &          ptr_int_lonlat%rbf_c2lr_idx,    &
+          &          ptr_int_lonlat%rbf_c2lr_blk,    &
           &          ptr_int_lonlat%rbf_c2l_stencil, &
           &          STAT=ist )
         IF (ist /= SUCCESS) &
           CALL finish (routine, 'deallocation for rbf lon-lat coeffs failed')
+      ELSE
+        DEALLOCATE (ptr_int_lonlat%rbf_c2grad_coeff,        &
+          &         ptr_int_lonlat%rbf_c2grad_idx,          &
+          &         ptr_int_lonlat%rbf_c2grad_blk,          &
+          &         ptr_int_lonlat%cell_vert_dist,          &
+          &         STAT=ist )
+        IF (ist /= SUCCESS) THEN
+          CALL finish (routine, 'deallocation for lon-lat coefficients failed')
+        ENDIF
       END IF
 
     END SUBROUTINE deallocate_int_state_lonlat
@@ -1332,12 +1349,20 @@
           ptr_int_lonlat%rbf_vec_stencil(jc_lonlat,jb_lonlat) = ptr_int%rbf_vec_stencil_c(jc,jb)      
           ptr_int_lonlat%rbf_vec_idx(:,jc_lonlat,jb_lonlat)   = ptr_int%rbf_vec_idx_c(:,jc,jb)
           ptr_int_lonlat%rbf_vec_blk(:,jc_lonlat,jb_lonlat)   = ptr_int%rbf_vec_blk_c(:,jc,jb)
-
-          ptr_int_lonlat%rbf_c2grad_idx(:,jc_lonlat,jb_lonlat) = ptr_int%rbf_c2grad_idx(:,jc,jb)
-          ptr_int_lonlat%rbf_c2grad_blk(:,jc_lonlat,jb_lonlat) = ptr_int%rbf_c2grad_blk(:,jc,jb)
-
-          ptr_int_lonlat%cell_vert_dist(jc_lonlat,1:3,1:2,jb_lonlat) = ptr_int%cell_vert_dist(jc,1:3,1:2,jb)
         ENDDO
+
+        IF (.NOT.l_intp_c2l) THEN
+          DO jc_lonlat = i_startidx, i_endidx
+
+            jc = ptr_int_lonlat%tri_idx(1,jc_lonlat, jb_lonlat)
+            jb = ptr_int_lonlat%tri_idx(2,jc_lonlat, jb_lonlat)
+
+            ptr_int_lonlat%rbf_c2grad_idx(:,jc_lonlat,jb_lonlat) = ptr_int%rbf_c2grad_idx(:,jc,jb)
+            ptr_int_lonlat%rbf_c2grad_blk(:,jc_lonlat,jb_lonlat) = ptr_int%rbf_c2grad_blk(:,jc,jb)
+            ptr_int_lonlat%cell_vert_dist(jc_lonlat,1:3,1:2,jb_lonlat) = ptr_int%cell_vert_dist(jc,1:3,1:2,jb)
+          ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1353,6 +1378,28 @@
         CALL rbf_c2l_index( ptr_patch, ptr_int, ptr_int_lonlat )
         CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat,  &
           &                         in_points, nblks_lonlat, npromz_lonlat )
+
+        ! Compute reordered index lists to avoid nested indirect addressing at runtime
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jb_lonlat,jc_lonlat), SCHEDULE(runtime)
+        DO jb_lonlat = 1,nblks_lonlat
+
+          i_startidx = 1
+          i_endidx   = nproma
+          IF (jb_lonlat == nblks_lonlat) i_endidx = npromz_lonlat
+
+          DO jc_lonlat = i_startidx, i_endidx
+            jc = ptr_int_lonlat%tri_idx(1,jc_lonlat, jb_lonlat)
+            jb = ptr_int_lonlat%tri_idx(2,jc_lonlat, jb_lonlat)
+
+            ptr_int_lonlat%rbf_c2lr_idx(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_idx(:,jc,jb)   
+            ptr_int_lonlat%rbf_c2lr_blk(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_blk(:,jc,jb)
+          ENDDO
+
+        ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
       END IF
 
       ! compute distances (x0i - xc)
@@ -1389,8 +1436,10 @@
         END DO
       END DO
 
-      CALL rbf_compute_coeff_c2grad_lonlat (ptr_patch, ptr_int, nblks_lonlat, &
-        &                                   npromz_lonlat, ptr_int_lonlat)
+      IF (.NOT.l_intp_c2l) THEN
+        CALL rbf_compute_coeff_c2grad_lonlat (ptr_patch, ptr_int, nblks_lonlat, &
+          &                                   npromz_lonlat, ptr_int_lonlat)
+      ENDIF
 
       IF ( l_cutoff_local_domains ) THEN
         ! make a sensible guess for maximum distance (just taking a
@@ -1474,7 +1523,6 @@
       ! LOCAL VARIABLES
       INTEGER :: slev, elev,                 & ! vertical start and end level
         &        i_startidx, i_endidx,       & ! start/end index
-        &        i,                          &
         &        jc, jb, jk                    ! integer over lon-lat points, levels
 
       INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
@@ -1753,8 +1801,8 @@
       ! Local variables
       INTEGER :: slev, elev,               &  ! vertical start and end level
         &        jc, jb, jk,               &  ! integer over lon-lat points, levels
-        &        i_startidx, i_endidx,     &  ! start/end index
-        &        i, jb_cell, jc_cell
+        &        i_startidx, i_endidx         ! start/end index
+
       REAL(wp) :: vmin, vmax
       INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
       REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_coeff
@@ -1767,13 +1815,13 @@
       IF ( PRESENT(opt_slev) ) slev = opt_slev
       IF ( PRESENT(opt_elev) ) elev = opt_elev
 
-      iidx => ptr_int%rbf_c2l_idx
-      iblk => ptr_int%rbf_c2l_blk
+      iidx => ptr_int%rbf_c2lr_idx
+      iblk => ptr_int%rbf_c2lr_blk
 
       ptr_coeff => ptr_int%rbf_c2l_coeff
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,jb_cell,jc_cell,vmin,vmax), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,vmin,vmax), SCHEDULE(runtime)
 
       DO jb = 1,nblks_lonlat
 
@@ -1789,22 +1837,18 @@
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
-            jc_cell = ptr_int%tri_idx(1,jc, jb)
-            jb_cell = ptr_int%tri_idx(2,jc, jb)
             DO jk = slev, elev
 #else
 !CDIR UNROLL=3
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
-              jc_cell = ptr_int%tri_idx(1,jc, jb)
-              jb_cell = ptr_int%tri_idx(2,jc, jb)
 #endif
 
-              p_out(jc,jk,jb) =                                                                       &
-                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) + &
-                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) + &
-                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) + &
-                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell))
+              p_out(jc,jk,jb) =                                                   &
+                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) + &
+                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) + &
+                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) + &
+                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb))
 
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
@@ -1814,17 +1858,17 @@
               !               of the DWD" (1996)
               IF (l_mono_c2l) THEN
 
-                vmin = MIN(                                                         &
-                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell))   )
+                vmin = MIN(                                     &
+                  p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) , &
+                  p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) , &
+                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) , &
+                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb))   )
 
-                vmax = MAX(                                                         &
-                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell))   )
+                vmax = MAX(                                     &
+                  p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) , &
+                  p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) , &
+                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) , &
+                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb))   )
 
                 p_out(jc,jk,jb) = MAX( MIN(p_out(jc,jk,jb), vmax), vmin )
               END IF
@@ -1836,27 +1880,23 @@
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
-            jc_cell = ptr_int%tri_idx(1,jc, jb)
-            jb_cell = ptr_int%tri_idx(2,jc, jb)
             DO jk = slev, elev
 #else
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
-              jc_cell = ptr_int%tri_idx(1,jc, jb)
-              jb_cell = ptr_int%tri_idx(2,jc, jb)
 #endif
 
-              p_out(jc,jk,jb) =                                                                       &
-                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) + &
-                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) + &
-                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) + &
-                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) + &
-                ptr_coeff(5 ,jc,jb)*p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) + &
-                ptr_coeff(6 ,jc,jb)*p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) + &
-                ptr_coeff(7 ,jc,jb)*p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) + &
-                ptr_coeff(8 ,jc,jb)*p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) + &
-                ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) + &
-                ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell))
+              p_out(jc,jk,jb) =                                                   &
+                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) + &
+                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) + &
+                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) + &
+                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) + &
+                ptr_coeff(5 ,jc,jb)*p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) + &
+                ptr_coeff(6 ,jc,jb)*p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) + &
+                ptr_coeff(7 ,jc,jb)*p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) + &
+                ptr_coeff(8 ,jc,jb)*p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) + &
+                ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) + &
+                ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))
 
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
@@ -1866,29 +1906,29 @@
               !               of the DWD" (1996)
               IF (l_mono_c2l) THEN
 
-                vmin = MIN(                                                         &
-                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell))   )
+                vmin = MIN(                                     &
+                  p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) , &
+                  p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) , &
+                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) , &
+                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) , &
+                  p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) , &
+                  p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) , &
+                  p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) , &
+                  p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) , &
+                  p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) , &
+                  p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))   )
 
-                vmax = MAX(                                                         &
-                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell))   )
+                vmax = MAX(                                     &
+                  p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) , &
+                  p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) , &
+                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) , &
+                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) , &
+                  p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) , &
+                  p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) , &
+                  p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) , &
+                  p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) , &
+                  p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) , &
+                  p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))   )
 
                 p_out(jc,jk,jb) = MAX( MIN(p_out(jc,jk,jb), vmax), vmin )
               END IF
@@ -1900,30 +1940,26 @@
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
-            jc_cell = ptr_int%tri_idx(1,jc, jb)
-            jb_cell = ptr_int%tri_idx(2,jc, jb)
             DO jk = slev, elev
 #else
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
-              jc_cell = ptr_int%tri_idx(1,jc, jb)
-              jb_cell = ptr_int%tri_idx(2,jc, jb)
 #endif
 
-              p_out(jc,jk,jb) =                                                                       &
-                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) + &
-                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) + &
-                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) + &
-                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) + &
-                ptr_coeff(5 ,jc,jb)*p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) + &
-                ptr_coeff(6 ,jc,jb)*p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) + &
-                ptr_coeff(7 ,jc,jb)*p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) + &
-                ptr_coeff(8 ,jc,jb)*p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) + &
-                ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) + &
-                ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell)) + &
-                ptr_coeff(11,jc,jb)*p_cell_in(iidx(11,jc_cell,jb_cell),jk,iblk(11,jc_cell,jb_cell)) + &
-                ptr_coeff(12,jc,jb)*p_cell_in(iidx(12,jc_cell,jb_cell),jk,iblk(12,jc_cell,jb_cell)) + &
-                ptr_coeff(13,jc,jb)*p_cell_in(iidx(13,jc_cell,jb_cell),jk,iblk(13,jc_cell,jb_cell))
+              p_out(jc,jk,jb) =                                                   &
+                ptr_coeff(1 ,jc,jb)*p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) + &
+                ptr_coeff(2 ,jc,jb)*p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) + &
+                ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) + &
+                ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) + &
+                ptr_coeff(5 ,jc,jb)*p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) + &
+                ptr_coeff(6 ,jc,jb)*p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) + &
+                ptr_coeff(7 ,jc,jb)*p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) + &
+                ptr_coeff(8 ,jc,jb)*p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) + &
+                ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) + &
+                ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb)) + &
+                ptr_coeff(11,jc,jb)*p_cell_in(iidx(11,jc,jb),jk,iblk(11,jc,jb)) + &
+                ptr_coeff(12,jc,jb)*p_cell_in(iidx(12,jc,jb),jk,iblk(12,jc,jb)) + &
+                ptr_coeff(13,jc,jb)*p_cell_in(iidx(13,jc,jb),jk,iblk(13,jc,jb))
 
               ! monotonicity can be enforced by demanding that the interpolated 
               ! value is not higher or lower than the stencil point values.
@@ -1933,35 +1969,35 @@
               !               of the DWD" (1996)
               IF (l_mono_c2l) THEN
 
-                vmin = MIN(                                                         &
-                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(11,jc_cell,jb_cell),jk,iblk(11,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(12,jc_cell,jb_cell),jk,iblk(12,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(13,jc_cell,jb_cell),jk,iblk(13,jc_cell,jb_cell))   )
+                vmin = MIN(                                     &
+                  p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) , &
+                  p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) , &
+                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) , &
+                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) , &
+                  p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) , &
+                  p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) , &
+                  p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) , &
+                  p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) , &
+                  p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) , &
+                  p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb)) , &
+                  p_cell_in(iidx(11,jc,jb),jk,iblk(11,jc,jb)) , &
+                  p_cell_in(iidx(12,jc,jb),jk,iblk(12,jc,jb)) , &
+                  p_cell_in(iidx(13,jc,jb),jk,iblk(13,jc,jb))   )
 
-                vmax = MAX(                                                         &
-                  p_cell_in(iidx(1 ,jc_cell,jb_cell),jk,iblk(1 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(2 ,jc_cell,jb_cell),jk,iblk(2 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(3 ,jc_cell,jb_cell),jk,iblk(3 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(4 ,jc_cell,jb_cell),jk,iblk(4 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(5 ,jc_cell,jb_cell),jk,iblk(5 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(6 ,jc_cell,jb_cell),jk,iblk(6 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(7 ,jc_cell,jb_cell),jk,iblk(7 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(8 ,jc_cell,jb_cell),jk,iblk(8 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(9 ,jc_cell,jb_cell),jk,iblk(9 ,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(10,jc_cell,jb_cell),jk,iblk(10,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(11,jc_cell,jb_cell),jk,iblk(11,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(12,jc_cell,jb_cell),jk,iblk(12,jc_cell,jb_cell)) , &
-                  p_cell_in(iidx(13,jc_cell,jb_cell),jk,iblk(13,jc_cell,jb_cell))   )
+                vmax = MAX(                                     &
+                  p_cell_in(iidx(1 ,jc,jb),jk,iblk(1 ,jc,jb)) , &
+                  p_cell_in(iidx(2 ,jc,jb),jk,iblk(2 ,jc,jb)) , &
+                  p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) , &
+                  p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb)) , &
+                  p_cell_in(iidx(5 ,jc,jb),jk,iblk(5 ,jc,jb)) , &
+                  p_cell_in(iidx(6 ,jc,jb),jk,iblk(6 ,jc,jb)) , &
+                  p_cell_in(iidx(7 ,jc,jb),jk,iblk(7 ,jc,jb)) , &
+                  p_cell_in(iidx(8 ,jc,jb),jk,iblk(8 ,jc,jb)) , &
+                  p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) , &
+                  p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb)) , &
+                  p_cell_in(iidx(11,jc,jb),jk,iblk(11,jc,jb)) , &
+                  p_cell_in(iidx(12,jc,jb),jk,iblk(12,jc,jb)) , &
+                  p_cell_in(iidx(13,jc,jb),jk,iblk(13,jc,jb))   )
 
                 p_out(jc,jk,jb) = MAX( MIN(p_out(jc,jk,jb), vmax), vmin )
               END IF

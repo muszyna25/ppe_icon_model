@@ -590,6 +590,8 @@ TYPE t_lon_lat_intp
   ! direct interpolation from cell centers to lon-lat points:
   INTEGER, ALLOCATABLE  :: rbf_c2l_idx(:,:,:)         ! (rbf_dim_c2l, nproma, nblks_c)
   INTEGER, ALLOCATABLE  :: rbf_c2l_blk(:,:,:)         ! (rbf_dim_c2l, nproma, nblks_c)
+  INTEGER, ALLOCATABLE  :: rbf_c2lr_idx(:,:,:)        ! (rbf_dim_c2l, nproma, nblks_lonlat)
+  INTEGER, ALLOCATABLE  :: rbf_c2lr_blk(:,:,:)        ! (rbf_dim_c2l, nproma, nblks_lonlat)
   INTEGER, ALLOCATABLE  :: rbf_c2l_stencil(:,:)       ! (nproma, nblks_c)
 
   ! distances from cell center to lon-lat grid point
