@@ -2232,9 +2232,10 @@ CONTAINS
     ! Test loop for dolic_e:
     !  - if lsm_e(dolic_e+1) is boundary, then dolic_c1 or c2 > dolic_e
     !  - more tests? lsm(dolic) is no boundary any more
+    !  - bugfix: owned_edges for test only
 
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
+    DO jb = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
 
         dol_e = v_base%dolic_e(je,jb)
