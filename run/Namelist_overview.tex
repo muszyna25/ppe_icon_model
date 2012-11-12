@@ -1709,6 +1709,14 @@ Logical switch if surface fields are provided as input (mandatory when inwp\_sur
 \tabularnewline
 
 \hline 
+l\_sst\_in&
+L & .FALSE.& &
+Logical switch. If true, the surface temperature of the water sea points is initialized 
+with the SST provided in the ifs2icon file. If false, it is initialized with the skin 
+temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
+\tabularnewline
+
+\hline 
 l\_zp\_out&
 L & .FALSE.& &
 Logical switch for diagnostic output on pressure and height levels & prep\_icon only
