@@ -49,8 +49,8 @@ MODULE mo_nh_vert_interp
   USE mo_opt_diagnostics,     ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
     &                               vcoeff_allocate, vcoeff_deallocate
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp,                ONLY: edges2cells_scalar
+  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
+  USE mo_intp,                ONLY: edges2cells_scalar, cell_avg
   USE mo_parallel_config,     ONLY: nproma
   USE mo_nh_pzlev_config,     ONLY: t_nh_pzlev_config
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
@@ -292,14 +292,14 @@ CONTAINS
     ! Temperature 
     CALL compute_slope(p_patch, p_int, prepicon%topography_c, prepicon%topography_v, slope)
 
-    CALL temperature_intp(prepicon%atm_in%temp, prepicon%atm%temp,          &
-                          prepicon%atm_in%z3d, prepicon%z_mc,               &
-                          p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
-                          coef1, coef2, coef3, wfac_lin,                    &
-                          idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
-                          wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
-                          l_restore_sfcinv=.TRUE., l_hires_corr=lc2f,       &
-                          extrapol_dist=-1500._wp, slope=slope              )
+    CALL temperature_intp(prepicon%atm_in%temp, prepicon%atm%temp,                &
+                          prepicon%atm_in%z3d, prepicon%z_mc,                     &
+                          p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,       &
+                          coef1, coef2, coef3, wfac_lin,                          &
+                          idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,           &
+                          wfacpbl1, kpbl1, wfacpbl2, kpbl2,                       &
+                          l_restore_sfcinv=.TRUE., l_hires_corr=lc2f,             &
+                          extrapol_dist=-1500._wp, l_pz_mode=.FALSE., slope=slope )
 
     ! horizontal wind components
     CALL uv_intp(prepicon%atm_in%u, prepicon%atm%u,                &
@@ -527,8 +527,8 @@ CONTAINS
                           coef1, coef2, coef3, wfac_lin,                   &
                           idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,    &
                           wfacpbl1, kpbl1, wfacpbl2, kpbl2,                &
-                          l_restore_sfcinv=.FALSE., l_hires_corr=.FALSE.,  &
-                          extrapol_dist=-500._wp                           )
+                          l_restore_sfcinv=.TRUE., l_hires_corr=.FALSE.,   &
+                          extrapol_dist=0._wp, l_pz_mode=.TRUE.            )
 
 
     ! horizontal wind components
@@ -579,7 +579,7 @@ CONTAINS
 
     ! Compute height at pressure levels; this height field is afterwards also
     ! used as target coordinate for vertical interpolation
-    CALL z_at_plevels(prepicon%atm%pres, z_tempv_in, prepicon%z_mc,           &
+    CALL z_at_plevels_old(prepicon%atm%pres, z_tempv_in, prepicon%z_mc,       &
                       prepicon%zlev%pres, z_tempv, prepicon%zlev%z3d,         &
                       prepicon%plev%pres, prepicon%plev%z3d, p_patch%nblks_c, &
                       p_patch%npromz_c, nlev, nzplev, nzplev                  )
@@ -603,8 +603,8 @@ CONTAINS
                           coef1, coef2, coef3, wfac_lin,                   &
                           idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,    &
                           wfacpbl1, kpbl1, wfacpbl2, kpbl2,                &
-                          l_restore_sfcinv=.FALSE., l_hires_corr=.FALSE.,  &
-                          extrapol_dist=-500._wp                           )
+                          l_restore_sfcinv=.TRUE., l_hires_corr=.FALSE.,   &
+                          extrapol_dist=0._wp, l_pz_mode=.TRUE.            )
 
     ! horizontal wind components
     CALL uv_intp(prepicon%atm%u, prepicon%plev%u,                  &
@@ -684,12 +684,14 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_nh_vert_interp:prepare_vert_interp")
 
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev, nlevp1, jg, i_endblk
     INTEGER :: nblks, npromz !< blocking parameters
     ! Auxiliary field for input data
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_tempv_in
     ! Auxiliary field for output data
     REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c) :: z_tempv
+    ! Auxiliary field for smoothing temperature and geopotential on presure level
+    REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_c) :: z_auxp
 
     !-------------------------------------------------------------------------
 
@@ -703,6 +705,7 @@ CONTAINS
     nlevp1 = p_patch%nlevp1
     nblks  = p_patch%nblks_c
     npromz = p_patch%npromz_c
+    jg     = p_patch%id
 
     !--- Coefficients: Interpolation to z-level fields
 
@@ -747,8 +750,8 @@ CONTAINS
       &                   vcoeff_z%bot_idx_cub, vcoeff_z%bot_idx_lin,        & !in
       &                   vcoeff_z%wfacpbl1, vcoeff_z%kpbl1,                 & !in
       &                   vcoeff_z%wfacpbl2, vcoeff_z%kpbl2,                 & !in
-      &                   l_restore_sfcinv=.FALSE.,                          & !in
-      &                   l_hires_corr=.FALSE., extrapol_dist=-500._wp ) !in
+      &                   l_restore_sfcinv=.TRUE., l_hires_corr=.FALSE.,     & !in
+      &                   extrapol_dist=0._wp, l_pz_mode=.TRUE.              ) !in
 
     IF (  iforcing == inwp  ) THEN
       
@@ -831,11 +834,19 @@ CONTAINS
       ! Compute height at pressure levels (i.e. geopot/g); this height 
       ! field is afterwards also used as target coordinate for vertical 
       ! interpolation
-      CALL z_at_plevels(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
-        &               pres_z_out, z_tempv, p_z3d_out,               & !in
-        &               p_p3d_out, geopot_p_out, nblks,               & !in,out,in
-        &               npromz, nlev, nzlev, nplev                    ) !in
+      CALL z_at_plevels(p_diag%pres, p_diag%tempv, p_metrics%z_mc,    & !in
+        &               p_p3d_out, z_auxp, nblks, npromz, nlev, nplev ) !in,out,in
       
+  !    CALL z_at_plevels_old(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
+  !      &                   pres_z_out, z_tempv, p_z3d_out,               & !in
+  !      &                   p_p3d_out, z_auxp, nblks,                     & !in,out,in
+  !      &                   npromz, nlev, nzlev, nplev                    ) !in
+
+      IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+        i_endblk = p_patch%cells%end_blk(1,1)
+        geopot_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
+      ENDIF
+      CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, geopot_p_out)
 
       ! Prepare again interpolation coefficients (now for pressure levels)
       CALL prepare_lin_intp(p_metrics%z_mc, geopot_p_out,                   & !in
@@ -868,7 +879,7 @@ CONTAINS
       vcoeff_p%l_initialized = .TRUE.
 
       ! Perform vertical interpolation
-      CALL temperature_intp(p_diag%temp, temp_p_out,                        & !in,out
+      CALL temperature_intp(p_diag%temp, z_auxp,                            & !in,out
         &                   p_metrics%z_mc, geopot_p_out,                   & !in
         &                   nblks, npromz, nlev, nplev,                     & !in
         &                   vcoeff_p%coef1, vcoeff_p%coef2, vcoeff_p%coef3, & !in
@@ -876,8 +887,15 @@ CONTAINS
         &                   vcoeff_p%idx0_lin, vcoeff_p%bot_idx_cub,        & !in
         &                   vcoeff_p%bot_idx_lin, vcoeff_p%wfacpbl1,        & !in
         &                   vcoeff_p%kpbl1, vcoeff_p%wfacpbl2,              & !in
-        &                   vcoeff_p%kpbl2, l_restore_sfcinv=.FALSE.,       & !in
-        &                   l_hires_corr=.FALSE., extrapol_dist=-500._wp    ) !in
+        &                   vcoeff_p%kpbl2, l_restore_sfcinv=.TRUE.,        & !in
+        &                   l_hires_corr=.FALSE., extrapol_dist=0._wp,      & !in
+        &                   l_pz_mode=.TRUE.                                ) !in
+
+      IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+        i_endblk = p_patch%cells%end_blk(1,1)
+        temp_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
+      ENDIF
+      CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
 
     END IF
 
@@ -946,8 +964,9 @@ CONTAINS
         &                   vcoeff_i%idx0_lin, vcoeff_i%bot_idx_cub,        & !in
         &                   vcoeff_i%bot_idx_lin, vcoeff_i%wfacpbl1,        & !in
         &                   vcoeff_i%kpbl1, vcoeff_i%wfacpbl2,              & !in
-        &                   vcoeff_i%kpbl2, l_restore_sfcinv=.FALSE.,       & !in
-        &                   l_hires_corr=.FALSE., extrapol_dist=-500._wp    ) !in
+        &                   vcoeff_i%kpbl2, l_restore_sfcinv=.TRUE.,        & !in
+        &                   l_hires_corr=.FALSE., extrapol_dist=0._wp,      & !in
+        &                   l_pz_mode=.TRUE.                                ) !in
 
     END IF
     
@@ -1599,7 +1618,7 @@ CONTAINS
 
   !-------------
   !>
-  !! SUBROUTINE z_at_plevels
+  !! SUBROUTINE z_at_plevels_old
   !! Computes height for a given set of pressure levels (basically the inversion 
   !! of pressure_intp). The purpose of this is to prepare diagnostic output on pressure levels.
   !!
@@ -1615,9 +1634,9 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE z_at_plevels(pres_ml, tempv_ml, z3d_ml, pres_zl, tempv_zl, z3d_zl,   &
-                          pres_pl, z3d_pl, nblks, npromz, nlevs_ml, nlevs_zl,     &
-                          nlevs_pl                                                )
+  SUBROUTINE z_at_plevels_old(pres_ml, tempv_ml, z3d_ml, pres_zl, tempv_zl, z3d_zl, &
+                          pres_pl, z3d_pl, nblks, npromz, nlevs_ml, nlevs_zl,       &
+                          nlevs_pl                                                  )
 
 
     ! Input fields
@@ -1751,7 +1770,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      IF (ierror(jb) > 0) CALL finish("z_at_plevels:",&
+      IF (ierror(jb) > 0) CALL finish("z_at_plevels_old:",&
         "Requested pressure levels exceed model top")
 
       ! Special treatment for target points lying lower than the lowest available height level
@@ -1859,8 +1878,231 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  END SUBROUTINE z_at_plevels
+  END SUBROUTINE z_at_plevels_old
 
+
+  !-------------
+  !>
+  !! SUBROUTINE z_at_plevels
+  !! Computes height for a given set of pressure levels based on the same extrapolation 
+  !! assumptions as used in ECMWF's IFS. 
+  !! The purpose of this is to prepare diagnostic output on pressure levels.
+  !!
+  !! Required input fields: pressure, virtual temperature and 3D height coordinate
+  !! on model levels, pressure of output levels
+  !! Output: 3D height field of pressure levels
+  !!
+  !! Method: piecewise analytical integration of the hydrostatic equation
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2012-11-13)
+  !!
+  !!
+  !!
+  SUBROUTINE z_at_plevels(pres_ml, tempv_ml, z3d_ml, pres_pl, z3d_pl, &
+                          nblks, npromz, nlevs_ml, nlevs_pl           )
+
+
+    ! Input fields
+    REAL(wp), INTENT(IN)  :: pres_ml  (:,:,:) ! pressure field on model levels
+    REAL(wp), INTENT(IN)  :: tempv_ml (:,:,:) ! virtual temperature on model levels
+    REAL(wp), INTENT(IN)  :: z3d_ml   (:,:,:) ! 3D height coordinate field on model levels
+    REAL(wp), INTENT(IN)  :: pres_pl  (:,:,:) ! pressure of output levels
+
+    ! Comment: for z3d_zl and pres_pl, 1D fields would actually be sufficient, but having
+    ! everything as 3D fields simplifies programming
+
+    ! Output
+    REAL(wp), INTENT(OUT) :: z3d_pl  (:,:,:) ! 3D height coordinate field of pressure levels
+
+    ! Dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlevs_ml   ! Number of model levels
+    INTEGER , INTENT(IN) :: nlevs_pl   ! Number of pressure levels
+
+    ! LOCAL VARIABLES
+
+    REAL(wp) :: dtvdz_thresh, vtgrad_standardatm, t_low, t_high
+
+    INTEGER  :: jb, jkm, jkp, jc, jkm_start 
+    INTEGER  :: nlen, ierror(nblks)
+    INTEGER , DIMENSION(nproma)          :: bot_idx_ml
+    INTEGER , DIMENSION(nproma,nlevs_pl) :: idx0_ml
+
+    REAL(wp) :: z_up, z_down
+    REAL(wp), DIMENSION(nproma,nlevs_pl) :: wfac_ml, dtvdz
+    REAL(wp), DIMENSION(nproma)          :: tmsl, tsfc_mod
+
+    LOGICAL :: l_found(nproma),lfound_all
+
+!-------------------------------------------------------------------------
+
+
+    ! Threshold for switching between analytical formulas for constant temperature and
+    ! constant vertical gradient of temperature, respectively
+    dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
+
+    ! Standard atmosphere vertical temperature gradient
+    vtgrad_standardatm = -6.5e-3_wp ! -6.5 K/km
+
+    ! Artificial limits on temperature profile used for extrapolation below the ground
+    t_low  = 255.0_wp
+    t_high = 290.5_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jkm,jkp,jc,nlen,jkm_start,bot_idx_ml,idx0_ml,z_up,z_down,wfac_ml, &
+!$OMP            tmsl,tsfc_mod,dtvdz,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = 1, nblks
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        z3d_pl(nlen+1:nproma,:,jb)  = 0.0_wp
+      ENDIF
+      ierror(jb) = 0
+
+      ! First compute coefficients for those target levels/points for which interpolation
+      ! between model-level data is possible
+      jkm_start = 1
+      DO jkp = 1, nlevs_pl
+        l_found(:) = .FALSE.
+        lfound_all = .FALSE.
+        DO jkm = jkm_start,nlevs_ml-1
+          DO jc = 1, nlen
+            IF (pres_pl(jc,jkp,jb) >= pres_ml(jc,jkm,jb) .AND. &
+                pres_pl(jc,jkp,jb) <  pres_ml(jc,jkm+1,jb)) THEN
+              idx0_ml(jc,jkp) = jkm
+              wfac_ml(jc,jkp) = (pres_pl(jc,jkp,jb)-pres_ml(jc,jkm+1,jb))/&
+                                (pres_ml(jc,jkm,jb)-pres_ml(jc,jkm+1,jb))
+              bot_idx_ml(jc) = jkp
+              l_found(jc) = .TRUE.
+            ELSE IF (pres_pl(jc,jkp,jb) >= pres_ml(jc,nlevs_ml,jb)) THEN
+              l_found(jc) = .TRUE.
+              idx0_ml(jc,jkp) = nlevs_ml
+            ELSE IF (pres_pl(jc,jkp,jb) < pres_ml(jc,1,jb)) THEN
+              idx0_ml(jc,jkp) = 1
+              wfac_ml(jc,jkp) = (pres_pl(jc,jkp,jb)-pres_ml(jc,2,jb))/&
+                                (pres_ml(jc,1  ,jb)-pres_ml(jc,2,jb))
+              bot_idx_ml(jc) = jkp
+              l_found(jc) = .TRUE.
+            ENDIF
+          ENDDO
+          IF (ALL(l_found(1:nlen))) THEN
+            lfound_all = .TRUE.
+            EXIT
+          ENDIF
+        ENDDO
+        IF (lfound_all) THEN
+          jkm_start = MIN(MINVAL(idx0_ml(1:nlen,jkp)),nlevs_ml-1)
+        ELSE
+          ierror(jb) = ierror(jb) + 1
+        ENDIF
+      ENDDO
+
+      IF (ierror(jb) > 0) CALL finish("z_at_plevels:",&
+        "Error in computing interpolation coefficients")
+
+      ! Preparations for extrapolation below the ground: calculate temperature
+      ! profile with artificial limits like in IFS. This temperature profile
+      ! is NOT consistent with the temperature on pressure levels computed
+      ! afterwards, implying that temperature and geopotential on pressure
+      ! levels are not in hydrostatic balance. We are not happy with this
+      ! solution, but it is used for the time being in order to be consistent
+      ! with IFS and GME.  
+
+      DO jc = 1, nlen
+        tsfc_mod(jc) = tempv_ml(jc,nlevs_ml,jb)
+        IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
+        tmsl(jc) = tsfc_mod(jc) - vtgrad_standardatm*z3d_ml(jc,nlevs_ml,jb)
+        IF (tmsl(jc) > t_high) THEN
+          IF (tsfc_mod(jc) > t_high) THEN
+            tsfc_mod(jc) = 0.5_wp*(t_high+tsfc_mod(jc))
+            tmsl(jc)     = tsfc_mod(jc)
+          ELSE
+            tmsl(jc)     = t_high
+          ENDIF
+        ENDIF
+      ENDDO
+
+      DO jkp = MINVAL(bot_idx_ml(1:nlen))+1, nlevs_pl
+        DO jc = 1, nlen
+          IF (jkp >= bot_idx_ml(jc)+1) THEN
+            ! Store extrapolation distance on wfac_ml if target point is below the 
+            ! surface of the input data (note: this is a positive quantity)
+            idx0_ml(jc,jkp) = nlevs_ml
+            wfac_ml(jc,jkp) = pres_pl(jc,jkp,jb)-pres_ml(jc,nlevs_ml,jb)
+          ENDIF
+        ENDDO
+      ENDDO
+
+      ! Now, compute vertical gradients of virtual potential temperature
+      DO jkp = 1, nlevs_pl
+        DO jc = 1, nlen
+          IF (jkp <= bot_idx_ml(jc)) THEN
+            jkm = idx0_ml(jc,jkp)
+            dtvdz(jc,jkp) = (tempv_ml(jc,jkm,jb)-tempv_ml(jc,jkm+1,jb)) / &
+                            (z3d_ml  (jc,jkm,jb)-z3d_ml  (jc,jkm+1,jb))
+
+          ELSE ! extrapolation below lowest model level required
+            dtvdz(jc,jkp) = (tsfc_mod(jc)-tmsl(jc))/z3d_ml(jc,nlevs_ml,jb)
+
+          ENDIF
+        ENDDO
+      ENDDO
+
+      ! Finally, compute height of pressure levels
+      DO jkp = 1, nlevs_pl
+        DO jc = 1, nlen
+          IF (jkp <= bot_idx_ml(jc)) THEN
+
+            ! interpolation based on piecewise analytical integration of the hydrostatic equation
+            jkm = idx0_ml(jc,jkp)
+            IF (ABS(dtvdz(jc,jkp)) > dtvdz_thresh) THEN
+              z_up   = z3d_ml(jc,jkm,jb) + tempv_ml(jc,jkm,jb)*((pres_pl(jc,jkp,jb) /   &
+                       pres_ml(jc,jkm,jb))**(-rd*dtvdz(jc,jkp)/grav)-1._wp)/dtvdz(jc,jkp)
+              z_down = z3d_ml(jc,jkm+1,jb) + tempv_ml(jc,jkm+1,jb)*((pres_pl(jc,jkp,jb) / &
+                       pres_ml(jc,jkm+1,jb))**(-rd*dtvdz(jc,jkp)/grav)-1._wp)/dtvdz(jc,jkp)
+
+            ELSE
+              z_up   = z3d_ml(jc,jkm,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
+                       tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm,jb)/pres_pl(jc,jkp,jb))
+              z_down = z3d_ml(jc,jkm+1,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
+                       tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm+1,jb)/pres_pl(jc,jkp,jb))
+            ENDIF
+
+            ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
+            ! except in the case of extrapolation above the top of the input data
+            IF (jkm == 1 .AND. wfac_ml(jc,jkp) > 1._wp) THEN
+              z3d_pl(jc,jkp,jb) = z_up
+            ELSE
+              z3d_pl(jc,jkp,jb) = wfac_ml(jc,jkp)*z_up + (1._wp-wfac_ml(jc,jkp))*z_down
+            ENDIF
+
+          ELSE !  extrapolation below lowest height level
+
+            jkm = nlevs_ml
+            IF (ABS(dtvdz(jc,jkp)) > dtvdz_thresh) THEN
+              z_up   = z3d_ml(jc,jkm,jb) + tempv_ml(jc,jkm,jb)*((pres_pl(jc,jkp,jb) /   &
+                       pres_ml(jc,jkm,jb))**(-rd*dtvdz(jc,jkp)/grav)-1._wp)/dtvdz(jc,jkp)
+            ELSE
+              z_up   = z3d_ml(jc,jkm,jb) + (rd*tempv_ml(jc,jkm,jb)/grav) * &
+                       LOG(pres_ml(jc,jkm,jb)/pres_pl(jc,jkp,jb))
+            ENDIF
+
+            z3d_pl(jc,jkp,jb) = z_up
+
+          ENDIF
+
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE z_at_plevels
 
   !-------------
   !>
@@ -2142,7 +2384,7 @@ CONTAINS
                              coef1, coef2, coef3, wfac_lin,                  &
                              idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,   &
                              wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_hires_corr, &
-                             l_restore_sfcinv, extrapol_dist, slope          )
+                             l_restore_sfcinv, extrapol_dist, l_pz_mode, slope)
 
 
     ! Atmospheric fields
@@ -2183,6 +2425,9 @@ CONTAINS
     ! (may be set to .FALSE. when interpolating on constant height/pressure levels)
     LOGICAL, INTENT(IN) :: l_restore_sfcinv
 
+    ! Logical switch if interpolation mode to height/pressure levels is to be used
+    LOGICAL, INTENT(IN) :: l_pz_mode
+
     REAL(wp), INTENT(IN) :: extrapol_dist ! Maximum extrapolation distance using the local vertical gradient
 
     REAL(wp), INTENT(IN), OPTIONAL :: slope(:,:)  ! slope of mass points
@@ -2190,10 +2435,10 @@ CONTAINS
     ! LOCAL VARIABLES
 
     INTEGER  :: jb, jk, jk1, jc, nlen, jk_start, jk_start_in, jk_start_out, ik1(nproma)
-    REAL(wp) :: wfac, sfcinv, vtgrad_standardatm
+    REAL(wp) :: wfac, sfcinv, vtgrad_standardatm, tmsl_max
 
     REAL(wp), DIMENSION(nproma) :: temp1, temp2, vtgrad_up, zdiff_inout, &
-                                   redinv1, redinv2
+                                   redinv1, redinv2, tmsl, tmsl_mod
     LOGICAL , DIMENSION(nproma) :: l_found
 
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, sfc_inv, temp_mod, g1, g2, g3
@@ -2210,10 +2455,13 @@ CONTAINS
     ! Standard atmosphere vertical temperature gradient used for large extrapolation distances
     vtgrad_standardatm = -6.5e-3_wp
 
+    ! Artificial upper limit on sea-level temperature for so-called plateau correction
+    tmsl_max = 298._wp
+
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,sfcinv,&
-!$OMP            temp1,temp2,vtgrad_up,zdiff_inout,redinv1,redinv2,l_found,          &
+!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,sfcinv,    &
+!$OMP            temp1,temp2,tmsl,tmsl_mod,vtgrad_up,zdiff_inout,redinv1,redinv2,l_found,&
 !$OMP            zalml_in,zalml_out,temp_mod,sfc_inv,g1,g2,g3) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
@@ -2224,60 +2472,73 @@ CONTAINS
         temp_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      DO jc = 1, nlen
-        ! Temperature at height zpbl1
-        temp1(jc) = wfacpbl1(jc,jb) *temp_in(jc,kpbl1(jc,jb),jb  ) + &
-             (1._wp-wfacpbl1(jc,jb))*temp_in(jc,kpbl1(jc,jb)+1,jb)
+      IF (l_pz_mode .AND. l_restore_sfcinv) THEN
 
-        ! Temperature at height zpbl2
-        temp2(jc) = wfacpbl2(jc,jb) *temp_in(jc,kpbl2(jc,jb),jb  ) + &
-             (1._wp-wfacpbl2(jc,jb))*temp_in(jc,kpbl2(jc,jb)+1,jb)
+        DO jk1 = 1, nlevs_in
+          DO jc = 1, nlen
 
-        ! Vertical gradient between zpbl1 and zpbl2
-        vtgrad_up(jc) = (temp2(jc) - temp1(jc))/(zpbl2 - zpbl1)
-
-        ! Set reasonable limits
-        vtgrad_up(jc) = MAX(vtgrad_up(jc),-8.5e-3_wp)
-        vtgrad_up(jc) = MIN(vtgrad_up(jc),-1.5e-3_wp)
-
-        ! height distance between lowest input and output grid point 
-        ! (negative if extrapolation takes place)
-        zdiff_inout(jc) = z3d_out(jc,nlevs_out,jb) - z3d_in(jc,nlevs_in,jb) 
-      ENDDO
-
-      DO jk1 = 1, nlevs_in
-        DO jc = 1, nlen
-
-          ! Height above lowest model level
-          zalml_in(jc,jk1) = z3d_in(jc,jk1,jb) - z3d_in(jc,nlevs_in,jb)
-
-          ! Modified temperature with surface inversion removed
-          IF (zalml_in(jc,jk1) < zpbl1) THEN
-            temp_mod(jc,jk1) = temp1(jc)+vtgrad_up(jc)*(zalml_in(jc,jk1)-zpbl1)
-          ELSE
+            ! just copy temp_in to temp_mod without accounting for possible surface inversions
             temp_mod(jc,jk1) = temp_in(jc,jk1,jb)
-          ENDIF
 
-          ! "surface inversion", defined by the difference between the extrapolated
-          ! extrapolated temperature from above and the original input temperature
-          !
-          ! Note: the extrapolated temperature may also be slightly colder than the original
-          ! one in the presence of (super-)adiabatic temperature gradients. In such
-          ! cases, using vtgrad_up for downward extrapolation is still appropriate because
-          ! the atmosphere in narrow mountain valleys usually does not become adiabatic
-          ! because of slope heating
-          !
-          sfc_inv(jc,jk1) = temp_mod(jc,jk1) - temp_in(jc,jk1,jb)
-
+          ENDDO
         ENDDO
-      ENDDO
 
-      DO jk1 = 1, nlevs_in
-        IF (MINVAL(zalml_in(1:nlen,jk1)) < zpbl1) THEN
-          jk_start_in = jk1
-          EXIT
-        ENDIF
-      ENDDO
+      ELSE
+        DO jc = 1, nlen
+          ! Temperature at height zpbl1
+          temp1(jc) = wfacpbl1(jc,jb) *temp_in(jc,kpbl1(jc,jb),jb  ) + &
+               (1._wp-wfacpbl1(jc,jb))*temp_in(jc,kpbl1(jc,jb)+1,jb)
+
+          ! Temperature at height zpbl2
+          temp2(jc) = wfacpbl2(jc,jb) *temp_in(jc,kpbl2(jc,jb),jb  ) + &
+               (1._wp-wfacpbl2(jc,jb))*temp_in(jc,kpbl2(jc,jb)+1,jb)
+
+          ! Vertical gradient between zpbl1 and zpbl2
+          vtgrad_up(jc) = (temp2(jc) - temp1(jc))/(zpbl2 - zpbl1)
+
+          ! Set reasonable limits
+          vtgrad_up(jc) = MAX(vtgrad_up(jc),-8.5e-3_wp)
+          vtgrad_up(jc) = MIN(vtgrad_up(jc),-1.5e-3_wp)
+
+          ! height distance between lowest input and output grid point 
+          ! (negative if extrapolation takes place)
+          zdiff_inout(jc) = z3d_out(jc,nlevs_out,jb) - z3d_in(jc,nlevs_in,jb) 
+        ENDDO
+
+        DO jk1 = 1, nlevs_in
+          DO jc = 1, nlen
+
+            ! Height above lowest model level
+            zalml_in(jc,jk1) = z3d_in(jc,jk1,jb) - z3d_in(jc,nlevs_in,jb)
+
+            ! Modified temperature with surface inversion removed
+            IF (zalml_in(jc,jk1) < zpbl1) THEN
+              temp_mod(jc,jk1) = temp1(jc)+vtgrad_up(jc)*(zalml_in(jc,jk1)-zpbl1)
+            ELSE
+              temp_mod(jc,jk1) = temp_in(jc,jk1,jb)
+            ENDIF
+
+            ! "surface inversion", defined by the difference between the extrapolated
+            ! extrapolated temperature from above and the original input temperature
+            !
+            ! Note: the extrapolated temperature may also be slightly colder than the original
+            ! one in the presence of (super-)adiabatic temperature gradients. In such
+            ! cases, using vtgrad_up for downward extrapolation is still appropriate because
+            ! the atmosphere in narrow mountain valleys usually does not become adiabatic
+            ! because of slope heating
+            !
+            sfc_inv(jc,jk1) = temp_mod(jc,jk1) - temp_in(jc,jk1,jb)
+
+          ENDDO
+        ENDDO
+
+        DO jk1 = 1, nlevs_in
+          IF (MINVAL(zalml_in(1:nlen,jk1)) < zpbl1) THEN
+            jk_start_in = jk1
+            EXIT
+          ENDIF
+        ENDDO
+      ENDIF
 
       ! Reduce the surface inversion strength depending on the slope of the target point and
       ! on the height difference between the source and target topography.
@@ -2345,50 +2606,102 @@ CONTAINS
       ENDDO
 
       ! Now perform vertical interpolation, based on the modified temperature field
-      DO jk = 1, nlevs_out
-        DO jc = 1, nlen
-          IF (jk <= bot_idx_cub(jc,jb)) THEN
+      IF (.NOT. l_pz_mode) THEN ! mode for interpolating initial data
 
-            ! cubic interpolation
-            jk1 = idx0_cub(jc,jk,jb)
-            temp_out(jc,jk,jb) = temp_mod(jc,jk1)           + coef1(jc,jk,jb)*g1(jc,jk1) + &
-                                 coef2(jc,jk,jb)*g2(jc,jk1) + coef3(jc,jk,jb)*g3(jc,jk1)
+        DO jk = 1, nlevs_out
+          DO jc = 1, nlen
+            IF (jk <= bot_idx_cub(jc,jb)) THEN
 
-          ELSE IF (jk <= bot_idx_lin(jc,jb)) THEN
+              ! cubic interpolation
+              jk1 = idx0_cub(jc,jk,jb)
+              temp_out(jc,jk,jb) = temp_mod(jc,jk1)           + coef1(jc,jk,jb)*g1(jc,jk1) + &
+                                   coef2(jc,jk,jb)*g2(jc,jk1) + coef3(jc,jk,jb)*g3(jc,jk1)
 
-            ! linear interpolation
-            jk1 = idx0_lin(jc,jk,jb)
-            temp_out(jc,jk,jb) = wfac_lin(jc,jk,jb)*temp_mod(jc,jk1) + &
-              (1._wp-wfac_lin(jc,jk,jb))*temp_mod(jc,jk1+1)
+            ELSE IF (jk <= bot_idx_lin(jc,jb)) THEN
 
-          ELSE
+              ! linear interpolation
+              jk1 = idx0_lin(jc,jk,jb)
+              temp_out(jc,jk,jb) = wfac_lin(jc,jk,jb)*temp_mod(jc,jk1) + &
+                (1._wp-wfac_lin(jc,jk,jb))*temp_mod(jc,jk1+1)
 
-            ! linear extrapolation using the upper temperature gradient; wfac_lin
-            ! carries the extrapolation distance
-            IF (wfac_lin(jc,jk,jb) > extrapol_dist) THEN
-              temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + wfac_lin(jc,jk,jb)*vtgrad_up(jc)
             ELSE
-              temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + extrapol_dist*vtgrad_up(jc) +  &
-                                   (wfac_lin(jc,jk,jb)-extrapol_dist)*vtgrad_standardatm
+
+              ! linear extrapolation using the upper temperature gradient; wfac_lin
+              ! carries the extrapolation distance
+              IF (wfac_lin(jc,jk,jb) > extrapol_dist) THEN
+                temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + wfac_lin(jc,jk,jb)*vtgrad_up(jc)
+              ELSE
+                temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + extrapol_dist*vtgrad_up(jc) +  &
+                                     (wfac_lin(jc,jk,jb)-extrapol_dist)*vtgrad_standardatm
+              ENDIF
+
             ENDIF
 
-          ENDIF
+            ! Height above lowest model level - needed for restoring the surface inversion
+            zalml_out(jc,jk) = z3d_out(jc,jk,jb) - z3d_out(jc,nlevs_out,jb)
 
-          ! Height above lowest model level - needed for restoring the surface inversion
-          zalml_out(jc,jk) = z3d_out(jc,jk,jb) - z3d_out(jc,nlevs_out,jb)
-
+          ENDDO
         ENDDO
-      ENDDO
 
-      DO jk = 1, nlevs_out
-        IF (MINVAL(zalml_out(1:nlen,jk)) < zpbl1) THEN
-          jk_start_out = jk
-          EXIT
-        ENDIF
-      ENDDO
+      ELSE ! mode for interpolation to pressure or height levels
+
+        ! Some precomputations that do not depend on the model level
+        DO jc = 1, nlen
+
+          ! extrapolated mean sea level temperature
+          tmsl(jc) = temp_mod(jc,nlevs_in) - vtgrad_standardatm * z3d_in(jc,nlevs_in,jb)
+
+          ! "Plateau correction"
+          IF (z3d_in(jc,nlevs_in,jb) > 2000._wp .AND. tmsl(jc) > tmsl_max) THEN
+            IF (z3d_in(jc,nlevs_in,jb) < 2500._wp) THEN
+              tmsl_mod(jc) = 0.002_wp*((2500._wp-z3d_in(jc,nlevs_in,jb))*tmsl(jc)+  &
+                (z3d_in(jc,nlevs_in,jb)-2000._wp)*tmsl_max)
+            ELSE
+              tmsl_mod(jc) = tmsl_max
+            ENDIF
+          ELSE
+            tmsl_mod(jc) = tmsl(jc)
+          ENDIF
+        ENDDO
+
+        DO jk = 1, nlevs_out
+          DO jc = 1, nlen
+            IF (jk <= bot_idx_cub(jc,jb)) THEN
+
+              ! cubic interpolation
+              jk1 = idx0_cub(jc,jk,jb)
+              temp_out(jc,jk,jb) = temp_mod(jc,jk1)           + coef1(jc,jk,jb)*g1(jc,jk1) + &
+                                   coef2(jc,jk,jb)*g2(jc,jk1) + coef3(jc,jk,jb)*g3(jc,jk1)
+
+            ELSE IF (jk <= bot_idx_lin(jc,jb)) THEN
+
+              ! linear interpolation
+              jk1 = idx0_lin(jc,jk,jb)
+              temp_out(jc,jk,jb) = wfac_lin(jc,jk,jb)*temp_mod(jc,jk1) + &
+                (1._wp-wfac_lin(jc,jk,jb))*temp_mod(jc,jk1+1)
+
+            ELSE ! apply empiricial correction computed above for extrapolation below the ground
+              
+              temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + wfac_lin(jc,jk,jb)* &
+                (temp_mod(jc,nlevs_in)-tmsl_mod(jc))/z3d_in(jc,nlevs_in,jb)
+
+            ENDIF
+
+          ENDDO
+        ENDDO
+
+      ENDIF
 
       ! Finally, subtract surface inversion from preliminary temperature field
-      IF (l_restore_sfcinv) THEN
+      IF (l_restore_sfcinv .AND. .NOT. l_pz_mode) THEN
+
+        DO jk = 1, nlevs_out
+          IF (MINVAL(zalml_out(1:nlen,jk)) < zpbl1) THEN
+            jk_start_out = jk
+            EXIT
+          ENDIF
+        ENDDO
+
         jk_start = jk_start_in - 1
         DO jk = jk_start_out, nlevs_out
           l_found(:) = .FALSE.
@@ -3288,9 +3601,9 @@ CONTAINS
         ! Vertical gradient between zpbl1 and zpbl2
         vtgrad_up(jc) = (tempv2(jc) - tempv1(jc))/(zpbl2 - zpbl1)
 
-        ! Set reasonable limits
-        vtgrad_up(jc) = MAX(vtgrad_up(jc),-8.5e-3_wp)
-        vtgrad_up(jc) = MIN(vtgrad_up(jc),-1.5e-3_wp)
+        ! Set reasonably restrictive limits
+        vtgrad_up(jc) = MAX(vtgrad_up(jc),-8.0e-3_wp)
+        vtgrad_up(jc) = MIN(vtgrad_up(jc),-5.0e-3_wp)
 
         ! height distance between lowest input level
         ! (negative if model grid point lies above z_target)
@@ -3302,11 +3615,11 @@ CONTAINS
 
         ! Reduction of the surface inversion depending on the extrapolation
         ! distance. The surface inversion is fully restored for extrapolation distances
-        ! up to zpbl1 and disregarded for distances larger than 4*zpbl1
-        IF (ABS(zdiff_inout(jc)) > 4._wp*zpbl1) THEN
+        ! up to zpbl1 and disregarded for distances larger than 3*zpbl1
+        IF (ABS(zdiff_inout(jc)) > 3._wp*zpbl1) THEN
           sfc_inv(jc) = 0._wp
         ELSE IF (ABS(zdiff_inout(jc)) > zpbl1) THEN
-          sfc_inv(jc) = sfc_inv(jc)*(1._wp - (ABS(zdiff_inout(jc))-zpbl1)/(3._wp*zpbl1))
+          sfc_inv(jc) = sfc_inv(jc)*(1._wp - (ABS(zdiff_inout(jc))-zpbl1)/(2._wp*zpbl1))
         ENDIF
 
         ! Linear extrapolation to zpbl1 above target height using the upper temperature gradient
@@ -3321,10 +3634,12 @@ CONTAINS
                             (zdiff_inout(jc)-extrapol_dist)*vtgrad_standardatm
 
           ! Artificial limitation analogous to GME method
-          IF (tempv_out_pbl1(jc) < 255._wp) THEN
-            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+255._wp)
-          ELSE IF (tempv_out_pbl1(jc) > 290.5_wp) THEN
-            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+290.5_wp)
+          IF (tempv_out_pbl1(jc) < 255.65_wp) THEN
+            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+255.65_wp)
+          ELSE IF (tempv_out_pbl1(jc) > 290.65_wp) THEN
+            tempv_out_pbl1(jc) = 0.5_wp*(tempv_out_pbl1(jc)+290.65_wp)
+            tempv_out_pbl1(jc) = MIN(298.15_wp,tempv_out_pbl1(jc))
+            tempv_out_pbl1(jc) = MAX(248.15_wp,tempv_out_pbl1(jc))
           ENDIF
 
           ! Averaged vertical temperature gradient
@@ -3333,13 +3648,6 @@ CONTAINS
 
         ! Final extrapolation of temperature to target height, including restored surface inversion
         tempv_out(jc) = tempv_out_pbl1(jc) - vtgrad_up_out(jc)*zpbl1 - sfc_inv(jc)
-
-        ! Artificial limitation analogous to GME method
-        IF (tempv_out(jc) < 255._wp) THEN
-          tempv_out(jc) = 0.5_wp*(tempv_out(jc)+255._wp)
-        ELSE IF (tempv_out(jc) > 290.5_wp) THEN
-          tempv_out(jc) = 0.5_wp*(tempv_out(jc)+290.5_wp)
-        ENDIF
 
         ! Boundary-layer vertical gradient of extrapolation profile
         vtgrad_pbl_out(jc) = (tempv_out_pbl1(jc)-tempv_out(jc))/zpbl1
