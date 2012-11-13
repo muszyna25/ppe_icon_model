@@ -91,6 +91,7 @@ MODULE mo_mpi
   PUBLIC :: p_allreduce_max
   PUBLIC :: p_commit_type_struct
   PUBLIC :: p_alltoall
+  PUBLIC :: p_clear_request
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
@@ -2363,13 +2364,14 @@ CONTAINS
 
   END SUBROUTINE p_isend_real
 
-  SUBROUTINE p_isend_real_1d (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_isend_real_1d (t_buffer, p_destination, p_tag, p_count, comm, request)
 
     REAL (dp), INTENT(inout) :: t_buffer(:)
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER,   INTENT(INOUT), OPTIONAL :: request
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, icount, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -2377,14 +2379,17 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
-       CALL MPI_ISEND (t_buffer, p_count, p_real_dp, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+    icount = SIZE(t_buffer)
+    IF (PRESENT(p_count))  icount = p_count
+
+    CALL p_inc_request
+    CALL MPI_ISEND (t_buffer, icount, p_real_dp, p_destination, p_tag, &
+      &             p_comm, out_request, p_error)
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
     ELSE
-       CALL p_inc_request
-       CALL MPI_ISEND (t_buffer, SIZE(t_buffer), p_real_dp, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+      p_request(p_irequest) = out_request
     END IF
 
 #ifdef DEBUG
@@ -2990,13 +2995,13 @@ CONTAINS
 
   END SUBROUTINE p_recv_real
 
-  SUBROUTINE p_recv_real_1d (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_recv_real_1d (t_buffer, p_source, p_tag, p_count, comm, displs)
 
     REAL (dp), INTENT(out) :: t_buffer(:)
     INTEGER,   INTENT(in)  :: p_source, p_tag
-    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm, displs
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, icount, idispls
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -3004,13 +3009,14 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (PRESENT(p_count)) THEN
-       CALL MPI_RECV (t_buffer, p_count, p_real_dp, p_source, p_tag, &
-            p_comm, p_status, p_error)
-    ELSE
-       CALL MPI_RECV (t_buffer, SIZE(t_buffer), p_real_dp, p_source, p_tag, &
-            p_comm, p_status, p_error)
-    END IF
+    icount = SIZE(t_buffer)
+    IF (PRESENT(p_count))  icount = p_count
+
+    idispls = 1
+    IF (PRESENT(displs)) idispls = displs
+
+    CALL MPI_RECV (t_buffer(idispls), icount, p_real_dp, p_source, p_tag, &
+      &            p_comm, p_status, p_error)
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -5606,12 +5612,18 @@ CONTAINS
   !------------------------------------------------------
 
   !------------------------------------------------------
-  SUBROUTINE p_wait
+  SUBROUTINE p_wait(request)
+    INTEGER, INTENT(INOUT), OPTIONAL :: request
 #ifndef NOMPI
     INTEGER :: p_status_wait(MPI_STATUS_SIZE,p_irequest)
 
-    CALL MPI_WAITALL(p_irequest, p_request, p_status_wait, p_error)
-    p_irequest = 0
+    IF (PRESENT(request)) THEN
+      CALL MPI_WAIT(request,p_status_wait(:,1), p_error)
+      CALL p_clear_request(request)
+    ELSE
+      CALL MPI_WAITALL(p_irequest, p_request, p_status_wait, p_error)
+      p_irequest = 0
+    END IF
 #endif
   END SUBROUTINE p_wait
 
@@ -6354,8 +6366,8 @@ CONTAINS
 
    SUBROUTINE p_gatherv_int (sendbuf, sendcount, recvbuf, recvcounts, &
      &                       displs, p_dest, comm)
-     INTEGER,           INTENT(inout) :: sendbuf(:), sendcount,  &
-       &                                 recvbuf(:), recvcounts(:), displs(:)
+     INTEGER,           INTENT(in)    :: sendbuf(:), sendcount
+     INTEGER,           INTENT(inout) :: recvbuf(:), recvcounts(:), displs(:)
      INTEGER,           INTENT(in)    :: p_dest
      INTEGER, OPTIONAL, INTENT(in)    :: comm
      
@@ -6635,5 +6647,13 @@ CONTAINS
      recvbuf(:) = sendbuf
 #endif
    END SUBROUTINE p_alltoall_int
+
+
+  SUBROUTINE p_clear_request(request)
+    INTEGER, INTENT(INOUT) :: request
+#if !defined(HAVE_NOMPI)
+    request = MPI_REQUEST_NULL
+#endif
+  END SUBROUTINE p_clear_request
 
 END MODULE mo_mpi
