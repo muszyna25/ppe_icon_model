@@ -61,7 +61,8 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: dt_rad,izenith
+  USE mo_radiation_config,  ONLY: izenith
+  USE mo_atm_phy_nwp_config,ONLY: atm_phy_nwp_config
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -303,12 +304,13 @@ CONTAINS
     IF (phy_config%lrad) THEN
 
       datetime_radtran = datetime                ! copy current date and time
-      dsec = 0.5_wp*(dt_rad-pdtime)              ! [s] time increment for zenith angle computation
+!       dsec = 0.5_wp*(dt_rad-pdtime)              ! [s] time increment for zenith angle computation
+      dsec = 0.5_wp*(atm_phy_nwp_config(jg)%dt_rad - pdtime)              ! [s] time increment for zenith angle computation
       CALL add_time(dsec,0,0,0,datetime_radtran) ! add time increment to get date and
       !                                          ! time information for the zenith angle comp.
 
       ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
-                    ( MOD(NINT(datetime%daysec),NINT(dt_rad)) == 0 )
+                    ( MOD(NINT(datetime%daysec),NINT(atm_phy_nwp_config(jg)%dt_rad)) == 0 )
       l1st_phy_call = .FALSE.
 
       ztime_radheat = 2._wp*pi * datetime%daytim 

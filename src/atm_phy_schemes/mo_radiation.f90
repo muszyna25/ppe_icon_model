@@ -80,7 +80,6 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
-    &                                dt_rad,                  &
     &                                izenith
   USE mo_lnd_nwp_config,       ONLY: isub_seaice
 
@@ -490,13 +489,13 @@ CONTAINS
     & ,qm_o3                                                               &
 !!$    & ,pgeom1                                                              &
     & ,cdnc              ,cld_frc                                          &
-    & , zaeq1, zaeq2, zaeq3, zaeq4, zaeq5                                  &
+    & , zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad,                        &
     ! output
-    & ,cld_cvr                                                             &
+    & cld_cvr                                                             &
 !!$    & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
 !!$    & ,dpar_sfc          ,par_dff_sfc                                      &
-    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all     &
-    & ,opt_halo_cosmu0  )
+    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all,    &
+    & opt_halo_cosmu0  )
 
     ! input
     ! -----
@@ -534,7 +533,8 @@ CONTAINS
       &  zaeq2(kbdim,klev) , & !< aerosol maritime
       &  zaeq3(kbdim,klev) , & !< aerosol urban
       &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
-      &  zaeq5(kbdim,klev)     !< aerosol stratospheric background
+      &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
+      &  dt_rad                !< radiation time step
     
     LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0    
 

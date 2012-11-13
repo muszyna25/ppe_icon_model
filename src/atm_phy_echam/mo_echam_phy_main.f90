@@ -72,7 +72,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
-  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3,dt_rad
+  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_srtm_config,         ONLY: jpsw
   USE mo_lrtm_par,            ONLY: jpband => nbndlw
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -83,6 +83,7 @@ MODULE mo_echam_phy_main
   USE mo_gw_hines,            ONLY: gw_hines
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
   PRIVATE
@@ -454,46 +455,47 @@ CONTAINS
           ! indices and dimensions
 !!$          & jg                       ,&!< in     domain index
 !!$          & jb                       ,&!< in     block index
-          & jce                      ,&!< in     end   index for loop over block
-          & nbdim                    ,&!< in     dimension of block over cells
-          & nlev                     ,&!< in     number of full levels = number of layers
-          & nlevp1                   ,&!< in     number of half levels = number of layer interfaces
+          & jce        = jce         ,&!< in     end   index for loop over block
+          & kbdim      = nbdim       ,&!< in     dimension of block over cells
+          & klev       = nlev        ,&!< in     number of full levels = number of layers
+          & klevp1     = nlevp1      ,&!< in     number of half levels = number of layer interfaces
           !
-          & itype(:)                 ,&!< in     type of convection
+          & ktype      = itype(:)    ,&!< in     type of convection
           !
           ! surface: albedo + temperature
-          & field% lsmask(:,jb)      ,&!< in     land-sea mask. (1. = land, 0. = sea/lakes)
-          & field% glac(:,jb)        ,&!< in     fraction of land covered by glaciers
+          & zland      = field% lsmask(:,jb) ,&!< in     land-sea mask. (1. = land, 0. = sea/lakes)
+          & zglac      = field% glac(:,jb)   ,&!< in     fraction of land covered by glaciers
           !
-          & field% cosmu0(:,jb)      ,&!< in     cos of zenith angle mu0 for rad. transfer calc.
-          & field% albvisdir(:,jb)   ,&!< in     surface albedo for visible range, direct
-          & field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
-          & field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
-          & field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
-          & ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
+          & cos_mu0    = field% cosmu0(:,jb)      ,&!< in     cos of zenith angle mu0 for rad. transfer calc.
+          & alb_vis_dir= field% albvisdir(:,jb)   ,&!< in     surface albedo for visible range, direct
+          & alb_nir_dir= field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
+          & alb_vis_dif= field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
+          & alb_nir_dif= field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
+          & emis_rad   = ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
+          & tk_sfc     = ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
-          & field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
-          & field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
-          & field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt
-          & field% q (:,:,jb,iqv)    ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
-          & field% q (:,:,jb,iqc)    ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
-          & field% q (:,:,jb,iqi)    ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
-          & field% o3(:,:,jb)        ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
+          & pp_hl  =field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
+          & pp_fl  =field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
+          & tk_fl  =field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt
+          & qm_vap =field% q (:,:,jb,iqv)    ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
+          & qm_liq =field% q (:,:,jb,iqc)    ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
+          & qm_ice =field% q (:,:,jb,iqi)    ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
+          & qm_o3  =field% o3(:,:,jb)        ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
 !!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
-          & field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & zaedummy(:,:)            ,&!< in aerosol continental
-          & zaedummy(:,:)            ,&!< in aerosol maritime
-          & zaedummy(:,:)            ,&!< in aerosol urban
-          & zaedummy(:,:)            ,&!< in aerosol volcano ashes
-          & zaedummy(:,:)            ,&!< in aerosol stratospheric background
+          & cdnc   =field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
+          & cld_frc=field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
+          & zaeq1   = zaedummy(:,:)            ,&!< in aerosol continental
+          & zaeq2   = zaedummy(:,:)            ,&!< in aerosol maritime
+          & zaeq3   = zaedummy(:,:)            ,&!< in aerosol urban
+          & zaeq4   = zaedummy(:,:)            ,&!< in aerosol volcano ashes
+          & zaeq5   = zaedummy(:,:)            ,&!< in aerosol stratospheric background
+          & dt_rad  = atm_phy_nwp_config(jg)%dt_rad ,&
           !
           ! output
           ! ------
           !
-          & field% aclcov(:,jb)      ,&!< out    cloud cover in a column [m2/m2]
+          & cld_cvr    =field% aclcov(:,jb)      ,&!< out    cloud cover in a column [m2/m2]
           !
 !!$          ! surface shortwave
 !!$          ! - transmissivities in spectral range w.r.t. total solar irradiation
@@ -506,11 +508,11 @@ CONTAINS
 !!$          & field% pardffsfc(:,jb)   ,&!< out    diffuse fraction in PAR net downw. flux
           !
           ! atmospheric profiles
-          & field% emterclr(:,:,jb)  ,&!< out    terrestrial emissivity, clear sky, net downward
-          & field% trsolclr(:,:,jb)  ,&!< out    solar transmissivity  , clear sky, net downward
+          & emter_clr  =field% emterclr(:,:,jb)  ,&!< out    terrestrial emissivity, clear sky, net downward
+          & trsol_clr  =field% trsolclr(:,:,jb)  ,&!< out    solar transmissivity  , clear sky, net downward
           !
-          & field% emterall(:,:,jb)  ,&!< out    terrestrial flux      , all   sky, net downward
-          & field% trsolall(:,:,jb)   )!< out    solar transmissivity  , all   sky, net downward
+          & emter_all  =field% emterall(:,:,jb)  ,&!< out    terrestrial flux      , all   sky, net downward
+          & trsol_all  =field% trsolall(:,:,jb)   )!< out    solar transmissivity  , all   sky, net downward
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 

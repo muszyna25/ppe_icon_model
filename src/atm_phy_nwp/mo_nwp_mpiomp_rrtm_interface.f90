@@ -673,6 +673,7 @@ CONTAINS
         & zaeq3   = zaeq3(:,:,jb)                        ,&!< in aerosol urban
         & zaeq4   = zaeq4(:,:,jb)                        ,&!< in aerosol volcano ashes
         & zaeq5   = zaeq5(:,:,jb)                        ,&!< in aerosol stratospheric background
+        & dt_rad  = atm_phy_nwp_config(jg)%dt_rad        ,&
                               !
                               ! output
                               ! ------
