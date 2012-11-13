@@ -1225,6 +1225,12 @@
     !         communication patterns. However, after this initial phase,
     !         these data structures are resized to the local sizes.
     !
+    ! @todo   For global grids, one should add only one point of the
+    !         first and last latitude rows to the interpolation point
+    !         list. Then, during interpolation, the interpolation
+    !         result should be copied on to the other points with
+    !         +-90deg.
+    !
     SUBROUTINE rbf_setup_interpol_lonlat_grid(grid, ptr_patch, ptr_int_lonlat, ptr_int)
 
       TYPE (t_lon_lat_grid), INTENT(INOUT)         :: grid
