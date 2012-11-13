@@ -161,6 +161,8 @@ MODULE mo_gnat_gridsearch
   PUBLIC :: t_gnat_tree, gnat_tree
   PUBLIC :: icoord_dim
   PUBLIC :: t_coord
+  PUBLIC :: UNASSOCIATED
+  PUBLIC :: MAX_RANGE
 
 CONTAINS
 
@@ -452,6 +454,8 @@ CONTAINS
     r = rr
     min_dist(:,istart:istart+iv-1)       = MAX_RANGE
     min_node_idx(:,istart:istart+iv-1,1) = INVALID_NODE
+    min_dist_old = 0._gk
+    p_old(:)     = 0._gk
 
     DO jb=istart, istart+iv-1
       ! set end index in current block:
