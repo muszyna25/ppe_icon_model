@@ -63,6 +63,7 @@ MODULE mo_gnat_gridsearch
 
   USE mo_kind,                ONLY: wp, sp
   USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_math_constants,      ONLY: pi_180
   USE mo_math_utilities,      ONLY: t_geographical_coordinates
   USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
@@ -155,6 +156,7 @@ MODULE mo_gnat_gridsearch
   PUBLIC :: gnat_std_radius
   PUBLIC :: gnat_query_containing_triangles
   PUBLIC :: gnat_merge_distributed_queries
+  PUBLIC :: gnat_recursive_query
   ! data
   PUBLIC :: gk
   PUBLIC :: gnat_k
@@ -508,11 +510,14 @@ CONTAINS
   !       interpolation purposes. Thus we insert only cells with
   !       "ref_ctrl" flags >= 2.
 
-  SUBROUTINE gnat_insert_mt(p_patch, nproc, count_dist)
+  SUBROUTINE gnat_insert_mt(p_patch, nproc, count_dist, &
+    &                       opt_ldegree, opt_startblk, opt_endblk)
 
     TYPE(t_patch), INTENT(IN)  :: p_patch
     INTEGER,       INTENT(IN)  :: nproc
     INTEGER,       INTENT(OUT) :: count_dist ! counter: distance calculations
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_ldegree
+    INTEGER, INTENT(IN), OPTIONAL :: opt_startblk, opt_endblk
 
     ! Local parameters
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_insert_mt")
@@ -545,9 +550,14 @@ CONTAINS
     rl_start = 2
     rl_end = min_rlcell_int
     
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)    
+    IF (PRESENT(opt_startblk) .AND. PRESENT(opt_endblk)) THEN
+      i_startblk = opt_startblk
+      i_endblk   = opt_endblk
+    ELSE
+      i_nchdom   = MAX(1,p_patch%n_childdom)
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)    
+    END IF
 
     count_dist = 1
 
@@ -555,20 +565,35 @@ CONTAINS
     ALLOCATE(cell_indices(3,p_patch%n_patch_cells), &
       &      permutation(p_patch%n_patch_cells),STAT=errstat)
     IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
+
     ntotal = 0
-    DO jb=i_startblk,i_endblk
-      CALL get_indices_c(p_patch, jb,  &
-        &                i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, &
-        &                rl_start, rl_end)
-      DO jc=i_startidx,i_endidx
-        IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
-        ntotal = ntotal + 1
-        cell_indices(1,ntotal) = jc
-        cell_indices(2,ntotal) = jb
-        cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+    IF (PRESENT(opt_startblk) .AND. PRESENT(opt_endblk)) THEN
+      DO jb=i_startblk,i_endblk
+        i_startidx = 1
+        i_endidx   = UBOUND(p_patch%cells%center,1) ! = nproma
+        IF (jb == i_endblk) i_endidx = p_patch%npromz_c
+        DO jc=i_startidx,i_endidx
+          ntotal = ntotal + 1
+          cell_indices(1,ntotal) = jc
+          cell_indices(2,ntotal) = jb
+          cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+        END DO
       END DO
-    END DO
+    ELSE
+      DO jb=i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb,  &
+          &                i_startblk, i_endblk, &
+          &                i_startidx, i_endidx, &
+          &                rl_start, rl_end)
+        DO jc=i_startidx,i_endidx
+          IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
+          ntotal = ntotal + 1
+          cell_indices(1,ntotal) = jc
+          cell_indices(2,ntotal) = jb
+          cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+        END DO
+      END DO
+    END IF
     icount = 0
 
     DO jb=1,nstrides
@@ -657,6 +682,7 @@ CONTAINS
           pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
           p(1,j)       = REAL( pcoord%lon, gk)
           p(2,j)       = REAL( pcoord%lat, gk)
+          IF (opt_ldegree) p(:,j) = p(:,j)*pi_180
           idx(:,j)     = new_idx(:)
           work(j)      = work(j) + 1
           tree_depth   = MAX(tree_depth, depth(j))
@@ -848,9 +874,11 @@ CONTAINS
   ! (Possible) improvement for the future:
   ! - implementation of min/max range boundaries if not
   !   all grid points are of interest.
-  SUBROUTINE gnat_init_grid(p_patch)
+  SUBROUTINE gnat_init_grid(p_patch, opt_ldegree, opt_startblk, opt_endblk)
 
-    TYPE(t_patch), INTENT(IN)    :: p_patch
+    TYPE(t_patch), INTENT(IN)     :: p_patch
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_ldegree
+    INTEGER, INTENT(IN), OPTIONAL :: opt_startblk, opt_endblk
     ! local variables:
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_init_grid")
     INTEGER                      :: count_dist, nproc
@@ -869,7 +897,7 @@ CONTAINS
     expected_num_nodes = 5*p_patch%n_patch_cells/gnat_k + 1
 
     ! build GNAT data structure based on clon, clat:
-    CALL gnat_insert_mt(p_patch, nproc, count_dist)
+    CALL gnat_insert_mt(p_patch, nproc, count_dist, opt_ldegree, opt_startblk, opt_endblk)
 
   END SUBROUTINE gnat_init_grid
 
