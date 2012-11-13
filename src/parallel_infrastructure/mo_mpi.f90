@@ -87,6 +87,10 @@ MODULE mo_mpi
   PUBLIC :: p_allreduce_minloc
   PUBLIC :: p_gather_field
   PUBLIC :: p_gatherv
+  PUBLIC :: p_scatterv
+  PUBLIC :: p_allreduce_max
+  PUBLIC :: p_commit_type_struct
+  PUBLIC :: p_alltoall
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
@@ -396,8 +400,14 @@ MODULE mo_mpi
      MODULE PROCEDURE p_gather_int
   END INTERFACE
 
+  INTERFACE p_scatterv
+    MODULE PROCEDURE p_scatterv_real1D2D
+  END INTERFACE
+
   INTERFACE p_gatherv
-     MODULE PROCEDURE p_gatherv_int
+    MODULE PROCEDURE p_gatherv_int
+    MODULE PROCEDURE p_gatherv_real2D1D
+    MODULE PROCEDURE p_gatherv_real3D1D
   END INTERFACE
 
   INTERFACE p_max
@@ -438,6 +448,14 @@ MODULE mo_mpi
     MODULE PROCEDURE p_gather_field_4d
     MODULE PROCEDURE p_gather_field_2d_int
     MODULE PROCEDURE p_gather_field_3d_int
+  END INTERFACE
+
+  INTERFACE p_allreduce_max
+    MODULE PROCEDURE p_allreduce_max_int_1d
+  END INTERFACE
+
+  INTERFACE p_alltoall
+    MODULE PROCEDURE p_alltoall_int
   END INTERFACE
 
 CONTAINS
@@ -6209,6 +6227,31 @@ CONTAINS
 
   END FUNCTION p_min_3d
 
+
+  ! Computes maximum of a 1D field of integers.
+  !
+  ! @param[in] root Optional root PE, otherwise we perform an
+  !                 ALL-TO-ALL operation
+  SUBROUTINE p_allreduce_max_int_1d (zfield, comm, root) 
+    INTEGER, INTENT(inout) :: zfield(:)
+    INTEGER, INTENT(in) :: comm
+    INTEGER, INTENT(in), OPTIONAL :: root
+
+#if !defined(NOMPI)
+    INTEGER :: p_comm, p_error
+
+    p_comm = comm
+    IF (PRESENT(root)) THEN
+      CALL MPI_REDUCE (MPI_IN_PLACE, zfield, SIZE(zfield), p_int, &
+        MPI_MAX, root, p_comm, p_error)
+    ELSE
+      CALL MPI_ALLREDUCE (MPI_IN_PLACE, zfield, SIZE(zfield), p_int, &
+        MPI_MAX, p_comm, p_error)
+    END IF ! if present(root)
+#endif
+  END SUBROUTINE p_allreduce_max_int_1d
+
+
   SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
     REAL(dp),          INTENT(inout) :: sendbuf, recvbuf(:)
     INTEGER,           INTENT(in) :: p_dest
@@ -6334,6 +6377,75 @@ CONTAINS
      recvbuf((displs(1)+1):(displs(1)+sendcount)) = sendbuf(1:sendcount)
 #endif
    END SUBROUTINE p_gatherv_int 
+
+   
+   SUBROUTINE p_gatherv_real2D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)
+     REAL(dp),          INTENT(IN)    :: sendbuf(:,:)
+     INTEGER,           INTENT(IN)    :: sendcount
+     REAL(dp),          INTENT(INOUT) :: recvbuf(:)
+     INTEGER,           intent(IN)    :: recvcounts(:), displs(:)
+     INTEGER,           INTENT(in)    :: p_dest
+     INTEGER,           INTENT(in)    :: comm
+
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D1D")
+     INTEGER :: p_comm, p_error
+
+     p_comm = comm
+     CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
+       &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
+       &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
+#endif
+   END SUBROUTINE p_gatherv_real2D1D
+
+
+   SUBROUTINE p_gatherv_real3D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)
+     REAL(dp),          INTENT(IN)    :: sendbuf(:,:,:)
+     INTEGER,           INTENT(IN)    :: sendcount
+     REAL(dp),          INTENT(INOUT) :: recvbuf(:)
+     INTEGER,           intent(IN)    :: recvcounts(:), displs(:)
+     INTEGER,           INTENT(in)    :: p_dest
+     INTEGER,           INTENT(in)    :: comm
+
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D1D")
+     INTEGER :: p_comm, p_error
+
+     p_comm = comm
+     CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
+       &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
+       &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
+#endif
+   END SUBROUTINE p_gatherv_real3D1D
+
+
+   SUBROUTINE p_scatterv_real1D2D (sendbuf, sendcounts, displs, recvbuf, recvcount, p_dest, comm)
+     REAL(dp),          INTENT(IN)    :: sendbuf(:)
+     INTEGER,           INTENT(IN)    :: sendcounts(:), displs(:)
+     REAL(dp),          INTENT(INOUT) :: recvbuf(:,:)
+     INTEGER,           INTENT(IN)    :: recvcount
+     INTEGER,           INTENT(in)    :: p_dest
+     INTEGER,           INTENT(in)    :: comm
+
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_real1D2D")
+     INTEGER :: p_comm, p_error
+
+     p_comm = comm
+     CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &           ! sendbuf, sendcount, displs
+       &               p_real_dp, recvbuf, recvcount, &           ! sendtype, recvbuf, recvcounts, 
+       &               p_real_dp, p_dest, p_comm_work, p_error)   ! recvtype, root, comm, error
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_SCATTERV operation!')
+#else
+     recvbuf(:,:) = RESHAPE(sendbuf, (/ SIZE(recvbuf,1), SIZE(recvbuf,2) /))
+#endif
+   END SUBROUTINE p_scatterv_real1D2D
 
    
    SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
@@ -6491,5 +6603,37 @@ CONTAINS
 #endif
 
    END SUBROUTINE p_gather_field_4d
+   
+   
+   ! Commits a user-defined MPI type
+   !
+   FUNCTION p_commit_type_struct(oldtypes, blockcounts) RESULT(newtype)
+     INTEGER :: newtype
+     INTEGER, INTENT(IN) :: oldtypes(2), blockcounts(2)
+#if !defined(NOMPI)
+     INTEGER :: ierr, offsets(2), extent
+     ! define structured type and commit it  
+     CALL MPI_TYPE_EXTENT(oldtypes(1), extent, ierr) 
+     offsets(:) = (/ 0, extent /)
+     CALL MPI_TYPE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr) 
+     CALL MPI_TYPE_COMMIT(newtype, ierr) 
+#endif
+   END FUNCTION p_commit_type_struct
+
+
+   SUBROUTINE p_alltoall_int (sendbuf, recvbuf, comm)
+     INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoall_int")
+     INTEGER :: p_comm, p_error
+
+     p_comm = comm
+     CALL MPI_ALLTOALL(sendbuf, 1, p_int, recvbuf, 1, p_int, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_ALLTOALL operation!')
+#else
+     recvbuf(:) = sendbuf
+#endif
+   END SUBROUTINE p_alltoall_int
 
 END MODULE mo_mpi
