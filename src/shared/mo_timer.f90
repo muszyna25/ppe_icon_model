@@ -146,6 +146,9 @@ MODULE mo_timer
 
   PUBLIC :: timer_extra1, timer_extra2, timer_extra3, timer_extra4
 
+  ! low level timing routine
+  PUBLIC :: tic, toc
+
   !-------------------
   ! Module variables
   !-------------------
@@ -428,6 +431,46 @@ CONTAINS
     timer_extra4 = new_timer("extra4")
 
   END SUBROUTINE init_timer
+
+
+  !> Low-level timing routine: start timing (also for multi-threaded runs)
+  SUBROUTINE tic(time_s)
+!$  USE OMP_LIB
+
+    REAL, INTENT(OUT) :: time_s
+    ! local variables:
+    LOGICAL :: lopenmp
+    REAL    :: time_total, elapsed(2)
+
+    lopenmp = .FALSE.
+!$  lopenmp = .TRUE.
+
+    IF (.NOT. lopenmp) THEN
+      ! do nothing
+    ELSE
+!$    time_s = REAL(omp_get_wtime())
+    END IF
+  END SUBROUTINE tic
+
+  !> Low-level timing routine: stop timing, return elapsed time in
+  !> seconds (also for multi-threaded runs)
+  FUNCTION toc(time_s)
+!$  USE OMP_LIB
+
+    REAL :: toc
+    REAL, INTENT(IN) :: time_s
+    ! local variables:
+    LOGICAL :: lopenmp
+    REAL    :: time_total, elapsed(2)
+!$  lopenmp = .TRUE.
+
+    IF (.NOT. lopenmp) THEN
+      ! do nothing
+      toc = 0.
+    ELSE
+!$    toc = REAL(omp_get_wtime()) - time_s
+    END IF
+  END FUNCTION toc
 
 END MODULE mo_timer
 
