@@ -1337,8 +1337,8 @@
       IF (dbg_level > 1) &
         CALL message(routine, "copy neighbor indices from standard RBF interpolation")
 
-!$OMP PARALLEL SHARED(nblks_lonlat, nproma, npromz_lonlat, &
-!$OMP                 ptr_int_lonlat, ptr_int),            &
+!$OMP PARALLEL SHARED(nblks_lonlat, nproma, npromz_lonlat,   &
+!$OMP                 ptr_int_lonlat, ptr_int, l_intp_c2l),  &
 !$OMP          DEFAULT (NONE)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc), SCHEDULE(runtime)
       DO jb_lonlat = 1,nblks_lonlat
