@@ -83,7 +83,6 @@ MODULE mo_echam_phy_main
   USE mo_gw_hines,            ONLY: gw_hines
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
   PRIVATE
@@ -485,12 +484,12 @@ CONTAINS
 !!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
           & cdnc   =field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
           & cld_frc=field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & zaeq1   = zaedummy(:,:)            ,&!< in aerosol continental
-          & zaeq2   = zaedummy(:,:)            ,&!< in aerosol maritime
-          & zaeq3   = zaedummy(:,:)            ,&!< in aerosol urban
-          & zaeq4   = zaedummy(:,:)            ,&!< in aerosol volcano ashes
-          & zaeq5   = zaedummy(:,:)            ,&!< in aerosol stratospheric background
-          & dt_rad  = atm_phy_nwp_config(jg)%dt_rad ,&
+          & zaeq1   = zaedummy(:,:)          ,&!< in aerosol continental
+          & zaeq2   = zaedummy(:,:)          ,&!< in aerosol maritime
+          & zaeq3   = zaedummy(:,:)          ,&!< in aerosol urban
+          & zaeq4   = zaedummy(:,:)          ,&!< in aerosol volcano ashes
+          & zaeq5   = zaedummy(:,:)          ,&!< in aerosol stratospheric background
+          & dt_rad  = phy_config%dt_rad      ,&
           !
           ! output
           ! ------

@@ -36,6 +36,7 @@
 !!
 MODULE mo_echam_phy_config
 
+  USE mo_kind,      ONLY: wp
   USE mo_exception, ONLY: finish, message, print_value
 
   IMPLICIT NONE
@@ -69,6 +70,8 @@ MODULE mo_echam_phy_config
     LOGICAL :: ljsbach     !<  .true. for calculating the JSBACH land surface
     LOGICAL :: lhd         !<  .true. for hydrologic discharge model
 !!$    LOGICAL :: lmidatm     !<  .true. for middle atmosphere model version
+    REAL(wp) :: dt_rad   !! "-"                     radiation
+    
 
   END TYPE t_echam_phy_config
 

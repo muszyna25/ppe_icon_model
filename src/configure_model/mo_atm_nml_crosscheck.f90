@@ -141,7 +141,9 @@ CONTAINS
     dtime     = dtime     * grid_rescale_factor
     IF (get_my_process_type() == atmo_process) THEN
       dtime_adv = dtime_adv * grid_rescale_factor
-
+      echam_phy_config%dt_rad = &
+        & echam_phy_config%dt_rad * grid_rescale_factor
+        
       DO jg=1,max_dom
         atm_phy_nwp_config(jg)%dt_conv = &
           atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
