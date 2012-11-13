@@ -363,7 +363,7 @@ class EXP_plot(HtmlResource):
 	    Date_from = t
 
 # Check if from revision greater to revision. If yes change it.
-          if Rev_from > Rev_to:
+          if int(Rev_from) > int(Rev_to):
 	    t         = Rev_to
 	    Rev_to   = Rev_from
 	    rev_from = t
@@ -656,11 +656,14 @@ class EXP_plot(HtmlResource):
         data += "<tr>\n"
 	data += "  <td style=\"text-align:left;\" ><b>Experiment:</b></td>\n"
 	data += "  <td style=\"text-align:left;\">\n"
-	
+
+#old bug begin	
 	if ExpPlotError == 0:
 	  data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
 	else:
 	  data += "    <select  disabled=\"disabled\" name=\"exp\" onChange=\"document.date_form.submit()\">\n"
+# old bug end
+# new  data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
 	  
 #ToDo   Include the correct showing of '_' in experment name and plot-name
 
@@ -1140,7 +1143,7 @@ class EXP_plot(HtmlResource):
       if "rev_from" in req.args:
         try:
           fRev = req.args["rev_from"][0]
-          if fRev < "4774":
+          if int(fRev) < 4774:
               fRev = "4774"
           lRev = True
         except ValueError:
@@ -1150,7 +1153,7 @@ class EXP_plot(HtmlResource):
       if "rev_to" in req.args:
         try:
           tRev = req.args["rev_to"][0]
-          if tRev < "4774":
+          if int(tRev) < 4774:
               tRev = "4774"
           lRev = True
         except ValueError:
