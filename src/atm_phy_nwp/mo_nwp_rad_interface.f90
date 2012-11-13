@@ -66,7 +66,7 @@ MODULE mo_nwp_rad_interface
 
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
    &  nwp_rrtm_radiation_reduced, nwp_rrtm_radiation_repartition, nwp_rrtm_ozon_aerosol
-  USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
+!   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
   USE mo_albedo,               ONLY: sfc_albedo
 
   IMPLICIT NONE

@@ -127,8 +127,8 @@ MODULE mo_nh_stepping
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
-  USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
-    & init_ompthread_radiation
+!   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
+!     & init_ompthread_radiation
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -334,37 +334,37 @@ MODULE mo_nh_stepping
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
-  IF (parallel_radiation_omp) THEN
-
-    !---------------------------------------
-    CALL init_ompthread_radiation()
-    
-!$    CALL omp_set_nested(.true.)
-!$    CALL omp_set_num_threads(2)
-!$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
-!$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
-!$OMP PARALLEL SECTIONS
-!$OMP SECTION
-!$  CALL omp_set_num_threads(nh_stepping_ompthreads)
-!$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
-!$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
-
-    CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
-      &                       l_have_output )
-    CALL model_end_ompthread()
-
-!$OMP SECTION
-!$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
-!$    omp_get_max_threads()
-  CALL nwp_start_radiation_ompthread()
-!$OMP END PARALLEL SECTIONS
-
-  ELSE
+!   IF (parallel_radiation_omp) THEN
+! 
+!     !---------------------------------------
+!     CALL init_ompthread_radiation()
+!     
+! !$    CALL omp_set_nested(.true.)
+! !$    CALL omp_set_num_threads(2)
+! !$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
+! !$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
+! !$OMP PARALLEL SECTIONS
+! !$OMP SECTION
+! !$  CALL omp_set_num_threads(nh_stepping_ompthreads)
+! !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
+! !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
+! 
+!     CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
+!       &                       l_have_output )
+!     CALL model_end_ompthread()
+! 
+! !$OMP SECTION
+! !$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
+! !$    omp_get_max_threads()
+!   CALL nwp_start_radiation_ompthread()
+! !$OMP END PARALLEL SECTIONS
+! 
+!   ELSE
     !---------------------------------------
 
     CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
                               l_have_output )
-  ENDIF
+!   ENDIF
 
   CALL deallocate_nh_stepping ()
 

@@ -1089,7 +1089,6 @@ src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text
 src/atm_phy_nwp/mo_nwp_gscp_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_gw_interface.f90 -text
-src/atm_phy_nwp/mo_nwp_mpiomp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_parameters.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_init.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_state.f90 -text
@@ -1304,6 +1303,7 @@ src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
+src/not_used/mo_nwp_mpiomp_rrtm_interface.f90.not_used -text
 src/oce_dyn_icohom/mo_hydro_ocean_run.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping_mimetic.f90 -text
