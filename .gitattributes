@@ -647,6 +647,7 @@ run/exp.oce_cmp2mpiom_upwind -text
 run/exp.oce_default_L40 -text
 run/exp.oce_density_front -text
 run/exp.oce_densityfront -text
+run/exp.oce_diagnostics -text
 run/exp.oce_diffusion -text
 run/exp.oce_homogen -text
 run/exp.oce_mpiom -text
