@@ -6,10 +6,8 @@
 !!
 MODULE mo_remap_intp
 
-#if !defined(HAVE_NOMPI)
-#ifdef __SX__
+#if defined(__SX__) && !defined (NOMPI)
   USE MPI
-#endif
 #endif
 
   USE mo_kind,               ONLY: wp
