@@ -262,6 +262,7 @@ CONTAINS
     config_mmr_ch4    = vmr_ch4 * amch4/amd
     config_mmr_n2o    = vmr_n2o * amn2o/amd
     config_mmr_o2     = vmr_o2  * amo2 /amd
+    config_izenith    = izenith
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
