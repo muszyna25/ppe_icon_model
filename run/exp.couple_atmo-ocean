@@ -264,11 +264,11 @@ cat > $atmo_namelist << EOF
  lvdiff    = .TRUE.
  lrad      = .TRUE.
  lgw_hines = .TRUE.
+ dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
 /
 &echam_conv_nml
 /
 &radiation_nml
- dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
  irad_h2o   = 1         ! prognostic vapor, liquid and ice
  irad_co2   = 2         ! constant co2 vmr
  irad_ch4   = 0         ! switch off ch4

@@ -162,7 +162,6 @@ cat > $atmo_namelist << EOF
 &radiation_nml
  irad_o3         = 6        ! 0: no ozone, 6: ozone, attention: increase ntracer by one
  izenith         = 3        ! 4: NWP default, 3: no annual cycle
- dt_rad          = ${dt_rad}
 /
 &io_nml
  out_expname = '${EXPNAME}' ! file name base

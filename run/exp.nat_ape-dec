@@ -246,7 +246,6 @@ cat >> ${atmo_namelist} << EOF
  efdt_min_raylfric  = 7200.
 /
 &radiation_nml
- dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
  irad_o3    = 7             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
  izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
  irad_h2o   = 1             ! prognostic vapor, liquid and ice
