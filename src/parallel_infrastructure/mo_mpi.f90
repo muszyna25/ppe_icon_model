@@ -6629,6 +6629,8 @@ CONTAINS
      offsets(:) = (/ 0, extent /)
      CALL MPI_TYPE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr) 
      CALL MPI_TYPE_COMMIT(newtype, ierr) 
+#else
+     newtype = 0
 #endif
    END FUNCTION p_commit_type_struct
 
@@ -6651,7 +6653,7 @@ CONTAINS
 
   SUBROUTINE p_clear_request(request)
     INTEGER, INTENT(INOUT) :: request
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     request = MPI_REQUEST_NULL
 #endif
   END SUBROUTINE p_clear_request
