@@ -18,7 +18,6 @@ MODULE mo_remap_intp
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_communication,      ONLY: blk_no, idx_no
   USE mo_io_units,           ONLY: nnml
-  USE mo_namelist,           ONLY: POSITIONED, position_nml, open_nml, close_nml
   USE mo_util_sort,          ONLY: quicksort
   USE mo_mpi,                ONLY: p_n_work, p_comm_work, p_int, p_real_dp,    &
     &                              p_commit_type_struct, p_alltoall
@@ -30,6 +29,7 @@ MODULE mo_remap_intp
     &                              get_free_node, heap_node_init, heap_insert
   USE mo_remap_config,       ONLY: dbg_level, MAX_NSTENCIL
   USE mo_remap_shared,       ONLY: t_grid
+  USE mo_remap_io,           ONLY: s_maxsize
 
   IMPLICIT NONE
 
@@ -41,9 +41,7 @@ MODULE mo_remap_intp
   PUBLIC :: merge_heaps
   PUBLIC :: sync_foreign_wgts
   PUBLIC :: reduce_mthreaded_weights
-  PUBLIC :: read_interp_namelist
   ! variables and data types
-  PUBLIC :: s_maxsize
   PUBLIC :: t_intp_data
   PUBLIC :: t_intp_data_mt
 
@@ -55,18 +53,12 @@ MODULE mo_remap_intp
 #endif
 #endif
   
-  ! Maximum size of sequential list for very large stencils
-  INTEGER  :: s_maxsize
-
   ! Threshold. Weights smaller than this value are neglected.
   REAL(wp), PARAMETER :: W_THRESHOLD      = 1e-10_wp
 
   ! Distributed computation: max. size of weight storage for other PEs
   ! @todo Compute this value dependent on grid size.
   INTEGER,  PARAMETER :: MAX_NFOREIGN     = 50000
-
-  ! namelist definition: main namelist
-  NAMELIST/interp_nml/   s_maxsize
 
   !> data structure containing interpolation coefficients
   !
@@ -129,31 +121,6 @@ MODULE mo_remap_intp
   END INTERFACE
   
 CONTAINS
-
-  !> Opens namelist file, reads interpolation config.
-  !
-  SUBROUTINE read_interp_namelist(filename)
-    CHARACTER(LEN=*), INTENT(IN) :: filename !< main namelist file
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::read_interp_namelist')
-    INTEGER :: istat
-
-    IF (dbg_level >= 5) WRITE (0,*) "# read interpolation namelist"
-    ! default settings
-    s_maxsize        = 500000
-    ! read user's (new) specifications
-    CALL open_nml(TRIM(filename))
-    CALL position_nml ('interp_nml', status=istat)
-    IF (istat == POSITIONED) THEN
-      READ (nnml, interp_nml)
-    ELSE
-      CALL finish(routine, "Internal error!")
-    END IF
-    CALL close_nml
-    ! status output
-    IF (dbg_level >= 2)  WRITE (0,*) "# stencil size: ", MAX_NSTENCIL, "/", s_maxsize
-  END SUBROUTINE read_interp_namelist
-
 
   !> Allocate data structure for interpolation coefficients.
   !

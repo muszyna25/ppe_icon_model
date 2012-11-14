@@ -57,6 +57,8 @@ PROGRAM prep_icon
 
   IMPLICIT NONE
 
+  CHARACTER (LEN=*), PARAMETER :: namelist_filename = TRIM("NAMELIST_PREPICON")
+
   INTEGER :: error_status
 
   !declaration of OpenMP Runtime Library Routines:
@@ -102,7 +104,7 @@ PROGRAM prep_icon
 
     lrestart = .FALSE. ! restarting is not available for prep_icon
     error_status = read_master_namelist("icon_master.namelist")
-    CALL read_atmo_namelists("NAMELIST_PREPICON","icon_master.namelist")
+    CALL read_atmo_namelists(TRIM(namelist_filename),"icon_master.namelist")
 
 
     !---------------------------------------------------------------------
@@ -132,7 +134,7 @@ PROGRAM prep_icon
     CASE (MODE_GENERATE_COORDS, MODE_CONVERTIFS, MODE_VERTINTERP)
       CALL prepicon_main
     CASE (MODE_REMAP) 
-      CALL remap_main("main.nml")
+      CALL remap_main(TRIM(namelist_filename))
     CASE DEFAULT
       CALL finish("prep_icon", "Unknown operation mode!")
     END SELECT

@@ -24,8 +24,12 @@ MODULE mo_remap_weights
   USE mo_communication,      ONLY: idx_1d, blk_no, idx_no
   USE mo_math_constants,     ONLY: pi, pi2, pi_180
   USE mo_math_utilities,     ONLY: t_geographical_coordinates
-  USE mo_remap_config,       ONLY: dbg_level
   USE mo_mpi,                ONLY: get_my_mpi_work_id
+  USE mo_util_binheap,       ONLY: t_heap_data, heap_node_init, heap_insert,  &
+    &                              node_storage, nnode, get_free_node,        &
+    &                              node_storage_init, node_storage_finalize
+  USE mo_remap_config,       ONLY: dbg_level
+  USE mo_remap_io,           ONLY: s_maxsize
   USE mo_remap_shared,       ONLY: t_line, t_poly, t_grid, inside,            &
     &                              edge2line, cell2poly, intersect,           &
     &                              compute_intersection, dist_deg, dist_cc,   &
@@ -42,13 +46,11 @@ MODULE mo_remap_weights
     &                              finalize_index_lists, LIST_NAME,           &
     &                              finalize_vertex_coords, npole, spole
   USE mo_remap_grid,         ONLY: get_containing_cell
-  USE mo_remap_intp,         ONLY: t_intp_data, t_intp_data_mt, s_maxsize,    &
+  USE mo_remap_intp,         ONLY: t_intp_data, t_intp_data_mt,               &
     &                              reduce_mthreaded_weights,                  &
     &                              allocate_intp_data,  deallocate_intp_data, &
     &                              merge_heaps, sync_foreign_wgts
-  USE mo_util_binheap,       ONLY: t_heap_data, heap_node_init, heap_insert,  &
-    &                              node_storage, nnode, get_free_node,        &
-    &                              node_storage_init, node_storage_finalize
+ 
   IMPLICIT NONE
 
   PRIVATE

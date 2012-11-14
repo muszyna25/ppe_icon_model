@@ -14,7 +14,7 @@ MODULE mo_remap_config
   INTEGER, PARAMETER :: N_VNB_STENCIL = 13
 
   ! level of output verbosity
-  INTEGER, PARAMETER :: dbg_level =  10
+  INTEGER, PARAMETER :: dbg_level =  1
 
   ! max. name string length   
   INTEGER, PARAMETER :: MAX_NAME_LENGTH = 32

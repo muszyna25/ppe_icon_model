@@ -41,7 +41,7 @@ MODULE mo_remap
   USE mo_remap_grid,        ONLY: load_grid, finalize_grid
   USE mo_remap_shared,      ONLY: t_grid, GRID_TYPE_ICON
   USE mo_remap_intp,        ONLY: t_intp_data, allocate_intp_data,          &
-    &                             deallocate_intp_data, read_interp_namelist
+    &                             deallocate_intp_data
   USE mo_remap_input,       ONLY: load_metadata_input, read_input_namelist, &
     &                             n_input_fields, input_field, n_zaxis,     &
     &                             zaxis_metadata, global_metadata,          &
@@ -55,7 +55,7 @@ MODULE mo_remap
     &                             open_file, close_file, in_filename,       &
     &                             out_filename, in_grid_filename,           &
     &                             out_grid_filename, in_type, out_type,     &
-    &                             t_file_metadata, read_io_namelist
+    &                             t_file_metadata, read_remap_namelist
 
   IMPLICIT NONE
 
@@ -116,9 +116,8 @@ CONTAINS
 
     CALL tic(time_s)  ! performance measurement: start
     ! read namelists
-    CALL read_io_namelist    (namelist_filename)
-    CALL read_interp_namelist(namelist_filename)
-    CALL read_input_namelist (input_cfg_filename, rank0)
+    CALL read_remap_namelist(namelist_filename)
+    CALL read_input_namelist(input_cfg_filename, rank0)
 
     ! load variable meta-data
     CALL open_file(in_filename,       in_type,  in_data,  rank0)

@@ -7,7 +7,7 @@ MODULE mo_remap_io
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_netcdf,        ONLY: nf
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH
+  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NSTENCIL
   USE mo_remap_sync,         ONLY: t_gather_c, scatter_field2D_c
   USE mo_remap_shared,       ONLY: GRID_TYPE_REGULAR, GRID_TYPE_ICON    
   IMPLICIT NONE
@@ -16,7 +16,7 @@ MODULE mo_remap_io
   INCLUDE 'netcdf.inc'
 
   PRIVATE
-  PUBLIC :: read_io_namelist
+  PUBLIC :: read_remap_namelist
   PUBLIC :: open_file, close_file
   PUBLIC :: read_field2D, read_field3D
   PUBLIC :: get_varID
@@ -25,6 +25,7 @@ MODULE mo_remap_io
     &       in_type,          out_type
   PUBLIC :: t_file_metadata
   PUBLIC :: l_have3dbuffer
+  PUBLIC :: s_maxsize
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_io')  
 
@@ -36,12 +37,15 @@ MODULE mo_remap_io
   INTEGER :: in_type, out_type !< structure of input/output grid
 
   ! Flag. True if a 3D buffer is used for output:
-  LOGICAL :: l_have3dbuffer
+  LOGICAL  :: l_have3dbuffer
+
+  ! Maximum size of sequential list for very large stencils
+  INTEGER  :: s_maxsize
 
   ! namelist definition: main namelist
-  NAMELIST/io_nml/   in_grid_filename,  in_filename,  in_type,  &
-    &                out_grid_filename, out_filename, out_type, &
-    &                l_have3dbuffer
+  NAMELIST/remap_nml/   in_grid_filename,  in_filename,  in_type,  &
+    &                   out_grid_filename, out_filename, out_type, &
+    &                   l_have3dbuffer, s_maxsize
 
   ! Derived type containing IDs for opened grid/data files.
   !
@@ -61,10 +65,10 @@ CONTAINS
 
   !> Opens namelist file, reads interpolation config.
   !
-  SUBROUTINE read_io_namelist(filename)
+  SUBROUTINE read_remap_namelist(filename)
     CHARACTER(LEN=*), INTENT(IN) :: filename !< main namelist file
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::read_io_namelist')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::read_remap_namelist')
     INTEGER :: istat
 
     IF (dbg_level >= 5) WRITE (0,*) "# read io namelist"
@@ -76,17 +80,20 @@ CONTAINS
     out_filename      = ""
     out_type          =  2
     l_have3dbuffer    = .FALSE.
+    s_maxsize         = 500000
 
     ! read user's (new) specifications
     CALL open_nml(TRIM(filename))
-    CALL position_nml ('io_nml', status=istat)
+    CALL position_nml ('remap_nml', status=istat)
     IF (istat == POSITIONED) THEN
-      READ (nnml, io_nml)
+      READ (nnml, remap_nml)
     ELSE
       CALL finish(routine, "Internal error!")
     END IF
     CALL close_nml
-  END SUBROUTINE read_io_namelist
+    ! status output
+    IF (dbg_level >= 2)  WRITE (0,*) "# stencil size: ", MAX_NSTENCIL, "/", s_maxsize
+  END SUBROUTINE read_remap_namelist
 
 
   !> Open grid/data file for input
