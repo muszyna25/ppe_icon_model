@@ -477,7 +477,7 @@ CONTAINS
     IF (l_horintp) THEN
       IF (dbg_level >= 10) &
         CALL message(routine, "Creating synchronization task for horizontal interpolation.")
-      task => pp_task_insert(HIGH_PRIORITY)
+      task => pp_task_insert(DEFAULT_PRIORITY1)
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
@@ -939,7 +939,7 @@ CONTAINS
 
               !-- add post-processing task for interpolation
 
-              task => pp_task_insert(DEFAULT_PRIORITY1)
+              task => pp_task_insert(DEFAULT_PRIORITY0)
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
                 &  //", DOM "//TRIM(int2string(jg))
