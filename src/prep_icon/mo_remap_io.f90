@@ -254,7 +254,8 @@ CONTAINS
 
     result_varID = -1
     ! total number of available fields:
-    nvars = vlistNvars(vlistID, varID)
+!     nvars = vlistNvars(vlistID, varID)
+    nvars = vlistNvars(vlistID)
     ! loop over vlist, find the corresponding varID
     l_found = .FALSE.
     LOOP : DO varID=0,(nvars-1)
