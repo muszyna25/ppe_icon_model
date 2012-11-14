@@ -371,12 +371,13 @@ CONTAINS
     active_recv_buffers = 0
     comm_lib_is_initialized = .TRUE.
     buffer_comm_status = not_active
+    max_comm_patterns = 0
     
     DO i=1,max_no_of_comm_variables
       CALL clear_comm_variable(i)
     ENDDO
 
-    DO k=1,max_comm_patterns
+    DO k=1,allocated_comm_patterns
       grid_comm_pattern_list(k)%status = not_active
     ENDDO
 
@@ -468,7 +469,6 @@ CONTAINS
     INTEGER :: i
     CHARACTER(*), PARAMETER :: method_name = "init_icon_std_comm_patterns"
     
-    max_comm_patterns = 0
     IF(this_is_mpi_sequential) RETURN
 !     ! set id of grid_comm_pattern_list to identity
 !     DO i = 1, max_comm_patterns
@@ -493,7 +493,7 @@ CONTAINS
       & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
       & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
       & halo_level=p_patch%cells%halo_level, level_start=1, level_end=1,&
-      & name="cells_not_in_domain" )
+      & name="cells_one_edge_in_domain" )
             
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
@@ -524,12 +524,18 @@ CONTAINS
       & name="verts_not_in_domain" )
         
     CALL print_grid_comm_stats(p_patch%sync_cells_not_in_domain)
+    CALL print_grid_comm_stats(p_patch%sync_cells_one_edge_in_domain)
     CALL print_grid_comm_stats(p_patch%sync_edges_not_owned)
+    CALL print_grid_comm_stats(p_patch%sync_edges_not_in_domain)
     CALL print_grid_comm_stats(p_patch%sync_verts_not_owned)
+    CALL print_grid_comm_stats(p_patch%sync_verts_not_in_domain)
     IF ( icon_comm_debug) THEN
       CALL print_grid_comm_pattern(p_patch%sync_cells_not_in_domain)
+      CALL print_grid_comm_pattern(p_patch%sync_cells_one_edge_in_domain)
       CALL print_grid_comm_pattern(p_patch%sync_edges_not_owned)
+      CALL print_grid_comm_pattern(p_patch%sync_edges_not_in_domain)
       CALL print_grid_comm_pattern(p_patch%sync_verts_not_owned)
+      CALL print_grid_comm_pattern(p_patch%sync_verts_not_in_domain)
     ENDIF    
         
  !   CALL finish("init_icon_std_comm_patterns","ends")
@@ -555,13 +561,13 @@ CONTAINS
     ENDIF
        
     grid_comm_pattern_list(max_comm_patterns)%id = max_comm_patterns
+    new_icon_comm_pattern = max_comm_patterns
     
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(max_comm_patterns), &
       & total_no_of_points, receive_from_owner, my_global_index, owners_local_index,    &
       & allow_send_to_myself,                                                           &
       & halo_level, level_start, level_end, name)
 
-    new_icon_comm_pattern = max_comm_patterns
 
   END FUNCTION new_icon_comm_pattern
   !-----------------------------------------------------------------------
@@ -832,6 +838,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "inverse_of_icon_comm_pattern"
 
+    ! get next avail comm_patterns space
     max_comm_patterns = max_comm_patterns + 1
     IF (max_comm_patterns > allocated_comm_patterns) THEN
       CALL finish("new_icon_comm_pattern","max_comm_patterns > allocated_comm_patterns")
