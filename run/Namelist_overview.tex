@@ -1644,22 +1644,32 @@ Defined and used in: src/namelists/mo\_gridref\_nml.f90
 %------------------------------------------------------------------------------
 \subsection{prepicon\_nml}
 
-Remark: prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
+The namelist prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
 There are currently two ways of using it: 
 \begin{itemize}
 \item
-Using the preprocessing tool prep\_icon, it is possible to \\
-(a) generate the three-dimensional coordinate fields needed by IFS2ICON if IFS2ICON is requested to do
-the horizontal and vertical interpolation from the IFS grid to the ICON grid \\
-(b) convert the hydrostatic set of variables provided by IFS2ICON to the nonhydrostatic set of equations
-needed by ICONAM, and \\
-(c) perform the vertical interpolation to the ICON grid if IFS2ICON is requested to do only
-the horizontal interpolation step.
+Using the preprocessing tool prep\_icon, it is possible to
+{
+\renewcommand\theenumi{(\alph{enumi})}
+\renewcommand\labelenumi{(\theenumi)}
+%
+\begin{enumerate}
+\item \textbf{generate the three-dimensional coordinate fields} needed by IFS2ICON if IFS2ICON is requested to do
+the horizontal and vertical interpolation from the IFS grid to the ICON grid
+\item \textbf{convert the hydrostatic set of variables provided by IFS2ICON} to the nonhydrostatic set of equations
+needed by ICONAM,
+\item \label{item:c} \textbf{perform the vertical interpolation} to the ICON grid if IFS2ICON is requested to do only
+the horizontal interpolation step,
+\item  \label{item:d} \textbf{perform data remapping from a regular grid onto a triangular ICON grid and vice versa}.
+\end{enumerate}}
+
 \item
-If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality (c) while running
+If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality \ref{item:c} while running
 the ICON executable.
 \end{itemize}
 
+\textbf{Remark:}
+When using prep\_icon as a stand-alone tool, namelists must be defined in a file ``NAMELIST\_PREPICON''.
 
 \begin{longtab}
 
@@ -1669,8 +1679,8 @@ I & 1& &
 Operating mode if the prep\_icon executable is run: \\
 1: generate coordinate fields \\
 2: convert IFS2ICON output to NH prognostic variables\\
-3: do vertical interpolation&
-4: grid remapping
+3: do vertical interpolation \\
+4: grid remapping &
 \tabularnewline
 
 \hline 
@@ -1751,6 +1761,111 @@ and \texttt{idom} defining the current patch. &
 
 Defined and used in: src/namelists/mo\_prepicon\_nml.f90
 
+
+%------------------------------------------------------------------------------
+% remap_nml
+%------------------------------------------------------------------------------
+\subsection{remap\_nml}
+
+The namelist remap\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
+
+\begin{longtab}
+
+\hline 
+in\_grid\_filename&
+C & ````& & input grid file name &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+in\_filename&
+C & ````& & input data file name (may be identical to input grid file name) &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+in\_type&
+I & 1 & &
+Type of input grid: 
+1: regular grid; 2: ICON triangular grid
+&
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_grid\_filename&
+C & ````& & file containing output grid that is read as input for the remapping process &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_filename&
+C & ````& & output data file name &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_type&
+I & 2 & & 
+Type of output grid: 
+1: regular grid; 2: ICON triangular grid
+&
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+s\_maxsize&
+I & 500\,000& & Maximum size of sequential list for very large stencils &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+l\_have3dbuffer&
+L & .FALSE.& & Flag. True if a 3D buffer is used for output &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/prep\_icon/mo\_remap\_io.f90
+
+
+%------------------------------------------------------------------------------
+% input_field_nml
+%------------------------------------------------------------------------------
+\subsection{input\_field\_nml}
+
+The namelist input\_field\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
+
+\begin{longtab}
+
+\hline 
+inputname &
+C & ```` & & Name of input variable &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+outputname &
+C & ```` & & Name of output variable &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+code &
+I & 0 & & GRIB input code number &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+type\_of\_layer &
+C & ```` & & GRIB input layer type &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/prep\_icon/mo\_remap\_input.f90
 
 
 %------------------------------------------------------------------------------
