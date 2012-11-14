@@ -45,7 +45,7 @@ MODULE mo_remap_intp
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_intp')
 
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
 #ifndef __SX__
   INCLUDE "mpif.h"
 #endif
@@ -290,7 +290,7 @@ CONTAINS
     TYPE (t_grid),        INTENT(IN)    :: grid !< local grid (covering)
     TYPE(t_intp_data_mt), INTENT(INOUT) :: intp_data_mt
     ! local variables
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//':sync_foreign_wgts')
     INTEGER,          PARAMETER :: thrd0 = 1 ! (we have already reduced data to first thread)
     INTEGER :: ierrstat, nn, i, pe, ierr, nrecv_tot, hn, idx_cov, &
@@ -357,9 +357,11 @@ CONTAINS
     ! communicate weights
     ! note: we cannot move this call to mo_mpi module since we would need
     !       the definition of "t_heap_data" there.
+#ifndef NOMPI
     CALL MPI_ALLTOALLV(sendbuf,local_size, offset, mpi_heap_data_type,  & ! sendbuf,sendcounts,sdispls,sendtype
       &                recvbuf,recvcounts,rdispls,mpi_heap_data_type,   & ! recvbuf,recvcounts,rdispls,recvtype
       &                p_comm_work, ierr)
+#endif
 
     ! communicate mapping global->covering
     ALLOCATE(glb2cov(nproma, blk_no(grid%p_patch%n_patch_cells_g)), STAT=ierrstat)

@@ -47,7 +47,7 @@ CONTAINS
     TYPE (t_grid), INTENT(IN)       :: grid             !< local grid partition
     INTEGER,       INTENT(IN)       :: rank0            !< root PE, where data is collected.
     TYPE(t_gather_c), INTENT(INOUT) :: gather_c         !< communication pattern
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::allocate_gather_c')
     INTEGER :: ierrstat, i, this_pe
@@ -106,7 +106,7 @@ CONTAINS
   RECURSIVE SUBROUTINE finalize_gather_c(gather_c, opt_gather_c2, opt_gather_c3, opt_gather_c4)
     TYPE(t_gather_c), INTENT(INOUT) :: gather_c
     TYPE(t_gather_c), INTENT(INOUT), OPTIONAL :: opt_gather_c2, opt_gather_c3, opt_gather_c4
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::finalize_gather_c')
     INTEGER :: ierrstat
@@ -140,7 +140,7 @@ CONTAINS
     REAL(wp),         INTENT(IN)    :: field_in(:,:)    !< input field (only required for PE rank0)
     REAL(wp),         INTENT(INOUT) :: field_out(:,:)   !< local output field (size may differ on PEs)
     TYPE(t_gather_c), INTENT(IN)    :: gather_c         !< communication pattern
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field2D_c')
     INTEGER  :: ierrstat, i, jc,jb
@@ -184,7 +184,7 @@ CONTAINS
     REAL(wp),          INTENT(IN)    :: field_in(:,:)    !< input field (size may differ on PEs)
     REAL(wp),          INTENT(INOUT) :: field_out(:,:)   !< global output field
     TYPE(t_gather_c),  INTENT(IN)    :: gather_c         !< communication pattern
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field2D_c')
     INTEGER  :: ierrstat, i, jc,jb
@@ -226,7 +226,7 @@ CONTAINS
     INTEGER,           INTENT(IN)    :: nlev               !< no. of levels (dim 2)
     REAL(wp),          INTENT(IN)    :: field_in(:,:,:)    !< input field (size may differ on PEs)
     REAL(wp),          INTENT(INOUT) :: field_out(:,:,:)   !< global output field
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field2D_c')
     INTEGER  :: ierrstat, jc,jk,jb, iendidx, iglobal_idx
@@ -275,7 +275,7 @@ CONTAINS
     REAL(wp),          INTENT(IN)    :: field_in(:,:)    !< input field (size may differ on PEs)
     REAL(wp),          INTENT(INOUT) :: field_out(:,:)   !< global output field
     TYPE(t_gather_c),  INTENT(INOUT) :: gather_c         !< communication pattern
-#if !defined(HAVE_NOMPI)
+#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::igather_field2D_c')
     INTEGER  :: ierrstat, i, jc,jb
