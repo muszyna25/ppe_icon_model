@@ -781,7 +781,7 @@ CONTAINS
     IF (parallel_radiation_mode == 1) THEN
       CALL destruct_rrtm_model_repart()
     ENDIF
-    IF (use_icon_comm .OR. parallel_radiation_mode > 0) THEN
+    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
     ENDIF
     
