@@ -6,7 +6,7 @@
 !!
 MODULE mo_remap_intp
 
-#if defined(__SX__) && !defined (NOMPI)
+#if !defined (NOMPI)
   USE MPI
 #endif
 
@@ -45,12 +45,6 @@ MODULE mo_remap_intp
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_intp')
 
-#if !defined(NOMPI)
-#ifndef __SX__
-  INCLUDE "mpif.h"
-#endif
-#endif
-  
   ! Threshold. Weights smaller than this value are neglected.
   REAL(wp), PARAMETER :: W_THRESHOLD      = 1e-10_wp
 
