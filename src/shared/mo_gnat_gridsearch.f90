@@ -74,6 +74,8 @@ MODULE mo_gnat_gridsearch
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
+  USE mo_parallel_config,     ONLY: p_test_run
+
 
   IMPLICIT NONE
 
