@@ -61,7 +61,7 @@ MODULE mo_var_list
   PUBLIC :: collect_group             ! obtain variables in a group
   
   PUBLIC :: add_tracer_ref            ! add new tracer component
- 
+
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_r5d
     MODULE PROCEDURE add_var_list_element_r4d
@@ -88,7 +88,6 @@ MODULE mo_var_list
 
   INTERFACE add_tracer_ref
     MODULE PROCEDURE add_var_list_reference_tracer
-    MODULE PROCEDURE add_var_list_reference_tracer2
   END INTERFACE add_tracer_ref
 
 
@@ -3688,69 +3687,12 @@ CONTAINS
   ! reference to an existing pointer to a 3D tracer field
   ! optionally overwrite some default meta data
   !
-  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name, &
-    &        tracer_idx, ptr_arr, cf, grib2, ldims, loutput, lrestart,          &
-    &        tlev_source, tracer_info)
-
-    TYPE(t_var_list)    , INTENT(inout)        :: this_list
-    CHARACTER(len=*)    , INTENT(in)           :: target_name
-    CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-    INTEGER             , INTENT(inout)        :: tracer_idx          ! index in 4D tracer container
-    TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
-    TYPE(t_cf_var)      , INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var)   , INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
-    LOGICAL             , INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL             , INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    INTEGER             , INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta) , INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
-
-    ! Local variables:
-    TYPE(t_list_element), POINTER :: target_element
-    TYPE(t_var_metadata), POINTER :: target_info
-
-    CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
-  !------------------------------------------------------------------
-
-    ! get pointer to target element (in this case 4D tracer container)
-    target_element => find_list_element (this_list, target_name)
-    ! get tracer field metadata
-    target_info => target_element%field%info
-
-    ! get index of current field in 4D container and set
-    ! tracer index accordingly.
-    ! Note that this will be repeated for each patch. Otherwise it may happen that
-    ! some MPI-processes miss this assignment.
-    !
-    tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
-
-    WRITE (message_text,'(a,i3,a,a)')                                            &
-      & "tracer index ", tracer_idx," assigned to tracer field ", TRIM(tracer_name)
-    CALL message(TRIM(routine),message_text)
-
-
-    ! create new table entry reference including additional tracer metadata
-    CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
-       &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
-       &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
-       &          tlev_source=tlev_source, tracer_info=tracer_info )
-
-
-  END SUBROUTINE add_var_list_reference_tracer
-
-
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! create (allocate) a new table entry
-  ! reference to an existing pointer to a 3D tracer field
-  ! optionally overwrite some default meta data
-  !
-  SUBROUTINE add_var_list_reference_tracer2(this_list, target_name, tracer_name, &
+  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
     &        tracer_idx, ptr_arr, cf, grib2, advconf, ldims, loutput, lrestart,  &
-    &        tlev_source, lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer,  &
-    &        lsed_tracer, ldep_tracer, lconv_tracer, lwash_tracer,               &
-    &        rdiameter_tracer, rrho_tracer)
+    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
+    &        lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,  &
+    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
+    &        rrho_tracer)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -3759,11 +3701,15 @@ CONTAINS
     TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
     TYPE(t_cf_var)      , INTENT(in)           :: cf             ! CF related metadata
     TYPE(t_grib2_var)   , INTENT(in)           :: grib2          ! GRIB2 related metadata
-    TYPE(t_advection_config), INTENT(in)       :: advconf        ! adv configure state
+    TYPE(t_advection_config), INTENT(inout)    :: advconf        ! adv configure state
     INTEGER             , INTENT(in), OPTIONAL :: ldims(3)       ! local dimensions, for checking
     LOGICAL             , INTENT(in), OPTIONAL :: loutput        ! output flag
     LOGICAL             , INTENT(in), OPTIONAL :: lrestart       ! restart flag
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype      ! type of statistical processing
     INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
     LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
     INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
     INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
@@ -3783,6 +3729,7 @@ CONTAINS
     INTEGER :: zihadv_tracer, zivadv_tracer
 
     CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
+
   !------------------------------------------------------------------
 
     ! get pointer to target element (in this case 4D tracer container)
@@ -3804,15 +3751,28 @@ CONTAINS
 
 
     ! set default values
-    ! If ihadv_tracer and ivadv_tracer are not present, take values from the 
+    ! If ihadv_tracer or ivadv_tracer are not present, take respective value from the 
     ! advection_config state.
-    ! Note: Even if ihadv_tracer and ivadv_tracer are present, the advection_config 
-    !       state is not updated so far. This may potentially change in the future.  
+    ! If ihadv_tracer or ivadv_tracer are present, take those values, and overwrite 
+    ! the respective values of the advection_config state. 
     !
-    zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
-    zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
-    CALL assign_if_present(zihadv_tracer, ihadv_tracer)
-    CALL assign_if_present(zivadv_tracer, ivadv_tracer)
+    IF ( PRESENT( ihadv_tracer )) THEN
+      zihadv_tracer = ihadv_tracer
+      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE 
+      ! SANITY CHECKED NAMELIST SETTINGS.
+      advconf%ihadv_tracer(tracer_idx) = ihadv_tracer
+    ELSE
+      zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
+    ENDIF
+
+    IF ( PRESENT( ivadv_tracer )) THEN
+      zivadv_tracer = ivadv_tracer
+      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE 
+      ! SANITY CHECKED NAMELIST SETTINGS.
+      advconf%ivadv_tracer(tracer_idx) = ivadv_tracer
+    ELSE
+      zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
+    ENDIF
 
 
     ! generate tracer metadata information
@@ -3830,16 +3790,17 @@ CONTAINS
       &                                  rrho_tracer      = rrho_tracer )
 
 
-!DR istatproc is missing
 
     ! create new table entry reference including additional tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
        &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
-       &          tlev_source=tlev_source, tracer_info=tracer_info )
+       &          isteptype=isteptype, tlev_source=tlev_source,                  &
+       &          vert_interp=vert_interp, hor_interp=hor_interp,                &
+       &          tracer_info=tracer_info, in_group=in_group                     )
 
 
-  END SUBROUTINE add_var_list_reference_tracer2
+  END SUBROUTINE add_var_list_reference_tracer
 
 
 END MODULE mo_var_list

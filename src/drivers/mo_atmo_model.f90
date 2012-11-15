@@ -65,7 +65,6 @@ USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_a
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, iadv_rcf, &
-  &                                kend_qvsubstep, l_open_ubc,      &
   &                                configure_nonhydrostatic
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
@@ -76,10 +75,8 @@ USE mo_run_config,           ONLY: configure_run, &
   & lrestore_states,      & ! flag if states should be restored
   & ldump_dd, lread_dd,   &
   & nproc_dd,             &
-  & nlev,nlevp1,          &
+  & nlev,nlevp1,nshift,   &
   & num_lev,num_levp1,    &
-  & iqc, iqi, iqr, iqs,   &
-  & nshift, lvert_nest,   &
   & ntracer, msg_level,   &
   & dtime, output_mode
 
@@ -171,7 +168,6 @@ USE mo_read_namelists,       ONLY: read_atmo_namelists
 USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_interpol_config,      ONLY: configure_interpolation 
-USE mo_advection_config,     ONLY: configure_advection
 USE mo_diffusion_config,     ONLY: configure_diffusion
 
 USE mo_atmo_hydrostatic,    ONLY: atmo_hydrostatic 
@@ -337,8 +333,8 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
     !    This needs to be done very early (but anyway after atm_crosscheck)
-    !    because some component of the state, e.g., num_lev, may be 
-    !    modified in this subroutine which affect the following CALLs.
+    !    because some components of the state, e.g., num_lev, may be 
+    !    modified in this subroutine which affects the following CALLs.
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
     CASE (inh_atmosphere)
@@ -683,12 +679,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-    DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-       &                      iequations, iforcing, iqc, iqi, iqr, iqs,    &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),        &
-       &                      lvert_nest, l_open_ubc, ntracer ) 
-    ENDDO
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields

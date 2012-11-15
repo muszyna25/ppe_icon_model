@@ -1437,7 +1437,7 @@ CONTAINS
     REAL(wp), POINTER :: rptr2d(:,:)
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
-    INTEGER :: string_length, ncid
+    INTEGER :: string_length  !, ncid
     
     write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0

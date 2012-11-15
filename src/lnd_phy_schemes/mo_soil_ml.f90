@@ -2916,18 +2916,18 @@ END SUBROUTINE message
 !      END IF          ! land-points only
     END DO
 
-IF (msg_level >= 14) THEN
-  DO i = istarts, iends
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
-         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
-      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
-        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
-        '  ......  ', tch(i), tcm(i)
-    ENDIF
-  ENDIF
-  END DO
-ENDIF
+!!$IF (msg_level >= 14) THEN
+!!$  DO i = istarts, iends
+!!$  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+!!$    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
+!!$         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
+!!$      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
+!!$        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
+!!$        '  ......  ', tch(i), tcm(i)
+!!$    ENDIF
+!!$  ENDIF
+!!$  END DO
+!!$ENDIF
 
     DO ksn = 1,ke_snow  
       DO i = istarts, iends
