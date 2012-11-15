@@ -67,15 +67,17 @@ MODULE mo_nwp_phy_nml
   REAL(wp) :: dt_sso(max_dom)    !! "-"  for subscale orographic gravity waves
   REAL(wp) :: dt_gwd(max_dom)    !! "-"  for subscale gravity waves
 
-  INTEGER  :: inwp_convection    !! convection
-  INTEGER  :: inwp_cldcover      !! cloud cover
-  INTEGER  :: inwp_radiation     !! radiation
-  INTEGER  :: inwp_sso           !! sso
-  INTEGER  :: inwp_gwd           !! non-orographic gravity wave drag
-  INTEGER  :: inwp_gscp          !! microphysics
-  INTEGER  :: inwp_satad         !! saturation adjustment
-  INTEGER  :: inwp_turb          !! turbulence
-  INTEGER  :: inwp_surface       !! surface including soil, ocean, ice,lake
+  ! switches defining physics packages
+  INTEGER  :: inwp_convection(max_dom)    !! convection
+  INTEGER  :: inwp_cldcover(max_dom)      !! cloud cover
+  INTEGER  :: inwp_radiation(max_dom)     !! radiation
+  INTEGER  :: inwp_sso(max_dom)           !! sso
+  INTEGER  :: inwp_gwd(max_dom)           !! non-orographic gravity wave drag
+  INTEGER  :: inwp_gscp(max_dom)          !! microphysics
+  INTEGER  :: inwp_satad(max_dom)         !! saturation adjustment
+  INTEGER  :: inwp_turb(max_dom)          !! turbulence
+  INTEGER  :: inwp_surface(max_dom)       !! surface including soil, ocean, ice,lake
+
   INTEGER  :: itype_z0           !! type of roughness length data
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
@@ -148,29 +150,33 @@ CONTAINS
          &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
 
     !-----------------------
-    ! 1. default settings   
+    ! 0a. dummy settings; will be replaced with defaults after reading the namelist
+    !     wherever nothing is specified explicitly   
     !-----------------------
-    inwp_gscp       = 1           !> 1 = hydci (COSMO-EU microphysics)
-    inwp_satad      = 1           !> 1 = saturation adjustment on
-    inwp_convection = 1           !> 1 = Tiedtke/Bechthold convection
-    inwp_radiation  = 1           !> 1 = RRTM radiation
-    inwp_sso        = 1           !> 1 = Lott and Miller scheme (COSMO)
-    inwp_gwd        = 1           !> 1 = Orr-Ern-Bechthold scheme (IFS)
-    inwp_cldcover   = 3           !> 3 = clouds from COSMO SGS cloud scheme
-    inwp_turb       = 1           !> 1 = turbdiff (COSMO diffusion oand transfer)
-    inwp_surface    = 1           !> 1 = TERRA
-    itype_z0        = 1           !  1 = include orographic contribution to roughness length
+    inwp_gscp(:)       = -1
+    inwp_satad(:)      = -1
+    inwp_convection(:) = -1
+    inwp_radiation(:)  = -1
+    inwp_sso(:)        = -1
+    inwp_gwd(:)        = -1
+    inwp_cldcover(:)   = -1
+    inwp_turb(:)       = -1
+    inwp_surface(:)    = -1
 
-    DO jg=1, max_dom
-      dt_conv (jg) = 600._wp      !seconds
-      dt_ccov (jg) = dt_conv(jg)  !cloud cover is synchronized with convection
-      dt_rad  (jg) = 1800._wp     !seconds
-      dt_sso  (jg) = 1200._wp     !seconds
-      dt_gwd  (jg) = 1200._wp     !seconds
-    ENDDO
+    dt_conv (:) = -999._wp
+    dt_ccov (:) = -999._wp
+    dt_rad  (:) = -999._wp
+    dt_sso  (:) = -999._wp
+    dt_gwd  (:) = -999._wp
 
-    qi0 = 0.0_wp 
-    qc0 = 0.0_wp 
+
+    !------------------------------------------------------------------
+    ! 0b. Real defaults for some other variables
+    !------------------------------------------------------------------
+
+    itype_z0 = 1  !  1 = include orographic contribution to roughness length
+    qi0      = 0.0_wp 
+    qc0      = 0.0_wp 
 
     ustart_raylfric    = 160._wp
     efdt_min_raylfric  = 10800._wp
@@ -178,7 +184,7 @@ CONTAINS
     latm_above_top(:)  = .FALSE.  ! no extra layer above model top for radiation computation
 
     !------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above 
+    ! 1. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (is_restart_run()) THEN
@@ -188,7 +194,7 @@ CONTAINS
     END IF
 
     !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    ! 2. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nwp_phy_nml', status=istat)
@@ -199,19 +205,74 @@ CONTAINS
     CALL close_nml
 
 
+    !-----------------------
+    ! 3. apply default settings where nothing is specified explicitly (except for restart)
+    !-----------------------
+
+    IF (.NOT. is_restart_run()) THEN
+
+      ! 3a. Set default values for global domain where nothing at all has been specified
+
+      ! Physics packages
+      IF (inwp_gscp(1)       < 0) inwp_gscp(1)       = 1  !> 1 = hydci (COSMO-EU microphysics)
+      IF (inwp_satad(1)      < 0) inwp_satad(1)      = 1  !> 1 = saturation adjustment on
+      IF (inwp_convection(1) < 0) inwp_convection(1) = 1  !> 1 = Tiedtke/Bechthold convection
+      IF (inwp_radiation(1)  < 0) inwp_radiation(1)  = 1  !> 1 = RRTM radiation
+      IF (inwp_sso(1)        < 0) inwp_sso(1)        = 1  !> 1 = Lott and Miller scheme (COSMO)
+      IF (inwp_gwd(1)        < 0) inwp_gwd(1)        = 1  !> 1 = Orr-Ern-Bechthold scheme (IFS)
+      IF (inwp_cldcover(1)   < 0) inwp_cldcover(1)   = 3  !> 3 = clouds from COSMO SGS cloud scheme
+      IF (inwp_turb(1)       < 0) inwp_turb(1)       = 1  !> 1 = turbdiff (COSMO diffusion oand transfer)
+      IF (inwp_surface(1)    < 0) inwp_surface(1)    = 1  !> 1 = TERRA
+
+      ! Time steps
+      IF (dt_conv (1) < 0._wp) dt_conv (1) = 600._wp    !seconds
+      IF (dt_ccov (1) < 0._wp) dt_ccov (1) = dt_conv(1) !cloud cover is synchronized with convection by default
+      IF (dt_sso  (1) < 0._wp) dt_sso  (1) = 1200._wp   !seconds
+      IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = 1200._wp   !seconds
+      IF (dt_rad  (1) < 0._wp) dt_rad  (1) = 1800._wp   !seconds
+
+      ! 3b. Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
+
+      DO jg = 2, max_dom
+
+        ! Physics packages
+        IF (inwp_gscp(jg)       < 0) inwp_gscp(jg)       = inwp_gscp(jg-1)
+        IF (inwp_satad(jg)      < 0) inwp_satad(jg)      = inwp_satad(jg-1)
+        IF (inwp_convection(jg) < 0) inwp_convection(jg) = inwp_convection(jg-1)
+        IF (inwp_radiation(jg)  < 0) inwp_radiation(jg)  = inwp_radiation(jg-1)
+        IF (inwp_sso(jg)        < 0) inwp_sso(jg)        = inwp_sso(jg-1)
+        IF (inwp_gwd(jg)        < 0) inwp_gwd(jg)        = inwp_gwd(jg-1)
+        IF (inwp_cldcover(jg)   < 0) inwp_cldcover(jg)   = inwp_cldcover(jg-1)
+        IF (inwp_turb(jg)       < 0) inwp_turb(jg)       = inwp_turb(jg-1)
+        IF (inwp_surface(jg)    < 0) inwp_surface(jg)    = inwp_surface(jg-1)
+
+        ! Time steps
+        IF (dt_conv (jg) < 0._wp) dt_conv (jg) = dt_conv (jg-1) 
+        IF (dt_ccov (jg) < 0._wp) dt_ccov (jg) = dt_ccov (jg-1)
+        IF (dt_sso  (jg) < 0._wp) dt_sso  (jg) = dt_sso  (jg-1)
+        IF (dt_gwd  (jg) < 0._wp) dt_gwd  (jg) = dt_gwd  (jg-1)
+        IF (dt_rad  (jg) < 0._wp) dt_rad  (jg) = dt_rad  (jg-1)
+
+      ENDDO
+
+    ENDIF
+
     !----------------------------------------------------
     ! 4. Sanity check
     !----------------------------------------------------
     
     ! check for valid parameters in namelists
-    
-    IF (inwp_gscp /= 0 .AND. inwp_gscp /= 1 .AND. inwp_gscp /= 2 .AND. &
-      & inwp_gscp /= 3 .AND. inwp_gscp /= 4 .AND. inwp_gscp /= 9 .AND. &
-      & inwp_gscp /= 10 ) THEN
-       
-       CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,9 or 10.')
 
-    END IF
+    DO jg = 1, max_dom
+
+      IF (inwp_gscp(jg) /= 0 .AND. inwp_gscp(jg) /= 1 .AND. inwp_gscp(jg) /= 2 .AND. &
+        & inwp_gscp(jg) /= 3 .AND. inwp_gscp(jg) /= 4 .AND. inwp_gscp(jg) /= 9 .AND. &
+        & inwp_gscp(jg) /= 10 ) THEN
+   
+        CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,9 or 10.')
+      END IF
+
+    ENDDO
 
 
     !----------------------------------------------------
@@ -219,15 +280,15 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg=1,max_dom
-      atm_phy_nwp_config(jg)%inwp_convection = inwp_convection
-      atm_phy_nwp_config(jg)%inwp_cldcover   = inwp_cldcover
-      atm_phy_nwp_config(jg)%inwp_radiation  = inwp_radiation
-      atm_phy_nwp_config(jg)%inwp_sso        = inwp_sso
-      atm_phy_nwp_config(jg)%inwp_gwd        = inwp_gwd     
-      atm_phy_nwp_config(jg)%inwp_gscp       = inwp_gscp 
-      atm_phy_nwp_config(jg)%inwp_satad      = inwp_satad
-      atm_phy_nwp_config(jg)%inwp_turb       = inwp_turb
-      atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface
+      atm_phy_nwp_config(jg)%inwp_convection = inwp_convection(jg)
+      atm_phy_nwp_config(jg)%inwp_cldcover   = inwp_cldcover(jg)
+      atm_phy_nwp_config(jg)%inwp_radiation  = inwp_radiation(jg)
+      atm_phy_nwp_config(jg)%inwp_sso        = inwp_sso(jg)
+      atm_phy_nwp_config(jg)%inwp_gwd        = inwp_gwd(jg) 
+      atm_phy_nwp_config(jg)%inwp_gscp       = inwp_gscp(jg)
+      atm_phy_nwp_config(jg)%inwp_satad      = inwp_satad(jg)
+      atm_phy_nwp_config(jg)%inwp_turb       = inwp_turb(jg)
+      atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface(jg)
       atm_phy_nwp_config(jg)%itype_z0        = itype_z0
 
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 

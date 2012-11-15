@@ -1678,7 +1678,10 @@ MODULE mo_nh_stepping
           lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips))) = .FALSE.
         ELSE
 
-          IF( t_elapsed_phy(jg,ips) >= dt_phy(jg,ips) ) THEN
+          ! The purpose of the 0.99999999 factor is to prevent pathological cases of 
+          ! truncation error accumulation; will become obsolete when changing to 
+          ! integer arithmetics for time control
+          IF( t_elapsed_phy(jg,ips) >= 0.99999999_wp*dt_phy(jg,ips) ) THEN
             lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .TRUE.
           ELSE
             lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .FALSE.
