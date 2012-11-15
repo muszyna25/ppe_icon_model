@@ -33,7 +33,7 @@
 MODULE mo_ocean_model
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish  ! use always
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
@@ -278,6 +278,8 @@ CONTAINS
     END IF
 
     ! Allocate patch array to start patch construction
+    WRITE(message_text,'(a,i5,a,i5)') 'Allocate patch: n_dom_start=',n_dom_start,'  n_dom=',n_dom
+    CALL message(TRIM(routine), TRIM(message_text))
     ALLOCATE(p_patch(n_dom_start:n_dom), stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
