@@ -74,7 +74,6 @@ MODULE mo_gnat_gridsearch
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
-  USE mo_parallel_config,     ONLY: p_test_run
 
 
   IMPLICIT NONE
@@ -1069,13 +1068,15 @@ CONTAINS
   ! Performs a nearest-neighbor query for a given list of points and
   ! returns the indices and block indices of the mesh triangles that
   ! contain these points.
-  SUBROUTINE gnat_query_containing_triangles(p_patch, tree, v, iv_nproma, iv_nblks,  &
-    &                                        iv_npromz, grid_sphere_radius, tri_idx, min_dist)
+  SUBROUTINE gnat_query_containing_triangles(p_patch, tree, v, iv_nproma, iv_nblks,       &
+    &                                        iv_npromz, grid_sphere_radius, l_p_test_run, &
+    &                                        tri_idx, min_dist)
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
     INTEGER,  INTENT(IN)    :: tree                                ! tree root node (index)
     INTEGER,  INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz      ! list size
     REAL(wp), INTENT(IN)    :: grid_sphere_radius
+    LOGICAL,  intent(IN)    :: l_p_test_run
     REAL(gk), INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim)  ! list of search points
     INTEGER,  INTENT(OUT)   :: tri_idx(2,iv_nproma, iv_nblks)      ! containing triangle (idx,block)
     REAL(gk), INTENT(OUT)   :: min_dist(iv_nproma, iv_nblks)       ! minimal distance
@@ -1130,7 +1131,7 @@ CONTAINS
       & /grid_sphere_radius, gk)
     ! for MPI-independent behaviour: determine global max. of search radii
     radius = p_max(radius, comm=p_comm_work)
-    IF(p_test_run) THEN
+    IF(l_p_test_run) THEN
       IF(.NOT. my_process_is_mpi_test()) THEN
         ! Send to test PE
         CALL p_send(radius, process_mpi_all_test_id, 1)

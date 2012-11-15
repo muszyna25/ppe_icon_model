@@ -1314,7 +1314,7 @@
         CALL message(routine, "proximity query")
       CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),       &
         &                   nproma, nblks_lonlat, npromz_lonlat, grid_sphere_radius,     &
-        &                   ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
+        &                   p_test_run, ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, grid%total_dim, nproma, grid%nblks, &
         &                 min_dist, ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:),     &
         &                 ptr_int_lonlat%global_idx(:), ptr_int_lonlat%nthis_local_pts)

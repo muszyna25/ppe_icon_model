@@ -140,7 +140,7 @@ MODULE mo_meteogram_output
     &                                 process_mpi_io_size,                &
     &                                 p_barrier
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_parallel_config,       ONLY: nproma
+  USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, icc
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -718,7 +718,7 @@ CONTAINS
       ! perform proximity query
       CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),    &
         &                                  nproma, nblks, npromz, grid_sphere_radius, &
-        &                                  tri_idx(:,:,:), min_dist(:,:))
+        &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &
         &                                 global_idx(:), ithis_nlocal_pts)
