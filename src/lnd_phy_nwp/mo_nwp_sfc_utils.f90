@@ -55,9 +55,10 @@ MODULE mo_nwp_sfc_utils
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
-  USE mo_satad,               ONLY: sat_pres_water, spec_humi
+  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_sum_array
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
+  USE mo_nonhydro_types,      ONLY: t_nh_diag
   
   IMPLICIT NONE 
 
@@ -98,7 +99,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
     &                          p_prog_lnd_new, p_prog_wtr_now,    &
-    &                          p_prog_wtr_new, p_lnd_diag )
+    &                          p_prog_wtr_new, p_lnd_diag, p_diag )
  
                              
 
@@ -107,6 +108,7 @@ CONTAINS
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
     TYPE(t_wtr_prog)     , INTENT(INOUT) :: p_prog_wtr_now, p_prog_wtr_new
     TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
+    TYPE(t_nh_diag), TARGET,INTENT(inout):: p_diag        !< diag vars
     
     ! Local array bounds:
     
@@ -160,10 +162,13 @@ CONTAINS
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time 
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level
     INTEGER  :: icount_ice          ! total number of sea-ice points per block
+    !
+    INTEGER  :: icount_water        ! total number of sea-water points per block
 
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
     REAL(wp), PARAMETER :: small = 1.E-06_wp
-    REAL(wp) :: t_g_s(nproma)
+    REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
+    REAL(wp) :: temp
 
   !-------------------------------------------------------------------------
 
@@ -179,6 +184,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice,    &
+!$OMP            icount_water, temp, qv_s_s,                                         &
 !$OMP            ic,jk,isubs_snow,t_g_s,frsi,t_skin,tice_now,hice_now,tsnow_now,     &
 !$OMP            hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
@@ -196,7 +202,7 @@ CONTAINS
 
             p_prog_lnd_now%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_g(jc,jb)
             p_prog_lnd_new%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_g(jc,jb)
-
+            p_lnd_diag%qv_s_t(jc,jb,isubs)    = p_lnd_diag%qv_s(jc,jb)
           END DO 
         END DO
       ENDIF
@@ -446,34 +452,73 @@ CONTAINS
         ENDDO
       END DO ! isubs
 
-      i_count = ext_data%atm%lp_count(jb)
 
-      ! Rediagnose t_g - needed for initial calculation of transfer coefficients
+      !
+      ! Init sea ice parameterization 
+      ! 
+      IF ( lseaice ) THEN
 
-      IF (ntiles_total == 1) THEN
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          p_prog_lnd_now%t_g(jc,jb) = p_prog_lnd_now%t_g_t(jc,jb,1)
-          p_prog_lnd_new%t_g(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
-        ENDDO
-      ELSE ! aggregate fields over tiles
-        t_g_s(:)  =  0._wp
-        DO isubs = 1,ntiles_total+ntiles_water
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
-              p_prog_lnd_now%t_g_t(jc,jb,isubs)**4
-          ENDDO
-        ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          p_prog_lnd_now%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
-          p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
-        ENDDO
-      END IF
+
+        icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
+
+
+        DO ic = 1, icount_ice
+
+          jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+          frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
+          t_skin   (ic) = p_lnd_diag%t_skin(jc,jb)
+          tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
+          hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
+          tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
+          hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
+        ENDDO  ! jc
+
+
+        CALL seaice_init_nwp ( icount_ice, frsi, t_skin, l_hice_in,      & ! in
+          &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
+          &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
+
+
+        !  Recover fields from index list
+        !
+        DO ic = 1, icount_ice
+          jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+          ! fields at time level now may have changed, potentially!
+          p_prog_wtr_now%t_ice(jc,jb)    = tice_now(ic)
+          p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
+          p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
+          p_prog_wtr_now%h_snow_si(jc,jb)= hsnow_now(ic)
+
+          p_prog_wtr_new%t_ice(jc,jb)    = tice_new(ic)
+          p_prog_wtr_new%h_ice(jc,jb)    = hice_new(ic)
+          p_prog_wtr_new%t_snow_si(jc,jb)= tsnow_new(ic)
+          p_prog_wtr_new%h_snow_si(jc,jb)= hsnow_new(ic)
+
+          p_prog_lnd_now%t_g_t(jc,jb,isub_seaice) =  tice_now(ic)
+          p_prog_lnd_new%t_g_t(jc,jb,isub_seaice) =  tice_now(ic)
+          p_lnd_diag%qv_s_t(jc,jb,isub_seaice)    = spec_humi(sat_pres_ice(tice_now(ic)),&
+          &                                   p_diag%pres_sfc(jc,jb) )
+        ENDDO  ! ic
+
+      ENDIF  ! lseaice
+
+      ! Init t_g_t for sea water points
+
+      icount_water = ext_data%atm%spw_count(jb) ! number of sea wate points in block jb
+        !
+      DO ic = 1, icount_water
+        jc = ext_data%atm%idx_lst_spw(ic,jb)
+        temp =  p_lnd_diag%t_seasfc(jc,jb)
+        p_prog_lnd_now%t_g_t(jc,jb,isub_water) = temp
+        p_prog_lnd_new%t_g_t(jc,jb,isub_water) = temp
+        p_lnd_diag%qv_s_t(jc,jb,isub_water)    = spec_humi(sat_pres_water(temp ),&
+        &                                   p_diag%pres_sfc(jc,jb) )      
+
+      END DO
+
+
 
       IF(lsnowtile) THEN      ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd 
@@ -520,7 +565,10 @@ CONTAINS
             p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) =  &
               p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) * p_prog_lnd_now%t_snow_t(jc,jb,isubs_snow) + &
               (1._wp-p_lnd_diag%snowfrac_t(jc,jb,isubs_snow))*p_prog_lnd_now%t_s_t(jc,jb,isubs_snow)
-
+            ! Rediagnose qv_s_t because of the rediagnosed t_g_t 
+            p_lnd_diag%qv_s_t(jc,jb,isubs_snow)  =                                                  &
+              &                    spec_humi(sat_pres_ice  (p_prog_lnd_now%t_g_t(jc,jb,isubs_snow)),&
+              &                    p_diag%pres_sfc(jc,jb) ) 
              IF (lmulti_snow) THEN
                p_prog_lnd_now%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
              ENDIF
@@ -545,54 +593,49 @@ CONTAINS
       END IF
 
 
-      !
-      ! Init sea ice parameterization
-      ! 
-      IF ( lseaice ) THEN
-
-
-        icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
-
-
-        DO ic = 1, icount_ice
-
-          jc = ext_data%atm%idx_lst_spi(ic,jb)
-
-          frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
-          t_skin   (ic) = p_lnd_diag%t_skin(jc,jb)
-          tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
-          hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
-          tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
-          hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
-        ENDDO  ! jc
-
-
-        CALL seaice_init_nwp ( icount_ice, frsi, t_skin, l_hice_in,      & ! in
-          &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
-          &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
-
-
-        !  Recover fields from index list
-        !
-        DO ic = 1, icount_ice
-          jc = ext_data%atm%idx_lst_spi(ic,jb)
-
-          ! fields at time level now may have changed, potentially!
-          p_prog_wtr_now%t_ice(jc,jb)    = tice_now(ic)
-          p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
-          p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
-          p_prog_wtr_now%h_snow_si(jc,jb)= hsnow_now(ic)
-
-          p_prog_wtr_new%t_ice(jc,jb)    = tice_new(ic)
-          p_prog_wtr_new%h_ice(jc,jb)    = hice_new(ic)
-          p_prog_wtr_new%t_snow_si(jc,jb)= tsnow_new(ic)
-          p_prog_wtr_new%h_snow_si(jc,jb)= hsnow_new(ic)
-
-        ENDDO  ! ic
-
-      ENDIF  ! lseaice
 
     ENDDO  ! jb loop
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+    ! Aggregate t_g and qv_s 
+    ! Loop over all points (land AND water points) 
+    ! Aggregation has been moved to the end of the subroutine (PR)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+
+       IF (ntiles_total == 1) THEN 
+         DO jc = i_startidx, i_endidx
+           p_prog_lnd_now%t_g(jc,jb)  = p_prog_lnd_now%t_g_t(jc,jb,1)
+           p_lnd_diag%qv_s(jc,jb)     = p_lnd_diag%qv_s_t(jc,jb,1) 
+           p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
+         ENDDO
+       ELSE ! aggregate fields over tiles
+         t_g_s(:)  =  0._wp
+         qv_s_s(:) =  0._wp
+         DO isubs = 1,ntiles_total+ntiles_water
+           DO jc = i_startidx, i_endidx
+             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)  &
+               &       * p_prog_lnd_now%t_g_t(jc,jb,isubs)**4
+             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
+               &       * p_lnd_diag%qv_s_t(jc,jb,isubs)
+           ENDDO
+         ENDDO
+         DO jc = i_startidx, i_endidx
+           p_prog_lnd_now%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
+           p_lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
+           p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
+         ENDDO
+
+       ENDIF    ! with or without tiles
+
+    ENDDO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 

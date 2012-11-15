@@ -1260,12 +1260,11 @@ MODULE mo_nwp_lnd_state
 
 
 
-    p_diag_lnd%qv_s_t(:,:,:)     = 0.001_wp
+    
 
     ENDIF
 
-    p_diag_lnd%qv_s(:,:)        = 0.001_wp
-
+    
 
   END SUBROUTINE  new_nwp_lnd_diag_list
 

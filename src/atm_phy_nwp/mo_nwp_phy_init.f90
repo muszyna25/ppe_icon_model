@@ -43,7 +43,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
+  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
@@ -105,6 +105,7 @@ MODULE mo_nwp_phy_init
     &                               lseaice, isub_water, isub_seaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+    &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
     &                                spec_humi !,qsat_rho !! Specific humidity
 
   USE data_gwd,               ONLY: sugwwms
@@ -273,35 +274,39 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          ! If l_sst_in ist FALSE, then t_g contains the skin temperature (initialized in copy_prepicon2prog)
          ! IF l_sst_in ist TRUE, then t_g contains the skin temperature in case of land 
          !  or sea ice and the sea surface temperature in water points
-        IF (l_sst_in) THEN   ! over water take SST
+         !  Remember that t_seasfc is the skin temperature (with a limiter) in case l_sst_in is FALSE
+         ! Over the sea and over the ice, qv_s is set to the saturated value
+         ! Over the land we keep the initial set value (0.001_wp)
          DO ic=1, ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+           p_diag_lnd%qv_s    (jc,jb)    = &
+            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
          END DO
          DO ic=1, ext_data%atm%spi_count(jb)
            jc = ext_data%atm%idx_lst_spi(ic,jb)
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
+           p_diag_lnd%qv_s    (jc,jb)    = &
+            & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
          END DO
-        ENDIF
+         DO ic=1, ext_data%atm%lp_count(jb)
+           jc = ext_data%atm%idx_lst_lp(ic,jb)
+           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
+           p_diag_lnd%qv_s    (jc,jb)    = 0.001_wp
+         END DO
 
-        DO jc = i_startidx, i_endidx
-          p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
-          p_diag_lnd%qv_s    (jc,jb)    = &
-          & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
-        ENDDO
+         DO jc = i_startidx, i_endidx
+           p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+         ENDDO
 
 
-        DO jt = 1, ntiles_total+ntiles_water
+         DO jt = 1, ntiles_total+ntiles_water
           
           DO jc = i_startidx, i_endidx
-           IF (p_diag_lnd%t_seasfc(jc,jb) > 10._wp .AND. .NOT. l_sst_in) THEN 
-            temp = p_diag_lnd%t_seasfc(jc,jb)
-           ELSE
-            temp = p_prog_lnd_now%t_g(jc,jb)
-           ENDIF
-            p_prog_lnd_now%t_g_t(jc,jb,jt) =  temp
-            p_prog_lnd_new%t_g_t(jc,jb,jt) =  temp
-            p_diag_lnd%qv_s_t(jc,jb,jt)    =  spec_humi(sat_pres_water(temp),p_diag%pres_sfc(jc,jb))
+          
+            p_prog_lnd_now%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+            p_diag_lnd%qv_s_t(jc,jb,jt) = p_diag_lnd%qv_s(jc,jb)
           ENDDO
         ENDDO
       ENDIF
@@ -676,7 +681,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
-      &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd)
+      &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag)
   ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. is_restart_run()) THEN
 
     IF ( lsnowtile ) THEN
