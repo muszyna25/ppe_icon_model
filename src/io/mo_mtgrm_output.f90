@@ -166,6 +166,7 @@ MODULE mo_meteogram_output
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_util_phys,             ONLY: rel_hum
+  USE mo_grid_config,           ONLY: grid_sphere_radius
   
   IMPLICIT NONE
   
@@ -716,7 +717,7 @@ CONTAINS
       CALL gnat_init_grid(ptr_patch)
       ! perform proximity query
       CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),    &
-        &                                  nproma, nblks, npromz,                     &
+        &                                  nproma, nblks, npromz, grid_sphere_radius, &
         &                                  tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &

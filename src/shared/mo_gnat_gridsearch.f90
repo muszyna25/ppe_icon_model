@@ -65,7 +65,6 @@ MODULE mo_gnat_gridsearch
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_math_constants,      ONLY: pi_180
   USE mo_math_utilities,      ONLY: t_geographical_coordinates
-  USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -73,9 +72,6 @@ MODULE mo_gnat_gridsearch
     &                               p_comm_work, my_process_is_mpi_test, p_max,           &
     &                               p_send, p_recv,                                       &
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
-  USE mo_parallel_config,     ONLY: p_test_run
-  USE mo_kind
-  USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
 
@@ -1072,11 +1068,12 @@ CONTAINS
   ! returns the indices and block indices of the mesh triangles that
   ! contain these points.
   SUBROUTINE gnat_query_containing_triangles(p_patch, tree, v, iv_nproma, iv_nblks,  &
-    &                                        iv_npromz, tri_idx, min_dist)
+    &                                        iv_npromz, grid_sphere_radius, tri_idx, min_dist)
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
     INTEGER,  INTENT(IN)    :: tree                                ! tree root node (index)
     INTEGER,  INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz      ! list size
+    REAL(wp), INTENT(IN)    :: grid_sphere_radius
     REAL(gk), INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim)  ! list of search points
     INTEGER,  INTENT(OUT)   :: tri_idx(2,iv_nproma, iv_nblks)      ! containing triangle (idx,block)
     REAL(gk), INTENT(OUT)   :: min_dist(iv_nproma, iv_nblks)       ! minimal distance
