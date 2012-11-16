@@ -58,7 +58,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PRIVATE
 
-  PUBLIC :: check_grid_configuration, get_grid_rescale_factor
+  PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
@@ -142,16 +142,16 @@ CONTAINS
  !! @par Revision History
  !!  Leonidas Linardakis, MPI-M, 2011/7/7
  !!  - Restructuring the namelists
-  SUBROUTINE check_grid_configuration
+  SUBROUTINE init_grid_configuration
                                                
     !local variables
     INTEGER  :: jg
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
-    CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:check_grid_configuration"
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
 
     IF (no_of_dynamics_grids /= 0) &
-      CALL finish( "check_grid_configuration", 'should not be called twice')
+      CALL finish( method_name, 'should not be called twice')
     
     !-----------------------------------------------------------------------
     ! find out how many grids we have
@@ -243,7 +243,7 @@ CONTAINS
 
 !     CALL finish("grid_nml_setup","stop")
 
-  END SUBROUTINE check_grid_configuration
+  END SUBROUTINE init_grid_configuration
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

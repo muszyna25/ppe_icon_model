@@ -283,7 +283,7 @@ CONTAINS
   SUBROUTINE oce_crosscheck()
     CALL check_parallel_configuration()
     CALL resize_simulation_length()
-    CALL check_grid_configuration
+    CALL init_grid_configuration
   END SUBROUTINE oce_crosscheck
 
 
@@ -340,7 +340,7 @@ CONTAINS
 
     ! check the configuration (skip for prep_icon remapping)
     IF (i_oper_mode /= MODE_REMAP) THEN
-      CALL check_grid_configuration()
+      CALL init_grid_configuration()
     END IF
 
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&

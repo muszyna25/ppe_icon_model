@@ -70,7 +70,7 @@ MODULE mo_grid_nml
     & config_grid_rescale_factor          => grid_rescale_factor,          &
     & config_grid_angular_velocity        => namelst_grid_angular_velocity,&
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
-    & check_grid_configuration, max_rad_dom
+    & max_rad_dom
 
   IMPLICIT NONE
 
