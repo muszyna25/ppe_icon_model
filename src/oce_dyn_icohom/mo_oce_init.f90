@@ -1891,6 +1891,10 @@ CONTAINS
       CALL message(TRIM(routine), &
         &  ' - here: testcase for coupled aquaplanet, using sst_qobs, min=10 deg C')
 
+      z_temp_max  = 27.0_wp
+      z_temp_min  = 10.0_wp
+      z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
+
       sst_case='sst_qobs'
       jk = 1
       DO jb = all_cells%start_block, all_cells%end_block
@@ -1898,14 +1902,10 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
           END IF
         END DO
       END DO
-
-      z_temp_max  = 27.0_wp
-      z_temp_min  = 10.0_wp
-      z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
       WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
 
       p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
