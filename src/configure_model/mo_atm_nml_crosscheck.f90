@@ -283,6 +283,7 @@ CONTAINS
   SUBROUTINE oce_crosscheck()
     CALL check_parallel_configuration()
     CALL resize_simulation_length()
+    CALL check_grid_configuration
   END SUBROUTINE oce_crosscheck
 
 
