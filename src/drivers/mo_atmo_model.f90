@@ -176,7 +176,7 @@ USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic
 USE mo_icon_comm_interface, ONLY: construct_icon_communication, &
     & destruct_icon_communication
     
-USE mo_rrtm_data_interface, ONLY: construct_rrtm_model_repart, destruct_rrtm_model_repart
+USE mo_rrtm_data_interface, ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -700,13 +700,11 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
-    IF (use_icon_comm .OR. parallel_radiation_mode > 0) THEN
+    IF (use_icon_comm) THEN
       CALL construct_icon_communication()
     ENDIF
 
-    IF (parallel_radiation_mode == 1) THEN
-      CALL construct_rrtm_model_repart(p_patch(1))
-    ENDIF
+    CALL init_rrtm_model_repart()
     
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -768,9 +766,7 @@ CONTAINS
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
-    IF (parallel_radiation_mode == 1) THEN
-      CALL destruct_rrtm_model_repart()
-    ENDIF
+    CALL destruct_rrtm_model_repart()
     IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
     ENDIF

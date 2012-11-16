@@ -59,8 +59,8 @@ MODULE mo_test_communication
 !   USE mo_icon_comm_interface,ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_icon_comm_lib
 
-  USE mo_rrtm_data_interface, ONLY: t_rrtm_data, init_rrtm_data, recv_rrtm_input, &
-    & construct_rrtm_model_repart
+  USE mo_rrtm_data_interface, ONLY: t_rrtm_data, recv_rrtm_input, &
+    & init_rrtm_model_repart
 
   USE mo_icon_testbed_config, ONLY: testbed_model, test_halo_communication, &
     & test_radiation_communication
@@ -149,14 +149,14 @@ CONTAINS
     TYPE(t_rrtm_data), POINTER :: rrtm_rad_data
     INTEGER ::  timer_barrier_only, i
     
-    CALL construct_rrtm_model_repart(p_patch(1))
-    ! now allocate the data for the radiation interface
-    CALL init_rrtm_data( &
-      & rrtm_data   = rrtm_local_data   , &
-      & no_of_cells = p_patch(1)%n_patch_cells, &
-      & full_levels = p_patch(1)%nlev,         &
-      & half_levels = p_patch(1)%nlevp1,       &
-      & block_size  = nproma)
+    CALL init_rrtm_model_repart()
+!     ! now allocate the data for the radiation interface
+!     CALL init_rrtm_data( &
+!       & rrtm_data   = rrtm_local_data   , &
+!       & no_of_cells = p_patch(1)%n_patch_cells, &
+!       & full_levels = p_patch(1)%nlev,         &
+!       & half_levels = p_patch(1)%nlevp1,       &
+!       & block_size  = nproma)
     
     !---------------------------------------------------------------------
     ! test the barrier

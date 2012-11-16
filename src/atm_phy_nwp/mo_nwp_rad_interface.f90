@@ -137,7 +137,7 @@ MODULE mo_nwp_rad_interface
     
       IF ( .NOT. lredgrid ) THEN
 
-        SELECT CASE(parallel_radiation_mode)
+        SELECT CASE(parallel_radiation_mode(pt_patch%id))
         CASE(1) 
           CALL nwp_rrtm_radiation_repartition ( p_sim_time,pt_patch, &
             & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                &

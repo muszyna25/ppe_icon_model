@@ -1362,13 +1362,16 @@ MODULE mo_solve_nonhydro
       ENDIF
       IF (istep == 1) THEN
         IF (idiv_method == 1) THEN
-          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned)
+          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned, &
+            & name="solve_step1_vn")
         ELSE
           CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, z_theta_v_e, &
-            & p_patch%sync_edges_not_owned)
+            & p_patch%sync_edges_not_owned, &
+            & name="solve_step1_vn")
         ENDIF
       ELSE
-        CALL icon_comm_sync(p_nh%prog(nnew)%vn, p_patch%sync_edges_not_owned)
+        CALL icon_comm_sync(p_nh%prog(nnew)%vn, p_patch%sync_edges_not_owned, &
+            & name="solve_step2_vn")
       ENDIF
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)
@@ -2187,11 +2190,13 @@ MODULE mo_solve_nonhydro
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
       IF (istep == 1) THEN ! Only w is updated in the predictor step
-        CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned)
+        CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned, &
+            & name="solve_step1_w")
       ELSE IF (istep == 2) THEN
         ! Synchronize all prognostic variables
         CALL icon_comm_sync(p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w, &
-          & p_patch%sync_cells_not_owned)
+          & p_patch%sync_cells_not_owned, &
+          & name="solve_step2_w")
       ENDIF
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)

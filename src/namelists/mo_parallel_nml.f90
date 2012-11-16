@@ -42,7 +42,7 @@ MODULE mo_parallel_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     & open_and_restore_namelist, close_tmpfile
   USE mo_io_units,           ONLY: filename_max
-!   USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom
 
   USE mo_parallel_config,     ONLY: &
     & config_n_ghost_rows        => n_ghost_rows,        &
@@ -59,11 +59,11 @@ MODULE mo_parallel_nml
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
     & config_exch_msgsize        => exch_msgsize,        &
-    & config_radiation_threads   => radiation_ompthreads,   &
-    & config_nh_stepping_threads => nh_stepping_ompthreads, &
+!     & config_radiation_threads   => radiation_ompthreads,   &
+!     & config_nh_stepping_threads => nh_stepping_ompthreads, &
     & config_nproma              => nproma,                 &
     & config_openmp_threads      => openmp_threads,         &
-    & config_parallel_radiation_omp => parallel_radiation_omp,  &
+!     & config_parallel_radiation_omp => parallel_radiation_omp,  &
     & config_parallel_radiation_mode => parallel_radiation_mode,  &
     & config_test_parallel_radiation=> test_parallel_radiation, &
     & config_use_icon_comm       => use_icon_comm,        &
@@ -105,12 +105,12 @@ MODULE mo_parallel_nml
     ! Number of rows of ghost cells
     INTEGER :: n_ghost_rows
 
-    INTEGER :: division_method  ! div_from_file = 0  ! Read from file
+    INTEGER :: division_method(max_dom)  ! div_from_file = 0  ! Read from file
                                 ! div_geometric = 1  ! Geometric subdivision
                                 ! div_metis     = 2  ! Use Metis
 
-    CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
-    CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if div_from_file
+    CHARACTER(LEN=filename_max) :: division_file_name(max_dom) ! if div_from_file
+    CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if div_from_file
     INTEGER :: redrad_split_factor
 
     ! Flag if (in case of merged domains) physical domains shall be considered for 
@@ -172,11 +172,11 @@ MODULE mo_parallel_nml
 
     !--------------------------------------------
     ! namelist for parallel radiation
-    LOGICAL :: parallel_radiation_omp
-    INTEGER :: parallel_radiation_mode
+!     LOGICAL :: parallel_radiation_omp
+    INTEGER :: parallel_radiation_mode(max_dom)
     LOGICAL :: test_parallel_radiation
-    INTEGER :: radiation_threads
-    INTEGER :: nh_stepping_threads
+! !     INTEGER :: radiation_threads
+! !     INTEGER :: nh_stepping_threads
     !--------------------------------------------
 
     INTEGER :: nproma    ! inner loop length/vector length
@@ -190,8 +190,8 @@ MODULE mo_parallel_nml
       & p_test_run,        l_test_openmp,       &
       & num_io_procs,      pio_type,            &
       & itype_comm,        iorder_sendrecv,     &
-      & radiation_threads, nh_stepping_threads, &
-      & nproma, parallel_radiation_omp,         &
+!       & radiation_threads, nh_stepping_threads, &
+      & nproma,                                 &
       & parallel_radiation_mode,  use_icon_comm, &
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
@@ -200,7 +200,7 @@ MODULE mo_parallel_nml
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-      & redrad_split_factor
+      & redrad_split_factor !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -213,9 +213,9 @@ MODULE mo_parallel_nml
     !--------------------------------------------
     ! Number of rows of ghost cells
     n_ghost_rows = 1
-    division_method = div_geometric
-    division_file_name = ""
-    radiation_division_file_name = ""
+    division_method(:) = div_geometric
+    division_file_name(:) = ""
+    radiation_division_file_name(:) = ""
     redrad_split_factor = config_redrad_split_factor
      
     ! Flag if (in case of merged domains) physical domains shall be considered for 
@@ -278,11 +278,11 @@ MODULE mo_parallel_nml
     openmp_threads = -1 ! < 0 means do not use this value
     
     ! parallel_radiation
-    parallel_radiation_mode = 0
-    parallel_radiation_omp = .false.
+    parallel_radiation_mode(:) = 0
+!     parallel_radiation_omp = .false.
     test_parallel_radiation = .false.
-    radiation_threads = 1
-    nh_stepping_threads = 1
+!     radiation_threads = 1
+!     nh_stepping_threads = 1
 
     ! output in single precision
     use_sp_output = .FALSE.
@@ -323,10 +323,10 @@ MODULE mo_parallel_nml
     !-----------------------------------------------------
     ! fill_parallel_nml_configure       
     config_n_ghost_rows        = n_ghost_rows
-    config_division_method     = division_method
-    config_division_file_name  = division_file_name
+    config_division_method(:)  = division_method(:)
+    config_division_file_name(:) = division_file_name(:)
     config_ldiv_phys_dom       = ldiv_phys_dom
-    config_rad_division_file_name  = radiation_division_file_name
+    config_rad_division_file_name(:)  = radiation_division_file_name(:)
     config_redrad_split_factor = redrad_split_factor
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
@@ -337,8 +337,8 @@ MODULE mo_parallel_nml
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
     config_exch_msgsize        = exch_msgsize
-    config_radiation_threads   = radiation_threads
-    config_nh_stepping_threads = nh_stepping_threads
+!     config_radiation_threads   = radiation_threads
+!     config_nh_stepping_threads = nh_stepping_threads
     config_nproma              = nproma
     config_openmp_threads         = openmp_threads
     
@@ -349,8 +349,8 @@ MODULE mo_parallel_nml
     config_max_no_of_comm_proc = max_no_of_comm_processes
     config_max_no_of_comm_patt = max_no_of_comm_patterns
     config_sync_barrier_mode   = sync_barrier_mode
-    config_parallel_radiation_omp  = parallel_radiation_omp
-    config_parallel_radiation_mode = parallel_radiation_mode
+!     config_parallel_radiation_omp  = parallel_radiation_omp
+    config_parallel_radiation_mode(:) = parallel_radiation_mode(:)
     config_test_parallel_radiation = test_parallel_radiation
     config_max_sr_buffer_size   = max_send_recv_buffer_size
     config_max_mpi_message_size = max_mpi_message_size

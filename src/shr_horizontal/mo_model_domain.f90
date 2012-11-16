@@ -285,7 +285,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: owner_g(:)
     
     ! The owner when running the radiation
-    ! only used whit redistriuted radiation
+    ! only used with redistriuted radiation
     INTEGER, POINTER :: radiation_owner(:)
     
     ! Please note that the following array is only needed on local parent patches

@@ -43,7 +43,7 @@ MODULE mo_decomposition_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, finish, warning
-  USE mo_io_units,           ONLY: nnml, filename_max
+  USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_base_geometry
 
   IMPLICIT NONE
@@ -57,6 +57,7 @@ MODULE mo_decomposition_tools
   PUBLIC :: decompose_round_robin_opp
   PUBLIC :: get_no_of_cells_per_subdomain
   PUBLIC :: divide_geometric_medial
+  PUBLIC :: read_ascii_decomposition
 
   PRIVATE
 
@@ -99,6 +100,31 @@ MODULE mo_decomposition_tools
 CONTAINS
 
   !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_ascii_decomposition(ascii_file_name, cell_owner, no_of_cells)
+    INTEGER, POINTER :: cell_owner(:) 
+    CHARACTER(LEN=*) :: ascii_file_name 
+    INTEGER, INTENT(in) :: no_of_cells
+    
+    INTEGER :: file_id, return_status, cell_no
+    CHARACTER(*), PARAMETER :: method_name = "read_ascii_decomposition"
+        
+    WRITE(0,*) "Read decomposition from file: ", TRIM(ascii_file_name)
+    file_id = find_next_free_unit(10,99)
+
+    OPEN(file_id, FILE=TRIM(ascii_file_name), STATUS='OLD', IOSTAT=return_status)
+    IF(return_status /= 0) CALL finish(method_name,&
+      & 'Unable to open input file: '//TRIM(ascii_file_name))
+
+    DO cell_no = 1, no_of_cells
+      READ(file_id, *, IOSTAT=return_status) cell_owner(cell_no)
+      IF(return_status /= 0) CALL finish(method_name,'Error reading: '//TRIM(ascii_file_name))
+    ENDDO
+    CLOSE(file_id)
+    
+  END SUBROUTINE read_ascii_decomposition
+  !-------------------------------------------------------------------------
+  
   
   !-------------------------------------------------------------------------
   !>

@@ -466,7 +466,6 @@ CONTAINS
   SUBROUTINE init_icon_halo_comm_patterns(p_patch)
     TYPE(t_patch), INTENT(inout) :: p_patch
 
-    INTEGER :: i
     CHARACTER(*), PARAMETER :: method_name = "init_icon_std_comm_patterns"
     
     IF(this_is_mpi_sequential) RETURN
@@ -1316,7 +1315,7 @@ CONTAINS
     
     INTEGER, INTENT(IN) :: comm_pattern_index
 
-     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+    INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
     INTEGER, INTENT(IN), OPTIONAL :: status
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
@@ -1492,17 +1491,18 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index)
+  SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), TARGET   :: var(:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var = new_icon_comm_variable(var,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync )
+      & status=is_ready, scope=until_sync, name=name )
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_2D_1
@@ -1510,17 +1510,18 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_1(var,  comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_1(var,  comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), TARGET   :: var(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var = new_icon_comm_variable(var,  comm_pattern_index,  &
-      & status=is_ready, scope=until_sync )
+      & status=is_ready, scope=until_sync, name=name )
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_1
@@ -1528,21 +1529,22 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
     REAL(wp), TARGET   :: var1(:,:,:)
     REAL(wp), TARGET   :: var2(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var_1, comm_var_2
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index,  &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index,  &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_2
@@ -1550,24 +1552,25 @@ CONTAINS
           
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_3(var1,  var2, var3, comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_3(var1,  var2, var3, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
     REAL(wp), TARGET   :: var1(:,:,:)
     REAL(wp), TARGET   :: var2(:,:,:)
     REAL(wp), TARGET   :: var3(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var_1, comm_var_2, comm_var_3
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_3 = new_icon_comm_variable(var3,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_3
@@ -1575,7 +1578,7 @@ CONTAINS
         
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_4(var1,  var2, var3, var4, comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_4(var1,  var2, var3, var4, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
@@ -1583,19 +1586,20 @@ CONTAINS
     REAL(wp), TARGET   :: var2(:,:,:)
     REAL(wp), TARGET   :: var3(:,:,:)
     REAL(wp), TARGET   :: var4(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var_1, comm_var_2, comm_var_3, comm_var_4
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_3 = new_icon_comm_variable(var3,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_4 = new_icon_comm_variable(var4,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_4
@@ -1912,7 +1916,7 @@ CONTAINS
       current_buffer_index = send_procs_buffer(bfid)%current_index
       var_send_size = grid_comm_pattern%send(np)%no_of_points * vertical_layers
       ! fill the header
-      ! this is the id of the variabkle and the size we sent
+      ! this is the id of the variable and the size we sent
       send_buffer(current_buffer_index) = REAL(comm_var,wp)
       current_buffer_index = current_buffer_index + 1
       send_buffer(current_buffer_index) = REAL(var_send_size,wp)
@@ -1953,7 +1957,7 @@ CONTAINS
 !         ENDDO
 
         IF (icon_comm_debug) THEN
-          k=1
+          k=2
           DO i = 1, grid_comm_pattern%send(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
               & send_procs_buffer(bfid)%pid, ":", &
@@ -2037,7 +2041,7 @@ CONTAINS
       ENDDO
 
       IF (icon_comm_debug) THEN
-        k=1
+        k=2
         DO i = 1, grid_comm_pattern%send(np)%no_of_points
           write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
             & send_procs_buffer(bfid)%pid, ":", &
@@ -2276,7 +2280,7 @@ CONTAINS
         ENDDO
         
         IF (icon_comm_debug) THEN
-          k=1
+          k=2
           DO i = 1, grid_comm_pattern%recv(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " recv from ", &
               & recv_procs_buffer(bfid)%pid, ":", &
