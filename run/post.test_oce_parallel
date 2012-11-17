@@ -23,7 +23,7 @@ esac
 cd ${dataPath}
 iFile=$(ls ${EXP}*.nc | tail -n 1)
 ## get the index of the last timestamp
-nTimesteps=$(cdo sinfov ${iFile} | grep 'Time axis' | cut -d ' ' -f 8)
+nTimesteps=$(cdo ntime ${iFile})
 tOutput=$((nTimesteps - 1))
 # perform the ploting
 mkdir -p plots
