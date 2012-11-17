@@ -109,7 +109,7 @@ MODULE mo_name_list_output
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
 
 
   IMPLICIT NONE
