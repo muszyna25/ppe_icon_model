@@ -1327,6 +1327,7 @@ src/oce_phy_icohom/mo_oce_thermodyn.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
 src/parallel_infrastructure/mo_decomposition_tools.f90 -text
+src/parallel_infrastructure/mo_ext_decompose_patches.f90 -text
 src/parallel_infrastructure/mo_icon_comm_interface.f90 -text
 src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
 src/parallel_infrastructure/mo_mpi.f90 -text

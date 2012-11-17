@@ -376,7 +376,7 @@ CONTAINS
 
     INTEGER, POINTER  :: opposite_subdomain_id(:)
 
-    
+    NULLIFY(opposite_subdomain_id)
     CALL find_opposite_subdomains(decomposition_struct,  &
       & in_decomposition_id = in_decomposition_id, &
       & opposite_subdomain_id = opposite_subdomain_id)    
@@ -434,9 +434,14 @@ CONTAINS
     check_subdomain_partition = subdomain_partition
     IF (check_subdomain_partition > no_of_domains) &
       & check_subdomain_partition = no_of_domains
+      
     cells_group_size = max_subdomain_size / subdomain_partition
     return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
       & cells_per_domain, cells_group_size,max_subdomain_size,  opposite_subdomain_id)
+      
+    write(0,*) "max_subdomain_size=", max_subdomain_size, &
+      & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
+      & " new subdomain_partition:", check_subdomain_partition
 
     IF (return_status /= 0) THEN
       ! revalidate
@@ -448,17 +453,20 @@ CONTAINS
         check_subdomain_partition = subdomain_partition - MOD(no_of_domains,subdomain_partition)
       ENDIF
       cells_group_size = max_subdomain_size / check_subdomain_partition
+    write(0,*) "max_subdomain_size=", max_subdomain_size, &
+      & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
+      & " new subdomain_partition:", check_subdomain_partition
       return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
         & cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
       IF (return_status /= 0) THEN
         ! we cannot find a suitable decomposition
-        CALL warning(method_name, "cannot find balanced decomposition")
+        CALL finish(method_name, "cannot find balanced decomposition")
       ENDIF
     ENDIF
       
-    write(0,*) "max_subdomain_size=", max_subdomain_size, &
-      & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
-      & " new subdomain_partition:", check_subdomain_partition
+!     write(0,*) "max_subdomain_size=", max_subdomain_size, &
+!       & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
+!       & " new subdomain_partition:", check_subdomain_partition
 
     ! re-distribute in groups of cells_group_size
     ! the current group size for each subdomain
@@ -467,6 +475,7 @@ CONTAINS
     remain_domain_space(:) = max_subdomain_size
     DO cell_no = 1, decomposition_struct%no_of_cells
       in_domain_id = decomposition_struct%domain_id(in_decomposition_id, cell_no)
+      write(0,*) cell_no, in_domain_id, next_new_domain(in_domain_id)
       decomposition_struct%domain_id(out_decomposition_id, cell_no) = next_new_domain(in_domain_id)
       remain_domain_space(next_new_domain(in_domain_id)) = &
         remain_domain_space(next_new_domain(in_domain_id)) - 1

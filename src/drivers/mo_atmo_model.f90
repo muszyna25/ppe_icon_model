@@ -48,7 +48,8 @@ USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
   
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
-  & num_io_procs, nproma, use_icon_comm, parallel_radiation_mode
+  & num_io_procs, nproma, use_icon_comm, &
+  & division_method
   
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
@@ -108,6 +109,8 @@ USE mo_complete_subdivision, ONLY: &
   & copy_processor_splitting,      &
   & set_patch_communicators,       &
   & setup_phys_patches
+
+USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
 
 #ifndef NOMPI
 USE mo_setup_subdivision,   ONLY:  npts_local
@@ -433,10 +436,19 @@ CONTAINS
         IF(lread_dd) THEN
           CALL restore_patches_netcdf( p_patch, .FALSE. )
         ELSE
-          ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
-          CALL decompose_domain(p_patch_global)
-          DEALLOCATE(p_patch_global)
+          IF (division_method(1) > 100) THEN
+            ! use ext decomposition library driver
+            ALLOCATE(p_patch_global(n_dom_start:n_dom))
+            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL ext_decompose_patches(p_patch_global)
+            DEALLOCATE(p_patch_global)
+          ELSE
+            ! use internal decomposition 
+            ALLOCATE(p_patch_global(n_dom_start:n_dom))
+            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL decompose_domain(p_patch_global)
+            DEALLOCATE(p_patch_global)
+          ENDIF
         ENDIF
         IF(ldump_dd) THEN
           DO jg = n_dom_start, n_dom
