@@ -74,6 +74,7 @@ MODULE mo_grid_toolbox
   PUBLIC :: inverse_connectivity_verts
   PUBLIC :: shift_grid_ids
   PUBLIC :: add_to_list_if_not_exist
+  PUBLIC :: grid_file_zero_children
    
   INTEGER, PARAMETER :: until_convergence = 40
 
@@ -202,8 +203,9 @@ CONTAINS
       wrk_cell_list%list_size = out_cell_list%list_size
       wrk_cell_list%value => out_cell_list%value
     ENDDO
-
+    
   END SUBROUTINE smooth_boundaryfrom_cell_list
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !   SUBROUTINE smooth_boundaryfrom_cell_list(in_grid_id, in_cell_list, out_cell_list)
@@ -820,6 +822,21 @@ END FUNCTION concatenate_grids
     CALL delete_grid(out_grid_id)
 
   END SUBROUTINE create_dual
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE grid_file_zero_children(in_file, out_file)
+    CHARACTER(LEN=filename_max), INTENT(in) :: in_file,out_file
+
+    INTEGER :: in_grid_id
+
+    in_grid_id = read_new_netcdf_grid(in_file)
+    CALL zero_children(in_grid_id)
+    CALL write_netcdf_grid(in_grid_id, out_file)
+
+    CALL delete_grid(in_grid_id)
+
+  END SUBROUTINE grid_file_zero_children
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

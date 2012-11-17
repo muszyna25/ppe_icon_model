@@ -68,6 +68,7 @@ MODULE mo_base_geometry
   PUBLIC :: x_rot_angle,y_rot_angle,z_rot_angle
   PUBLIC :: middle
   PUBLIC :: cartesian_to_geographical, geographical_to_cartesian
+  PUBLIC :: project_point
   PUBLIC :: operator(+), operator(-)
 
   TYPE t_cartesian_coordinates
@@ -533,6 +534,31 @@ CONTAINS
 
   END FUNCTION normal_vector
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ELEMENTAL FUNCTION project_point (in_point, to_v0, to_v1, to_v2) result(projected_point)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: in_point, to_v0, to_v1, to_v2
+    TYPE(t_cartesian_coordinates) :: projected_point
+
+    TYPE(t_cartesian_coordinates) :: in_p, v1, v2, norm_to_plane
+
+    ! translate everybody to the center
+    v1%x = to_v1%x - to_v0%x
+    v2%x = to_v2%x - to_v0%x
+    in_p%x = in_point%x - to_v0%x
+
+    norm_to_plane = vector_product (v1, v2)
+    d_normalize(norm_to_plane)
+    norm_to_plane%x = norm_to_plane%x * &
+      & DOT_PRODUCT(norm_to_plane%x, (v1%x - in_p%x))
+
+    projected_point%x = in_p%x + norm_to_plane%x + to_v0%x
+
+  END FUNCTION project_point
+  !-------------------------------------------------------------------------
+    
+    
+  
 
   !-------------------------------------------------------------------------
   !>

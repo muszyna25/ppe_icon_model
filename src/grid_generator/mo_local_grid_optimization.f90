@@ -61,10 +61,10 @@ MODULE mo_local_grid_optimization
 
   !-------------------------------------------------------------------------
   USE mo_kind,           ONLY: wp
-  USE mo_exception,      ONLY: message_text, message, finish
+  USE mo_exception,      ONLY: message_text, message, finish, warning
   USE mo_io_units,       ONLY: nnml, filename_max
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
-  USE mo_math_constants, ONLY: pi
+  USE mo_math_constants, ONLY: rad2deg, deg2rad, pi, pi_2
   USE mo_local_grid_geometry,ONLY: get_triangle_circumcenters, get_cell_barycenters,&
     & use_cartesian_centers
   USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
@@ -116,16 +116,20 @@ MODULE mo_local_grid_optimization
 
   ! R refinement parameters
   INTEGER, PARAMETER :: R_refine_none=0
-  INTEGER, PARAMETER :: R_refine_springedges_linear=1
+  INTEGER, PARAMETER :: R_refine_spring_linear_points=1
+  INTEGER, PARAMETER :: R_refine_spring_equator=2
   
   ! R refinement namelist
-  INTEGER  :: R_refine_method
-  REAL(wp) :: R_refine_center_lon, R_refine_center_lat
+  INTEGER  :: R_refine_method, R_refine_no_of_points
+  REAL(wp) :: R_refine_center_lon(4), R_refine_center_lat(4)
   REAL(wp) :: R_refine_ratio, R_refine_flat_radius
   
   ! R refinement variables
-  TYPE(t_cartesian_coordinates) :: R_refine_center
+  TYPE(t_cartesian_coordinates) :: R_refine_center(4)
   
+  ! anisotropy
+  REAL(wp) :: anisotropy_coeff
+  TYPE(t_cartesian_coordinates) :: anisotropy_vector
 
 
   CHARACTER(LEN=filename_max) :: input_file, output_file
@@ -193,7 +197,10 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
 
     TYPE(t_geographical_coordinates) :: geocoord
-    INTEGER :: i_status
+    REAL(wp) :: anisotropy_use_vector(3)
+    
+    INTEGER :: i_status, i
+    CHARACTER(*), PARAMETER :: method_name = "read_grid_optimization_param"
 
     NAMELIST /grid_optimization/ use_optimization, &
       & spring_dt, p_total_force_condition, p_max_force_condition, max_min_condition, &
@@ -209,7 +216,8 @@ CONTAINS
       & isotropy_rotation_coeff, isotropy_stretch_coeff, use_edge_springs,    &
       & centers_springcorrection_coeff, use_centers_spring_correction, &
       & R_refine_method, R_refine_center_lon, R_refine_center_lat, R_refine_ratio, &
-      & R_refine_flat_radius, optimize_vertex_depth, max_iterations
+      & R_refine_flat_radius, optimize_vertex_depth, max_iterations, &
+      & R_refine_no_of_points, anisotropy_use_vector, anisotropy_coeff
 
 
     ! set default values
@@ -253,8 +261,10 @@ CONTAINS
 
     R_refine_method=R_refine_none
     R_refine_ratio=0.5_wp
-    R_refine_flat_radius=0.05_wp
+    R_refine_flat_radius=1.0_wp
     
+    anisotropy_coeff = 0.0_wp
+    anisotropy_use_vector = 0.0_wp
     
     ! read namelist
     CALL open_nml(param_file_name)
@@ -263,15 +273,24 @@ CONTAINS
       READ (nnml,grid_optimization)
     ELSE
       WRITE(message_text,'(a,a,a)') " File ", TRIM(param_file_name), " not POSITIONED"
-      CALL finish ('read_grid_optimization_param', message_text)
+      CALL finish (method_name, message_text)
     ENDIF
     CLOSE(nnml)
 
-    IF (R_refine_method /= R_refine_none) THEN
-      geocoord%lon = R_refine_center_lon
-      geocoord%lat = R_refine_center_lat
-      R_refine_center = gc2cc(geocoord)
+    IF (R_refine_method == R_refine_spring_linear_points) THEN
+      IF (R_refine_no_of_points < 1 .OR. R_refine_no_of_points > 4) &
+        & CALL finish(method_name, "R_refine_no_of_points out of bounds")
+      DO i=1, R_refine_no_of_points
+        geocoord%lon = R_refine_center_lon(i) * deg2rad
+        geocoord%lat = R_refine_center_lat(i) * deg2rad
+        R_refine_center(i) = gc2cc(geocoord)
+        write(0,*) i, " R_refine_center:", R_refine_center_lon(i), R_refine_center_lat(i), &
+          & R_refine_center(i)%x
+      ENDDO
     ENDIF
+    
+    anisotropy_vector%x = anisotropy_use_vector
+    R_refine_flat_radius = R_refine_flat_radius * deg2rad
 
     IF (optimize_vertex_depth < 1) &
       CALL finish('grid_optimization',&
@@ -416,7 +435,8 @@ CONTAINS
 
     REAL (wp) :: spring_ref_length, global_ref_length
     
-    REAL(wp) :: length, average_length, min_length, max_length, centers_ref_length
+    REAL(wp) :: length, global_mean_edge_length, min_grid_length
+    REAL(wp) :: global_max_edge_length, centers_ref_length
     REAL(wp) :: triangle_area
     
     REAL(wp) :: max_dt_distance
@@ -450,7 +470,7 @@ CONTAINS
     REAL(wp),  ALLOCATABLE :: edge_ref_length(:)
     REAL(wp),  ALLOCATABLE :: cell_edge_ref(:)
 !    REAL(wp) :: ref_length
-    REAL(wp) :: diff_length
+    REAL(wp) :: diff_length, min_length
 
     INTEGER :: vertex_edges, vertex_list_idx
 
@@ -459,7 +479,9 @@ CONTAINS
     TYPE(t_cartesian_coordinates), POINTER :: dual_barycenters(:)
 
     REAL(wp), POINTER :: vertex_ref_length(:)
-    REAL(wp) :: R_refine_ratio_coeff
+    REAL(wp) :: R_refine_ratio_inv, R_refine_coeff,  R_refine_ratio_sqr!, R_refine_ratio_coeff
+    REAL(wp), ALLOCATABLE :: R_refine_min_distance(:)
+    REAL(wp) :: max_distance, min_distance
 
     LOGICAL :: is_triangle_grid!, use_cell_center_correction
     LOGICAL :: use_R_refine, use_vertex_ref_length, use_cell_centers
@@ -493,7 +515,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     ! Calculate some conditions    
     is_triangle_grid = max_cell_vertices == 3
-    use_R_refine = (R_refine_method == R_refine_none)
+    use_R_refine = (R_refine_method /= R_refine_none)
     !---------------
     IF (use_dual_spring_cellcenters .AND. use_prime_spring_cellcenters) THEN
       CALL finish(method_name, &
@@ -522,7 +544,7 @@ CONTAINS
     ENDIF
     
 
-    IF (use_local_reference_length) THEN
+    IF (use_vertex_ref_length) THEN
       ALLOCATE(vertex_edge_ref_length(no_of_vertices), stat=return_status)
       IF (return_status > 0) &
         CALL finish (method_name, &
@@ -554,6 +576,7 @@ CONTAINS
       ALLOCATE(vertex_ref_length(no_of_vertices), stat=return_status)
       IF (return_status > 0)  CALL finish (method_name, &
           & 'ALLOCATE(vertex_ref_length)')
+      vertex_ref_length(:) = 0.0_wp
     ENDIF
 
     
@@ -564,12 +587,19 @@ CONTAINS
     dt       = spring_dt
     !-----------------------------------------------------------------------
     ! Compute R_refine constants
-    IF (R_refine_method == R_refine_springedges_linear) THEN
+    IF (R_refine_method == R_refine_spring_linear_points .OR. &
+      & R_refine_method ==  R_refine_spring_equator) THEN
       IF (R_refine_flat_radius > 0.9_wp ) &
         CALL finish(method_name, 'R_refine_flat_radius > 0.9_wp')
-      R_refine_ratio_coeff =  &
-        (1.0_wp - R_refine_ratio)/ (1.0_wp - R_refine_flat_radius)
-    ENDIF    
+!       R_refine_ratio_inv = (1.0_wp + R_refine_flat_radius) / R_refine_ratio
+!       R_refine_ratio_inv = 1.0_wp - 1.0_wp / R_refine_ratio
+      R_refine_ratio_sqr = R_refine_ratio * R_refine_ratio
+!       R_refine_ratio_coeff =  &
+!         (1.0_wp - R_refine_ratio)/ (1.0_wp - R_refine_flat_radius)
+      ALLOCATE(R_refine_min_distance(no_of_vertices), stat=return_status)
+      IF (return_status > 0)  CALL finish (method_name, &
+          & 'ALLOCATE(R_refine_min_distance)')      
+    ENDIF
     !-----------------------------------------------------------------------
     s_max_force_condition   = p_max_force_condition
     s_total_force_condition = p_total_force_condition
@@ -579,9 +609,9 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     ! compute spring_ref_length
-    average_length = 0.0_wp
-    min_length = 1E100_wp
-    max_length = 0.0_wp
+    global_mean_edge_length = 0.0_wp
+    min_grid_length = 1E100_wp
+    global_max_edge_length = 0.0_wp
     DO edge = 1, no_of_edges
 
       edge_vector%x = &
@@ -594,16 +624,16 @@ CONTAINS
       edges%cartesian_dual_normal(edge)%x = edge_vector%x / length
 
     ENDDO ! edge = 1, no_of_edges
-    min_length = MINVAL(edges%primal_edge_length(1:no_of_edges))
-    max_length = MAXVAL(edges%primal_edge_length(1:no_of_edges))
-    average_length = SUM(edges%primal_edge_length(1:no_of_edges))/ REAL(no_of_edges,wp)
+    min_grid_length = MINVAL(edges%primal_edge_length(1:no_of_edges))
+    global_max_edge_length = MAXVAL(edges%primal_edge_length(1:no_of_edges))
+    global_mean_edge_length = SUM(edges%primal_edge_length(1:no_of_edges))/ REAL(no_of_edges,wp)
 
     half_ref_length_coeff = spring_ref_length_coeff * 0.5_wp
-    global_ref_length = (minedge_ref_length_weight * min_length) + &
-      & ((1.0_wp-minedge_ref_length_weight) * average_length)
+    global_ref_length = (minedge_ref_length_weight * min_grid_length) + &
+      & ((1.0_wp-minedge_ref_length_weight) * global_mean_edge_length)
     spring_ref_length = global_ref_length * spring_ref_length_coeff
-!    spring_ref_length  = min_length
-    centers_ref_length = average_length * centers_ref_length_coeff
+!    spring_ref_length  = min_grid_length
+    centers_ref_length = global_mean_edge_length * centers_ref_length_coeff
 
     !-----------------------------------------------------------------------
     ! initial velocities of vertices is zero
@@ -650,9 +680,9 @@ CONTAINS
 
       !--------------------------------------------------------------------
       ! compute edge length and normal vectors
-      average_length = 0.0_wp
-      min_length = 1E100_wp
-      max_length = 0.0_wp
+      global_mean_edge_length = 0.0_wp
+      min_grid_length = 1E100_wp
+      global_max_edge_length = 0.0_wp
       DO edge = 1, no_of_edges
 
         edge_vector%x = &
@@ -666,20 +696,23 @@ CONTAINS
         edges%cartesian_dual_normal(edge)%x = edge_vector%x / length
 
       ENDDO ! edge = 1, no_of_edges
-      min_length = MINVAL(edges%primal_edge_length(1:no_of_edges))
-      max_length = MAXVAL(edges%primal_edge_length(1:no_of_edges))
-      average_length = SUM(edges%primal_edge_length(1:no_of_edges))/ REAL(no_of_edges,wp)
+      min_grid_length = MINVAL(edges%primal_edge_length(1:no_of_edges))
+      global_max_edge_length = MAXVAL(edges%primal_edge_length(1:no_of_edges))
+      global_mean_edge_length = SUM(edges%primal_edge_length(1:no_of_edges)) &
+        & / REAL(no_of_edges,wp)
+      global_mean_edge_length = SUM(edges%primal_edge_length(1:no_of_edges))/ &
+        & REAL(no_of_edges,wp)
 
       !--------------------------------------------------------------------
       ! adaptive spring_ref_length
-      max_dt_distance = (max_length - min_length) * max_dt_distance_ratio
+      max_dt_distance = (global_max_edge_length - min_grid_length) * max_dt_distance_ratio
       IF (use_adaptive_spring_length) THEN
-        global_ref_length = (minedge_ref_length_weight * min_length) + &
-          & ((1.0_wp-minedge_ref_length_weight) * average_length)
+        global_ref_length = (minedge_ref_length_weight * min_grid_length) + &
+          & ((1.0_wp-minedge_ref_length_weight) * global_mean_edge_length)
         spring_ref_length = global_ref_length * spring_ref_length_coeff
-        centers_ref_length = average_length * centers_ref_length_coeff
+        centers_ref_length = global_mean_edge_length * centers_ref_length_coeff
       ENDIF
-!       IF (max_length / min_length <= max_min_condition) THEN
+!       IF (global_max_edge_length / min_grid_length <= max_min_condition) THEN
 !         opt_result = max_min_condition_reached
 !         write(*,*) TRIM(method_name), " iterated ", iteration, " times."
 !         CALL message(method_name, &
@@ -700,25 +733,61 @@ CONTAINS
             ENDDO
 !$OMP ENDDO
           ENDIF
-        CASE (R_refine_springedges_linear)
-!$OMP DO PRIVATE(vertex)
+        CASE (R_refine_spring_linear_points)
+!$OMP DO PRIVATE(vertex, j, min_length, R_refine_coeff)
           DO vertex=1,no_of_vertices
+            ! find the min distance from all R_reference points
+            R_refine_min_distance(vertex) = &
+              & arc_length_normalsphere(verts%cartesian(vertex), R_refine_center(1))
+            DO j = 2, R_refine_no_of_points
+               R_refine_min_distance(vertex) = MIN(R_refine_min_distance(vertex), &
+                 & arc_length_normalsphere(verts%cartesian(vertex), R_refine_center(j)))
+            ENDDO
+          ENDDO
+!$OMP ENDDO
+!           write(*,*) 'min,max edge_ref_length:', tmp_min, tmp_max,  tmp_min/tmp_max
+        CASE (R_refine_spring_equator)
+!$OMP DO PRIVATE(vertex, j, min_length, R_refine_coeff)
+          DO vertex=1,no_of_vertices
+            ! find the min distance from all R_reference points
+            R_refine_min_distance(vertex) = ABS(ASIN(verts%cartesian(vertex)%x(3)))
+          ENDDO
+!$OMP ENDDO
+        CASE default
+          CALL finish(TRIM(method_name), "Uknown R_refine_method")          
+      END SELECT
+
+      IF (use_R_refine) THEN
+!$OMP SINGLE      
+          min_distance = MAX(MINVAL(R_refine_min_distance(:)), R_refine_flat_radius)
+          max_distance = MAXVAL(R_refine_min_distance(:)) - min_distance
+          IF (max_distance <= 0.0_wp) &
+            & CALL finish(method_name, "R_refine_flat_radius is too large")
+!$OMP END SINGLE      
+          
+!$OMP DO PRIVATE(vertex, min_length, R_refine_coeff)
+          DO vertex=1,no_of_vertices
+            min_length = MAX(R_refine_min_distance(vertex)-min_distance, 0.0_wp) &
+              & / max_distance
+            
+!             R_refine_coeff = (1.0_wp - min_length) * (R_refine_ratio_inv + R_refine_ratio) + &
+!              R_refine_ratio 
+            R_refine_coeff = (1.0_wp - min_length) * R_refine_ratio + &
+             min_length
+            
             ! vertex_ref_length gets a value from
             ! R_refine_ratio  to 1.0, x global_ref_length,
             ! as a linear function
             ! of the distance from the R_refine_center
-            vertex_ref_length(vertex) = &
-              (( MAX((arc_length_normalsphere(verts%cartesian(vertex), R_refine_center) / pi) &
-               - R_refine_flat_radius, 0.0_wp) * R_refine_ratio_coeff) + R_refine_ratio )     &
-               * global_ref_length
+            vertex_ref_length(vertex) = R_refine_coeff * global_max_edge_length
+!             write(*,*) "global_max_edge_length:", global_max_edge_length, &
+!                 & "max_distance:", max_distance, &
+!                & " min_length:", min_length," R_refine_coeff:", R_refine_coeff, &
+!                & " vertex_ref_length", vertex_ref_length(vertex)
           
           ENDDO
-!$OMP ENDDO
-!           write(*,*) 'min,max edge_ref_length:', tmp_min, tmp_max,  tmp_min/tmp_max
-        CASE default
-          CALL finish(TRIM(method_name), "Uknown R_refine_method")          
-      END SELECT
-      
+      ENDIF
+      !--------------------------------------------------------------------
       
       !--------------------------------------------------------------------
       IF (use_local_reference_length) THEN
@@ -1034,6 +1103,19 @@ CONTAINS
       
       !--------------------------------------------------------------------
       !--------------------------------------------------------------------
+      ! global anisotropy force
+      IF (anisotropy_coeff /= 0.0_wp) THEN
+!         write(0,*) "use anisotropy:", anisotropy_vector%x
+        DO vertex_list_idx=1,inner_verts_list%list_size
+          vertex = inner_verts_list%value(vertex_list_idx)
+          vertex_vector%x = vertex_force(vertex)%x
+          vertex_force(vertex)%x = (1.0_wp - anisotropy_coeff) * vertex_force(vertex)%x + &
+             anisotropy_coeff * DOT_PRODUCT(vertex_force(vertex)%x, anisotropy_vector%x) * &
+             anisotropy_vector%x
+!           write(*,*) "Before", vertex_vector, " after:",  vertex_force(vertex)%x
+        ENDDO
+      ENDIF     
+      !--------------------------------------------------------------------
       ! total vertex force
       max_force = 0.0_wp
       total_force = 0.0_wp
@@ -1062,7 +1144,7 @@ CONTAINS
          new_dt = SQRT(2.0_wp * max_dt_distance / max_force)
          dt = MIN(spring_dt, new_dt)
 
-!          print *, 'max/min distance:', max_length, min_length, max_length-min_length
+!          print *, 'max/min distance:', global_max_edge_length, min_grid_length, global_max_edge_length-min_grid_length
 !          print *, 'max_dt_distance:', max_dt_distance, max_dt_distance_ratio
 !          print *, 'max_force:', max_force, max_dt_distance/max_force
 !          print *, 'dt:', dt
@@ -1155,13 +1237,8 @@ CONTAINS
       IF (iteration > 5 .and. total_force > oldtotal_force) THEN
 !        CALL finish('optimize_grid_methods', &
 !          & 'potential energy increases. Please adjust spring_ref_length_coeff in the range 0.9..1.11')
-        write(0,*) "Iteration ", iteration, ". Potential energy increases!"
+        write(0,*) "Iteration ", iteration, " . Potential energy increases!"
 !        EXIT
-      ENDIF
-      ! kinet energy should decrease to 1/10 of the maxium
-!      IF (iteration > 5 .and. ekin < 0.1_wp*maxekin ) EXIT
-      IF (iteration == max_iterations) THEN
-        CALL finish(method_name,'no convergence in grid iteration')
       ENDIF
 
       oldtotal_force = total_force
@@ -1170,6 +1247,13 @@ CONTAINS
 
     ENDDO ! iteration=1, max_iterations
 
+      ! kinet energy should decrease to 1/10 of the maxium
+!      IF (iteration > 5 .and. ekin < 0.1_wp*maxekin ) EXIT
+    IF (iteration >= max_iterations) THEN
+!         CALL finish(method_name,'no convergence in grid iteration')
+      CALL warning(method_name,'no convergence in grid iteration')
+    ENDIF
+    
     DEALLOCATE(inner_verts_list%value)
     DEALLOCATE(edge_force,vertex_force,vertex_velocity)
 
@@ -1177,7 +1261,7 @@ CONTAINS
       DEALLOCATE(edge_ref_length)
     ENDIF
     
-    IF (use_local_reference_length) THEN
+    IF (use_vertex_ref_length) THEN
       DEALLOCATE(vertex_edge_ref_length)
     ENDIF
 
@@ -1199,6 +1283,11 @@ CONTAINS
     
     IF (use_vertex_ref_length) THEN
       DEALLOCATE(vertex_ref_length)
+    ENDIF
+    
+    IF (R_refine_method == R_refine_spring_linear_points .OR. &
+      & R_refine_method ==  R_refine_spring_equator) THEN
+      DEALLOCATE(R_refine_min_distance)
     ENDIF
 
     RETURN

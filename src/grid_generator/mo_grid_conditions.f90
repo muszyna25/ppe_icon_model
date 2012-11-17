@@ -78,6 +78,7 @@ MODULE mo_grid_conditions
   REAL(wp) :: rectangle_xradious(max_no_of_conditions), rectangle_yradious(max_no_of_conditions)
   REAL(wp) :: circle_radious(max_no_of_conditions)
   INTEGER :: patch_shape(max_no_of_conditions)
+  INTEGER :: smooth_boundary_iterations
 
   CHARACTER(LEN=filename_max) :: input_file, output_file
   !-------------------------------------------------------------------------
@@ -100,7 +101,7 @@ CONTAINS
       & no_of_conditions, patch_shape,   &
       & patch_center_x, patch_center_y,         &
       & rectangle_xradious, rectangle_yradious, &
-      & circle_radious
+      & circle_radious, smooth_boundary_iterations
 
     ! set default values
     input_file=''
@@ -114,6 +115,7 @@ CONTAINS
     patch_center_y = 0.0_WP
     no_of_conditions = 0
     no_of_read_conditions = 0
+    smooth_boundary_iterations = 1
     
     ! read namelist
     CALL open_nml(param_file_name)
@@ -209,7 +211,8 @@ CONTAINS
 
     CALL get_conditional_cells(in_grid_id, cut_cell_list)
     
-    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list)
+    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list, &
+      & opt_iterations = smooth_boundary_iterations )
 
     cells => get_cells(in_grid_id)
     
@@ -451,7 +454,8 @@ CONTAINS
     IF (no_of_conditions  < 1) RETURN
 
     CALL get_conditional_cells(in_grid_id, cut_cell_list)
-    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list)
+    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list, &
+      & opt_iterations = smooth_boundary_iterations )
     cut_grid_id = get_grid_from_cell_list(in_grid_id, smooth_cell_list)
     CALL set_grid_creation(cut_grid_id, cut_off_grid, from_grid_id=in_grid_id)
 

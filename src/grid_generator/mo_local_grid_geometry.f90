@@ -62,6 +62,7 @@ MODULE mo_local_grid_geometry
 
   PUBLIC :: compute_sphere_geometry
   PUBLIC :: compute_sphere_grid_geometry
+  PUBLIC :: file_rotate_sphere_xaxis_90
   PUBLIC :: order_cell_connectivity     ! Reorders the cell vertices, edges, neigbors
   PUBLIC :: get_cell_barycenters
   PUBLIC :: get_triangle_circumcenters
@@ -119,6 +120,48 @@ CONTAINS
 
   END SUBROUTINE compute_sphere_geometry
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !!Computes the sphere geometry for a netcdf grid
+  !-------------------------------------------------------------------------
+  SUBROUTINE file_rotate_sphere_xaxis_90(in_file_name, out_file_name)
+    CHARACTER(LEN=*), INTENT(in) :: in_file_name, out_file_name
+    
+    INTEGER :: grid_id
+    
+    grid_id = read_new_netcdf_grid(in_file_name)
+    CALL rotate_sphere_xaxis_90(grid_id)
+    CALL compute_sphere_grid_geometry(grid_id)
+    CALL write_netcdf_grid(grid_id, out_file_name)
+    
+    RETURN
+
+  END SUBROUTINE file_rotate_sphere_xaxis_90
+  !-------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------
+  SUBROUTINE rotate_sphere_xaxis_90(grid_id)
+    INTEGER, INTENT(in) :: grid_id
+
+    TYPE(t_grid_vertices), POINTER :: verts
+
+    REAL(wp) :: real_tmp
+    INTEGER :: vertex_index
+
+    verts => get_vertices(grid_id)
+
+!$OMP PARALLEL DO PRIVATE(vertex_index, real_tmp)
+    DO vertex_index=1,verts%no_of_existvertices
+      real_tmp = verts%cartesian(vertex_index)%x(2)
+      verts%cartesian(vertex_index)%x(2) = verts%cartesian(vertex_index)%x(3)
+      verts%cartesian(vertex_index)%x(3) = -real_tmp
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE rotate_sphere_xaxis_90
+  !---------------------------------------------------------------------------
+  
 
   !---------------------------------------------------------------------------
   SUBROUTINE compute_sphere_grid_geometry(in_grid_id)
@@ -238,15 +281,15 @@ CONTAINS
         & CALL finish("grid_sphericalTriangleGridGeometry",".not. associated(cartesian_c both)");
       !------------------------------------------
       ! edge center
-      IF (cell_1 > 0 .and. cell_2 > 0 ) THEN
-        cartesian_center = inter_section ( &
-          & cartesian_c(1), cartesian_c(2), &
-          & cartesian_v(1), cartesian_v(2))        
-      ELSE
+!       IF (cell_1 > 0 .and. cell_2 > 0 ) THEN
+!         cartesian_center = inter_section ( &
+!           & cartesian_c(1), cartesian_c(2), &
+!           & cartesian_v(1), cartesian_v(2))        
+!       ELSE
         cartesian_center = sphere_cartesian_midpoint(cartesian_v(1), cartesian_v(2))
         IF (cell_1 <=0) cartesian_c(1) = cartesian_center
         IF (cell_2 <=0) cartesian_c(2) = cartesian_center
-      ENDIF
+!       ENDIF
       edges%cartesian_center(edge_index) = cartesian_center
       edges%center(edge_index)     = cc2gc(cartesian_center)
       edges%dual_cartesian_center(edge_index) = &

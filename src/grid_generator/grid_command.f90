@@ -9,7 +9,7 @@ PROGRAM grid_command
   USE mo_local_patch_hierarchy, ONLY: create_patches
   USE mo_local_grid_refinement, ONLY: grid_refine, coarsen_grid_file
   USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual, &
-    &   shift_grid_ids
+    &   shift_grid_ids, grid_file_zero_children
   USE mo_grid_checktools,       ONLY: check_grid_file, grid_statistics_file,&
     & check_inverse_connect_verts, check_read_write_grid, calculate_triangle_properties
   USE mo_local_grid_optimization, ONLY: optimize_grid_file
@@ -21,7 +21,7 @@ PROGRAM grid_command
     & shrink_file_decomposition, file_reorder_latlon_subdomains,    &
     & file_reorder_lonlat_subdomains, file_cluster_subdomains,      &
     & decompose_file_geometric_medial, decomp_file_geom_medial_cluster
-  USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry
+  USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry, file_rotate_sphere_xaxis_90
   
 #ifndef __ICON_GRID_GENERATOR__
   USE mo_global_grid_generator, ONLY: global_graph_generator, global_grid_generator, &
@@ -40,12 +40,14 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: refine_grid_c ='refine_grid'
   CHARACTER(len=32), PARAMETER :: cut_local_grid_c ='cut_local_grid'
   CHARACTER(len=32), PARAMETER :: cut_local_grid_ascii_c ='cut_local_grid_ascii'
+  CHARACTER(len=32), PARAMETER :: zero_chilrden_c ='zero_children'
   CHARACTER(len=32), PARAMETER :: create_patch_hierarchy_c ='create_patch_hierarchy'
   CHARACTER(len=32), PARAMETER :: concatenate_grids_c ='concatenate_grids'
   CHARACTER(len=32), PARAMETER :: check_grid_c ='check_grid'
   CHARACTER(len=32), PARAMETER :: check_read_write_c ='read_write_grid'
   CHARACTER(len=32), PARAMETER :: inv_vertex_connect_c ='inv_vertex_connectivity'
   CHARACTER(len=32), PARAMETER :: compute_sphere_geometry_c ='compute_sphere_geometry'
+  CHARACTER(len=32), PARAMETER :: rotate_sphere_xaxis_c ='rotate_sphere_xaxis'
   CHARACTER(len=32), PARAMETER :: grid_statistics_c ='grid_statistics'
   CHARACTER(len=32), PARAMETER :: optimize_grid_c ='optimize_grid'
   CHARACTER(len=32), PARAMETER :: create_icon_grid_c ='create_icon_grid'
@@ -54,7 +56,7 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: decompose_round_robin_opp_c ='decompose_round_robin_opp'
   CHARACTER(len=32), PARAMETER :: decompose_metis_c ='decompose_metis'
   CHARACTER(len=32), PARAMETER :: decompose_geometric_medial_c ='decompose_geometric_medial'
-  CHARACTER(len=32), PARAMETER :: decomp_geom_medial_cluster_c =&
+  CHARACTER(len=32), PARAMETER :: decomp_geom_medial_cluster_c = &
     & 'decompose_geometric_medial_cluster'
   CHARACTER(len=32), PARAMETER :: inherit_decomposition_c ='inherit_decomposition'
   CHARACTER(len=32), PARAMETER :: redecompose_pair_opposites_c ='redecompose_pair_opposites'
@@ -136,6 +138,13 @@ PROGRAM grid_command
       CLOSE(500)
       CALL check_read_write_grid(param_1, param_2)
 
+    CASE (zero_chilrden_c)
+!       CALL get_command_argument(3, out_file)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, param_2
+      CLOSE(500)
+      CALL grid_file_zero_children(param_1, param_2)
+
     CASE (shift_grid_ids_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
       READ (500, *) command, param_1, int_param_1
@@ -150,6 +159,12 @@ PROGRAM grid_command
 
     CASE (compute_sphere_geometry_c)
       CALL compute_sphere_geometry(param_file_name=param_1)
+
+    CASE (rotate_sphere_xaxis_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, param_2
+      CLOSE(500)
+      CALL file_rotate_sphere_xaxis_90(param_1, param_2)
 
     CASE (create_torus_c)
       CALL create_torus_grid(param_1)

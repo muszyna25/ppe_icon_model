@@ -86,7 +86,7 @@ MODULE mo_local_grid
     & grid_set_parents_from, set_grid_parent_id,                     &
     & set_no_of_subgrids, set_start_subgrids, grid_set_sea_depth,    &
     & grid_set_min_sea_depth, set_grid_level, get_grid_level,        &
-    & set_grid_netcdf_flags, get_number_of_vertices
+    & set_grid_netcdf_flags, get_number_of_vertices, zero_children
 
   PUBLIC :: print_grid_cell, print_grid_edge, print_grid_vertex
 
@@ -889,6 +889,22 @@ CONTAINS
     get_grid_object(grid_id)%parents_from = parents_from
 
   END SUBROUTINE grid_set_parents_from
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE zero_children(grid_id)
+    INTEGER, INTENT(in) :: grid_id
+
+    CALL check_active_grid_id(grid_id)
+    
+    get_grid_object(grid_id)%verts%child_id(:) = 0
+    get_grid_object(grid_id)%edges%child_index(:,:) = 0
+    get_grid_object(grid_id)%edges%child_id(:) = 0
+    get_grid_object(grid_id)%cells%child_index(:,:) = 0
+    get_grid_object(grid_id)%cells%child_id(:) = 0
+    
+  END SUBROUTINE zero_children
   !-------------------------------------------------------------------------
 
  !-----------------------------------------------------------------------

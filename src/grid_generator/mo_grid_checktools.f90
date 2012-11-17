@@ -45,7 +45,8 @@ MODULE mo_grid_checktools
   USE mo_local_grid
   USE mo_io_local_grid
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
-    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area, middle, angle_of_points
+    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area, middle, angle_of_points, &
+    & project_point
   USE mo_math_constants, ONLY: rad2deg, deg2rad, pi
   USE mo_local_grid_geometry,  ONLY: edges_cell_angle, edges_normal_angle, no_angle, &
     & get_cell_barycenters
@@ -320,6 +321,10 @@ CONTAINS
     REAL(wp):: max_barycenter_distance
 
     INTEGER :: dual_area_stats, dual_edge_ratio_stats, edge_ratio_stats
+    TYPE(t_statistic) :: lon_stats, lat_stats
+
+    CALL new(lon_stats)
+    CALL new(lat_stats)
 
     in_grid => get_grid(in_grid_id)
 !    cells => in_grid%cells
@@ -352,6 +357,8 @@ CONTAINS
           & 'Not acceptable cartesian - lonlat')
       ENDIF
 
+      CALL add_data_to(lon_stats, verts%vertex(vert_no)%lon)
+      CALL add_data_to(lat_stats, verts%vertex(vert_no)%lat)
       CALL add_statistic_to(dual_area_stats, verts%dual_area(vert_no))
       !       max_barycenter_distance = MAX(max_barycenter_distance, &
 !        & arc_length(verts%cartesian(vert_no), dual_barycenters(vert_no)))
@@ -379,9 +386,14 @@ CONTAINS
     max_dual_area       = max_statistic_of(dual_area_stats)
     max_dual_edge_ratio = max_statistic_of(dual_edge_ratio_stats)
     max_edge_ratio      = max_statistic_of(edge_ratio_stats)
+    
+    WRITE(0,*) 'Min/Max Lon:', min(lon_stats)*rad2deg, max(lon_stats)*rad2deg
+    WRITE(0,*) 'Min/Max Lat:', min(lat_stats)*rad2deg, max(lat_stats)*rad2deg
 
     CALL delete_statistic(dual_area_stats)
     CALL delete_statistic(dual_edge_ratio_stats)
+    CALL delete(lon_stats)
+    CALL delete(lat_stats)
     
     WRITE(0,*) 'Min/Max dual area:', min_dual_area, max_dual_area, max_dual_area/min_dual_area
     WRITE(0,*) 'Max dual cell dual edge ratio:', max_dual_edge_ratio
@@ -418,12 +430,20 @@ CONTAINS
     INTEGER :: edge_cell_offcenter_stat, edge_vert_offcenter_stat, dual_edge_stat
     REAL(wp)::  max_edge_vert_offcenter, max_edge_cell_offcenter
 
+    ! for peter's code
+    TYPE(t_cartesian_coordinates) :: cell_center, edge_center, dist_vector_basic, dist_vector
+    INTEGER ::  cell_edge, neigbor, edge_of_cell, cell_edge1, cell_edge2, cell_edge3
+    REAL(wp):: dist_edge_cell_basic, dist_edge_cell, coeff_sum
+    INTEGER :: pos_coeff_stat, neg_coeff_stat
       
     CHARACTER(*), PARAMETER :: method_name = "check_grid_geometry_edges"
    
     edge_cell_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
     edge_vert_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
     dual_edge_stat             = new_statistic()
+    ! for peter
+    pos_coeff_stat             = new_statistic()
+    neg_coeff_stat             = new_statistic()
 
     x_unit%x = (/ 1._wp,0._wp,0._wp /)
     y_unit%x = (/ 0._wp,1._wp,0._wp /)
@@ -554,7 +574,69 @@ CONTAINS
         area_ratio = verts%dual_area(vert2) / verts%dual_area(vert1)
       ENDIF
       max_min_dual_area = MAX(max_min_dual_area, area_ratio)
+      
+      !--------------------------------
+      ! peter's code
       ! check angles between edges
+! 
+!       write(*,*) "--------------------------------"
+!       write(*,*) "--- coeffs for edge = ", edge_no
+!       
+!         edge_center%x = edges%cartesian_center(edge_no)%x
+!         coeff_sum = 0.0_wp
+!         DO neigbor=2,2
+! 
+!           cell1    = edges%get_cell_index(edge_no, neigbor)
+!           cell_center%x = cells%cartesian_center(cell1)%x
+! 
+!           !vector pointing from cell 1 or 2 to edge in between
+!           !This is vector 1 (point from cell center adjacent to edge "e" to edge "e")
+!           dist_vector_basic%x = edge_center%x - cell_center%x
+! 
+!           !normalize vector
+!           dist_edge_cell_basic = SQRT(SUM( dist_vector_basic%x * dist_vector_basic%x))
+!           dist_vector_basic%x  = dist_vector_basic%x/dist_edge_cell_basic
+! 
+! 
+!           cell_edge1 = cells%get_edge_index(cell1, 1)
+!           cell_edge2 = cells%get_edge_index(cell1, 2)
+!           cell_edge3 = cells%get_edge_index(cell1, 3)
+! 
+! !           cell_center = project_point( cell_center, edges%cartesian_center(cell_edge1), &
+! !             & edges%cartesian_center(cell_edge2), edges%cartesian_center(cell_edge3))
+!           !loop over the edges of cell 1 and 2
+!           DO cell_edge=1,3
+! 
+!             !get actual edge
+!             edge_of_cell = cells%get_edge_index(cell1, cell_edge)
+! 
+!             !vector between one of the edges of triangle 1 or 2 and respective cell center
+!             !This is vector 2 (point from cell center adjacent to edge "e" to all other edges of the cell).
+!             dist_vector%x =  edges%cartesian_center(edge_of_cell)%x - cell_center%x
+!             !normalize vector
+!             dist_edge_cell = SQRT(SUM( dist_vector%x * dist_vector%x))
+!             dist_vector%x  = dist_vector%x/dist_edge_cell
+! 
+!             !This is the cosine of the angle between vectors from cell center to cell edges
+!             !the arcos is giving values around 90°
+!             dproduct = DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
+!             write (*,*) DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
+!             IF (ABS(dproduct) < 0.018) THEN
+!               CALL finish("peter's code:", "angle close to 90")
+!             ENDIF
+!             coeff_sum = coeff_sum + dproduct
+!             IF (dproduct >= 0.0_wp) THEN
+!               CALL add_statistic_to(pos_coeff_stat, dproduct)
+!             ELSE
+!               CALL add_statistic_to(neg_coeff_stat, dproduct)
+!             ENDIF
+!               
+!           END DO
+!         ENDDO
+!         write (*,*) " SUM=", coeff_sum
+!end of peter's code
+!-----------------------------------
+
 !       DO k=1,2
 !         cell_idx = edges%get_cell_index(edge_no,1)
 !         IF (cell_idx == 0) CYCLE
@@ -604,6 +686,11 @@ CONTAINS
     min_dual_edge  = min_statistic_of(dual_edge_stat)
     max_dual_edge  = max_statistic_of(dual_edge_stat)
     mean_dual_edge  = mean_statistic_of(dual_edge_stat)
+
+    write(*,*) " min max pos_coeff=", min_statistic_of(pos_coeff_stat), "  ", &
+      & max_statistic_of(pos_coeff_stat)
+    write(*,*) " min max neg_coeff=", min_statistic_of(neg_coeff_stat), "  ", &
+      & max_statistic_of(neg_coeff_stat)
     
     WRITE(0,*) "Adjacent dual max area ratio:", max_min_dual_area
     WRITE(0,*) "Adjacent cell max area ratio:", max_min_cell_area
@@ -644,7 +731,7 @@ CONTAINS
     TYPE(t_grid_vertices), POINTER :: verts
     
     INTEGER :: no_of_cells
-    INTEGER :: cell_no, edge, k, max_no_of_vertices
+    INTEGER :: cell_no, edge, prev_edge, k, max_no_of_vertices
     INTEGER :: this_vertex, prev_vertex, next_vertex
 
     REAL(wp):: angle,min_cell_angle, max_cell_angle, ratio
@@ -726,26 +813,36 @@ CONTAINS
           max_cell_edge_cell_length = MAX(max_cell_edge_cell_length,edge_cell_length)
           min_cell_edge_cell_length = MIN(min_cell_edge_cell_length,edge_cell_length)
 
+          ! get statistics for the angle between the:
+          !   center of this edge, cell circumcenter, enter of next edge
+          IF (k == 1) THEN
+            prev_edge = cells%get_edge_index(cell_no, max_no_of_vertices)
+          ELSE
+            prev_edge = cells%get_edge_index(cell_no, k-1)
+          ENDIF
+          angle = angle_of_points(edges%cartesian_center(prev_edge), &
+            & cells%cartesian_center(cell_no), edges%cartesian_center(edge))
+          CALL add_data_to(cell_edge_centers_angle_stats, angle)
      !     print *, "max/min dual", max_dual_edge, min_dual_edge
         ENDIF
 
         ! get statistics for the angle between the:
         !   center of this edge, cell circumcenter, enter of next edge
-        this_vertex = cells%get_vertex_index(cell_no, k)
-        IF (k == 1) THEN
-          prev_vertex = cells%get_vertex_index(cell_no, max_no_of_vertices)
-        ELSE
-          prev_vertex = cells%get_vertex_index(cell_no, k-1)
-        ENDIF
-        IF (k == max_no_of_vertices) THEN
-          next_vertex = cells%get_vertex_index(cell_no, 1)
-        ELSE
-          next_vertex = cells%get_vertex_index(cell_no, k+1)
-        ENDIF
-        p1 = middle(verts%cartesian(prev_vertex), verts%cartesian(this_vertex))
-        p2 = middle(verts%cartesian(this_vertex), verts%cartesian(next_vertex))
-        angle = angle_of_points(p1, cells%cartesian_center(cell_no), p2)     
-        CALL add_data_to(cell_edge_centers_angle_stats, angle)
+!         this_vertex = cells%get_vertex_index(cell_no, k)
+!         IF (k == 1) THEN
+!           prev_vertex = cells%get_vertex_index(cell_no, max_no_of_vertices)
+!         ELSE
+!           prev_vertex = cells%get_vertex_index(cell_no, k-1)
+!         ENDIF
+!         IF (k == max_no_of_vertices) THEN
+!           next_vertex = cells%get_vertex_index(cell_no, 1)
+!         ELSE
+!           next_vertex = cells%get_vertex_index(cell_no, k+1)
+!         ENDIF
+!         p1 = middle(verts%cartesian(prev_vertex), verts%cartesian(this_vertex))
+!         p2 = middle(verts%cartesian(this_vertex), verts%cartesian(next_vertex))
+!         angle = angle_of_points(p1, cells%cartesian_center(cell_no), p2)
+!         CALL add_data_to(cell_edge_centers_angle_stats, angle)
       
       ENDDO  ! k=1,max_no_of_vertices
 

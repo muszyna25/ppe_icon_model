@@ -109,6 +109,7 @@ MODULE mo_name_list_output
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output
 
 
   IMPLICIT NONE
@@ -3030,6 +3031,7 @@ CONTAINS
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
     LOGICAL :: lnewly_initialized = .FALSE.
 
+    IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
     ! that the I/O PEs are ready with the last output step before
     ! writing data into the I/O memory window.
@@ -3184,6 +3186,8 @@ CONTAINS
     DO i = 1, SIZE(output_file)
       IF (sim_time > output_file(i)%end_time) CALL close_output_file(output_file(i))
     ENDDO
+    
+    IF (ltimer) CALL timer_stop(timer_write_output)
 
   END SUBROUTINE write_name_list_output
 
