@@ -82,8 +82,8 @@ MODULE mo_parallel_config
   INTEGER, PARAMETER :: ext_div_medial_redrad_cluster = 104
   INTEGER, PARAMETER :: ext_div_from_file = 201
 
-  INTEGER :: division_method(max_dom) = 1
-  CHARACTER(LEN=filename_max) :: division_file_name(max_dom)! if div_from_file
+  INTEGER :: division_method(0:max_dom) = 1
+  CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
   INTEGER :: redrad_split_factor = 6
 

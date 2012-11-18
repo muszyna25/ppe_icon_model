@@ -105,11 +105,11 @@ MODULE mo_parallel_nml
     ! Number of rows of ghost cells
     INTEGER :: n_ghost_rows
 
-    INTEGER :: division_method(max_dom)  ! div_from_file = 0  ! Read from file
+    INTEGER :: division_method(0:max_dom)  ! div_from_file = 0  ! Read from file
                                 ! div_geometric = 1  ! Geometric subdivision
                                 ! div_metis     = 2  ! Use Metis
 
-    CHARACTER(LEN=filename_max) :: division_file_name(max_dom) ! if div_from_file
+    CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if div_from_file
     CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if div_from_file
     INTEGER :: redrad_split_factor
 

@@ -39,6 +39,7 @@ MODULE mo_grid_config
   USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius
+  USE mo_parallel_config,    ONLY: division_method, division_file_name
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -216,6 +217,13 @@ CONTAINS
     ELSE
       n_dom_start = 1
       lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
+    
+      ! the division method starts from 0, shift if there's no 0 grid (ie no reduced radiation)
+      DO jg = no_of_dynamics_grids-1, 0, -1
+        division_method(jg+1)              = division_method(jg)
+        division_file_name(jg+1)           = division_file_name(jg)
+      ENDDO
+
     ENDIF
     
     
