@@ -1710,27 +1710,19 @@ CONTAINS
             !z_dist_e_c2 = p_patch%edges%edge_cell_length(je,jb,2)
 
             IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-!TODO ram
-              p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
-                & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
-                & /(z_dist_e_c1+z_dist_e_c2)
 
-              !  P.K.: Actually h_e is just surface elevation at edges without depth of first layer.
-!               !It might make sense to include depth of first layer.
-!                p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
-!                  & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
-!                  & /(z_dist_e_c1+z_dist_e_c2)
+                p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
+                 & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
+                 & /(z_dist_e_c1+z_dist_e_c2)
+!              p_os%p_diag%h_e(je,jb)=&
+!              &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
 
-            p_os%p_diag%thick_e(je,jb)=&
-            &min(p_os%p_diag%thick_c(il_c1,ib_c1),p_os%p_diag%thick_c(il_c2,ib_c2))
+              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
+              & + v_base%zlev_i(v_base%dolic_e(je,jb)+1)
 
-            p_os%p_diag%h_e(je,jb)=&
-            &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
-
-
-              !write(*,*)'height_e',je,jb, p_os%p_diag%h_e(je,jb), p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2)
             ELSE
-              p_os%p_diag%h_e(je,jb) = 0.0_wp
+              p_os%p_diag%h_e(je,jb)    = 0.0_wp
+              p_os%p_diag%thick_e(je,jb)= 0.0_wp
             ENDIF
           END DO
         END DO

@@ -174,8 +174,9 @@ CONTAINS
           DO jk = 1, z_dolic!-1
          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             ! positive vertical divergence in direction of w (upward positive)
-             flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,jb) &
-                                     &-z_adv_flux_v(jc,jk+1,jb)
+              flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
+                                      &-z_adv_flux_v(jc,jk+1,jb)
+!            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,jb) 
           END IF
         ENDDO
       END DO
@@ -216,6 +217,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch%nblks_c)!< flux dim: (nproma,n_zlev+1,nblks_c)
     INTEGER, INTENT(IN)               :: tracer_id
     !-------------------------------------------------------------------------
+!pupflux_i(:,1,:)=0.0_wp
+!return
+
     CALL sync_patch_array(SYNC_C, p_patch, pvar_c)
     CALL sync_patch_array(SYNC_C, p_patch, pw_c)
     !CALL sync_patch_array(SYNC_C, p_patch, pupflux_i)
@@ -223,26 +227,14 @@ CONTAINS
     !fluxes at first layer
     !temperature has tracer_id=1 
     IF(tracer_id==1)THEN
-      IF(temperature_relaxation/=0)THEN
-        WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-          pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
-        END WHERE
-      ELSEIF(temperature_relaxation==0)THEN
-       WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)!0.0_wp
-       END WHERE
-      ENDIF
+      WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
+      END WHERE
     !salinity has tracer_id=2 
     ELSEIF(tracer_id==2)THEN
-      IF(irelax_2d_S/=0)THEN
-       WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+      WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
         pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
-       END WHERE
-      ELSEIF(irelax_2d_S==0)THEN
-       WHERE ( v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)!0.0_wp
-       END WHERE
-      ENDIF
+      END WHERE
     ENDIF
 
   END SUBROUTINE apply_tracer_flux_top_layer_oce

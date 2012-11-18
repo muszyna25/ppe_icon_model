@@ -56,7 +56,7 @@ USE mo_ext_data_types,                 ONLY: t_external_data
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
   &                                          calc_normal_velocity_ab_mimetic, &
   !&                                          calc_vert_velocity_mimetic,      &
-  &                                          calc_vert_velocity_mim_topdown
+  &                                          calc_vert_velocity_mim_topdown,calc_vert_velocity_mim_bottomup
 USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
   &                                          calc_normal_velocity_ab_RBF,     &
   &                                          calc_vert_velocity_RBF
@@ -184,8 +184,8 @@ CONTAINS
 !                                  !& p_os%p_aux%bc_top_w,    &
 !                                  & p_os%p_aux%bc_bot_w,    &
 !                                  & p_os%p_diag%w )
-!ELSE
-      CALL calc_vert_velocity_mim_topdown( p_patch,         &
+! !ELSE
+      CALL calc_vert_velocity_mim_bottomup( p_patch,         &
                                   & p_os,                   &
                                   & p_os%p_diag,            &
                                   & p_op_coeff,             &
@@ -194,6 +194,16 @@ CONTAINS
                                   & p_os%p_aux%bc_top_w,    &
                                   & p_os%p_aux%bc_bot_w,    &
                                   & p_os%p_diag%w )
+
+!       CALL calc_vert_velocity_mim_topdown( p_patch,         &
+!                                   & p_os,                   &
+!                                   & p_os%p_diag,            &
+!                                   & p_op_coeff,             &
+!                                   & p_os%p_diag%h_e,        &
+!                                   !& p_os%p_prog(nnew(1))%h, &
+!                                   & p_os%p_aux%bc_top_w,    &
+!                                   & p_os%p_aux%bc_bot_w,    &
+!                                   & p_os%p_diag%w )
 !ENDIF
 
     ELSEIF(idisc_scheme==RBF_TYPE)THEN
