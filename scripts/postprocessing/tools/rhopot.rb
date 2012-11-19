@@ -63,7 +63,7 @@ experimentFiles.each {|experiment, files|
       initFile        = "initial_#{experiment}.nc"
 
       unless File.exist?(maskedYMeanFile)
-        Cdo.div(:in => " -yearmean -selname,T,S #{file} #{maskFile}",:out => maskedYMeanFile)
+        Cdo.div(:in => " -selname,T,S #{file} #{maskFile}",:out => maskedYMeanFile)
       end
       # compute rhopot
       unless File.exist?(rhopotFile)
@@ -87,35 +87,42 @@ q.run
 
 # merge all yearmean data (T,S,rhopot) into one file per experiment
 q.clear
-images = []
+secPlots = {}
 experimentAnalyzedData.each {|experiment,files|
-  tag   = diff2init ? 'diff2init' : ''
-  ofile = [experiment,'T-S-rhopot',tag].join('_') + '.nc'
+  tag      = diff2init ? 'diff2init' : ''
+  yearmean = "yearmean"
+  ofile    = [experiment,'T-S-rhopot',tag].join('_') + '.nc'
+  ymfile   = [yearmean,ofile].join("_")
   unless File.exist?(ofile)
-    Cdo.cat(:in => files.sort.join(' '), :out => ofile, :options => '-r')
+    Cdo.cat(:in => files.sort.join(' '), :out => ofile)
   end
+  unless File.exist?(ymfile)
+    Cdo.settunits('years',:in => "-yearmean #{ofile}", :out => ymfile)
+  end
+  ofile = ymfile
   plotFile = 'thingol' == Socket.gethostname \
            ? '/home/ram/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl' \
            : ENV['HOME'] +'/liz/icon/scripts/postprocessing/tools/icon_plot.ncl'
   plotter  = 'thingol' == Socket.gethostname \
            ? IconPlot.new(ENV['HOME']+'/local/bin/nclsh', plotFile, File.dirname(plotFile),'png','qiv',true,true) \
-           : IconPlot.new("/home/zmaw/m300064/local/bin/nclsh", plotFile, File.dirname(plotFile), 'ps','evince',true,true)
+           : IconPlot.new("/home/zmaw/m300064/local/bin/nclsh", plotFile, File.dirname(plotFile), 'png','display',true,true)
   q.push {
     im = plotter.scalarPlot(ofile,'T_'+     File.basename(ofile,'.nc'),'T',
                             :tStrg => experiment, :bStrg => '" "',
+                            :hov => true,
                             :minVar => -3.0,:maxVar => 3.0,
-                            :numLevs => 21.0,:rStrg => 'Temperature', :colormap => "BlWhRe")
-    lock.synchronize {images << im }
-    im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_200m'+     File.basename(ofile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
-                            :levIndex => 6,
-                            :rStrg => 'Temperature')
-    lock.synchronize {images << im }
-    im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_100m'+     File.basename(ofile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
-                            :levIndex => 12,
-                            :rStrg => 'Temperature')
-    lock.synchronize {images << im }
+                            :numLevs => 20,:rStrg => 'Temperature', :colormap => "BlWhRe")
+    lock.synchronize {(secPlots[experiment] ||= []) << im }
+ #  im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_200m'+     File.basename(ofile,'.nc'),'T',
+ #                          :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
+ #                          :levIndex => 6,
+ #                          :rStrg => 'Temperature')
+ #  lock.synchronize {mapPlots << im }
+ #  im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_100m'+     File.basename(ofile,'.nc'),'T',
+ #                          :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
+ #                          :levIndex => 12,
+ #                          :rStrg => 'Temperature')
+ #  lock.synchronize {mapPlots << im }
   }
   q.push {
     im =  plotter.scalarPlot(ofile,'S_'+     File.basename(ofile,'.nc'),'S',
@@ -123,7 +130,7 @@ experimentAnalyzedData.each {|experiment,files|
                              :hov => true,
                              :minVar => -0.2,:maxVar => 0.2,
                              :numLevs => 16,:rStrg => 'Salinity', :colormap => "BlWhRe")
-    lock.synchronize {images << im }
+    lock.synchronize {(secPlots[experiment] ||= []) << im }
   }
   q.push {
     im = plotter.scalarPlot(ofile,'rhopot_'+File.basename(ofile,'.nc'),'rhopot',
@@ -131,8 +138,21 @@ experimentAnalyzedData.each {|experiment,files|
                             :hov => true,
                             :minVar => -0.6,:maxVar => 0.6,
                             :numLevs => 24,:rStrg => 'Pot.Density', :colormap => "BlWhRe")
-    lock.synchronize {images << im }
+    lock.synchronize {(secPlots[experiment] ||= []) << im }
   }
 }
 q.run
-system("eog #{images.join(' ')}") if 'thingol' == Socket.gethostname
+sq = SystemJobs.new
+cropfiles = []
+secPlots.each {|exp,files|
+  files.each {|sp|
+    cropfile = "crop_#{File.basename(sp)}"
+    cmd      = "convert -resize 60%  -crop 650x560+50+50 #{sp} #{cropfile}"
+    puts cmd
+    sq.push(cmd)
+    cropfiles << cropfile
+  }
+}
+sq.run
+#system("display #{cropfiles.join(' ')}") #if 'thingol' == Socket.gethostname
+system("convert +append #{(cropfiles.grep(/crop_T/) + cropfiles.grep(/crop_S/) + cropfiles.grep(/crop_rho/)).join(' ')} exp.png") #if 'thingol' == Socket.gethostname
