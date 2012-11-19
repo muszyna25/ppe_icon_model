@@ -191,18 +191,23 @@ cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfi
 rm $outfile.srv
 
 # plot with nclsh:
-nclsh $ICONPLOT \
-  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \
-  -selMode=manual -minVar=-60 -maxVar=-10 -numLevs=25 -bStrg=' ' -maskName=wet_c \
-  -withLineLabels \
- -mapLLC=-77,20 -mapURC=-70,35 #north-atlantic gyre
+
+nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
+  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps \
+  -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \
+  -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels
+
+# nclsh $ICONPLOT \
+#   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \
+#   -selMode=manual -minVar=-60 -maxVar=-10 -numLevs=25 -bStrg=' ' -maskName=wet_c \
+#   -withLineLabels \
+
+# -mapLLC=-77,20 -mapURC=-70,35 #north-atlantic gyre
 #  -mapLLC=120,10 -mapURC=160,40 # japanise WBC
 # -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
-# -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
+# -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels
 # -maxView \
-# -selMode=manual -minVar=-250 -maxVar=250 -numLevs=20
-# -selMode=manual -minVar=-250 -maxVar=200 -numLevs=15
-# -selMode=manual -minVar=-300 -maxVar=150 -numLevs=15
+
 # -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15
 # -maskName=wet_c -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15 \
 # -maskName=wet_c -selMode=manual -minVar=-100 -maxVar=100 -numLevs=20 \
