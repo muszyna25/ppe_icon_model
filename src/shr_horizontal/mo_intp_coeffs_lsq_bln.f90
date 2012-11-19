@@ -1602,10 +1602,17 @@ DO jb = i_startblk, i_endblk
     ! are not aliased into a checkerboard pattern between upward- and downward
     ! directed cells. The third condition is sum(w(i)) = 1. Analytical elimination yields...
 
-    wgt(3) = 1.0_wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
-                ( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
-    wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
-    wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+    IF (ABS(x(2)-x(1)) > 1.e-11_wp .AND. ABS(y(3)-y(1)) > 1.e-11_wp ) THEN
+      wgt(3) = 1.0_wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
+                  ( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
+      wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
+      wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+    ELSE
+      wgt(2) = 1.0_wp/( (y(2)-y(1)) - (x(2)-x(1))*(y(3)-y(1))/(x(3)-x(1)) ) * &
+                  ( -y(1) + x(1)*(y(3)-y(1))/(x(3)-x(1)) )
+      wgt(3) = (-x(1) - wgt(2)*(x(2)-x(1)))/(x(3)-x(1))
+      wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+    ENDIF
 
     ! Store results in ptr_int_state%e_bln_c_s
     ptr_int_state%e_bln_c_s(jc,1,jb) = wgt(1)

@@ -1159,10 +1159,17 @@ END DO !block loop
       ! directed cells. The third condition is sum(w(i)) = 1., and the weight
       ! of the local point is 0.5 (see above). Analytical elimination yields...
 
-      wgt(3) = 1._wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
-                  (1._wp-wgt_loc)*( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
-      wgt(2) = (-(1._wp-wgt_loc)*x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
-      wgt(1) = 1._wp - wgt_loc - wgt(2) - wgt(3)
+      IF (ABS(x(2)-x(1)) > 1.e-11_wp .AND. ABS(y(3)-y(1)) > 1.e-11_wp ) THEN
+        wgt(3) = 1._wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
+                    (1._wp-wgt_loc)*( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
+        wgt(2) = (-(1._wp-wgt_loc)*x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
+        wgt(1) = 1._wp - wgt_loc - wgt(2) - wgt(3)
+      ELSE
+        wgt(2) = 1._wp/( (y(2)-y(1)) - (x(2)-x(1))*(y(3)-y(1))/(x(3)-x(1)) ) * &
+                    (1._wp-wgt_loc)*( -y(1) + x(1)*(y(3)-y(1))/(x(3)-x(1)) )
+        wgt(3) = (-(1._wp-wgt_loc)*x(1) - wgt(2)*(x(2)-x(1)))/(x(3)-x(1))
+        wgt(1) = 1._wp - wgt_loc - wgt(2) - wgt(3)
+      ENDIF
 
       ! Store results in ptr_patch%cells%avg_wgt
       ptr_int%c_bln_avg(jc,1,jb) = wgt_loc

@@ -630,15 +630,16 @@ DO jg = n_dom_start+1, n_dom
           wgt(4) = (-x(1) - wgt(3)*(x(3)-x(1)) - wgt(2)*(x(2)-x(1)))/(x(4)-x(1))
           wgt(1) = 1.0_wp - SUM(wgt(2:4))
         ELSE
-          CALL finish("init_fbk_wgt 1","feedback coefficients not calculated")
+          ierrcount(jb) = ierrcount(jb) + 1
+  !        CALL finish("init_fbk_wgt 1","feedback coefficients not calculated")
         ENDIF
 
         IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
-        IF (MINVAL(wgt(1:4)) < 0.0_wp) THEN
-          write(0,*) "jb,jc=",jb,jc
-          write(0,*) "wgt=",wgt(:)
-          CALL finish("init_fbk_wgt 1","MINVAL(wgt(1:4)) < 0.0_wp")
-        ENDIF
+  !      IF (MINVAL(wgt(1:4)) < 0.0_wp) THEN
+  !        write(0,*) "jb,jc=",jb,jc
+  !        write(0,*) "wgt=",wgt(:)
+  !        CALL finish("init_fbk_wgt 1","MINVAL(wgt(1:4)) < 0.0_wp")
+  !      ENDIF
           
         ! Save the weighting factors in fbk_wgt
         p_grfp%fbk_wgt_c(jc,jb,1:4) = wgt(1:4)
@@ -760,12 +761,13 @@ DO jg = n_dom_start+1, n_dom
           wgt(4) = (-x(1) - wgt(3)*(x(3)-x(1)) - wgt(2)*(x(2)-x(1)))/(x(4)-x(1))
           wgt(1) = 1.0_wp - SUM(wgt(2:4))
         ELSE
-          CALL finish("init_fbk_wgt 2","feedback coefficients not calculated")
+          ierrcount(jb) = ierrcount(jb) + 1
+ !         CALL finish("init_fbk_wgt 2","feedback coefficients not calculated")
         ENDIF
 
         IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
-        IF (MINVAL(wgt(1:4)) < 0.0_wp) &
-          CALL finish("init_fbk_wgt 2","MINVAL(wgt(1:4)) < 0.0_wp")
+ !       IF (MINVAL(wgt(1:4)) < 0.0_wp) &
+ !         CALL finish("init_fbk_wgt 2","MINVAL(wgt(1:4)) < 0.0_wp")
 
         ! Save the weighting factors in fbk_wgt
         p_grfp%fbk_wgt_ct(jc,jb,1:4) = wgt(1:4)
