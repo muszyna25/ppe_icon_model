@@ -536,6 +536,9 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+  !>
+  ! Projects a point to plane defined by three points:
+  ! to_v0, to_v1, to_v2
   ELEMENTAL FUNCTION project_point (in_point, to_v0, to_v1, to_v2) result(projected_point)
     TYPE(t_cartesian_coordinates), INTENT(in) :: in_point, to_v0, to_v1, to_v2
     TYPE(t_cartesian_coordinates) :: projected_point

@@ -132,8 +132,9 @@ MODULE mo_grid_nml
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
       &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
-      &  dynamics_grid_filename,  dynamics_parent_grid_id,    &
-      &  radiation_grid_filename, dynamics_radiation_grid_link
+      &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
+      &  radiation_grid_filename, dynamics_radiation_grid_link,    &
+      &  grid_angular_velocity
 !       &  radiation_grid_distribution
 
 
