@@ -43,8 +43,7 @@ base_folder=$(pwd)
 # Define run parameters
 
 #   The experiment name (descriptor is ./run/exp.hat_jww)
-exp_name="nat_ape_r2b2"
-out_exp_name="nat_ape_r2b2_test-prad"
+exp_name="hat_jww"
 
 #   Define how many nodes to use on blizzard, should be 1 for all other machines
 #   at DKRZ and MPI-M
@@ -53,7 +52,7 @@ no_of_nodes=1
 #   Define how many mpi procs to use. On blizzard it defines the mpi procs per node,
 #   on all other machines at DKRZ and MPI-M it defines the total mpi procs. 
 #   On tornado this should be a multiple of 8.
-mpi_procs=6
+mpi_procs=32
 
 #   Define how many openmp threads. This has effect only when compiled with openmp.
 openmp_threads=1
@@ -80,8 +79,8 @@ $make_runscript                  \
   in_folder=$input_folder        \
   in_script=exp.${exp_name}      \
   in_script=exec.iconrun         \
-  out_script=exp.${out_exp_name}.run \
-  EXPNAME=${out_exp_name}            \
+  out_script=exp.${exp_name}.run \
+  EXPNAME=${exp_name}            \
   nproma=$nproma                 \
   no_of_nodes=$no_of_nodes       \
   mpi_procs=$mpi_procs           \
