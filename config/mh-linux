@@ -400,7 +400,7 @@ case "$ac_sitename" in
 		esac		   
 		SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
 		ZLIBROOT = /usr
-		load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "${load_modules}"
+		load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "python/2.7-ve0" "${load_modules}"
 		load_profile = "." "/client/etc/profile.zmaw"
 		case "$(hostname)" in
 		    squall?)
