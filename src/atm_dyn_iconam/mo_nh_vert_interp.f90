@@ -687,11 +687,13 @@ CONTAINS
     INTEGER :: nlev, nlevp1, jg, i_endblk
     INTEGER :: nblks, npromz !< blocking parameters
     ! Auxiliary field for input data
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_tempv_in
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c), TARGET :: z_tempv_in
     ! Auxiliary field for output data
     REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c) :: z_tempv, z_auxz
     ! Auxiliary field for smoothing temperature and geopotential on presure levels
     REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_c) :: z_auxp
+    ! Pointer to virtual temperature / temperature, depending on whether the run is moist or dry
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: ptr_tempv
 
     !-------------------------------------------------------------------------
 
@@ -776,13 +778,14 @@ CONTAINS
         &               temp_v=z_tempv_in                                  ) !out
       CALL virtual_temp(p_patch, temp_z_out, tracer_z_qv_out,              & !in
         &               temp_v=z_tempv                                     ) !out
+      ptr_tempv => z_tempv_in
     ELSE
-      z_tempv_in(:,:,:) = p_diag%temp(:,:,:)
-      z_tempv(:,:,:)    = temp_z_out
+      ptr_tempv         =>  p_diag%temp(:,:,:)
+      z_tempv(:,:,:)    = temp_z_out(:,:,:)
     END IF
 
     ! Interpolate pressure on z-levels
-    CALL pressure_intp(p_diag%pres, z_tempv_in, p_metrics%z_mc,         & !in
+    CALL pressure_intp(p_diag%pres, ptr_tempv, p_metrics%z_mc,          & !in
       &                z_auxz, z_tempv, p_z3d_out,                      & !out,in,in
       &                nblks, npromz, nlev, nzlev, .FALSE.,             & !in
       &                vcoeff_z%wfac_lin,    vcoeff_z%idx0_lin,         & !in
@@ -851,7 +854,12 @@ CONTAINS
       ! Compute height at pressure levels (i.e. geopot/g); this height 
       ! field is afterwards also used as target coordinate for vertical 
       ! interpolation
-      CALL z_at_plevels(p_diag%pres, p_diag%tempv, p_metrics%z_mc,     & !in
+      IF (  iforcing == inwp  ) THEN
+        ptr_tempv => p_diag%tempv
+      ELSE
+        ptr_tempv => p_diag%temp
+      ENDIF
+      CALL z_at_plevels(p_diag%pres, ptr_tempv, p_metrics%z_mc,        & !in
         &               p_p3d_out, z_auxp, nblks, npromz, nlev, nplev, & !in,out,in
         &               vcoeff_p%kpbl1, vcoeff_p%wfacpbl1,             & !in
         &               vcoeff_p%kpbl2, vcoeff_p%wfacpbl2              ) !in 
