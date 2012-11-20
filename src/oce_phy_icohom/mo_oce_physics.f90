@@ -57,7 +57,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
   &                               biharmonic_diffusion_factor, &
   &                               richardson_factor_tracer, richardson_factor_veloc,      &
-  &                               l_constant_mixing
+  &                               l_constant_mixing, l_smooth_veloc_diffusion
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -239,7 +239,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
 
     ENDIF
-    CALL smooth_lapl_diff( ppatch, p_phys_param%K_veloc_h )
+    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( ppatch, p_phys_param%K_veloc_h )
 
 
     DO i=1,no_tracer

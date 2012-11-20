@@ -202,6 +202,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_diffusion_factor = 1.0_wp ! factor for adjusting the biharmonic diffusion coefficient
+  LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
 
   REAL(wp) :: richardson_factor_veloc  = 0.5E-2_wp ! Factor with which the richarseon related part of the vertical 
                                                    ! diffusion is multiplied before it is added to the background 
@@ -275,7 +276,7 @@ MODULE mo_ocean_nml
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
     &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff, i_sea_ice, &
-    &                 biharmonic_diffusion_factor,                         &
+    &                 biharmonic_diffusion_factor, l_smooth_veloc_diffusion,&
     &                 richardson_factor_veloc, richardson_factor_tracer
 
 
