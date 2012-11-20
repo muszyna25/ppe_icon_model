@@ -686,6 +686,9 @@ MODULE mo_nonhydro_state
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                       &
           &           cf_desc, grib2_desc, ldims=shape3d_chalf,                   &
           &           tlev_source=1,                                              &
+          &           vert_interp=create_vert_interp_metadata(                    &
+          &             vert_intp_type=VINTP_TYPE_P_OR_Z,                         &
+          &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),               &
           &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
         
       ELSE
@@ -1905,6 +1908,9 @@ MODULE mo_nonhydro_state
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf,                                          & 
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=VINTP_TYPE_P_OR_Z,                           &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
                 & in_group=groups("atmo_ml_vars", "atmo_pl_vars"),              &
                 & isteptype=TSTEP_CONSTANT )
 
