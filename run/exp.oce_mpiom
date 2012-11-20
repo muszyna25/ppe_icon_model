@@ -162,7 +162,7 @@ cat > ${ocean_namelist} << EOF
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 0.001     ! [m/s]  vertical viscosity coefficient for velocity
+  k_veloc_v          = 5.0E-5     ! [m/s]  vertical viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
   k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
