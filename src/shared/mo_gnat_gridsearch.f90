@@ -171,9 +171,12 @@ CONTAINS
     REAL(gk)                    :: dist
     TYPE (t_coord), INTENT(IN)  :: p1
     REAL(gk),       INTENT(IN)  :: p2(icoord_dim)
+    ! local variables
+    REAL(gk) :: val
 
     ! spherical distance:
-    dist = ACOS( p1%sin_p*SIN(p2(2)) + p1%cos_p*COS(p2(2))*COS(p1%p(1)-p2(1)) )
+    val = p1%sin_p*SIN(p2(2)) + p1%cos_p*COS(p2(2))*COS(p1%p(1)-p2(1))
+    dist = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
 
   END FUNCTION dist
 
@@ -183,9 +186,12 @@ CONTAINS
   PURE FUNCTION dist_p(p1, p2)
     REAL(gk)              :: dist_p
     REAL(gk), INTENT(IN)  :: p1(icoord_dim), p2(icoord_dim)
+    ! local variables
+    REAL(gk) :: val
 
     ! spherical distance:
-    dist_p = ACOS( SIN(p1(2))*SIN(p2(2)) + COS(p1(2))*COS(p2(2))*COS(p1(1)-p2(1)) )
+    val = SIN(p1(2))*SIN(p2(2)) + COS(p1(2))*COS(p2(2))*COS(p1(1)-p2(1))
+    dist_p = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
 
   END FUNCTION dist_p
 
@@ -200,14 +206,17 @@ CONTAINS
     REAL(gk)      , INTENT(INOUT)  :: pdist(gnat_k)
     INTEGER                        :: i
     REAL(gk)                       :: sin_p2, cos_p2
+    ! local variables
+    REAL(gk) :: val(n)
 
     sin_p2 = SIN(p2(2))
     cos_p2 = COS(p2(2))
 
     ! spherical distance:
     FORALL (i=1:n)
-      pdist(i) = ACOS((p1(i)%sin_p*sin_p2 +  &
-        &              p1(i)%cos_p*cos_p2*COS(p1(i)%p(1)-p2(1))))
+      val(i)   = (p1(i)%sin_p*sin_p2 +  &
+        &         p1(i)%cos_p*cos_p2*COS(p1(i)%p(1)-p2(1)))
+      pdist(i) = ACOS( MIN(1._gk, MAX(-1._gk, val(i))) )
     END FORALL
 
   END SUBROUTINE dist_vect

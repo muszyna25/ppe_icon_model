@@ -1404,7 +1404,8 @@ END SUBROUTINE rotate_latlon
 !! coordinates.
 !!
 !! @par Revision History
-!!  developed by F. Prill, 2011-08-04
+!!  Initial revision                   : F. Prill,  2011-08-04
+!!  floating point exception handling  : G. Zaengl, 2012-11-20
 !!
 SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
 
@@ -1416,7 +1417,8 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
   REAL(wp) :: sincos_lon(lon_lat_grid%lon_dim,2), &
     &         sincos_lat(lon_lat_grid%lat_dim,2)
   INTEGER  :: k
-  REAL(wp) :: rlon_lat, pi_180, npole_rad(2)
+  REAL(wp) :: rlon_lat, pi_180, npole_rad(2), &
+    &         arg1(SIZE(rotated_pts,2)), arg2(SIZE(rotated_pts,2))
 
 !-----------------------------------------------------------------------
 
@@ -1438,16 +1440,24 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
 
   FORALL (k=1:lon_lat_grid%lon_dim)
 
-    ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
-    rotated_pts(k,:,2) = &
-      ASIN( sincos_lat(:,1)*sincos_pole(2,1) + sincos_lat(:,2)*sincos_lon(k,2)*sincos_pole(2,2) )
+    arg1(:) = sincos_lat(:,2)*sincos_lon(k,1)
+    arg2(:) = sincos_pole(2,1)*sincos_lat(:,2)*sincos_lon(k,2) - sincos_lat(:,1)*sincos_pole(2,2)
 
-    ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
-    rotated_pts(k,:,1) = &
-      ATAN2( sincos_lat(:,2)*sincos_lon(k,1), &
-      &      sincos_pole(2,1)*sincos_lat(:,2)*sincos_lon(k,2) - sincos_lat(:,1)*sincos_pole(2,2)) &
-      &      + npole_rad(1)
+    WHERE (arg1(:) /= 0.0_wp .OR. arg2(:) /= 0.0_wp)
 
+      ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
+      rotated_pts(k,:,1) = ATAN2( arg1(:), arg2(:) ) + npole_rad(1)
+
+      ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
+      rotated_pts(k,:,2) = &
+        ASIN( sincos_lat(:,1)*sincos_pole(2,1) + sincos_lat(:,2)*sincos_lon(k,2)*sincos_pole(2,2) )
+
+    ELSEWHERE
+
+      rotated_pts(k,:,1) = npole_rad(1) - dbl_eps ! ATAN2(0,0) is undefined, so we just have to set something that 
+      rotated_pts(k,:,2) = npole_rad(2) - dbl_eps ! does not cause invalid operations subsequently
+
+    END WHERE
   END FORALL
 
 END SUBROUTINE rotate_latlon_grid
