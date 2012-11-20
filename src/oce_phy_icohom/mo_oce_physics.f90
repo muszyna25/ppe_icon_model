@@ -204,8 +204,7 @@ CONTAINS
             !calculate lower bound for diffusivity
             !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
             p_phys_param%K_veloc_h(je,:,jb) = 3.82E-12_wp&
-            &*(N_POINTS_IN_MUNK_LAYER*ppatch%edges%primal_edge_length(je,jb))**3&
-            &*cos( ppatch%edges%center(je,jb)%lat)!*deg2rad
+            &*(N_POINTS_IN_MUNK_LAYER*ppatch%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
       END SELECT
