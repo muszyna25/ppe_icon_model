@@ -662,7 +662,6 @@ run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
 run/exp.test_couple_atmo-ocean -text
-run/exp.test_hat_icoham_ape_jsbach -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
 run/exp.test_nah_jww -text
