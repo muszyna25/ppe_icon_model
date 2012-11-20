@@ -124,6 +124,29 @@ CONTAINS
     
   END SUBROUTINE read_ascii_decomposition
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE write_ascii_decomposition(ascii_file_name, cell_owner, no_of_cells)
+    INTEGER, POINTER :: cell_owner(:) 
+    CHARACTER(LEN=*) :: ascii_file_name 
+    INTEGER, INTENT(in) :: no_of_cells
+
+
+    INTEGER :: file_id, error_status, cell_no
+    
+    WRITE(message_text,'(a,a)')                          &
+      &  'Write decomposition file: ', TRIM(ascii_file_name)
+    CALL message ('', TRIM(message_text))
+    !----------------------------------------------------------------------
+    file_id = find_next_free_unit(100,1000)
+    OPEN (file_id, FILE=TRIM(ascii_file_name),IOSTAT=error_status)
+    DO cell_no = 1, no_of_cells
+      WRITE(file_id,*) cell_owner(cell_no)
+    ENDDO
+    CLOSE(file_id)    
+
+  END SUBROUTINE write_ascii_decomposition
+  !-------------------------------------------------------------------------
   
   
   !-------------------------------------------------------------------------
@@ -407,7 +430,7 @@ CONTAINS
     INTEGER :: cells_group_size
     INTEGER :: cell_no, no_of_domains,in_domain_id
     INTEGER :: max_subdomain_size, next_avail_subdomain, domain_cells
-    INTEGER :: half_group_size, check_subdomain_partition, return_status
+    INTEGER :: check_subdomain_partition, return_status
     
     CHARACTER(*), PARAMETER :: method_name = "decompose_round_robin"
 
@@ -443,31 +466,35 @@ CONTAINS
       & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
       & " new subdomain_partition:", check_subdomain_partition
 
-    IF (return_status /= 0) THEN
-      ! revalidate
-      check_subdomain_partition = MOD(no_of_domains,subdomain_partition)
-      IF (check_subdomain_partition > subdomain_partition / 2) THEN
-        check_subdomain_partition = 2*subdomain_partition - &
-          & MOD(no_of_domains,2*subdomain_partition)
-      ELSE   
-        check_subdomain_partition = subdomain_partition - MOD(no_of_domains,subdomain_partition)
-      ENDIF
-      cells_group_size = max_subdomain_size / check_subdomain_partition
-    write(0,*) "max_subdomain_size=", max_subdomain_size, &
-      & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
-      & " new subdomain_partition:", check_subdomain_partition
-      return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
-        & cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
-      IF (return_status /= 0) THEN
-        ! we cannot find a suitable decomposition
-        CALL finish(method_name, "cannot find balanced decomposition")
-      ENDIF
-    ENDIF
+    
+     IF (return_status > 0) THEN
+       CALL warning(method_name, "cannot find balanced decomposition")
+     ELSEIF (return_status < 0) THEN
+       CALL finish(method_name, "cannot find balanced decomposition")
+     ENDIF
+     
+!     IF (return_status /= 0) THEN
+!       ! revalidate
+!       check_subdomain_partition = MOD(no_of_domains,subdomain_partition)
+!       IF (check_subdomain_partition > subdomain_partition / 2) THEN
+!         check_subdomain_partition = 2*subdomain_partition - &
+!           & MOD(no_of_domains,2*subdomain_partition)
+!       ELSE   
+!         check_subdomain_partition = subdomain_partition - MOD(no_of_domains,subdomain_partition)
+!       ENDIF
+!       cells_group_size = max_subdomain_size / check_subdomain_partition
+!       write(0,*) "max_subdomain_size=", max_subdomain_size, &
+!         & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
+!         & " new subdomain_partition:", check_subdomain_partition
+!       return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
+!         & cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
+!       IF (return_status /= 0) THEN
+!         ! we cannot find a suitable decomposition
+!         CALL finish(method_name, "cannot find balanced decomposition")
+!       ENDIF
+!     ENDIF
       
-!     write(0,*) "max_subdomain_size=", max_subdomain_size, &
-!       & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
-!       & " new subdomain_partition:", check_subdomain_partition
-
+    
     ! re-distribute in groups of cells_group_size
     ! the current group size for each subdomain
     !  will be hold in cells_per_domain
@@ -475,14 +502,19 @@ CONTAINS
     remain_domain_space(:) = max_subdomain_size
     DO cell_no = 1, decomposition_struct%no_of_cells
       in_domain_id = decomposition_struct%domain_id(in_decomposition_id, cell_no)
-      write(0,*) cell_no, in_domain_id, next_new_domain(in_domain_id)
+!       write(0,*) cell_no, in_domain_id, next_new_domain(in_domain_id)
       decomposition_struct%domain_id(out_decomposition_id, cell_no) = next_new_domain(in_domain_id)
       remain_domain_space(next_new_domain(in_domain_id)) = &
         remain_domain_space(next_new_domain(in_domain_id)) - 1
-!        write(*,*) "in_decomposition_id=", in_domain_id, " -> ", next_new_domain(in_domain_id)
+!       write(*,*) "cell no=", cell_no, in_domain_id, next_new_domain(in_domain_id), &
+!         & remain_domain_space(next_new_domain(in_domain_id))
       IF (remain_domain_space(next_new_domain(in_domain_id)) < 0) THEN
-        write(0,*) "in_domain_id=", in_domain_id, " new=", next_new_domain(in_domain_id)
+        write(0,*) "in_domain_id=", in_domain_id, " new=", next_new_domain(in_domain_id), &
+          & remain_domain_space(next_new_domain(in_domain_id))
         CALL warning(method_name, "remain_domain_space(next_new_domain(in_domain_id)) < 0")
+        IF (remain_domain_space(next_new_domain(in_domain_id)) < -4 ) THEN
+          CALL finish(method_name, "round robin decomposition cannot balance")
+        ENDIF
       ENDIF
       cells_per_domain(in_domain_id) = cells_per_domain(in_domain_id) + 1
       IF (cells_per_domain(in_domain_id) >= cells_group_size) THEN
@@ -511,16 +543,10 @@ CONTAINS
 
       
     INTEGER :: in_domain_id, next_avail_subdomain, counter, domain_cells
-    INTEGER :: group_size, half_group_size
+    INTEGER :: group_size
 
-    validate_round_robin = -1
+    validate_round_robin = 0
     ! determine the group size to be assigned to ditsributed
-    IF (PRESENT(opposite_subdomain_id)) THEN
-      group_size = cells_group_size * 2
-    ELSE
-      group_size = cells_group_size
-    ENDIF
-    half_group_size = group_size / 2
     
     next_new_domain(:) = -1
     remain_domain_space(:) = max_subdomain_size
@@ -530,49 +556,56 @@ CONTAINS
       ! if it's alread assigned a new subdomain start, skip it
       IF (next_new_domain(in_domain_id) >= 0) CYCLE
       ! Find the next avaliable subdomain with sufficient size
+      IF (PRESENT(opposite_subdomain_id)) THEN
+        IF (opposite_subdomain_id(in_domain_id) >= 0) THEN
+          group_size = cells_group_size * 2
+        ELSE
+          group_size = cells_group_size
+        ENDIF
+      ELSE
+        group_size = cells_group_size
+      ENDIF
+      
       counter = 0
       DO WHILE(remain_domain_space(next_avail_subdomain) < group_size .AND. &
                & counter < no_of_domains)
         next_avail_subdomain = MOD(next_avail_subdomain + 1, no_of_domains)
         counter = counter + 1
       ENDDO
-      IF (counter >= no_of_domains) RETURN !ERROR
+      IF (counter >= no_of_domains) THEN
+        validate_round_robin = -1
+        RETURN !ERROR
+      ENDIF
 
       ! assign the next avail subdomain to in_domain_id
       next_new_domain(in_domain_id) = next_avail_subdomain
       IF (PRESENT(opposite_subdomain_id)) THEN
-        next_new_domain(opposite_subdomain_id(in_domain_id)) = next_avail_subdomain
-        domain_cells = cells_per_domain(in_domain_id) + &
-          & cells_per_domain(opposite_subdomain_id(in_domain_id))
+        IF (opposite_subdomain_id(in_domain_id) >= 0) THEN
+          next_new_domain(opposite_subdomain_id(in_domain_id)) = next_avail_subdomain
+          domain_cells = cells_per_domain(in_domain_id) + &
+            & cells_per_domain(opposite_subdomain_id(in_domain_id))
+        ELSE
+          domain_cells = cells_per_domain(in_domain_id)
+        ENDIF
       ELSE
         domain_cells = cells_per_domain(in_domain_id)
       ENDIF
 
       ! compute remaining sizes
       ! this is just for checking, should be removed eventually
-      DO WHILE(domain_cells > 0)
-!         write(*,*) "in_decomposition_id=", in_domain_id, " goes to ",next_avail_subdomain
-!         IF (PRESENT(opposite_subdomain_id))&
-!           write(*,*) "opp_decomposition_id=", opposite_subdomain_id(in_domain_id),&
-!            & " goes to ",next_avail_subdomain
-            
-        IF (domain_cells > group_size) THEN
-          remain_domain_space(next_avail_subdomain) = &
-            remain_domain_space(next_avail_subdomain) - group_size
-          domain_cells = domain_cells - group_size
-          next_avail_subdomain = MOD(next_avail_subdomain + 1, no_of_domains)
-        ELSE
-          remain_domain_space(next_avail_subdomain) = &
-            remain_domain_space(next_avail_subdomain) - domain_cells
-!           IF (domain_cells > half_group_size) &
-            next_avail_subdomain = MOD(next_avail_subdomain + 1, no_of_domains)            
-          domain_cells = 0
+      DO WHILE(domain_cells >= (group_size / 2))
+!         write(*,*) "in_decomposition_id=", in_domain_id, opposite_subdomain_id(in_domain_id), &
+!           &  " goes to ",next_avail_subdomain, &
+!           & " remain space=", remain_domain_space(next_avail_subdomain), " - ", &
+!           & MIN(group_size, domain_cells)
           
-        ENDIF
-!         write(0,*) in_domain_id, " domain_cells=", domain_cells, &
-!           &  "next_avail_subdomain=", next_avail_subdomain, &
-!           & remain_domain_space(next_avail_subdomain)
-        IF (remain_domain_space(next_avail_subdomain) < 0) RETURN ! ERROR    
+        remain_domain_space(next_avail_subdomain) = &
+          & remain_domain_space(next_avail_subdomain) - &
+          & MIN(group_size, domain_cells)
+        domain_cells = domain_cells - group_size
+        IF (remain_domain_space(next_avail_subdomain) < 0) &
+          & validate_round_robin = 1 ! ERROR
+        next_avail_subdomain = MOD(next_avail_subdomain + 1, no_of_domains)
       ENDDO
     ENDDO ! in_domain_id = 0, no_of_domains-1
 
@@ -714,8 +747,12 @@ CONTAINS
           & no_of_domains, opposite_subdomain_id)
           
         IF (min_subdomain_id >= 0) THEN
-          opposite_subdomain_id(in_domain_id)     = min_subdomain_id
-          opposite_subdomain_id(min_subdomain_id) = in_domain_id
+          IF (min_subdomain_id == in_domain_id) THEN
+            CALL warning(method_name, "has no opposite")
+          ELSE
+            opposite_subdomain_id(in_domain_id)     = min_subdomain_id
+            opposite_subdomain_id(min_subdomain_id) = in_domain_id
+          ENDIF
 !           geocoord = cc2gc(subdomain_center(in_domain_id))
 !           WRITE(0,*) geocoord%lon, geocoord%lat, "paired: ", in_domain_id, min_subdomain_id,&
 !           WRITE(0,*)  "paired: ", in_domain_id, min_subdomain_id,&

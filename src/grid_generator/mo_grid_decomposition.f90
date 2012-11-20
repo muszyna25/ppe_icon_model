@@ -39,14 +39,13 @@ MODULE mo_grid_decomposition
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, finish, warning
-  USE mo_io_units,           ONLY: nnml, filename_max
+  USE mo_io_units,           ONLY: nnml, filename_max, find_next_free_unit
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_timer,              ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
   USE mo_base_geometry
   USE mo_local_grid
   USE mo_grid_toolbox,       ONLY: add_to_list_if_not_exist
-  USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid, &
-    & write_ascii_decomposition
+  USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_statistics_tools
   USE mo_decomposition_tools
 
@@ -69,6 +68,7 @@ MODULE mo_grid_decomposition
   PUBLIC :: file_cluster_subdomains, grid_cluster_subdomains
   PUBLIC :: get_max_subdomain_cells
   PUBLIC :: decompose_file_geometric_medial, decomp_file_geom_medial_cluster
+  PUBLIC :: write_ascii_grid_decomposition
   !-------------------------------------------------------------------------
 
   INTEGER, PARAMETER   :: max_halos = 4096! assume we have max of 32 neighbors, for statistics
@@ -96,7 +96,7 @@ CONTAINS
     &  out_decomposition_id, cluster=.false.)
              
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -106,12 +106,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE decomp_file_geom_medial_cluster(grid_file, decomposition_size, &
-    & out_decomposition_id, out_ascii_file)
+    & radiation_split_factor, out_decomposition_id, out_ascii_file)
     
     CHARACTER(LEN=*), INTENT(in) :: grid_file, out_ascii_file
-    INTEGER, INTENT(in)  :: decomposition_size, out_decomposition_id
+    INTEGER, INTENT(in)  :: decomposition_size, out_decomposition_id, radiation_split_factor
 
-    INTEGER :: grid_id
+    INTEGER :: grid_id, rad_decomposition_id
 
     TYPE(t_decomposition_structure) :: decomposition_struct
 
@@ -121,10 +121,22 @@ CONTAINS
     CALL divide_geometric_medial(decomposition_struct, &
       & decomposition_size = decomposition_size,       &
       & out_decomposition_id = out_decomposition_id,   &
-      & cluster=.false.)
+      & cluster=.true.)
              
+    IF (radiation_split_factor > 0) THEN
+      rad_decomposition_id = out_decomposition_id + 1
+      CALL reorder_lonlat_subdomains(decomposition_struct,  &
+        & in_decomposition_id = out_decomposition_id,    &
+        & out_decomposition_id = rad_decomposition_id)
+
+      CALL decompose_round_robin_opp(decomposition_struct,  &
+        & in_decomposition_id = rad_decomposition_id,    &
+        & out_decomposition_id = rad_decomposition_id,      &
+        & subdomain_partition = radiation_split_factor)
+    ENDIF
+    
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -155,7 +167,7 @@ CONTAINS
       &  subdomain_partition  = subdomain_partition)
              
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -202,7 +214,7 @@ CONTAINS
     grid_id = read_new_netcdf_grid(grid_file)
     CALL decompose_metis(grid_id, dec_size, decomposition_id, edge_weight, &
       & allowed_imbalance, use_sea_land_mask)
-    CALL write_ascii_decomposition(grid_id, decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, decomposition_id, out_ascii_file)
     CALL write_netcdf_grid(grid_id)
     
     CALL delete_grid(grid_id)    
@@ -358,7 +370,7 @@ CONTAINS
       & child_grid_id, child_decomposition_id)
     
     CALL write_netcdf_grid(child_grid_id)
-    CALL write_ascii_decomposition(child_grid_id, child_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(child_grid_id, child_decomposition_id, out_ascii_file)
     
     CALL delete_grid(parent_grid_id)
     CALL delete_grid(child_grid_id)    
@@ -422,7 +434,7 @@ CONTAINS
     CALL shrink_decomposition(grid_id, in_decomposition_id, out_decomposition_id)
     
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
 
@@ -489,7 +501,7 @@ CONTAINS
       & in_decomposition_id, out_decomposition_id)
     
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -548,7 +560,7 @@ CONTAINS
     & in_decomposition_id, out_decomposition_id)
     
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -593,7 +605,7 @@ CONTAINS
       & in_decomposition_id, out_decomposition_id)
     
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -617,7 +629,7 @@ CONTAINS
       & in_decomposition_id, out_decomposition_id)
     
     CALL write_netcdf_grid(grid_id)
-    CALL write_ascii_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
     
@@ -1009,7 +1021,7 @@ CONTAINS
     TYPE(t_grid_edges),    POINTER :: edges
     TYPE(t_grid_vertices), POINTER :: verts
     
-    INTEGER, PARAMETER   :: max_neighbor_ids = 64! assume we have max of 32 neighbors
+    INTEGER  :: max_neighbor_ids = 64! assume we have max of 32 neighbors
     TYPE(t_integer_list) :: neighbor_list
     
     TYPE(t_integer_list) :: halo_cells, boundary_verts
@@ -1021,6 +1033,12 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "get_subdomain_statistics"
 
+    in_grid  => get_grid(grid_id)
+    cells => in_grid%cells
+    edges => in_grid%edges
+    verts => in_grid%verts
+    
+    max_neighbor_ids = edges%no_of_existedges    
     neighbor_list%allocated_size = max_neighbor_ids
     neighbor_list%list_size      = 0
     ALLOCATE(neighbor_list%value(neighbor_list%allocated_size), stat=return_status)
@@ -1039,10 +1057,6 @@ CONTAINS
     ENDIF
     
 
-    in_grid  => get_grid(grid_id)
-    cells => in_grid%cells
-    edges => in_grid%edges
-    verts => in_grid%verts
     bnd_edges = 0
         
     DO edge_no = 1, edges%no_of_existedges
@@ -1098,6 +1112,31 @@ CONTAINS
   END SUBROUTINE get_subdomain_statistics
   !-------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE write_ascii_grid_decomposition(grid_id, decomposition_id, ascii_file_name)
+    INTEGER, INTENT(in) :: grid_id, decomposition_id
+    CHARACTER(LEN=filename_max), INTENT(in) :: ascii_file_name
+
+    TYPE(t_grid_cells), POINTER :: cells
+
+    INTEGER :: file_id, error_status, cell_no
+    
+    WRITE(message_text,'(a,a,a,i1)')                          &
+      &  'Write decomposition file: ', TRIM(ascii_file_name), &
+      &  ',       decomposition_id: ', decomposition_id
+    CALL message ('', TRIM(message_text))
+    !----------------------------------------------------------------------
+    cells => get_cells(grid_id)
+    file_id = find_next_free_unit(100,1000)
+    OPEN (file_id, FILE=TRIM(ascii_file_name),IOSTAT=error_status)
+    DO cell_no = 1,cells%no_of_existcells
+      WRITE(file_id,*) cells%domain_id(decomposition_id, cell_no)
+    ENDDO
+    CLOSE(file_id)    
+
+  END SUBROUTINE write_ascii_grid_decomposition
+  !-------------------------------------------------------------------------
 
 
 END MODULE mo_grid_decomposition

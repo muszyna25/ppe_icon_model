@@ -47,8 +47,7 @@ MODULE mo_icosahedron_grid
 
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates!, cc2gc
   USE mo_math_constants, ONLY: pi_5
-  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid, &
-    & write_ascii_decomposition
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_local_grid_geometry,     ONLY: compute_sphere_grid_geometry, get_cell_barycenters!, &
 !    & use_cartesian_centers
@@ -58,7 +57,7 @@ MODULE mo_icosahedron_grid
   USE mo_local_grid
 !  USE mo_grid_checktools,         ONLY: check_grid
   USE mo_grid_decomposition, ONLY: decompose_all_cells, grid_cluster_subdomains, &
-    & get_no_of_domains, get_max_subdomain_cells
+    & get_no_of_domains, get_max_subdomain_cells, write_ascii_grid_decomposition
 
   IMPLICIT NONE
 
@@ -246,7 +245,7 @@ CONTAINS
         message_text = ADJUSTL(message_text)
         WRITE(file_name,'(a,i2.2,a,".",a)')  TRIM(output_file), level,  &
           TRIM(optimization_extension), TRIM(message_text)
-        CALL write_ascii_decomposition(base_grid_id, 1, file_name)
+        CALL write_ascii_grid_decomposition(base_grid_id, 1, file_name)
       ENDIF
       
       WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
@@ -262,7 +261,7 @@ CONTAINS
 !         WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
 !           TRIM(optimization_extension), "_tri_dd_", no_of_domains, &
 !           TRIM(decomposition_ascii_ext)
-!         CALL write_ascii_decomposition(base_grid_id, 1, file_name)
+!         CALL write_ascii_grid_decomposition(base_grid_id, 1, file_name)
 !       ENDIF
       
     ENDDO ! level=1,no_of_levels

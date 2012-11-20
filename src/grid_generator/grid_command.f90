@@ -195,10 +195,11 @@ PROGRAM grid_command
     
     CASE (decomp_geom_medial_cluster_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
-      READ (500, *) command, param_1, int_param_1, int_param_2, param_2
+      READ (500, *) command, param_1, int_param_1, int_param_2,  int_param_3, param_2
       CLOSE(500)
       CALL decomp_file_geom_medial_cluster(grid_file=param_1, decomposition_size=int_param_1, &
-        & out_decomposition_id=int_param_2, out_ascii_file=param_2)
+        & radiation_split_factor=int_param_2, out_decomposition_id=int_param_3, &
+        & out_ascii_file=param_2)
     
     CASE (decompose_round_robin_opp_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
