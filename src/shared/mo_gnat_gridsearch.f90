@@ -679,7 +679,7 @@ CONTAINS
           pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
           p(1,j)       = REAL( pcoord%lon, gk)
           p(2,j)       = REAL( pcoord%lat, gk)
-          IF (opt_ldegree) p(:,j) = p(:,j)*pi_180
+          IF (PRESENT(opt_ldegree)) p(:,j) = p(:,j)*pi_180
           idx(:,j)     = new_idx(:)
           work(j)      = work(j) + 1
           tree_depth   = MAX(tree_depth, depth(j))
