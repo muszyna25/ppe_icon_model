@@ -201,7 +201,11 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
-  REAL(wp) :: biharmonic_diffusion_factor = 1.0_wp ! factor for adjusting the biharmonic diffusion coefficient
+  REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
+                                                     !has to be adjusted for each resolution, the bigger this number 
+                                                     !the smaller becomes the effect of biharmonic diffusion.The appropriate
+                                                     !size of this number depends also on the position of the biharmonic diffusion coefficient
+                                                     !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
 
   REAL(wp) :: richardson_factor_veloc  = 0.5E-2_wp ! Factor with which the richarseon related part of the vertical 

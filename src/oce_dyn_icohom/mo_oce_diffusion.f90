@@ -130,10 +130,10 @@ SUBROUTINE velocity_diffusion(p_patch, vn_in, p_param, p_diag,p_op_coeff, laplac
 
        CALL veloc_diff_harmonic_curl_curl( vn_in, p_diag%vort,&
                                          & p_patch,           &
-                                         & p_param%K_veloc_h, &
-                                         & p_op_coeff,&
+                                         & p_op_coeff,        &
                                          & p_diag%p_vn_dual,  &
-                                         & laplacian_vn_out)
+                                         & laplacian_vn_out,  & 
+                                         & p_param%K_veloc_h)
    ENDIF
 
   ELSEIF(veloc_diffusion_order==2)THEN
@@ -509,18 +509,18 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
   !! @par Revision History
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch, k_h, p_op_coeff,&
-    & p_vn_dual, nabla2_vec_e)
+  SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch, p_op_coeff,&
+    & p_vn_dual, nabla2_vec_e,k_h )
     !
     !  patch on which computation is performed
     !
     TYPE(t_patch), TARGET, INTENT(in)         :: p_patch
     REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,p_patch%nblks_e) 
     REAL(wp), INTENT(in)                      :: vort(nproma,n_zlev,p_patch%nblks_v)
-    REAL(wp), INTENT(in)                      :: k_h(:,:,:)
     TYPE(t_operator_coeff), INTENT(in)        :: p_op_coeff
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
-    REAL(wp), INTENT(inout)                   ::  nabla2_vec_e(nproma,n_zlev,p_patch%nblks_e)
+    REAL(wp), INTENT(inout)                   :: nabla2_vec_e(nproma,n_zlev,p_patch%nblks_e)
+    REAL(wp),OPTIONAL, INTENT(in)             :: k_h(nproma,n_zlev,p_patch%nblks_e)
     !
     !Local variables
     INTEGER :: slev, elev     ! vertical start and end level
@@ -555,6 +555,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !  loop through all patch edges (and blocks)
     !
+    IF(PRESENT(k_h))THEN
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
@@ -574,7 +575,26 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
         END DO
       END DO
     END DO
+    ELSEIF(.NOT.PRESENT(k_h))THEN
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+          nabla2_vec_e(je,jk,jb) = v_base%wet_e(je,jk,jb)*&
+            &(   &
+            & p_patch%edges%system_orientation(je,jb) *     &
+            & ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
+            & - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )   &
+            & * p_patch%edges%inv_primal_edge_length(je,jb) &
+            & + &
+            & ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))     &
+            & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )   &
+            & * p_patch%edges%inv_dual_edge_length(je,jb))
+        END DO
+      END DO
+    END DO
 
+    ENDIF
   END SUBROUTINE veloc_diff_harmonic_curl_curl
   !-------------------------------------------------------------------------
   !>
@@ -626,7 +646,9 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
 
-    CALL veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch, k_h, p_op_coeff,&
+    z_nabla2_e(1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
+
+    CALL veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch, p_op_coeff,&
                                       & p_vn_dual, z_nabla2_e)
     ! compute divergence of vector field
 !     CALL div_oce_3d( u_vec_e, p_patch, p_op_coeff%div_coeff, z_div_c)
@@ -677,7 +699,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
         DO jk = slev, elev
 
           nabla4_vec_e(je,jk,jb) =  &
-            & v_base%wet_e(je,jk,jb)*     &
+            & v_base%wet_e(je,jk,jb)*k_h(je,jk,jb)*      &
             & (p_patch%edges%system_orientation(je,jb) *  &
             & ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
             & - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &

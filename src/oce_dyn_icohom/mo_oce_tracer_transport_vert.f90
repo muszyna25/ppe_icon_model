@@ -217,8 +217,8 @@ CONTAINS
     REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch%nblks_c)!< flux dim: (nproma,n_zlev+1,nblks_c)
     INTEGER, INTENT(IN)               :: tracer_id
     !-------------------------------------------------------------------------
-!pupflux_i(:,1,:)=0.0_wp
-!return
+pupflux_i(:,1,:)=0.0_wp
+return
 
     CALL sync_patch_array(SYNC_C, p_patch, pvar_c)
     CALL sync_patch_array(SYNC_C, p_patch, pw_c)

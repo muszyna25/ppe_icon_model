@@ -68,7 +68,7 @@ USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
 USE mo_sea_ice_types,       ONLY: t_sfc_flx
-! USE mo_run_config,          ONLY: dtime
+USE mo_run_config,          ONLY: dtime
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
@@ -80,7 +80,6 @@ USE mo_grib2
 USE mo_cdi_constants
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, global_max
-
 IMPLICIT NONE
 
 
@@ -221,7 +220,8 @@ CONTAINS
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
              p_phys_param%K_veloc_h(je,:,jb) = &
-             &ppatch%edges%area_edge(je,jb)*ppatch%edges%area_edge(je,jb)*z_diff_multfac
+              &ppatch%edges%area_edge(je,jb)*ppatch%edges%area_edge(je,jb)*z_diff_multfac
+!             &maxval(ppatch%edges%area_edge)*maxval(ppatch%edges%area_edge)*z_diff_multfac
           END DO
         END DO
 

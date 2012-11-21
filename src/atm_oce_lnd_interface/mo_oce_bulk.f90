@@ -869,10 +869,10 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-  !       z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-  !         &       (relaxation_param*2.592e6_wp)
-          z_relax = (v_base%del_zlev_m(1)) / &
-            &       (relaxation_param*2.592e6_wp)
+         z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+           &       (relaxation_param*2.592e6_wp)
+  !        z_relax = (v_base%del_zlev_m(1)) / &
+  !          &       (relaxation_param*2.592e6_wp)
 
 
           IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
@@ -926,7 +926,9 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-        z_relax = (v_base%del_zlev_m(1)) / &
+
+
+        z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
              &       (relax_2d_mon_S*2.592e6_wp)
 
           IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN

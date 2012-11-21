@@ -478,7 +478,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
   REAL(wp), INTENT(INOUT)              :: trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c)  !new tracer
   INTEGER,  INTENT(IN)                 :: tracer_id
   !Local variables
-  REAL(wp) :: delta_t, delta_z, content, content_old
+  REAL(wp) :: delta_t, delta_z,delta_z_new, content, content_old
   REAL(wp) :: flux_horz(nproma,n_zlev, p_patch%nblks_c)
   REAL(wp) :: flux_vert(nproma,n_zlev, p_patch%nblks_c)
   REAL(wp) :: z_temp(nproma,n_zlev, p_patch%nblks_c)
@@ -571,12 +571,19 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
             z_dolic = v_base%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              delta_z =v_base%del_zlev_m(jk)!+p_os%p_prog(nold(1))%h(jc,jb)
+              delta_z     = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+              delta_z_new = v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-                z_temp(jc,jk,jb)= trac_old(jc,jk,jb) &
-                & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
+              ! z_temp(jc,jk,jb)= trac_old(jc,jk,jb) &
+              ! & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
 
-               z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t/delta_z)*bc_top_tracer(jc,jb)
+              !z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t/delta_z)*bc_top_tracer(jc,jb)
+
+               z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
+               & -delta_t*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))/delta_z_new
+ 
+              z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t/delta_z_new)*bc_top_tracer(jc,jb)
+
 
             ENDIF
         END DO
@@ -657,12 +664,14 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,                  &
             z_dolic = v_base%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              delta_z =v_base%del_zlev_m(jk)!+p_os%p_prog(nold(1))%h(jc,jb)
+              delta_z     = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+              delta_z_new = v_base%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+
                ! trac_new(jc,jk,jb)= trac_old(jc,jk,jb) &
                ! & -(delta_t/delta_z)*(-bc_top_tracer(jc,jb)+flux_vert(jc,jk+1,jb)-flux_horz(jc,jk,jb))
 
-                trac_new(jc,jk,jb) = trac_old(jc,jk,jb) &
-                & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)-div_diff_flx(jc,jk,jb))
+                trac_new(jc,jk,jb) = (trac_old(jc,jk,jb)*delta_z &
+                & -delta_t*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)-div_diff_flx(jc,jk,jb)))/delta_z_new
 
                trac_new(jc,jk,jb) = trac_new(jc,jk,jb)+(delta_t/delta_z)*bc_top_tracer(jc,jb)
 
