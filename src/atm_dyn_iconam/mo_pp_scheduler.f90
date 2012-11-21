@@ -100,11 +100,11 @@ MODULE mo_pp_scheduler
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &
-    &                                   GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,  &
-    &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
+    &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
+    &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,        &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZAXIS_ISENTROPIC
+    &                                   GRID_UNSTRUCTURED_VERT, ZA_SURFACE,      &
+    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
@@ -392,7 +392,7 @@ CONTAINS
           ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape         =  info%used_dimensions(:)
-          IF (info%vgrid == ZAXIS_SURFACE) THEN
+          IF (info%vgrid == ZA_SURFACE) THEN
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE
             var_shape(3)     =  nblks_lonlat
@@ -719,7 +719,7 @@ CONTAINS
       nvars_predef = nvars_predef + 1
       varlist_predef(nvars_predef) = "temp"
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef), p_diag_pz%z_temp, &
-        & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
+        & GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE, cf_desc, grib2_desc, &
         & ldims=shape3d )
       
       ! pres         (nproma,nzlev,nblks_c)
@@ -728,7 +728,7 @@ CONTAINS
       cf_desc    = t_cf_var('pressure', 'Pa', 'pressure', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef), p_diag_pz%z_pres, &
-        & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
+        & GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE, cf_desc, grib2_desc, &
         & ldims=shape3d )
 
       ! tracer_qv
@@ -737,7 +737,7 @@ CONTAINS
       cf_desc    = t_cf_var('tracer_qv', 'kg kg-1', 'specific_humidity', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(0, 1, 201, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef),          &
-        & p_diag_pz%z_tracer_iqv, GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,     &
+        & p_diag_pz%z_tracer_iqv, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,        &
         & cf_desc, grib2_desc, ldims=shape3d)
 
       ! tot_qv
@@ -746,7 +746,7 @@ CONTAINS
       cf_desc    = t_cf_var('tot_qv', '','total_specific_humidity', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(0, 6, 6, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef),          &
-        & p_diag_pz%z_tot_cld_iqv, GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,    &
+        & p_diag_pz%z_tot_cld_iqv, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,       &
         & cf_desc, grib2_desc, ldims=shape3d)
 
       IF (l_intp_p) THEN
@@ -755,13 +755,13 @@ CONTAINS
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_geopot,             &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,          &
           & ldims=shape3d )
         ! temp
         cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'temp', p_diag_pz%p_temp,            &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,         &
           & ldims=shape3d )
       END IF
       IF (l_intp_i) THEN
@@ -769,14 +769,14 @@ CONTAINS
         ! GEOPOT
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_geopot,             &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_ISENTROPIC, cf_desc, grib2_desc,      &
+        CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_geopot,            &
+          & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,       &
           & ldims=shape3d )
         ! temp
         cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'temp', p_diag_pz%i_temp,            &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_ISENTROPIC, cf_desc, grib2_desc,      &
+          & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,       &
           & ldims=shape3d )
       END IF
 
@@ -844,7 +844,7 @@ CONTAINS
           varlist => hl_varlist
           nvars   =  nvars_hl
           nlev    =  nh_pzlev_config(jg)%nzlev
-          vgrid   =  ZAXIS_ALTITUDE
+          vgrid   =  ZA_ALTITUDE
           p_opt_diag_list => p_opt_diag_list_z
           job_type = TASK_INTP_VER_ZLEV
         END IF
@@ -853,7 +853,7 @@ CONTAINS
           varlist => pl_varlist
           nvars   =  nvars_pl
           nlev    =  nh_pzlev_config(jg)%nplev
-          vgrid   =  ZAXIS_PRESSURE
+          vgrid   =  ZA_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
           job_type = TASK_INTP_VER_PLEV
         END IF
@@ -862,7 +862,7 @@ CONTAINS
           varlist => il_varlist
           nvars   =  nvars_il
           nlev    =  nh_pzlev_config(jg)%nilev
-          vgrid   =  ZAXIS_ISENTROPIC
+          vgrid   =  ZA_ISENTROPIC
           p_opt_diag_list => p_opt_diag_list_i
           job_type = TASK_INTP_VER_ILEV
         END IF

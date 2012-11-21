@@ -129,26 +129,6 @@ MODULE mo_name_list_output
 
   !------------------------------------------------------------------------------------------------
 
-  ! Parameters for naming all used Zaxis ID's in cdiZaxisID in TYPE t_output_file below
-
-  INTEGER, PARAMETER, PUBLIC      :: ZA_surface             =  1
-  ! Atmosphere
-  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid              =  2
-  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid_half         =  3
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land    =  4
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land_p1 =  5
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow        =  6
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow_p1     =  7
-  INTEGER, PARAMETER, PUBLIC      :: ZA_pressure            =  8
-  INTEGER, PARAMETER, PUBLIC      :: ZA_height              =  9
-  INTEGER, PARAMETER, PUBLIC      :: ZA_altitude            = 10
-  INTEGER, PARAMETER, PUBLIC      :: ZA_meansea             = 11
-  INTEGER, PARAMETER, PUBLIC      :: ZA_isentropic          = 12
-  ! Ocean
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 13
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 14
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 15
-
   ! prefix for group identifier in output namelist
   CHARACTER(len=6) :: GRP_PREFIX = "group:"
 
@@ -2122,7 +2102,7 @@ CONTAINS
       DEALLOCATE(levels)
 
       ! Define axes for soil model
-
+      !
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
       ALLOCATE(levels(znlev_soil+2))
@@ -2154,6 +2134,31 @@ CONTAINS
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow), levels)
       DEALLOCATE(levels)
+      !
+      ! Specified height level above ground: 2m
+      !
+      of%cdiZaxisID(ZA_height_2m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 2._wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_2m), levels)
+      DEALLOCATE(levels)
+      !
+      ! Specified height level above ground: 10m
+      !
+      of%cdiZaxisID(ZA_height_10m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 10._wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_10m), levels)
+      DEALLOCATE(levels)
+      !
+      ! Top of atmosphere
+      !
+      of%cdiZaxisID(ZA_toa)  = zaxisCreate(ZAXIS_TOA, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 1._wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_toa), levels)
+      DEALLOCATE(levels)
+
 
 
       ! Define axes for output on p-, i- and z-levels
@@ -2173,23 +2178,6 @@ CONTAINS
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_pressure), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_pressure), nplev, levels)
-        DEALLOCATE(levels)
-
-        !
-        ! z-axis (height above ground)
-        !
-        ! DR: most probably this is wrong, because levels 
-        ! nh_pzlev_config(jg)%zlevels(k) are defined as "altitude above mean 
-        ! sea level"
-        ! 
-        nzlev = nh_pzlev_config(of%log_patch_id)%nzlev
-        of%cdiZaxisID(ZA_height)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
-        ALLOCATE(levels(nzlev))
-        DO k = 1, nzlev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%zlevels(k)
-        END DO
-        CALL zaxisDefLevels(of%cdiZaxisID(ZA_height), levels)
-        CALL zaxisDefVct(of%cdiZaxisID(ZA_height), nzlev, levels)
         DEALLOCATE(levels)
 
         !
@@ -2220,15 +2208,15 @@ CONTAINS
       ENDIF
 
     ELSE ! oce
-      of%cdiZaxisID(ZA_depth)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
+      of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
-      of%cdiZaxisID(ZA_depth_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
+      of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
 
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
       CALL set_zlev(levels_i, levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth)     , levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_half), levels_i)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), levels_m)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), levels_i)
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
@@ -2740,91 +2728,19 @@ CONTAINS
       !
       ! set z axis ID
       !
-      SELECT CASE (info%vgrid)
+      zaxisID = of%cdiZaxisID(info%vgrid)
+      IF (zaxisID /= CDI_UNDEFID) THEN
+        info%cdiZaxisID = zaxisID
+      ELSE
+        WRITE (message_text,'(a,i,a,i)') &
+             &  'Zaxis Nr.: ',info%vgrid,' not defined. zaxisID= ',zaxisID
+        CALL finish(routine, message_text)
+      ENDIF
 
-      CASE (ZAXIS_SURFACE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_surface)
 
-      CASE (ZAXIS_MEANSEA)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_meansea)
 
-      CASE (ZAXIS_HYBRID)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid)
-
-      CASE (ZAXIS_HYBRID_HALF)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid_half)
-
-      CASE (ZAXIS_DEPTH_BELOW_SEA)
-        ! RJ: Not sure about this ...
-        IF (info%used_dimensions(2) == n_zlev) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth)
-        ELSE IF (info%used_dimensions(2) == n_zlev+1) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_half)
-        ELSE
-          WRITE (message_text,'(a,a,a,i0)') &
-               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-          CALL message('',message_text)
-          CALL finish(routine,'Dimension mismatch for ZAXIS_DEPTH_BELOW_SEA')
-        ENDIF
-
-      CASE (ZAXIS_DEPTH_BELOW_LAND)
-        IF (info%used_dimensions(2) == znlev_soil+1) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_below_land)
-        ELSE IF (info%used_dimensions(2) == znlev_soil+2) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_below_land_p1)
-        ELSE
-          WRITE (message_text,'(a,a,a,i0)') &
-               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-          CALL message('',message_text)
-          CALL finish(routine,'Dimension mismatch for ZAXIS_DEPTH_BELOW_LAND')
-        ENDIF
-
-      CASE (ZAXIS_HEIGHT)
-          ! In all other cases, ZAXIS_HEIGHT seems to be equivalent to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF
-          ! TODO: Is there a difference to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF ???
-          IF (info%used_dimensions(2) == nlevp1) THEN
-            info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid_half)
-          ELSE IF (info%used_dimensions(2) == nlev) THEN
-            info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid)
-          ELSE
-            WRITE (message_text,'(a,a,a,i0)') &
-                 &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-            CALL message('',message_text)
-            CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
-          ENDIF
-
-      CASE (ZAXIS_GENERIC)
-        IF(info%used_dimensions(2) == nlev_snow) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow)
-        ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
-        ELSE
-          WRITE (message_text,'(a,a,a,i0)') &
-               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-          CALL message('',message_text)
-          CALL finish(routine,'Dimension mismatch for ZAXIS_GENERIC')
-        ENDIF
-
-      CASE (ZAXIS_PRESSURE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_pressure)
-
-      CASE (ZAXIS_ALTITUDE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_altitude)
-
-      CASE (ZAXIS_ISENTROPIC)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_isentropic)
-
-      CASE DEFAULT
-        WRITE (message_text,'(a,a,a,i0)') &
-             &  'Variable: ',TRIM(info%name),' ZAXIS: ',info%vgrid
-        CALL message('',message_text)
-        CALL finish(routine, 'ZAXIS definition missing for '//TRIM(info%name))
-
-      END SELECT
-
-      zaxisID = info%cdiZaxisID
       ! Search name mapping for name in NetCDF file
-
+      !
       mapped_name = info%name
       IF(ALLOCATED(of%name_map)) THEN
         DO i = 1, UBOUND(of%name_map, 2)

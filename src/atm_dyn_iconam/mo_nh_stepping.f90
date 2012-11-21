@@ -661,7 +661,6 @@ MODULE mo_nh_stepping
                                 & opt_sim_time               = sim_time(jg),               &
                                 & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                 & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                & opt_zheight                = p_patch(jg)%nlev           ,&
                                 & opt_depth_lnd              = nlev_soil,                  &
                                 & opt_nlev_snow              = nlev_snow )
       END DO

@@ -75,11 +75,10 @@ MODULE mo_pp_tasks
   USE mo_parallel_config,         ONLY: nproma
   USE mo_dynamics_config,         ONLY: nnow
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &
-    &                                   GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,  &
-    &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
-    &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16
+    &                                   GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT, &
+    &                                   GRID_UNSTRUCTURED_EDGE, ZA_SURFACE,      &
+    &                                   GRID_UNSTRUCTURED_VERT, DATATYPE_FLT32,  &
+    &                                   DATATYPE_PACK16
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl,                  &
@@ -253,7 +252,7 @@ CONTAINS
 
     SELECT CASE (p_info%hgrid)
     CASE (GRID_UNSTRUCTURED_CELL)
-      IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+      IF (p_info%vgrid == ZA_SURFACE) THEN
         ! For 2D variables (nproma, nblks) we first copy this to 1-level
         ! 3D variable (nproma, nlevs, nblks). This requires a temporary
         ! variable:
@@ -285,7 +284,7 @@ CONTAINS
       ! --------------------------------------------------------------
       !
     CASE (GRID_UNSTRUCTURED_EDGE)
-      IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+      IF (p_info%vgrid == ZA_SURFACE) THEN
         ! For 2D variables (nproma, nblks) we first copy this to 1-level
         ! 3D variable (nproma, nlevs, nblks). This requires a temporary
         ! variable:
@@ -388,13 +387,13 @@ CONTAINS
         
         SELECT CASE (p_info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
-          IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+          IF (p_info%vgrid == ZA_SURFACE) THEN
             CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
           ELSE
             CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE (GRID_UNSTRUCTURED_EDGE)
-          IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+          IF (p_info%vgrid == ZA_SURFACE) THEN
             CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
           ELSE
             CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )

@@ -423,13 +423,13 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     nblks_e = ppatch%nblks_e
 
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
-    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
-    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev+1,nblks_e/))
@@ -438,13 +438,13 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     !! Tracers
     IF ( no_tracer > 0 ) THEN
       CALL add_var(ocean_params_list, 'K_tracer_h', params_oce%K_tracer_h , &
-      &            GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA, &
+      &            GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
       &            t_cf_var('K_tracer_h', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
       &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
       &            ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
       &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%A_tracer_v , &
-      &            GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
       &            t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
       &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &            ldims=(/nproma,n_zlev+1,nblks_c,no_tracer/), &
@@ -458,7 +458,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
         CALL add_ref( ocean_params_list, 'K_tracer_h',&
                     & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
-                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA,            &
+                    & GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA,               &
                     & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)), &
                     &          'kg/kg', &
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
@@ -468,7 +468,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
                     & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,            &
+                    & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF,            &
                     & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)), &
                     &          'kg/kg', &
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
@@ -479,12 +479,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       END DO
 !TODO     use the following code, if add_var support 1d arrays:
 !TODO     CALL add_var(ocean_params_list, 'K_tracer_h_back', params_oce%K_tracer_h_back , &
-!TODO     &            GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
+!TODO     &            GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
 !TODO     &            t_cf_var('K_tracer_h_back', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
 !TODO     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
 !TODO     &            ldims=(/ no_tracer /))
 !TODO     CALL add_var(ocean_params_list, 'A_tracer_v_back', params_oce%A_tracer_v_back , &
-!TODO     &            GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+!TODO     &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
 !TODO     &            t_cf_var('A_tracer_v_back', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
 !TODO     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
 !TODO     &            ldims=(/no_tracer/))
