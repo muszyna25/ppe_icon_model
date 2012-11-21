@@ -238,9 +238,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: min_rlvert_int = min_rlcell_int
   INTEGER, PARAMETER :: min_rlvert     = min_rlvert_int - (max_hw+1)
   INTEGER, PARAMETER :: max_rlvert     = max_rlcell
-  INTEGER, PARAMETER :: min_rledge_int = 2*min_rlcell_int
-  INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)
-  INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell
+  INTEGER, PARAMETER :: min_rledge_int = 2*min_rlcell_int          ! -8
+  INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)  ! -13
+  INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell              ! 10
 
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
