@@ -1810,8 +1810,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 34, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ref_list, 'vn_ref', p_ref%vn_ref,                           &
                 & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_e, lrestart=.FALSE.,                            &
-                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars"), &
+                & ldims=shape3d_e, lrestart=.FALSE., loutput=.FALSE.,           &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -1821,8 +1820,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 9, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ref_list, 'w_ref', p_ref%w_ref,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
-                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars"), &
+                & ldims=shape3d_chalf, lrestart=.FALSE., loutput=.FALSE.,       &
                 & isteptype=TSTEP_CONSTANT )
 
   END SUBROUTINE new_nh_state_ref_list
