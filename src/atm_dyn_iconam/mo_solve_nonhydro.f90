@@ -56,6 +56,7 @@ MODULE mo_solve_nonhydro
   USE mo_model_domain,      ONLY: t_patch
   USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
   USE mo_gridref_config,    ONLY: grf_intmethod_e
+  USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_intp,              ONLY: cells2edges_scalar
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
@@ -63,7 +64,7 @@ MODULE mo_solve_nonhydro
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_gradients,    ONLY: grad_green_gauss_cell
-  USE mo_math_constants,    ONLY: pi
+  USE mo_math_constants,    ONLY: pi, dbl_eps
   USE mo_math_divrot,       ONLY: div, rot_vertex, div_avg
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_nh_init_utils,     ONLY: nflatlev
@@ -589,7 +590,8 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim, dt_shift
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim, &
+               dt_shift, bdy_divdamp
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -668,6 +670,9 @@ MODULE mo_solve_nonhydro
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
     dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
+
+    ! Coefficient for reduced fourth-order divergence damping along nest boundaries
+    bdy_divdamp = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp)
 
     ! Set pointer to velocity field that is used for mass flux computation
     IF (idiv_method == 1) THEN
@@ -1250,6 +1255,17 @@ MODULE mo_solve_nonhydro
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
                 + scal_divdamp*z_graddiv_vn(je,jk,jb)
+            ENDDO
+          ENDDO
+        ELSE IF (divdamp_order == 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
+          ! fourth-order divergence damping with reduced damping coefficient along nest boundary
+          ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
+          ! damping along nest boundaries is beneficial because this reduces the interference
+          ! with the increased diffusion applied in nh_diffusion)
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                       &
+                + (scal_divdamp+bdy_divdamp*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk,jb)
             ENDDO
           ENDDO
         ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping

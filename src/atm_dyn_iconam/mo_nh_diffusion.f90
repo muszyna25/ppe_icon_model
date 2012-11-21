@@ -152,7 +152,11 @@ MODULE mo_nh_diffusion
     nlev = p_patch%nlev
 
     ! Normalized diffusion coefficient for boundary diffusion
-    fac_bdydiff_v = 1._wp/denom_diffu_v
+    IF (lhdiff_rcf) THEN
+      fac_bdydiff_v = SQRT(REAL(iadv_rcf,wp))/denom_diffu_v
+    ELSE
+      fac_bdydiff_v = 1._wp/denom_diffu_v
+    ENDIF
 
     ! scaling factor for enhanced diffusion in nudging zone (if present, i.e. for
     ! limited-area runs and one-way nesting)
@@ -160,7 +164,7 @@ MODULE mo_nh_diffusion
 
     ! scaling factor for enhanced near-boundary diffusion for 
     ! two-way nesting (used with Smagorinsky diffusion only; not needed otherwise)
-    bdy_diff = 0.01_wp/(nudge_max_coeff + dbl_eps)
+    bdy_diff = 0.015_wp/(nudge_max_coeff + dbl_eps)
 
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
