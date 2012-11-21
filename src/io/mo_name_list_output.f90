@@ -995,6 +995,14 @@ CONTAINS
           p_of%end_time      = end_time(p_of%log_patch_id)
           p_of%initialized   = .FALSE.
 
+          p_of%cdiCellGridID   = CDI_UNDEFID
+          p_of%cdiEdgeGridID   = CDI_UNDEFID
+          p_of%cdiVertGridID   = CDI_UNDEFID
+          p_of%cdiLonLatGridID = CDI_UNDEFID
+          p_of%cdiTaxisID      = CDI_UNDEFID
+          p_of%cdiZaxisID(:)   = CDI_UNDEFID
+          p_of%cdiVlistID      = CDI_UNDEFID
+
           ! Select all var_lists which belong to current logical domain and i_typ
 
           nvl = 0
@@ -2996,7 +3004,7 @@ CONTAINS
       IF(of%cdiEdgeGridID   /= CDI_UNDEFID) CALL gridDestroy(of%cdiEdgeGridID)
       IF(of%cdiVertGridID   /= CDI_UNDEFID) CALL gridDestroy(of%cdiVertGridID)
       IF(of%cdiLonLatGridID /= CDI_UNDEFID) CALL gridDestroy(of%cdiLonLatGridID)
-      CALL taxisDestroy(of%cdiTaxisID)
+      IF(of%cdiTaxisID      /= CDI_UNDEFID) CALL taxisDestroy(of%cdiTaxisID)
       DO j = 1, SIZE(of%cdiZaxisID)
         IF(of%cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(of%cdiZaxisID(j))
       ENDDO
