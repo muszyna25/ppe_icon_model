@@ -2732,7 +2732,7 @@ CONTAINS
       IF (zaxisID /= CDI_UNDEFID) THEN
         info%cdiZaxisID = zaxisID
       ELSE
-        WRITE (message_text,'(a,i,a,i)') &
+        WRITE (message_text,'(a,i3,a,i3)') &
              &  'Zaxis Nr.: ',info%vgrid,' not defined. zaxisID= ',zaxisID
         CALL finish(routine, message_text)
       ENDIF
