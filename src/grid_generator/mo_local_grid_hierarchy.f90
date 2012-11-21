@@ -61,7 +61,6 @@ MODULE mo_local_grid_hierarchy
   PUBLIC :: create_grid_hierarchy
   PUBLIC :: set_bdy_indexing_depth
 
-  INTEGER :: max_boundary_depth
   INTEGER :: inner_boundary_depth  ! = -MAX_BOUNDARY_LEVEL  ?
   INTEGER :: outer_boundary_depth  ! = 2*MAX_BOUNDARY_LEVEL ?
   INTEGER :: inner_edge_boundary_depth, outer_edge_boundary_depth
@@ -90,9 +89,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE define_boundary_depths()
 
-    max_boundary_depth        = max_rlvert
     inner_boundary_depth      = min_rlvert_int
-    outer_boundary_depth      = max_boundary_depth
+    outer_boundary_depth      = max_rlvert
     inner_edge_boundary_depth = min_rledge_int
     outer_edge_boundary_depth = max_rledge
     min_edge_allocate         = min_rledge
@@ -629,16 +627,16 @@ CONTAINS
         edges%refin_ctrl(edge_index) = 0
       ENDIF
 
-      IF (edges%refin_ctrl(edge_index) < inner_edge_boundary_depth .or. &
-        & edges%refin_ctrl(edge_index) > outer_edge_boundary_depth) THEN
-        !        WRITE(*,*) "Out of limits edges%refin_ctrl=",edgeIndex, &
-        !             &     edges%refin_ctrl(edgeIndex) ,cell1_level,cell2_level
-        !        call flush(6)
-        ! this is caused by inconsistence of the definition of OUTER_EDGE_BOUNDARY_DEPTH
-        ! for the moment just zero it
-        edges%refin_ctrl(edge_index) = 0
-        !       CALL finish ('computeBoundaryLevels', 'edges%refin_ctrl out of limits')
-      ENDIF
+!       IF (edges%refin_ctrl(edge_index) < inner_edge_boundary_depth .or. &
+!         & edges%refin_ctrl(edge_index) > outer_edge_boundary_depth) THEN
+!         !        WRITE(*,*) "Out of limits edges%refin_ctrl=",edgeIndex, &
+!         !             &     edges%refin_ctrl(edgeIndex) ,cell1_level,cell2_level
+!         !        call flush(6)
+!         ! this is caused by inconsistence of the definition of OUTER_EDGE_BOUNDARY_DEPTH
+!         ! for the moment just zero it
+!         edges%refin_ctrl(edge_index) = 0
+!         !       CALL finish ('computeBoundaryLevels', 'edges%refin_ctrl out of limits')
+!       ENDIF
 
 
     ENDDO ! edgeIndex = 1, noOfEdges
