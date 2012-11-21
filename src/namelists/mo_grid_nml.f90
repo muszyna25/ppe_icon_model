@@ -161,7 +161,7 @@ MODULE mo_grid_nml
     cell_type   = itri
       
     lfeedback   = .TRUE.
-    ifeedback_type = 1
+    ifeedback_type = 2
     start_time(:) = 0._wp
     end_time(:)   = 1.e30_wp
     lplane      = .FALSE.

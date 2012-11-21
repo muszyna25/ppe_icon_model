@@ -1458,8 +1458,9 @@ n\_dom>1
 
 \hline 
 ifeedback\_type &
-I & 1& &
-1: incremental feedback \\ 2: relaxation-based feedback & n\_dom>1
+I & 2& &
+1: incremental feedback \\ 2: relaxation-based feedback \\
+Note: vertical nesting requires option 2 to run numerically stable over longer time periods & n\_dom>1
 \tabularnewline
 
 \hline 
@@ -1977,8 +1978,8 @@ i\_cori\_method=3
 
 \hline 
 l\_intp\_c2l&
-L& .FALSE.& &
-If .TRUE. directly interpolate from cell centers to
+L& .TRUE.& &
+If .TRUE. directly interpolate scalar variables from cell centers to
 lon-lat points, otherwise do gradient interpolation and
 reconstruction.&
 \tabularnewline
@@ -1994,7 +1995,7 @@ stencil size for direct lon-lat interpolation:
 
 \hline 
 l\_mono\_c2l&
-L& .FALSE.& &
+L& .TRUE.& &
 Monotonicity can be enforced by demanding that the interpolated 
 value is not higher or lower than the stencil point values.&
 \tabularnewline

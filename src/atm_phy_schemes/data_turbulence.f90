@@ -91,7 +91,7 @@ REAL (KIND=ireals) ::          &
 !
   rat_lam    =  1.0_ireals,    & ! ratio of laminar scaling factors for vapour and heat
   rat_can    =  1.0_ireals,    & ! ratio of canopy height over z0m
-  rat_sea    =  5.0_ireals,    & ! ratio of laminar scaling factors for heat over sea and land
+  rat_sea    =  10.0_ireals,   & ! ratio of laminar scaling factors for heat over sea and land
 !
   z0m_dia    =  0.2_ireals,    & ! roughness length of a typical synoptic station [m]
 !
@@ -158,8 +158,8 @@ REAL (KIND=ireals) ::         &
   ! Minimal diffusion coefficients in [m^2/s] for vertical
 ! tkhmin     =  1.0_ireals,   & ! scalar (heat) transport
 ! tkmmin     =  1.0_ireals      ! momentum transport
-  tkhmin     =  0.1_ireals,   & ! scalar (heat) transport
-  tkmmin     =  0.1_ireals      ! momentum transport
+  tkhmin     =  0.2_ireals,   & ! scalar (heat) transport
+  tkmmin     =  0.2_ireals      ! momentum transport
 
 ! 5. Numerical parameters:
 !-------------------------

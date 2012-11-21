@@ -189,13 +189,13 @@ CONTAINS
     nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
 
     ! direct interpolation from cell centers to lon-lat points:
-    l_intp_c2l   = .FALSE.
+    l_intp_c2l   = .TRUE.
     ! stencil size: 4  = nearest neighbor, 
     !               13 = vertex stencil,
     !               rbf_c2grad_dim = edge stencil
     rbf_dim_c2l  = 10
     ! no monotonicity cutoff by default:
-    l_mono_c2l   = .FALSE.
+    l_mono_c2l   = .TRUE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
