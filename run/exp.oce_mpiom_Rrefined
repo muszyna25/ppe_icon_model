@@ -107,10 +107,10 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 # provide an ocean horizontal grid file
-  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
-#
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-ocean_grids="iconR2B04_R-ref-NAtl.2.1_etopo40.nc"
+      grid_topo="etopo40"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
+       grid_ext="R-ref-NAtl.2.1"
+ocean_grid_desc="R${R}B0${B}-${grid_ext}"
+    ocean_grids="icon${ocean_grid_desc}_${grid_topo}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
