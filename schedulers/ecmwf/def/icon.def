@@ -26,9 +26,9 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20120701
-set LAST_DATE     20121231
+set EXPNUM        "004"                #---experiment number---
+set FIRST_DATE    20120101
+set LAST_DATE     20120630
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 
@@ -62,8 +62,8 @@ set SMSHOME     "$ICON_HOME/sms"
 # place for SMS output
 set SMSOUT      "$ICON_HOME/sms"
 
-# no. of time steps (10x86400s/60s)
-set NSTEPS       14400
+# no. of time steps (10x86400s/72s)
+set NSTEPS       12000
 #set NSTEPS       2880
 
 # no. of ensemble members (dummies here)

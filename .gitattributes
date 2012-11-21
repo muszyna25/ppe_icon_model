@@ -712,6 +712,8 @@ schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_default -text
+schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
 schedulers/ecmwf/gen/date_calc.py -text
 schedulers/ecmwf/gen/dot_cdprc -text

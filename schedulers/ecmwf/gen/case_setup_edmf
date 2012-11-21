@@ -56,7 +56,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 # model timing
 dtime=72
 dtconv=720             # convection, SSO, GWD. See iadv_rcf for TURB frequency
-dtrad= 3600            # radiation time step
+dtrad=3600             # radiation time step
 ndays=10               # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=50          # output interval 3600s
@@ -163,7 +163,7 @@ cat > ${atmo_namelist} << EOF
  dtime                        = ${dtime}    ! timestep in seconds
  ldynamics                    = .TRUE.      ! dynamics
  ltransport                   = .TRUE.
- ntracer                      = 5
+ ntracer                      = 6
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
  msg_level                    = 5           ! default: 5, much more: 20
@@ -222,7 +222,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 1
+ inwp_turb                    = 3   ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -235,19 +235,13 @@ cat > ${atmo_namelist} << EOF
  latm_above_top               = .TRUE.
  efdt_min_raylfric            = 7200.
 /
-&turbdiff_nml
-tkhmin                        = 0.2
-tkmmin                        = 0.2
-pat_len                       =  100.
-c_diff                        =  0.2
-rat_sea                       =  10.0
-/
 &lnd_nml
-ntiles                        = 3
-nlev_snow                     = 2
-lmulti_snow                   = .true.
+ ntiles                       = 8       ! number of tiles
+ lana_rho_snow                = .TRUE.  ! true: initialization of rho_snow and depth_snow, false: set rho_snow to default value 
+ nlev_snow                    = 2       ! 2 for multi-level snow
+ lmulti_snow                  = .FALSE. ! true: multi-level snow, false: single-level snow
 idiag_snowfrac                = 2
-lsnowtile                     = .false.
+ lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
 lseaice                       = .true.
 /
 &radiation_nml
