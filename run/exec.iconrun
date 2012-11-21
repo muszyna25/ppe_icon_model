@@ -181,6 +181,9 @@ if [[ $run_ocean = 'true' ]]; then
    POOL_FORC=${POOL_ICON}/ocean_data/ocean_forcing
    POOL_INIT=${POOL_ICON}/ocean_data/ocean_init
 
+   if [ -z "${ocean_grid_desc}" ]; then
+     ocean_grid_desc="R${R}B0${B}"
+   fi
    # provide $HGRIDDIR since ocean model can be run without grid generator
    if [ ! -d ${HGRIDDIR} ] ;  then
      mkdir -p ${HGRIDDIR}
@@ -222,17 +225,17 @@ if [[ $run_ocean = 'true' ]]; then
 
      # general filename: OMIP annual file
      if [[ "x$iforc_len" = "x1" ]] ; then
-       FORCNAME=omip4icon-R${R}B0${B}-annual.nc
+       FORCNAME=omip4icon-${ocean_grid_desc}-annual.nc
      # filename for OMIP 12 sets of monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
-       FORCNAME=omip4icon-R${R}B0${B}-monmean.nc
+       FORCNAME=omip4icon-${ocean_grid_desc}-monmean.nc
        # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
        if [[ "x$iforc_type" = "x5" ]] ; then
-         FORCNAME=ncep4icon_R${R}B0${B}.nc
+         FORCNAME=ncep4icon_${ocean_grid_desc}.nc
        fi
      # filename for OMIP 365 sets of daily data
      elif [[ "x$iforc_len" = "x365" ]] ; then
-       FORCNAME=omip4icon-R${R}B0${B}-daily.nc
+       FORCNAME=omip4icon-${ocean_grid_desc}-daily.nc
      fi
      rm ${EXPDIR}/${FLUXNAME}
 
@@ -261,8 +264,8 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$init_oce" = "x1" ]] ; then
 
      PROGNAME=iconR${R}B0${B}-prog.nc
-     OININAME=ts_phc_annual-iconR${R}B0${B}-${init_oce_suff}
-     RESTARTNAME=restart_500y_dailyOmip_noIce_iconR${R}B0${B}-${init_oce_suff}
+     OININAME=ts_phc_annual-icon${ocean_grid_desc}-${init_oce_suff}
+     RESTARTNAME=restart_500y_dailyOmip_noIce_icon${ocean_grid_desc}-${init_oce_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
@@ -304,7 +307,7 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$init_relax" = "x1" ]] ; then
 
      RELAXNAME=iconR${R}B0${B}-relax.nc
-     ORELNAME=ts_surf_annual-iconR${R}B0${B}-${init_rel_suff}
+     ORELNAME=ts_surf_annual-icon${ocean_grid_desc}-${init_rel_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
@@ -550,4 +553,6 @@ cd $RUNSCRIPTDIR
 
 	
 # exit 0
+#
+# vim:ft=sh
 #-----------------------------------------------------------------------------
