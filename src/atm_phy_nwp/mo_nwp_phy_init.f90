@@ -310,6 +310,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           ENDDO
         ENDDO
       ENDIF
+
+      ! Copy t_g to t_seasfc for idealized cases with surface scheme (would be undefined otherwise)
+      IF (ltestcase .AND. atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+        DO jc = i_startidx, i_endidx
+          p_diag_lnd%t_seasfc(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
+        ENDDO
+      ENDIF
         
     END DO
     CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
