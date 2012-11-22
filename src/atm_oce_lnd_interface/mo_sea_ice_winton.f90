@@ -132,7 +132,6 @@ CONTAINS
             IF ( ice%hs(jc,k,jb) > 0.0_wp ) THEN
               I = 0._wp
             ELSE
-              ! TODO: I is being used in inconsistent ways in the code!
               I = I_0
             END IF
             
@@ -162,7 +161,7 @@ CONTAINS
             A1  = A1a + K1*B*iK1B
             !
             B1a = -rhoi*ice%hi(jc,k,jb)*( ci*ice%T1(jc,k,jb) - alf*muS/ice%T1(jc,k,jb) )*idt2 &
-              &                 - I & ! TODO: This should be I*Qatm%SWin(jc,jb)
+              &                 - I*Qatm%SWin(jc,jb)                                          &
               &                 - K2*( 4.0_wp*dtime*K2*Tfw(jc,k,jb)                           &
               &                         + rhoi*ice%hi(jc,k,jb)*ci*ice%T2(jc,k,jb) )*D      ! Eq. 17
             B1 = B1a + A*K1*iK1B                                                           ! Eq. 18
@@ -284,7 +283,6 @@ CONTAINS
       DO k=1,ice%kice
         DO jc = i_startidx_c,i_endidx_c
           ! Do the following wherever there is ice
-          ! TODO: set ice%E1 and E2 to zero where there's no ice
           IF (ice%isice(jc,k,jb)) THEN
             
             ! Add oceanic heat flux to energy available at the bottom of the ice.
@@ -451,7 +449,6 @@ CONTAINS
             END IF
             
             ! Is this necessary?
-            ! TODO: Set E1 and E2 to zero as well
             IF (ice%hi(jc,k,jb) <= 0.0_wp) THEN
               ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
               ice%T1   (jc,k,jb) =  Tfw(jc,k,jb)
@@ -459,6 +456,8 @@ CONTAINS
               ice%isice(jc,k,jb) =  .FALSE.
               ice%conc (jc,k,jb) = 0.0_wp
               ice%hi   (jc,k,jb) = 0.0_wp
+              ice%E1   (jc,k,jb) = 0.0_wp
+              ice%E2   (jc,k,jb) = 0.0_wp
             ELSE
               ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - zHeatOceI(jc,k,jb)
             END IF
