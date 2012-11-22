@@ -103,8 +103,9 @@ MODULE mo_pp_scheduler
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,        &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, ZA_SURFACE,      &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC
+    &                                   GRID_UNSTRUCTURED_VERT,                  &
+    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC, &
+    &                                   is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
@@ -392,7 +393,7 @@ CONTAINS
           ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape         =  info%used_dimensions(:)
-          IF (info%vgrid == ZA_SURFACE) THEN
+          IF (is_2d_field(info%vgrid)) THEN
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE
             var_shape(3)     =  nblks_lonlat

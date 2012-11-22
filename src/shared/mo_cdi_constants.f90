@@ -45,6 +45,16 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_sea_half= 17
   INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 18
 
+CONTAINS
 
+  PURE FUNCTION is_2d_field(izaxis)
+    LOGICAL :: is_2d_field
+    INTEGER, INTENT(IN) :: izaxis
+
+    is_2d_field = (izaxis == ZA_surface)    .OR.  &
+      &           (izaxis == ZA_height_2m)  .OR.  &
+      &           (izaxis == ZA_height_10m) .OR.  &
+      &           (izaxis == ZA_meansea)
+  END FUNCTION is_2d_field
 
 END MODULE mo_cdi_constants
