@@ -96,8 +96,14 @@ MODULE mo_ext_data_types
     INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), POINTER ::   &   !< SST prescribed                          [K]
-      &  sst(:,:)
+    REAL(wp), POINTER  ::   &  !< elevation at cell centers               [m]
+      &  elevation_c(:,:)
+
+    REAL(wp), POINTER ::   &   !< SST annual mean prescribed              [K]
+       &  sst(:,:)
+ 
+    REAL(wp), POINTER ::   &   !< SST monthly prescribed                  [K]
+      &  sst_mon(:,:,:)
 
     REAL(wp), POINTER ::   &   !< soil surface albedo visible             [ ]
       &  albedo_vis_soil(:,:)

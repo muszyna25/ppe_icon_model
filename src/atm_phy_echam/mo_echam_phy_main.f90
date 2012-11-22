@@ -65,6 +65,8 @@ MODULE mo_echam_phy_main
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
     &                               timer_cucall, timer_vdiff
+  USE mo_datetime,            ONLY: t_datetime
+  USE mo_time_config,         ONLY: time_config
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -110,6 +112,7 @@ CONTAINS
                                           !< computation, scaled into radians
     ! Local variables
 
+    TYPE(t_datetime)                   :: datetime
     TYPE(t_echam_phy_field),   POINTER :: field 
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
@@ -161,6 +164,7 @@ CONTAINS
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
+    INTEGER  :: cur_month, pre_month, suc_month, cur_day !< (temporary var!)
 
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -205,6 +209,26 @@ CONTAINS
     ! 2. local switches and parameters
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
+
+    ! update prescribed SST
+    IF (phy_config%ljsbach) THEN
+       datetime = time_config%cur_datetime
+       cur_month = datetime%month
+       pre_month = cur_month - 1
+       IF (cur_month == 1) pre_month = 12
+       suc_month = cur_month + 1
+       IF (cur_month == 12) suc_month = 1
+       cur_day = datetime%day
+       IF (cur_day < 15) THEN
+          field%tsfc_tile(jcs:jce,jb,iwtr) = &
+            (ext_data(jg)%atm%sst_mon(jcs:jce,cur_month,jb) * REAL(cur_day + 15) + &
+             ext_data(jg)%atm%sst_mon(jcs:jce,pre_month,jb) * REAL(15 - cur_day)) / 30._wp
+       ELSE
+          field%tsfc_tile(jcs:jce,jb,iwtr) = &
+            (ext_data(jg)%atm%sst_mon(jcs:jce,cur_month,jb) * REAL(45 - cur_day) + &
+             ext_data(jg)%atm%sst_mon(jcs:jce,suc_month,jb) * REAL(cur_day - 15)) / 30._wp
+       END IF
+    END IF
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
@@ -887,6 +911,12 @@ CONTAINS
                        & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
                        & surface_temperature_eff = field%surface_temperature_eff(:,jb)  &! out
                        )
+
+!       ext_data(jg)%atm%topography_c(jcs:jce,jb) = ext_data(jg)%atm%elevation_c(jcs:jce,jb) * &
+!         MIN(1._wp,field%time_steps_soil(jcs:jce,jb) / 200000._wp)
+       field%swnet(jcs:jce,jb) = ext_data(jg)%atm%topography_c(jcs:jce,jb)
+!        field%swnet(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,iwtr)
+
     ELSE
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in

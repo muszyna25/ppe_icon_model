@@ -110,6 +110,8 @@ if [ ${atmo_dyn_grids} = 'iconR2B04-ocean_etopo40_planet.nc' ] ; then
  ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
  rm ${EXPDIR}/sst.nc
  ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
+ rm ${EXPDIR}/sst_mon.nc
+ ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-monmean.nc ${EXPDIR}/sst_mon.nc
  rm ${EXPDIR}/extpar_${atmo_dyn_grids}
  ln -s /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
 fi

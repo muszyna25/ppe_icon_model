@@ -402,7 +402,8 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
-    INTEGER :: shape3d_c(3), shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
+    INTEGER :: shape3d_c(3), shape3d_mon_c(3)
+    INTEGER :: shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
@@ -429,6 +430,7 @@ CONTAINS
     shape2d_e  = (/ nproma, nblks_e /)
     shape2d_v  = (/ nproma, nblks_v /)
     shape3d_c  = (/ nproma, nlev, nblks_c       /)
+    shape3d_mon_c = (/ nproma, 12, nblks_c       /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
     shape3d_nt = (/ nproma, nblks_c, ntiles_total     /) 
     shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /) 
@@ -454,17 +456,23 @@ CONTAINS
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
       &           isteptype=TSTEP_CONSTANT )
 
+    IF (echam_phy_config%ljsbach) THEN
     ! atmosphere land-sea-mask at surface on cell centers
     !
     ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
-    IF (echam_phy_config%ljsbach) THEN
     cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
       &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
                   grib2_desc, ldims=shape2d_c )
-
+    ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('elevation at cell center', 'm', &
+      &                   'elevation', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape2d_c )
     ! SST  p_ext_atm%sst(nproma,nblks_c)
     cf_desc    = t_cf_var('SST', 'K', &
       &                   'SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
@@ -472,7 +480,13 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'sst', p_ext_atm%sst,                    &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
                   grib2_desc, ldims=shape2d_c )
-
+    ! monthly SST  p_ext_atm%sst_mon(nproma,nblks_c)
+    cf_desc    = t_cf_var('SST monthly', 'K', &
+      &                   'monthly SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'sst_mon', p_ext_atm%sst_mon,        &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+                  grib2_desc, ldims=shape3d_mon_c )
     ! albedo_vis_soil  p_ext_atm%albedo_vis_soil(nproma,nblks_c)
     cf_desc    = t_cf_var('soil surface albedo visible', '', &
       &                   'soil surface albedo in the visible range', DATATYPE_FLT32)
@@ -1882,6 +1896,13 @@ CONTAINS
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%lsm_ctr_c)
 
+        ! get topography [m]
+        CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%elevation_c)
+        ext_data(jg)%atm%elevation_c(:,:) = MAX(0._wp, ext_data(jg)%atm%elevation_c(:,:))
+        ext_data(jg)%atm%topography_c(:,:) = 0._wp
+
       ENDIF
 
       IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
@@ -1893,6 +1914,18 @@ CONTAINS
         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%sst)      
+
+      END IF
+
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+
+      IF(my_process_is_stdio()) CALL nf(nf_open('sst_mon.nc', NF_NOWRITE, ncid))
+
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid      
+
+        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     12,ext_data(jg)%atm%sst_mon)      
 
       END IF
 
