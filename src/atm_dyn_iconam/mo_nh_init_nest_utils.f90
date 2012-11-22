@@ -210,7 +210,7 @@ MODULE mo_nh_init_nest_utils
 
     ! number of land and snow variables to be interpolated
     num_lndvars = 3*(nlev_soil+1)+1+ & ! multi-layer soil variables
-                  5+2                  ! single-layer prognostic variables + t_g and freshsnow
+                  5+5                  ! single-layer prognostic variables + t_g, freshsnow, t_skin, t_seasfc and qv_s
     num_snowvars = 5*nlev_snow+1       ! snow fields
     
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
@@ -298,6 +298,9 @@ MODULE mo_nh_init_nest_utils
           lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%rho_snow(jc,jb)
           lndvars_par(jc,jk1+6,jb) = p_parent_ldiag%w_i(jc,jb)
           lndvars_par(jc,jk1+7,jb) = p_parent_ldiag%freshsnow(jc,jb)
+          lndvars_par(jc,jk1+8,jb) = p_parent_ldiag%t_skin(jc,jb)
+          lndvars_par(jc,jk1+9,jb) = MAX(271._wp,p_parent_ldiag%t_seasfc(jc,jb)) ! to avoid trouble with missing values
+          lndvars_par(jc,jk1+10,jb) = p_parent_ldiag%qv_s(jc,jb)
         ENDDO
       ENDIF
 
@@ -597,12 +600,16 @@ MODULE mo_nh_init_nest_utils
             p_child_lprog%rho_snow_t(jc,jb,jt) = lndvars_chi(jc,jk1+5,jb)
             p_child_lprog%w_i_t(jc,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+6,jb))
             p_child_ldiag%freshsnow_t(jc,jb,jt) = MAX(0._wp,MIN(1._wp,lndvars_chi(jc,jk1+7,jb)))
+            p_child_ldiag%t_skin(jc,jb)   = lndvars_chi(jc,jk1+8,jb)
+            p_child_ldiag%t_seasfc(jc,jb) = lndvars_chi(jc,jk1+9,jb)
+            p_child_ldiag%qv_s(jc,jb)     = lndvars_chi(jc,jk1+10,jb)
           ENDDO
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water
           DO jc = i_startidx, i_endidx
             p_child_lprog%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
             p_child_lprog2%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
+            p_child_ldiag%qv_s_t(jc,jb,jt) = p_child_ldiag%qv_s(jc,jb)
           ENDDO
         ENDDO
 
