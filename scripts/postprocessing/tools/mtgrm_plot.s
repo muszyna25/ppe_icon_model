@@ -25,7 +25,7 @@ echo "dir = " $dir " iFile = " $iFile
 
 mkdir -p ${dir}"/meteo"
 #oType="png" !doesn't work on AIX (NCL 5.2.1)
-oType="pdf"
+oType="eps"
 
 set -A iStation 1 2 3 4 5 6 7 8 9 #10
 
@@ -54,7 +54,8 @@ do
     oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
     ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
-    convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
+   #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
+    convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 
   for var in ${varName3D[*]}
@@ -62,7 +63,8 @@ do
     oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
     ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
-    convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
+   #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
+    convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 done	
 
