@@ -216,7 +216,7 @@ suite $USER
         family build
             trigger (setup == complete) and (../once == complete)
 
-            task init_svn 
+            task init_svn
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
                   ($ENABLE_BUILD == 0) or not (../setup:enable_build)
                 on_ecgate
@@ -226,7 +226,6 @@ suite $USER
                 event tarfile
                 event clear_directory
                 meter revision 0 20000 20000
-
 
             task init_build
                 trigger (init_svn == complete)
@@ -238,7 +237,6 @@ suite $USER
                 edit SCCPUS       4
                 edit SCMEM        6200MB
                 edit SCWALLCLOCKLIMIT 05:00:00
-                event uncompress
                 event configure
                 event make
 
@@ -262,7 +260,6 @@ suite $USER
 
         family prepare
             task pre_clean
-               #trigger (../../../init/setup == complete)
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:20:00
 
@@ -357,6 +354,9 @@ suite $USER
             meter ecget     0 31 31
             meter splitdata 0 31 31
             meter deldata   0 31 31
+            event get_pl_data
+            event get_hl_data
+            event get_ml_data
             event catdata
             event cpdata
 

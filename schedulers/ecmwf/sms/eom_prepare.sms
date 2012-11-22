@@ -134,6 +134,12 @@ for levtype1 in PL HL ML; do
 #-----------------------------------------------------------------------------
 # end loop over days and levtype
 
+    case $levtype1 in
+      PL) event get_pl_data ;;
+      HL) event get_hl_data ;;
+      ML) event get_ml_data ;;
+    esac
+
     ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
   done                         # end days
 done                           # end levtype
@@ -162,7 +168,7 @@ if [[ $lcatdata = 1 ]] ; then
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
       grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
-        ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[forecastTime].grb
+        ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
       if [[ $ldeldata = 1 ]] ; then
         \rm -rf  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
       fi

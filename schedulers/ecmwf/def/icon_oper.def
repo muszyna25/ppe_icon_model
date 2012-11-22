@@ -31,8 +31,8 @@ setenv -i TMPDIR
 
 # global definitions:
 set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20120701
-set LAST_DATE     20121231
+set FIRST_DATE    20121120
+set LAST_DATE     20130630
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 
@@ -69,8 +69,8 @@ set SMSOUT      "$ICON_HOME/sms"
 # week day of compilation
 set compday     1  # 1=Monday, 7=Sunday, 0=never
 
-# no. of time steps (10x86400s/60s)
-set NSTEPS       14400
+# no. of time steps (10x86400s/72s)
+set NSTEPS       12000
 #set NSTEPS       2880
 
 # no. of ensemble members (dummies here)
@@ -202,7 +202,7 @@ suite $USER
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
            #trigger  /ifs_trigger/fct_ifs == complete
-            trigger  ../init:YMD le /${USER}:SMSDATE-2
+            trigger  ../init:YMD le /${USER}:SMSDATE-1
             on_ecgate
             event enable_build
             event enable_dumpstate
@@ -227,7 +227,6 @@ suite $USER
             task init_svn
                 trigger   /${USER}:DOW == $compday       # e.g. mondays
                 complete (/${USER}:DOW ne $compday)
-               #day sunday
                 on_ecgate
                 event svn_update
                 event make_distclean
@@ -363,6 +362,9 @@ suite $USER
             meter ecget     0 31 31
             meter splitdata 0 31 31
             meter deldata   0 31 31
+            event get_pl_data
+            event get_hl_data
+            event get_ml_data
             event catdata
             event cpdata
 
