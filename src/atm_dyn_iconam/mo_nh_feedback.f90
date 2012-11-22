@@ -64,8 +64,8 @@ USE mo_communication,       ONLY: exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
-USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
+USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
+USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 IMPLICIT NONE
@@ -135,6 +135,7 @@ TYPE(t_patch),      POINTER     :: p_pc => NULL()
 TYPE(t_lnd_prog),   POINTER     :: p_lndp => NULL()
 TYPE(t_lnd_prog),   POINTER     :: p_lndp_old => NULL()
 TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
+TYPE(t_wtr_prog),   POINTER     :: p_wtrp => NULL()
 TYPE(t_lnd_diag),   POINTER     :: p_ldiag => NULL()
 
 ! Indices
@@ -201,6 +202,7 @@ p_pc             => p_patch(jg)
 p_lndp           => p_lnd_state(jgp)%prog_lnd(nnew_rcf(jgp))
 p_lndp_old       => p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp))
 p_lndc           => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+p_wtrp           => p_lnd_state(jgp)%prog_wtr(nnew_rcf(jgp))
 p_ldiag          => p_lnd_state(jg)%diag_lnd
 
 IF(l_parallel) THEN
@@ -679,6 +681,12 @@ IF (.NOT. l_parallel) THEN
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
+    IF (lseaice) THEN
+      p_wtrp%t_ice(i_startidx:i_endidx,jb)     = p_wtrp%t_ice(i_startidx:i_endidx,jb)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_wtrp%t_snow_si(i_startidx:i_endidx,jb) = p_wtrp%t_snow_si(i_startidx:i_endidx,jb) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+    ENDIF
 
     IF (ltransport .AND. l_trac_fbk) THEN ! perform tracer feedback
       IF (iforcing <= 1) THEN
@@ -930,6 +938,12 @@ ENDIF
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
+    IF (lseaice) THEN
+      p_wtrp%t_ice(i_startidx:i_endidx,jb)     = p_wtrp%t_ice(i_startidx:i_endidx,jb)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_wtrp%t_snow_si(i_startidx:i_endidx,jb) = p_wtrp%t_snow_si(i_startidx:i_endidx,jb) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+    ENDIF
 
     ! divide tracer density (which is the feedback quantity) by air density,
     ! and apply multiplicative mass conservation correction
@@ -1120,6 +1134,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   TYPE(t_patch),      POINTER     :: p_pc => NULL()
   TYPE(t_lnd_prog),   POINTER     :: p_lndp => NULL()
   TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
+  TYPE(t_wtr_prog),   POINTER     :: p_wtrp => NULL()
 
   ! Indices
   INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
@@ -1192,6 +1207,7 @@ p_pc             => p_patch(jg)
 p_int            => p_int_state(jgp)
 p_lndp           => p_lnd_state(jgp)%prog_lnd(nnew_rcf(jgp))
 p_lndc           => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+p_wtrp           => p_lnd_state(jgp)%prog_wtr(nnew_rcf(jgp))
 
 IF(l_parallel) THEN
   p_grf => p_grf_state_local_parent(jg)
@@ -1778,6 +1794,12 @@ ENDIF
         p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
+    IF (lseaice) THEN
+      DO jc = i_startidx,i_endidx
+        p_wtrp%t_ice(jc,jb)     = p_wtrp%t_ice(jc,jb)     + relfac*diff_tg(jc,jb)
+        p_wtrp%t_snow_si(jc,jb) = p_wtrp%t_snow_si(jc,jb) + relfac*diff_tg(jc,jb)
+      ENDDO
+    ENDIF
 
   ENDDO
 !$OMP END DO

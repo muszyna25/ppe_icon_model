@@ -65,8 +65,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudgintp_start_c, grf_nudgintp_start_e
-  USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, lmulti_snow, nlev_snow, nlev_soil
+  USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, lmulti_snow, nlev_snow, nlev_soil, lseaice
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -121,6 +121,8 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_lnd_prog),   POINTER     :: p_parent_lprog
     TYPE(t_lnd_prog),   POINTER     :: p_child_lprog
     TYPE(t_lnd_prog),   POINTER     :: p_child_lprog2
+    TYPE(t_wtr_prog),   POINTER     :: p_parent_wprog
+    TYPE(t_wtr_prog),   POINTER     :: p_child_wprog
     TYPE(t_lnd_diag),   POINTER     :: p_parent_ldiag
     TYPE(t_lnd_diag),   POINTER     :: p_child_ldiag
     TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
@@ -138,18 +140,19 @@ MODULE mo_nh_init_nest_utils
     INTEGER :: nshift      ! difference between upper boundary of parent or feedback-parent 
                            ! domain and upper boundary of child domain (in terms 
                            ! of vertical levels) 
-    INTEGER :: num_lndvars, num_snowvars
+    INTEGER :: num_lndvars, num_snowvars, num_wtrvars
 
     ! Local arrays for variables living on the local parent grid in the MPI case. These have
     ! to be allocatable because their dimensions differ between MPI and non-MPI runs
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp, w_lp, thv_pr_lp, rho_pr_lp, &
-                                                 lndvars_lp, snowvars_lp
+                                                 lndvars_lp, snowvars_lp, wtrvars_lp
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:,:) :: tracer_lp
 
     ! Local arrays on the parent or child grid. These would not have to be allocatable,
     ! but the computational overhead does not matter for an initialization routine
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: thv_pr_par, rho_pr_par, lndvars_par, &
-                                                 snowvars_par, lndvars_chi, snowvars_chi
+                                                 snowvars_par, lndvars_chi, snowvars_chi, &
+                                                 wtrvars_par, wtrvars_chi
     REAL(wp), ALLOCATABLE :: tsfc_ref_p(:,:), tsfc_ref_c(:,:) ! Reference temperature at lowest level
 
     ! Soil layer thicknesses (needed for limiting the soil water content)
@@ -178,8 +181,10 @@ MODULE mo_nh_init_nest_utils
     p_parent_metrics  => p_nh_state(jg)%metrics
     p_child_metrics   => p_nh_state(jgc)%metrics
     p_parent_lprog    => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+    p_parent_wprog    => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
     p_child_lprog     => p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc))
     p_child_lprog2    => p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc))
+    p_child_wprog     => p_lnd_state(jgc)%prog_wtr(nnow_rcf(jgc))
     p_parent_ldiag    => p_lnd_state(jg)%diag_lnd
     p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
     p_grfc            => p_grf_state(jgc)
@@ -212,13 +217,16 @@ MODULE mo_nh_init_nest_utils
     num_lndvars = 3*(nlev_soil+1)+1+ & ! multi-layer soil variables
                   5+5                  ! single-layer prognostic variables + t_g, freshsnow, t_skin, t_seasfc and qv_s
     num_snowvars = 5*nlev_snow+1       ! snow fields
+    num_wtrvars  = 5                   ! water state fields + fr_seaice
     
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              rho_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              lndvars_par (nproma, num_lndvars, p_patch(jg)%nblks_c), &
              snowvars_par(nproma, num_snowvars,p_patch(jg)%nblks_c), &
+             wtrvars_par (nproma, num_wtrvars, p_patch(jg)%nblks_c), &
              lndvars_chi (nproma, num_lndvars, p_patch(jgc)%nblks_c),&
              snowvars_chi(nproma, num_snowvars,p_patch(jgc)%nblks_c),&
+             wtrvars_chi (nproma, num_wtrvars, p_patch(jgc)%nblks_c),&
              tsfc_ref_p  (nproma,              p_patch(jg)%nblks_c), &
              tsfc_ref_c  (nproma,              p_patch(jgc)%nblks_c) )
 
@@ -229,11 +237,13 @@ MODULE mo_nh_init_nest_utils
              rho_pr_lp  (nproma, nlev_p,      p_pp%nblks_c),          &
              tracer_lp  (nproma, nlev_p,      p_pp%nblks_c, ntracer), &
              lndvars_lp (nproma, num_lndvars, p_pp%nblks_c),          &
-             snowvars_lp(nproma, num_snowvars,p_pp%nblks_c)           )
+             snowvars_lp(nproma, num_snowvars,p_pp%nblks_c),          &
+             wtrvars_lp (nproma, num_wtrvars ,p_pp%nblks_c)           )
 
     IF (p_test_run) THEN
-      lndvars_chi = 0._wp
+      lndvars_chi  = 0._wp
       snowvars_chi = 0._wp
+      wtrvars_chi  = 0._wp
     ENDIF
 
     ! Step 1: boundary interpolation
@@ -321,6 +331,16 @@ MODULE mo_nh_init_nest_utils
         ENDDO
       ENDIF
 
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
+        DO jc = i_startidx, i_endidx
+          wtrvars_par(jc,1,jb) = p_parent_wprog%t_ice(jc,jb)
+          wtrvars_par(jc,2,jb) = p_parent_wprog%h_ice(jc,jb) 
+          wtrvars_par(jc,3,jb) = p_parent_wprog%t_snow_si(jc,jb) 
+          wtrvars_par(jc,4,jb) = p_parent_wprog%h_snow_si(jc,jb)
+          wtrvars_par(jc,5,jb) = p_parent_ldiag%fr_seaice(jc,jb)
+        ENDDO
+      ENDIF
+
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -357,6 +377,12 @@ MODULE mo_nh_init_nest_utils
         p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
         lndvars_par, lndvars_chi, lnoshift=.TRUE.                 )
     ENDIF
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
+      CALL sync_patch_array(SYNC_C,p_patch(jg),wtrvars_par)
+      CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
+        p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
+        wtrvars_par, wtrvars_chi, lnoshift=.TRUE.                 )
+    ENDIF
 
     ! Step 2: Interpolation of fields in the model interior
 
@@ -381,6 +407,8 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) &
         CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=snowvars_lp, SEND=snowvars_par)
 
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) &
+        CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=wtrvars_lp, SEND=wtrvars_par)
     ELSE
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -429,6 +457,14 @@ MODULE mo_nh_init_nest_utils
           DO jk = 1, num_snowvars
             DO jc = i_startidx, i_endidx
               snowvars_lp(jc,jk,jb) = snowvars_par(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
+        IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
+          DO jk = 1, num_wtrvars
+            DO jc = i_startidx, i_endidx
+              wtrvars_lp(jc,jk,jb) = wtrvars_par(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -497,6 +533,13 @@ MODULE mo_nh_init_nest_utils
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
                                   1, 1, f3din1=snowvars_lp, f3dout1=snowvars_chi )
       CALL sync_patch_array(SYNC_C,p_pc,snowvars_chi)
+    ENDIF
+
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
+      IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, wtrvars_lp)
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
+                                  1, 1, f3din1=wtrvars_lp, f3dout1=wtrvars_chi )
+      CALL sync_patch_array(SYNC_C,p_pc,wtrvars_chi)
     ENDIF
 
     ! Step 3: Add reference state to thermodynamic variables and copy land fields
@@ -635,6 +678,16 @@ MODULE mo_nh_init_nest_utils
         ENDDO
       ENDIF
 
+      IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. lseaice) THEN
+        DO jc = i_startidx, i_endidx
+          p_child_wprog%t_ice(jc,jb)     = wtrvars_chi(jc,1,jb)
+          p_child_wprog%h_ice(jc,jb)     = wtrvars_chi(jc,2,jb)
+          p_child_wprog%t_snow_si(jc,jb) = wtrvars_chi(jc,3,jb)
+          p_child_wprog%h_snow_si(jc,jb) = wtrvars_chi(jc,4,jb)
+          p_child_ldiag%fr_seaice(jc,jb) = wtrvars_chi(jc,5,jb)
+        ENDDO
+      ENDIF
+
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -648,7 +701,7 @@ MODULE mo_nh_init_nest_utils
 
     DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, snowvars_par, lndvars_chi , snowvars_chi,    &
                tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, thv_pr_lp, rho_pr_lp, tracer_lp, lndvars_lp, &
-               snowvars_lp)
+               snowvars_lp, wtrvars_par, wtrvars_chi, wtrvars_lp)
 
   END SUBROUTINE initialize_nest
 
