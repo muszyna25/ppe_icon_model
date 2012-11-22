@@ -497,12 +497,10 @@ namelist_list=""
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
   cd $RUNSCRIPTDIR
-  this_script=$job_name
-  mv $this_script $this_script.tmp
-  echo  "restart=.true." > $this_script
-  cat $this_script.tmp >> $this_script
+  this_script="$0"
+  cp $this_script ${this_script}.tmp && echo  'restart=.true.' | cat - ${this_script}.tmp > ${this_script}
   chmod +x $this_script
-  $submit $this_script    
+  $submit $0    
 fi
 
 
