@@ -240,9 +240,9 @@ cat > ${atmo_namelist} << EOF
  lana_rho_snow                = .TRUE.  ! true: initialization of rho_snow and depth_snow, false: set rho_snow to default value 
  nlev_snow                    = 2       ! 2 for multi-level snow
  lmulti_snow                  = .FALSE. ! true: multi-level snow, false: single-level snow
-idiag_snowfrac                = 2
+ idiag_snowfrac               = 2
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
-lseaice                       = .true.
+ lseaice                      = .true.
 /
 &radiation_nml
  irad_o3                      = 7

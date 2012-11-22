@@ -236,19 +236,19 @@ cat > ${atmo_namelist} << EOF
  efdt_min_raylfric            = 7200.
 /
 &turbdiff_nml
-tkhmin                        = 0.2
-tkmmin                        = 0.2
-pat_len                       =  100.
-c_diff                        =  0.2
-rat_sea                       =  10.0
+ tkhmin                       = 0.2
+ tkmmin                       = 0.2
+ pat_len                      =  100.
+ c_diff                       =  0.2
+ rat_sea                      =  10.0
 /
 &lnd_nml
-ntiles                        = 3
-nlev_snow                     = 2
-lmulti_snow                   = .true.
-idiag_snowfrac                = 2
-lsnowtile                     = .false.
-lseaice                       = .true.
+ ntiles                       = 3
+ nlev_snow                    = 2
+ lmulti_snow                  = .true.
+ idiag_snowfrac               = 2
+ lsnowtile                    = .false.
+ lseaice                      = .true.
 /
 &radiation_nml
  irad_o3                      = 7
