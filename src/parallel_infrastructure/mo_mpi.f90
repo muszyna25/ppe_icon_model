@@ -5,7 +5,9 @@ MODULE mo_mpi
 
   ! actual method (MPI-2)
 #ifndef NOMPI
+#ifndef SUNF95
   USE mpi
+#endif
 #endif
 
 #ifdef _OPENMP
@@ -18,6 +20,12 @@ MODULE mo_mpi
   IMPLICIT NONE
 
   PRIVATE                          ! all declarations are private
+
+#ifndef NOMPI
+#ifdef SUNF95
+  INCLUDE "mpif.h"
+#endif
+#endif
 
   ! start/stop methods
   PUBLIC :: start_mpi
@@ -92,6 +100,7 @@ MODULE mo_mpi
   PUBLIC :: p_commit_type_struct
   PUBLIC :: p_alltoall
   PUBLIC :: p_clear_request
+  PUBLIC :: p_mpi_wtime
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
@@ -6657,5 +6666,15 @@ CONTAINS
     request = MPI_REQUEST_NULL
 #endif
   END SUBROUTINE p_clear_request
+
+
+  FUNCTION p_mpi_wtime()
+    REAL :: p_mpi_wtime
+#ifndef NOMPI
+    p_mpi_wtime = MPI_Wtime()
+#else
+    p_mpi_wtime = 0.
+#endif
+  END FUNCTION p_mpi_wtime
 
 END MODULE mo_mpi

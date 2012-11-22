@@ -183,6 +183,9 @@ CONTAINS
     INTEGER, INTENT(OUT), OPTIONAL   :: opt_zaxisID
     ! local variables:
     INTEGER :: streamID, vlistID, varID, ilev, nmiss
+    INTEGER :: shape2d(2)
+
+    shape2d = (/ UBOUND(rfield2D,1), UBOUND(rfield2D,2) /)
 
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
@@ -198,7 +201,7 @@ CONTAINS
         ! read record as 1D field
         CALL streamReadVarSlice(streamID, varID, ilev-1, rfield1D, nmiss)
         ! reshape record into (nproma, nblks) field
-        rfield2D(:,:) = RESHAPE(rfield1D(:), UBOUND(rfield2D), (/ 0._wp /))
+        rfield2D(:,:) = RESHAPE(rfield1D(:), shape2d, (/ 0._wp /))
       END IF ! if rank0
       ! for distributed computation: scatter interpolation input to work PEs
       CALL scatter_field2D_c(gather_c, rfield2D, rfield3D_loc(:,ilev,:))
@@ -219,6 +222,9 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_ilev !< (Optional) level index
     ! local variables:
     INTEGER :: streamID, vlistID, varID, ilev, nmiss
+    INTEGER :: shape2d(2)
+
+    shape2d = (/ UBOUND(rfield2D,1), UBOUND(rfield2D,2) /)
 
     ilev = 1
     IF (PRESENT(opt_ilev)) ilev = opt_ilev
@@ -231,7 +237,7 @@ CONTAINS
       ! read record as 1D field
       CALL streamReadVarSlice(streamID, varID, ilev-1, rfield1D, nmiss)
       ! reshape record into (nproma, nblks) field
-      rfield2D(:,:) = RESHAPE(rfield1D(:), UBOUND(rfield2D), (/ 0._wp /))
+      rfield2D(:,:) = RESHAPE(rfield1D(:), shape2d, (/ 0._wp /))
     END IF ! if rank0
     ! for distributed computation: scatter interpolation input to work PEs
     CALL scatter_field2D_c(gather_c, rfield2D, rfield2D_loc)

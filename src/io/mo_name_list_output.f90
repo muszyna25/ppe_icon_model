@@ -50,7 +50,8 @@ MODULE mo_name_list_output
   USE mo_util_uuid,             ONLY: t_uuid
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
-    &                                 get_my_mpi_work_id, p_max, get_my_mpi_work_communicator
+    &                                 get_my_mpi_work_id, p_max,                  &
+    &                                 get_my_mpi_work_communicator, p_mpi_wtime
   ! MPI Communicators
   USE mo_mpi,                   ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
   ! MPI Data types
@@ -651,7 +652,11 @@ CONTAINS
   SUBROUTINE init_name_list_output(lprintlist, isample)
 
 #ifndef NOMPI
-    USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
+#ifdef SUNF95
+  INCLUDE "mpif.h"
+#else
+  USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
+#endif
 #endif
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
@@ -3122,7 +3127,11 @@ CONTAINS
   SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
+#ifdef SUNF95
+  INCLUDE "mpif.h"
+#else
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
+#endif
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
@@ -3779,7 +3788,11 @@ CONTAINS
 
   SUBROUTINE init_memory_window
 
+#ifdef SUNF95
+    INCLUDE "mpif.h"
+#else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+#endif
 
     INTEGER :: jp, i, iv, nlevs
     INTEGER :: nbytes_real, mpierr, rma_cache_hint
@@ -3965,7 +3978,11 @@ CONTAINS
 
   SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_Wtime
+#ifdef SUNF95
+    INCLUDE "mpif.h"
+#else
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
+#endif
 
     TYPE (t_output_file), INTENT(IN), TARGET :: of
     LOGICAL, INTENT(IN) :: l_first_write
@@ -4074,7 +4091,7 @@ CONTAINS
 
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
-        t_0 = MPI_Wtime()
+        t_0 = p_mpi_wtime()
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
         IF(use_sp_output) THEN
@@ -4086,7 +4103,7 @@ CONTAINS
         ENDIF
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
-        t_get  = t_get  + MPI_Wtime()-t_0
+        t_get  = t_get  + p_mpi_wtime()-t_0
         mb_get = mb_get + nval
 
         ! Update the offset in var1
@@ -4108,7 +4125,7 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      t_0 = MPI_Wtime()
+      t_0 = p_mpi_wtime()
       IF(use_sp_output) THEN
         ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
@@ -4139,9 +4156,9 @@ CONTAINS
           ENDDO
         ENDIF
       ENDDO ! Loop over levels
-      t_copy = t_copy + MPI_Wtime()-t_0
+      t_copy = t_copy + p_mpi_wtime()-t_0
 
-      t_0 = MPI_Wtime()
+      t_0 = p_mpi_wtime()
       IF(use_sp_output) THEN
         CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
         mb_wr = mb_wr + SIZE(var3_sp)
@@ -4149,7 +4166,7 @@ CONTAINS
         CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
         mb_wr = mb_wr + SIZE(var3_dp)
       ENDIF
-      t_write = t_write + MPI_Wtime()-t_0
+      t_write = t_write + p_mpi_wtime()-t_0
 
       IF(use_sp_output) THEN
         DEALLOCATE(var3_sp, STAT=ierrstat)
