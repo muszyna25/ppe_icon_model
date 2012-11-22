@@ -277,9 +277,9 @@ CONTAINS
 
     ENDDO
 
-    ! -------------------------------------------------------------------
-    ! Loop over the number of send operation (determined during the search)
-    ! -------------------------------------------------------------------
+    ! ------------------------------------------------------------------------
+    ! Loop over the number of receive operation (determined during the search)
+    ! ------------------------------------------------------------------------
 
     recv_field = dummy
 
@@ -349,7 +349,7 @@ CONTAINS
              PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
           ENDIF
  
-          IF ( fptr%coupling%diagnostic == 1 ) THEN
+          IF ( fptr%coupling%l_diagnostic ) THEN
 
              DO m = 1, nbr_bundles
                 recv_min(m) = MINVAL(recv_buffer(:,m))
@@ -367,7 +367,7 @@ CONTAINS
 
     ENDDO
 
-    IF ( fptr%coupling%diagnostic == 1 ) THEN
+    IF ( fptr%coupling%l_diagnostic ) THEN
 
        CALL MPI_Allreduce ( recv_min, recv_buf, nbr_bundles, datatype, &
             MPI_MIN, ICON_comp_comm, ierror )
@@ -599,7 +599,7 @@ CONTAINS
                 PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
              ENDIF
 
-             IF ( fptr%coupling%diagnostic == 1 ) THEN
+             IF ( fptr%coupling%l_diagnostic ) THEN
 
                 DO m = 1, nbr_bundles
                    recv_min(m) = MINVAL(recv_buffer(:,m))
@@ -630,7 +630,7 @@ CONTAINS
 
     info = 1
 
-    IF ( fptr%coupling%diagnostic == 1 ) THEN
+    IF ( fptr%coupling%l_diagnostic ) THEN
 
        CALL MPI_Allreduce ( recv_min, recv_buf, nbr_bundles, datatype, &
             MPI_MIN, ICON_comp_comm, ierror )
@@ -993,7 +993,7 @@ CONTAINS
           CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
                datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-          IF ( fptr%coupling%diagnostic == 1 ) THEN
+          IF ( fptr%coupling%l_diagnostic ) THEN
 
              send_avg(:) = 0.0_wp
 
@@ -1220,7 +1220,7 @@ CONTAINS
           CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
                datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-          IF ( fptr%coupling%diagnostic == 1 ) THEN
+          IF ( fptr%coupling%l_diagnostic ) THEN
 
              send_avg(:) = 0.0_wp
 

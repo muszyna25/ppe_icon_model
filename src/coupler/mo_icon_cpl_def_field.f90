@@ -223,13 +223,11 @@ CONTAINS
        fptr%coupling%time_operation = cpl_field_none
     ENDIF
 
-    fptr%coupling%l_activated = config_cpl_fields(global_field_id)%l_activated
-    fptr%coupling%lag         = config_cpl_fields(global_field_id)%lag
-    fptr%coupling%dt_coupling = config_cpl_fields(global_field_id)%dt_coupling
-    fptr%coupling%dt_model    = config_cpl_fields(global_field_id)%dt_model
-
-    IF ( config_cpl_fields(global_field_id)%l_diagnostic ) &
-    fptr%coupling%diagnostic = 1
+    fptr%coupling%lag          = config_cpl_fields(global_field_id)%lag
+    fptr%coupling%dt_coupling  = config_cpl_fields(global_field_id)%dt_coupling
+    fptr%coupling%dt_model     = config_cpl_fields(global_field_id)%dt_model
+    fptr%coupling%l_activated  = config_cpl_fields(global_field_id)%l_activated
+    fptr%coupling%l_diagnostic = config_cpl_fields(global_field_id)%l_diagnostic
   
     ! -------------------------------------------------------------------
     ! Prepare the restarting for coupling fields

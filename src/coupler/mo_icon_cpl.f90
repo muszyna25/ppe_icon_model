@@ -208,7 +208,7 @@ MODULE mo_icon_cpl
      INTEGER                :: time_operation
      INTEGER                :: dt_coupling
      INTEGER                :: dt_model
-     INTEGER                :: diagnostic
+     LOGICAL                :: l_diagnostic
      LOGICAL                :: l_activated
   END TYPE t_coupling
 
