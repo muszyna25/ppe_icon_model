@@ -88,7 +88,7 @@ MODULE mo_name_list_output
 
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
     &                                 with_keywords, insert_group, MAX_STRING_LEN, &
-    &                                 tocompact, tolower
+    &                                 tocompact !, tolower
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
@@ -493,13 +493,15 @@ CONTAINS
       p_onl%remap_internal   = remap_internal
       p_onl%lonlat_id        = -1
 
+      ! Commented by GZ for the time being because this causes frequent segfaults on the NEC
+      ! while reading the namelists. This problem needs to be fixed first.
       ! allow case-insensitive variable names:
-      DO i=1,max_var_ml
-        p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-        p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-        p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-        p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-      END DO
+!      DO i=1,max_var_ml
+!        p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+!        p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+!        p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+!        p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+!      END DO
 
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=0 .AND. remap/=1) &
