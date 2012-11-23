@@ -134,14 +134,15 @@ for levtype1 in PL HL ML; do
 #-----------------------------------------------------------------------------
 # end loop over days and levtype
 
-    case $levtype1 in
-      PL) event get_pl_data ;;
-      HL) event get_hl_data ;;
-      ML) event get_ml_data ;;
-    esac
-
     ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
   done                         # end days
+
+  case $levtype1 in
+    PL) smsevent get_pl_data ;;
+    HL) smsevent get_hl_data ;;
+    ML) smsevent get_ml_data ;;
+  esac
+
 done                           # end levtype
 
 
