@@ -1903,6 +1903,7 @@ CONTAINS
     INTEGER :: ll_dim(2)
     INTEGER :: gridtype
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
+    REAL(wp), ALLOCATABLE :: lbounds(:), ubounds(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
     TYPE(t_lon_lat_data), POINTER :: lonlat
@@ -2019,7 +2020,8 @@ CONTAINS
       !
       CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
       !
-!      CALL gridDefNumber(of%cdiEdgeGridID, GRID_EDGE)
+      ! works, but makes no sense, yet. Proper grid numbers still missing
+      CALL gridDefNumber(of%cdiCellGridID, 42)
       !
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used    
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
@@ -2039,7 +2041,8 @@ CONTAINS
       !
       CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
       !
-!      CALL gridDefNumber(of%cdiEdgeGridID, GRID_EDGE)
+      ! works, but makes no sense, yet. Proper grid numbers still missing
+      CALL gridDefNumber(of%cdiVertGridID, 42)
       !
       ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used  
       CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
@@ -2059,7 +2062,8 @@ CONTAINS
       !
       CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
       !
-!      CALL gridDefNumber(of%cdiEdgeGridID, GRID_EDGE)
+      ! works, but makes no sense, yet. Proper grid numbers still missing
+      CALL gridDefNumber(of%cdiEdgeGridID, 42)
       !
       ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used  
       CALL gridDefPosition(of%cdiEdgeGridID, GRID_EDGE)
@@ -2100,19 +2104,33 @@ CONTAINS
       ! mo_io_async complains about mismatch of levels. 
       znlev_soil = SIZE(zml_soil)-1
 
-      ! Hybrid
-
-      of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
-      of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
-
-      ALLOCATE(levels(nlev))
-      DO k = 1, nlev
-        levels(k) = REAL(k,wp)
-      END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid), levels)
-      DEALLOCATE(levels)
-      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
+      ! HYBRID_LAYER
       !
+      of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
+
+!      ALLOCATE(levels(nlev))
+!      DO k = 1, nlev
+!        levels(k) = REAL(k,wp)
+!      END DO
+!      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid), levels)
+!      DEALLOCATE(levels)
+!      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
+
+      ALLOCATE(lbounds(nlev), ubounds(nlev))
+      DO k = 1, nlev
+        lbounds(k) = REAL(k,wp)
+      END DO
+      DO k = 2, nlevp1
+        ubounds(k-1) = REAL(k,wp)
+      END DO
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds)
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds)
+      DEALLOCATE(lbounds, ubounds)
+      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
+
+      ! HYBRID
+      !
+      of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
       ALLOCATE(levels(nlevp1))
       DO k = 1, nlevp1
         levels(k) = REAL(k,wp)

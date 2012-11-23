@@ -32589,9 +32589,6 @@ void gribapiDefLevel(grib_handle *gh, int param, int zaxisID, int levelID)
 	      GRIB_CHECK(grib_set_long(gh, "indicatorOfTypeOfLevel", GRIB1_LTYPE_HYBRID), 0);
 	    else {
 	      GRIB_CHECK(grib_set_long(gh, "typeOfFirstFixedSurface", GRIB2_LTYPE_HYBRID), 0);
-	      if (zaxistype == ZAXIS_HYBRID) {
-		  GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", GRIB2_LTYPE_HYBRID), 0);
-	      }
 	    }
 
 	    GRIB_CHECK(grib_set_long(gh, "level", level), 0);
