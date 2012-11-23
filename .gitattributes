@@ -1380,7 +1380,6 @@ src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
 src/shared/mo_read_netcdf_parallel.f90 -text
 src/shared/mo_real_timer.f90 -text
-src/shared/mo_real_timer_rw.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
