@@ -622,7 +622,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','total_specific_humidity', &
                     &          DATATYPE_FLT32),                                        &
-                    & t_grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),         &
+                    & t_grib2_var(192, 201, 28, ibits, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
@@ -637,7 +637,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                           &
                     & 'total_specific_cloud_water_content', DATATYPE_FLT32),           &
-                    & t_grib2_var(0, 1, 83, ibits, GRID_REFERENCE, GRID_CELL),         &
+                    & t_grib2_var(192, 201, 31, ibits, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
@@ -653,7 +653,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                           &
                     & 'total_specific_cloud_ice_content', DATATYPE_FLT32),             &
-                    & t_grib2_var(0, 1, 84, ibits, GRID_REFERENCE, GRID_CELL),         &
+                    & t_grib2_var(192, 201, 33, ibits, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
