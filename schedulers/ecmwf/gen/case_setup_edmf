@@ -216,6 +216,7 @@ cat > ${atmo_namelist} << EOF
                       -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
                      -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
                       60.00,  80.00, 'Snow Test Russia',
+                      50.16,   8.75, 'Offenbach',
 /
 &nwp_phy_nml
  inwp_gscp                    = 10  ! 1: default, or 10

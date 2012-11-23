@@ -90,15 +90,15 @@ end if
 
 case stat of
   'diff':
-    plotfile= plotdir&'/zon.'&expres&'.exp'&expnum&'-ifs.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'     # no ".ps"
-    title   = vartitle&'    exp'&expnum&'     EXP-ANA    '&inidate&initime&' to '&verdate&vertime&nd_txt2
+    plotfile= plotdir&'/zon.'&expres&'.'&expnum&'-ifs.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'     # no ".ps"
+    title   = vartitle&'    '&expnum&'     EXP-ANA    '&inidate&initime&' to '&verdate&vertime&nd_txt2
   end
   'snap':
-    plotfile= plotdir&'/zon.'&expres&'.exp'&expnum&    '.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1' 
-    title   = vartitle&'    exp'&expnum&'    '&verdate&vertime&nd_txt2
+    plotfile= plotdir&'/zon.'&expres&'.'&expnum&    '.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1' 
+    title   = vartitle&'    '&expnum&'    '&verdate&vertime&nd_txt2
   end
   'ctr':
-    plotfile= plotdir&'/zon.'&expres&'.exp'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'
+    plotfile= plotdir&'/zon.'&expres&'.'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'
     title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
   end
 end case

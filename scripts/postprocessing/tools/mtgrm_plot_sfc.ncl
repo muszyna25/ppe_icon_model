@@ -143,7 +143,7 @@ begin
   res@tiXAxisFontHeightF         = 0.018
   res@tmXBLabelFontHeightF       = 0.014
   res@vpXF                 = 0.15                  ; viewport left margin (def: 0.2)
-  res@vpWidthF             = 0.75                  ; The Width of the plot box
+  res@vpWidthF             = 0.85                  ; The Width of the plot box
 ; res@vpHeightF            = 0.58                  ; The height of the plot box
   res@tmXTOn               = False                 ; turn off the top tickmarks
   res@xyLineThicknesses    = 5                     ; increase line thickness
@@ -186,6 +186,15 @@ begin
   ; remove mirrored tick marks (top, right):
   res@tmXTOn               = False
   res@tmYROn               = False
+
+  res@tmXMajorGrid         = True
+  res@tmXMajorGridLineDashPattern = 2
+  res@tmXMajorGridLineColor= "lightblue"
+  res@tmXMajorGridThicknessF = 1.0
+  res@tmYMajorGrid         = True
+  res@tmYMajorGridLineDashPattern = 2
+  res@tmYMajorGridLineColor= "lightblue"
+  res@tmYMajorGridThicknessF = 1.0
 
 ;----------------------------------------------------------------------
 ; line plot

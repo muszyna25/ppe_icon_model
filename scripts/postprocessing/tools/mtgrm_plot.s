@@ -27,7 +27,7 @@ mkdir -p ${dir}"/meteo"
 #oType="png" !doesn't work on AIX (NCL 5.2.1)
 oType="eps"
 
-set -A iStation 1 2 3 4 5 6 7 8 9 #10
+set -A iStation 1 2 3 4 5 6 7 8 9 10
 
 set -A varNameSfc \
   P_SFC    PL_Cov   LA_Ind  RO_Dept    Z0         qv_s       w_i_1    w_snow_1 \

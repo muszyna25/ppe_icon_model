@@ -155,7 +155,7 @@ begin
   res@lbTitleString        = "["+ charactertostring(cdf_file->var_unit(ivar,:)) + "]"
   res@lbTitleFontHeightF   = .015                  ; label title font size
  ;res@lbTitlePosition      = "Right"               ; label position
-  res@lbOrientation        =   "vertical"          ; vertical label bar
+  res@lbOrientation        = "vertical"            ; vertical label bar
   res@pmLabelBarWidthF     = 0.24                  ; horizontal shift
   res@lbBoxMinorExtentF    = 0.15                  ; horizontal width
   res@lbLabelFontHeightF   = 0.015                 ; label font size
@@ -203,6 +203,15 @@ begin
   ; remove mirrored tick marks (top, right):
   res@tmXTOn               = False
   res@tmYROn               = False
+
+  res@tmXMajorGrid         = True
+  res@tmXMajorGridLineDashPattern = 2
+  res@tmXMajorGridLineColor= "white"
+  res@tmXMajorGridThicknessF = 1.0
+  res@tmYMajorGrid         = True
+  res@tmYMajorGridLineDashPattern = 2
+  res@tmYMajorGridLineColor= "white"
+  res@tmYMajorGridThicknessF = 1.0
 
 ;----------------------------------------------------------------------
 ; create an independent axis with level heights
