@@ -2018,7 +2018,12 @@ CONTAINS
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
       CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
-   
+      !
+!      CALL gridDefNumber(of%cdiEdgeGridID, GRID_EDGE)
+      !
+      ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used    
+      CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
+
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -2033,6 +2038,11 @@ CONTAINS
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
       CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+      !
+!      CALL gridDefNumber(of%cdiEdgeGridID, GRID_EDGE)
+      !
+      ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used  
+      CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
 
       ! Edges
 
@@ -2048,6 +2058,11 @@ CONTAINS
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
       CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+      !
+!      CALL gridDefNumber(of%cdiEdgeGridID, GRID_EDGE)
+      !
+      ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used  
+      CALL gridDefPosition(of%cdiEdgeGridID, GRID_EDGE)
 
       of%cdiLonLatGridID = CDI_UNDEFID
 

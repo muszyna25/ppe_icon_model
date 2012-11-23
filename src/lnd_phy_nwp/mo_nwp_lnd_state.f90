@@ -477,7 +477,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_s_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('t_s_t', 'K', 'temperature of ground surface', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_s_t'//suffix, p_prog_lnd%t_s_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -491,7 +491,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('t_s_t_'//csfc, '', '', DATATYPE_FLT32),             &
-           & t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL),       &
+           & t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
@@ -592,7 +592,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%t_so_ptr(jsfc)%p_3d,                                 &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1,                 &
            & t_cf_var('t_so_t_'//csfc, '', '', DATATYPE_FLT32),              &
-           & t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL),         &
+           & t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil+2,kblks/),                             &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
@@ -911,7 +911,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
     cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(10, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                   &
@@ -971,7 +971,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%t_s(nproma,nblks_c)
     cf_desc    = t_cf_var('t_s', 'K', 'weighted temperature of ground surface', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_s', p_diag_lnd%t_s,                &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
