@@ -42,7 +42,8 @@ MODULE mo_real_timer
 
   USE mo_mpi, ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id
   USE mo_master_control,  ONLY: get_my_process_name
-                            
+  USE mo_run_config,      ONLY: write_timer_files
+
 
   IMPLICIT NONE
 
@@ -333,8 +334,8 @@ CONTAINS
       new_timer = timer_id
       IF (timer_id > 0) RETURN
     ENDIF
-      
-    
+
+
 #ifdef _OPENMP
     IF ( omp_in_parallel() ) &
          CALL real_timer_abort(0,'new_timer called in parallel region')
@@ -366,7 +367,7 @@ CONTAINS
     IF (PRESENT(timer_id)) THEN
       timer_id = new_timer
     ENDIF
-    
+
   END FUNCTION new_timer
 
   !---
@@ -543,7 +544,7 @@ CONTAINS
     ELSE
       it = -1 ! report of all timers
     ENDIF
-    
+
     IF (PRESENT(short)) THEN
       IF (short) THEN
         CALL timer_report_short(it)
@@ -676,7 +677,7 @@ CONTAINS
     INTEGER :: it
     INTEGER :: timer_file_id
     LOGICAL :: unit_is_occupied
-      
+
 #ifndef NOMPI
     INTEGER :: ibuf(2)
 #endif
@@ -694,29 +695,34 @@ CONTAINS
     ENDIF
 #endif
 
-    DO timer_file_id = 500, 5000
-      INQUIRE (UNIT=timer_file_id, OPENED=unit_is_occupied)
-      IF ( .NOT. unit_is_occupied ) EXIT
-    ENDDO
-    IF (unit_is_occupied) &
-      CALL finish("timer_report_full", "Cannot find avaliable file unit")
+    IF (write_timer_files) THEN
+      DO timer_file_id = 500, 5000
+        INQUIRE (UNIT=timer_file_id, OPENED=unit_is_occupied)
+        IF ( .NOT. unit_is_occupied ) EXIT
+      ENDDO
+      IF (unit_is_occupied) &
+        CALL finish("timer_report_full", "Cannot find avaliable file unit")
 
-    IF (get_my_process_name() /= "" ) THEN
-      WRITE(message_text,'(a,a,a,i4.4)') 'timer.', TRIM(get_my_process_name()), ".", &
-        &  get_my_mpi_work_id()
-!       write(0,*) "get_my_process_name() /= ''"
-    ELSE
-      WRITE(message_text,'(a,i4.4)') 'timer.', get_my_mpi_work_id()
+      IF (get_my_process_name() /= "" ) THEN
+        WRITE(message_text,'(a,a,a,i4.4)') 'timer.', TRIM(get_my_process_name()), ".", &
+          &  get_my_mpi_work_id()
+  !       write(0,*) "get_my_process_name() /= ''"
+      ELSE
+        WRITE(message_text,'(a,i4.4)') 'timer.', get_my_mpi_work_id()
+      ENDIF
+  !     write(0,*) "timer filename=", TRIM(message_text)
+
+      OPEN (timer_file_id, FILE=TRIM(message_text))
     ENDIF
-!     write(0,*) "timer filename=", TRIM(message_text)
-    
-    OPEN (timer_file_id, FILE=TRIM(message_text))
-    
+
+
     CALL message ('','',all_print=.TRUE.)
     CALL message ('',separator,all_print=.TRUE.)
     WRITE (message_text,'(a)') 'Timer report: '
     CALL message ('',message_text,all_print=.TRUE.)
-    WRITE(timer_file_id,*) TRIM(message_text)
+
+    IF (write_timer_files) &
+      & WRITE(timer_file_id,*) TRIM(message_text)
 
     IF (num_test_procs+num_work_procs > 1) THEN
       WRITE (message_text,'(a,i5,a)') &
@@ -728,7 +734,8 @@ CONTAINS
       CALL message ('',message_text,all_print=.TRUE.)
     END IF
     CALL message ('',separator,all_print=.TRUE.)
-    WRITE(timer_file_id,*) TRIM(message_text)
+    IF (write_timer_files) &
+      & WRITE(timer_file_id,*) TRIM(message_text)
 
     IF (itimer > 0) THEN
       IF (rt(itimer)%stat /= rt_undef_stat) CALL print_report(itimer, timer_file_id)
@@ -740,8 +747,9 @@ CONTAINS
       ENDDO
     ENDIF
 
-    CLOSE(timer_file_id)
-    
+    IF (write_timer_files) &
+      & CLOSE(timer_file_id)
+
 #ifndef NOMPI
     IF (p_pe < num_test_procs+num_work_procs-1) THEN
       CALL p_send(ibuf(1), p_pe+1, report_tag)
@@ -823,7 +831,8 @@ CONTAINS
            rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ENDIF
-    WRITE(timer_file_id,*) TRIM(message_text)
+    IF (write_timer_files) &
+     & WRITE(timer_file_id,*) TRIM(message_text)
 
   END SUBROUTINE report
 

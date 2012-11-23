@@ -33,7 +33,7 @@
 !!
 MODULE mo_timer
 
-  USE mo_real_timer_rw, ONLY: new_timer,                        &
+  USE mo_real_timer, ONLY: new_timer,                        &
        &                   timer_start,                      &
        &                   timer_stop,                       &
        &                   print_timer   => timer_report,    &
@@ -53,11 +53,11 @@ MODULE mo_timer
   PUBLIC :: timer_total                         !< IDs of timers
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
-  PUBLIC :: timer_icon_comm_sync  
+  PUBLIC :: timer_icon_comm_sync
   PUBLIC :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
     & timer_icon_comm_barrier_2, timer_icon_comm_send
-  PUBLIC :: timer_barrier  
+  PUBLIC :: timer_barrier
 
   PUBLIC :: timer_integrate_nh
   PUBLIC :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
@@ -80,11 +80,11 @@ MODULE mo_timer
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
   PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers
   PUBLIC :: timer_nh_hdiffusion
-  
+
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
   PUBLIC :: timer_nh_diagnostics
-  
+
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
   PUBLIC :: timer_phys_u_v
@@ -102,13 +102,13 @@ MODULE mo_timer
   PUBLIC :: timer_phys_acc_par
   PUBLIC :: timer_phys_sync_ddt_u
   PUBLIC :: timer_phys_sync_vn
- 
+
   PUBLIC :: timer_held_suarez_intr
-  
+
 !   PUBLIC :: timer_sync_wait
 !   PUBLIC :: timer_sync_delay,timer_sync_outbuffer
 !   PUBLIC :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
-  
+
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
   PUBLIC :: timer_omp_radiation
@@ -136,7 +136,7 @@ MODULE mo_timer
   PUBLIC :: timer_prep_tracer_RK
   PUBLIC :: timer_hdiff_expl
   PUBLIC :: timer_dyn_theta, timer_dyn_temp
-  
+
   PUBLIC :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
   PUBLIC :: timer_nesting
@@ -170,7 +170,7 @@ MODULE mo_timer
   INTEGER :: timer_update_prog_phy
 
   INTEGER :: timer_nh_diagnostics
-  INTEGER :: timer_diagnose_pres_temp  
+  INTEGER :: timer_diagnose_pres_temp
   INTEGER :: timer_satad_v_3D
   INTEGER :: timer_phys_exner
   INTEGER :: timer_phys_u_v
@@ -196,7 +196,7 @@ MODULE mo_timer
 
   INTEGER :: timer_sso
   INTEGER :: timer_cover_koe
-  
+
   ! Timer ID's for horizontal operators
   INTEGER :: timer_div
   INTEGER :: timer_grad
@@ -219,9 +219,9 @@ MODULE mo_timer
 
   ! Timer ID's for forcings and testcases
   INTEGER :: timer_held_suarez_intr
-  
+
   ! Timer ID's for physics-dynamics coupling
-  
+
   INTEGER :: timer_dyn2phy
   INTEGER :: timer_phy2dyn
   INTEGER :: timer_echam_sync_temp, timer_echam_sync_tracers
@@ -241,7 +241,7 @@ MODULE mo_timer
   INTEGER :: timer_cube_root
   INTEGER :: timer_coupling
   INTEGER :: timer_RK_tend, timer_RK_update, timer_step_RK
-  
+
   INTEGER :: timer_intrp_diagn
   INTEGER :: timer_step_2tl_si
   INTEGER :: timer_prep_echam_phy
@@ -250,7 +250,7 @@ MODULE mo_timer
   INTEGER :: timer_prep_tracer
   INTEGER :: timer_prep_tracer_RK
   INTEGER :: timer_hdiff_expl
-    
+
   ! Timer ID for optional lon-lat interpolation
   INTEGER :: timer_lonlat_setup
 
@@ -259,7 +259,7 @@ MODULE mo_timer
   INTEGER :: timer_nudging
   INTEGER :: timer_bdy_interp
   INTEGER :: timer_feedback
-  
+
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
@@ -287,15 +287,15 @@ CONTAINS
     timer_icon_comm_fillandsend  = new_timer("comm_fillandsend")
     timer_icon_comm_fillrecv     = new_timer("comm_fillrecv")
     timer_icon_comm_ircv         = new_timer("comm_ircv")
-    timer_icon_comm_isend        = new_timer("comm_isend")    
+    timer_icon_comm_isend        = new_timer("comm_isend")
     timer_icon_comm_send         = new_timer("comm_send")
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
-          
+
     timer_coupling      = new_timer("coupling")
     timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
- 
+
     timer_integrate_nh  = new_timer  ("integrate_nh")
     timer_solve_nh      = new_timer  ("nh_solve")
     timer_solve_nh_p1   = new_timer  ("nh_solve.p1")
@@ -305,16 +305,16 @@ CONTAINS
     timer_step_2tl_si = new_timer("2tl_si_solve")
     timer_step_RK     = new_timer("RK_solve")
     timer_nh_hdiffusion= new_timer("nh_hdiff")
-   
+
     timer_physics   = new_timer("physics")
     timer_echam_phy = new_timer("echam_phy")
 
     timer_transport = new_timer("transport")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
-    
+
     timer_held_suarez_intr = new_timer("held_suarez_intr")
-    
+
     timer_gw_hines  = new_timer("gw_hines")
 
     ! dynamics timers
@@ -334,7 +334,7 @@ CONTAINS
     timer_intp      = new_timer("intp")
 
     ! physics timers
-    timer_radiation = new_timer("radiation")    
+    timer_radiation = new_timer("radiation")
     timer_lrtm_1    = new_timer("rad_lrtm_1")
     timer_lrtm_2    = new_timer("rad_lrtm_2")
     timer_omp_radiation = new_timer("omp_radiation")
@@ -363,10 +363,10 @@ CONTAINS
     timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
     timer_prep_phy = new_timer("prep_phy")
-    
+
     timer_update_prog_phy = new_timer("update_prog_phy")
- 
-    
+
+
 
 !     timer_sync_delay = new_timer("sync_delay")
 !     timer_sync_outbuffer = new_timer("sync_outbuffer")
@@ -377,7 +377,7 @@ CONTAINS
 !     timer_sync_wait = new_timer("sync_wait")
 
     timer_nh_diagnostics = new_timer("nh_diagnostics")
-    
+
     timer_diagnose_pres_temp = new_timer("diagnose_pres_temp")
     timer_satad_v_3D = new_timer("satad_v_3D")
     timer_phys_u_v = new_timer("phys_u_v")
@@ -389,7 +389,7 @@ CONTAINS
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
     timer_sso = new_timer("sso")
     timer_cover_koe = new_timer("cover_koe")
-        
+
 
     timer_model_init    = new_timer("model_init")
     timer_oce_init      = new_timer("oce_init")
@@ -409,10 +409,10 @@ CONTAINS
     timer_vert_veloc    = new_timer("vert_veloc")
     timer_normal_veloc  = new_timer("normal_veloc")
     timer_dbg_prnt      = new_timer("dbg_prnt")
-  
-    timer_cube_root = new_timer("cube_root")          
+
+    timer_cube_root = new_timer("cube_root")
     timer_lonlat_setup = new_timer("lonlat_setup")
-  
+
     timer_con_l_theta2t = new_timer("con_l_theta2t")
     timer_con_l_t2theta = new_timer("con_l_t2theta")
     timer_con_theta2t = new_timer("con_theta2t")
@@ -422,7 +422,7 @@ CONTAINS
     timer_nesting    = new_timer("nesting")
     timer_nudging    = new_timer("nesting.nudging")
     timer_bdy_interp = new_timer("nesting.bdy_interp")
-    timer_feedback   = new_timer("nesting.feedback") 
+    timer_feedback   = new_timer("nesting.feedback")
 
     ! extra timers for on-demand (non-permanent) timings
     timer_extra1 = new_timer("extra1")
