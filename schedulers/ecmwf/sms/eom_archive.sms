@@ -38,6 +38,16 @@ ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM"
 
 
 #-----------------------------------------------------------------------------
+# convert metview plots from ps to png 
+
+cd metplots
+for metfile in `ls *.ps` ; do
+  metfile2=`echo $metfile | sed 's/\.ps//'`
+  convert -rotate 90 ${metfile2}.ps ${metfile2}.png
+done 
+cd -
+
+#-----------------------------------------------------------------------------
 # archive plots to ecfs
 
 tar cvf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots

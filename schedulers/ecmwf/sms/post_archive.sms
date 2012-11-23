@@ -38,6 +38,16 @@ emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
+# convert metview plots from ps to png 
+
+cd metplots
+for metfile in `ls *.ps` ; do
+  metfile2=`echo $metfile | sed 's/\.ps//'`
+  convert -rotate 90 ${metfile2}.ps ${metfile2}.png
+done 
+cd -
+
+#-----------------------------------------------------------------------------
 # archive plots and tranfer to DWD by ectrans
 
 tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
