@@ -47,8 +47,9 @@ for metfile in `ls *.ps` ; do
 done 
 cd -
 
+
 #-----------------------------------------------------------------------------
-# archive plots and tranfer to DWD by ectrans
+# archive plots to ecfs
 
 tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
 gzip -f metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar

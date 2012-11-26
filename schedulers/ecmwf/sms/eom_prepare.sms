@@ -179,10 +179,10 @@ if [[ $lcatdata = 1 ]] ; then
 
 # all times:
 
-    cat ${base}*_DOM01_0001_${var}_0.grb \
-        ${base}*_DOM01_0001_${var}_24.grb \
-        ${base}*_DOM01_0001_${var}_240.grb \
-      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_240.grb
+#   cat ${base}*_DOM01_0001_${var}_0.grb \
+#       ${base}*_DOM01_0001_${var}_24.grb \
+#       ${base}*_DOM01_0001_${var}_240.grb \
+#     > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_240.grb
 
 # time mean: (works only from day 11 onwards because of 10 day forecast verification)
 
@@ -234,10 +234,10 @@ fi
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then
-  gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}"
+  gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}
   cd $mondir
   rsh ecgate mkdir -p ${gatedir}/grb_data
-  rcp *.grb ecgate:${gatedir}/grb_data
+  rcp *.grb    ecgate:${gatedir}/grb_data
   emkdir -p ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   ecp *.grb ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   smsevent cpdata

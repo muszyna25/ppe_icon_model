@@ -32,9 +32,10 @@ ldeldata=1
 # directories
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM"
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 cd ${gatedir}
-ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM"
+ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
+emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
@@ -46,6 +47,7 @@ for metfile in `ls *.ps` ; do
   convert -rotate 90 ${metfile2}.ps ${metfile2}.png
 done 
 cd -
+
 
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
@@ -60,6 +62,7 @@ ecp  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
 # delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
+  \rm -rf met.job.*
   \rm -rf grb_data 
 fi
 
