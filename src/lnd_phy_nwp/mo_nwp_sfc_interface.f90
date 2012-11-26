@@ -1007,12 +1007,12 @@ CONTAINS
                             &   qsolnet = swflxsfc(:),         & !in
                             &   tice_p  = tice_now(:),         & !in
                             &   hice_p  = hice_now(:),         & !in
-                            &   tsnow_p = tsnow_now(:),        & !in
-                            &   hsnow_p = hsnow_now(:),        & !in
+                            &   tsnow_p = tsnow_now(:),        & !in    ! DUMMY: not used yet
+                            &   hsnow_p = hsnow_now(:),        & !in    ! DUMMY: not used yet
                             &   tice_n  = tice_new(:),         & !out
                             &   hice_n  = hice_new(:),         & !out
-                            &   tsnow_n = tsnow_new(:),        & !out
-                            &   hsnow_n = hsnow_new(:)         ) !out
+                            &   tsnow_n = tsnow_new(:),        & !out   ! DUMMY: not used yet
+                            &   hsnow_n = hsnow_new(:)         ) !out   ! DUMMY: not used yet
 ! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) are neglected
 
 
