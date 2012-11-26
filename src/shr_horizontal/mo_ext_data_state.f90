@@ -623,9 +623,6 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-      &          vert_interp=create_vert_interp_metadata(         &
-      &             vert_intp_type=VINTP_TYPE_P_OR_Z,             &
-      &             vert_intp_method=VINTP_METHOD_LIN ),          &
       &           isteptype=TSTEP_CONSTANT )
 
 
