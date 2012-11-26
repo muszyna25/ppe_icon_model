@@ -285,7 +285,7 @@ CONTAINS
         CASE (4)
           varlist => p_onl%il_varlist
           ilev_type  =  level_type_il
-          max_var    =  max_var_hl
+          max_var    =  max_var_il
         END SELECT
         IF (varlist(1) == ' ') CYCLE
       
@@ -695,12 +695,15 @@ CONTAINS
       ! and "pl_varlist(1:nvars_pl)" and "il_varlist(1:nvars_il)"
       
       ! skip domain if no p/z-interpolation requested:
-      IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) CYCLE DOM_LOOP
+      IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) THEN
+!        IF (dbg_level > 8)  CALL message(routine, "No vertical interpolation tasks.")
+        CYCLE DOM_LOOP
+      END IF
 
       ! remove duplicates from variable lists
-      CALL remove_duplicates(pl_varlist, nvars_pl)
-      CALL remove_duplicates(hl_varlist, nvars_hl)
-      CALL remove_duplicates(il_varlist, nvars_il)
+      IF (l_intp_z) CALL remove_duplicates(hl_varlist, nvars_hl)
+      IF (l_intp_p) CALL remove_duplicates(pl_varlist, nvars_pl)
+      IF (l_intp_i) CALL remove_duplicates(il_varlist, nvars_il)
 
       !-- First, add some diagnostic variables which are essential for
       !-- p/z-level interpolation, e.g. temp_z, pres_z:
