@@ -138,7 +138,7 @@ CONTAINS
     END IF
 
     ! performance measurement: stop
-    WRITE (0,*) "# > loading grids: elapsed time: ", toc(time_s), " sec."
+    IF (dbg_level >= 2)  WRITE (0,*) "# > loading grids: elapsed time: ", toc(time_s), " sec."
     CALL tic(time_s)  ! performance measurement: start
 
     ! grid subdivision, create local grid coverings:
@@ -155,7 +155,7 @@ CONTAINS
     CALL finalize_grid(gridA_global, gridB_global)
 
     ! performance measurement: stop
-    WRITE (0,*) "# > partitioning grids: elapsed time: ", toc(time_s), " sec."
+    IF (dbg_level >= 2)  WRITE (0,*) "# > partitioning grids: elapsed time: ", toc(time_s), " sec."
 
     ! ----------------------------------------------------------------------------
     ! compute weights
@@ -184,7 +184,7 @@ CONTAINS
       &                        intp_data_A, intp_data_B)
 
     ! performance measurement: stop
-    WRITE (0,*) "# > weight computation: elapsed time: ", toc(time_s), " sec."
+    IF (dbg_level >= 2)  WRITE (0,*) "# > weight computation: elapsed time: ", toc(time_s), " sec."
 
     ! perform some consistency checks:
     IF (dbg_level >= 2) THEN
@@ -251,7 +251,7 @@ CONTAINS
     END DO ! ivar
 
     ! performance measurement: stop
-    WRITE (0,*) "# > interpolation and output: elapsed time: ", toc(time_s), " sec."
+    IF (dbg_level >= 2)  WRITE (0,*) "# > interpolation and output: elapsed time: ", toc(time_s), " sec."
     IF (dbg_level >= 1) THEN
       WRITE (0,*) "#     comm:  ", time_comm_tot,  " sec."
       WRITE (0,*) "#     read:  ", time_read_tot,  " sec."
