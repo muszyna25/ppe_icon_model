@@ -252,7 +252,7 @@ CONTAINS
 
     ! performance measurement: stop
     IF (dbg_level >= 2)  WRITE (0,*) "# > interpolation and output: elapsed time: ", toc(time_s), " sec."
-    IF (dbg_level >= 1) THEN
+    IF (dbg_level >= 2) THEN
       WRITE (0,*) "#     comm:  ", time_comm_tot,  " sec."
       WRITE (0,*) "#     read:  ", time_read_tot,  " sec."
       WRITE (0,*) "#     intp:  ", time_intp_tot,  " sec."

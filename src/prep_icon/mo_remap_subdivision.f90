@@ -195,10 +195,13 @@ CONTAINS
         if (nparts > grid_in%regular_grid%nypoints) &
           &   CALL finish(routine, "Invalid decomposition! More PEs than grid partitions!")
 
-        nypoints_loc = MAX((ABS(grid_in%regular_grid%nypoints)-1)/nparts + 1, 1)
+        nypoints_loc = grid_in%regular_grid%nypoints/nparts
         min1D = get_my_mpi_work_id() * nypoints_loc + 1
+        IF (get_my_mpi_work_id() == (nparts-1)) THEN
+          nypoints_loc = grid_in%regular_grid%nypoints - (nparts-1)*nypoints_loc
+        END IF
         max1D = min1D + nypoints_loc - 1
-        IF (dbg_level >= 2) WRITE (0,*) "# min1D, max1D = ", min1D, max1D
+        IF (dbg_level >= 2) WRITE (0,*) "# nypoints_loc, min1D, max1D = ", nypoints_loc, min1D, max1D
         lat_min = grid_in%regular_grid%yvals1D(min1D) - eps
         lat_max = grid_in%regular_grid%yvals1D(max1D) + eps
         IF (dbg_level >= 2) WRITE (0,*) "# partition with lat = [", lat_min, ",", lat_max, "]"
