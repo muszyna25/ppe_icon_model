@@ -87,7 +87,6 @@ unless File.exist?(maskFile)
 end
 #==============================================================================
 q         = JobQueue.new([JobQueue.maxnumber_of_processors,16].min)
-q         = JobQueue.new(1)
 lock      = Mutex.new
 
 Cdp.setCDO
