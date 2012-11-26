@@ -59,7 +59,8 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, min_rlcell_int
+    &                              max_char_length, min_rlcell_int,                        &
+    &                              VINTP_TYPE_P_OR_Z, VINTP_METHOD_LIN
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
@@ -87,7 +88,7 @@ MODULE mo_ext_data_state
   USE mo_var_list,           ONLY: default_var_list_settings, &
     &                              add_var, add_ref,          &
     &                              new_var_list,              &
-    &                              delete_var_list
+    &                              delete_var_list, create_vert_interp_metadata
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
@@ -621,7 +622,10 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+      &          vert_interp=create_vert_interp_metadata(         &
+      &             vert_intp_type=VINTP_TYPE_P_OR_Z,             &
+      &             vert_intp_method=VINTP_METHOD_LIN ),          &
       &           isteptype=TSTEP_CONSTANT )
 
 
