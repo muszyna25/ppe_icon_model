@@ -1416,9 +1416,8 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
   REAL(wp) :: sincos_pole(2,2) ! (lon/lat, sin/cos)
   REAL(wp) :: sincos_lon(lon_lat_grid%lon_dim,2), &
     &         sincos_lat(lon_lat_grid%lat_dim,2)
-  INTEGER  :: k
-  REAL(wp) :: rlon_lat, pi_180, npole_rad(2), &
-    &         arg1(SIZE(rotated_pts,2)), arg2(SIZE(rotated_pts,2))
+  INTEGER  :: k, j
+  REAL(wp) :: rlon_lat, pi_180, npole_rad(2), arg1, arg2
 
 !-----------------------------------------------------------------------
 
@@ -1438,27 +1437,26 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
     sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
 
-  FORALL (k=1:lon_lat_grid%lon_dim)
 
-    arg1(:) = sincos_lat(:,2)*sincos_lon(k,1)
-    arg2(:) = sincos_pole(2,1)*sincos_lat(:,2)*sincos_lon(k,2) - sincos_lat(:,1)*sincos_pole(2,2)
-
-    WHERE (arg1(:) /= 0.0_wp .OR. arg2(:) /= 0.0_wp)
+  DO j = 1, lon_lat_grid%lat_dim
+    DO k = 1, lon_lat_grid%lon_dim
 
       ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
-      rotated_pts(k,:,1) = ATAN2( arg1(:), arg2(:) ) + npole_rad(1)
+      arg1 = sincos_lat(j,2)*sincos_lon(k,1)
+      arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
+
+      IF (arg1 /= 0.0_wp .OR. arg2 /= 0.0_wp) THEN
+        rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
+      ELSE
+        rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something 
+      ENDIF
 
       ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
-      rotated_pts(k,:,2) = &
-        ASIN( sincos_lat(:,1)*sincos_pole(2,1) + sincos_lat(:,2)*sincos_lon(k,2)*sincos_pole(2,2) )
+      rotated_pts(k,j,2) = &
+        ASIN( sincos_lat(j,1)*sincos_pole(2,1) + sincos_lat(j,2)*sincos_lon(k,2)*sincos_pole(2,2) )
 
-    ELSEWHERE
-
-      rotated_pts(k,:,1) = npole_rad(1) - dbl_eps ! ATAN2(0,0) is undefined, so we just have to set something that 
-      rotated_pts(k,:,2) = npole_rad(2) - dbl_eps ! does not cause invalid operations subsequently
-
-    END WHERE
-  END FORALL
+    ENDDO
+  ENDDO
 
 END SUBROUTINE rotate_latlon_grid
 
