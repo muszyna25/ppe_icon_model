@@ -103,7 +103,7 @@ CONTAINS
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_prog       !< the prognostic variables
   TYPE(t_patch),TARGET,    INTENT(IN)    :: pt_patch      !< grid/patch info.
   TYPE(t_int_state),TARGET,INTENT(IN)    :: pt_int_state  !< horizontal interpolation coeff.
-  TYPE(t_external_data),   INTENT(IN)    :: pt_ext_data   !< external data
+  TYPE(t_external_data),   INTENT(INOUT)    :: pt_ext_data   !< external data
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: pt_diag       !< diagnostic variables
 
     INTEGER :: rel_vort_comm
@@ -560,7 +560,7 @@ CONTAINS
 
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog
     TYPE(t_patch),           INTENT(in)    :: p_patch
-    TYPE(t_external_data),   INTENT(IN)    :: p_ext_data !< external data
+    TYPE(t_external_data),   INTENT(INOUT)    :: p_ext_data !< external data
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
 
     LOGICAL,INTENT(IN),OPTIONAL :: opt_lgeop_wrt_sfc

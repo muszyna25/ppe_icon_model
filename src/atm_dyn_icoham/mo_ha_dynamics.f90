@@ -97,7 +97,7 @@ CONTAINS
   TYPE(t_patch),TARGET,    INTENT(IN)    :: pt_patch
   TYPE(t_int_state),TARGET,INTENT(IN)    :: pt_int_state
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_prog
-  TYPE(t_external_data),   INTENT(IN)    :: pt_ext_data   !< external data
+  TYPE(t_external_data),   INTENT(INOUT)    :: pt_ext_data   !< external data
 
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: pt_diag
   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: pt_tend_dyn

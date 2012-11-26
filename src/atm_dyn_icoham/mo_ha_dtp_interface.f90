@@ -414,7 +414,7 @@ CONTAINS
 
     TYPE(t_patch),TARGET,  INTENT(in) :: p_patch
     TYPE(t_int_state),     INTENT(in) :: p_int_state
-    TYPE(t_external_data), INTENT(IN) :: p_ext_data !< external data
+    TYPE(t_external_data), INTENT(INOUT) :: p_ext_data !< external data
 
     TYPE(t_hydro_atm_prog),INTENT(inout) :: p_prog
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
@@ -487,7 +487,7 @@ CONTAINS
 
     TYPE(t_patch),TARGET,  INTENT(in) :: p_patch
     TYPE(t_int_state),     INTENT(in) :: p_int_state
-    TYPE(t_external_data), INTENT(IN) :: p_ext_data !< external data
+    TYPE(t_external_data), INTENT(INOUT) :: p_ext_data !< external data
 
     TYPE(t_hydro_atm_prog),INTENT(inout) :: p_prog
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag

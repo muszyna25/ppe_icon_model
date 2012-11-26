@@ -103,7 +103,7 @@ MODULE mo_ha_2tl_si
   TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
   TYPE(t_int_state),     INTENT(IN)    :: p_int_state
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_now
-  TYPE(t_external_data), INTENT(IN)    :: p_ext_data   !< external data
+  TYPE(t_external_data), INTENT(INOUT) :: p_ext_data   !< external data
   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_new
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: p_diag
   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_tend_dyn
@@ -306,7 +306,7 @@ MODULE mo_ha_2tl_si
   TYPE(t_int_state),TARGET, INTENT(IN) :: pt_int_state
 
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_now        !< prognostic variables
-  TYPE(t_external_data),   INTENT(IN)    :: pt_ext_data   !< external data
+  TYPE(t_external_data),   INTENT(INOUT) :: pt_ext_data   !< external data
 
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: pt_diag       !< diagnostic variables
   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: pt_tend_save  !< for the simple
