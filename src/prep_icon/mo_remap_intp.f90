@@ -473,40 +473,47 @@ CONTAINS
     nblks    = out_grid%p_patch%nblks_c
     npromz   = out_grid%p_patch%npromz_c
 
-!$OMP PARALLEL PRIVATE(i_startidx, i_endidx,jc,val)
+!$OMP PARALLEL PRIVATE(i_startidx, i_endidx,jc,jb,val)
 !$OMP DO
     DO jb=1,nblks
       i_startidx = 1
       i_endidx   = nproma
       IF (jb == nblks) i_endidx = npromz
 
+#ifdef __SX__
+      field2(:,jb) = 0._wp
+!CDIR UNROLL=MAX_NSTENCIL
+      DO i=1,MAX_NSTENCIL
+        DO jc=i_startidx, i_endidx
+          field2(jc,jb) = field2(jc,jb) + intp_data%wgt(i,jc,jb) *              &
+            &             field1(intp_data%iidx(i,jc,jb),intp_data%iblk(i,jc,jb))
+        END DO
+      END DO
+#else
       DO jc=i_startidx, i_endidx
         val = 0._wp
-!CDIR UNROLL=MAX_NSTENCIL
         DO i=1,MAX_NSTENCIL
           val = val + intp_data%wgt(i,jc,jb) * &
             &         field1(intp_data%iidx(i,jc,jb),intp_data%iblk(i,jc,jb))
         END DO
         field2(jc,jb) = val
       END DO
+#endif
+      ! add sequential weight list:
+      DO jc=i_startidx, i_endidx
+        IF (intp_data%smax(jc,jb) > 0) THEN
+          val = 0._wp
+          DO i=intp_data%smin(jc,jb),intp_data%smax(jc,jb)
+            val = val + intp_data%sl(i)%wgt * field1(intp_data%sl(i)%sidx,intp_data%sl(i)%sblk)
+          END DO
+          field2(jc,jb) = field2(jc,jb) + val
+        ENDIF
+      END DO
+
     END DO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    ! consider sequential weight list:
-!$OMP PARALLEL PRIVATE(t,jc,jb,val)
-!$OMP DO
-    DO i=1,intp_data%s_nlist
-      t   = intp_data%sl(i)
-      jc  = t%didx
-      jb  = t%dblk
-      val = field2(jc,jb) + t%wgt * field1(t%sidx,t%sblk)
-!$OMP CRITICAL
-      field2(jc,jb) = val
-!$OMP END CRITICAL
-    END DO
-!$OMP END DO
-!$OMP END PARALLEL
 
     IF (dbg_level >= 11) THEN
       WRITE (0,*) "# minmax: ", MINVAL(field2(:,:)), MAXVAL(field2(:,:))

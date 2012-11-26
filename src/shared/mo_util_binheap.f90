@@ -195,15 +195,11 @@ CONTAINS
   !> Make @p child a subtree of @p root.
   SUBROUTINE heap_link(iroot, ichild, ithrd)
     INTEGER, INTENT(IN) :: iroot, ichild, ithrd
-    ! local variables
-    TYPE(t_heap_node), POINTER :: root,child
 
-    root  => node_storage(ithrd)%v(iroot)
-    child => node_storage(ithrd)%v(ichild)
-    child%parent = iroot
-    child%next   = root%child
-    root%child   = ichild
-    root%degree  = root%degree+1
+    node_storage(ithrd)%v(ichild)%parent = iroot
+    node_storage(ithrd)%v(ichild)%next   = node_storage(ithrd)%v(iroot)%child
+    node_storage(ithrd)%v(iroot)%child   = ichild
+    node_storage(ithrd)%v(iroot)%degree  = node_storage(ithrd)%v(iroot)%degree+1
   END SUBROUTINE heap_link
 
 
@@ -289,7 +285,7 @@ CONTAINS
     INTEGER,       INTENT(IN)    :: ithrd
     ! local variables
     INTEGER :: lprev, cur
-    TYPE (t_heap_node), POINTER :: nodes(:), pcur, pnode
+    TYPE (t_heap_node), POINTER :: nodes(:), pnode
 
     nodes => node_storage(ithrd)%v
     prev = INVALID_NODE
@@ -300,14 +296,13 @@ CONTAINS
     cur   = pnode%next
     DO
       IF (cur == INVALID_NODE) EXIT
-      pcur => nodes(cur)
-      IF (heap_cmp(pcur%rdata, pnode%rdata) > 0) THEN
+      IF (heap_cmp(nodes(cur)%rdata, pnode%rdata) > 0) THEN
         node  =  cur
-        pnode => pcur
+        pnode => nodes(cur)
         prev  =  lprev
       END IF
       lprev = cur
-      cur   = pcur%next
+      cur   = nodes(cur)%next
     END DO
   END SUBROUTINE heap_min
 

@@ -8,7 +8,11 @@ MODULE mo_remap_config
   ! Maximum size of array-structured stencil. Every entry that does
   ! not fit into this array will be appended to a sequential list
   ! (with some performance losses)
-  INTEGER, PARAMETER :: MAX_NSTENCIL = 40
+#ifdef __SX__
+  INTEGER, PARAMETER :: MAX_NSTENCIL = 50
+#else
+  INTEGER, PARAMETER :: MAX_NSTENCIL = 32
+#endif
 
   ! vertex-neighbor cells: stencil size
   INTEGER, PARAMETER :: N_VNB_STENCIL = 13
