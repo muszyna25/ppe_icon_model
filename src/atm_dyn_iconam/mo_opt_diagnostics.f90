@@ -80,7 +80,7 @@ MODULE mo_opt_diagnostics
 
 
   ! Derived type containing coefficient tables for vertical
-  ! interpolation. There exist to different kinds of coefficients: For
+  ! interpolation. There exist two different kinds of coefficients: For
   ! p- and for z-level-interpolation.
   TYPE t_vcoeff
     LOGICAL :: &
@@ -118,25 +118,25 @@ MODULE mo_opt_diagnostics
   ! 
   ! @note The pointers which are collected in this derived type
   !       constitute only the minimum set of fields that are required
-  !       for pz-level interpolation. All other variables are stored
-  !       inside the "opt_diag_list_p", "opt_diag_list_z" variable
-  !       lists.
+  !       for i/p/z-level interpolation. All other variables are
+  !       stored inside the "opt_diag_list_p", "opt_diag_list_z"
+  !       variable lists.
   TYPE t_nh_diag_pz
 
     REAL(wp), POINTER ::    &
-      ! fields that are essential for pz-level interpolation:
-      &  z_temp(:,:,:),        & ! temperature (nproma,nlev,nblks_c)          [K]
-      &  z_pres(:,:,:),        & ! pressure (nproma,nlev,nblks_c)             [Pa]
+      ! fields that are essential for z-level interpolation:
+      &  z_temp(:,:,:),        & ! temperature (nproma,nlev,nblks)                 [K]
+      &  z_pres(:,:,:),        & ! pressure (nproma,nlev,nblks)                    [Pa]
       &  z_tracer_iqv(:,:,:),  & ! tracer concentration (i.e. prognostic cloud 
-      &  z_tot_cld_iqv(:,:,:), & ! total cloud variables (cc,qv,qc,qi)        [kg/kg]
+      &  z_tot_cld_iqv(:,:,:), & ! total cloud variables (cc,qv,qc,qi)             [kg/kg]
       ! fields that are essential for p-level interpolation only:
-      &  p_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
-      &  p_temp(:,:,:),        & ! temperature (nproma,nlev,nblks_c)          [K]
-      ! fields that are essential for interpolation on isentropes only:
-      &  i_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
-      &  i_temp(:,:,:)           ! temperature (nproma,nlev,nblks_c)          [K]
+      &  p_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks)                [m2/s2]
+      &  p_temp(:,:,:),        & ! temperature (nproma,nlev,nblks)                 [K]
+      ! fields that are essential for interpolation on isentropes only:            
+      &  i_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks)                [m2/s2]
+      &  i_temp(:,:,:)           ! temperature (nproma,nlev,nblks)                 [K]
 
-    ! coefficient tables for vertical interpolation. There exist to
+    ! coefficient tables for vertical interpolation. There exist two
     ! different kinds of coefficients: For p- and for
     ! z-level-interpolation.
     TYPE(t_vcoeff) :: vcoeff_z, vcoeff_p, vcoeff_i

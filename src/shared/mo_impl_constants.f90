@@ -480,10 +480,9 @@ MODULE mo_impl_constants
 
   INTEGER, PARAMETER, PUBLIC :: TASK_NONE              = 0 
   !------ setup tasks (coefficients,...)
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_IPZ      = 1  !< task: setup ipz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_IZ       = 2  !< task: setup iz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_PZ       = 3  !< task: setup pz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 4  !< task: setup only z-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 1  !< task: setup z-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_P        = 2  !< task: setup p-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_I        = 3  !< task: setup i-interpolation
   INTEGER, PARAMETER, PUBLIC :: TASK_FINALIZE_IPZ      = 5  !< task: deallocate ipz-interpolation
   !------ interpolation tasks:
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_HOR_LONLAT   = 6  !< task: lon-lat
