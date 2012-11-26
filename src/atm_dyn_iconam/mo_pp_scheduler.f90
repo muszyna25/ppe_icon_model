@@ -696,7 +696,7 @@ CONTAINS
       
       ! skip domain if no p/z-interpolation requested:
       IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) THEN
-!        IF (dbg_level > 8)  CALL message(routine, "No vertical interpolation tasks.")
+        IF (dbg_level > 8)  CALL message(routine, "No vertical interpolation tasks.")
         CYCLE DOM_LOOP
       END IF
 
