@@ -54,8 +54,8 @@ FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'
 DEBUGFLAGS = -Wf,-init stack=nan heap=nan -Wf,-K a -D__BOUNDCHECK
 LDDEBUG    = -Wf'-K a' -Wl,-f nan
 
-# linker flags
-#LDFLAGS = -Wl,-Z 16G
+# linker flags (required for *linking* with OpenMP, somebody please fix the configuration!!!)
+LDFLAGS = -Wl,-Z 16G
 
 # Inlining
 INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
