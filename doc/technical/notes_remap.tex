@@ -17,7 +17,7 @@
 
 \emph{--- Initial revision of this document: 2012-11-13, F.\ Prill, DWD ---}\\
 
-As part of the \texttt{prep\_icon} binary, a 1$^{st}$ area-weighted remapping
+As part of the \texttt{prep\_icon} binary, a 1$^{st}$ order area-weighted remapping
 is available in the ICON code.
 The algorithm shares the basic mesh data structure and a number of subroutines with the 
 model sources.
@@ -57,7 +57,7 @@ The special case of surface pressure fields contains an (experimental) hydrostat
 \subsubsection*{Current state}
 
 The implementation is in a first release state.
-Without any specific technical reason is is currently restricted to first-order accuracy.
+Without any specific technical reason it is currently restricted to first-order accuracy.
 The code is primarily aimed at IFS input data and can handle global regular grids in
 GRIB2 and NetCDF file format, and local or global ICON triangular grids in NetCDF format.
 File I/O is fully synchronous and writes NetCDF format (using the CDI).
