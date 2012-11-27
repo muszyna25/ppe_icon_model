@@ -33,7 +33,8 @@ MODULE mo_remap_output
   ! name and version of this tool
   ! (will be written as meta-data to output data file):
   CHARACTER (LEN=*), PARAMETER :: tool_name    = "prepicon_conversion_tool"
-  CHARACTER (LEN=*), PARAMETER :: tool_version = "version $Rev: 881 $"
+  CHARACTER (LEN=*), PARAMETER :: tool_version = &
+    & "version $Rev$"
 
   ! generic interface for storing data to output file
   ! (may later be expanded to 3D fields)
