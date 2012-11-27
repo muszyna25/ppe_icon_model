@@ -80,35 +80,34 @@ MODULE mo_opt_diagnostics
 
 
   ! Derived type containing coefficient tables for vertical
-  ! interpolation. There exist two different kinds of coefficients: For
-  ! p- and for z-level-interpolation.
+  ! interpolation.
   TYPE t_vcoeff
     LOGICAL :: &
       & l_initialized = .FALSE.,  &
       & l_allocated   = .FALSE.
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlev, nblks)
       &  wfac_lin, coef1, coef2, coef3
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlev, nblks)
       &  idx0_lin, idx0_cub
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
       &  bot_idx_lin, bot_idx_cub
 
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
       &  kpbl1, kpbl2
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
       &  wfacpbl1, wfacpbl2
 
     ! interpolation data for the vertical interface of cells, "nlevp1"
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlevp1, nblks)
       &  wfac_lin_nlevp1
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nblks)
       &  idx0_lin_nlevp1
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
       &  bot_idx_lin_nlevp1
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
       &  kpbl1_nlevp1, kpbl2_nlevp1
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
       &  wfacpbl1_nlevp1, wfacpbl2_nlevp1
 
   END TYPE t_vcoeff
@@ -136,9 +135,9 @@ MODULE mo_opt_diagnostics
       &  i_geopot(:,:,:),      & ! geopotential (nproma,nlev,nblks)                [m2/s2]
       &  i_temp(:,:,:)           ! temperature (nproma,nlev,nblks)                 [K]
 
-    ! coefficient tables for vertical interpolation. There exist two
-    ! different kinds of coefficients: For p- and for
-    ! z-level-interpolation.
+    ! coefficient tables for vertical interpolation. There exist
+    ! different kinds of coefficients: For p-, z-,and for
+    ! i-level-interpolation; for cells and for edges.
     TYPE(t_vcoeff) :: vcoeff_z, vcoeff_p, vcoeff_i
 
   END TYPE t_nh_diag_pz
@@ -226,7 +225,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_opt_diagnostics:destruct_opt_diag")
-    INTEGER                            :: jg, ist
+    INTEGER :: jg, ist
 
     DO jg = 1, n_dom
       CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_z )
@@ -285,18 +284,18 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ! Initialization
-      vcoeff%wfac_lin = 0._wp
-      vcoeff%coef1 = 0._wp
-      vcoeff%coef2 = 0._wp
-      vcoeff%coef3 = 0._wp
-      vcoeff%idx0_lin = 0
-      vcoeff%idx0_cub = 0
+      vcoeff%wfac_lin    = 0._wp
+      vcoeff%coef1       = 0._wp
+      vcoeff%coef2       = 0._wp
+      vcoeff%coef3       = 0._wp
+      vcoeff%idx0_lin    = 0
+      vcoeff%idx0_cub    = 0
       vcoeff%bot_idx_lin = 0
       vcoeff%bot_idx_cub = 0
-      vcoeff%wfacpbl1 = 0._wp
-      vcoeff%wfacpbl2 = 0._wp
-      vcoeff%kpbl1 = 0
-      vcoeff%kpbl2 = 0
+      vcoeff%wfacpbl1    = 0._wp
+      vcoeff%wfacpbl2    = 0._wp
+      vcoeff%kpbl1       = 0
+      vcoeff%kpbl2       = 0
 
       !-- interpolation data for the vertical interface of cells, "nlevp1"
 
@@ -323,13 +322,13 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ! Initialization
-      vcoeff%wfac_lin_nlevp1 = 0._wp
-      vcoeff%idx0_lin_nlevp1 = 0
+      vcoeff%wfac_lin_nlevp1    = 0._wp
+      vcoeff%idx0_lin_nlevp1    = 0
       vcoeff%bot_idx_lin_nlevp1 = 0
-      vcoeff%wfacpbl1_nlevp1 = 0._wp
-      vcoeff%wfacpbl2_nlevp1 = 0._wp
-      vcoeff%kpbl1_nlevp1 = 0
-      vcoeff%kpbl2_nlevp1 = 0
+      vcoeff%wfacpbl1_nlevp1    = 0._wp
+      vcoeff%wfacpbl2_nlevp1    = 0._wp
+      vcoeff%kpbl1_nlevp1       = 0
+      vcoeff%kpbl2_nlevp1       = 0
 
       vcoeff%l_allocated = .TRUE.
     END IF
@@ -351,20 +350,14 @@ CONTAINS
     ! deallocate coefficient tables:
     IF (vcoeff%l_allocated) THEN
       ! real(wp)
-      DEALLOCATE( &
-        &  vcoeff%wfac_lin, &
-        &  vcoeff%coef1,    &
-        &  vcoeff%coef2,    &
-        &  vcoeff%coef3,    &
-        &  STAT=ierrstat )
+      DEALLOCATE( vcoeff%wfac_lin, vcoeff%coef1,    &
+        &         vcoeff%coef2,    vcoeff%coef3,    &
+        &         STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
       ! integer
-      DEALLOCATE( &
-        &  vcoeff%idx0_lin,       &
-        &  vcoeff%idx0_cub,       &
-        &  vcoeff%bot_idx_lin,    &
-        &  vcoeff%bot_idx_cub,    &
-        &  STAT=ierrstat )
+      DEALLOCATE( vcoeff%idx0_lin,    vcoeff%idx0_cub,       &
+        &         vcoeff%bot_idx_lin, vcoeff%bot_idx_cub,    &
+        &         STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
       DEALLOCATE( vcoeff%wfacpbl1, vcoeff%wfacpbl2, STAT=ierrstat )
@@ -376,10 +369,8 @@ CONTAINS
       DEALLOCATE( vcoeff%wfac_lin_nlevp1, STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
       ! integer
-      DEALLOCATE( &
-        &  vcoeff%idx0_lin_nlevp1,       &
-        &  vcoeff%bot_idx_lin_nlevp1,    &
-        &  STAT=ierrstat )
+      DEALLOCATE( vcoeff%idx0_lin_nlevp1, vcoeff%bot_idx_lin_nlevp1,    &
+        &         STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
       DEALLOCATE( vcoeff%wfacpbl1_nlevp1, vcoeff%wfacpbl2_nlevp1, STAT=ierrstat )

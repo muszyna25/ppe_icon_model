@@ -68,7 +68,7 @@ MODULE mo_pp_scheduler
   USE mo_impl_constants,          ONLY: SUCCESS,                       &
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,                &
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,              &     
-    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,     &
+    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT,                              &
     & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
     & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,    &
     & TASK_FINALIZE_IPZ,                                               &
