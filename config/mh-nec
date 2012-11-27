@@ -52,10 +52,10 @@ FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'
 
 # Initialization with NaN for debugging purposes
 DEBUGFLAGS = -Wf,-init stack=nan heap=nan -Wf,-K a -D__BOUNDCHECK
-LDDEBUG    = -Wf"-K a" -Wl,-f nan
+LDDEBUG    = -Wf'-K a' -Wl,-f nan
 
 # linker flags
-LDFLAGS = -Wl,-Z 16G
+#LDFLAGS = -Wl,-Z 16G
 
 # Inlining
 INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
