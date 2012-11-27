@@ -174,8 +174,8 @@ experimentAnalyzedData.each {|experiment,files|
   yearmean = "yearmean"
   ymfile   = [yearmean,ofile].join("_")
 
-  FileUtils.rm(ofile) unless plot?
-  FileUtils.rm(ymfile) unless plot?
+  FileUtils.rm(ofile) unless plot? if File.exist?(ofile)
+  FileUtils.rm(ymfile) unless plot? if File.exist?(ymfile)
   Cdo.cat(:input => files.sort.join(' '), :output => ofile, :force => !plot?)
   Cdo.settunits('years',:input => "-yearmean #{ofile}", :output => ymfile,:force => !plot?)
 
