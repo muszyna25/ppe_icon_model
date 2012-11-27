@@ -587,7 +587,8 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qc',                             &
                     &  'kg kg-1', 'specific_cloud_water_content', DATATYPE_FLT32),   &
-                    & t_grib2_var(0, 1, 83, ibits, GRID_REFERENCE, GRID_CELL),       &
+!DR                    & t_grib2_var(0, 1, 83, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & t_grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -606,7 +607,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qi',                             &
                     &  'kg kg-1','specific_cloud_ice_content', DATATYPE_FLT32),      &
-                    & t_grib2_var(0, 1, 84, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & t_grib2_var(0, 1, 82, ibits, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -625,7 +626,8 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qr',                             &
                     &  'kg kg-1','rain_mixing_ratio', DATATYPE_FLT32),               &
-                    & t_grib2_var(0, 1, 85, ibits, GRID_REFERENCE, GRID_CELL),       &
+!DR                    & t_grib2_var(0, 1, 85, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & t_grib2_var(0, 1, 24, ibits, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -644,7 +646,8 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qs',                             &
                     &  'kg kg-1','snow_mixing_ratio', DATATYPE_FLT32),               &
-                    & t_grib2_var(0, 1, 86, ibits, GRID_REFERENCE, GRID_CELL),       &
+!DR                    & t_grib2_var(0, 1, 86, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & t_grib2_var(0, 1, 25, ibits, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
