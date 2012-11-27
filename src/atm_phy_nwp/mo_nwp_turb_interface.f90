@@ -4,7 +4,7 @@
 !! This module is the interface between nwp_nh_interface to the 
 !! turbulence parameterisations:
 !! inwp_turb == 1 == turbulence scheme by M. Raschendorfer run in COSMO
-!! inwp_turb == 2 == turbulence scheme imported from the GME (to be implemented)
+!! inwp_turb == 2 == turbulence scheme imported from the GME
 !!
 !! @author Kristina Froehlich, DWD, Offenbach (2010-01-25)
 !!
@@ -64,6 +64,7 @@ MODULE mo_nwp_turb_interface
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: turbtran, turbdiff
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
+  USE mo_gme_turbdiff,         ONLY: partura, parturs, progimp_turb, nearsfc
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
@@ -131,6 +132,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   INTEGER  :: lc_class, i_lc_si                     !< land-cover class
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
+
+  REAL(wp) :: z_umfl_s(nproma)                      !< aux u-momentum flux at surface [N/m2]
+  REAL(wp) :: z_vmfl_s(nproma)                      !< aux u-momentum flux at surface [N/m2]
 
   REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac
 
@@ -207,7 +211,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,jb) = 0._wp
-      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 .OR.   &
+        &       atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN   
          DO jc = i_startidx, i_endidx
           lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
@@ -526,8 +531,59 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !-------------------------------------------------------------------------
 !> GME turbulence scheme 
 !-------------------------------------------------------------------------
+!!    CALL finish('nwp_turb_interface','GME turbulence scheme not yet implemented')
 
-      CALL finish('nwp_turb_interface','GME turbulence scheme not yet implemented')
+!     turbulent diffusion coefficients in atmosphere
+      CALL partura( zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),                      &
+        &           u=p_diag%u(:,:,jb),         v=p_diag%v(:,:,jb), t=p_diag%temp(:,:,jb),      &
+        &           qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), & 
+        &           ph=p_diag%pres_ifc(:,:,jb), pf=p_diag%pres(:,:,jb),                         &
+        &           ie=nproma, ke=nlev, ke1=nlevp1,                                             &
+        &           tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb)  )
+
+!     turbulent diffusion coefficients at the surface
+      CALL parturs( zsurf=p_metrics%z_ifc(:,nlevp1,jb), z1=p_metrics%z_mc(:,nlev,jb),          &
+        &           u1=p_diag%u(:,nlev,jb), v1=p_diag%v(:,nlev,jb), t1=p_diag%temp(:,nlev,jb), &
+        &           qv1=p_prog_rcf%tracer(:,nlev,jb,iqv),                                      &
+        &           t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                      &
+        &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=wtr_prog_now%h_ice(:,jb),        &
+        &           ie=nproma, tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                 &
+        &           gz0=prm_diag%gz0(:,jb) )
+
+!     tendencies from turbulent diffusion
+      CALL progimp_turb( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),      &
+        &                qc=p_prog_rcf%tracer(:,:,jb,iqc),                             &
+        &                u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                    &
+        &                zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),        &
+        &                rho=p_prog%rho(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),      &
+        &                tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb),       &
+        &                t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),         &
+        &                h_ice=wtr_prog_now%h_ice(:,jb),                               &
+        &                tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),               &
+        &                ie=nproma, ke=nlev, ke1=nlevp1, dt=tcall_turb_jg,             &
+        &                du_turb=prm_nwp_tend%ddt_u_turb(:,:,jb),                      &
+        &                dv_turb=prm_nwp_tend%ddt_v_turb(:,:,jb),                      &
+        &                dt_turb=prm_nwp_tend%ddt_temp_turb(:,:,jb),                   &
+        &                dqv_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),            &
+        &                dqc_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),            &
+        &                shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),   &
+        &                umfl_s=z_umfl_s(:)          , vmfl_s=z_vmfl_s(:) )
+
+!     diagnose 2 m temperature, humidity, 10 m wind
+      CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),        &
+        &           u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                      &
+        &           zf=p_metrics%z_mc(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),     &
+        &           t_g=lnd_prog_now%t_g(:,jb),                                     &
+        &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                 &
+        &           gz0=prm_diag%gz0(:,jb),                                         &
+        &           shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),     &
+        &           umfl_s=z_umfl_s(:)          , vmfl_s=z_vmfl_s(:),               &
+        &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                             &
+        &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb), &
+        &           qv_s=lnd_diag%qv_s(:,jb), ie=nproma, ke=nlev,                   &
+        &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),           &
+        &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),         &
+        &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb) )
 
     ENDIF !inwp_turb
 

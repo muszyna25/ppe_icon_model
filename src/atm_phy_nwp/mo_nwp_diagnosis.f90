@@ -337,7 +337,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
                                & / p_sim_time 
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)              &
@@ -378,7 +378,7 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  + prm_diag%lhfl_s(jc,jb)           &
                                &  * dt_phy_jg(itfastphy)
@@ -419,7 +419,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              &
                                & / p_sim_time
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)/lh_v         &
