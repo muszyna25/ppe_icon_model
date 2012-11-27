@@ -63,7 +63,7 @@ ecp  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
 
 if [[ $ldeldata = 1 ]] ; then
   \rm -rf met.job.*
-  \rm -rf grb_data 
+  \rm -rf grb_data
 fi
 
 

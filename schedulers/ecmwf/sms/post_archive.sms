@@ -63,11 +63,13 @@ ecp  -o meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 
 
 #-----------------------------------------------------------------------------
-# delete grib data
+# delete complete date directory
 
 if [[ $ldeldata = 1 ]] ; then
-  \rm -rf met.job.*
-  \rm -rf grb_data 
+ #\rm -rf met.job.*
+ #\rm -rf grb_data
+  cd ..
+  \rm -rf ${gatedir}
 fi
 
 
