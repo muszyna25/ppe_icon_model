@@ -226,7 +226,7 @@ MODULE mo_physical_constants
     albim        = 0.64_wp,         & ! Albedo of ice (melting)    
     albedoW      = 0.07_wp,         & ! albedo of the ocean 
     !I_0          = 0.3             ! Ice-surface penetrating shortwave fraction
-    I_0          = 0.17_wp            ! Ice-surface penetrating shortwave fraction
+    I_0          = 0.00_wp            ! Ice-surface penetrating shortwave fraction
 
 
 !--------- parameters for NWP sea-ice model (we should agree on a single value)-----
