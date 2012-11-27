@@ -5,7 +5,7 @@ MODULE mo_mpi
 
   ! actual method (MPI-2)
 #ifndef NOMPI
-#ifndef SUNF95
+#if !defined (__SUNPRO_F95)
   USE mpi
 #endif
 #endif
@@ -22,7 +22,7 @@ MODULE mo_mpi
   PRIVATE                          ! all declarations are private
 
 #ifndef NOMPI
-#ifdef SUNF95
+#if defined (__SUNPRO_F95)
   INCLUDE "mpif.h"
 #endif
 #endif

@@ -666,7 +666,7 @@ CONTAINS
   SUBROUTINE init_name_list_output(lprintlist, isample)
 
 #ifndef NOMPI
-#ifdef SUNF95
+#ifdef  __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
   USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
@@ -3174,7 +3174,7 @@ CONTAINS
   SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
-#ifdef SUNF95
+#ifdef  __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
@@ -3835,7 +3835,7 @@ CONTAINS
 
   SUBROUTINE init_memory_window
 
-#ifdef SUNF95
+#ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
@@ -4025,7 +4025,7 @@ CONTAINS
 
   SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
-#ifdef SUNF95
+#ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
