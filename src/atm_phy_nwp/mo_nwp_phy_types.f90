@@ -205,6 +205,8 @@ MODULE mo_nwp_phy_types
       tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
       t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
       t_2m_s6avg(:,:),     & !! 6 hourly sample 2 m temperature average       (  K  )
+      tmax_2m(:,:)    ,    & !! maximum temperature in 2m (for specified timerange) ( K )
+      tmin_2m(:,:)    ,    & !! minimum temperature in 2m (for specified timerange) ( K )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
       qv_2m_s6avg(:,:),    & !! 6 hourly sample 2 m specific water vapor content average   (kg/kg)
       td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )

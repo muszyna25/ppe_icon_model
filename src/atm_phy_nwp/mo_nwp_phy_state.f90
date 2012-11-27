@@ -93,7 +93,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,      &
   &                               ZA_TOA, DATATYPE_FLT32, DATATYPE_PACK16,      &
   &                               FILETYPE_NC2, TSTEP_INSTANT, TSTEP_ACCUM,     &
-  &                               TSTEP_AVG
+  &                               TSTEP_AVG, TSTEP_MAX, TSTEP_MIN
 
 IMPLICIT NONE
 PRIVATE
@@ -1113,6 +1113,23 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 't_2m_s6avg', diag%t_2m_s6avg,               &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc, ldims=shape2d, &
           & isteptype=TSTEP_AVG )
+
+
+        ! &      diag%tmax_2m(nproma,nblks_c)
+        cf_desc    = t_cf_var('tmax_2m', 'K ','Max 2m temperature', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'tmax_2m', diag%tmax_2m,                     &
+          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & isteptype=TSTEP_MAX )
+
+        ! &      diag%tmin_2m(nproma,nblks_c)
+        cf_desc    = t_cf_var('tmin_2m', 'K ','Min 2m temperature', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'tmin_2m', diag%tmin_2m,                     &
+          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & isteptype=TSTEP_MIN )
 
 
         ! &      diag%qv_2m(nproma,nblks_c)

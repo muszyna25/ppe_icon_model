@@ -2113,15 +2113,6 @@ CONTAINS
       ! HYBRID_LAYER
       !
       of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
-
-!      ALLOCATE(levels(nlev))
-!      DO k = 1, nlev
-!        levels(k) = REAL(k,wp)
-!      END DO
-!      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid), levels)
-!      DEALLOCATE(levels)
-!      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
-
       ALLOCATE(lbounds(nlev), ubounds(nlev))
       DO k = 1, nlev
         lbounds(k) = REAL(k,wp)
