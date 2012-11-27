@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.5.7
+! Fortran interface for CDI library version 1.5.8
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   August 2012
+! Uwe Schulzweida, MPI-MET, Hamburg,   October 2012
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -336,6 +336,9 @@
       PARAMETER (CALENDAR_366DAYS       =  4)
       INTEGER    CALENDAR_NONE         
       PARAMETER (CALENDAR_NONE          =  5)
+!
+!  parallel IO IOMode
+!
       INTEGER    PIO_NONE              
       PARAMETER (PIO_NONE               =  0)
       INTEGER    PIO_MPI               
@@ -346,6 +349,9 @@
       PARAMETER (PIO_ASYNCH             =  3)
       INTEGER    PIO_FPGUARD           
       PARAMETER (PIO_FPGUARD            =  4)
+!
+!  parallel IO routines
+!
 !                     pioEndDef
       EXTERNAL        pioEndDef
 
@@ -382,6 +388,12 @@
 !                                     INTEGER         ,
 !                                     INTEGER         )
       EXTERNAL        pioWriteTimestep
+
+!
+!  CDI control routines
+!
+!                     cdiReset
+      EXTERNAL        cdiReset
 
       CHARACTER*80    cdiStringError
 !                                    (INTEGER         cdiErrno)
