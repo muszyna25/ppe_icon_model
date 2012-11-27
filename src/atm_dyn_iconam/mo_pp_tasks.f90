@@ -622,58 +622,61 @@ CONTAINS
       SELECT CASE ( vert_intp_method )
       CASE ( VINTP_METHOD_UV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_UV")
-        CALL uv_intp(tmp_var(:,:,:),                                       & !in
-          &          out_var%r_ptr(:,:,:,out_var_idx,1),                   & !out
-          &          p_metrics%z_mc, p_z3d,                                & !in
-          &          nblks, npromz, nlev, n_ipzlev,                        & !in
-          &          vcoeff%coef1, vcoeff%coef2,                           & !in
-          &          vcoeff%coef3, vcoeff%wfac_lin,                        & !in
-          &          vcoeff%idx0_cub, vcoeff%idx0_lin,                     & !in
-          &          vcoeff%bot_idx_cub, vcoeff%bot_idx_lin,               & !in
-          &          vcoeff%wfacpbl1, vcoeff%kpbl1, vcoeff%wfacpbl2,       & !in
-          &          vcoeff%kpbl2,                                         & !in
-          &          l_hires_intp=l_hires_intp,                            & !in
-          &          l_restore_fricred=l_restore_fricred )                   !in
+        CALL uv_intp(tmp_var(:,:,:),                                                & !in
+          &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
+          &          p_metrics%z_mc, p_z3d,                                         & !in
+          &          nblks, npromz, nlev, n_ipzlev,                                 & !in
+          &          vcoeff%coef1, vcoeff%coef2,                                    & !in
+          &          vcoeff%coef3, vcoeff%lin_cell%wfac_lin,                        & !in
+          &          vcoeff%idx0_cub, vcoeff%lin_cell%idx0_lin,                     & !in
+          &          vcoeff%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,               & !in
+          &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
+          &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
+          &          l_hires_intp=l_hires_intp,                                     & !in
+          &          l_restore_fricred=l_restore_fricred )                            !in
         !
       CASE ( VINTP_METHOD_LIN )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
-        CALL lin_intp(tmp_var(:,:,:),                                      & !inout
-          &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-          &           nblks, npromz, nlev, n_ipzlev,                       & !in
-          &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & !in
-          &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & !in
-          &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & !in
-          &           l_loglin=l_loglin,                                   & !in
-          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,        & !in
-          &           lower_limit=lower_limit )                              !in
+        CALL lin_intp(tmp_var(:,:,:),                                               & !inout
+          &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
+          &           nblks, npromz, nlev, n_ipzlev,                                & !in
+          &           vcoeff%lin_cell%wfac_lin, vcoeff%lin_cell%idx0_lin,           & !in
+          &           vcoeff%lin_cell%bot_idx_lin,                                  & !in
+          &           vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,              & !in
+          &           vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,              & !in
+          &           l_loglin=l_loglin,                                            & !in
+          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,                 & !in
+          &           lower_limit=lower_limit )                                       !in
         !
       CASE ( VINTP_METHOD_LIN_NLEVP1 )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
-        CALL lin_intp(tmp_var(:,:,:),                                      & !inout
-          &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-          &           nblks, npromz, nlevp1, n_ipzlev,                     & !in
-          &           vcoeff%wfac_lin_nlevp1, vcoeff%idx0_lin_nlevp1,      & !in
-          &           vcoeff%bot_idx_lin_nlevp1,                           & !in
-          &           vcoeff%wfacpbl1_nlevp1, vcoeff%kpbl1_nlevp1,         & !in
-          &           vcoeff%wfacpbl2_nlevp1, vcoeff%kpbl2_nlevp1,         & !in
-          &           l_loglin=l_loglin,                                   & !in
-          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,        & !in
-          &           lower_limit=lower_limit )                              !in
+        CALL lin_intp(tmp_var(:,:,:),                                               & !inout
+          &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
+          &           nblks, npromz, nlevp1, n_ipzlev,                              & !in
+          &           vcoeff%lin_cell_nlevp1%wfac_lin,                              & !in
+          &           vcoeff%lin_cell_nlevp1%idx0_lin,                              & !in
+          &           vcoeff%lin_cell_nlevp1%bot_idx_lin,                           & !in
+          &           vcoeff%lin_cell_nlevp1%wfacpbl1, vcoeff%lin_cell_nlevp1%kpbl1,& !in
+          &           vcoeff%lin_cell_nlevp1%wfacpbl2, vcoeff%lin_cell_nlevp1%kpbl2,& !in
+          &           l_loglin=l_loglin,                                            & !in
+          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,                 & !in
+          &           lower_limit=lower_limit )                                       !in
         !
       CASE (VINTP_METHOD_QV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
-        CALL qv_intp(tmp_var(:,:,:),                                     & !in
-          &          out_var%r_ptr(:,:,:,out_var_idx,1),                 & !out
-          &          p_metrics%z_mc, p_z3d, p_diag%temp,                 & !in
-          &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d, & !in
-          &          nblks, npromz, nlev, n_ipzlev,                      & !in
-          &          vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,           & !in
-          &          vcoeff%wfac_lin, vcoeff%idx0_cub, vcoeff%idx0_lin,  & !in
-          &          vcoeff%bot_idx_cub, vcoeff%bot_idx_lin,             & !in
-          &          vcoeff%wfacpbl1, vcoeff%kpbl1,                      & !in
-          &          vcoeff%wfacpbl2, vcoeff%kpbl2,                      & !in
-          &          l_satlimit=l_satlimit, lower_limit=lower_limit,     & !in
-          &          l_restore_pbldev=l_restore_pbldev )                   !in
+        CALL qv_intp(tmp_var(:,:,:),                                                & !in
+          &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
+          &          p_metrics%z_mc, p_z3d, p_diag%temp,                            & !in
+          &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d,            & !in
+          &          nblks, npromz, nlev, n_ipzlev,                                 & !in
+          &          vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,                      & !in
+          &          vcoeff%lin_cell%wfac_lin, vcoeff%idx0_cub,                     & !in
+          &          vcoeff%lin_cell%idx0_lin,                                      & !in
+          &          vcoeff%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,               & !in
+          &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
+          &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
+          &          l_satlimit=l_satlimit, lower_limit=lower_limit,                & !in
+          &          l_restore_pbldev=l_restore_pbldev )                              !in
       END SELECT ! vert_intp_method
 
     END IF
@@ -746,16 +749,16 @@ CONTAINS
       ! allocate coefficient table:
       CALL vcoeff_allocate(nblks, NZLEV, vcoeff)
       ! compute extrapolation coefficients:
-      CALL prepare_extrap(p_metrics%z_mc,                               & !in
-        &                 nblks, npromz, nlev,                          & !in
-        &                 vcoeff%kpbl1, vcoeff%wfacpbl1,                & !out
-        &                 vcoeff%kpbl2, vcoeff%wfacpbl2   )               !out
+      CALL prepare_extrap(p_metrics%z_mc,                                     & !in
+        &                 nblks, npromz, nlev,                                & !in
+        &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1,    & !out
+        &                 vcoeff%lin_cell%kpbl2, vcoeff%lin_cell%wfacpbl2   )   !out
       ! Interpolate pressure on z-level "0": 
-      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,     &
-        &                pmsl_aux(:,1,:),                               &
-        &                nblks, npromz, p_patch%nlev,                   &
-        &                vcoeff%wfacpbl1, vcoeff%kpbl1,                 &
-        &                vcoeff%wfacpbl2, vcoeff%kpbl2,                 &
+      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,           &
+        &                pmsl_aux(:,1,:),                                     &
+        &                nblks, npromz, p_patch%nlev,                         &
+        &                vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,     &
+        &                vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,     &
         &                ZERO_HEIGHT, EXTRAPOL_DIST)
       ! deallocate coefficient tables:
       CALL vcoeff_deallocate(vcoeff)

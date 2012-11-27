@@ -72,12 +72,27 @@ MODULE mo_opt_diagnostics
   PUBLIC :: p_nh_opt_diag         ! state vector of optional diagnostic variables
                                   ! e.g. variables on p- and/or z-levels
   PUBLIC :: t_nh_diag_pz
-  PUBLIC :: t_vcoeff
+  PUBLIC :: t_vcoeff, t_vcoeff_lin
   ! subroutines
   PUBLIC :: vcoeff_allocate, vcoeff_deallocate
   PUBLIC :: construct_opt_diag
   PUBLIC :: destruct_opt_diag
 
+
+  ! Sub-type of "t_vcoeff" containing linear interpolation
+  ! coefficients
+  TYPE t_vcoeff_lin
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlev, nblks)
+      &  wfac_lin
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlev, nblks)
+      &  idx0_lin
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
+      &  bot_idx_lin
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
+      &  kpbl1, kpbl2
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
+      &  wfacpbl1, wfacpbl2
+  END TYPE t_vcoeff_lin
 
   ! Derived type containing coefficient tables for vertical
   ! interpolation.
@@ -86,34 +101,22 @@ MODULE mo_opt_diagnostics
       & l_initialized = .FALSE.,  &
       & l_allocated   = .FALSE.
 
+    ! LINEAR interpolation
+    TYPE (t_vcoeff_lin) ::    &  
+      &    lin_cell,          &  !< interpolation data for the model levels
+      &    lin_cell_nlevp1       !< interpolation data for the vertical interface of cells, "nlevp1"
+
+    ! CUBIC interpolation (model levels)
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlev, nblks)
-      &  wfac_lin, coef1, coef2, coef3
+      &  coef1, coef2, coef3
     INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlev, nblks)
-      &  idx0_lin, idx0_cub
+      &  idx0_cub
     INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
-      &  bot_idx_lin, bot_idx_cub
-
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
-      &  kpbl1, kpbl2
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
-      &  wfacpbl1, wfacpbl2
-
-    ! interpolation data for the vertical interface of cells, "nlevp1"
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nlevp1, nblks)
-      &  wfac_lin_nlevp1
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &  ! (nproma, nblks)
-      &  idx0_lin_nlevp1
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
-      &  bot_idx_lin_nlevp1
-    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
-      &  kpbl1_nlevp1, kpbl2_nlevp1
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &  ! (nproma, nblks)
-      &  wfacpbl1_nlevp1, wfacpbl2_nlevp1
-
+      &  bot_idx_cub
   END TYPE t_vcoeff
 
 
-  ! State vector for diagnostic variables on p- and/or z-levels
+  ! State vector for diagnostic variables on p-, z- and/or i-levels
   ! 
   ! @note The pointers which are collected in this derived type
   !       constitute only the minimum set of fields that are required
@@ -247,6 +250,48 @@ CONTAINS
   ! Initialize a variable containing coefficient tables for vertical
   ! interpolation. There exist to different kinds of coefficients: For
   ! p- and for z-level-interpolation.
+  SUBROUTINE vcoeff_lin_allocate(nblks, nlev, vcoeff_lin)
+    INTEGER,                   INTENT(IN)    :: nblks
+    INTEGER,                   INTENT(IN)    :: nlev
+    TYPE(t_vcoeff_lin),        INTENT(INOUT) :: vcoeff_lin
+
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_lin_allocate")
+    INTEGER :: ierrstat
+
+    ! real(wp)
+    ALLOCATE(vcoeff_lin%wfac_lin(nproma,nlev,nblks), STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ! integer
+    ALLOCATE( vcoeff_lin%idx0_lin(nproma,nlev,nblks),        &
+      &       vcoeff_lin%bot_idx_lin(nproma,nblks),          &
+      &       STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ALLOCATE( vcoeff_lin%wfacpbl1(nproma,nblks),             &
+      &       vcoeff_lin%wfacpbl2(nproma,nblks),             &
+      &       STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ALLOCATE( vcoeff_lin%kpbl1(nproma,nblks),                &
+      &       vcoeff_lin%kpbl2(nproma,nblks),                &
+      &       STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! Initialization
+    vcoeff_lin%wfac_lin    = 0._wp
+    vcoeff_lin%idx0_lin    = 0
+    vcoeff_lin%bot_idx_lin = 0
+    vcoeff_lin%wfacpbl1    = 0._wp
+    vcoeff_lin%wfacpbl2    = 0._wp
+    vcoeff_lin%kpbl1       = 0
+    vcoeff_lin%kpbl2       = 0
+
+  END SUBROUTINE vcoeff_lin_allocate
+
+
+  !-------------
+  !>  
+  ! Initialize a variable containing coefficient tables for vertical
+  ! interpolation. There exist to different kinds of coefficients: For
+  ! p- and for z-level-interpolation.
   SUBROUTINE vcoeff_allocate(nblks, nlev, vcoeff)
     INTEGER,                           INTENT(IN)    :: nblks
     INTEGER,                           INTENT(IN)    :: nlev
@@ -256,79 +301,29 @@ CONTAINS
     INTEGER :: ierrstat
 
     IF (.NOT. vcoeff%l_allocated) THEN
+      CALL vcoeff_lin_allocate(nblks, nlev, vcoeff%lin_cell)
+      CALL vcoeff_lin_allocate(nblks, nlev, vcoeff%lin_cell_nlevp1)
+
+      ! CUBIC interpolation coefficients:      
+
       ! real(wp)
-      ALLOCATE( &
-        &  vcoeff%wfac_lin(nproma,nlev,nblks),        &
-        &  vcoeff%coef1(nproma,nlev,nblks),           &
-        &  vcoeff%coef2(nproma,nlev,nblks),           &
-        &  vcoeff%coef3(nproma,nlev,nblks),           &
-        &  STAT=ierrstat )
+      ALLOCATE( vcoeff%coef1(nproma,nlev,nblks),           &
+        &       vcoeff%coef2(nproma,nlev,nblks),           &
+        &       vcoeff%coef3(nproma,nlev,nblks),           &
+        &       STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ! integer
-      ALLOCATE( &
-        &  vcoeff%idx0_lin(nproma,nlev,nblks),        &
-        &  vcoeff%idx0_cub(nproma,nlev,nblks),        &
-        &  vcoeff%bot_idx_lin(nproma,nblks),          &
-        &  vcoeff%bot_idx_cub(nproma,nblks),          &
-        &  STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      ALLOCATE( &
-        &  vcoeff%wfacpbl1(nproma,nblks),             &
-        &  vcoeff%wfacpbl2(nproma,nblks),             &
-        &  STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      ALLOCATE( &
-        &  vcoeff%kpbl1(nproma,nblks),                &
-        &  vcoeff%kpbl2(nproma,nblks),                &
-        &  STAT=ierrstat )
+      ALLOCATE( vcoeff%idx0_cub(nproma,nlev,nblks),        &
+        &       vcoeff%bot_idx_cub(nproma,nblks),          &
+        &       STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ! Initialization
-      vcoeff%wfac_lin    = 0._wp
       vcoeff%coef1       = 0._wp
       vcoeff%coef2       = 0._wp
       vcoeff%coef3       = 0._wp
-      vcoeff%idx0_lin    = 0
       vcoeff%idx0_cub    = 0
-      vcoeff%bot_idx_lin = 0
       vcoeff%bot_idx_cub = 0
-      vcoeff%wfacpbl1    = 0._wp
-      vcoeff%wfacpbl2    = 0._wp
-      vcoeff%kpbl1       = 0
-      vcoeff%kpbl2       = 0
-
-      !-- interpolation data for the vertical interface of cells, "nlevp1"
-
-      ! real(wp)
-      ALLOCATE( &
-        &  vcoeff%wfac_lin_nlevp1(nproma,nlev,nblks), &
-        &  STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      ! integer
-      ALLOCATE( &
-        &  vcoeff%idx0_lin_nlevp1(nproma,nlev,nblks), &
-        &  vcoeff%bot_idx_lin_nlevp1(nproma,nblks),   &
-        &  STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      ALLOCATE( &
-        &  vcoeff%wfacpbl1_nlevp1(nproma,nblks),      &
-        &  vcoeff%wfacpbl2_nlevp1(nproma,nblks),      &
-        &  STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      ALLOCATE( &
-        &  vcoeff%kpbl1_nlevp1(nproma,nblks),         &
-        &  vcoeff%kpbl2_nlevp1(nproma,nblks),         &
-        &  STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
-      ! Initialization
-      vcoeff%wfac_lin_nlevp1    = 0._wp
-      vcoeff%idx0_lin_nlevp1    = 0
-      vcoeff%bot_idx_lin_nlevp1 = 0
-      vcoeff%wfacpbl1_nlevp1    = 0._wp
-      vcoeff%wfacpbl2_nlevp1    = 0._wp
-      vcoeff%kpbl1_nlevp1       = 0
-      vcoeff%kpbl2_nlevp1       = 0
 
       vcoeff%l_allocated = .TRUE.
     END IF
@@ -337,11 +332,36 @@ CONTAINS
 
   !-------------
   !>  
+  ! Clear a coefficient tables for linear vertical interpolation.
+  SUBROUTINE vcoeff_lin_deallocate(vcoeff_lin)
+    TYPE(t_vcoeff_lin), INTENT(INOUT) :: vcoeff_lin
+
+    CHARACTER(*), PARAMETER :: routine = &
+      &  TRIM("mo_opt_diagnostics:vcoeff_lin_deallocate")
+    INTEGER :: ierrstat
+
+    ! real(wp)
+    DEALLOCATE( vcoeff_lin%wfac_lin, STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    ! integer
+    DEALLOCATE( vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    
+    DEALLOCATE( vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    DEALLOCATE( vcoeff_lin%kpbl1, vcoeff_lin%kpbl2, STAT=ierrstat )
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+  END SUBROUTINE vcoeff_lin_deallocate
+
+
+  !-------------
+  !>  
   ! Clear a variable containing coefficient tables for vertical
   ! interpolation. There exist to different kinds of coefficients: For
   ! p- and for z-level-interpolation.
   SUBROUTINE vcoeff_deallocate(vcoeff)
-    TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
+    TYPE(t_vcoeff), INTENT(INOUT) :: vcoeff
 
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_opt_diagnostics:vcoeff_deallocate")
@@ -349,33 +369,17 @@ CONTAINS
 
     ! deallocate coefficient tables:
     IF (vcoeff%l_allocated) THEN
+      CALL vcoeff_lin_deallocate(vcoeff%lin_cell)
+      CALL vcoeff_lin_deallocate(vcoeff%lin_cell_nlevp1)
+
+      ! CUBIC interpolation coefficients:
       ! real(wp)
-      DEALLOCATE( vcoeff%wfac_lin, vcoeff%coef1,    &
-        &         vcoeff%coef2,    vcoeff%coef3,    &
+      DEALLOCATE( vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,    &
         &         STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
       ! integer
-      DEALLOCATE( vcoeff%idx0_lin,    vcoeff%idx0_cub,       &
-        &         vcoeff%bot_idx_lin, vcoeff%bot_idx_cub,    &
+      DEALLOCATE( vcoeff%idx0_cub, vcoeff%bot_idx_cub,    &
         &         STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-      DEALLOCATE( vcoeff%wfacpbl1, vcoeff%wfacpbl2, STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-      DEALLOCATE( vcoeff%kpbl1, vcoeff%kpbl2, STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-      ! real(wp)
-      DEALLOCATE( vcoeff%wfac_lin_nlevp1, STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-      ! integer
-      DEALLOCATE( vcoeff%idx0_lin_nlevp1, vcoeff%bot_idx_lin_nlevp1,    &
-        &         STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-      DEALLOCATE( vcoeff%wfacpbl1_nlevp1, vcoeff%wfacpbl2_nlevp1, STAT=ierrstat )
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-      DEALLOCATE( vcoeff%kpbl1_nlevp1, vcoeff%kpbl2_nlevp1, STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
       vcoeff%l_allocated = .FALSE.
@@ -383,7 +387,6 @@ CONTAINS
 
     vcoeff%l_initialized = .FALSE.
   END SUBROUTINE vcoeff_deallocate
-
 
 END MODULE mo_opt_diagnostics
 
