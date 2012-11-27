@@ -11,6 +11,8 @@ require 'iconPlot'
 def plot(ofile,experiment,secPlots,q,lock,plotDir=".")
   plotDir << '/' unless '/' == plotDir[-1]
 
+  title = (true) ? experiment : '"ICON Ocean, Mimetic-Miura, L40"'
+
   plotFile = 'thingol' == Socket.gethostname \
            ? '/home/ram/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl' \
            : ENV['HOME'] +'/liz/icon/scripts/postprocessing/tools/icon_plot.ncl'
@@ -19,9 +21,9 @@ def plot(ofile,experiment,secPlots,q,lock,plotDir=".")
            : IconPlot.new("/home/zmaw/m300064/local/bin/nclsh", plotFile, File.dirname(plotFile), 'png','display',true,true)
   q.push {
     im = plotter.scalarPlot(ofile,plotDir+'T_'+     File.basename(ofile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',
+                            :tStrg => title, :bStrg => '" "',
                             :hov => true,
-                            :minVar => -3.0,:maxVar => 3.0,:withLines => false,
+                            :minVar => -3.0,:maxVar => 3.0,:withLines => false,:lStrg => 'T',
                             :numLevs => 20,:rStrg => 'Temperature', :colormap => "BlWhRe")
     lock.synchronize {(secPlots[experiment] ||= []) << im }
  #  im = plotter.scalarPlot(experimentFiles[experiment][-1],'T_200m'+     File.basename(ofile,'.nc'),'T',
@@ -37,17 +39,17 @@ def plot(ofile,experiment,secPlots,q,lock,plotDir=".")
   }
   q.push {
     im =  plotter.scalarPlot(ofile,plotDir +'S_'+     File.basename(ofile,'.nc'),'S',
-                             :tStrg => experiment, :bStrg => '" "',
+                             :tStrg => title, :bStrg => '" "',
                              :hov => true,
-                             :minVar => -0.2,:maxVar => 0.2,:withLines => false,
+                             :minVar => -0.2,:maxVar => 0.2,:withLines => false,:lStrg => 'S',
                              :numLevs => 16,:rStrg => 'Salinity', :colormap => "BlWhRe")
     lock.synchronize {(secPlots[experiment] ||= []) << im }
   }
   q.push {
     im = plotter.scalarPlot(ofile,plotDir+'rhopot_'+File.basename(ofile,'.nc'),'rhopot',
-                            :tStrg => experiment, :bStrg => '"  "',
+                            :tStrg => title, :bStrg => '"  "',
                             :hov => true,
-                            :minVar => -0.6,:maxVar => 0.6,:withLines => false,
+                            :minVar => -0.6,:maxVar => 0.6,:withLines => false,:lStrg => 'rhopot',
                             :numLevs => 24,:rStrg => 'Pot.Density', :colormap => "BlWhRe")
     lock.synchronize {(secPlots[experiment] ||= []) << im }
   }
@@ -56,22 +58,22 @@ end
 def cropPlots(secPlots,plotDir='.')
   plotDir << '/' unless '/' == plotDir[-1]
   q = JobQueue.new
-  cropfiles = []
   secPlots.each {|exp,files|
     q.push {
+      cropfiles = []
       files.each {|sp|
-      cropfile = plotDir+"crop_#{File.basename(sp)}"
-      cmd      = "convert -resize 60%  -crop 650x560+50+50 #{sp} #{cropfile}"
-      puts cmd
-      IO.popen(cmd)
-      cropfiles << cropfile
-    }
-    images = cropfiles[-3,3]
-    system("convert +append #{(images.grep(/crop_T/) + images.grep(/crop_S/) + images.grep(/crop_rho/)).join(' ')} #{plotDir}#{exp}.png")
+        cropfile = plotDir+"crop_#{File.basename(sp)}"
+        cmd      = "convert -resize 60%  -crop 650x560+50+50 #{sp} #{cropfile}"
+        puts cmd
+        system(cmd)
+        cropfiles << cropfile
+      }
+      images = cropfiles[-3,3]
+      system("convert +append #{(images.grep(/crop_T/) + images.grep(/crop_S/) + images.grep(/crop_rho/)).join(' ')} #{plotDir}#{exp}.png")
     }
   }
   q.run
-  system("convert +append #{(cropfiles.grep(/crop_T/) + cropfiles.grep(/crop_S/) + cropfiles.grep(/crop_rho/)).join(' ')} exp.png")
+  #system("convert +append #{(cropfiles.grep(/crop_T/) + cropfiles.grep(/crop_S/) + cropfiles.grep(/crop_rho/)).join(' ')} exp.png")
   #system("display #{cropfiles.join(' ')}") #if 'thingol' == Socket.gethostname
 end
 #==============================================================================
