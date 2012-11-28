@@ -214,7 +214,7 @@ MODULE mo_nh_init_nest_utils
     nshift = p_pc%nshift
 
     ! number of land and snow variables to be interpolated
-    num_lndvars = 3*(nlev_soil+1)+1+ & ! multi-layer soil variables
+    num_lndvars = 3*nlev_soil+1+ &     ! multi-layer soil variables
                   5+5                  ! single-layer prognostic variables + t_g, freshsnow, t_skin, t_seasfc and qv_s
     num_snowvars = 5*nlev_snow+1       ! snow fields
     num_wtrvars  = 5                   ! water state fields + fr_seaice
@@ -289,7 +289,7 @@ MODULE mo_nh_init_nest_utils
 
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
         ! Collect soil variables
-        DO jk = 1, nlev_soil+1
+        DO jk = 1, nlev_soil
           jk1 = 3*(jk-1) + 1
           DO jc = i_startidx, i_endidx
             lndvars_par(jc,jk1,jb)   = p_parent_ldiag%t_so(jc,jk,jb) - tsfc_ref_p(jc,jb)
@@ -298,9 +298,9 @@ MODULE mo_nh_init_nest_utils
           ENDDO
         ENDDO
 
-        jk1 = 3*(nlev_soil+1)+1
+        jk1 = 3*nlev_soil + 1
         DO jc = i_startidx, i_endidx
-          lndvars_par(jc,jk1,jb)   = p_parent_ldiag%t_so(jc,nlev_soil+2,jb)-tsfc_ref_p(jc,jb)
+          lndvars_par(jc,jk1,jb)   = p_parent_ldiag%t_so(jc,nlev_soil+1,jb)-tsfc_ref_p(jc,jb)
           lndvars_par(jc,jk1+1,jb) = p_parent_lprog%t_g(jc,jb)    - tsfc_ref_p(jc,jb)
           lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%t_s(jc,jb)    - tsfc_ref_p(jc,jb)
           lndvars_par(jc,jk1+3,jb) = p_parent_ldiag%t_snow(jc,jb) - tsfc_ref_p(jc,jb)
@@ -592,7 +592,7 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1) THEN
         ! Distribute soil variables
         DO jt = 1, ntiles_total
-          DO jk = 1, nlev_soil+1
+          DO jk = 1, nlev_soil
             jk1 = 3*(jk-1) + 1
             DO jc = i_startidx, i_endidx
               p_child_lprog%t_so_t(jc,jk,jb,jt) = lndvars_chi(jc,jk1,jb) + tsfc_ref_c(jc,jb)
@@ -625,10 +625,10 @@ MODULE mo_nh_init_nest_utils
           ENDDO
         ENDDO
 
-        jk1 = 3*(nlev_soil+1)+1
+        jk1 = 3*nlev_soil + 1
         DO jt = 1, ntiles_total
           DO jc = i_startidx, i_endidx
-            p_child_lprog%t_so_t(jc,nlev_soil+2,jb,jt) = lndvars_chi(jc,jk1,jb) + &
+            p_child_lprog%t_so_t(jc,nlev_soil+1,jb,jt) = lndvars_chi(jc,jk1,jb) + &
               tsfc_ref_c(jc,jb)
             ! here we need to initialize t_g and t_g_t because t_g is copied to t_g_t
             ! in nwp_surface_init for land points

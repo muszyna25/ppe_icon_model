@@ -73,7 +73,6 @@ MODULE mo_test_nh_communication
   USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys

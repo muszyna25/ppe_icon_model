@@ -141,8 +141,8 @@ CONTAINS
 
     ! number of soil layers
     ! Note that this number must be consistent with the number of entries 
-    ! in zml_soil. zml_soil provides soil layer full level heights.
-    nlev_soil = SIZE(zml_soil)-1  !< currently 7
+    ! in zml_soil. zml_soil provides soil layer full level heights (confirmed).
+    nlev_soil = SIZE(zml_soil)
 
     IF (ntiles_lnd == 1) THEN ! Reset options that can be used in combination with tile approach
       lsnowtile     = .FALSE.

@@ -196,7 +196,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_3g(nproma,p_patch%nlev+1), zdummy_vdf_3h(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
-  REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil)     , zdummy_vdf_4b(nproma,nlev_soil)
+  REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil-1)   , zdummy_vdf_4b(nproma,nlev_soil-1)
   REAL(wp) :: zalbti(nproma,ntiles_edmf)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
@@ -551,7 +551,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)    
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)  
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)       
-          lnd_prog_new%t_so_t(jc,nlev_soil+2,jb,jt) = lnd_prog_now%t_so_t(jc,nlev_soil+2,jb,jt)
+          lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,jt) = lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,jt)
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,jt) &
                                              = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,jt)
@@ -573,7 +573,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ENDDO
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
-          DO jk=1,nlev_soil+1
+          DO jk=1,nlev_soil
             lnd_prog_new%t_so_t    (jc,jk,jb,jt) = lnd_prog_now%t_so_t    (jc,jk,jb,jt)         
             lnd_prog_new%w_so_t    (jc,jk,jb,jt) = lnd_prog_now%w_so_t    (jc,jk,jb,jt)    
             lnd_prog_new%w_so_ice_t(jc,jk,jb,jt) = lnd_prog_now%w_so_ice_t(jc,jk,jb,jt)
@@ -676,7 +676,7 @@ endif
         ENDIF
       ENDDO
 
-      DO jk = 1,nlev_soil
+      DO jk = 1,nlev_soil-1
         DO jc = i_startidx, i_endidx
           zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
           zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
@@ -711,7 +711,7 @@ endif
         & KFDIA   = i_endidx                                   ,&! (IN)   
         & KLON    = nproma                                     ,&! (IN)   
         & KLEV    = p_patch%nlev                               ,&! (IN)   
-        & KLEVS   = nlev_soil                                  ,&! (IN)
+        & KLEVS   = nlev_soil-1                                ,&! (IN)  skip lowermost (climat.) layer
         & KSTEP   = nstep_turb                                 ,&! (IN)  ??? used in surfexdriver!!
         & KTILES  = ntiles_edmf                                ,&! (IN)
         & KTRAC   = itrac_vdf                                  ,&! (IN)  default 0 (itrac?)

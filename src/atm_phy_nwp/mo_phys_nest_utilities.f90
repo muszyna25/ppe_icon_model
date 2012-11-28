@@ -1758,8 +1758,8 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
               z_aux3dp_c(nproma,nfields_p,p_patch(jgc)%nblks_c),        &
               z_aux3dl2_p(nproma,nfields_l2,p_patch(jg)%nblks_c),       &  ! 2D land state fields
               z_aux3dl2_c(nproma,nfields_l2,p_patch(jgc)%nblks_c),      &
-              z_aux3dso_p(nproma,3*(nlev_soil+1),p_patch(jg)%nblks_c),  &  ! 3D land state fields for soil
-              z_aux3dso_c(nproma,3*(nlev_soil+1),p_patch(jgc)%nblks_c), &
+              z_aux3dso_p(nproma,3*nlev_soil,p_patch(jg)%nblks_c),      &  ! 3D land state fields for soil
+              z_aux3dso_c(nproma,3*nlev_soil,p_patch(jgc)%nblks_c),     &
               z_aux3dsn_p(nproma,5*nlev_snow,p_patch(jg)%nblks_c),      &  ! 3D land state fields for multi-layer snow
               z_aux3dsn_c(nproma,5*nlev_snow,p_patch(jgc)%nblks_c)         ! (used if lmulti_snow = ture))
 
@@ -1833,7 +1833,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
         z_aux3dl2_p(jc,8,jb) = ptr_ldiagp%snowfrac(jc,jb)
         z_aux3dl2_p(jc,9,jb) = ptr_ldiagp%runoff_s(jc,jb)
         z_aux3dl2_p(jc,10,jb) = ptr_ldiagp%runoff_g(jc,jb)
-        z_aux3dl2_p(jc,11,jb) = ptr_ldiagp%t_so(jc,nlev_soil+2,jb)
+        z_aux3dl2_p(jc,11,jb) = ptr_ldiagp%t_so(jc,nlev_soil+1,jb)
         IF (lmulti_snow) THEN
           z_aux3dl2_p(jc,12,jb) = ptr_ldiagp%t_snow_mult(jc,nlev_snow+1,jb)
         ELSE
@@ -1841,7 +1841,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
         ENDIF
       ENDDO
 
-      DO jk = 1, nlev_soil+1
+      DO jk = 1, nlev_soil
         DO jc = i_startidx, i_endidx
           z_aux3dso_p(jc,3*(jk-1)+1,jb) = ptr_ldiagp%t_so(jc,jk,jb)
           z_aux3dso_p(jc,3*(jk-1)+2,jb) = ptr_ldiagp%w_so(jc,jk,jb)
@@ -1942,12 +1942,12 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
         ptr_ldiagc%snowfrac(jc,jb)         = z_aux3dl2_c(jc,8,jb) 
         ptr_ldiagc%runoff_s(jc,jb)         = z_aux3dl2_c(jc,9,jb)
         ptr_ldiagc%runoff_g(jc,jb)         = z_aux3dl2_c(jc,10,jb) 
-        ptr_ldiagc%t_so(jc,nlev_soil+2,jb) = z_aux3dl2_c(jc,11,jb)
+        ptr_ldiagc%t_so(jc,nlev_soil+1,jb) = z_aux3dl2_c(jc,11,jb)
         IF (lmulti_snow) &
           ptr_ldiagc%t_snow_mult(jc,nlev_snow+1,jb) = z_aux3dl2_c(jc,12,jb) 
       ENDDO
 
-      DO jk = 1, nlev_soil+1
+      DO jk = 1, nlev_soil
         DO jc = i_startidx, i_endidx
           ptr_ldiagc%t_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+1,jb) 
           ptr_ldiagc%w_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+2,jb) 

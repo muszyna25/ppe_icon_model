@@ -427,12 +427,12 @@ CONTAINS
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
       inlev_soil = opt_depth_lnd
-      ALLOCATE(zlevels_full(inlev_soil+1))
-      ALLOCATE(zlevels_half(inlev_soil+2))
-      DO i = 1, inlev_soil+1
+      ALLOCATE(zlevels_full(inlev_soil))
+      ALLOCATE(zlevels_half(inlev_soil+1))
+      DO i = 1, inlev_soil
         zlevels_full(i) = REAL(i,wp)
       END DO
-      DO i = 1, inlev_soil+2
+      DO i = 1, inlev_soil+1
         zlevels_half(i) = REAL(i,wp)
       END DO
       CALL set_restart_depth_lnd(zlevels_half, zlevels_full)

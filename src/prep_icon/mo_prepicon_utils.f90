@@ -716,9 +716,9 @@ MODULE mo_prepicon_utils
         extdata(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
         extdata(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
         IF (i_oper_mode > 1 .AND. l_sfc_in) THEN
-          ! In addition, copy climatological deep-soil temperature to soil level nlev_soil+1
+          ! In addition, copy climatological deep-soil temperature to soil level nlev_soil
           ! These are limited to -60 deg C because less is definitely nonsense
-          prepicon(jg)%sfc%tsoil(:,:,nlev_soil+1) = MAX(213.15_wp,extdata(jg)%atm%t_cl(:,:))
+          prepicon(jg)%sfc%tsoil(:,:,nlev_soil) = MAX(213.15_wp,extdata(jg)%atm%t_cl(:,:))
         ENDIF
       ENDDO
 
@@ -959,7 +959,7 @@ MODULE mo_prepicon_utils
           ! Multi-layer surface fields
           DO jt = 1, ntiles_total
 
-            DO js = 0, nlev_soil+1
+            DO js = 0, nlev_soil
               jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
                 p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jp,jb,jt)        = &
@@ -970,7 +970,7 @@ MODULE mo_prepicon_utils
             ENDDO
 
             ! For soil water, no comparable layer shift exists
-            DO js = 1, nlev_soil+1
+            DO js = 1, nlev_soil
               DO jc = 1, nlen
                 p_lnd_state(jg)%prog_lnd(ntlr)%w_so_t(jc,js,jb,jt) = &
                   &                                              prepicon(jg)%sfc%wsoil(jc,jb,js)
@@ -1264,17 +1264,17 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
 
         ! Allocate surface output data
-        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%sst      (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%snowalb  (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%snowdens (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%skinres  (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%seaice   (nproma,nblks_c              ), &
-                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil+1), &
-                 prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil+1)    )
+        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%sst      (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%snowalb  (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%snowdens (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%skinres  (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
+                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
+                 prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
 
       ENDIF

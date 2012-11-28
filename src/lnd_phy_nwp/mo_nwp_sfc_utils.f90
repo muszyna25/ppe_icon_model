@@ -66,7 +66,7 @@ MODULE mo_nwp_sfc_utils
 
 #ifdef __SX__
 ! parameters for loop unrolling
-INTEGER, PARAMETER :: nlsoil= 7
+INTEGER, PARAMETER :: nlsoil= 8
 INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
@@ -93,9 +93,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Ekaterina Machulskaya, DWD (2011-07-??)
   !! Modification by Daniel Reinert, DWD (2011-07-29)
-  !! - initialize climatological layer t_so(nlev_soil+2)
+  !! - initialize climatological layer t_so(nlev_soil+1)
   !! Modification by Daniel Reinert, DWD (2012-08-31)
-  !! - initialize seaice model
+  !! - initialize sea-ice model
   !!
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
     &                          p_prog_lnd_new, p_prog_wtr_now,    &
@@ -130,12 +130,12 @@ CONTAINS
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_mult_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_so_now_t(nproma, 1:nlev_soil+2, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_so_new_t(nproma, 1:nlev_soil+2, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: w_so_now_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: w_so_new_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: w_so_ice_now_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: w_so_ice_new_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_so_now_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_so_new_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_so_now_t(nproma, 1:nlev_soil  , p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_so_new_t(nproma, 1:nlev_soil  , p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_so_ice_now_t(nproma, 1:nlev_soil, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_so_ice_new_t(nproma, 1:nlev_soil, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: wliq_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: wtot_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: dzh_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
@@ -197,8 +197,8 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             ! initialize climatological layer (deepest layer of t_so)
-            p_prog_lnd_now%t_so_t(jc,nlev_soil+2,jb,isubs) = ext_data%atm%t_cl(jc,jb)
-            p_prog_lnd_new%t_so_t(jc,nlev_soil+2,jb,isubs) = ext_data%atm%t_cl(jc,jb)
+            p_prog_lnd_now%t_so_t(jc,nlev_soil+1,jb,isubs) = ext_data%atm%t_cl(jc,jb)
+            p_prog_lnd_new%t_so_t(jc,nlev_soil+1,jb,isubs) = ext_data%atm%t_cl(jc,jb)
 
             p_prog_lnd_now%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_g(jc,jb)
             p_prog_lnd_new%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_g(jc,jb)
@@ -259,8 +259,8 @@ CONTAINS
 
         END IF  IMSNOWI
 
-!CDIR UNROLL=nlsoil+2
-        DO jk=1,nlev_soil+2
+!CDIR UNROLL=nlsoil+1
+        DO jk=1,nlev_soil+1
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             t_so_now_t(ic,jk,jb,isubs)          =  p_prog_lnd_now%t_so_t(jc,jk,jb,isubs) 
@@ -268,8 +268,8 @@ CONTAINS
           ENDDO
         ENDDO
 
-!CDIR UNROLL=nlsoil+1
-        DO jk=1,nlev_soil+1
+!CDIR UNROLL=nlsoil
+        DO jk=1,nlev_soil
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             w_so_now_t(ic,jk,jb,isubs)          =  p_prog_lnd_now%w_so_t(jc,jk,jb,isubs) 
@@ -342,7 +342,7 @@ CONTAINS
         CALL terra_multlay_init(                                  &
         &  ie=nproma,                                             & ! array dimensions
         &  istartpar=1, iendpar= i_count,                         & ! optional start/end indicies
-        &  ke_soil=nlev_soil, ke_snow=nlev_snow                 , &
+        &  ke_soil=nlev_soil-1, ke_snow=nlev_snow               , & ! without lowermost (climat.) soil layer
         &  czmls=zml_soil                                       , & ! processing soil level structure 
         &  soiltyp_subs      = soiltyp_t(:,jb,isubs)            , & ! type of the soil (keys 0-9)  --
         &  rootdp            = rootdp_t(:,jb,isubs)             , & ! depth of the roots                ( m  )
@@ -429,8 +429,8 @@ CONTAINS
 
         END IF  IMSNOWO
 
-!CDIR UNROLL=nlsoil+2
-        DO jk=1,nlev_soil+2
+!CDIR UNROLL=nlsoil+1
+        DO jk=1,nlev_soil+1
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -439,8 +439,8 @@ CONTAINS
           ENDDO
         ENDDO
 
-!CDIR UNROLL=nlsoil+1
-        DO jk=1,nlev_soil+1
+!CDIR UNROLL=nlsoil
+        DO jk=1,nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -697,14 +697,14 @@ CONTAINS
           lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
           lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
           lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
-          lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_prog%t_so_t(jc,nlev_soil+2,jb,1)
+          lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
 
           IF(lmulti_snow) THEN
             lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
           ENDIF
         ENDDO
 
-        DO jk=1,nlev_soil+1
+        DO jk=1,nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp(ic,jb)
@@ -780,8 +780,8 @@ CONTAINS
                                            lnd_diag%runoff_s_t(jc,jb,isubs)
             lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g(jc,jb) + tilefrac * &
                                            lnd_diag%runoff_g_t(jc,jb,isubs)
-            lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_diag%t_so(jc,nlev_soil+2,jb) + tilefrac * &
-                                               lnd_prog%t_so_t(jc,nlev_soil+2,jb,isubs)
+            lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_diag%t_so(jc,nlev_soil+1,jb) + tilefrac * &
+                                               lnd_prog%t_so_t(jc,nlev_soil+1,jb,isubs)
 
             IF(lmulti_snow) THEN
               lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &
@@ -789,7 +789,7 @@ CONTAINS
             ENDIF
           ENDDO
 
-          DO jk=1,nlev_soil+1
+          DO jk=1,nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count
               jc = ext_data%atm%idx_lst_lp(ic,jb)
@@ -841,14 +841,14 @@ CONTAINS
         lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
         lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
         lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
-        lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_prog%t_so_t(jc,nlev_soil+2,jb,1)
+        lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
 
         IF(lmulti_snow) THEN
           lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
         ENDIF
       ENDDO
 
-      DO jk=1,nlev_soil+1
+      DO jk=1,nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_sp(ic,jb)
@@ -887,14 +887,14 @@ CONTAINS
         lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
         lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
         lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
-        lnd_diag%t_so(jc,nlev_soil+2,jb) = lnd_prog%t_so_t(jc,nlev_soil+2,jb,1)
+        lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
 
         IF(lmulti_snow) THEN
           lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
         ENDIF
       ENDDO
 
-      DO jk=1,nlev_soil+1
+      DO jk=1,nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_fp(ic,jb)
@@ -1312,8 +1312,8 @@ CONTAINS
     &         t_snow_mult_slp(i_count, nlev_snow), w_snow_slp(i_count),                          &
     &         wtot_snow_slp(i_count, nlev_snow),                                                 &
     &         rho_snow_slp(i_count), rho_snow_mult_slp(i_count, nlev_snow), h_snow_slp(i_count), &
-    &         freshsnow_slp(i_count), w_i_slp(i_count), t_so_slp(i_count, nlev_soil+2),          &
-    &         w_so_slp(i_count, nlev_soil+1), w_so_ice_slp(i_count, nlev_soil+1),                &
+    &         freshsnow_slp(i_count), w_i_slp(i_count), t_so_slp(i_count, nlev_soil+1),          &
+    &         w_so_slp(i_count, nlev_soil), w_so_ice_slp(i_count, nlev_soil),                    &
     &         runoff_s_slp(i_count),                                                             &
     &         runoff_g_slp(i_count), tch_slp(i_count), tfv_slp(i_count), t_2m_slp(i_count),      &
     &         qv_2m_slp(i_count), td_2m_slp(i_count), rh_2m_slp(i_count), u_10m_slp(i_count),    &
@@ -1325,8 +1325,8 @@ CONTAINS
     &         w_snow_tlp(i_count,nsubs1), wtot_snow_tlp(i_count,nlev_snow,nsubs1),               &
     &         rho_snow_tlp(i_count,nsubs1), rho_snow_mult_tlp(i_count,nlev_snow,nsubs1),         &
     &         h_snow_tlp(i_count,nsubs1), freshsnow_tlp(i_count,nsubs1), w_i_tlp(i_count,nsubs1),&
-    &         t_so_tlp(i_count,nlev_soil+2,nsubs1), w_so_tlp(i_count,nlev_soil+1,nsubs1),        &
-    &         w_so_ice_tlp(i_count,nlev_soil+1,nsubs1), runoff_s_tlp(i_count,nsubs1),            &
+    &         t_so_tlp(i_count,nlev_soil+1,nsubs1), w_so_tlp(i_count,nlev_soil,nsubs1),          &
+    &         w_so_ice_tlp(i_count,nlev_soil,nsubs1), runoff_s_tlp(i_count,nsubs1),              &
     &         runoff_g_tlp(i_count,nsubs1), tch_tlp(i_count,nsubs1), tfv_tlp(i_count,nsubs1),    &
     &         t_2m_tlp(i_count,nsubs1), qv_2m_tlp(i_count,nsubs1), td_2m_tlp(i_count,nsubs1),    &
     &         rh_2m_tlp(i_count,nsubs1), u_10m_tlp(i_count,nsubs1), v_10m_tlp(i_count,nsubs1),   &
@@ -1380,10 +1380,10 @@ CONTAINS
       v_10m_tlp    (ic,ns) = v_10m    (jc,ns)
       shfl_s_tlp   (ic,ns) = shfl_s   (jc,ns)
       lhfl_s_tlp   (ic,ns) = lhfl_s   (jc,ns)
-      DO jk = 0, nlev_soil+1                         !EM order of loops? 
+      DO jk = 0, nlev_soil                         !EM order of loops? 
         t_so_tlp    (ic,jk,ns) = t_so    (jc,jk,ns)
       END DO 
-      DO jk = 1, nlev_soil+1
+      DO jk = 1, nlev_soil
         w_so_tlp    (ic,jk,ns) = w_so    (jc,jk,ns)
         w_so_ice_tlp(ic,jk,ns) = w_so_ice(jc,jk,ns)
       END DO 
@@ -1502,10 +1502,10 @@ CONTAINS
     v_10m_s    (jc) = v_10m_slp    (ic)
     shfl_s_s   (jc) = shfl_s_slp   (ic)
     lhfl_s_s   (jc) = lhfl_s_slp   (ic)
-    DO jk = 0, nlev_soil+1                         !EM order of loops?
+    DO jk = 0, nlev_soil                         !EM order of loops?
       t_so_s    (jc,jk) = t_so_slp    (ic,jk)
     END DO
-    DO jk = 1, nlev_soil+1
+    DO jk = 1, nlev_soil
       w_so_s    (jc,jk) = w_so_slp    (ic,jk)
       w_so_ice_s(jc,jk) = w_so_ice_slp(ic,jk)
     END DO

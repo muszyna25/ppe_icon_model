@@ -86,7 +86,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil)
+    INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
     INTEGER  :: nlen, nlev
     ! Soil layer depths in IFS
     REAL(wp) :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
@@ -95,7 +95,7 @@ CONTAINS
     ! Standard atmosphere vertical temperature gradient
     REAL(wp) :: dtdz_clim = -6.5e-3_wp
 
-    REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil),wfac_snow,snowdep
+    REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
 !-------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ CONTAINS
     jg   = p_patch%id
 
     ! Vertical interpolation indices and weights
-    DO jk = 1, nlev_soil
+    DO jk = 1, nlev_soil-1
       IF (zml_soil(jk) < zsoil_ifs(1)) THEN
         idx0(jk)       = 0
         wfac_vintp(jk) = 1._wp - zml_soil(jk)/zsoil_ifs(1)
@@ -198,14 +198,14 @@ CONTAINS
 
         prepicon%sfc_in%wsoil(jc,jb,0) = prepicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
 
-        ! outgoing tsoil(nlev_soil+1) has been initialized with the external parameter field t_cl before
-        prepicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc%tsoil(jc,jb,nlev_soil+1)
+        ! outgoing tsoil(nlev_soil) has been initialized with the external parameter field t_cl before
+        prepicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc%tsoil(jc,jb,nlev_soil)
         ! assume no-gradient condition for soil moisture
         prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
       ENDDO
 
       ! Vertical interpolation of multi-layer soil fields from IFS levels to TERRA levels
-      DO jk = 1, nlev_soil
+      DO jk = 1, nlev_soil-1
         DO jc = 1, nlen
           prepicon%sfc%tsoil(jc,jb,jk) = wfac_vintp(jk) *prepicon%sfc_in%tsoil(jc,jb,idx0(jk))+ &
                                   (1._wp-wfac_vintp(jk))*prepicon%sfc_in%tsoil(jc,jb,idx0(jk)+1)
@@ -218,7 +218,7 @@ CONTAINS
       ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
       !   safety: min=air dryness point, max=pore volume
-      DO jk = 1, nlev_soil
+      DO jk = 1, nlev_soil-1
         DO jc = 1, nlen
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
@@ -259,8 +259,8 @@ CONTAINS
 
       ! assume no-gradient condition for soil moisture reservoir layer
       DO jc = 1, nlen
-        prepicon%sfc%wsoil(jc,jb,nlev_soil+1) = prepicon%sfc%wsoil(jc,jb,nlev_soil)*          &
-                                                dzsoil_icon(nlev_soil+1)/dzsoil_icon(nlev_soil)
+        prepicon%sfc%wsoil(jc,jb,nlev_soil) = prepicon%sfc%wsoil(jc,jb,nlev_soil-1)*          &
+                                                dzsoil_icon(nlev_soil)/dzsoil_icon(nlev_soil-1)
       ENDDO
 
     ENDDO

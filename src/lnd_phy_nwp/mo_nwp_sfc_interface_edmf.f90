@@ -69,7 +69,7 @@ MODULE mo_nwp_sfc_interface_edmf
 
 #ifdef __SX__
 ! parameters for loop unrolling
-INTEGER, PARAMETER :: nlsoil= 7
+INTEGER, PARAMETER :: nlsoil= 8
 INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
@@ -178,9 +178,9 @@ CONTAINS
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height  
                   w_i_ex               ! water content of interception water           (m H2O)
-  REAL(wp), DIMENSION(nproma,nlev_soil+2,ntiles_total), INTENT(INOUT) :: &
-                  t_so_ex              ! soil temperature (main level)                 (  K  )
   REAL(wp), DIMENSION(nproma,nlev_soil+1,ntiles_total), INTENT(INOUT) :: &
+                  t_so_ex              ! soil temperature (main level)                 (  K  )
+  REAL(wp), DIMENSION(nproma,nlev_soil,ntiles_total), INTENT(INOUT) :: &
                   w_so_ex          , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_ex          ! ice content                                   (m H20)
   REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
@@ -312,14 +312,14 @@ CONTAINS
     REAL(wp) :: dzh_snow_now_t(nproma, nlev_snow, ntiles_total)
     REAL(wp) :: dzh_snow_new_t(nproma, nlev_snow, ntiles_total)
 
-    REAL(wp) :: t_so_now_t(nproma, nlev_soil+2, ntiles_total)
-    REAL(wp) :: t_so_new_t(nproma, nlev_soil+2, ntiles_total)
+    REAL(wp) :: t_so_now_t(nproma, nlev_soil+1, ntiles_total)
+    REAL(wp) :: t_so_new_t(nproma, nlev_soil+1, ntiles_total)
 
-    REAL(wp) :: w_so_now_t(nproma, nlev_soil+1, ntiles_total)
-    REAL(wp) :: w_so_new_t(nproma, nlev_soil+1, ntiles_total)
+    REAL(wp) :: w_so_now_t(nproma, nlev_soil, ntiles_total)
+    REAL(wp) :: w_so_new_t(nproma, nlev_soil, ntiles_total)
 
-    REAL(wp) :: w_so_ice_now_t(nproma, nlev_soil+1, ntiles_total)
-    REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil+1, ntiles_total)
+    REAL(wp) :: w_so_ice_now_t(nproma, nlev_soil, ntiles_total)
+    REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil, ntiles_total)
 
     INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(2*nproma), it1(nproma), it2(nproma)
     REAL(wp) :: tmp1, tmp2, tmp3
@@ -492,7 +492,7 @@ CONTAINS
           eai_t         (ic,isubs) =  ext_data%atm%eai_t    (jc,jb,isubs)
           rsmin2d_t     (ic,isubs) =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
 
-          t_so_now_t(ic,nlev_soil+2,isubs) = t_so_ex(jc,nlev_soil+2,isubs)
+          t_so_now_t(ic,nlev_soil+1,isubs) = t_so_ex(jc,nlev_soil+1,isubs)
 
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1,isubs) = &
@@ -526,10 +526,10 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count   
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-          DO jk=1,nlev_soil+1
+          DO jk=1,nlev_soil
 #else
-!CDIR UNROLL=nlsoil+1
-        DO jk=1,nlev_soil+1
+!CDIR UNROLL=nlsoil
+        DO jk=1,nlev_soil
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
@@ -548,7 +548,7 @@ IF ( .true. ) THEN
         &  ie=nproma                                         , & ! array dimensions
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
         &  nsubs0=jb,         nsubs1=isubs                   , & ! unused except for optional debug output
-        &  ke_soil=nlev_soil, ke_snow=nlev_snow              , &
+        &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & ! without lowermost (climat.) soil layer
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  inwp_turb=atm_phy_nwp_config(jg)%inwp_turb        , &
         &  dt=dt                                             , &
@@ -653,7 +653,7 @@ IF (msg_level >= 15) THEN
          shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
          lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
     endif
-    DO jk=1,nlev_soil+2
+    DO jk=1,nlev_soil+1
       if ( abs( t_so_ex(jc,jk,isubs) - t_so_new_t(ic,jk,isubs) ) > 2.0 ) then 
         write(*,*) 'sfc_interface_edmf: t_so ', ic, jc, isubs, jk, & 
           t_so_ex(jc,jk,isubs), t_so_new_t(ic,jk,isubs), &
@@ -661,7 +661,7 @@ IF (msg_level >= 15) THEN
           shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs)
       endif
     ENDDO
-    DO jk=1,nlev_soil+1
+    DO jk=1,nlev_soil
       if ( abs( w_so_ex(jc,jk,isubs) - w_so_new_t(ic,jk,isubs) ) > 0.5 ) then 
         write(*,*) 'sfc_interface_edmf: w_so ', ic, jc, isubs, jk, &
           w_so_ex(jc,jk,isubs), w_so_new_t(ic,jk,isubs)
@@ -715,7 +715,7 @@ endif
           lhfl_s_ex   (jc,isubs)  = lhfl_s_t      (ic,isubs)   
           lhfl_snow_ex(jc,isubs)  = lhfl_snow_t   (ic,isubs)
 
-          t_so_ex(jc,nlev_soil+2,isubs) = t_so_new_t(ic,nlev_soil+2,isubs)
+          t_so_ex(jc,nlev_soil+1,isubs) = t_so_new_t(ic,nlev_soil+1,isubs)
 
           IF(lmulti_snow) THEN
             t_snow_mult_ex     (jc,nlev_snow+1,isubs) = &
@@ -758,10 +758,10 @@ endif
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-          DO jk=1,nlev_soil+1
+          DO jk=1,nlev_soil
 #else
-!CDIR UNROLL=nlsoil+1
-        DO jk=1,nlev_soil+1
+!CDIR UNROLL=nlsoil
+        DO jk=1,nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -869,7 +869,7 @@ endif
 
            ! redistribution of heat and moisture between snow-covered and snow-free tiles 
            ! according to their new fractions, in order to keep heat and moisture balances
-           DO jk = 1, nlev_soil+1
+           DO jk = 1, nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
              DO ic = 1, i_count_snow
                jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)

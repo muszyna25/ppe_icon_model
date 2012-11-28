@@ -607,7 +607,7 @@ CONTAINS
       ! introduce temporary variable znlev_soil, since global variable nlev_soil 
       ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
       ! mo_io_async complains about mismatch of levels. 
-      znlev_soil = SIZE(zml_soil)-1
+      znlev_soil = SIZE(zml_soil)
 
       zaxisID_hybrid(k_jg)      = zaxisCreate(ZAXIS_HYBRID, nlev)
       zaxisID_hybrid_half(k_jg) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
@@ -628,10 +628,10 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(zaxisID_hybrid_half(k_jg), 2*nlevp1, vct(1:2*nlevp1))
       !
-      zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
-      ALLOCATE(levels(znlev_soil+2))
+      zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      ALLOCATE(levels(znlev_soil+1))
       levels(1) = 0._wp
-      DO i = 1, znlev_soil+1
+      DO i = 1, znlev_soil
       levels(i+1) = zml_soil(i)*100._wp
       END DO
       CALL zaxisDefLevels(zaxisID_depth_below_land_p1(k_jg), levels)
@@ -640,7 +640,7 @@ CONTAINS
 
       ! Define axes for soil model
       !
-      zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
       CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
       !
       zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)

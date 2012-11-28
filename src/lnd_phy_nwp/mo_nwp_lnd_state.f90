@@ -333,7 +333,7 @@ MODULE mo_nwp_lnd_state
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
-    INTEGER :: shape4d_snow_subs(4), shape4d_soil_subs(4)
+    INTEGER :: shape4d_snow_subs(4)
     INTEGER :: ibits
     INTEGER :: jsfc          !< tile counter
 
@@ -348,7 +348,6 @@ MODULE mo_nwp_lnd_state
     shape3d_subs         = (/nproma,            kblks, ntiles_total /)
     shape3d_subsw        = (/nproma,            kblks, ntiles_total+ntiles_water /)
     shape4d_snow_subs    = (/nproma, nlev_snow, kblks, ntiles_total /)
-    shape4d_soil_subs    = (/nproma, nlev_soil, kblks, ntiles_total /)
 
 
     ! Suffix (mandatory for time level dependent variables)
@@ -574,12 +573,12 @@ MODULE mo_nwp_lnd_state
 
 
 
-    ! & p_prog_lnd%t_so_t(nproma,nlev_soil+2,nblks_c,ntiles_total) 
+    ! & p_prog_lnd%t_so_t(nproma,nlev_soil+1,nblks_c,ntiles_total) 
     cf_desc    = t_cf_var('t_so_t', 'K', 'soil temperature (main level)', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_so_t'//suffix, p_prog_lnd%t_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1, cf_desc, grib2_desc,  &
-         & ldims=(/nproma,nlev_soil+2,kblks,ntiles_total/),                      &
+         & ldims=(/nproma,nlev_soil+1,kblks,ntiles_total/),                      &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
     ! fill the separate variables belonging to the container t_so
@@ -593,19 +592,19 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1,                 &
            & t_cf_var('t_so_t_'//csfc, '', '', DATATYPE_FLT32),              &
            & t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),        &
-           & ldims=(/nproma,nlev_soil+2,kblks/),                             &
+           & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
 
 
 
-   ! & p_prog_lnd%w_so_t(nproma,nlev_soil+1,nblks_c,ntiles_total)
+   ! & p_prog_lnd%w_so_t(nproma,nlev_soil,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('w_so_t', 'm H20', 'total water content (ice + liquid water)', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_t'//suffix, p_prog_lnd%w_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
-         & ldims=(/nproma,nlev_soil+1,kblks,ntiles_total/),                      &
+         & ldims=(/nproma,nlev_soil,kblks,ntiles_total/),                        &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the separate variables belonging to the container w_so
@@ -618,18 +617,18 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
            & t_cf_var('w_so_t_'//csfc, '', '', DATATYPE_FLT32),              &
            & t_grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL),        &
-           & ldims=(/nproma,nlev_soil+1,kblks/),                             &
+           & ldims=(/nproma,nlev_soil,kblks/),                               &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
 
 
 
-    ! & p_prog_lnd%w_so_ice_t(nproma,nlev_soil+1,nblks_c,ntiles_total)
+    ! & p_prog_lnd%w_so_ice_t(nproma,nlev_soil,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('w_so_ice_t', 'm H20', 'ice content', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_ice_t'//suffix,                 &
          & p_prog_lnd%w_so_ice_t, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,   &
-         & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil+1,kblks,ntiles_total/), &
+         & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks,ntiles_total/),   &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the separate variables belonging to the container w_so_ice
@@ -642,7 +641,7 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
            & t_cf_var('w_so_ice_t_'//csfc, '', '', DATATYPE_FLT32),          &
            & t_grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL),        &
-           & ldims=(/nproma,nlev_soil+1,kblks/),                             &
+           & ldims=(/nproma,nlev_soil,kblks/),                               &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
 
@@ -1016,32 +1015,32 @@ MODULE mo_nwp_lnd_state
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
          & in_group=groups("land_vars") )  
 
-    ! & p_diag_lnd%t_so(nproma,nlev_soil+2,nblks_c)
+    ! & p_diag_lnd%t_so(nproma,nlev_soil+1,nblks_c)
     cf_desc    = t_cf_var('t_so', 'K', 'weighted soil temperature (main level)', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_so', p_diag_lnd%t_so,              &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1, cf_desc, grib2_desc,  &
-         & ldims=(/nproma,nlev_soil+2,kblks/),                                   &
+         & ldims=(/nproma,nlev_soil+1,kblks/),                                   &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("land_vars") )
 
-   ! & p_diag_lnd%w_so(nproma,nlev_soil+1,nblks_c)
+   ! & p_diag_lnd%w_so(nproma,nlev_soil,nblks_c)
     cf_desc    = t_cf_var('w_so', 'm H20', 'weighted total water content (ice + liquid water)', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 3, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_so', p_diag_lnd%w_so,              &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
-         & ldims=(/nproma,nlev_soil+1,kblks/),                                   &
+         & ldims=(/nproma,nlev_soil,kblks/),                                     &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("land_vars") )
 
-    ! & p_diag_lnd%w_so_ice(nproma,nlev_soil+1,nblks_c)
+    ! & p_diag_lnd%w_so_ice(nproma,nlev_soil,nblks_c)
     cf_desc    = t_cf_var('w_so_ice', 'm H20', 'weighted ice content', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)      
     CALL add_var( diag_list, vname_prefix//'w_so_ice',                           &
          & p_diag_lnd%w_so_ice, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,     &
-         & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil+1,kblks/),              &
+         & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks/),                &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("land_vars") )
 

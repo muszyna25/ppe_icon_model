@@ -2108,7 +2108,7 @@ CONTAINS
       ! introduce temporary variable znlev_soil, since global variable nlev_soil 
       ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
       ! mo_io_async complains about mismatch of levels. 
-      znlev_soil = SIZE(zml_soil)-1
+      znlev_soil = SIZE(zml_soil)
 
       ! HYBRID_LAYER
       !
@@ -2147,10 +2147,10 @@ CONTAINS
       ! Define axes for soil model
       !
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
-      ALLOCATE(levels(znlev_soil+2))
+        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      ALLOCATE(levels(znlev_soil+1))
       levels(1) = 0._wp
-      DO k = 1, znlev_soil+1
+      DO k = 1, znlev_soil
         levels(k+1) = zml_soil(k)*1000._wp  ! in mm
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
@@ -2158,7 +2158,7 @@ CONTAINS
       DEALLOCATE(levels)
 
       of%cdiZaxisID(ZA_depth_below_land) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land), zml_soil*1000._wp) ! in mm
       CALL zaxisDefUnits (of%cdiZaxisID(ZA_depth_below_land), "mm")
       !
@@ -2734,7 +2734,7 @@ CONTAINS
 
     TYPE (t_var_metadata), POINTER :: info
     !
-    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, znlev_soil, i
+    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, i
     CHARACTER(LEN=vname_len) :: mapped_name
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
@@ -2744,8 +2744,6 @@ CONTAINS
     nlev   = num_lev(of%log_patch_id)
     nlevp1 = num_levp1(of%log_patch_id)
 
-    ! See above ...
-    znlev_soil = SIZE(zml_soil)-1
     !
     DO iv = 1, of%num_vars
       !
