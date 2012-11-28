@@ -279,7 +279,7 @@ CONTAINS
       ! note: we read only on PE#0 and broadcast the data to the other
       ! working PEs:
       IF (get_my_mpi_work_id() == rank0) THEN
-        varID = 1
+        varID = 0
         IF (.NOT. PRESENT(opt_file))  CALL finish(routine, "Internal error!")
         vlistID = opt_file%vlistID
         CALL vlistInqVarName(vlistID, varID, zname);
