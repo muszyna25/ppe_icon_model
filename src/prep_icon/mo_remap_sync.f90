@@ -228,10 +228,11 @@ CONTAINS
     REAL(wp),          INTENT(INOUT) :: field_out(:,:,:)   !< global output field
 #if !defined(NOMPI)
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field2D_c')
-    INTEGER  :: ierrstat, jc,jk,jb, iendidx, iglobal_idx
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field3D_c')
+    INTEGER  :: ierrstat, jc,jk,jb, iglobal_idx, i
     REAL(wp), ALLOCATABLE :: recv_buf(:)
-    INTEGER :: ilocal_size(p_n_work), idispls(p_n_work)
+    INTEGER :: ilocal_size(p_n_work), idispls(p_n_work), shape_snd(3)
+    REAL(wp) :: send_buf(UBOUND(field_in,2),UBOUND(field_in,1),UBOUND(field_in,3))
 
     IF (dbg_level >= 11) WRITE (0,*) "# gather data on PE ", gather_c%rank0
     ! allocate temporary data structures:
@@ -241,20 +242,21 @@ CONTAINS
     ! communicate field data:
     ilocal_size(:) = gather_c%local_size(:) * nlev
     idispls(:)     = gather_c%displs(:) * nlev
-    CALL p_gatherv(field_in, gather_c%local_dim*nlev, &
+    shape_snd = (/ UBOUND(field_in,2),UBOUND(field_in,1),UBOUND(field_in,3) /)
+    send_buf(:,:,:) = RESHAPE(field_in, shape_snd, order=(/2,1,3/) )
+
+    CALL p_gatherv(send_buf, gather_c%local_dim*nlev, &
       &            recv_buf, ilocal_size, idispls,    &
       &            gather_c%rank0, p_comm_work)
 
     ! map received values to the right (global) positions:
 !$OMP PARALLEL DO PRIVATE(jc,jk,jb,iglobal_idx)
-    DO jb=1,gather_c%nblks_c
+    DO i=1,gather_c%total_dim
+      jc = idx_no(gather_c%global_idx(i))
+      jb = blk_no(gather_c%global_idx(i))
       DO jk=1,nlev
-        iendidx = nproma
-        IF (jb == gather_c%nblks_c) iendidx = gather_c%npromz_c
-        DO jc=1,iendidx
-          iglobal_idx = (jb-1)*nproma + (jk-1)*nproma*nlev + jc
-          field_out(jc,jk,jb) = recv_buf(iglobal_idx)
-        END DO
+        iglobal_idx = jk + (i-1)*nlev
+        field_out(jc,jk,jb) = recv_buf(iglobal_idx)
       END DO
     END DO
 !$OMP END PARALLEL DO

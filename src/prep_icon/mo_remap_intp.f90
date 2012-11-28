@@ -466,7 +466,6 @@ CONTAINS
     INTEGER  :: i, jc,jb, nblks, npromz, &
       &         i_startidx, i_endidx
     REAL(wp) :: val
-    TYPE(t_heap_data) :: t
 
     IF (dbg_level >= 11)  WRITE (0,*) "# perform horizontal interpolation."
 
