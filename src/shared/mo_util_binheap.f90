@@ -126,6 +126,7 @@ CONTAINS
     END IF
     ALLOCATE(node_storage(ithrd)%v(new_max_num_nodes))
     DO i=(max_num_nodes+1),new_max_num_nodes
+!CDIR IEXPAND
       node_storage(ithrd)%v(i) = heap_node_init(t_heap_data(0._wp,0,0,0,0))
     END DO
     IF (max_num_nodes > 0) THEN
@@ -190,18 +191,6 @@ CONTAINS
     heap_empty = (heap%head == INVALID_NODE) .AND. &
       &       (heap%min  == INVALID_NODE)
   END FUNCTION heap_empty
-
-
-  !> Make @p child a subtree of @p root.
-  SUBROUTINE heap_link(iroot, ichild, ithrd)
-    INTEGER, INTENT(IN) :: iroot, ichild, ithrd
-
-    node_storage(ithrd)%v(ichild)%parent = iroot
-    node_storage(ithrd)%v(ichild)%next   = node_storage(ithrd)%v(iroot)%child
-    node_storage(ithrd)%v(iroot)%child   = ichild
-    node_storage(ithrd)%v(iroot)%degree  = node_storage(ithrd)%v(iroot)%degree+1
-  END SUBROUTINE heap_link
-
 
   !> Merges two heaps (internal routine)
   FUNCTION heap_merge(a_in,b_in, ithrd) RESULT(head)
@@ -284,7 +273,7 @@ CONTAINS
     INTEGER,       INTENT(INOUT) :: prev, node
     INTEGER,       INTENT(IN)    :: ithrd
     ! local variables
-    INTEGER :: lprev, cur
+    INTEGER :: lprev, cur, hc
     TYPE (t_heap_node), POINTER :: nodes(:), pnode
 
     nodes => node_storage(ithrd)%v
@@ -296,7 +285,9 @@ CONTAINS
     cur   = pnode%next
     DO
       IF (cur == INVALID_NODE) EXIT
-      IF (heap_cmp(nodes(cur)%rdata, pnode%rdata) > 0) THEN
+!CDIR IEXPAND
+      hc = heap_cmp(nodes(cur)%rdata, pnode%rdata)
+      IF (hc > 0) THEN
         node  =  cur
         pnode => nodes(cur)
         prev  =  lprev
@@ -348,11 +339,16 @@ CONTAINS
           CYCLE
         END IF
       END IF
+!CDIR IEXPAND
       c = heap_cmp(px%rdata, pnext%rdata)
       IF (c > 0) THEN
         ! x becomes the root of next
         px%next = nn%next
-        CALL heap_link(x, next, ithrd)
+
+        nodes(next)%parent = x
+        nodes(next)%next   = nodes(x)%child
+        nodes(x)%child     = next
+        nodes(x)%degree    = nodes(x)%degree+1
       ELSE 
         ! next becomes the root of x
         IF (prev /= INVALID_NODE) THEN
@@ -360,7 +356,11 @@ CONTAINS
         ELSE
           h1 = next
         END IF
-        CALL heap_link(next, x, ithrd)
+        nodes(x)%parent     = next
+        nodes(x)%next       = nodes(next)%child
+        nodes(next)%child   = x
+        nodes(next)%degree  = nodes(next)%degree+1
+
         x   = next
         px  => nodes(x)
       END IF
@@ -400,7 +400,7 @@ CONTAINS
     TYPE(t_heap), INTENT(INOUT) :: heap
     INTEGER,      INTENT(IN)    :: inode, ithrd
     ! local variables
-    INTEGER :: min
+    INTEGER :: min, hc
     TYPE(t_heap_node), POINTER :: node
 
     node => node_storage(ithrd)%v(inode)
@@ -409,9 +409,12 @@ CONTAINS
     node%next   = INVALID_NODE
     node%degree = 0
     IF (heap%min /= INVALID_NODE) THEN
-      IF (heap_cmp(node_storage(ithrd)%v(inode)%rdata, node_storage(ithrd)%v(heap%min)%rdata) > 0) THEN
+!CDIR IEXPAND
+      hc = heap_cmp(node_storage(ithrd)%v(inode)%rdata, node_storage(ithrd)%v(heap%min)%rdata)
+      IF (hc > 0) THEN
         ! swap min cache
-        min = heap%min;
+        min = heap%min
+!CDIR IEXPAND
         node_storage(ithrd)%v(min) = heap_node_init(t_heap_data(0._wp,0,0,0,0))
         node_storage(ithrd)%v(min)%degree = 0
         CALL local_heap_union(heap, min, ithrd)
