@@ -406,8 +406,15 @@ ZVERVELCRIT = 0.3_JPRB
 !         ZFRACENV=0.20_JPRB
           ZFRACENV=0.50_JPRB
           CALL VDFPDFTABLE (ZFRACENV, ZFACEXC, ZDUMR, ZDUMR, 0) ! associated PDF scaling factor
-          ZQTPRECON = PQTM1(JL,JK+1) + ZFACEXC * SQRT(PVAR(JL,JK+1))
-          ! optional sigma(qt) decorrelation length scale = 3km
+!         ZQTPRECON = PQTM1(JL,JK+1) + ZFACEXC * SQRT(PVAR(JL,JK+1))
+
+
+!xmk
+          ZQTPRECON = PQTM1(JL,JK+1) + ZFACEXC * SQRT(MAX(PVAR(JL,JK+1),0.0_JPRB))
+!xxx
+
+
+         ! optional sigma(qt) decorrelation length scale = 3km
           !ZLDECORR  = 3000.0_JPRB
           !ZQTPRECON = exp(-PGEOM1(JL,JK+1)*ZRG/ZLDECORR) * (ZQTPRECON - PQTM1(JL,JK+1)) + PQTM1(JL,JK+1)
           PQTUH(JL,JK,KD)= ( PQTUH (JL,JK+1,KD) - ZQTPRECON ) * ZMIX(JL,JK+1) &
