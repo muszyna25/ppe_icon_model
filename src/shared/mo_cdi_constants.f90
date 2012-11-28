@@ -54,7 +54,8 @@ CONTAINS
     is_2d_field = (izaxis == ZA_surface)    .OR.  &
       &           (izaxis == ZA_height_2m)  .OR.  &
       &           (izaxis == ZA_height_10m) .OR.  &
-      &           (izaxis == ZA_meansea)
+      &           (izaxis == ZA_meansea)    .OR.  &
+      &           (izaxis == ZA_TOA)
   END FUNCTION is_2d_field
 
 END MODULE mo_cdi_constants
