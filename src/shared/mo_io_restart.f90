@@ -61,6 +61,7 @@ MODULE mo_io_restart
     CHARACTER(len=64) :: linkname
   END type t_restart_files
   INTEGER, PARAMETER :: max_restart_files = 257
+  INTEGER, PARAMETER :: max_vertical_axes = 16
   INTEGER, SAVE :: nrestart_files = 0 
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
   !
@@ -80,7 +81,7 @@ MODULE mo_io_restart
   END type t_v_grid
   !
   INTEGER, SAVE :: nv_grids = 0 
-  TYPE(t_v_grid) :: vgrid_def(12)
+  TYPE(t_v_grid) :: vgrid_def(max_vertical_axes)
   !
   TYPE t_t_axis
     INTEGER :: type
@@ -297,7 +298,7 @@ CONTAINS
   SUBROUTINE init_restart(model_name, model_version, &
        &                  nc, ncv, nv, nvv, ne, nev, &
        &                  nlev, ndepth, nlev_soil,   &
-       &                  nlev_snow)
+       &                  nlev_snow, nice_class)
     CHARACTER(len=*), INTENT(in) :: model_name
     CHARACTER(len=*), INTENT(in) :: model_version
     INTEGER,          INTENT(in) :: nc
@@ -310,6 +311,7 @@ CONTAINS
     INTEGER,          INTENT(in) :: ndepth
     INTEGER,          INTENT(in) :: nlev_soil
     INTEGER,          INTENT(in) :: nlev_snow
+    INTEGER,          INTENT(in) :: nice_class
     !
     CHARACTER(len=256) :: executable
     CHARACTER(len=256) :: user_name
@@ -378,7 +380,7 @@ CONTAINS
     CALL set_vertical_grid(ZA_TOA                 , 1          )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_SEA     , ndepth     )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_SEA_HALF, ndepth+1   )
-    CALL set_vertical_grid(ZA_GENERIC_ICE         , 1          )
+    CALL set_vertical_grid(ZA_GENERIC_ICE         , nice_class )
 
     !
     ! define time axis
@@ -772,9 +774,9 @@ CONTAINS
           var_lists(j)%p%cdiHalfZaxisID        = var_lists(i)%p%cdiHalfZaxisID
           var_lists(j)%p%cdiDepthFullZaxisID   = var_lists(i)%p%cdiDepthFullZaxisID
           var_lists(j)%p%cdiDepthHalfZaxisID   = var_lists(i)%p%cdiDepthHalfZaxisID
+          var_lists(j)%p%cdiIceGenericZaxisID  = var_lists(i)%p%cdiIceGenericZaxisID
           var_lists(j)%p%cdiSnowGenericZaxisID = var_lists(i)%p%cdiSnowGenericZaxisID
           var_lists(j)%p%cdiSnowHalfGenericZaxisID = var_lists(i)%p%cdiSnowHalfGenericZaxisID
-          var_lists(j)%p%cdiIceGenericZaxisID  = var_lists(i)%p%cdiIceGenericZaxisID
           var_lists(j)%p%cdiToaZaxisID         = var_lists(i)%p%cdiToaZaxisID
           var_lists(j)%p%cdiH2mZaxisID         = var_lists(i)%p%cdiH2mZaxisID
           var_lists(j)%p%cdiH10mZaxisID        = var_lists(i)%p%cdiH10mZaxisID
@@ -1331,6 +1333,8 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiDepthFullZaxisID)
         IF (var_lists(i)%p%cdiDepthHalfZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiDepthHalfZaxisID)
+        IF (var_lists(i)%p%cdiIceGenericZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiIceGenericZaxisID)
         IF (var_lists(i)%p%cdiH2mZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiH2mZaxisID)
         IF (var_lists(i)%p%cdiH10mZaxisID /= CDI_UNDEFID) &
@@ -1339,8 +1343,6 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiSnowGenericZaxisID)
         IF (var_lists(i)%p%cdiSnowHalfGenericZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiSnowHalfGenericZaxisID)
-        IF (var_lists(i)%p%cdiIceGenericZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiIceGenericZaxisID)
         IF (var_lists(i)%p%cdiToaZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiToaZaxisID)
         var_lists(i)%p%cdiFileId_restart     = CDI_UNDEFID
@@ -1354,6 +1356,7 @@ CONTAINS
         var_lists(i)%p%cdiFullZaxisID        = CDI_UNDEFID
         var_lists(i)%p%cdiDepthHalfZaxisID   = CDI_UNDEFID
         var_lists(i)%p%cdiDepthFullZaxisID   = CDI_UNDEFID
+        var_lists(i)%p%cdiIceGenericZaxisID  = CDI_UNDEFID
         var_lists(i)%p%cdiH2mZaxisID         = CDI_UNDEFID
         var_lists(i)%p%cdiH10mZaxisID        = CDI_UNDEFID
         var_lists(i)%p%cdiToaZaxisID         = CDI_UNDEFID
@@ -1361,7 +1364,6 @@ CONTAINS
         var_lists(i)%p%cdiTimeIndex          = CDI_UNDEFID
         var_lists(i)%p%cdiSnowGenericZaxisID = CDI_UNDEFID
         var_lists(i)%p%cdiSnowHalfGenericZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiIceGenericZaxisID  = CDI_UNDEFID
       ENDIF
     ENDDO for_all_var_lists
     !

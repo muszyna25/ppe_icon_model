@@ -369,8 +369,9 @@ CONTAINS
 
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
-      CALL create_restart_file( ppatch(jg), datetime,  &
-                              & jfile, l_have_output,opt_depth=n_zlev)
+      CALL create_restart_file( ppatch(jg), datetime,                 &
+                              & jfile, l_have_output,opt_depth=n_zlev,&
+                              & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
       CALL write_restart_info_file

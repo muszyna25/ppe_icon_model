@@ -1552,8 +1552,11 @@ CONTAINS
     dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
       &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
 
+!   CALL dbg_print('CalcBulk --: humi          ',humi ,str_module,4)
+!   CALL dbg_print('CalcBulk --: fakts         ',fakts,str_module,4)
+!   CALL dbg_print('CalcBulk --: tafo          ',p_as%tafo ,str_module,4)
     DO i = 1, p_ice%kice
-      WHERE (p_ice% isice(:,i,:))
+      WHERE (p_ice%isice(:,i,:))
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
         fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))

@@ -328,7 +328,8 @@ CONTAINS
                                 & opt_jstep_adv_ntsteps,       &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth, opt_depth_lnd,    &
-                                & opt_nlev_snow)
+                                & opt_nlev_snow,               &
+                                & opt_nice_class)
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -344,9 +345,10 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype 
-    INTEGER :: izlev, inlev_soil, inlev_snow, i
+    INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
 
 
@@ -467,6 +469,11 @@ CONTAINS
     ELSE
       izlev = 0
     END IF
+    IF (.NOT.PRESENT(opt_nice_class)) THEN
+      nice_class = 1
+    ELSE
+      nice_class = opt_nice_class
+    END IF
 
     CALL init_restart( TRIM(out_expname), &! exp name
                      & '1.2.2',           &! model version
@@ -476,7 +483,8 @@ CONTAINS
                      & klev,              &! total # of vertical layers
                      & izlev,             &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA)
-                     & inlev_snow         )! total # of vertical snow layers (TERRA)      
+                     & inlev_snow,        &! total # of vertical snow layers (TERRA)
+                     & nice_class         )! total # of ice classes (sea ice)
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
