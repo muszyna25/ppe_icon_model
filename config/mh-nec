@@ -52,9 +52,9 @@ FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'
 
 # Initialization with NaN for debugging purposes
 DEBUGFLAGS = -Wf,-init stack=nan heap=nan -Wf,-K a -D__BOUNDCHECK
-LDDEBUG    = -Wf'-K a' -Wl,-f nan
+LDDEBUG    = -Wf,-K a
 
-# linker flags (required for *linking* with OpenMP, somebody please fix the configuration!!!)
+# linker flags (required for linking with OpenMP - specifies the OMP stacksize)
 LDFLAGS = -Wl,-Z 16G
 
 # Inlining
@@ -336,7 +336,7 @@ esac
 
 # Add common flags defined above
 
-FFLAGS = $FFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS $LDFLAGS
+FFLAGS = $FFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS
 
 
 MPIROOT =
