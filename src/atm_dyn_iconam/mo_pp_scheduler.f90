@@ -393,6 +393,9 @@ CONTAINS
           ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape         =  info%used_dimensions(:)
+          IF (is_2d_field(info%vgrid) .AND. (info%ndims /= 2)) THEN
+            CALL finish(routine, "Inconsistent dimension info!")
+          END IF
           IF (is_2d_field(info%vgrid)) THEN
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE

@@ -252,6 +252,10 @@ CONTAINS
     nblks_ll  = (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
     npromz_ll =  ptr_int_lonlat%nthis_local_pts - (nblks_ll-1)*nproma
 
+    IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
+      CALL finish(routine, "Inconsistent dimension info!")
+    END IF
+
     SELECT CASE (p_info%hgrid)
     CASE (GRID_UNSTRUCTURED_CELL)
       IF (is_2d_field(p_info%vgrid)) THEN
@@ -387,6 +391,10 @@ CONTAINS
         IF (in_var%info%lcontained) &
           &  in_var_idx = in_var%info%ncontained
         
+        IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
+          CALL finish(routine, "Inconsistent dimension info!")
+        END IF
+
         SELECT CASE (p_info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
           IF (is_2d_field(p_info%vgrid)) THEN
