@@ -26,9 +26,9 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "003"                #---experiment number---
-set FIRST_DATE    20120630
-set LAST_DATE     20120630
+set EXPNUM        "001"                #---experiment number---
+set FIRST_DATE    20121101
+set LAST_DATE     20130331
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 

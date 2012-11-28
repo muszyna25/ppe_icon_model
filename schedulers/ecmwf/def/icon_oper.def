@@ -31,7 +31,7 @@ setenv -i TMPDIR
 
 # global definitions:
 set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20121120
+set FIRST_DATE    20121101
 set LAST_DATE     20130630
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
