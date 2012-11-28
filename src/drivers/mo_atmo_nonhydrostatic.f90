@@ -50,6 +50,7 @@ USE mo_io_config,            ONLY: dt_file,dt_diag,dt_checkpoint
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
+USE mo_art_config,           ONLY: configure_art
 USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist parameter
   &                                ltestcase,            &
   &                                nsteps,               & !    :
@@ -172,6 +173,12 @@ CONTAINS
       CALL init_index_lists (p_patch(1:), ext_data)
 
       CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
+
+     ! initialize number of chemical tracers for convection 
+     DO jg = 1, n_dom
+       CALL configure_art(jg)
+     ENDDO
+
     ENDIF
 
     IF (.NOT. ltestcase .AND. iforcing == inwp) THEN
@@ -265,7 +272,7 @@ CONTAINS
 
     ! Due to the required ability to overwrite advection-Namelist settings 
     ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called 
-    ! AFTER the nh_state is craeted. Otherwise, potential modifications of the 
+    ! AFTER the nh_state is created. Otherwise, potential modifications of the 
     ! advection-Namelist can not be taken into account properly.
     ! Unfortunatley this conflicts with our trying to call the config-routines 
     ! as early as possible. 

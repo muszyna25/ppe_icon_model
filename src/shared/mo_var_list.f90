@@ -28,6 +28,8 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, STR_VINTP_TYPE
   USE mo_advection_config, ONLY: t_advection_config
   USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
+  
+  USE mo_art_config,       ONLY: t_art_config, art_config
 
   IMPLICIT NONE
 
@@ -3688,7 +3690,7 @@ CONTAINS
   ! optionally overwrite some default meta data
   !
   SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
-    &        tracer_idx, ptr_arr, cf, grib2, advconf, ldims, loutput, lrestart,  &
+    &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart,  &
     &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
     &        lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,  &
     &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
@@ -3702,6 +3704,7 @@ CONTAINS
     TYPE(t_cf_var)      , INTENT(in)           :: cf             ! CF related metadata
     TYPE(t_grib2_var)   , INTENT(in)           :: grib2          ! GRIB2 related metadata
     TYPE(t_advection_config), INTENT(inout)    :: advconf        ! adv configure state
+    INTEGER             , INTENT(in), OPTIONAL :: jg             ! patch id
     INTEGER             , INTENT(in), OPTIONAL :: ldims(3)       ! local dimensions, for checking
     LOGICAL             , INTENT(in), OPTIONAL :: loutput        ! output flag
     LOGICAL             , INTENT(in), OPTIONAL :: lrestart       ! restart flag
@@ -3720,6 +3723,7 @@ CONTAINS
     LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
     REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
     REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
+
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
@@ -3774,7 +3778,6 @@ CONTAINS
       zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
     ENDIF
 
-
     ! generate tracer metadata information
     !
     tracer_info = create_tracer_metadata(                                     &
@@ -3799,6 +3802,10 @@ CONTAINS
        &          vert_interp=vert_interp, hor_interp=hor_interp,                &
        &          tracer_info=tracer_info, in_group=in_group                     )
 
+    ! Get the number of convection tracers  
+    IF (lconv_tracer) THEN
+      art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
+    ENDIF
 
   END SUBROUTINE add_var_list_reference_tracer
 
