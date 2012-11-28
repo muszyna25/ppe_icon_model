@@ -83,6 +83,7 @@ MODULE mo_linked_list
     INTEGER                       :: cdiH10mZaxisID
     INTEGER                       :: cdiSnowGenericZaxisID
     INTEGER                       :: cdiSnowHalfGenericZaxisID
+    INTEGER                       :: cdiIceGenericZaxisID
     INTEGER                       :: cdiToaZaxisID
     !
     INTEGER                       :: cdiTaxisID
