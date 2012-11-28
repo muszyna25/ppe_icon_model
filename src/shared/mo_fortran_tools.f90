@@ -48,10 +48,15 @@ MODULE mo_fortran_tools
     REAL(wp),POINTER :: p_3d(:,:,:)  ! pointer to 3D (spatial) array
     REAL(wp),POINTER :: p_2d(:,:)    ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d
-
+  
+  TYPE t_ptr_tracer                   ! Type to pass pointer arrays to convection subroutines
+    REAL(wp), POINTER :: ptr(:,:)
+    INTEGER           :: idx_tracer    
+  END TYPE t_ptr_tracer
 
   PUBLIC :: assign_if_present
   PUBLIC :: t_ptr_2d3d
+  PUBLIC :: t_ptr_tracer!,pcen,ptenc
 
 
   INTERFACE assign_if_present  ! purely internal

@@ -53,6 +53,7 @@ MODULE mo_run_config
   PUBLIC :: ltimer, timers_level, activate_sync_timers, write_timer_files, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !K.L. Running index for Volcanic Ash in ICON-ART 
+  PUBLIC :: iash1_conv,iash2_conv,iash3_conv,iash4_conv,iash5_conv,iash6_conv !K.L. Running index for convection 
   PUBLIC :: check_epsilon, test_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
@@ -122,6 +123,12 @@ MODULE mo_run_config
     INTEGER :: iash4        !< Volcanic ash, fourth class
     INTEGER :: iash5        !< Volcanic ash, fifth class
     INTEGER :: iash6        !< Volcanic ash, sixth class
+    INTEGER :: iash1_conv        !< Convective tendencies for volcanic ash
+    INTEGER :: iash2_conv        !< 
+    INTEGER :: iash3_conv        !< 
+    INTEGER :: iash4_conv        !< 
+    INTEGER :: iash5_conv        !<
+    INTEGER :: iash6_conv        !<
 
 
     REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
