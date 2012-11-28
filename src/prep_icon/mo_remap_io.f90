@@ -171,10 +171,11 @@ CONTAINS
 
   !> Utility routine: Read and communicate 2D field.
   !
-  SUBROUTINE read_field3D(file_metadata, var_name, nlev, gather_c, rfield1D, &
+  SUBROUTINE read_field3D(file_metadata, var_name, var_code, nlev, gather_c, rfield1D, &
     &                     rfield2D, rfield3D_loc, opt_zaxisID)
     TYPE (t_file_metadata), INTENT(IN)    :: file_metadata      !< input file meta-data
     CHARACTER(LEN=*),       INTENT(IN)    :: var_name           !< variable name string
+    INTEGER,                INTENT(IN)    :: var_code           !< GRIB variable code
     INTEGER,                INTENT(IN)    :: nlev               !< no. of levels to read
     TYPE(t_gather_c),       INTENT(IN)    :: gather_c           !< communication pattern
     REAL(wp),               INTENT(INOUT) :: rfield1D(:),   &   !< global 1D field (on rank0)
@@ -190,7 +191,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      varID    = get_varID(vlistID, TRIM(var_name))
+      varID    = get_varID(vlistID, TRIM(var_name), var_code)
       IF (PRESENT(opt_zaxisID)) THEN
         opt_zaxisID = vlistInqVarZaxis(vlistID, varID)
       END IF
@@ -211,10 +212,11 @@ CONTAINS
 
   !> Utility routine: Read and communicate 2D field.
   !
-  SUBROUTINE read_field2D(file_metadata, var_name, gather_c, rfield1D, &
+  SUBROUTINE read_field2D(file_metadata, var_name, var_code, gather_c, rfield1D, &
     &                     rfield2D, rfield2D_loc, opt_ilev)
     TYPE (t_file_metadata), INTENT(IN)    :: file_metadata      !< input file meta-data
     CHARACTER(LEN=*),       INTENT(IN)    :: var_name           !< variable name string
+    INTEGER,                INTENT(IN)    :: var_code           !< GRIB variable code
     TYPE(t_gather_c),       INTENT(IN)    :: gather_c           !< communication pattern
     REAL(wp),               INTENT(INOUT) :: rfield1D(:),   &   !< global 1D field (on rank0)
       &                                      rfield2D(:,:), &   !< global 2D field (on rank0)
@@ -232,7 +234,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      varID    = get_varID(vlistID, TRIM(var_name))
+      varID    = get_varID(vlistID, TRIM(var_name), var_code)
 
       ! read record as 1D field
       CALL streamReadVarSlice(streamID, varID, ilev-1, rfield1D, nmiss)
@@ -246,17 +248,18 @@ CONTAINS
 
   !> @return vlist variable ID for a given variable name
   !
-  !  Uses cdilib for file access. Checks for consistency of meta data.
+  !  Uses cdilib for file access. 
   ! 
-  FUNCTION get_varID(vlistID, name) RESULT(result_varID)
+  FUNCTION get_varID(vlistID, name, code) RESULT(result_varID)
     INTEGER                             :: result_varID
     INTEGER,                 INTENT(IN) :: vlistID             !< link to GRIB file vlist
     CHARACTER (LEN=*),       INTENT(IN) :: name                !< variable name
+    INTEGER,                 INTENT(IN) :: code                !< GRIB1 variable code
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::get_varID')
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
     LOGICAL                        :: l_found
-    INTEGER                        :: nvars, varID
+    INTEGER                        :: nvars, varID, icode
 
     result_varID = -1
     ! total number of available fields:
@@ -264,9 +267,14 @@ CONTAINS
     ! loop over vlist, find the corresponding varID
     l_found = .FALSE.
     LOOP : DO varID=0,(nvars-1)
-      CALL vlistInqVarName(vlistID, varID, zname);
-      IF (dbg_level >= 10) WRITE (0,*) "# scanning [", tolower(TRIM(zname)), "]"
-      IF (tolower(TRIM(zname)) == tolower(TRIM(name))) THEN
+      CALL vlistInqVarName(vlistID, varID, zname)
+      icode = vlistInqVarCode(vlistID, varID)
+      IF (dbg_level >= 10) THEN
+        WRITE (0,*) "# scanning [", tolower(TRIM(zname)), "], code: ", icode
+      END IF
+
+      IF ((tolower(TRIM(zname)) == tolower(TRIM(name))) .OR. &
+        & (code == icode)) THEN
         result_varID = varID
         l_found = .TRUE.
         EXIT LOOP

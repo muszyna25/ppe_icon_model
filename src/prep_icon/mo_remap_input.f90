@@ -104,16 +104,19 @@ MODULE mo_remap_input
 
   LOGICAL                         :: lhydrostatic_correction
   CHARACTER (LEN=MAX_NAME_LENGTH) :: var_temp                  !< field name: "temperature"
-  CHARACTER (LEN=MAX_NAME_LENGTH) :: var_z                     !< field name: "geopotential"
+  INTEGER                         :: code_temp
   CHARACTER (LEN=MAX_NAME_LENGTH) :: var_geosp                 !< field name: "surface geopotential"
+  INTEGER                         :: code_geosp
   CHARACTER (LEN=MAX_NAME_LENGTH) :: var_qv                    !< field name: "specific humidity
+  INTEGER                         :: code_qv
   REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
   REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical 
 
   ! namelist definition: namelist for a single field
-  NAMELIST/input_field_nml/ inputname, outputname, code, type_of_layer,  &
-    &                       lhydrostatic_correction, var_temp, var_z,    &
-    &                       var_geosp, var_qv, hpbl1, hpbl2                    
+  NAMELIST/input_field_nml/ inputname, outputname, code, type_of_layer,   &
+    &                       lhydrostatic_correction, var_temp, code_temp, &
+    &                       var_geosp, code_geosp, var_qv, code_qv,       &
+    &                       hpbl1, hpbl2                    
 
 
 CONTAINS
@@ -153,10 +156,12 @@ CONTAINS
       type_of_layer = " "
 
       lhydrostatic_correction = .FALSE.
-      var_temp      = ""            
-      var_z         = ""            
-      var_geosp     = ""            
-      var_qv        = ""            
+      var_temp      = "T"            
+      code_temp     = 130
+      var_geosp     = "FI"            
+      code_geosp    = 129
+      var_qv        = "QV"            
+      code_qv       = 133
       hpbl1         = 500
       hpbl2         = 1000
 
@@ -172,9 +177,11 @@ CONTAINS
 
       input_field(n_input_fields)%fa%lhydrostatic_correction  = lhydrostatic_correction     
       input_field(n_input_fields)%fa%var_temp                 = var_temp                    
-      input_field(n_input_fields)%fa%var_z                    = var_z                       
+      input_field(n_input_fields)%fa%code_temp                = code_temp                    
       input_field(n_input_fields)%fa%var_geosp                = var_geosp                   
+      input_field(n_input_fields)%fa%code_geosp               = code_geosp                   
       input_field(n_input_fields)%fa%var_qv                   = var_qv                      
+      input_field(n_input_fields)%fa%code_qv                  = code_qv                      
       input_field(n_input_fields)%fa%hpbl1                    = hpbl1                       
       input_field(n_input_fields)%fa%hpbl2                    = hpbl2                       
 
@@ -211,7 +218,7 @@ CONTAINS
     INTEGER,                 INTENT(IN) :: vlistID             !< link to GRIB file vlist
     TYPE (t_field_metadata), INTENT(IN) :: field_info          !< field meta-data
 
-    result_varID = get_varID(vlistID, field_info%inputname)
+    result_varID = get_varID(vlistID, field_info%inputname, field_info%code)
   END FUNCTION get_field_varID
 
 

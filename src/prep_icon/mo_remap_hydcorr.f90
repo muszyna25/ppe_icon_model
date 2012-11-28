@@ -37,9 +37,11 @@ MODULE mo_remap_hydcorr
   TYPE t_field_adjustment
     LOGICAL                         :: lhydrostatic_correction
     CHARACTER (LEN=MAX_NAME_LENGTH) :: var_temp                  !< field name: "temperature"
-    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_z                     !< field name: "geopotential"
+    INTEGER                         :: code_temp
     CHARACTER (LEN=MAX_NAME_LENGTH) :: var_geosp                 !< field name: "surface geopotential"
+    INTEGER                         :: code_geosp
     CHARACTER (LEN=MAX_NAME_LENGTH) :: var_qv                    !< field name: "specific humidity
+    INTEGER                         :: code_qv
     REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
     REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical 
                                                                  !  temperature gradient above the inversion
@@ -156,14 +158,15 @@ MODULE mo_remap_hydcorr
 
 CONTAINS
 
-  SUBROUTINE compute_vtemp_and_height(file_metadata, grid, gather_c, psfc, geosp, temp_v, z3d)
-    TYPE (t_file_metadata), INTENT(IN)    :: file_metadata  !< input file meta-data
-    TYPE (t_grid)  ,        INTENT(IN)    :: grid           !< source grid
-    TYPE (t_gather_c),      INTENT(IN)    :: gather_c       !< communication pattern
-    REAL(wp),               INTENT(IN)    :: psfc(:,:)      !< surface orography height of input data [m] 
-    REAL(wp),               INTENT(IN)    :: geosp(:,:)     !< surface geopotential
-    REAL(wp),               INTENT(INOUT) :: temp_v(:,:,:)  !< virtual temperature (result)
-    REAL(wp),               INTENT(INOUT) :: z3d(:,:,:)     !< orography height (result)
+  SUBROUTINE compute_vtemp_and_height(file_metadata, fa, grid, gather_c, psfc, geosp, temp_v, z3d)
+    TYPE (t_file_metadata),    INTENT(IN)    :: file_metadata  !< input file meta-data
+    TYPE (t_field_adjustment), INTENT(IN)    :: fa             !< meta-data for hydrostatic correction
+    TYPE (t_grid)  ,           INTENT(IN)    :: grid           !< source grid
+    TYPE (t_gather_c),         INTENT(IN)    :: gather_c       !< communication pattern
+    REAL(wp),                  INTENT(IN)    :: psfc(:,:)      !< surface orography height of input data [m] 
+    REAL(wp),                  INTENT(IN)    :: geosp(:,:)     !< surface geopotential
+    REAL(wp),                  INTENT(INOUT) :: temp_v(:,:,:)  !< virtual temperature (result)
+    REAL(wp),                  INTENT(INOUT) :: z3d(:,:,:)     !< orography height (result)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &     TRIM(TRIM(modname)//'::compute_height')
@@ -190,10 +193,10 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! read 3D temperature field
-    CALL read_field3D(file_metadata, "T", nlev, gather_c, rfield1D, rfield2D, temp, zaxisID)
+    CALL read_field3D(file_metadata, fa%var_temp, fa%code_temp, nlev, gather_c, rfield1D, rfield2D, temp, zaxisID)
 
     ! read 3D specific humidity field
-    CALL read_field3D(file_metadata, "QV", nlev, gather_c, rfield1D, rfield2D, qv)
+    CALL read_field3D(file_metadata, fa%var_qv, fa%code_qv, nlev, gather_c, rfield1D, rfield2D, qv)
 
     ! Compute virtual temperature of input data
     CALL virtual_temp(grid%p_patch, temp, qv, temp_v=temp_v )
@@ -416,7 +419,7 @@ CONTAINS
     ! --- read logarithm of surface pressure and surface geopotential
     IF (dbg_level >= 5) &
       & WRITE (0,*) "read logarithm of surface pressure and surface geopotential"
-    CALL read_field2D(file_metadata, fa%var_geosp, gather_c, &
+    CALL read_field2D(file_metadata, fa%var_geosp, fa%code_geosp, gather_c, &
       &               rfield1D, rfield2D, zsfc_in)
 
     ! --- compute surface pressure from LNSP
@@ -427,7 +430,7 @@ CONTAINS
     ! --- compute virtual temperature and height of input levels
     IF (dbg_level >= 5) &
       & WRITE (0,*) "compute virtual temperature and height of input levels"
-    CALL compute_vtemp_and_height(file_metadata, src_grid, gather_c, psfc_in, &
+    CALL compute_vtemp_and_height(file_metadata, fa, src_grid, gather_c, psfc_in, &
       &                           zsfc_in, temp_v, z3d)
 
     ! --- compute surface orography height [m]
