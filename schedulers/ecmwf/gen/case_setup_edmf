@@ -118,13 +118,13 @@ done
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
 'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
 'tcc','tqv','tqc','tqi', 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 'u_10m','v_10m', 
-'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
-'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
-'ddt_u_turb',  'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv',  'ddt_v_turb',  'ddt_v_sso', 
-'ddt_v_gwd', 'ddt_v_pconv',  'ddt_qv_turb', 'ddt_qv_conv'"
+'accshfl_s','acclhfl_s', 'accthb_s','accthb_t','accsob_s','accsob_t', 
+'ddt_temp_radsw', 'ddt_temp_radlw', 'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
+'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
+'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv'"
 
 pl_varlist="'u','v','temp','geopot','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'u','v','temp','pres','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+hl_varlist="'u','v','temp','pres',  'tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
 
 # ---
 
@@ -137,6 +137,7 @@ cat > ${atmo_namelist} << EOF
  num_io_procs                 = 3
  itype_comm                   = 1
  iorder_sendrecv              = 1
+ use_sp_output                = .FALSE.    ! output fields gathered and written in single-precision 
 /
 &grid_nml
  cell_type                    = 3
