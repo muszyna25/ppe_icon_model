@@ -26,6 +26,7 @@ MODULE mo_remap_io
   PUBLIC :: t_file_metadata
   PUBLIC :: l_have3dbuffer
   PUBLIC :: s_maxsize
+  PUBLIC :: in_file_gribedition
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_io')  
 
@@ -33,6 +34,10 @@ MODULE mo_remap_io
   CHARACTER (len=MAX_NAME_LENGTH)    :: out_filename        !< output file name.
   CHARACTER (len=MAX_NAME_LENGTH)    :: in_grid_filename    !< input grid file name.
   CHARACTER (len=MAX_NAME_LENGTH)    :: out_grid_filename   !< output grid file name.
+
+  !> work-around: GRIB edition number of input data file (as long as we cannot
+  !  determine this via CDI)
+  INTEGER                            :: in_file_gribedition
 
   INTEGER :: in_type, out_type !< structure of input/output grid
 
@@ -45,7 +50,8 @@ MODULE mo_remap_io
   ! namelist definition: main namelist
   NAMELIST/remap_nml/   in_grid_filename,  in_filename,  in_type,  &
     &                   out_grid_filename, out_filename, out_type, &
-    &                   l_have3dbuffer, s_maxsize
+    &                   l_have3dbuffer, s_maxsize,                 &
+    &                   in_file_gribedition
 
   ! Derived type containing IDs for opened grid/data files.
   !
@@ -81,6 +87,7 @@ CONTAINS
     out_type          =  2
     l_have3dbuffer    = .FALSE.
     s_maxsize         = 500000
+    in_file_gribedition = 2
 
     ! read user's (new) specifications
     CALL open_nml(TRIM(filename))
@@ -191,7 +198,11 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      varID    = get_varID(vlistID, TRIM(var_name), var_code)
+      IF (in_file_gribedition == 1) THEN
+        varID    = get_varID(vlistID, code=var_code)
+      ELSE
+        varID    = get_varID(vlistID, name=TRIM(var_name))
+      END IF
       IF (PRESENT(opt_zaxisID)) THEN
         opt_zaxisID = vlistInqVarZaxis(vlistID, varID)
       END IF
@@ -234,7 +245,11 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      varID    = get_varID(vlistID, TRIM(var_name), var_code)
+      IF (in_file_gribedition == 1) THEN
+        varID    = get_varID(vlistID, code=var_code)
+      ELSE
+        varID    = get_varID(vlistID, name=TRIM(var_name))
+      END IF
 
       ! read record as 1D field
       CALL streamReadVarSlice(streamID, varID, ilev-1, rfield1D, nmiss)
@@ -251,15 +266,21 @@ CONTAINS
   !  Uses cdilib for file access. 
   ! 
   FUNCTION get_varID(vlistID, name, code) RESULT(result_varID)
-    INTEGER                             :: result_varID
-    INTEGER,                 INTENT(IN) :: vlistID             !< link to GRIB file vlist
-    CHARACTER (LEN=*),       INTENT(IN) :: name                !< variable name
-    INTEGER,                 INTENT(IN) :: code                !< GRIB1 variable code
+    INTEGER                                 :: result_varID
+    INTEGER,           INTENT(IN)           :: vlistID             !< link to GRIB file vlist
+    CHARACTER (LEN=*), INTENT(IN), OPTIONAL :: name                !< variable name
+    INTEGER,           INTENT(IN), OPTIONAL :: code                !< GRIB1 variable code
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::get_varID')
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
     LOGICAL                        :: l_found
     INTEGER                        :: nvars, varID, icode
+
+    IF (.NOT. (PRESENT(name) .OR. PRESENT(code))) &
+      & CALL finish(routine, "Internal error!")
+
+    zname = ""
+    icode =  0
 
     result_varID = -1
     ! total number of available fields:
@@ -267,20 +288,36 @@ CONTAINS
     ! loop over vlist, find the corresponding varID
     l_found = .FALSE.
     LOOP : DO varID=0,(nvars-1)
-      CALL vlistInqVarName(vlistID, varID, zname)
-      icode = vlistInqVarCode(vlistID, varID)
+      IF (PRESENT(name)) CALL vlistInqVarName(vlistID, varID, zname)
+      IF (PRESENT(code)) icode = vlistInqVarCode(vlistID, varID)
       IF (dbg_level >= 10) THEN
         WRITE (0,*) "# scanning [", tolower(TRIM(zname)), "], code: ", icode
       END IF
 
-      IF ((tolower(TRIM(zname)) == tolower(TRIM(name))) .OR. &
-        & (code == icode)) THEN
-        result_varID = varID
-        l_found = .TRUE.
-        EXIT LOOP
+      IF (PRESENT(name)) THEN
+        IF (tolower(TRIM(zname)) == tolower(TRIM(name))) THEN
+          result_varID = varID
+          l_found = .TRUE.
+          EXIT LOOP
+        END IF
+      END IF
+      IF (PRESENT(code)) THEN
+        IF (code == icode) THEN
+          result_varID = varID
+          l_found = .TRUE.
+          EXIT LOOP
+        END IF
       END IF
     END DO LOOP
-    IF (.NOT. l_found) CALL finish(routine, "Variable "//TRIM(name)//" not found!")
+    IF (.NOT. l_found) THEN
+      IF (PRESENT(name)) THEN
+        CALL finish(routine, "Variable "//TRIM(name)//" not found!")
+      END IF
+      IF (PRESENT(code)) THEN
+        WRITE (0,*) "Variable code: ", code
+        CALL finish(routine, "Variable not found!")
+      END IF
+    END IF
   END FUNCTION get_varID
 
 END MODULE mo_remap_io

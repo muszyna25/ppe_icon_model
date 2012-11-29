@@ -18,7 +18,8 @@ MODULE mo_remap_input
   USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR
   USE mo_remap_intp,         ONLY: t_intp_data, interpolate_c
   USE mo_remap_sync,         ONLY: t_gather_c, scatter_field2D_c
-  USE mo_remap_io,           ONLY: t_file_metadata, get_varID
+  USE mo_remap_io,           ONLY: t_file_metadata, get_varID, &
+    &                              in_file_gribedition
   USE mo_remap_hydcorr,      ONLY: t_field_adjustment, hydrostatic_correction
 
   IMPLICIT NONE
@@ -218,7 +219,11 @@ CONTAINS
     INTEGER,                 INTENT(IN) :: vlistID             !< link to GRIB file vlist
     TYPE (t_field_metadata), INTENT(IN) :: field_info          !< field meta-data
 
-    result_varID = get_varID(vlistID, field_info%inputname, field_info%code)
+    IF (in_file_gribedition == 1) THEN
+      result_varID = get_varID(vlistID, code=field_info%code)
+    ELSE
+      result_varID = get_varID(vlistID, name=field_info%inputname)
+    END IF
   END FUNCTION get_field_varID
 
 
@@ -268,7 +273,7 @@ CONTAINS
           input_field(i)%nlev     = zaxisInqSize(input_field(i)%zaxisID)
           IF ((input_field(i)%type_of_layer == "surface") .AND.  &
             & (input_field(i)%nlev /= 1)) THEN
-            CALL finish(routine, "Inconsistent input data (level no.)")
+            CALL finish(routine, TRIM(input_field(i)%inputname)//": Inconsistent input data (level no.)")
           END IF
           input_field(i)%steptype = vlistInqVarTsteptype(vlistID, input_field(i)%varID)
           input_field(i)%table    = vlistInqVarTable(vlistID, input_field(i)%varID)

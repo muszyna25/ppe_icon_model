@@ -1658,7 +1658,7 @@ There are currently two ways of using it:
 Using the preprocessing tool prep\_icon, it is possible to
 {
 \renewcommand\theenumi{(\alph{enumi})}
-\renewcommand\labelenumi{(\theenumi)}
+\renewcommand\labelenumi{\theenumi}
 %
 \begin{enumerate}
 \item \textbf{generate the three-dimensional coordinate fields} needed by IFS2ICON if IFS2ICON is requested to do
@@ -1832,6 +1832,12 @@ L & .FALSE.& & Flag. True if a 3D buffer is used for output &
 i\_oper\_mode=4 (prepicon\_nml)
 \tabularnewline
 
+\hline 
+in\_file\_gribedition&
+I & 2& & GRIB edition number of input data file &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/prep\_icon/mo\_remap\_io.f90
@@ -1868,6 +1874,68 @@ i\_oper\_mode=4 (prepicon\_nml)
 type\_of\_layer &
 C & ```` & & GRIB input layer type &
 i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+lhydrostatic\_correction &
+L & F & & Flag. True, if hydrostatic correction shall be applied to this field &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+var\_temp &
+C & ``T'' & & field name: temperature &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+code\_temp &
+I & 130 & & GRIB1 code: temperature &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+var\_geosp &
+C & ``FI'' & & field name: surface geopotential &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+code\_geosp &
+I & 129 & & GRIB1 code: surface geopotential &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+var\_qv &
+C & ``QV'' & & field name: specific humidity &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+code\_qv &
+I & 133 & & GRIB1 code: specific humidity &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+hpbl1 &
+R & 500 & & height above ground of surface inversion top &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+hpbl2 &
+R & 1000 & & top of layer used to estimate the vertical temperature gradient above the inversion &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
 \tabularnewline
 
 \end{longtab}
