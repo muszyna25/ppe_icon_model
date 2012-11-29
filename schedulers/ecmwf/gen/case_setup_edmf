@@ -208,7 +208,8 @@ cat > ${atmo_namelist} << EOF
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
  ninc_mtgrm        = ${ninc_mtgrm}  ! meteogram output interval
  ldistributed      = .false.
- stationlist_tot   =  52.17,  14.12, 'Lindenberg',                        ! Lat,Lon
+ stationlist_tot   =  50.16,   8.75, 'Offenbach',                         ! Lat,Lon
+                      52.17,  14.12, 'Lindenberg',
                       51.97,   4.93, 'Cabauw',
                      -10.08, -61.93, 'LBA_Rondonia',
                       13.50,   2.5 , 'Niamey',
@@ -216,8 +217,9 @@ cat > ${atmo_namelist} << EOF
                      -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
                       -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
                      -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
+                     -20.00,-120.00, 'Tropical Ocean cumumulus',
+                     -20.00, -85.00, 'Tropical Ocean IMET strcu',
                       60.00,  80.00, 'Snow Test Russia',
-                      50.16,   8.75, 'Offenbach',
 /
 &nwp_phy_nml
  inwp_gscp                    = 10  ! 1: default, or 10
