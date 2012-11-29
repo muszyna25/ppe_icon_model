@@ -112,7 +112,7 @@ MODULE mo_remap_input
   INTEGER                         :: code_qv
   REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
   REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical 
-
+                                                               !  temperature gradient above the inversion
   ! namelist definition: namelist for a single field
   NAMELIST/input_field_nml/ inputname, outputname, code, type_of_layer,   &
     &                       lhydrostatic_correction, var_temp, code_temp, &
