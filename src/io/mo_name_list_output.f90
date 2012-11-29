@@ -2136,6 +2136,7 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
+      !
       ! Define axis for output on mean sea level
       !
       of%cdiZaxisID(ZA_meansea) = zaxisCreate(ZAXIS_MEANSEA, 1)
@@ -2144,7 +2145,8 @@ CONTAINS
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_meansea), levels)
       DEALLOCATE(levels)
 
-      ! Define axes for soil model
+      !
+      ! Define axes for soil model (DEPTH_BELOW_LAND)
       !
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
@@ -2157,10 +2159,24 @@ CONTAINS
       CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
       DEALLOCATE(levels)
 
-      of%cdiZaxisID(ZA_depth_below_land) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land), zml_soil*1000._wp) ! in mm
-      CALL zaxisDefUnits (of%cdiZaxisID(ZA_depth_below_land), "mm")
+      !(DEPTH_BELOW_LAND_LAYER)
+      !
+      of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
+      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil))
+      lbounds(1) = 0._wp   ! surface
+      DO k = 2, znlev_soil
+        lbounds(k)   = (zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1)))
+      ENDDO
+      DO k = 1, znlev_soil
+        ubounds(k) = (zml_soil(k) + (zml_soil(k) - lbounds(k)))
+      ENDDO
+      ubounds(:) = ubounds(:) * 1000._wp        ! in mm
+      lbounds(:) = lbounds(:) * 1000._wp        ! in mm
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds)
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
+      DEALLOCATE(lbounds, ubounds)
+
       !
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
