@@ -1684,86 +1684,83 @@ CONTAINS
 
       ! Compute vertical gradients of virtual potential temperature
       DO jk = 1, nlevs_out
-        DO jc = 1, nlen
-          IF (jk <= bot_idx(jc,jb)) THEN
-            jk1 = idx0(jc,jk,jb)
 
-            IF (ABS(z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
-              dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
-                &               (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
-            ELSE
-              dtvdz_up(jc,jk) = 0._wp
-            ENDIF
+        IF (.NOT. l_init_mode) THEN ! Use only temperatures of input data for postprocessing      
+          DO jc = 1, nlen           ! The vertical gradient is needed for downward extrapolation only
 
-            ! Paranoia
-            IF (ABS(z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
-              dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
-                &                 (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
-            ELSE
-              dtvdz_down(jc,jk) = 0._wp
-            END IF
-
-          ELSE ! downward extrapolation; only dtvdz_down is needed
-
-            IF (l_init_mode) THEN ! Use temperatures already interpolated to the output grid
-              dtvdz_down(jc,jk) = (tempv_out(jc,jk-1,jb)-tempv_out(jc,jk,jb)) / &
-                (z3d_out(jc,jk-1,jb)-z3d_out(jc,jk,jb))
-
-            ELSE IF (z3d_in(jc,nlevs_in,jb) > 1._wp) THEN
+            IF (z3d_in(jc,nlevs_in,jb) > 1._wp) THEN
               dtvdz_down(jc,jk) = (tsfc_mod(jc)-tmsl(jc))/z3d_in(jc,nlevs_in,jb)
 
             ELSE ! avoid pathological results at grid points below sea level
               dtvdz_down(jc,jk) = vtgrad_standardatm
+
             ENDIF
 
-          ENDIF
+          ENDDO
 
-        ENDDO
+        ELSE ! Use also temperatures on target grid in order to obtain a pressure
+             ! field that is consistent with the boundary-layer corrections on temperature
+
+          DO jc = 1, nlen
+            IF (jk <= bot_idx(jc,jb)) THEN
+              jk1 = idx0(jc,jk,jb)
+
+              IF (ABS(z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+                dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
+                  &               (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
+              ELSE
+                dtvdz_up(jc,jk) = 0._wp
+              ENDIF
+
+              ! Paranoia
+              IF (ABS(z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+                dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
+                  &                 (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
+              ELSE
+                dtvdz_down(jc,jk) = 0._wp
+              END IF
+
+            ELSE ! downward extrapolation; only dtvdz_down is needed
+
+              dtvdz_down(jc,jk) = (tempv_out(jc,jk-1,jb)-tempv_out(jc,jk,jb)) / &
+                (z3d_out(jc,jk-1,jb)-z3d_out(jc,jk,jb))
+
+            ENDIF
+          ENDDO
+
+        ENDIF
       ENDDO
 
       ! Now compute pressure on target grid
       DO jk = 1, nlevs_out
-        DO jc = 1, nlen
-          IF (jk <= bot_idx(jc,jb)) THEN
 
-            ! interpolation based on piecewise analytical integration of the hydrostatic equation
-            jk1 = idx0(jc,jk,jb)
-              
-            IF (ABS(dtvdz_up(jc,jk)) > dtvdz_thresh) THEN
-              p_up = pres_in(jc,jk1,jb)*EXP(-grav/(rd*dtvdz_up(jc,jk))* &
-                   LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
-            ELSE
+        IF (.NOT. l_init_mode) THEN ! Postprocessing mode
+
+          DO jc = 1, nlen
+            IF (jk <= bot_idx(jc,jb)) THEN
+
+              ! interpolation based on piecewise analytical integration of the hydrostatic equation:
+              ! we use only the formula for constant (layer-averaged) temperature in order not to
+              ! require an already interpolated (virtual) temperature on the output grid;
+              ! the linear weighting between the upward and downward integrals nevertheless
+              ! ensures negligibly small errors
+              jk1 = idx0(jc,jk,jb)
+
               p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
-                   (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
-            ENDIF
+                   (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
 
-            IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
-              p_down = pres_in(jc,jk1+1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
-                   LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
-            ELSE
               p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
-                   (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
-            ENDIF
+                   (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
 
-            ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
-            ! except in the case of extrapolation above the top of the input data
-            IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
-              pres_out(jc,jk,jb) = p_up
-            ELSE
-              pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
-            ENDIF
-          
-          ELSE ! downward extrapolation
-
-            IF (l_init_mode) THEN
-              IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
-                p_down = pres_out(jc,jk-1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
-                         LOG(tempv_out(jc,jk,jb)/tempv_out(jc,jk-1,jb)) )
+              ! apply inverse-distance weighting between top-down and bottom-up integrated value
+              ! except in the case of extrapolation above the top of the input data
+              IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
+                pres_out(jc,jk,jb) = p_up
               ELSE
-                p_down = pres_out(jc,jk-1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_out(jc,jk-1,jb)) / &
-                         (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_out(jc,jk-1,jb))) )
+                pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
               ENDIF
-            ELSE
+
+            ELSE ! downward extrapolation based on the vertical gradient computed above
               t_extr = tsfc_mod(jc) + (z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb))*dtvdz_down(jc,jk)
               IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
                 p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
@@ -1772,13 +1769,57 @@ CONTAINS
                 p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb)) / &
                          (rd*0.5_wp*(t_extr+tsfc_mod(jc))) )
               ENDIF
+              pres_out(jc,jk,jb) = p_down
             ENDIF
+          ENDDO
 
-            pres_out(jc,jk,jb) = p_down
+        ELSE  ! Initialization mode
 
-          ENDIF
+          DO jc = 1, nlen
+            IF (jk <= bot_idx(jc,jb)) THEN
 
-        ENDDO
+              ! interpolation based on piecewise analytical integration of the hydrostatic equation
+              jk1 = idx0(jc,jk,jb)
+              
+              IF (ABS(dtvdz_up(jc,jk)) > dtvdz_thresh) THEN
+                p_up = pres_in(jc,jk1,jb)*EXP(-grav/(rd*dtvdz_up(jc,jk))* &
+                     LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
+              ELSE
+                p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
+                     (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
+              ENDIF
+
+              IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
+                p_down = pres_in(jc,jk1+1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
+                     LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
+              ELSE
+                p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
+                     (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
+              ENDIF
+
+              ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
+              ! except in the case of extrapolation above the top of the input data
+              IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
+                pres_out(jc,jk,jb) = p_up
+              ELSE
+                pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
+              ENDIF
+          
+            ELSE ! downward extrapolation
+
+              IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
+                p_down = pres_out(jc,jk-1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
+                         LOG(tempv_out(jc,jk,jb)/tempv_out(jc,jk-1,jb)) )
+              ELSE
+                p_down = pres_out(jc,jk-1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_out(jc,jk-1,jb)) / &
+                         (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_out(jc,jk-1,jb))) )
+              ENDIF
+
+              pres_out(jc,jk,jb) = p_down
+            ENDIF
+          ENDDO
+
+        ENDIF
       ENDDO
 
     ENDDO
