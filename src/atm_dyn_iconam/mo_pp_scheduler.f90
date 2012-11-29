@@ -1,7 +1,7 @@
 ! Option directive to avoid a possible SX compiler bug with OpenMP + MPI;
-! disable moving invariant expressions outside of a loop by the compiler.
-! [2012-11-08, F. Prill, DWD]
-!option! -O nomove
+! assumes that pointer references are overlapped in optimization.
+! [2012-11-08, F. Prill, DWD / 2012-11-27, J. Beismann, NEC]
+!option! -O overlap
 
 !>
 !! Scheduler for internal post-processing.
@@ -698,10 +698,7 @@ CONTAINS
       ! and "pl_varlist(1:nvars_pl)" and "il_varlist(1:nvars_il)"
       
       ! skip domain if no p/z-interpolation requested:
-      IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) THEN
-        IF (dbg_level > 8)  CALL message(routine, "No vertical interpolation tasks.")
-        CYCLE DOM_LOOP
-      END IF
+      IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) CYCLE DOM_LOOP
 
       ! remove duplicates from variable lists
       IF (l_intp_z) CALL remove_duplicates(hl_varlist, nvars_hl)
