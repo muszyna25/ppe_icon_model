@@ -1,7 +1,9 @@
 ! Option directive to avoid a possible SX compiler bug with OpenMP + MPI;
 ! assumes that pointer references are overlapped in optimization.
+! disable moving invariant expressions outside of a loop by the compiler.
 ! [2012-11-08, F. Prill, DWD / 2012-11-27, J. Beismann, NEC]
 !option! -O overlap
+!option! -O nomove
 
 !>
 !! Scheduler for internal post-processing.
@@ -67,8 +69,7 @@ MODULE mo_pp_scheduler
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY: SUCCESS,                       &
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,                &
-    & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,              &     
-    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT,                              &
+    & HINTP_TYPE_NONE, HINTP_TYPE_LONLAT,                              &
     & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
     & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,    &
     & TASK_FINALIZE_IPZ,                                               &
@@ -733,20 +734,6 @@ CONTAINS
         CALL add_var( p_opt_diag_list_z, "pres", p_diag_pz%z_pres,              &
           & GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE, cf_desc, grib2_desc,           &
           & ldims=shape3d )
-
-        ! tracer_qv
-        cf_desc    = t_cf_var('tracer_qv', 'kg kg-1', 'specific_humidity', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 1, 201, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_z, "qv",                                  &
-          & p_diag_pz%z_tracer_iqv, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,        &
-          & cf_desc, grib2_desc, ldims=shape3d)
-
-        ! tot_qv
-        cf_desc    = t_cf_var('tot_qv', '','total_specific_humidity', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 6, 6, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_z, "tot_qv",                              &
-          & p_diag_pz%z_tot_cld_iqv, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,       &
-          & cf_desc, grib2_desc, ldims=shape3d)
       END IF
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
@@ -809,7 +796,7 @@ CONTAINS
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
       task%activity%ldom_active(jg) =  .TRUE.
       task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
-      task%job_name     = "Clean-up: pz-level interpolation, level "//TRIM(int2string(jg))
+      task%job_name     = "Clean-up: ipz-level interpolation, level "//TRIM(int2string(jg))
       task%job_type     = TASK_FINALIZE_IPZ
       task%data_input%p_int_state      => NULL()
       task%data_input%jg               =  jg           
@@ -821,7 +808,7 @@ CONTAINS
       ! remove already defined variables from list of requested output
       ! fields:
       IF (l_intp_z) &
-        CALL difference(hl_varlist, nvars_hl, (/ "temp  ", "pres  ", "qv    ", "tot_qv" /), 4 )
+        CALL difference(hl_varlist, nvars_hl, (/ "temp  ", "pres  " /), 2)
       IF (l_intp_p) &
         CALL difference(pl_varlist, nvars_pl, (/ "gh    ", "temp  " /), 2)
       IF (l_intp_i) &

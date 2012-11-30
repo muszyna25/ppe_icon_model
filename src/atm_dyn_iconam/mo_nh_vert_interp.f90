@@ -50,7 +50,8 @@ MODULE mo_nh_vert_interp
     &                               vcoeff_allocate, vcoeff_deallocate
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
-  USE mo_intp,                ONLY: edges2cells_scalar, cell_avg
+  USE mo_intp,                ONLY: edges2cells_scalar, cell_avg, &
+    &                               cells2edges_scalar
   USE mo_parallel_config,     ONLY: nproma
   USE mo_nh_pzlev_config,     ONLY: t_nh_pzlev_config
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
@@ -80,6 +81,18 @@ MODULE mo_nh_vert_interp
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
+  ! Threshold for switching between analytical formulas for constant temperature and
+  ! constant vertical gradient of temperature, respectively
+  REAL(wp), PARAMETER :: dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
+  
+  ! Standard atmosphere vertical temperature gradient
+  REAL(wp), PARAMETER :: vtgrad_standardatm = -6.5e-3_wp ! -6.5 K/km
+  
+  ! Artificial limits on temperature profile used for extrapolation below the ground
+  REAL(wp), PARAMETER :: t_low  = 255.0_wp
+  REAL(wp), PARAMETER :: t_high = 290.5_wp
+
+
   PUBLIC :: vertical_interpolation
   PUBLIC :: intp_to_p_and_z_levels_prepicon
   PUBLIC :: prepare_lin_intp
@@ -106,10 +119,9 @@ CONTAINS
   !!   is specific to prep_icon 
   !!
   !!
-  SUBROUTINE intp_to_p_and_z_levels_prepicon(p_patch, p_int, prepicon)
+  SUBROUTINE intp_to_p_and_z_levels_prepicon(p_patch, prepicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
-    TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon(:)
 
     ! LOCAL VARIABLES
@@ -359,10 +371,10 @@ CONTAINS
                       prepicon%atm%qi, prepicon%atm%qr, prepicon%atm%qs, z_tempv)
 
     ! Interpolate pressure on ICON grid
-    CALL pressure_intp(prepicon%atm_in%pres, temp_v_in, prepicon%atm_in%z3d,            &
-                       prepicon%atm%pres, z_tempv, prepicon%z_mc,                       &
-                       p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, .TRUE.,        &
-                       wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2)
+    CALL pressure_intp_initmode(prepicon%atm_in%pres, temp_v_in, prepicon%atm_in%z3d,           &
+      &                        prepicon%atm%pres, z_tempv, prepicon%z_mc,                       &
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                         &
+      &                        wfac_lin, idx0_lin, bot_idx_lin)
  
     CALL qv_intp(prepicon%atm_in%qv, prepicon%atm%qv, prepicon%atm_in%z3d,  &
                  prepicon%z_mc, prepicon%atm_in%temp, prepicon%atm_in%pres, &
@@ -379,10 +391,10 @@ CONTAINS
                       prepicon%atm%qi, prepicon%atm%qr, prepicon%atm%qs, z_tempv)
 
     ! Final interpolation of pressure on ICON grid
-    CALL pressure_intp(prepicon%atm_in%pres, temp_v_in, prepicon%atm_in%z3d,           &
-                       prepicon%atm%pres, z_tempv, prepicon%z_mc,                      &
-                       p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, .TRUE.,       &
-                       wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2)
+    CALL pressure_intp_initmode(prepicon%atm_in%pres, temp_v_in, prepicon%atm_in%z3d,          &
+      &                        prepicon%atm%pres, z_tempv, prepicon%z_mc,                      &
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                        &
+      &                        wfac_lin, idx0_lin, bot_idx_lin)
 
 
     ! Convert thermodynamic variables into set of NH prognostic variables
@@ -560,8 +572,8 @@ CONTAINS
 
     ! Interpolate pressure on z-levels
     CALL pressure_intp(prepicon%atm%pres, z_tempv_in, prepicon%z_mc,                   &
-                       prepicon%zlev%pres, z_tempv, prepicon%zlev%z3d,                 &
-                       p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev, .FALSE.,       &
+                       prepicon%zlev%pres, prepicon%zlev%z3d,                          &
+                       p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev,                &
                        wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2)
 
     ! Final interpolation of QV, without supersaturation limiting
@@ -650,31 +662,27 @@ CONTAINS
   !! Modification by F. Prill, DWD (2012-02-29)
   !! - Separated coefficient computation from interpolation
   !!
-  SUBROUTINE prepare_vert_interp_z(p_patch, p_prog, p_diag, prm_diag, p_metrics, nzlev,  &
-    &                              temp_z_out, tracer_z_qv_out, tot_cld_z_qv_out,        &
-    &                              pres_z_out, p_z3d_out, vcoeff_z)
+  SUBROUTINE prepare_vert_interp_z(p_patch, p_diag, p_metrics, intp_hrz, nzlev,  &
+    &                              temp_z_out, pres_z_out, p_z3d_out, vcoeff_z)
 
     TYPE(t_patch),        TARGET,      INTENT(IN)    :: p_patch
-    TYPE(t_nh_prog),      POINTER                    :: p_prog
     TYPE(t_nh_diag),      POINTER                    :: p_diag
-    TYPE(t_nwp_phy_diag), POINTER                    :: prm_diag
+    TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
+    TYPE(t_int_state),                 INTENT(IN)    :: intp_hrz          !< pointer to data structure for interpolation
     INTEGER,                           INTENT(IN)    :: nzlev             !< number of output levels (height)
     REAL(wp),                          INTENT(INOUT) :: temp_z_out(:,:,:),          &
-      &                                                 tracer_z_qv_out(:,:,:),     &
-      &                                                 tot_cld_z_qv_out(:,:,:),    &
       &                                                 pres_z_out(:,:,:)
     REAL(wp) ,            POINTER                    :: p_z3d_out(:,:,:)  !< height field
-    TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_z
 
     ! LOCAL VARIABLES
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_z")
 
-    INTEGER :: nlev, nlevp1, jg, i_endblk, nblks, npromz !< blocking parameters
-    ! Auxiliary field for input data
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c), TARGET :: z_tempv_in
+    INTEGER :: nlev, nlevp1, jg, i_endblk, nblks_c,nblks_e, npromz_c,npromz_e !< blocking parameters
     ! Auxiliary field for output data
-    REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c) :: z_tempv, z_auxz
+    REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c)        :: z_auxz
+    REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_e)        :: p_z3d_edge
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
     ! Pointer to virtual temperature / temperature, depending on whether the run is moist or dry
     REAL(wp), POINTER, DIMENSION(:,:,:) :: ptr_tempv
 
@@ -683,55 +691,40 @@ CONTAINS
     vcoeff_z%l_initialized = .TRUE.
     IF (p_patch%n_patch_cells==0) RETURN
 
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
-    nblks  = p_patch%nblks_c
-    npromz = p_patch%npromz_c
-    jg     = p_patch%id
+    nlev     = p_patch%nlev
+    nlevp1   = p_patch%nlevp1
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
+    jg       = p_patch%id
 
     !--- Coefficients: Interpolation to z-level fields
 
     ! allocate coefficient table:
-    CALL vcoeff_allocate(nblks, nzlev, vcoeff_z)
+    CALL vcoeff_allocate(nblks_c, nblks_e, nzlev, vcoeff_z)
 
     ! Prepare interpolation coefficients
     CALL prepare_lin_intp(p_metrics%z_mc, p_z3d_out,                                         & !in
-      &                   nblks, npromz, nlev, nzlev,                                        & !in
+      &                   nblks_c, npromz_c, nlev, nzlev,                                    & !in
       &                   vcoeff_z%lin_cell%wfac_lin,                                        & !out
       &                   vcoeff_z%lin_cell%idx0_lin,                                        & !out
-      &                   vcoeff_z%lin_cell%bot_idx_lin  )                                     !out
-                                                                                             
-    CALL prepare_extrap(p_metrics%z_mc,                                                      & !in
-      &                 nblks, npromz, nlev,                                                 & !in
+      &                   vcoeff_z%lin_cell%bot_idx_lin  )                                     !out 
+    CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                             & !in
       &                 vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1,                 & !out
       &                 vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%wfacpbl2 )                  !out
-                                                                                             
-    CALL prepare_cubic_intp(p_metrics%z_mc, p_z3d_out,                                       & !in
-      &                     nblks, npromz, nlev, nzlev,                                      & !in
-      &                     vcoeff_z%coef1, vcoeff_z%coef2,                                  & !out
-      &                     vcoeff_z%coef3, vcoeff_z%idx0_cub,                               & !out
-      &                     vcoeff_z%bot_idx_cub )                                             !out
+    CALL prepare_cubic_intp(p_metrics%z_mc, p_z3d_out, nblks_c, npromz_c, nlev, nzlev,       & !in
+      &                     vcoeff_z%cub_cell%coef1, vcoeff_z%cub_cell%coef2,                & !out
+      &                     vcoeff_z%cub_cell%coef3,                                         & !out
+      &                     vcoeff_z%cub_cell%idx0_cub, vcoeff_z%cub_cell%bot_idx_cub )        !out
                                                                                             
-    ! Interpolation data for the vertical interface of cells, "nlevp1"                      
-    CALL prepare_lin_intp(p_metrics%z_ifc, p_z3d_out,                                       & !in
-      &                   nblks, npromz, nlevp1, nzlev,                                     & !in
-      &                   vcoeff_z%lin_cell_nlevp1%wfac_lin,                                & !out
-      &                   vcoeff_z%lin_cell_nlevp1%idx0_lin,                                & !out
-      &                   vcoeff_z%lin_cell_nlevp1%bot_idx_lin  )                             !out
-
-    CALL prepare_extrap(p_metrics%z_ifc,                                                    & !in
-      &                 nblks, npromz, nlevp1,                                              & !in
-      &                 vcoeff_z%lin_cell_nlevp1%kpbl1, vcoeff_z%lin_cell_nlevp1%wfacpbl1,  & !out
-      &                 vcoeff_z%lin_cell_nlevp1%kpbl2, vcoeff_z%lin_cell_nlevp1%wfacpbl2 )   !out
-
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, z_auxz,                                              & !in,out
-      &                   p_metrics%z_mc, p_z3d_out,                                        & !in
-      &                   nblks, npromz, nlev, nzlev,                                       & !in
-      &                   vcoeff_z%coef1, vcoeff_z%coef2,                                   & !in
-      &                   vcoeff_z%coef3, vcoeff_z%lin_cell%wfac_lin,                       & !in
-      &                   vcoeff_z%idx0_cub, vcoeff_z%lin_cell%idx0_lin,                    & !in
-      &                   vcoeff_z%bot_idx_cub, vcoeff_z%lin_cell%bot_idx_lin,              & !in
+      &                   p_metrics%z_mc, p_z3d_out, nblks_c, npromz_c, nlev, nzlev,        & !in
+      &                   vcoeff_z%cub_cell%coef1, vcoeff_z%cub_cell%coef2,                 & !in
+      &                   vcoeff_z%cub_cell%coef3, vcoeff_z%lin_cell%wfac_lin,              & !in
+      &                   vcoeff_z%cub_cell%idx0_cub, vcoeff_z%lin_cell%idx0_lin,           & !in
+      &                   vcoeff_z%cub_cell%bot_idx_cub, vcoeff_z%lin_cell%bot_idx_lin,     & !in
       &                   vcoeff_z%lin_cell%wfacpbl1, vcoeff_z%lin_cell%kpbl1,              & !in
       &                   vcoeff_z%lin_cell%wfacpbl2, vcoeff_z%lin_cell%kpbl2,              & !in
       &                   l_restore_sfcinv=.TRUE., l_hires_corr=.FALSE.,                    & !in
@@ -744,37 +737,19 @@ CONTAINS
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, temp_z_out)
 
     IF (  iforcing == inwp  ) THEN
-      
-      ! interpolation of prognostic specific water vapor content
-      CALL lin_intp(p_prog%tracer(:,:,:,iqv),                                               & !inout
-        &           tracer_z_qv_out,                                                        & !out
-        &           nblks, npromz, nlev, nzlev,                                             & !in
-        &           vcoeff_z%lin_cell%wfac_lin,    vcoeff_z%lin_cell%idx0_lin,              & !in
-        &           vcoeff_z%lin_cell%bot_idx_lin, vcoeff_z%lin_cell%wfacpbl1,              & !in
-        &           vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl2,                    & !in
-        &           vcoeff_z%lin_cell%kpbl2,                                                & !in
-        &           l_loglin=.TRUE., l_extrapol=.TRUE.,                                     & !in
-        &           l_pd_limit=.FALSE., lower_limit=0._wp )                                   !in
-      
-      ! Compute virtual temperature for model-level and z-level data
-      CALL virtual_temp(p_patch, p_diag%temp, p_prog%tracer(:,:,:,iqv),    & !in
-        &               temp_v=z_tempv_in                                  ) !out
-      CALL virtual_temp(p_patch, temp_z_out, tracer_z_qv_out,              & !in
-        &               temp_v=z_tempv                                     ) !out
-      ptr_tempv => z_tempv_in
+      ptr_tempv => p_diag%tempv(:,:,:)
     ELSE
-      ptr_tempv         =>  p_diag%temp(:,:,:)
-      z_tempv(:,:,:)    = temp_z_out(:,:,:)
+      ptr_tempv =>  p_diag%temp(:,:,:)
     END IF
 
     ! Interpolate pressure on z-levels
     CALL pressure_intp(p_diag%pres, ptr_tempv, p_metrics%z_mc,                              & !in
-      &                z_auxz, z_tempv, p_z3d_out,                                          & !out,in,in
-      &                nblks, npromz, nlev, nzlev, .FALSE.,                                 & !in
+      &                z_auxz, p_z3d_out,                                                   & !out,in
+      &                nblks_c, npromz_c, nlev, nzlev,                                      & !in
       &                vcoeff_z%lin_cell%wfac_lin,    vcoeff_z%lin_cell%idx0_lin,           & !in
       &                vcoeff_z%lin_cell%bot_idx_lin, vcoeff_z%lin_cell%wfacpbl1,           & !in
       &                vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl2,                 & !in
-      &                vcoeff_z%lin_cell%kpbl2) !in
+      &                vcoeff_z%lin_cell%kpbl2)                                               !in
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
@@ -782,41 +757,32 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, pres_z_out)
 
-    IF (  iforcing == inwp  ) THEN
-      ! Final interpolation of prognostic QV, without supersaturation limiting
-      CALL qv_intp(p_prog%tracer(:,:,:,iqv),                                                & !inout
-        &          tracer_z_qv_out,                                                         & !out
-        &          p_metrics%z_mc, p_z3d_out, p_diag%temp,                                  & !in
-        &          p_diag%pres, temp_z_out, pres_z_out,                                     & !in
-        &          nblks, npromz, nlev, nzlev,                                              & !in
-        &          vcoeff_z%coef1,       vcoeff_z%coef2,                                    & !in
-        &          vcoeff_z%coef3,       vcoeff_z%lin_cell%wfac_lin,                        & !in
-        &          vcoeff_z%idx0_cub,    vcoeff_z%lin_cell%idx0_lin,                        & !in
-        &          vcoeff_z%bot_idx_cub, vcoeff_z%lin_cell%bot_idx_lin,                     & !in
-        &          vcoeff_z%lin_cell%wfacpbl1, vcoeff_z%lin_cell%kpbl1,                     & !in
-        &          vcoeff_z%lin_cell%wfacpbl2, vcoeff_z%lin_cell%kpbl2,                     & !in
-        &          l_satlimit=.FALSE.,                                                      & !in
-        &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
+    !--- Interpolation data for the vertical interface of cells, "nlevp1"                      
 
-      ! Final interpolation of diagnostic QV, without supersaturation limiting
-      IF (.NOT. ASSOCIATED(prm_diag)) THEN
-        CALL finish(routine, "No prm_diag state available!")
-      END IF
+    CALL prepare_lin_intp(p_metrics%z_ifc, p_z3d_out, nblks_c, npromz_c, nlevp1, nzlev,     & !in
+      &                   vcoeff_z%lin_cell_nlevp1%wfac_lin,                                & !out
+      &                   vcoeff_z%lin_cell_nlevp1%idx0_lin,                                & !out
+      &                   vcoeff_z%lin_cell_nlevp1%bot_idx_lin  )                             !out
+    CALL prepare_extrap(p_metrics%z_ifc, nblks_c, npromz_c, nlevp1,                         & !in
+      &                 vcoeff_z%lin_cell_nlevp1%kpbl1, vcoeff_z%lin_cell_nlevp1%wfacpbl1,  & !out
+      &                 vcoeff_z%lin_cell_nlevp1%kpbl2, vcoeff_z%lin_cell_nlevp1%wfacpbl2 )   !out
 
-      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                                             & !inout
-        &          tot_cld_z_qv_out,                                                        & !out
-        &          p_metrics%z_mc, p_z3d_out, p_diag%temp,                                  & !in
-        &          p_diag%pres, temp_z_out, pres_z_out,                                     & !in
-        &          nblks, npromz, nlev, nzlev,                                              & !in
-        &          vcoeff_z%coef1,       vcoeff_z%coef2,                                    & !in
-        &          vcoeff_z%coef3,       vcoeff_z%lin_cell%wfac_lin,                        & !in
-        &          vcoeff_z%idx0_cub,    vcoeff_z%lin_cell%idx0_lin,                        & !in
-        &          vcoeff_z%bot_idx_cub, vcoeff_z%lin_cell%bot_idx_lin,                     & !in
-        &          vcoeff_z%lin_cell%wfacpbl1, vcoeff_z%lin_cell%kpbl1,                     & !in
-        &          vcoeff_z%lin_cell%wfacpbl2, vcoeff_z%lin_cell%kpbl2,                     & !in
-        &          l_satlimit=.FALSE.,                                                      & !in
-        &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
-    END IF
+    !--- Compute data for interpolation of edge-based fields
+
+    ! Compute geometric height at edge points
+    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me)
+    CALL cells2edges_scalar(p_z3d_out, p_patch, intp_hrz%c_lin_e, p_z3d_edge)
+
+    CALL prepare_lin_intp(z_me, p_z3d_edge, nblks_e, npromz_e, nlev, nzlev,                 & !in
+      &                   vcoeff_z%lin_edge%wfac_lin, vcoeff_z%lin_edge%idx0_lin,           & !out
+      &                   vcoeff_z%lin_edge%bot_idx_lin  )                                    !out
+    CALL prepare_extrap(z_me, nblks_e, npromz_e, nlev,                                      & !in
+      &                 vcoeff_z%lin_edge%kpbl1, vcoeff_z%lin_edge%wfacpbl1,                & !out
+      &                 vcoeff_z%lin_edge%kpbl2, vcoeff_z%lin_edge%wfacpbl2 )                 !out
+    CALL prepare_cubic_intp(z_me, p_z3d_edge, nblks_e, npromz_e, nlev, nzlev,               & !in
+      &                     vcoeff_z%cub_edge%coef1, vcoeff_z%cub_edge%coef2,               & !out
+      &                     vcoeff_z%cub_edge%coef3,                                        & !out
+      &                     vcoeff_z%cub_edge%idx0_cub, vcoeff_z%cub_edge%bot_idx_cub )       !out
 
   END SUBROUTINE prepare_vert_interp_z
 
@@ -829,42 +795,47 @@ CONTAINS
   !! @par Revision History
   !! Initial version: see SR prepare_vert_interp_z
   !!
-  SUBROUTINE prepare_vert_interp_p(p_patch, p_diag, p_metrics, nplev,               &
+  SUBROUTINE prepare_vert_interp_p(p_patch, p_diag, p_metrics, intp_hrz, nplev,     &
     &                              geopot_p_out, temp_p_out, p_p3d_out, vcoeff_p)
 
     TYPE(t_patch),        TARGET,      INTENT(IN)    :: p_patch
     TYPE(t_nh_diag),      POINTER                    :: p_diag
+    TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
+    TYPE(t_int_state),                 INTENT(IN)    :: intp_hrz          !< pointer to data structure for interpolation
     INTEGER,                           INTENT(IN)    :: nplev             !< number of output levels (pres)
     REAL(wp),                          INTENT(INOUT) :: geopot_p_out(:,:,:), &
       &                                                 temp_p_out(:,:,:)
     REAL(wp),             POINTER                    :: p_p3d_out(:,:,:)  !< pressure field
-    TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_p          !< out
 
     ! LOCAL VARIABLES
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_p")
 
-    INTEGER :: nlev, nlevp1, jg, i_endblk, nblks, npromz !< blocking parameters
+    INTEGER :: nlev, nlevp1, jg, i_endblk, nblks_c,nblks_e, npromz_c,npromz_e !< blocking parameters
     ! Auxiliary field for smoothing temperature and geopotential on pressure levels
-    REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_c) :: z_auxp
+    REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_c)        :: z_auxp
+    REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_e)        :: geopot_p_edge
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
     ! Pointer to virtual temperature / temperature, depending on whether the run is moist or dry
     REAL(wp), POINTER, DIMENSION(:,:,:) :: ptr_tempv
 
     vcoeff_p%l_initialized = .TRUE.
     IF (p_patch%n_patch_cells==0) RETURN
 
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
-    nblks  = p_patch%nblks_c
-    npromz = p_patch%npromz_c
-    jg     = p_patch%id
+    nlev     = p_patch%nlev
+    nlevp1   = p_patch%nlevp1
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
+    jg       = p_patch%id
+
+    ! allocate coefficient table:
+    CALL vcoeff_allocate(nblks_c, nblks_e, nplev, vcoeff_p)
 
     !--- Coefficients: Interpolation to pressure-level fields
 
-    ! allocate coefficient table:
-    CALL vcoeff_allocate(nblks, nplev, vcoeff_p)
-
-    CALL prepare_extrap(p_metrics%z_mc, nblks, npromz, nlev,                                & !in
+    CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                            & !in
       &                 vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,                & !out
       &                 vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2 )                 !out
 
@@ -877,7 +848,7 @@ CONTAINS
       ptr_tempv => p_diag%temp
     ENDIF
     CALL z_at_plevels(p_diag%pres, ptr_tempv, p_metrics%z_mc,                               & !in
-      &               p_p3d_out, z_auxp, nblks, npromz, nlev, nplev,                        & !in,out,in
+      &               p_p3d_out, z_auxp, nblks_c, npromz_c, nlev, nplev,                    & !in,out,in
       &               vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,                  & !in
       &               vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2              )      !in 
 
@@ -888,54 +859,60 @@ CONTAINS
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, geopot_p_out)
 
     ! Prepare again interpolation coefficients (now for pressure levels)
-    CALL prepare_lin_intp(p_metrics%z_mc, geopot_p_out,                                     & !in
-      &                   nblks, npromz, nlev, nplev,                                       & !in
+    ! Note: the coefficients are partly identical to the z-level
+    !       setup, but they are computed independently to avoid some
+    !       complicated code.
+    CALL prepare_lin_intp(p_metrics%z_mc, geopot_p_out, nblks_c, npromz_c, nlev, nplev,     & !in
       &                   vcoeff_p%lin_cell%wfac_lin, vcoeff_p%lin_cell%idx0_lin,           & !out
       &                   vcoeff_p%lin_cell%bot_idx_lin )                                     !out
-
-    CALL prepare_cubic_intp(p_metrics%z_mc, geopot_p_out,                                   & !in
-      &                     nblks, npromz, nlev, nplev,                                     & !in
-      &                     vcoeff_p%coef1, vcoeff_p%coef2,                                 & !out
-      &                     vcoeff_p%coef3, vcoeff_p%idx0_cub,                              & !out
-      &                     vcoeff_p%bot_idx_cub )                                            !out
-
-    ! Interpolation data for the vertical interface of cells, "nlevp1"
-    CALL prepare_lin_intp(p_metrics%z_ifc, geopot_p_out,                                    & !in
-      &                   nblks, npromz, nlevp1, nplev,                                     & !in
-      &                   vcoeff_p%lin_cell_nlevp1%wfac_lin,                                & !out
-      &                   vcoeff_p%lin_cell_nlevp1%idx0_lin,                                & !out
-      &                   vcoeff_p%lin_cell_nlevp1%bot_idx_lin  )                             !out
-
-    ! Note: the following coefficients are identical to the z-level
-    !       setup, but they are computed independently to avoid some
-    !       complicated code:
-    CALL prepare_extrap(p_metrics%z_mc,                                                     & !in
-      &                 nblks, npromz, nlev,                                                & !in
-      &                 vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,                & !out
-      &                 vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2 )                 !out
-    CALL prepare_extrap(p_metrics%z_ifc,                                                    & !in
-      &                 nblks, npromz, nlevp1,                                              & !in
-      &                 vcoeff_p%lin_cell_nlevp1%kpbl1, vcoeff_p%lin_cell_nlevp1%wfacpbl1,  & !out
-      &                 vcoeff_p%lin_cell_nlevp1%kpbl2, vcoeff_p%lin_cell_nlevp1%wfacpbl2 )   !out
+    CALL prepare_cubic_intp(p_metrics%z_mc, geopot_p_out, nblks_c, npromz_c, nlev, nplev,   & !in
+      &                     vcoeff_p%cub_cell%coef1, vcoeff_p%cub_cell%coef2,               & !out
+      &                     vcoeff_p%cub_cell%coef3,                                        & !out
+      &                     vcoeff_p%cub_cell%idx0_cub, vcoeff_p%cub_cell%bot_idx_cub )       !out
 
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, z_auxp,                                              & !in,out
-      &                   p_metrics%z_mc, geopot_p_out,                                     & !in
-      &                   nblks, npromz, nlev, nplev,                                       & !in
-      &                   vcoeff_p%coef1, vcoeff_p%coef2, vcoeff_p%coef3,                   & !in
-      &                   vcoeff_p%lin_cell%wfac_lin, vcoeff_p%idx0_cub,                    & !in
-      &                   vcoeff_p%lin_cell%idx0_lin, vcoeff_p%bot_idx_cub,                 & !in
+      &                   p_metrics%z_mc, geopot_p_out, nblks_c, npromz_c, nlev, nplev,     & !in
+      &                   vcoeff_p%cub_cell%coef1, vcoeff_p%cub_cell%coef2,                 & !in
+      &                   vcoeff_p%cub_cell%coef3,                                          & !in
+      &                   vcoeff_p%lin_cell%wfac_lin, vcoeff_p%cub_cell%idx0_cub,           & !in
+      &                   vcoeff_p%lin_cell%idx0_lin, vcoeff_p%cub_cell%bot_idx_cub,        & !in
       &                   vcoeff_p%lin_cell%bot_idx_lin, vcoeff_p%lin_cell%wfacpbl1,        & !in
       &                   vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl2,              & !in
       &                   vcoeff_p%lin_cell%kpbl2, l_restore_sfcinv=.TRUE.,                 & !in
-      &                   l_hires_corr=.FALSE., extrapol_dist=0._wp,                        & !in
-      &                   l_pz_mode=.TRUE.                                )                   !in
+      &                   l_hires_corr=.FALSE., extrapol_dist=0._wp, l_pz_mode=.TRUE.)        !in
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       temp_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
     ENDIF
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
+
+    !--- Interpolation data for the vertical interface of cells, "nlevp1"
+
+    CALL prepare_lin_intp(p_metrics%z_ifc, geopot_p_out, nblks_c, npromz_c, nlevp1, nplev,  & !in
+      &                   vcoeff_p%lin_cell_nlevp1%wfac_lin,                                & !out
+      &                   vcoeff_p%lin_cell_nlevp1%idx0_lin,                                & !out
+      &                   vcoeff_p%lin_cell_nlevp1%bot_idx_lin  )                             !out
+    CALL prepare_extrap(p_metrics%z_ifc, nblks_c, npromz_c, nlevp1,                         & !in
+      &                 vcoeff_p%lin_cell_nlevp1%kpbl1, vcoeff_p%lin_cell_nlevp1%wfacpbl1,  & !out
+      &                 vcoeff_p%lin_cell_nlevp1%kpbl2, vcoeff_p%lin_cell_nlevp1%wfacpbl2 )   !out
+
+    !--- Compute data for interpolation of edge-based fields
+
+    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me)
+    CALL cells2edges_scalar(geopot_p_out, p_patch, intp_hrz%c_lin_e, geopot_p_edge)
+
+    CALL prepare_lin_intp(z_me, geopot_p_edge, nblks_e, npromz_e, nlev, nplev,               & !in
+      &                   vcoeff_p%lin_edge%wfac_lin, vcoeff_p%lin_edge%idx0_lin,            & !out
+      &                   vcoeff_p%lin_edge%bot_idx_lin )                                      !out
+    CALL prepare_extrap(z_me, nblks_e, npromz_e, nlev,                                       & !in
+      &                 vcoeff_p%lin_edge%kpbl1, vcoeff_p%lin_edge%wfacpbl1,                 & !out
+      &                 vcoeff_p%lin_edge%kpbl2, vcoeff_p%lin_edge%wfacpbl2 )                  !out
+    CALL prepare_cubic_intp(z_me, geopot_p_edge, nblks_e, npromz_e, nlev, nplev,             & !in
+      &                     vcoeff_p%cub_edge%coef1, vcoeff_p%cub_edge%coef2,                & !out
+      &                     vcoeff_p%cub_edge%coef3,                                         & !out
+      &                     vcoeff_p%cub_edge%idx0_cub, vcoeff_p%cub_edge%bot_idx_cub )        !out
 
   END SUBROUTINE prepare_vert_interp_p
 
@@ -948,34 +925,39 @@ CONTAINS
   !! @par Revision History
   !! Initial version: see SR prepare_vert_interp_i
   !!
-  SUBROUTINE prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, nilev,       &
+  SUBROUTINE prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, intp_hrz, nilev,     &
     &                              geopot_i_out, temp_i_out, p_i3d_out, vcoeff_i)
 
     TYPE(t_patch),        TARGET,      INTENT(IN)    :: p_patch
     TYPE(t_nh_prog),      POINTER                    :: p_prog
     TYPE(t_nh_diag),      POINTER                    :: p_diag
+    TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
+    TYPE(t_int_state),                 INTENT(IN)    :: intp_hrz          !< pointer to data structure for interpolation
     INTEGER,                           INTENT(IN)    :: nilev             !< number of output levels (isentropes)
     REAL(wp),                          INTENT(INOUT) :: geopot_i_out(:,:,:), &
       &                                                 temp_i_out(:,:,:)
     REAL(wp),             POINTER                    :: p_i3d_out(:,:,:)  !< theta field
-    TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_i          !< out
 
     ! LOCAL VARIABLES
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_i")
-    INTEGER :: nlev, nlevp1, nblks, npromz !< blocking parameters
+    INTEGER :: nlev, nlevp1, nblks_c, nblks_e, npromz_c,npromz_e !< blocking parameters
+    REAL(wp), DIMENSION(nproma,nilev,p_patch%nblks_e)        :: geopot_i_edge
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
 
     vcoeff_i%l_initialized = .TRUE.
 
-    !--- Coefficients: Interpolation to isentropes
-
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
-    nblks  = p_patch%nblks_c
-    npromz = p_patch%npromz_c
+    nlev     = p_patch%nlev
+    nlevp1   = p_patch%nlevp1
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
 
     ! allocate coefficient table:
-    CALL vcoeff_allocate(nblks, nilev, vcoeff_i)
+    CALL vcoeff_allocate(nblks_c, nblks_e, nilev, vcoeff_i)
+
+    !--- Coefficients: Interpolation to isentropes
 
     ! Compute height at isentropic levels (i.e. geopot/g); this height 
     ! field is afterwards also used as target coordinate for vertical 
@@ -984,52 +966,64 @@ CONTAINS
     ! Note: the following coefficients are identical to the z-level
     !       setup, but they are computed independently to avoid some
     !       complicated code:
-    CALL prepare_extrap(p_metrics%z_mc,                                                     & !in
-      &                 nblks, npromz, nlev,                                                & !in
+    CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                            & !in
       &                 vcoeff_i%lin_cell%kpbl1, vcoeff_i%lin_cell%wfacpbl1,                & !out
       &                 vcoeff_i%lin_cell%kpbl2, vcoeff_i%lin_cell%wfacpbl2 )                 !out
-    CALL prepare_extrap(p_metrics%z_ifc,                                                    & !in
-      &                 nblks, npromz, nlevp1,                                              & !in
-      &                 vcoeff_i%lin_cell_nlevp1%kpbl1, vcoeff_i%lin_cell_nlevp1%wfacpbl1,  & !out
-      &                 vcoeff_i%lin_cell_nlevp1%kpbl2, vcoeff_i%lin_cell_nlevp1%wfacpbl2 )   !out
 
     CALL z_at_theta_levels(p_prog%theta_v, p_metrics%z_mc,                                  & !in
       &                    p_i3d_out, geopot_i_out,                                         & !out
       &                    vcoeff_i%lin_cell%wfacpbl1, vcoeff_i%lin_cell%kpbl1,             & !in
-      &                    vcoeff_i%lin_cell%wfacpbl2, vcoeff_i%lin_cell%kpbl2, nblks,      & !in
-      &                    npromz, nlev, nilev)
+      &                    vcoeff_i%lin_cell%wfacpbl2, vcoeff_i%lin_cell%kpbl2, nblks_c,    & !in
+      &                    npromz_c, nlev, nilev)
 
     ! Prepare again interpolation coefficients (now for isentropic levels)
-    CALL prepare_lin_intp(p_metrics%z_mc, geopot_i_out,                                     & !in
-      &                   nblks, npromz, nlev, nilev,                                       & !in
+    CALL prepare_lin_intp(p_metrics%z_mc, geopot_i_out, nblks_c, npromz_c, nlev, nilev,     & !in
       &                   vcoeff_i%lin_cell%wfac_lin, vcoeff_i%lin_cell%idx0_lin,           & !out
       &                   vcoeff_i%lin_cell%bot_idx_lin )                                     !out
 
-    CALL prepare_cubic_intp(p_metrics%z_mc, geopot_i_out,                                   & !in
-      &                     nblks, npromz, nlev, nilev,                                     & !in
-      &                     vcoeff_i%coef1, vcoeff_i%coef2,                                 & !out
-      &                     vcoeff_i%coef3, vcoeff_i%idx0_cub,                              & !out
-      &                     vcoeff_i%bot_idx_cub )                                            !out
-
-    ! Interpolation data for the vertical interface of cells, "nlevp1"
-    CALL prepare_lin_intp(p_metrics%z_ifc, geopot_i_out,                                    & !in
-      &                   nblks, npromz, nlevp1, nilev,                                     & !in
-      &                   vcoeff_i%lin_cell_nlevp1%wfac_lin,                                & !out
-      &                   vcoeff_i%lin_cell_nlevp1%idx0_lin,                                & !out
-      &                   vcoeff_i%lin_cell_nlevp1%bot_idx_lin  )                             !out
+    CALL prepare_cubic_intp(p_metrics%z_mc, geopot_i_out, nblks_c, npromz_c, nlev, nilev,   & !in
+      &                     vcoeff_i%cub_cell%coef1, vcoeff_i%cub_cell%coef2,               & !out
+      &                     vcoeff_i%cub_cell%coef3,                                        & !out
+      &                     vcoeff_i%cub_cell%idx0_cub, vcoeff_i%cub_cell%bot_idx_cub )       !out
 
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, temp_i_out,                                          & !in,out
-      &                   p_metrics%z_mc, geopot_i_out,                                     & !in
-      &                   nblks, npromz, nlev, nilev,                                       & !in
-      &                   vcoeff_i%coef1, vcoeff_i%coef2, vcoeff_i%coef3,                   & !in
-      &                   vcoeff_i%lin_cell%wfac_lin, vcoeff_i%idx0_cub,                    & !in
-      &                   vcoeff_i%lin_cell%idx0_lin, vcoeff_i%bot_idx_cub,                 & !in
+      &                   p_metrics%z_mc, geopot_i_out, nblks_c, npromz_c, nlev, nilev,     & !in
+      &                   vcoeff_i%cub_cell%coef1, vcoeff_i%cub_cell%coef2,                 & !in
+      &                   vcoeff_i%cub_cell%coef3,                                          & !in
+      &                   vcoeff_i%lin_cell%wfac_lin, vcoeff_i%cub_cell%idx0_cub,           & !in
+      &                   vcoeff_i%lin_cell%idx0_lin, vcoeff_i%cub_cell%bot_idx_cub,        & !in
       &                   vcoeff_i%lin_cell%bot_idx_lin, vcoeff_i%lin_cell%wfacpbl1,        & !in
       &                   vcoeff_i%lin_cell%kpbl1, vcoeff_i%lin_cell%wfacpbl2,              & !in
       &                   vcoeff_i%lin_cell%kpbl2, l_restore_sfcinv=.TRUE.,                 & !in
-      &                   l_hires_corr=.FALSE., extrapol_dist=0._wp,                        & !in
-      &                   l_pz_mode=.TRUE.                                )                   !in
+      &                   l_hires_corr=.FALSE., extrapol_dist=0._wp, l_pz_mode=.TRUE.)        !in
+
+    !--- Interpolation data for the vertical interface of cells, "nlevp1"
+
+    CALL prepare_lin_intp(p_metrics%z_ifc, geopot_i_out,                                    & !in
+      &                   nblks_c, npromz_c, nlevp1, nilev,                                 & !in
+      &                   vcoeff_i%lin_cell_nlevp1%wfac_lin,                                & !out
+      &                   vcoeff_i%lin_cell_nlevp1%idx0_lin,                                & !out
+      &                   vcoeff_i%lin_cell_nlevp1%bot_idx_lin  )                             !out
+    CALL prepare_extrap(p_metrics%z_ifc, nblks_c, npromz_c, nlevp1,                         & !in
+      &                 vcoeff_i%lin_cell_nlevp1%kpbl1, vcoeff_i%lin_cell_nlevp1%wfacpbl1,  & !out
+      &                 vcoeff_i%lin_cell_nlevp1%kpbl2, vcoeff_i%lin_cell_nlevp1%wfacpbl2 )   !out
+
+    !--- Compute data for interpolation of edge-based fields
+
+    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me)
+    CALL cells2edges_scalar(geopot_i_out, p_patch, intp_hrz%c_lin_e, geopot_i_edge)
+
+    CALL prepare_lin_intp(z_me, geopot_i_edge, nblks_e, npromz_e, nlev, nilev,               & !in
+      &                   vcoeff_i%lin_edge%wfac_lin, vcoeff_i%lin_edge%idx0_lin,            & !out
+      &                   vcoeff_i%lin_edge%bot_idx_lin )                                      !out
+    CALL prepare_extrap(z_me, nblks_e, npromz_e, nlev,                                       & !in
+      &                 vcoeff_i%lin_edge%kpbl1, vcoeff_i%lin_edge%wfacpbl1,                 & !out
+      &                 vcoeff_i%lin_edge%kpbl2, vcoeff_i%lin_edge%wfacpbl2 )                  !out
+    CALL prepare_cubic_intp(z_me, geopot_i_edge, nblks_e, npromz_e, nlev, nilev,             & !in
+      &                     vcoeff_i%cub_edge%coef1, vcoeff_i%cub_edge%coef2,                & !out
+      &                     vcoeff_i%cub_edge%coef3,                                         & !out
+      &                     vcoeff_i%cub_edge%idx0_cub, vcoeff_i%cub_edge%bot_idx_cub )        !out
         
   END SUBROUTINE prepare_vert_interp_i
 
@@ -1534,8 +1528,8 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE pressure_intp(pres_in, tempv_in, z3d_in, pres_out, tempv_out, z3d_out, &
-                           nblks, npromz, nlevs_in, nlevs_out, l_init_mode,         &
+  SUBROUTINE pressure_intp(pres_in, tempv_in, z3d_in, pres_out, z3d_out, &
+                           nblks, npromz, nlevs_in, nlevs_out,                      &
                            wfac, idx0, bot_idx, wfacpbl1, kpbl1, wfacpbl2, kpbl2)
 
 
@@ -1543,7 +1537,6 @@ CONTAINS
     REAL(wp), INTENT(IN)  :: pres_in  (:,:,:) ! pressure field of input data
     REAL(wp), INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature of input data
     REAL(wp), INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of input data
-    REAL(wp), INTENT(IN)  :: tempv_out(:,:,:) ! virtual temperature of output data
     REAL(wp), INTENT(IN)  :: z3d_out  (:,:,:) ! 3D height coordinate field of output data
 
     ! Output
@@ -1554,8 +1547,6 @@ CONTAINS
     INTEGER , INTENT(IN) :: npromz     ! Length of last block
     INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
     INTEGER , INTENT(IN) :: nlevs_out  ! Number of output levels
-
-    LOGICAL, INTENT(IN) :: l_init_mode ! Switch between initialization and postprocessing mode
 
     ! Coefficients
     REAL(wp), INTENT(IN) :: wfac(:,:,:)    ! weighting factor of upper level
@@ -1568,29 +1559,15 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    REAL(wp), PARAMETER :: TOL = 1e-12
-
-    INTEGER  :: jb, jk, jc, jk1
-    INTEGER  :: nlen
+    INTEGER  :: jb, jk, jc, jk1, nlen
     REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_up, dtvdz_down
     REAL(wp), DIMENSION(nproma)           :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
-    REAL(wp) :: dtvdz_thresh, p_up, p_down, vtgrad_standardatm, t_low, t_high, t_extr
+    REAL(wp) :: p_up, p_down, t_extr
 
 !-------------------------------------------------------------------------
 
     ! return, if nothing to do:
     IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
-
-    ! Threshold for switching between analytical formulas for constant temperature and
-    ! constant vertical gradient of temperature, respectively
-    dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
-
-    ! Standard atmosphere vertical temperature gradient
-    vtgrad_standardatm = -6.5e-3_wp ! -6.5 K/km
-
-    ! Artificial limits on temperature profile used for extrapolation below the ground
-    t_low  = 255.0_wp
-    t_high = 290.5_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down,tmsl,tsfc_mod,tempv1,tempv2,& 
@@ -1604,7 +1581,7 @@ CONTAINS
         pres_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (.NOT. l_init_mode .AND. itype_pres_msl == 1) THEN
+      IF (itype_pres_msl == 1) THEN
 
         ! Preparations for extrapolation below the ground: calculate temperature
         ! profile with artificial limits like in IFS. This temperature profile
@@ -1628,7 +1605,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (.NOT. l_init_mode) THEN
+      ELSE 
 
         ! Use a temperature profile that is (roughly) consistent with
         ! that used for temperature extrapolation
@@ -1685,141 +1662,60 @@ CONTAINS
       ! Compute vertical gradients of virtual potential temperature
       DO jk = 1, nlevs_out
 
-        IF (.NOT. l_init_mode) THEN ! Use only temperatures of input data for postprocessing      
-          DO jc = 1, nlen           ! The vertical gradient is needed for downward extrapolation only
+        DO jc = 1, nlen           ! The vertical gradient is needed for downward extrapolation only
+          
+          IF (z3d_in(jc,nlevs_in,jb) > 1._wp) THEN
+            dtvdz_down(jc,jk) = (tsfc_mod(jc)-tmsl(jc))/z3d_in(jc,nlevs_in,jb)
+            
+          ELSE ! avoid pathological results at grid points below sea level
+            dtvdz_down(jc,jk) = vtgrad_standardatm
+            
+          ENDIF
 
-            IF (z3d_in(jc,nlevs_in,jb) > 1._wp) THEN
-              dtvdz_down(jc,jk) = (tsfc_mod(jc)-tmsl(jc))/z3d_in(jc,nlevs_in,jb)
+        ENDDO
 
-            ELSE ! avoid pathological results at grid points below sea level
-              dtvdz_down(jc,jk) = vtgrad_standardatm
-
-            ENDIF
-
-          ENDDO
-
-        ELSE ! Use also temperatures on target grid in order to obtain a pressure
-             ! field that is consistent with the boundary-layer corrections on temperature
-
-          DO jc = 1, nlen
-            IF (jk <= bot_idx(jc,jb)) THEN
-              jk1 = idx0(jc,jk,jb)
-
-              IF (ABS(z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
-                dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
-                  &               (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
-              ELSE
-                dtvdz_up(jc,jk) = 0._wp
-              ENDIF
-
-              ! Paranoia
-              IF (ABS(z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
-                dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
-                  &                 (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
-              ELSE
-                dtvdz_down(jc,jk) = 0._wp
-              END IF
-
-            ELSE ! downward extrapolation; only dtvdz_down is needed
-
-              dtvdz_down(jc,jk) = (tempv_out(jc,jk-1,jb)-tempv_out(jc,jk,jb)) / &
-                (z3d_out(jc,jk-1,jb)-z3d_out(jc,jk,jb))
-
-            ENDIF
-          ENDDO
-
-        ENDIF
       ENDDO
-
+      
       ! Now compute pressure on target grid
       DO jk = 1, nlevs_out
 
-        IF (.NOT. l_init_mode) THEN ! Postprocessing mode
+        DO jc = 1, nlen
+          IF (jk <= bot_idx(jc,jb)) THEN
 
-          DO jc = 1, nlen
-            IF (jk <= bot_idx(jc,jb)) THEN
+            ! interpolation based on piecewise analytical integration of the hydrostatic equation:
+            ! we use only the formula for constant (layer-averaged) temperature in order not to
+            ! require an already interpolated (virtual) temperature on the output grid;
+            ! the linear weighting between the upward and downward integrals nevertheless
+            ! ensures negligibly small errors
+            jk1 = idx0(jc,jk,jb)
 
-              ! interpolation based on piecewise analytical integration of the hydrostatic equation:
-              ! we use only the formula for constant (layer-averaged) temperature in order not to
-              ! require an already interpolated (virtual) temperature on the output grid;
-              ! the linear weighting between the upward and downward integrals nevertheless
-              ! ensures negligibly small errors
-              jk1 = idx0(jc,jk,jb)
+            p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
+              (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
 
-              p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
-                   (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
+            p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
+              (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
 
-              p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
-                   (rd*0.5_wp*(tempv_in(jc,jk1,jb)+tempv_in(jc,jk1+1,jb))) )
-
-              ! apply inverse-distance weighting between top-down and bottom-up integrated value
-              ! except in the case of extrapolation above the top of the input data
-              IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
-                pres_out(jc,jk,jb) = p_up
-              ELSE
-                pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
-              ENDIF
-
-            ELSE ! downward extrapolation based on the vertical gradient computed above
-              t_extr = tsfc_mod(jc) + (z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb))*dtvdz_down(jc,jk)
-              IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
-                p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
-                         LOG(t_extr/tsfc_mod(jc)) )
-              ELSE
-                p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb)) / &
-                         (rd*0.5_wp*(t_extr+tsfc_mod(jc))) )
-              ENDIF
-              pres_out(jc,jk,jb) = p_down
+            ! apply inverse-distance weighting between top-down and bottom-up integrated value
+            ! except in the case of extrapolation above the top of the input data
+            IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
+              pres_out(jc,jk,jb) = p_up
+            ELSE
+              pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
             ENDIF
-          ENDDO
 
-        ELSE  ! Initialization mode
-
-          DO jc = 1, nlen
-            IF (jk <= bot_idx(jc,jb)) THEN
-
-              ! interpolation based on piecewise analytical integration of the hydrostatic equation
-              jk1 = idx0(jc,jk,jb)
-              
-              IF (ABS(dtvdz_up(jc,jk)) > dtvdz_thresh) THEN
-                p_up = pres_in(jc,jk1,jb)*EXP(-grav/(rd*dtvdz_up(jc,jk))* &
-                     LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
-              ELSE
-                p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
-                     (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
-              ENDIF
-
-              IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
-                p_down = pres_in(jc,jk1+1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
-                     LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
-              ELSE
-                p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
-                     (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
-              ENDIF
-
-              ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
-              ! except in the case of extrapolation above the top of the input data
-              IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
-                pres_out(jc,jk,jb) = p_up
-              ELSE
-                pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
-              ENDIF
-          
-            ELSE ! downward extrapolation
-
-              IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
-                p_down = pres_out(jc,jk-1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
-                         LOG(tempv_out(jc,jk,jb)/tempv_out(jc,jk-1,jb)) )
-              ELSE
-                p_down = pres_out(jc,jk-1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_out(jc,jk-1,jb)) / &
-                         (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_out(jc,jk-1,jb))) )
-              ENDIF
-
-              pres_out(jc,jk,jb) = p_down
+          ELSE ! downward extrapolation based on the vertical gradient computed above
+            t_extr = tsfc_mod(jc) + (z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb))*dtvdz_down(jc,jk)
+            IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
+              p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
+                LOG(t_extr/tsfc_mod(jc)) )
+            ELSE
+              p_down = pres_in(jc,nlevs_in,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,nlevs_in,jb)) / &
+                (rd*0.5_wp*(t_extr+tsfc_mod(jc))) )
             ENDIF
-          ENDDO
+            pres_out(jc,jk,jb) = p_down
+          ENDIF
+        ENDDO
 
-        ENDIF
       ENDDO
 
     ENDDO
@@ -1827,6 +1723,162 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE pressure_intp
+
+
+  !-------------
+  !>
+  !! SUBROUTINE pressure_intp_initmode
+  !! Performs vertical interpolation of pressure 
+  !!
+  !! Required input fields: pressure, virtual temperature and 3D height coordinate
+  !! field of input data, virtual temperature and 3D height coordinate of output data
+  !! Output: pressure field of output data
+  !!
+  !! Method: piecewise analytical integration of the hydrostatic equation
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
+  !!
+  !!
+  !!
+  SUBROUTINE pressure_intp_initmode(pres_in, tempv_in, z3d_in, pres_out, tempv_out, z3d_out, &
+    &                               nblks, npromz, nlevs_out, wfac, idx0, bot_idx)
+
+
+    ! Input fields
+    REAL(wp), INTENT(IN)  :: pres_in  (:,:,:) ! pressure field of input data
+    REAL(wp), INTENT(IN)  :: tempv_in (:,:,:) ! virtual temperature of input data
+    REAL(wp), INTENT(IN)  :: z3d_in   (:,:,:) ! 3D height coordinate field of input data
+    REAL(wp), INTENT(IN)  :: tempv_out(:,:,:) ! virtual temperature of output data
+    REAL(wp), INTENT(IN)  :: z3d_out  (:,:,:) ! 3D height coordinate field of output data
+
+    ! Output
+    REAL(wp), INTENT(OUT) :: pres_out (:,:,:) ! pressure field of output data
+
+    ! Dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlevs_out  ! Number of output levels
+
+    ! Coefficients
+    REAL(wp), INTENT(IN) :: wfac(:,:,:)    ! weighting factor of upper level
+    INTEGER , INTENT(IN) :: idx0(:,:,:)    ! index of upper level
+    INTEGER , INTENT(IN) :: bot_idx(:,:)   ! index of lowest level for which interpolation is possible
+
+    ! LOCAL CONSTANTS
+
+    REAL(wp), PARAMETER :: TOL = 1e-12_wp
+
+    ! LOCAL VARIABLES
+
+    INTEGER  :: jb, jk, jc, jk1, nlen
+    REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_up, dtvdz_down
+    REAL(wp), DIMENSION(nproma)           :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
+    REAL(wp) :: p_up, p_down, t_extr
+
+!-------------------------------------------------------------------------
+
+    ! return, if nothing to do:
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down,tmsl,tsfc_mod,tempv1,tempv2,& 
+!$OMP            vtgrad_up,sfc_inv,t_extr) ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = 1, nblks
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        pres_out(nlen+1:nproma,:,jb)  = 0.0_wp
+      ENDIF
+
+      ! Compute vertical gradients of virtual potential temperature
+      DO jk = 1, nlevs_out
+
+        DO jc = 1, nlen
+          IF (jk <= bot_idx(jc,jb)) THEN
+            jk1 = idx0(jc,jk,jb)
+
+            IF (ABS(z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+              dtvdz_up(jc,jk) = (tempv_in(jc,jk1,jb)-tempv_out(jc,jk,jb)) / &
+                &               (z3d_in  (jc,jk1,jb)-z3d_out  (jc,jk,jb))
+            ELSE
+              dtvdz_up(jc,jk) = 0._wp
+            ENDIF
+
+            ! Paranoia
+            IF (ABS(z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb)) > TOL) THEN
+              dtvdz_down(jc,jk) = (tempv_in(jc,jk1+1,jb)-tempv_out(jc,jk,jb)) / &
+                &                 (z3d_in  (jc,jk1+1,jb)-z3d_out  (jc,jk,jb))
+            ELSE
+              dtvdz_down(jc,jk) = 0._wp
+            END IF
+
+          ELSE ! downward extrapolation; only dtvdz_down is needed
+
+            dtvdz_down(jc,jk) = (tempv_out(jc,jk-1,jb)-tempv_out(jc,jk,jb)) / &
+              (z3d_out(jc,jk-1,jb)-z3d_out(jc,jk,jb))
+
+          ENDIF
+        ENDDO
+
+      ENDDO
+      
+      ! Now compute pressure on target grid
+      DO jk = 1, nlevs_out
+
+        DO jc = 1, nlen
+          IF (jk <= bot_idx(jc,jb)) THEN
+
+            ! interpolation based on piecewise analytical integration of the hydrostatic equation
+            jk1 = idx0(jc,jk,jb)
+
+            IF (ABS(dtvdz_up(jc,jk)) > dtvdz_thresh) THEN
+              p_up = pres_in(jc,jk1,jb)*EXP(-grav/(rd*dtvdz_up(jc,jk))* &
+                LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1,jb)) )
+            ELSE
+              p_up = pres_in(jc,jk1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1,jb)) / &
+                (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1,jb))) )
+            ENDIF
+
+            IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
+              p_down = pres_in(jc,jk1+1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
+                LOG(tempv_out(jc,jk,jb)/tempv_in(jc,jk1+1,jb)) )
+            ELSE
+              p_down = pres_in(jc,jk1+1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb)) / &
+                (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_in(jc,jk1+1,jb))) )
+            ENDIF
+
+            ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
+            ! except in the case of extrapolation above the top of the input data
+            IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
+              pres_out(jc,jk,jb) = p_up
+            ELSE
+              pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
+            ENDIF
+
+          ELSE ! downward extrapolation
+
+            IF (ABS(dtvdz_down(jc,jk)) > dtvdz_thresh) THEN
+              p_down = pres_out(jc,jk-1,jb)*EXP(-grav/(rd*dtvdz_down(jc,jk))* &
+                LOG(tempv_out(jc,jk,jb)/tempv_out(jc,jk-1,jb)) )
+            ELSE
+              p_down = pres_out(jc,jk-1,jb)*EXP(-grav*(z3d_out(jc,jk,jb)-z3d_out(jc,jk-1,jb)) / &
+                (rd*0.5_wp*(tempv_out(jc,jk,jb)+tempv_out(jc,jk-1,jb))) )
+            ENDIF
+
+            pres_out(jc,jk,jb) = p_down
+          ENDIF
+        ENDDO
+
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE pressure_intp_initmode
 
 
   !-------------
@@ -3440,7 +3492,7 @@ CONTAINS
     INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
     
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:pressure_intp_msl")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:diagnose_pmsl_gme")
     REAL(wp), PARAMETER :: zthird = 1._wp/3._wp, &
       &                    zlapse = 6.5E-3_wp
     INTEGER             :: nlev, nlevp1, nlen, jb, jc

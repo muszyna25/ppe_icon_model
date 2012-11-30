@@ -439,8 +439,8 @@ CONTAINS
     TYPE(t_nh_diag),           POINTER :: p_diag
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
     TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
-
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
+    TYPE(t_int_state),         POINTER :: intp_hrz
 
     ! patch, state, and metrics
     jg             =  ptr_task%data_input%jg
@@ -450,6 +450,7 @@ CONTAINS
     p_diag         => ptr_task%data_input%p_nh_state%diag
     p_diag_pz      => ptr_task%data_input%p_nh_opt_diag%diag_pz
     prm_diag       => ptr_task%data_input%prm_diag
+    intp_hrz       => ptr_task%data_input%p_int_state
 
     ! ipz-level interpolation data
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
@@ -462,20 +463,19 @@ CONTAINS
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INIT_VER_Z )
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_Z")
-      CALL prepare_vert_interp_z(p_patch, p_prog, p_diag, prm_diag, p_metrics, nzlev,  &
-        &                        p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,             &
-        &                        p_diag_pz%z_tot_cld_iqv, p_diag_pz%z_pres,            &
+      CALL prepare_vert_interp_z(p_patch, p_diag, p_metrics, intp_hrz, nzlev,          &
+        &                        p_diag_pz%z_temp, p_diag_pz%z_pres,                   &
         &                        nh_pzlev_config%z3d, p_diag_pz%vcoeff_z)
       !
     CASE ( TASK_INIT_VER_P )
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_P")
-      CALL prepare_vert_interp_p(p_patch, p_diag, p_metrics, nplev,                    &
+      CALL prepare_vert_interp_p(p_patch, p_diag, p_metrics, intp_hrz, nplev,          &
         &                        p_diag_pz%p_geopot, p_diag_pz%p_temp,                 &
         &                        nh_pzlev_config%p3d, p_diag_pz%vcoeff_p)
       !
     CASE ( TASK_INIT_VER_I )
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_I")
-      CALL prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, nilev,            &
+      CALL prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, intp_hrz, nilev,  &
         &                        p_diag_pz%i_geopot, p_diag_pz%i_temp,                 &
         &                        nh_pzlev_config%i3d, p_diag_pz%vcoeff_i)
       !
@@ -634,10 +634,10 @@ CONTAINS
           &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
           &          p_metrics%z_mc, p_z3d,                                         & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
-          &          vcoeff%coef1, vcoeff%coef2,                                    & !in
-          &          vcoeff%coef3, vcoeff%lin_cell%wfac_lin,                        & !in
-          &          vcoeff%idx0_cub, vcoeff%lin_cell%idx0_lin,                     & !in
-          &          vcoeff%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,               & !in
+          &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
+          &          vcoeff%cub_cell%coef3, vcoeff%lin_cell%wfac_lin,               & !in
+          &          vcoeff%cub_cell%idx0_cub, vcoeff%lin_cell%idx0_lin,            & !in
+          &          vcoeff%cub_cell%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,      & !in
           &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
           &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
           &          l_hires_intp=l_hires_intp,                                     & !in
@@ -677,10 +677,11 @@ CONTAINS
           &          p_metrics%z_mc, p_z3d, p_diag%temp,                            & !in
           &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d,            & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
-          &          vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,                      & !in
-          &          vcoeff%lin_cell%wfac_lin, vcoeff%idx0_cub,                     & !in
+          &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
+          &          vcoeff%cub_cell%coef3,                                         & !in
+          &          vcoeff%lin_cell%wfac_lin, vcoeff%cub_cell%idx0_cub,            & !in
           &          vcoeff%lin_cell%idx0_lin,                                      & !in
-          &          vcoeff%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,               & !in
+          &          vcoeff%cub_cell%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,      & !in
           &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
           &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
           &          l_satlimit=l_satlimit, lower_limit=lower_limit,                & !in
@@ -710,7 +711,7 @@ CONTAINS
     REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
       &                    EXTRAPOL_DIST = -500._wp
 
-    INTEGER                            :: nblks, npromz, jg,            &
+    INTEGER                            :: nblks_c, npromz_c, nblks_e, jg,          &
       &                                   in_var_idx, out_var_idx, nlev, i_endblk
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     TYPE(t_vcoeff)                     :: vcoeff
@@ -741,9 +742,10 @@ CONTAINS
 
     IF (TRIM(p_info%name) /= "pres")  CALL message(routine, "Invalid input field!")
 
-    nlev   = p_patch%nlev
-    nblks  = p_patch%nblks_c
-    npromz = p_patch%npromz_c
+    nlev     = p_patch%nlev
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
     
     in_var_idx  = 1
     IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
@@ -755,16 +757,16 @@ CONTAINS
 
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_SAI: stepwise analytical integration")
       ! allocate coefficient table:
-      CALL vcoeff_allocate(nblks, NZLEV, vcoeff)
+      CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
       ! compute extrapolation coefficients:
       CALL prepare_extrap(p_metrics%z_mc,                                     & !in
-        &                 nblks, npromz, nlev,                                & !in
+        &                 nblks_c, npromz_c, nlev,                            & !in
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1,    & !out
         &                 vcoeff%lin_cell%kpbl2, vcoeff%lin_cell%wfacpbl2   )   !out
       ! Interpolate pressure on z-level "0": 
       CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,           &
         &                pmsl_aux(:,1,:),                                     &
-        &                nblks, npromz, p_patch%nlev,                         &
+        &                nblks_c, npromz_c, p_patch%nlev,                       &
         &                vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,     &
         &                vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,     &
         &                ZERO_HEIGHT, EXTRAPOL_DIST)
@@ -778,7 +780,7 @@ CONTAINS
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    pmsl_aux(:,1,:),                           &  ! out
-        &                    nblks, npromz, p_patch%nlev )                 ! in
+        &                    nblks_c, npromz_c, p_patch%nlev )             ! in
 
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')
