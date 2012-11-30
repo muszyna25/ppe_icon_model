@@ -43,9 +43,16 @@ emkdir -p $ecfsdir
 cd metplots
 for metfile in `ls *.ps` ; do
   metfile2=`echo $metfile | sed 's/\.ps//'`
-  convert -rotate 90 ${metfile2}.ps ${metfile2}.png
+  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
 done 
 cd -
+
+
+#-----------------------------------------------------------------------------
+# ectrans meteogram plots
+
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/meteo    meteo/*png 
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/metplots metplots/*png 
 
 
 #-----------------------------------------------------------------------------

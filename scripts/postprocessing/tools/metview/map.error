@@ -133,16 +133,18 @@ case varfile of
  'RAIN_GSP':  varfile = 'PRR_GSP'     end
  'SNOW_CON':  varfile = '0.1.14'      end
  'SNOW_GSP':  varfile = '0.1.15'      end
- 'TCC':       varfile = 'CLCT'        end
- 'CC':        if levtype = 'pl' then
-                varfile = '0.6.22'  
-              else
-                varfile = 'CLC'
-              end if                  end
- 'Q1':        varfile = '192.201.28'  end
- 'QTVAR':     varfile = '192.201.39'  end
- 'ttendsw':   varfile = '192.162.100' end
- 'ttendlw':   varfile = '192.162.101' end
+ 'TCC'     :    varfile = 'CLCT'        end
+ 'Q1'      :     varfile = '192.201.28'  end
+ 'QV'      :  varfile = '192.201.28'  end
+ 'QC'      :  varfile = 'qc'          end
+ 'QI'      :  varfile = 'qi'          end
+ 'Q1'      :  varfile = 'QV'          end
+ 'Q2'      :  if levtype = 'pl' then varfile = '0.1.22' else varfile = 'QC'  end if end
+ 'Q3'      :  if levtype = 'pl' then varfile = '0.1.82' else varfile = 'QI'  end if end
+ 'CC'      :  if levtype = 'pl' then varfile = '0.6.22' else varfile = 'CLC' end if end
+ 'QTVAR'   :  varfile = '192.201.39'  end
+ 'ttendsw' :  varfile = '192.162.100' end
+ 'ttendlw' :  varfile = '192.162.101' end
 end case
 
 

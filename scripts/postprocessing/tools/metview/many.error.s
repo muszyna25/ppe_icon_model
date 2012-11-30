@@ -76,7 +76,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
   
   # -------------------------------------------------------
   	
-  set -A vars T  U  V  QV   CLWC  CIWC  CC  Q1  QC  QI  #CRWC  CSWC  QTVAR  O3  P               
+  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC    #QR QS  QTVAR  O3  P               
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $var ml diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
@@ -102,7 +102,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
     
   # -------------------------------------------------------
 
-  set -A vars T  QV  U  V FI
+  set -A vars T  QV  U  V  FI
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $var pl diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
@@ -113,7 +113,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
 #   echo ${metview} -b ${scriptdir}map.error   $expnum $var pl ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
 
-  set -A vars CLWC  CIWC  CC  QV  QC  QI  # CRWC CSWC
+  set -A vars  Q1  Q2  Q3  QC  QI  CC # QR QS
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $var pl snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
@@ -122,7 +122,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
 
   # -------------------------------------------------------
 
-  set -A vars T  U  V  P  QV CLWC  CIWC  CC  QC  QI  CRWC CSWC
+  set -A vars T  U  V  P  Q1  Q2  Q3  QV  QC  QI  CC  # CRWC CSWC
 #  for var in ${vars[*]}
 #  do
 #    echo ${metview} -b ${scriptdir}map.error   $expnum $var zl diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
