@@ -25,7 +25,7 @@
 echo "EOM_ARCHIVE.SMS" 
 
 
-ldeldata=1
+ldeldata=0
 
 
 #-----------------------------------------------------------------------------
@@ -44,9 +44,15 @@ emkdir -p $ecfsdir
 cd metplots
 for metfile in `ls *.ps` ; do
   metfile2=`echo $metfile | sed 's/\.ps//'`
-  convert -rotate 90 ${metfile2}.ps ${metfile2}.png
+  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
 done 
 cd -
+
+
+#-----------------------------------------------------------------------------
+# ectrans plots to mkoehler@DWD
+
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/${YYYYMM}/metplots metplots/*png 
 
 
 #-----------------------------------------------------------------------------

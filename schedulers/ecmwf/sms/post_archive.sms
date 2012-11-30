@@ -49,7 +49,7 @@ cd -
 
 
 #-----------------------------------------------------------------------------
-# ectrans meteogram plots
+# ectrans plots to mkoehler@DWD
 
 /home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/meteo    meteo/*png 
 /home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/metplots metplots/*png 
