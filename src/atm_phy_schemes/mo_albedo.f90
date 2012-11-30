@@ -264,6 +264,11 @@ CONTAINS
             ! (2-time level scheme in sea ice model).
             prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
               &                            * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
+            ! gives alb_max = 0.70
+            !       alb_min = 0.43
+            ! compare with Mironov et. al (2012), Tellus
+            !       alb_max = 0.65
+            !       alb_min = 0.40
           ENDDO
 
 

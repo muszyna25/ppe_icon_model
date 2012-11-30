@@ -2113,16 +2113,18 @@ CONTAINS
       ! HYBRID_LAYER
       !
       of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
-      ALLOCATE(lbounds(nlev), ubounds(nlev))
+      ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
       DO k = 1, nlev
         lbounds(k) = REAL(k,wp)
+        levels(k)  = REAL(k,wp)
       END DO
       DO k = 2, nlevp1
         ubounds(k-1) = REAL(k,wp)
       END DO
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds)
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds)
-      DEALLOCATE(lbounds, ubounds)
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_hybrid), levels)  !necessary for NetCDF
+      DEALLOCATE(lbounds, ubounds, levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
 
       ! HYBRID
@@ -2162,20 +2164,22 @@ CONTAINS
       !(DEPTH_BELOW_LAND_LAYER)
       !
       of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
-      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil))
+      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
       lbounds(1) = 0._wp   ! surface
       DO k = 2, znlev_soil
         lbounds(k)   = (zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1)))
       ENDDO
       DO k = 1, znlev_soil
         ubounds(k) = (zml_soil(k) + (zml_soil(k) - lbounds(k)))
+        levels(k)  = zml_soil(k)*1000._wp
       ENDDO
       ubounds(:) = ubounds(:) * 1000._wp        ! in mm
       lbounds(:) = lbounds(:) * 1000._wp        ! in mm
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds)
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds)
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
       CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
-      DEALLOCATE(lbounds, ubounds)
+      DEALLOCATE(lbounds, ubounds, levels)
 
       !
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
