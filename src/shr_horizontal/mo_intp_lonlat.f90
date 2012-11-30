@@ -71,25 +71,22 @@
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids, &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
-    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_vec_dim_e, rbf_vec_dim_v,     &
-      &                               rbf_c2grad_dim, rbf_vec_kern_c, rbf_vec_kern_e,  &
-      &                               rbf_vec_kern_v, rbf_vec_scale_c, rbf_vec_scale_e,&
-      &                               rbf_vec_scale_v, rbf_dim_c2l, l_intp_c2l,        &
+    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,   &
+      &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,        &
       &                               l_mono_c2l
     USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
       &                               gnat_query_containing_triangles,        &
       &                               gnat_merge_distributed_queries, gk
     USE mo_math_utilities,      ONLY: rotate_latlon_grid
-    USE mo_mpi,                 ONLY: p_gather_field, my_process_is_mpi_workroot, &
+    USE mo_mpi,                 ONLY: my_process_is_mpi_workroot,                 &
       &                               get_my_mpi_work_id, p_n_work,               &
       &                               p_max, get_my_mpi_work_communicator,        &
       &                               my_process_is_mpi_seq, p_comm_work,         &
       &                               my_process_is_mpi_test, p_max, p_send,      &
       &                               p_recv, process_mpi_all_test_id,            &
-      &                               process_mpi_all_workroot_id
+      &                               process_mpi_all_workroot_id, p_pe
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no, &
       &                               setup_comm_pattern
-    USE mo_mpi,                 ONLY: p_pe
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var
@@ -722,7 +719,7 @@
 !$OMP                   grid_point),                                   &
 !$OMP          SHARED  (nproma, rbf_vec_dim_c, nblks_lonlat,           &
 !$OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!$OMP                   rbf_vec_kern_c, jg, rbf_vec_scale_c )
+!$OMP                   rbf_vec_kern_ll, jg, rbf_vec_scale_ll )
 
       ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_c,rbf_vec_dim_c),  &
         z_diag(nproma,rbf_vec_dim_c),                  &
@@ -772,10 +769,10 @@
               z_dist   = arc_length_v(cc_e1,cc_e2)
 
               ! set up interpolation matrix
-              IF      (rbf_vec_kern_c == 1) THEN
-                z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-              ELSE IF (rbf_vec_kern_c == 3) THEN
-                z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+              IF      (rbf_vec_kern_ll == 1) THEN
+                z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+              ELSE IF (rbf_vec_kern_ll == 3) THEN
+                z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
               ENDIF
 
               IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
@@ -844,10 +841,10 @@
             ! get Cartesian orientation vector
             z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
 
-            IF (rbf_vec_kern_c == 1) THEN
-              z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-            ELSE IF (rbf_vec_kern_c == 3) THEN
-              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+            IF (rbf_vec_kern_ll == 1) THEN
+              z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_ll == 3) THEN
+              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
             ENDIF
 
             ! compute projection on target vector orientation
@@ -1073,7 +1070,7 @@
 !OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist, grid_point),    &
 !OMP          SHARED  (nproma, rbf_dim_c2l, nblks_lonlat,             &
 !OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!OMP                   rbf_vec_kern_c, jg, rbf_vec_scale_c )
+!OMP                   rbf_vec_kern_ll, jg, rbf_vec_scale_ll )
 
       ALLOCATE( z_rbfmat(nproma,rbf_dim_c2l,rbf_dim_c2l),    &
         &       z_diag(nproma,rbf_dim_c2l),                  &
@@ -1117,10 +1114,10 @@
               z_dist = arc_length_v(cc_1%x(:),cc_2%x(:))
 
               ! set up interpolation matrix
-              IF      (rbf_vec_kern_c == 1) THEN
-                z_rbfmat(jc,je1,je2) = gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-              ELSE IF (rbf_vec_kern_c == 3) THEN
-                z_rbfmat(jc,je1,je2) = inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+              IF      (rbf_vec_kern_ll == 1) THEN
+                z_rbfmat(jc,je1,je2) = gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+              ELSE IF (rbf_vec_kern_ll == 3) THEN
+                z_rbfmat(jc,je1,je2) = inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
               ENDIF
 
               IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
@@ -1168,10 +1165,10 @@
 
             z_dist = arc_length_v(cc_c(jc,:), cc_1%x(:))
 
-            IF (rbf_vec_kern_c == 1) THEN
-              z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-            ELSE IF (rbf_vec_kern_c == 3) THEN
-              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+            IF (rbf_vec_kern_ll == 1) THEN
+              z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_ll == 3) THEN
+              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
             ENDIF
 
           END DO

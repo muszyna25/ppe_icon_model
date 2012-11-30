@@ -1992,6 +1992,13 @@ Kernel type for reconstruction at vertices:& \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
 \hline 
+rbf\_vec\_kern\_ll&
+I& 1& &
+Kernel type for reconstruction at lon-lat-points:& \tabularnewline
+& & & & 1: Gaussian & \tabularnewline
+& & & & 3: inverse multiquadric & \tabularnewline
+
+\hline 
 rbf\_vec\_scale\_c&
 R(n\_dom)& resolution-dependent& &
 Scale factor for RBF reconstruction at cell centres&
@@ -2007,6 +2014,12 @@ Scale factor for RBF reconstruction at edges&
 rbf\_vec\_scale\_v&
 R(n\_dom)& resolution-dependent& &
 Scale factor for RBF reconstruction at vertices&
+\tabularnewline
+
+\hline 
+rbf\_vec\_scale\_ll&
+R(n\_dom)& resolution-dependent& &
+Scale factor for RBF reconstruction at lon-lat-points&
 \tabularnewline
 
 \hline 

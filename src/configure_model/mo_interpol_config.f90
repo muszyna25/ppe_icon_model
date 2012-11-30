@@ -51,15 +51,15 @@ MODULE mo_interpol_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: llsq_lin_consv, llsq_high_consv, lsq_high_ord                !< variables
-  PUBLIC :: rbf_vec_kern_c, rbf_vec_kern_v, rbf_vec_kern_e               !< variables
-  PUBLIC :: rbf_vec_scale_c, rbf_vec_scale_e, rbf_vec_scale_v            !< variables
-  PUBLIC :: i_cori_method, l_corner_vort                                 !< variables
-  PUBLIC :: nudge_max_coeff, nudge_efold_width, nudge_zone_width         !< variables
-  PUBLIC :: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim  !< variables
-  PUBLIC :: lsq_lin_set, lsq_high_set                                    !< variables
-  PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                          !< variables
-  PUBLIC :: configure_interpolation                                      !< subroutine
+  PUBLIC :: llsq_lin_consv, llsq_high_consv, lsq_high_ord                       !< variables
+  PUBLIC :: rbf_vec_kern_c, rbf_vec_kern_v, rbf_vec_kern_e, rbf_vec_kern_ll     !< variables
+  PUBLIC :: rbf_vec_scale_c, rbf_vec_scale_e, rbf_vec_scale_v, rbf_vec_scale_ll !< variables
+  PUBLIC :: i_cori_method, l_corner_vort                                        !< variables
+  PUBLIC :: nudge_max_coeff, nudge_efold_width, nudge_zone_width                !< variables
+  PUBLIC :: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim         !< variables
+  PUBLIC :: lsq_lin_set, lsq_high_set                                           !< variables
+  PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                                 !< variables
+  PUBLIC :: configure_interpolation                                             !< subroutine
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
   !>
@@ -76,7 +76,8 @@ MODULE mo_interpol_config
                                                                                  
     INTEGER  :: rbf_vec_kern_c,   & ! parameter determining the type             
        &        rbf_vec_kern_v,   & ! of vector rbf kernel                       
-       &        rbf_vec_kern_e                                                  
+       &        rbf_vec_kern_e,   &                                             
+       &        rbf_vec_kern_ll                                                  
 
     ! Parameter fields determining the scale factor used by the vector rbf       
     ! interpolator.                                                              
@@ -87,6 +88,7 @@ MODULE mo_interpol_config
     REAL(wp) :: rbf_vec_scale_c(max_dom)
     REAL(wp) :: rbf_vec_scale_e(max_dom)
     REAL(wp) :: rbf_vec_scale_v(max_dom)
+    REAL(wp) :: rbf_vec_scale_ll(max_dom)
                                                                                  
     INTEGER  :: i_cori_method       ! Identifier for the method with wich the tangential        
                                     ! wind reconstruction in Coriolis force is computed,        
@@ -228,6 +230,27 @@ CONTAINS
       ENDIF
     ENDDO
 
+    !-----------------
+    ! rbf_vec_scale_ll 
+    !-----------------
+    ! - values are specified for Gaussian kernel
+    ! (need to be smaller for inv. multiquadric)
+
+    DO jg = 1,n_dom
+
+      ! Check if scale factor is set in the namelist
+      IF (rbf_vec_scale_ll(jg) > 0.0_wp) CYCLE
+
+      jlev = grid_level(jg)
+      IF      (jlev <= 9 ) THEN ; rbf_vec_scale_ll(jg) = 0.5_wp
+      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_ll(jg) = 0.45_wp
+      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_ll(jg) = 0.3_wp
+      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_ll(jg) = 0.1_wp
+      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_ll(jg) = 0.03_wp
+      ELSE                      ; rbf_vec_scale_ll(jg) = 0.01_wp
+      ENDIF
+    ENDDO
+
     !-----------------------------------------------------------------------
     ! Now check the RBF scaling factors
     !-----------------------------------------------------------------------
@@ -258,6 +281,16 @@ CONTAINS
         CALL message( TRIM(routine),'WARNING: ')
         CALL message('','! recommended range for rbf_vec_scale_e')
         CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
+      ENDIF
+    ENDDO
+
+    DO jg = 1, n_dom
+      IF (rbf_vec_scale_ll(jg) < 1.e-10_wp) THEN
+        CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_ll')
+      ELSE IF ((rbf_vec_scale_ll(jg) < 0.01_wp).OR.(rbf_vec_scale_ll(jg) > 0.6_wp)) THEN
+        CALL message( TRIM(routine),'WARNING: ')
+        CALL message('','! recommended range for rbf_vec_scale_ll')
+        CALL message('','! is 0.01 <= rbf_vec_scale_ll <= 0.6')
       ENDIF
     ENDDO
 

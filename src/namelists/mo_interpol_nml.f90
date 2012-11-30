@@ -51,6 +51,8 @@ MODULE mo_interpol_nml
                                   & config_rbf_vec_scale_v   => rbf_vec_scale_v   , &
                                   & config_rbf_vec_kern_e    => rbf_vec_kern_e    , &
                                   & config_rbf_vec_scale_e   => rbf_vec_scale_e   , &
+                                  & config_rbf_vec_kern_ll   => rbf_vec_kern_ll   , &
+                                  & config_rbf_vec_scale_ll  => rbf_vec_scale_ll  , &
                                   & config_i_cori_method     => i_cori_method     , &
                                   & config_nudge_max_coeff   => nudge_max_coeff   , &
                                   & config_nudge_efold_width => nudge_efold_width , &
@@ -79,7 +81,8 @@ MODULE mo_interpol_nml
 
   INTEGER  :: rbf_vec_kern_c,   & ! parameter determining the type
               rbf_vec_kern_v,   & ! of vector rbf kernel
-              rbf_vec_kern_e
+              rbf_vec_kern_e,   &
+              rbf_vec_kern_ll
 
   ! Parameter fields determining the scale factor used by the vector rbf
   ! interpolator.
@@ -89,7 +92,8 @@ MODULE mo_interpol_nml
 
   REAL(wp) :: rbf_vec_scale_c(max_dom),  &
               rbf_vec_scale_v(max_dom),  &
-              rbf_vec_scale_e(max_dom)
+              rbf_vec_scale_e(max_dom),  &
+              rbf_vec_scale_ll(max_dom)
 
   INTEGER  :: i_cori_method       ! Identifier for the method with wich the tangential
                                   ! wind reconstruction in Coriolis force is computed,
@@ -132,7 +136,8 @@ MODULE mo_interpol_nml
                        & rbf_vec_scale_e,   i_cori_method,       &
                        & nudge_max_coeff,   nudge_efold_width,   &
                        & nudge_zone_width,  l_corner_vort,       &
-                       & l_intp_c2l, rbf_dim_c2l, l_mono_c2l
+                       & l_intp_c2l, rbf_dim_c2l, l_mono_c2l,    &
+                       & rbf_vec_scale_ll,  rbf_vec_kern_ll
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -172,12 +177,14 @@ CONTAINS
     rbf_vec_kern_c  = 1         ! Gaussian kernel for cell centers
     rbf_vec_kern_v  = 1         ! Gaussian kernel for vertices
     rbf_vec_kern_e  = 3         ! Inverse multiquadric kernel for edge midpoints
+    rbf_vec_kern_ll = 1         ! Gaussian kernel for lon-lat interpolation
 
     ! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
     ! A meaningful initialization follows after reading the namelist
-    rbf_vec_scale_c(:) = -1.0_wp
-    rbf_vec_scale_v(:) = -1.0_wp
-    rbf_vec_scale_e(:) = -1.0_wp
+    rbf_vec_scale_c(:)  = -1.0_wp
+    rbf_vec_scale_v(:)  = -1.0_wp
+    rbf_vec_scale_e(:)  = -1.0_wp
+    rbf_vec_scale_ll(:) = -1.0_wp
 
     ! Initialize the namelist for the method for the vorticity flux term
     i_cori_method = 3
@@ -233,6 +240,10 @@ CONTAINS
       CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_e, must be 1 or 3')
     ENDIF
 
+    IF ((rbf_vec_kern_ll/=1 ).AND.(rbf_vec_kern_ll/=3)) THEN
+      CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_ll, must be 1 or 3')
+    ENDIF
+
     SELECT CASE(lsq_high_ord)
     CASE(1,2,30,3)  ! OK
     CASE DEFAULT
@@ -242,23 +253,25 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-    config_llsq_lin_consv     = llsq_lin_consv
-    config_llsq_high_consv    = llsq_high_consv
-    config_lsq_high_ord       = lsq_high_ord 
-    config_rbf_vec_kern_c     = rbf_vec_kern_c 
-    config_rbf_vec_kern_v     = rbf_vec_kern_v
-    config_rbf_vec_kern_e     = rbf_vec_kern_e
-    config_rbf_vec_scale_c(:) = rbf_vec_scale_c(:)
-    config_rbf_vec_scale_v(:) = rbf_vec_scale_v(:)
-    config_rbf_vec_scale_e(:) = rbf_vec_scale_e(:)
-    config_i_cori_method      = i_cori_method
-    config_nudge_max_coeff    = nudge_max_coeff
-    config_nudge_efold_width  = nudge_efold_width
-    config_nudge_zone_width   = nudge_zone_width
-    config_l_corner_vort      = l_corner_vort
-    config_l_intp_c2l         = l_intp_c2l
-    config_rbf_dim_c2l        = rbf_dim_c2l
-    config_l_mono_c2l         = l_mono_c2l
+    config_llsq_lin_consv      = llsq_lin_consv
+    config_llsq_high_consv     = llsq_high_consv
+    config_lsq_high_ord        = lsq_high_ord 
+    config_rbf_vec_kern_c      = rbf_vec_kern_c 
+    config_rbf_vec_kern_v      = rbf_vec_kern_v
+    config_rbf_vec_kern_e      = rbf_vec_kern_e
+    config_rbf_vec_kern_ll     = rbf_vec_kern_ll
+    config_rbf_vec_scale_c(:)  = rbf_vec_scale_c(:)
+    config_rbf_vec_scale_v(:)  = rbf_vec_scale_v(:)
+    config_rbf_vec_scale_e(:)  = rbf_vec_scale_e(:)
+    config_rbf_vec_scale_ll(:) = rbf_vec_scale_ll(:)
+    config_i_cori_method       = i_cori_method
+    config_nudge_max_coeff     = nudge_max_coeff
+    config_nudge_efold_width   = nudge_efold_width
+    config_nudge_zone_width    = nudge_zone_width
+    config_l_corner_vort       = l_corner_vort
+    config_l_intp_c2l          = l_intp_c2l
+    config_rbf_dim_c2l         = rbf_dim_c2l
+    config_l_mono_c2l          = l_mono_c2l
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
