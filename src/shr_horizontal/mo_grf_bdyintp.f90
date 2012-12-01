@@ -661,9 +661,10 @@ IF (my_process_is_mpi_seq()) THEN
           IF (ptr_pc%edges%refin_ctrl(icheidx(je,jb,3),icheblk(je,jb,3)) <= grf_bdywidth_e) &
             p_out(jn)%fld(icheidx(je,jb,3),jk,icheblk(je,jb,3))   = vn_aux(je,jk,jb,3,jn)
 
-          IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1 .AND.                                    &
-              ptr_pc%edges%refin_ctrl(icheidx(je,jb,4),icheblk(je,jb,4)) <= grf_bdywidth_e) &
-            p_out(jn)%fld(icheidx(je,jb,4),jk,icheblk(je,jb,4)) = vn_aux(je,jk,jb,4,jn)
+          IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
+            IF (ptr_pc%edges%refin_ctrl(icheidx(je,jb,4),icheblk(je,jb,4)) <= grf_bdywidth_e) &
+              & p_out(jn)%fld(icheidx(je,jb,4),jk,icheblk(je,jb,4)) = vn_aux(je,jk,jb,4,jn)
+          ENDIF
 
         ENDDO
       ENDDO
