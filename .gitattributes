@@ -1087,7 +1087,6 @@ src/atm_phy_edmf/mo_vexcs.f90 -text
 src/atm_phy_edmf/mo_voskin.f90 -text
 src/atm_phy_edmf/mo_vsurf.f90 -text
 src/atm_phy_edmf/mo_vupdz0.f90 -text
-src/atm_phy_nwp/mo_gme_turbdiff.f90 -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
 src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text
@@ -1126,6 +1125,7 @@ src/atm_phy_schemes/mo_cuinit.f90 -text
 src/atm_phy_schemes/mo_cumaster.f90 -text
 src/atm_phy_schemes/mo_cuparameters.f90 -text
 src/atm_phy_schemes/mo_data_turbdiff.f90 -text
+src/atm_phy_schemes/mo_gme_turbdiff.f90 -text
 src/atm_phy_schemes/mo_gscp_cosmo.f90 -text
 src/atm_phy_schemes/mo_gwd_wms.f90 -text
 src/atm_phy_schemes/mo_ham_aerosol_params.f90 -text

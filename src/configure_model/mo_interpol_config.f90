@@ -242,12 +242,15 @@ CONTAINS
       IF (rbf_vec_scale_ll(jg) > 0.0_wp) CYCLE
 
       jlev = grid_level(jg)
-      IF      (jlev <= 9 ) THEN ; rbf_vec_scale_ll(jg) = 0.5_wp
-      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_ll(jg) = 0.45_wp
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_ll(jg) = 0.3_wp
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_ll(jg) = 0.1_wp
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_ll(jg) = 0.03_wp
-      ELSE                      ; rbf_vec_scale_ll(jg) = 0.01_wp
+      IF      (jlev <= 6 ) THEN ; rbf_vec_scale_ll(jg) = 0.5_wp
+      ELSE IF (jlev == 7 ) THEN ; rbf_vec_scale_ll(jg) = 0.35_wp
+      ELSE IF (jlev == 8 ) THEN ; rbf_vec_scale_ll(jg) = 0.20_wp
+      ELSE IF (jlev == 9 ) THEN ; rbf_vec_scale_ll(jg) = 0.10_wp
+      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_ll(jg) = 0.05_wp
+      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_ll(jg) = 0.02_wp
+      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_ll(jg) = 0.01_wp
+      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_ll(jg) = 0.005_wp
+      ELSE                      ; rbf_vec_scale_ll(jg) = 0.002_wp
       ENDIF
     ENDDO
 
