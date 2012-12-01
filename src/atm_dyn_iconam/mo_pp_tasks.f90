@@ -519,7 +519,7 @@ CONTAINS
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_vcoeff),            POINTER :: vcoeff
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
-    REAL(wp),                  POINTER :: p_z3d(:,:,:)
+    REAL(wp),                  POINTER :: p_z3d(:,:,:), p_pres(:,:,:), p_temp(:,:,:)
     REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
 
     LOGICAL                            :: &
@@ -567,16 +567,25 @@ CONTAINS
       n_ipzlev  =   nzlev
       vcoeff  =>  p_diag_pz%vcoeff_z
       p_z3d   =>  nh_pzlev_config%z3d
+      p_pres  =>  p_diag_pz%z_pres
+      p_temp  =>  p_diag_pz%z_temp
     CASE ( TASK_INTP_VER_PLEV )
       ! vertical levels for p-level interpolation
       n_ipzlev  =   nplev
       vcoeff  =>  p_diag_pz%vcoeff_p
       p_z3d   =>  p_diag_pz%p_geopot
+      p_pres  =>  nh_pzlev_config%p3d
+      p_temp  =>  p_diag_pz%p_temp
     CASE ( TASK_INTP_VER_ILEV )
       ! vertical levels for isentropic-level interpolation
       n_ipzlev  =   nilev
       vcoeff  =>  p_diag_pz%vcoeff_i
       p_z3d   =>  p_diag_pz%i_geopot
+      p_pres  =>  nh_pzlev_config%p3d ! ** this still needs to be fixed! we either need i_pres here
+      p_temp  =>  p_diag_pz%i_temp    !    or have to turn off the saturation adjustment for theta levels
+                                      !    or have to use log-linear interpolation in this case **
+      IF (vert_intp_method == VINTP_METHOD_QV) & ! Let's stop with an error message for the time being
+        CALL finish(routine, "QV interpolation to isentropic levels not available.")
     CASE DEFAULT
       CALL finish(routine, "Unknown post-processing job.")
     END SELECT
@@ -675,7 +684,7 @@ CONTAINS
         CALL qv_intp(tmp_var(:,:,:),                                                & !in
           &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
           &          p_metrics%z_mc, p_z3d, p_diag%temp,                            & !in
-          &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d,            & !in
+          &          p_diag%pres, p_temp, p_pres,                                   & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
           &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
           &          vcoeff%cub_cell%coef3,                                         & !in
