@@ -51,7 +51,8 @@ MODULE mo_nh_stepping
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
+  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
+    & nest_substeps
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
@@ -1299,7 +1300,7 @@ MODULE mo_nh_stepping
         l_call_nests = .TRUE.
         rdt_loc = 1._wp/dt_loc
         n_now_grf    = n_now
-        nsteps_nest  = 2
+        nsteps_nest  = nest_substeps
       ELSE
         l_call_nests = .FALSE.
       ENDIF

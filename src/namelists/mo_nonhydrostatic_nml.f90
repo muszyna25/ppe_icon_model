@@ -72,7 +72,8 @@ MODULE mo_nonhydrostatic_nml
                                     & config_ltheta_up_hori   => ltheta_up_hori   , &
                                     & config_upstr_beta       => upstr_beta       , &
                                     & config_ltheta_up_vert   => ltheta_up_vert   , &
-                                    & config_k2_updamp_coeff  => k2_updamp_coeff
+                                    & config_k2_updamp_coeff  => k2_updamp_coeff  , &
+                                    & config_nest_substeps    => nest_substeps
 
 
   IMPLICIT NONE
@@ -116,8 +117,11 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
                                      ! horizontal pressure gradient
   LOGICAL :: l_open_ubc              ! .true.: open upper boundary condition (w=0 otherwise)
+
   LOGICAL :: l_nest_rcf              ! .true.: call nests only with rcf frequency
+  INTEGER :: nest_substeps           ! the number of dynamics substeps for the child patches
   LOGICAL :: l_masscorr_nest         ! Apply mass conservation correction also to nested domain
+  
   LOGICAL :: l_zdiffu_t              ! .true.: apply truly horizontal temperature diffusion
                                      !         over steep slopes
   REAL(wp):: thslp_zdiffu            ! threshold slope above which temperature diffusion is applied
@@ -138,9 +142,9 @@ MODULE mo_nonhydrostatic_nml
                               & hbot_qvsubstep, damp_height, rayleigh_type,               &
                               & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
-                              & l_nest_rcf, l_masscorr_nest, l_zdiffu_t, thslp_zdiffu,    &
-                              & thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, upstr_beta, &
-                              & ltheta_up_vert, k2_updamp_coeff, divdamp_order
+                              & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
+                              & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
+                              & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -223,6 +227,8 @@ CONTAINS
     l_open_ubc        = .FALSE.
     ! Synchronize nesting calls with large (transport) time steps
     l_nest_rcf        = .TRUE.
+    ! 2 child dynamcis substeps
+    nest_substeps     = 2
     ! TRUE: apply mass conservation correction computed for feedback in the nested domain, too
     l_masscorr_nest   = .FALSE.
 
@@ -285,17 +291,18 @@ CONTAINS
       ENDIF
     ENDDO
 
-    ! reset l_nest_rcf to false if iadv_rcf = 1
-    IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
 
     IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
       CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
     ENDIF
 
+    ! reset l_nest_rcf to false if iadv_rcf = 1
+    IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
+    IF (nest_substeps == 1) l_nest_rcf = .FALSE.
     ! for reduced calling frequency of tracer advection / fast physics:
     ! odd values of iadv_rcf are allowed only if nest calls are 
     ! synchronized with advection
-    IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 .AND. iadv_rcf /= 1 &
+    IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,nest_substeps) /= 0 .AND. iadv_rcf /= 1 &
          .OR. iadv_rcf == 0) THEN
         CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
           &'Value must be even or 1 if l_nest_rcf=.FALSE.')
@@ -329,6 +336,7 @@ CONTAINS
        config_upstr_beta        = upstr_beta
        config_l_open_ubc        = l_open_ubc
        config_l_nest_rcf        = l_nest_rcf
+       config_nest_substeps     = nest_substeps
        config_l_zdiffu_t        = l_zdiffu_t
        config_thslp_zdiffu      = thslp_zdiffu
        config_thhgtd_zdiffu     = thhgtd_zdiffu
