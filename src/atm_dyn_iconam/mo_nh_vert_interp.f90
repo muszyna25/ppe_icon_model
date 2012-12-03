@@ -770,8 +770,8 @@ CONTAINS
     !--- Compute data for interpolation of edge-based fields
 
     ! Compute geometric height at edge points
-    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me)
-    CALL cells2edges_scalar(p_z3d_out, p_patch, intp_hrz%c_lin_e, p_z3d_edge)
+    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
+    CALL cells2edges_scalar(p_z3d_out, p_patch, intp_hrz%c_lin_e, p_z3d_edge, opt_fill_latbc=.TRUE.)
 
     CALL prepare_lin_intp(z_me, p_z3d_edge, nblks_e, npromz_e, nlev, nzlev,                 & !in
       &                   vcoeff_z%lin_edge%wfac_lin, vcoeff_z%lin_edge%idx0_lin,           & !out
@@ -900,8 +900,8 @@ CONTAINS
 
     !--- Compute data for interpolation of edge-based fields
 
-    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me)
-    CALL cells2edges_scalar(geopot_p_out, p_patch, intp_hrz%c_lin_e, geopot_p_edge)
+    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
+    CALL cells2edges_scalar(geopot_p_out, p_patch, intp_hrz%c_lin_e, geopot_p_edge, opt_fill_latbc=.TRUE.)
 
     CALL prepare_lin_intp(z_me, geopot_p_edge, nblks_e, npromz_e, nlev, nplev,               & !in
       &                   vcoeff_p%lin_edge%wfac_lin, vcoeff_p%lin_edge%idx0_lin,            & !out
@@ -1011,8 +1011,8 @@ CONTAINS
 
     !--- Compute data for interpolation of edge-based fields
 
-    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me)
-    CALL cells2edges_scalar(geopot_i_out, p_patch, intp_hrz%c_lin_e, geopot_i_edge)
+    CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
+    CALL cells2edges_scalar(geopot_i_out, p_patch, intp_hrz%c_lin_e, geopot_i_edge, opt_fill_latbc=.TRUE.)
 
     CALL prepare_lin_intp(z_me, geopot_i_edge, nblks_e, npromz_e, nlev, nilev,               & !in
       &                   vcoeff_i%lin_edge%wfac_lin, vcoeff_i%lin_edge%idx0_lin,            & !out
@@ -1125,7 +1125,7 @@ CONTAINS
           WRITE(0,*) 'prepare_lin_intp',jb,jk,nlevs_out,jk_start,jk1,nlevs_in
           DO jc = 1, nlen
             IF(.NOT.l_found(jc)) THEN
-              WRITE(0,*)'prepare_lin_intp',z3d_in(jc,jk_start,jb),z3d_in(jc,jk1,jb),&
+              WRITE(0,*)'prepare_lin_intp',z3d_in(jc,jk_start:jk1,jb),&
                 z3d_in(jc,nlevs_in,jb),z3d_out(jc,jk,jb)
             ENDIF
           ENDDO
