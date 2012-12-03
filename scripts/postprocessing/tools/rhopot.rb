@@ -141,23 +141,13 @@ experimentFiles.each {|experiment, files|
       diffFile        = "T-S-rhopot_diff2init_#{File.basename(file)}"
       initFile        = "initial_#{experiment}.nc"
 
-      unless File.exist?(maskedYMeanFile)
-        Cdo.div(:input => " -selname,T,S #{file} #{maskFile}",:output => maskedYMeanFile)
-      end
+      Cdo.div(:input => " -selname,T,S #{file} #{maskFile}",:output => maskedYMeanFile)
       # compute rhopot
-      unless File.exist?(rhopotFile)
-        Cdo.rhopot(0,:input => maskedYMeanFile,:output => rhopotFile)
-      end
+      Cdo.rhopot(0,:input => maskedYMeanFile,:output => rhopotFile)
 
-      unless File.exist?(mergedFile)
-        Cdo.merge(:input => [maskedYMeanFile,rhopotFile].join(' '), :output => mergedFile)
-      end
-      unless File.exist?(diffFile)
-        Cdo.sub(:input => [mergedFile,initFile].join(' '),:output => diffFile)
-      end
-      unless File.exist?(fldmeanFile)
-        Cdo.fldsum(:input => "-mul #{diffFile} #{maskedAreaWeights}", :output => fldmeanFile,:options => '-r -f nc')
-      end
+      Cdo.merge(:input => [maskedYMeanFile,rhopotFile].join(' '), :output => mergedFile)
+      Cdo.sub(:input => [mergedFile,initFile].join(' '),:output => diffFile)
+      Cdo.fldsum(:input => "-mul #{diffFile} #{maskedAreaWeights}", :output => fldmeanFile,:options => '-r -f nc')
       lock.synchronize {experimentAnalyzedData[experiment] << fldmeanFile }
     }
   }
