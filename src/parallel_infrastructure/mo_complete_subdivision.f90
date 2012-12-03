@@ -1260,6 +1260,9 @@ CONTAINS
       je = idx_1d(p_patch%edges%end_idx(min_rledge_int-2,1), &
         &         p_patch%edges%end_blk(min_rledge_int-2,1))
 
+! GZ: this loop is not vectorized properly, probably because the nested IF clauses are merged
+!     in an incorrect way. As the runtime cost of this loop is negligible, we just turn off vectorization
+!CDIR NOVECTOR
       DO j = js, je
         jb = blk_no(j) ! Block index
         jl = idx_no(j) ! Line  index
