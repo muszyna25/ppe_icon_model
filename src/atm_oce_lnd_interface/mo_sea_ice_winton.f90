@@ -305,7 +305,7 @@ CONTAINS
             ! for Delta h. But these are included in this program
             IF ( ice%Qbot(jc,k,jb) < 0.0_wp ) THEN
               ! Eq. 24 & 25
-              delh2 =ice%Qbot(jc,k,jb)*dtime/( rhoi*( ci*( Tfw(jc,k,jb) + muS ) - alf ) ) 
+              delh2 = ice%Qbot(jc,k,jb)*dtime/( rhoi*( ci*( Tfw(jc,k,jb) + muS ) - alf ) ) 
               ! Eq. 26
               ice%T2(jc,k,jb) = ( delh2*Tfw(jc,k,jb) + h2*ice%T2(jc,k,jb) )/( delh2 + h2 )  
 
@@ -346,23 +346,23 @@ CONTAINS
             C3 = E2*rhoi*h2
             
             IF ( ice%Qtop(jc,k,jb) > 0.0_wp ) THEN
-              surfmeltsn = MIN( ice%Qtop(jc,k,jb)*dtime/( alf*rhos), ice%hs(jc,k,jb) )     ! Eq. 27
+              surfmeltsn = MIN( ice%Qtop(jc,k,jb)*dtime/( alf*rhos ), ice%hs(jc,k,jb) )    ! Eq. 27
 
               ice%hs      (jc,k,jb) = ice%hs(jc,k,jb) - surfmeltsn
               ice%surfmelt(jc,k,jb) = surfmeltsn*rhos/rho_ref
               
-              IF ( ice%hs(jc,k,jb) <= 0.0_wp ) THEN
+              IF ( C1 < ice%Qtop(jc,k,jb)*dtime ) THEN
                 surfmelti1 = MIN( ( ice%Qtop(jc,k,jb)*dtime - C1 )/( -E1*rhoi ), h1 )      ! Eq. 28
                 h1 = h1 - surfmelti1
                 ice%surfmelt(jc,k,jb) = ice%surfmelt(jc,k,jb) + surfmelti1*rhoi/rho_ref
                 
-                IF ( h1 <= 0.0_wp ) THEN
+                IF ( C1-C2 < ice%Qtop(jc,k,jb)*dtime ) THEN
                   ! Eq. 29
                   surfmelti2 = MIN(  ( ice%Qtop(jc,k,jb)*dtime - C1 + C2 ) / ( -E2*rhoi), h2 )
                   h2 = h2 - surfmelti2
                   ice%surfmelt(jc,k,jb) = ice%surfmelt(jc,k,jb) + surfmelti2*rhoi/rho_ref
                   
-                  IF ( h2 <= 0.0_wp ) THEN
+                  IF ( C1-C2-C3 < ice%Qtop(jc,k,jb)*dtime ) THEN
                     ! Eq. 30
                     ice%heatOceI(jc,k,jb) = ice%Qtop(jc,k,jb) + ( -C1 + C2 + C3 )/dtime
                     !Flux - not heat
@@ -385,12 +385,12 @@ CONTAINS
             IF ( ice%Qbot(jc,k,jb) > 0.0_wp ) THEN
               h2 = h2 - MIN( ice%Qbot(jc,k,jb)*dtime/( -E2*rhoi), h2 )                     ! Eq. 31
               
-              IF ( h2 <= 0.0_wp) THEN
+              IF ( -C3 < ice%Qbot(jc,k,jb)*dtime ) THEN
                 h1 = h1 - MIN( ( ice%Qbot(jc,k,jb)*dtime + C3 )/( -E1*rhoi ), h1 )         ! Eq. 32
-                IF ( h1 <= 0.0_wp) THEN
+                IF ( -C2-C3 < ice%Qbot(jc,k,jb)*dtime ) THEN
                   ice%hs(jc,k,jb) = ice%hs(jc,k,jb) &                                      ! Eq. 33
                     &  - MIN( ( ice%Qbot(jc,k,jb)*dtime + C3 + C2 )/( alf*rhos ), ice%hs(jc,k,jb) )
-                  IF (ice%hs (jc,k,jb) <= 0.0_wp) THEN
+                  IF ( C1-C2-C3 < ice%Qbot(jc,k,jb)*dtime ) THEN
                     ice%heatOceI(jc,k,jb) = ice%heatocei(jc,k,jb) &
                       &         + ice%Qbot(jc,k,jb) + ( -C1 + C2 + C3 )/dtime              ! Eq. 34
                     ! Flux - not heat
@@ -425,7 +425,7 @@ CONTAINS
             END IF
             
             ! Even up upper and lower layer
-            IF( h1 < h2  ) THEN
+            IF( h1 < h2 ) THEN
               f1 =  h1/( 0.5_wp*ice%hi(jc,k,jb) )                                          ! Eq. 39
               Tbar = f1*( ice%T1(jc,k,jb) - alf*muS/( ci*ice%T1(jc,k,jb) ) ) &
                 &               + ( 1.0_wp - f1 )*ice%T2(jc,k,jb)                          ! Eq. 38
@@ -450,15 +450,15 @@ CONTAINS
             
             ! Is this necessary?
             IF (ice%hi(jc,k,jb) <= 0.0_wp) THEN
-              ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
-              ice%T1   (jc,k,jb) =  Tfw(jc,k,jb)
-              ice%T2   (jc,k,jb) =  Tfw(jc,k,jb)
-              ice%isice(jc,k,jb) =  .FALSE.
+              ice%Tsurf(jc,k,jb) = Tfw(jc,k,jb)
+              ice%T1   (jc,k,jb) = Tfw(jc,k,jb)
+              ice%T2   (jc,k,jb) = Tfw(jc,k,jb)
+              ice%isice(jc,k,jb) = .FALSE.
               ice%conc (jc,k,jb) = 0.0_wp
               ice%hi   (jc,k,jb) = 0.0_wp
               ice%E1   (jc,k,jb) = 0.0_wp
               ice%E2   (jc,k,jb) = 0.0_wp
-            ELSE
+            ELSE ! Combine fluxes for the ocean
               ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - zHeatOceI(jc,k,jb)
             END IF
             
