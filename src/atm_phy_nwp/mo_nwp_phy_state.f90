@@ -694,8 +694,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     ! 2D variables
 
         !        diag%albvisdif    (nproma,       nblks),          &
-        cf_desc    = t_cf_var('albvisdif', '', '', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL)
+        cf_desc    = t_cf_var('albvisdif', '', 'surface albedo', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d, in_group=groups("rad_vars") )
@@ -705,8 +705,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN
 
           !        diag%albvisdif_t    (nproma, nblks, ntiles_total+ntiles_water),          &
-          cf_desc    = t_cf_var('albvisdif_t', '', '', DATATYPE_FLT32)
-          grib2_desc = t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL)
+          cf_desc    = t_cf_var('albvisdif_t', '', 'tile-based surface albedo',   &
+            &                   DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
             & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
