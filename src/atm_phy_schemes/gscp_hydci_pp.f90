@@ -257,7 +257,8 @@ USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
-USE data_gscp                 !xxx: common module COSMO/ICON, all variables are used here
+USE data_gscp     !FR: common module COSMO/ICON, all variables are used here
+                  ! unify usage of data_gscp between COSMO/ICON   
 #endif
 
 !==============================================================================
@@ -281,8 +282,14 @@ CHARACTER(132) :: message_text = ''
 #endif
 
 INTEGER (KIND=iintegers), PARAMETER ::  &
-  iautocon       = 1,&
-  isnow_n0temp   = 2
+  iautocon       = 1,                   & ! 
+  isnow_n0temp   = 2                      !
+
+!FR new:
+LOGICAL (KIND=iintegers), PARAMETER ::  &
+  llimit_n0s     = .FALSE.                ! limit N0_snow (limit introduced by AS) 
+
+  
 
 REAL    (KIND=ireals   ), PARAMETER ::  &
   zqmin = 1.0E-15_ireals,& ! threshold for computations
@@ -306,7 +313,10 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   !! N0R = 8.0 E6 : Parameter in the size distrubution function for rain
   !! ECR = 0.8    : Collection efficiency for rain collecting cloud water
   !! ECS = 0.9    : Collection efficiency for snow collecting cloud water
-  !! EIR = 0.8    : Collection efficiency for rain collecting cloud ice
+
+  !! EIR = 0.8    : Collection efficiency for rain collecting cloud ice:
+  zeir = 0.8_ireals, &   ! FR
+
   !! V0R = 130.0  : Factor in the terminal velocity for raindrops
   !!                VTR(D) = V0R*D**(1/2)
   !! AMS = 0.038  : Formfactor in the mass-size relation of snowparticles
@@ -324,7 +334,7 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   !! AS  = 2*N0S*AMS
   !! HW              : Howell factor ( =(1/(1+H_w)) or =(1/(1+H_i))) 
   
-  zhw   = 2.270603,     & ! Howell factor
+  zhw   = 2.270603,     & ! Howell factor  FR: HW + 1 since it is used as 1/zhw
   zecs  = 0.9_ireals,   & ! Collection efficiency for snow collecting cloud water
   
   zadi  = 0.217_ireals, & ! Formfactor in the size-mass relation of ice particles
@@ -339,8 +349,8 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zn0s1 = 13.5_ireals * 5.65E5_ireals, & ! parameter in N0S(T)
   zn0s2 = -0.107_ireals , & ! parameter in N0S(T), Field et al
   zcac  = 1.72_ireals   , & ! (15/32)*(PI**0.5)*(ECR/RHOW)*V0R*AR**(1/8)
-  zcicri= 1.72_ireals   , & ! (15/32)*(PI**0.5)*(EIR/RHOW)*V0R*AR**(1/8)
-  zcrcri= 1.24E-3_ireals, & ! (PI/24)*EIR*V0R*Gamma(6.5)*AR**(-5/8)
+!FR old:  zcicri= 1.72_ireals   , & ! (15/32)*(PI**0.5)*(EIR/RHOW)*V0R*AR**(1/8)
+!FR old:  zcrcri= 1.24E-3_ireals, & ! (PI/24)*EIR*V0R*Gamma(6.5)*AR**(-5/8)
 ! zcev  = 3.1E-3_ireals , & ! 2*PI*DIFF*HW*N0R*AR**(-1/2)
 ! zbev  = 9.0_ireals    , & ! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
   zcsmel= 1.48E-4_ireals, & ! 4*LHEAT*N0S*AS**(-2/3)/(RHO*lh_f)
@@ -354,6 +364,7 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zdv    = 2.22e-5_ireals, & ! molecular diffusion coefficient for water vapour
   zlheat = 2.40E-2_ireals, & ! thermal conductivity of dry air
   zeta   = 1.75e-5_ireals    ! kinematic viscosity of air 
+
 
 REAL    (KIND=ireals   ), PARAMETER ::  &
   !! Additional parameters
@@ -375,13 +386,97 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
 
 !!==============================================================================
 
+!> xxx parameters for Gamma distribution and Rogers fall velocity
+!  put to name list in the future
+
+REAL    (KIND=ireals   ), PARAMETER ::  &
+
+! snow
+  v0_Rog_snow = 1.68_ireals , &    ! Rogers: v = v0 - v1 * exp(-x*D)
+  v1_Rog_snow = 1.25_ireals , &
+  exp_Rog_snow  = 1820_ireals , &
+
+! rain
+!  v0_Rog_rain = 9.65_ireals , &    ! Rogers: v = v0 - v1 * exp(-x*D)
+!  v1_Rog_rain = 9.80_ireals , &
+!  exp_Rog_rain  = 600_ireals 
+
+! fall velocity according to simplified Atlas:  v = v0 - v0 * exp(-x*D)
+! fit to data (Beard 1976) for rain drops up to 4mm
+  v0_Rog_rain = 10.4_ireals , &    !
+  v1_Rog_rain = 10.4_ireals , &
+  exp_Rog_rain  = 480_ireals 
+
+! fit to data (Beard 1976) for rain drops up to 5mm
+!  v0_Rog_rain = 9.98_ireals , &    !
+!  v1_Rog_rain = 9.98_ireals , &
+!  exp_Rog_rain  = 518.5_ireals 
+
+
+
+  
+
+
 !> Global Variables
+! FR new global variables
 ! -------------------
 
   REAL (KIND=ireals) ::          &
     zn0r,                        & ! N0_rain
-    zar
+    zar,                         & ! Ar
+    lamrg,                       & ! lambda_rain at grid point
+    lamsg,                       & ! lambda_snow at grid point
+    ccslam2,                     & ! As / N0_snow
+    ccslxp2,                     & ! 
+    ccsaxp2,                     & ! exponent for lambda_snow
+    ccrlxp,                      & ! exponent in lambda_rain
+    zcicri,                      & ! coefficient in Si_cri
+    zcrcri,                      & ! coefficient in Sr_cri
+    ccrexp,                      & ! exponent of lambda_rain in integrals for Sicri
+    ccrexp2,                     & ! exponent of lambda_rain in integrals for Srcri
+!FR Sev:
+    zcev1,                       & ! coefficient in Sev
+    zcev2,                       & ! coefficient in Sev
+    zcevxp1,                     & ! exponent of lambda_rain in Sev
+    zcevxp2,                     & ! exponent of lambda_rain in Sev
+    zcevgam1,                    & ! Gamma fct term in Sev
+    zcevgam2,                    & ! Gamma fct term in Sev
+    v1ov0r,                      & ! v1_Rog_rain / v0_Rog_rain
+    Aux1,Aux2,Aux3,Aux4,Aux5,    & ! auxiliary terms
+    Fac0,Fac1,                   & ! coefficients
+!FR Sdep: 
+    zcdep2,                      & ! coefficient in Sdep
+    zcdepxp1,                    & ! exponent of lambda_snow in Sdep
+    zcdepxp2,                    & ! exponent of lambda_snow in Sdep
+    zcdepgam1,                   & ! Gamma fct term in Sdep
+    zcdepgam2,                   & ! Gamma fct term in Sdep
+    v1ov0s,                      & ! v1_Rog_snow / v0_Rog_snow
+!FR vT_snow 
+    zvsxp,                       & ! exponent for vT_snow
+    zvsxpr,                      & ! reciprocal exponent for vT_snow
+    zvsgam,                      & ! gamma fct of zvsxp
+    rhoqs,                       & 
+!FR vT_rain    
+    zvrxp,                       & ! exponent for vT_rain
+    zvrgam,                      & ! gamma fct of zvrxp
+    rhoqr,                       & ! rho * qr (mean)
+    mu_snow,                     & ! mu for Gamma PSD for snow
+! FR N0_snow
+    zn0gam1,                     & ! gamma fct of 4+mu_snow
+    zn0gam2,                     & ! gamma fct of 3+mu_snow
+    zn0gam3,                     & ! gamma fct of 1+bms+mu_snow
+    ccn0s1,                      & ! consant coefficient 
+    ccn0s2,                      & ! consant coefficient 
+    ex1,                         & ! exponent
+    ex2                            ! exponent
 
+!>xxx FR testing N0s
+  REAL (KIND=ireals) ::          &
+    N0s_new,N0s_old,             & ! N0_snow for testing
+    ex3
+  INTEGER (KIND=iintegers)         ::  &
+  counter       
+!<xxx FR test
 
 
 !> Namelist Variables for hydci_pp and hydci_pp_gr
@@ -492,38 +587,93 @@ SUBROUTINE hydci_pp_init(idbg)
 !>  Initial setting of local and global variables
 !------------------------------------------------------------------------------
 
-!!  mu_rain = 0.5  ! is a namelist parameter
+  !xxx This should be handled with namelist parameters in the future: 
+  mu_rain = 1.0    ! is a namelist parameter, overwritten here for testing with mu_snow
+  mu_snow = 0.0    ! is not yet a namelist parameter. Needs adaptation of N0s
 
+  counter = 1
+
+  
+!FR new: explicit coefficients, exponents, etc. 
+  zcicri  =  0.25_ireals*pi * zeir * zn0r * gamma_fct(mu_rain + 3.0_ireals)
+  zcrcri  =  pi**2/24.0_ireals * zeir * rho_w * zn0r * gamma_fct(mu_rain + 6.0_ireals)
+  ccrexp  = -(mu_rain + 3.0_ireals) 
+  ccrexp2 = -(mu_rain + 6.0_ireals) 
+
+  v1ov0r   = v1_Rog_rain / v0_Rog_rain
+  v1ov0s   = v1_Rog_snow / v0_Rog_snow
+
+!xxx partly changed stuff:
   zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
     * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
-  ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
-  ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
+!xxx  ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
+  ccsrim = 0.25_ireals*pi*zecs*gamma_fct(mu_snow + 3.0_ireals)
+!xxx  ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
+  ccsagg = 0.25_ireals*pi*gamma_fct(mu_snow + 3.0_ireals)
   ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(0.5/zeta)
   ccsvxp = -(zv1s/(zbms+1.0_ireals)+1.0_ireals)
   ccsvel = zams*v0snow*gamma_fct(zbms+zv1s+1.0_ireals)&
     & *(zams*gamma_fct(zbms+1.0_ireals))**ccsvxp 
   ccsvxp = ccsvxp + 1.0_ireals
   ccslam = zams*gamma_fct(zbms+1.0_ireals)
+  ccslam2= zams*gamma_fct(zbms + mu_snow + 1.0_ireals) !xxx corresponds to As / N0s
+! ccrlam = zar => Ar
+  
   ccslxp = 1.0_ireals / (zbms+1.0_ireals)
+  ccslxp2 = 1.0_ireals / (mu_snow + zbms + 1.0_ireals) !xxx exponent in lambda-As relation
+  ccrlxp = 1.0_ireals / (mu_rain + 4.0_ireals)         !xxx exponent in lambda-Ar relation
   ccswxp = zv1s*ccslxp
   ccsaxp = -(zv1s+3.0_ireals)
+  ccsaxp2 = -(mu_snow + 3.0_ireals)                    !xxx exponent for lambda_snow
   ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
   ccshi1 = lh_s*lh_s/(zlheat*r_v)
-  ccdvtp = 2.11E-5 * t0**(-1.94) * 101325.0
+  ccdvtp = 2.22E-5 * t0**(-1.94) * 101325.0
   ccidep = 4.0_ireals * zami**(-x1o3)
   zn0r   = 8e6 * EXP(3.2*mu_rain) * (0.01)**(-mu_rain)  ! empirical relation adapted from Ulbrich (1983)
 ! to tune the zn0r variable
   zn0r   = zn0r * rain_n0_factor
 
-  zar    = pi*zrhow/6.0 * zn0r * gamma_fct(mu_rain+4.0) ! pre-factor in lambda
+  zar    = pi*zrhow/6.0 * zn0r * gamma_fct(mu_rain+4.0) ! pre-factor Ar in lambda
+
+! FR old:  
   zcevxp = (mu_rain+2.)/(mu_rain+4.)
+! FR old:  
   zcev   = 2.0*pi*zdv/zhw*zn0r*zar**(-zcevxp) * gamma_fct(mu_rain+2.0)
+! FR new: 
+  zcevxp1  = -(mu_rain + 2.0_ireals)
+  zcevxp2  =  (mu_rain + 2.5_ireals)
+  zcevgam1 =  gamma_fct(mu_rain + 2.0_ireals)
+  zcevgam2 =  gamma_fct(mu_rain + 2.5_ireals)
+  zcev1    =  2.0*pi*zdv/zhw*zn0r
+  zcev2    = 0.26_ireals * SQRT(v0_Rog_rain/zeta) * zcevgam2
+
+
   zbevxp = (2.*mu_rain+5.5_ireals)/(2.*mu_rain+8.)-zcevxp
   zbev   = 0.26 * SQRT(0.5*zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
     &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
   zvzxp  = 0.5/(mu_rain+4.0)
   zvz0r  = 130.0_ireals*gamma_fct(mu_rain+4.5)/gamma_fct(mu_rain+4.0)*zar**(-zvzxp)
 
+! FR new Sdep_snow
+  zcdepgam1 =  gamma_fct(mu_snow + 2.0_ireals)
+  zcdepgam2 =  gamma_fct(mu_snow + 2.5_ireals) 
+  zcdepxp1  = -(mu_snow + 2.0_ireals)
+  zcdepxp2  =  (mu_snow + 2.5_ireals)
+  zcdep2    = 0.26_ireals * SQRT(v0_Rog_snow/zeta) * zcdepgam2
+
+! FR new vT_snow
+  zvsxp = 1.0_ireals + zbms + mu_snow
+  zvsxpr = 1.0_ireals / zvsxp
+  zvsgam = gamma_fct(zvsxp)
+
+! FR new vT_rain
+  zvrxp = 4.0_ireals + mu_rain
+  zvrgam = gamma_fct(zvrxp)
+
+! FR new N0_snow
+  zn0gam1 = gamma_fct(4._ireals + mu_snow)
+  zn0gam2 = gamma_fct(3._ireals + mu_snow)
+  zn0gam3 = gamma_fct(1._ireals + zbms + mu_snow)
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 10) THEN
@@ -574,7 +724,7 @@ SUBROUTINE hydci_pp (             &
   zdt, dz,                           & !! numerics parameters
   t,p,rho,qv,qc,qi,qr,qs,            & !! prognostic variables
 #ifdef __ICON__
-  !xxx: this should become a module variable, e.g. in a new module mo_data_gscp.f90
+  !xxx: this should become a module variable, e.g. in a new module data_gscp.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
 #endif
   prr_gsp,prs_gsp,                   & !! surface precipitation rates
@@ -731,6 +881,10 @@ SUBROUTINE hydci_pp (             &
   !> Local scalars:
   !! -------------
   
+  ! FR new:
+  REAL    (KIND=ireals   ) ::  &
+    Int1, Int2                  ! auxiliary variables: integrals
+  
   INTEGER (KIND=iintegers) ::  &
     iv, k             !> loop indices
 
@@ -795,10 +949,6 @@ SUBROUTINE hydci_pp (             &
     qr_in              ,    & !! specific rain content                         (kg/kg)
     qs_in                     !! specific snow content                         (kg/kg)
 
-
-
-
-
 !! Local (automatic) arrays:
 !! -------------------------
 #ifdef __COSMO__
@@ -823,6 +973,8 @@ SUBROUTINE hydci_pp (             &
     zcagg       (nvec),     & !
     zbsdep      (nvec),     & !
     zcslam      (nvec),     & !
+    zcslam2     (nvec),     & ! FR new: gamma/rogers: lambda_snow
+    zcrlam      (nvec),     & ! FR new: gamma/rogers: lambda_rain
     zn0s        (nvec),     & !
     zimr        (nvec),     & !
     zims        (nvec),     & !
@@ -834,12 +986,12 @@ SUBROUTINE hydci_pp (             &
     z1orhog     (nvec),     & ! 1/rhog
     zrho1o2     (nvec),     & ! (rho0/rhog)**1/2
     zeln7o8qrk  (nvec),     & !
-    zeln27o16qrk(nvec),     & !
-    zeln13o8qrk (nvec),     & !
-!    zeln3o16qrk (nvec),     & !
-    zeln13o12qsk(nvec),     & !
-    zeln5o24qsk (nvec),     & !
-    zeln2o3qsk  (nvec)        !
+    zeln27o16qrk(nvec)        !
+!FR old    zeln13o8qrk (nvec),     & !
+!FR old    zeln3o16qrk (nvec),    & !
+!FR old    zeln13o12qsk(nvec)        !
+!FR old    zeln5o24qsk (nvec)        !
+!FR old    zeln2o3qsk  (nvec)        !
 
   REAL    (KIND=ireals   ) ::  &
     scau   (nvec), & ! transfer rate due to autoconversion of cloud water
@@ -1083,11 +1235,11 @@ SUBROUTINE hydci_pp (             &
         zzar(iv)   = zqrk(iv)/zdtdh(iv) + zprvr(iv) + zpkr(iv)
         zzas(iv)   = zqsk(iv)/zdtdh(iv) + zprvs(iv) + zpks(iv)
 
-        IF (llqs) THEN
+        IF (llqr) THEN         ! FR new: llqs -> llqr
           ic1 = ic1 + 1
           ivdx1(ic1) = iv
         ENDIF
-        IF (llqr) THEN
+        IF (llqs) THEN         ! FR new: llqr -> llqs
           ic2 = ic2 + 1
           ivdx2(ic2) = iv
        ENDIF
@@ -1095,10 +1247,15 @@ SUBROUTINE hydci_pp (             &
      ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
-    loop_over_qs_prepare: DO i1d = 1, ic1
-      iv = ivdx1(i1d)
+    loop_over_qs_prepare: DO i1d = 1, ic2
+      iv = ivdx2(i1d)
 
-      qsg = qs(iv,k)
+
+
+! xxx
+!      qsg = qs(iv,k)
+      qsg = 1.0e-5_ireals
+!xxx
       tg  = t(iv,k)
 
       IF (isnow_n0temp == 1) THEN
@@ -1115,7 +1272,7 @@ SUBROUTINE hydci_pp (             &
         ztc = tg - t0
         ztc = MAX(MIN(ztc,0.0_ireals),-40.0_ireals)
 
-        nnr  = 3._ireals
+        nnr  = 3._ireals   
         hlp = mma(1) + mma(2)*ztc + mma(3)*nnr + mma(4)*ztc*nnr &
           & + mma(5)*ztc**2 + mma(6)*nnr**2 + mma(7)*ztc**2*nnr &
           & + mma(8)*ztc*nnr**2 + mma(9)*ztc**3 + mma(10)*nnr**3
@@ -1124,16 +1281,28 @@ SUBROUTINE hydci_pp (             &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
 
-        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
-        m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
-        m3s = alf*EXP(bet*LOG(m2s))
+! FR new N0s: 
+         ccn0s1  = (4.0_ireals + mu_snow - (3.0_ireals+mu_snow)*bet)/(1+zbms+mu_snow)
+         ex1     = 1.0_ireals/(bet + ccn0s1 -1.0_ireals)
+         ex2     = ccn0s1 * ex1
+         ccn0s2  = zn0gam1**ex1 / zn0gam2**(bet*ex1) / zn0gam3**ex2 / zams**ex2 / alf**ex1
+         zn0s(iv)= ccn0s2 * (rho(iv,k)*qsg)**ex2
 
-        hlp  = zn0s1*EXP(zn0s2*ztc)
-        zn0s(iv) = 13.50_ireals * m2s**4 / m3s**3
-        zn0s(iv) = MAX(zn0s(iv),0.5_ireals*hlp)
-        zn0s(iv) = MIN(zn0s(iv),1e2_ireals*hlp)
-        zn0s(iv) = MIN(zn0s(iv),1e9_ireals)
-        zn0s(iv) = MAX(zn0s(iv),1e6_ireals)
+! FR old: 
+        ! Here is the exponent bms=2.0 hardwired! not ideal! (Uli Blahak)
+!         m2s = qsg * rho(iv,k) / zams   ! UB rho added as bugfix
+!         m3s = alf*EXP(bet*LOG(m2s))
+!         zn0s(iv) = 13.50_ireals * m2s**4 / m3s**3
+
+!>xxx commented for testing
+         IF( llimit_n0s ) THEN
+           hlp  = zn0s1*EXP(zn0s2*ztc)
+           zn0s(iv) = MAX(zn0s(iv),0.5_ireals*hlp)
+           zn0s(iv) = MIN(zn0s(iv),1e2_ireals*hlp)
+           zn0s(iv) = MIN(zn0s(iv),1e9_ireals)
+           zn0s(iv) = MAX(zn0s(iv),1e6_ireals)
+         END IF
+!<xxx
       ELSE
         ! Old constant n0s
         zn0s(iv) = 8.0e5_ireals
@@ -1144,17 +1313,32 @@ SUBROUTINE hydci_pp (             &
       zvz0s (iv) = ccsvel*EXP(ccsvxp * LOG(zn0s(iv)))
 
       IF (zvzs(iv) == 0.0_ireals) THEN
-        zvzs(iv) = zvz0s(iv) * EXP (ccswxp * LOG (0.5_ireals*zqsk(iv))) * zrho1o2(iv)
+!FR old zvzs(iv) = zvz0s(iv) * EXP (ccswxp * LOG (0.5_ireals*zqsk(iv))) * zrho1o2(iv)
+
+        rhoqs = zqsk(iv)
+        lamsg = (ccslam2 * zn0s(iv) / rhoqs)**zvsxpr      ! lambda_snow
+        Int1 =  v0_Rog_snow*EXP(-zvsxp*LOG(lamsg))
+        Int2 = -v1_Rog_snow*EXP(-zvsxp*LOG(lamsg + exp_Rog_snow))
+        zvzs(iv) = zams * zn0s(iv) * zvsgam * (Int1+Int2)
+        zvzs(iv) = zvzs(iv)/rhoqs
       ENDIF
     ENDDO loop_over_qs_prepare
 
 !CDIR NODEP,VOVERTAKE,VOB
-    loop_over_qr_sedi: DO i1d = 1, ic2
-      iv = ivdx2(i1d)
+    loop_over_qr_sedi: DO i1d = 1, ic1
+      iv = ivdx1(i1d)
 
       IF (zvzr(iv) == 0.0_ireals) THEN
-!replaced: zvzr(iv) = zvz0r * EXP (x1o8  * LOG (0.5_ireals*zqrk(iv))) * zrho1o2(iv)
+!UB? replaced: zvzr(iv) = zvz0r * EXP (x1o8  * LOG (0.5_ireals*zqrk(iv))) * zrho1o2(iv)
+!FR old:   zvzr(iv) = zvz0r * EXP (zvzxp  * LOG (0.5_ireals*zqrk(iv))) * zrho1o2(iv)
+!FR reused:
         zvzr(iv) = zvz0r * EXP (zvzxp  * LOG (0.5_ireals*zqrk(iv))) * zrho1o2(iv)
+
+!FR new: needs a.o. lamr which is only defined in Sec. 3
+!        rhoqr =   rhog * 0.5_ireals*(qrg+qr(iv,k+1))        ! mean qs 
+!        Int1  =   v0_Rog_rain*EXP(-zvrxp*LOG(lamrg))
+!        Int2  =  -v1_Rog_rain*EXP(-zvrxp*LOG(lamrg + exp_Rog_rain))
+!        zvzr(iv)= pi/6.0_ireals*zrhow*zn0r*zvrgam * (Int1+Int2) / rhoqr
 
       ENDIF
     ENDDO loop_over_qr_sedi
@@ -1168,14 +1352,16 @@ SUBROUTINE hydci_pp (             &
 !CDIR BEGIN COLLAPSE
     zeln7o8qrk   (:) = 0.0_ireals
     zeln27o16qrk (:) = 0.0_ireals
-    zeln13o8qrk  (:) = 0.0_ireals
+!FR old    zeln13o8qrk  (:) = 0.0_ireals
 !!    zeln3o16qrk  (:) = 0.0_ireals
-    zeln13o12qsk (:) = 0.0_ireals
-    zeln5o24qsk  (:) = 0.0_ireals
-    zeln2o3qsk   (:) = 0.0_ireals
+!FR old    zeln13o12qsk (:) = 0.0_ireals
+!FR old    zeln5o24qsk  (:) = 0.0_ireals
+!FR old    zeln2o3qsk   (:) = 0.0_ireals
     zcsdep       (:) = 3.2E-2_ireals
     zcidep       (:) = 1.3E-5_ireals
     zcslam       (:) = 1e10_ireals
+    zcslam2      (:) = 1e10_ireals  
+    zcrlam       (:) = 1e10_ireals  
 
     scau         (:) = 0.0_ireals
     scac         (:) = 0.0_ireals
@@ -1276,9 +1462,9 @@ SUBROUTINE hydci_pp (             &
      ENDDO
 
 
-! ic1
+! ic1 FR: ic1 --> qr > 0
 !CDIR NODEP,VOVERTAKE,VOB
-    loop_over_qr: DO i1d =1, ic1
+    loop_over_qs_prep: DO i1d =1, ic1   
       iv = ivdx1(i1d)
 
       qcg  = qc(iv,k)
@@ -1294,12 +1480,17 @@ SUBROUTINE hydci_pp (             &
         zeln27o16qrk(iv) = EXP (x27o16 * zlnqrk)
       ENDIF
       IF (llqi) THEN
-        zeln13o8qrk(iv)  = EXP (x13o8  * zlnqrk)
+!FR old        zeln13o8qrk(iv)  = EXP (x13o8  * zlnqrk)
       ENDIF
-!      IF (qcg <= 0.0_ireals ) THEN
-!        zeln3o16qrk(iv)  = EXP (x3o16  * zlnqrk)
-!      ENDIF
-    ENDDO loop_over_qr
+!FR old  IF (qcg <= 0.0_ireals ) THEN
+!            zeln3o16qrk(iv)  = EXP (x3o16  * zlnqrk)
+!        ENDIF
+
+!FR new (in analogy to zcslam by AS)
+      zcrlam(iv) = EXP(ccrlxp * LOG(zar / zqrk(iv) ))
+      zcrlam(iv) = MIN(zcrlam(iv),1e15_ireals)
+
+    ENDDO loop_over_qs_prep
 
 
 ! ic2
@@ -1312,10 +1503,10 @@ SUBROUTINE hydci_pp (             &
 
       zlnqsk       = LOG (zqsk(iv))
       IF (qig+qcg > zqmin) THEN
-        zeln13o12qsk(iv) = EXP (x13o12 * zlnqsk)
+!FR old        zeln13o12qsk(iv) = EXP (x13o12 * zlnqsk)
       ENDIF
-      zeln5o24qsk(iv)  = EXP (x5o24  * zlnqsk)
-      zeln2o3qsk(iv)   = EXP (x2o3   * zlnqsk)
+!FR old      zeln5o24qsk(iv)  = EXP (x5o24  * zlnqsk)
+!FR old      zeln2o3qsk(iv)   = EXP (x2o3   * zlnqsk)
     ENDDO loop_over_qs_coeffs
 
 ! ic3
@@ -1333,8 +1524,13 @@ SUBROUTINE hydci_pp (             &
       hlp    = zdvtp / (1.0_ireals + zhi)
       zcidep(iv) = ccidep * hlp
       IF (llqs) THEN
+! FR old: lambda_snow
         zcslam(iv) = EXP(ccslxp * LOG(ccslam * zn0s(iv) / zqsk(iv) ))
         zcslam(iv) = MIN(zcslam(iv),1e15_ireals)
+!xxx new: lambda_snow
+        zcslam2(iv) = EXP(ccslxp2 * LOG(ccslam2 * zn0s(iv) / zqsk(iv) ))
+        zcslam2(iv) = MIN(zcslam2(iv),1e15_ireals)
+
         zcsdep(iv) = 4.0_ireals * zn0s(iv) * hlp
       ENDIF
 
@@ -1407,7 +1603,10 @@ SUBROUTINE hydci_pp (             &
         ENDIF
       ENDIF
       IF (llqs) THEN
-        zscrim = zcrim(iv) * EXP(ccsaxp * LOG(zcslam(iv))) * qcg !* zrho1o2(iv)
+!xxx        zscrim = zcrim(iv) * EXP(ccsaxp * LOG(zcslam(iv))) * qcg !* zrho1o2(iv)
+        Int1 = v0_Rog_snow * EXP(ccsaxp2 * LOG(zcslam2(iv))) 
+        Int2 = -v1_Rog_snow * EXP(ccsaxp2 * LOG( zcslam2(iv)+exp_Rog_snow )) 
+        zscrim = zcrim(iv) * (Int1+Int2) * qcg !* zrho1o2(iv)
       ELSE
         zscrim = 0.0_ireals
       ENDIF
@@ -1457,7 +1656,7 @@ SUBROUTINE hydci_pp (             &
 
 ! also ic3
 !CDIR NODEP,VOVERTAKE,VOB
-    loop_over_qs: DO i1d =1, ic3
+    loop_over_qs: DO i1d =1, ic3          ! loop over qi and qs (FR)
       iv = ivdx3(i1d)
 
       qvg  =  qv(iv,k)
@@ -1467,6 +1666,7 @@ SUBROUTINE hydci_pp (             &
       ppg  =   p(iv,k)
       rhog = rho(iv,k)
       llqi =  qig > zqmin
+      lamsg = zcslam2(iv)
 
       IF (tg<=t0) THEN
         zqvsi   = fqvs( fpvsi(tg), ppg )
@@ -1474,7 +1674,10 @@ SUBROUTINE hydci_pp (             &
         zmi     = MIN( rhog*qig/znin, zmimax )
         zmi     = MAX( zmi0, zmi )
         zsvmax  = (qvg - zqvsi) * zdtr
-        zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
+!xxx    zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
+        Int1 =  v0_Rog_snow * EXP(ccsaxp2 * LOG(lamsg)) 
+        Int2 = -v1_Rog_snow * EXP(ccsaxp2 * LOG(lamsg+exp_Rog_snow )) 
+        zsagg   = zcagg(iv) * (Int1 + Int2) * qig
         zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(iv) &
           * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
         znid      = rhog * qig/zmi
@@ -1502,10 +1705,28 @@ SUBROUTINE hydci_pp (             &
         ELSE
           zsdau    =  0.0_ireals
         ENDIF
-        zsicri    = zcicri * qig * zeln7o8qrk(iv)
-        zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
+!FR old: zsicri    = zcicri * qig * zeln7o8qrk(iv) !zzz
+        Int1      =  v0_Rog_rain * EXP(ccrexp * LOG(zcrlam(iv))) 
+        Int2      = -v1_Rog_rain * EXP(ccrexp * LOG(zcrlam(iv) + exp_Rog_rain )) 
+        zsicri    = zcicri * qig * (Int1 + Int2)
+
+! FR old: zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
+        Int1      =  v0_Rog_rain * EXP(ccrexp2 * LOG(zcrlam(iv))) 
+        Int2      = -v1_Rog_rain * EXP(ccrexp2 * LOG(zcrlam(iv) + exp_Rog_rain )) 
+        zsrcri    =  zcrcri * (Int1 + Int2) * (qig/zmi) 
+
         zxfac     = 1.0_ireals + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
-        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi ) / (zcslam(iv)+zeps)**2
+! FR old: zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi ) / (zcslam(iv)+zeps)**2
+! FR new:
+        Int1 = zcdepgam1 *  EXP(zcdepxp1 * LOG(lamsg)) 
+        Fac1 = zcdep2 * SQRT(rhog) * EXP(-zcdepxp2 * LOG(lamsg)) 
+        Aux1 =  1.0_ireals
+        Aux2 = -0.5_ireals             *v1ov0s    * EXP(zcdepxp2 * LOG(lamsg/(lamsg+  exp_Rog_snow)))
+        Aux3 = -1.0_ireals/8.0_ireals  *v1ov0s**2 * EXP(zcdepxp2 * LOG(lamsg/(lamsg+2*exp_Rog_snow)))
+        Aux4 = -1.0_ireals/16.0_ireals *v1ov0s**3 * EXP(zcdepxp2 * LOG(lamsg/(lamsg+3*exp_Rog_snow)))
+        Aux4 = -5.0_ireals/128.0_ireals*v1ov0s**4 * EXP(zcdepxp2 * LOG(lamsg/(lamsg+4*exp_Rog_snow)))
+
+        zssdep    = zcsdep(iv) * (qvg - zqvsi) * (Int1 + Fac1*(Aux1+Aux2+Aux3+Aux4+Aux5))
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_ireals) zssdep = MIN(zssdep, zsvmax-zsvidep)
@@ -1531,11 +1752,30 @@ SUBROUTINE hydci_pp (             &
 
       ELSE ! tg > 0
         simelt(iv) = qig*zdtr
-        zqvsw0      = fqvs( zpvsw0, ppg)
-        zx1         = (tg - t0) + zasmel*(qvg - zqvsw0)
-        zx2         = 1.0_ireals + zbsmel * zeln5o24qsk(iv)
-        zssmelt     = zcsmel * zx1 * zx2 * zeln2o3qsk(iv)
-        ssmelt(iv) = MAX( zssmelt, 0.0_ireals )
+
+        zqvsw0       = fqvs( zpvsw0, ppg)
+!FR old  zx1         = (tg - t0) + zasmel*(qvg - zqvsw0)
+!FR old  zx2         = 1.0_ireals + zbsmel * zeln5o24qsk(iv)
+!FR old  zssmelt     = zcsmel * zx1 * zx2 * zeln2o3qsk(iv)
+
+
+! FR new:        
+        Fac0 = zlheat*(tg - t0)/rhog + lh_v*zdv*(qvg - zqvsw0)
+        ! same terms as for Sdep:
+        Int1 = zcdepgam1 *  EXP(zcdepxp1 * LOG(lamsg)) 
+        Fac1 = zcdep2 * SQRT(rhog) * EXP(-zcdepxp2 * LOG(lamsg)) 
+        Aux1 =  1.0_ireals
+        Aux2 = -0.5_ireals             *v1ov0s    * EXP(zcdepxp2 * LOG(lamsg/(lamsg+  exp_Rog_snow)))
+        Aux3 = -1.0_ireals/8.0_ireals  *v1ov0s**2 * EXP(zcdepxp2 * LOG(lamsg/(lamsg+2*exp_Rog_snow)))
+        Aux4 = -1.0_ireals/16.0_ireals *v1ov0s**3 * EXP(zcdepxp2 * LOG(lamsg/(lamsg+3*exp_Rog_snow)))
+        Aux4 = -5.0_ireals/128.0_ireals*v1ov0s**4 * EXP(zcdepxp2 * LOG(lamsg/(lamsg+4*exp_Rog_snow)))
+        
+        zssmelt = 4.0_ireals/lh_f * zn0s(iv) * Fac0*(Int1 + Fac1*(Aux1+Aux2+Aux3+Aux4+Aux5))
+        
+        ssmelt(iv) = MAX( zssmelt, 0.0_ireals )        
+
+
+
       ENDIF ! tg
 
     ENDDO loop_over_qs
@@ -1550,14 +1790,28 @@ SUBROUTINE hydci_pp (             &
     loop_over_qr_nocloud: DO i1d =1, ic6
       iv = ivdx6(i1d)
 
-      qvg = qv(iv,k)
-      tg  =  t(iv,k)
-      ppg =  p(iv,k)
+      qvg  = qv(iv,k)
+      tg   = t(iv,k)
+      ppg  = p(iv,k)
+      rhog = rho(iv,k)
+      lamrg = zcrlam(iv)
 
-      zlnqrk      = LOG (zqrk(iv))
+! FR old: zlnqrk      = LOG (zqrk(iv))
       zqvsw       = fqvs( fpvsw(tg), ppg )
-      zx1         = 1.0_ireals + zbev * EXP (zbevxp  * zlnqrk)
-      sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
+! FR old: zx1         = 1.0_ireals + zbev * EXP (zbevxp  * zlnqrk) 
+! FR old:      
+!     sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
+      Int1 = zcevgam1 *  EXP(zcevxp1 * LOG(lamrg)) 
+      Fac1 = zcev2 * SQRT(rhog) * EXP(-zcevxp2 * LOG(lamrg)) 
+      Aux1 =  1.0_ireals
+      Aux2 = -0.5_ireals             *v1ov0r    * EXP(zcevxp2 * LOG(lamrg/(lamrg+  exp_Rog_rain)))
+      Aux3 = -1.0_ireals/8.0_ireals  *v1ov0r**2 * EXP(zcevxp2 * LOG(lamrg/(lamrg+2*exp_Rog_rain)))
+      Aux4 = -1.0_ireals/16.0_ireals *v1ov0r**3 * EXP(zcevxp2 * LOG(lamrg/(lamrg+3*exp_Rog_rain)))
+      Aux4 = -5.0_ireals/128.0_ireals*v1ov0r**4 * EXP(zcevxp2 * LOG(lamrg/(lamrg+4*exp_Rog_rain)))
+
+      sev(iv)    = zcev1*(zqvsw - qvg) * (Int1 + Fac1*(Aux1+Aux2+Aux3+Aux4+Aux5))
+
+      
 !      zqvsw    = fqvs( fpvsw(tg), ppg )
 !      zx1      = 1.0_ireals + zbev* zeln3o16qrk(iv)
 !      zsev     = zcev*zx1*(zqvsw - qvg)*SQRT(zqrk(iv))
@@ -1585,6 +1839,7 @@ SUBROUTINE hydci_pp (             &
         qig = qi(iv,k)
 !        tg  = t (iv,k)
         rhog = rho(iv,k)
+        lamrg = zcrlam(iv)
 
         zsrmax = zzar(iv)*z1orhog(iv)*zdtr
         zssmax = zzas(iv)*z1orhog(iv)*zdtr
@@ -1638,12 +1893,24 @@ SUBROUTINE hydci_pp (             &
           IF (qrg+qr(iv,k+1) <= zqmin) THEN
             zvzr(iv)= 0.0_ireals
           ELSE
-            zvzr(iv)= zvz0r * EXP(zvzxp*LOG((qrg+qr(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
+!FR old  zvzr(iv) = zvz0r * EXP(zvzxp*LOG((qrg+qr(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
+            rhoqr = rhog * 0.5_ireals*(qrg+qr(iv,k+1))        ! mean qs 
+            Int1  =  v0_Rog_rain*EXP(-zvrxp*LOG(lamrg))
+            Int2  = -v1_Rog_rain*EXP(-zvrxp*LOG(lamrg + exp_Rog_rain))
+            zvzr(iv) = pi/6.0_ireals*zrhow*zn0r*zvrgam * (Int1+Int2) / rhoqr
+
           ENDIF
           IF (qsg+qs(iv,k+1) <= zqmin) THEN
             zvzs(iv)= 0.0_ireals
           ELSE
-            zvzs(iv)= zvz0s(iv) * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
+!FR old  zvzs(iv)= zvz0s(iv) * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
+!FR new: 
+            rhoqs = rhog * 0.5_ireals*(qsg+qs(iv,k+1))        ! mean qs 
+            lamsg = (ccslam2 * zn0s(iv) / rhoqs)**zvsxpr      ! lambda_snow
+            Int1 =  v0_Rog_snow*EXP(-zvsxp*LOG(lamsg))
+            Int2 = -v1_Rog_snow*EXP(-zvsxp*LOG(lamsg + exp_Rog_snow))
+            zvzs(iv) = zams * zn0s(iv) * zvsgam * (Int1+Int2)
+            zvzs(iv) = zvzs(iv)/rhoqs
           ENDIF
         ELSE
           ! Precipitation fluxes at the ground
