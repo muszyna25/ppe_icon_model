@@ -291,7 +291,7 @@ fi
 
 
 #==============================================================================
-# special treatment for exp.test_hom_lsm
+# special treatment for exp.test_hom_lsm and exp.test_oce_default
 # this includes the restart in the exp.test_hom_lsm_restart
 #
 
@@ -299,21 +299,23 @@ if [ $use_openmp = "no" ] ; then
 
   queue="express"
 
-  name=test_hom_lsm
+  for name in test_hom_lsm test_oce_default; do
 
-  if [ $make_restart_exp = "true" ] ; then
+    if [ $make_restart_exp = "true" ] ; then
 
-    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-      in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"  test_restart="true" \
-      queue="$queue" cpu_time="01:00:00"
-    
-  fi
+      $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+        in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"  test_restart="true" \
+        queue="$queue" cpu_time="01:00:00"
 
-  # postprocessing for comparing the restarts
-  if [ $make_restart_post = "true" ] ; then
-    $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
-      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" 
-  fi
+    fi
+
+    # postprocessing for comparing the restarts
+    if [ $make_restart_post = "true" ] ; then
+      $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
+        with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"  EXPNAME="$name" 
+    fi
+
+  done
 
 fi
 
