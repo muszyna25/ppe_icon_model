@@ -36,7 +36,19 @@
 !! $Id: n/a$
 !!
 !! @par Revision History
-!! implemented into ICON by Felix Rieper (2012-06)
+!! Implementation into ICON by Felix Rieper (2012-06)
+!!
+!! Some bug fixes by Felix Rieper (2012-07)
+!! - exponent in depostional growth of snow
+!! - ventilation factor for snow and rain 
+!! - correction of diffusion coefficient of water in dry air
+!!
+!! Modifications by Felix Rieper (2012-11):
+!! - explicit calculation of transfer coefficients
+!! - introduction of Gamma distribution for rain and snow 
+!! - introduction of Rogers/Atlas terminal fall velocity for rain and snow
+!! -> recalculation of all corresponding transfer coefficients, precipitation rates, etc.
+!! 
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -288,6 +300,7 @@ INTEGER (KIND=iintegers), PARAMETER ::  &
 !FR new:
 LOGICAL (KIND=iintegers), PARAMETER ::  &
   llimit_n0s     = .FALSE.                ! limit N0_snow (limit introduced by AS) 
+                                          ! no effect seen in real test case
 
   
 
@@ -588,7 +601,7 @@ SUBROUTINE hydci_pp_init(idbg)
 !------------------------------------------------------------------------------
 
   !xxx This should be handled with namelist parameters in the future: 
-  mu_rain = 1.0    ! is a namelist parameter, overwritten here for testing with mu_snow
+  mu_rain = 0.0    ! is already a namelist parameter, overwritten here for testing with mu_snow
   mu_snow = 0.0    ! is not yet a namelist parameter. Needs adaptation of N0s
 
   counter = 1
