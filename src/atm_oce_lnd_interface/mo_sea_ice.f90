@@ -102,6 +102,7 @@ MODULE mo_sea_ice
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: prepareAfterRestart
+  PUBLIC :: prepare4restart
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -995,8 +996,6 @@ CONTAINS
     INTEGER,                  INTENT(IN)     :: doy
 
     !------------------------------------------------------------------------- 
-    CALL prepareAfterRestart(ice)
-
     !CALL get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
     CALL set_ice_albedo(p_patch,ice)
     
@@ -1065,7 +1064,6 @@ CONTAINS
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
 
-    CALL prepare4restart(ice)
   END SUBROUTINE ice_slow
   !-------------------------------------------------------------------------  
   !
@@ -1552,9 +1550,6 @@ CONTAINS
     dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
       &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
 
-!   CALL dbg_print('CalcBulk --: humi          ',humi ,str_module,4)
-!   CALL dbg_print('CalcBulk --: fakts         ',fakts,str_module,4)
-!   CALL dbg_print('CalcBulk --: tafo          ',p_as%tafo ,str_module,4)
     DO i = 1, p_ice%kice
       WHERE (p_ice%isice(:,i,:))
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
@@ -1568,9 +1563,9 @@ CONTAINS
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
         drags(:,:)    = 0.95_wp * dragl(:,:)
 
-        Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4 &
-          &     - 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
-        Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*StBo*tafoK(:,:)**3
+        Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+          &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+        Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
         Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
         Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) &
@@ -1702,8 +1697,8 @@ CONTAINS
     Qatm%LWin(:,:) = 0._wp
     Qatm%LWoutw(:,:) = 0._wp
 
-    Qatm%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*StBo * tafoK(:,:)**4  &
-      &         - 4._wp*zemiss_def*StBo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+    Qatm%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+      &         - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
 
     Qatm%SWin(:,:) = p_as%fswr(:,:)
 
