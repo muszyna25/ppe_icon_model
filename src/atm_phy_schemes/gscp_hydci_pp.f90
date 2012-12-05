@@ -303,8 +303,8 @@ INTEGER (KIND=iintegers), PARAMETER ::  &
 
 !FR new:
 LOGICAL (KIND=iintegers), PARAMETER ::  &
-  llimit_n0s     = .TRUE.                ! limit N0_snow (limit introduced by AS) 
-                                          ! no effect seen in real test case
+  llimit_n0s     = .TRUE.              ! limit N0_snow (limit introduced by AS) 
+                                       ! small diff in WK82, no diff in real test
 
   
 

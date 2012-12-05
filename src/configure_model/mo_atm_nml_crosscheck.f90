@@ -513,6 +513,17 @@ CONTAINS
           END SELECT
           
         ENDIF !inwp_radiation
+
+        !! check microphysics scheme
+        IF (  atm_phy_nwp_config(jg)%mu_rain < 0.0   .OR. &
+          &   atm_phy_nwp_config(jg)%mu_rain > 5.0)  THEN
+          CALL finish(TRIM(routine),'mu_rain requires: 0 < mu_rain < 5')
+        END IF
+        
+        IF (  atm_phy_nwp_config(jg)%mu_snow < 0.0   .OR. &
+          &   atm_phy_nwp_config(jg)%mu_snow > 5.0)  THEN
+          CALL finish(TRIM(routine),'mu_snow requires: 0 < mu_snow < 5')
+        END IF ! microphysics 
         
       ENDDO
     END IF
