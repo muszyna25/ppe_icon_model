@@ -858,6 +858,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: no_of_children(:)
     INTEGER :: j, parent_index, child_index, i_status
 !     REAL(wp) :: child_edge_vec(3), parent_edge_vec(3), orientation
+    CHARACTER(*), PARAMETER :: method_name = "mo_local_grid_hierarchy:get_child_pointers"
 
     parent_grid     => get_grid(parent_grid_id)
     parent_cells    => parent_grid%cells
@@ -876,26 +877,26 @@ CONTAINS
     no_of_child_verts = child_verts%no_of_existvertices
 
     IF (child_grid%parent_grid_id /= parent_grid_id) &
-      & CALL finish ('get_child_pointers', 'childGrid%parentGridID /= parentID')
+      & CALL finish (method_name, 'childGrid%parentGridID /= parentID')
 
     !-------------------------------
     ! fill child cells
     ALLOCATE(no_of_children(no_of_parent_cells),stat=i_status)
     IF (i_status > 0) &
-      & CALL finish ('get_child_pointers', 'ALLOCATE(noOfChilds(noOfParentCells))')
+      & CALL finish (method_name, 'ALLOCATE(noOfChilds(noOfParentCells))')
     no_of_children(:) = 0
     DO child_index=1, no_of_child_cells
       parent_index = child_cells%parent_index(child_index)
       !     WRITE(*,*) "Cell, child,parent=",childIndex,parentIndex
       IF (parent_index < 1 .or. parent_index > no_of_parent_cells) THEN
         WRITE(0,*) 'parent_index:', parent_index, ' > ', no_of_parent_cells
-        CALL finish ('get_child_pointers', 'cell parentIndex out of limits')
+        CALL finish (method_name, 'cell parentIndex out of limits')
       ENDIF
 
       ! this is only for checking
       no_of_children(parent_index) = no_of_children(parent_index) + 1
       IF (no_of_children(parent_index) > 4) &
-        & CALL finish ('get_child_pointers', 'cells: more than 4 children')
+        & CALL finish (method_name, 'cells: more than 4 children')
 
       ! the inner child triangle has parent_child_type = parenttype_triangle
       ! the other three have parent_child_type = parenttype_triangle + 1,2,3
@@ -912,7 +913,7 @@ CONTAINS
       parent_cells%child_index(parent_index, index_in_parent) = child_index
       IF (parent_cells%child_id(parent_index) /= 0 &
         & .and. parent_cells%child_id(parent_index) /= child_grid_id) &
-        & CALL finish ('get_child_pointers', 'more than 1 child for the same cell')
+        & CALL finish (method_name, 'more than 1 child for the same cell')
 
       parent_cells%child_id(parent_index) = child_grid_id
 
@@ -929,7 +930,7 @@ CONTAINS
       parent_index = child_edges%parent_index(child_index)
       parent_type  = child_edges%parent_child_type(child_index)
       IF (parent_index < 1 .or. parent_index > no_of_parent_edges) &
-        & CALL finish ('get_child_pointers', 'edge parentIndex out of limits')
+        & CALL finish (method_name, 'edge parentIndex out of limits')
       ! get the second index j for the parentEdges%child_index
       IF (parent_is_triangle(parent_type)) THEN
         IF (parent_edges%child_index(parent_index, 3) == 0) THEN
@@ -969,14 +970,14 @@ CONTAINS
 !       ENDIF
       IF (parent_edges%child_id(parent_index) /= 0 .and. &
         & parent_edges%child_id(parent_index) /= child_grid_id) &
-        & CALL finish ('get_child_pointers', 'more than 1 child for the same edge')
+        & CALL finish (method_name, 'more than 1 child for the same edge')
       parent_edges%child_id(parent_index) = child_grid_id
 
       ! WRITE(*,*) "Edges, child,parent,j,orientation=",parentEdges%child_index(parentIndex, j), &
       !      &     parentIndex,j,orientation
       !     noOfChildren(parentIndex) = noOfChildren(parentIndex) + 1
       !     IF (noOfChildren(parentIndex) > 4) &
-      !        CALL finish ('get_child_pointers', 'edges: more than 4 children')
+      !        CALL finish (method_name, 'edges: more than 4 children')
 
     ENDDO
     !  DEALLOCATE(noOfChildren)
@@ -989,7 +990,7 @@ CONTAINS
       ! WRITE(*,*) parentID, childID, " vertex childIndex,parentIndex=",childIndex,parentIndex
       IF (parent_index > no_of_parent_verts) THEN
         WRITE(*,*) "childIndex,parentIndex=",child_index,parent_index
-        CALL finish ('get_child_pointers', 'vertex parentIndex out of limits')
+        CALL finish (method_name, 'vertex parentIndex out of limits')
       ENDIF
       IF (parent_index > 0) THEN ! if parentIndex < 0 then the parent is an edge, not a vertex
         parent_verts%child_id(parent_index) = child_grid_id

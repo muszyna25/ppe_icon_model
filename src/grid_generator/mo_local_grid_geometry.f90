@@ -40,7 +40,7 @@ MODULE mo_local_grid_geometry
 
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_math_constants,     ONLY: rad2deg
+  USE mo_math_constants,     ONLY: rad2deg, deg2rad
   USE mo_exception,          ONLY: finish! , message
   USE mo_local_grid
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates, vector_product, &
@@ -62,7 +62,7 @@ MODULE mo_local_grid_geometry
 
   PUBLIC :: compute_sphere_geometry
   PUBLIC :: compute_sphere_grid_geometry
-  PUBLIC :: file_rotate_sphere_xaxis_90
+  PUBLIC :: file_rotate_sphere_xaxis
   PUBLIC :: order_cell_connectivity     ! Reorders the cell vertices, edges, neigbors
   PUBLIC :: get_cell_barycenters
   PUBLIC :: get_triangle_circumcenters
@@ -125,41 +125,68 @@ CONTAINS
   !>
   !!Computes the sphere geometry for a netcdf grid
   !-------------------------------------------------------------------------
-  SUBROUTINE file_rotate_sphere_xaxis_90(in_file_name, out_file_name)
+  SUBROUTINE file_rotate_sphere_xaxis(in_file_name, rotation_degrees, out_file_name)
     CHARACTER(LEN=*), INTENT(in) :: in_file_name, out_file_name
+    REAL(wp), INTENT(in) :: rotation_degrees
     
     INTEGER :: grid_id
     
     grid_id = read_new_netcdf_grid(in_file_name)
-    CALL rotate_sphere_xaxis_90(grid_id)
+    CALL rotate_sphere_xaxis(grid_id, rotation_degrees)
     CALL compute_sphere_grid_geometry(grid_id)
     CALL write_netcdf_grid(grid_id, out_file_name)
     
     RETURN
 
-  END SUBROUTINE file_rotate_sphere_xaxis_90
+  END SUBROUTINE file_rotate_sphere_xaxis
   !-------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------
-  SUBROUTINE rotate_sphere_xaxis_90(grid_id)
+  SUBROUTINE rotate_sphere_xaxis(grid_id, rotation_degrees)
     INTEGER, INTENT(in) :: grid_id
+    REAL(wp), INTENT(in) :: rotation_degrees
 
     TYPE(t_grid_vertices), POINTER :: verts
 
-    REAL(wp) :: real_tmp
+    REAL(wp) :: new_y, new_z, rotation_rad
+    REAL(wp) :: yy_coef, yz_coef, zy_coef, zz_coef!, det
     INTEGER :: vertex_index
 
+    RETURN
+    
     verts => get_vertices(grid_id)
-
-!$OMP PARALLEL DO PRIVATE(vertex_index, real_tmp)
-    DO vertex_index=1,verts%no_of_existvertices
-      real_tmp = verts%cartesian(vertex_index)%x(2)
-      verts%cartesian(vertex_index)%x(2) = verts%cartesian(vertex_index)%x(3)
-      verts%cartesian(vertex_index)%x(3) = -real_tmp
-    ENDDO
+    rotation_rad = rotation_degrees * deg2rad
+    yy_coef = COS(rotation_rad)
+    yz_coef = SIN(rotation_rad)
+    zy_coef = -yz_coef
+    zz_coef = yy_coef
+!     det = yy_coef * yy_coef - yz_coef * zy_coef
+!     write(0,*) "det=", det
+    
+    IF (rotation_degrees == 90.0_wp) THEN
+!$OMP PARALLEL DO PRIVATE(vertex_index, new_z)
+      DO vertex_index=1,verts%no_of_existvertices
+        new_z = -verts%cartesian(vertex_index)%x(2)
+        verts%cartesian(vertex_index)%x(2) = verts%cartesian(vertex_index)%x(3)
+        verts%cartesian(vertex_index)%x(3) = new_z        
+      ENDDO
 !$OMP END PARALLEL DO
+    ELSE
+!$OMP PARALLEL DO PRIVATE(vertex_index, new_y, new_z)
+      DO vertex_index=1,verts%no_of_existvertices
+        new_y = yy_coef * verts%cartesian(vertex_index)%x(2) + &
+              & yz_coef * verts%cartesian(vertex_index)%x(3)
+        new_z = zy_coef * verts%cartesian(vertex_index)%x(2) + &
+              & zz_coef * verts%cartesian(vertex_index)%x(3)
+               
+        verts%cartesian(vertex_index)%x(2) = new_y
+        verts%cartesian(vertex_index)%x(3) = new_z
+      ENDDO
+!$OMP END PARALLEL DO
+    ENDIF
+          
 
-  END SUBROUTINE rotate_sphere_xaxis_90
+  END SUBROUTINE rotate_sphere_xaxis
   !---------------------------------------------------------------------------
   
 
@@ -206,10 +233,16 @@ CONTAINS
 
 !$OMP PARALLEL
 ! !$  PRINT*,  "OMP_GET_NUM_THREADS=", OMP_GET_NUM_THREADS()
-!$OMP DO PRIVATE(vertex_index)
-    ! get the vertices geocoordinates from the cartesian
+!$OMP DO PRIVATE(vertex_index, tmp_vector)
     DO vertex_index=1,no_of_verts
-        verts%vertex(vertex_index) = cc2gc(verts%cartesian(vertex_index))
+      ! normalize, just in case
+      tmp_vector%x = verts%cartesian(vertex_index)%x
+      verts%cartesian(vertex_index)%x = &
+        & d_normalize_f(tmp_vector)
+!       write(*,*) "before:", tmp_vector%x
+!       write(*,*) "after:", verts%cartesian(vertex_index)%x
+      ! get the vertices geocoordinates from the cartesian
+      verts%vertex(vertex_index) = cc2gc(verts%cartesian(vertex_index))
     ENDDO
 !$OMP END DO
 

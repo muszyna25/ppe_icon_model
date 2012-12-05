@@ -426,6 +426,7 @@ CONTAINS
     INTEGER, POINTER, OPTIONAL  :: opposite_subdomain_id(:)
 
     INTEGER, POINTER :: cells_per_domain(:), next_new_domain(:), remain_domain_space(:)
+    INTEGER, POINTER :: distributed_cells_per_domain(:)
     
     INTEGER :: cells_group_size
     INTEGER :: cell_no, no_of_domains,in_domain_id
@@ -448,7 +449,9 @@ CONTAINS
     ! the next_new_domain indicates what is the next new domain for each cell of
     ! the old domains
     ALLOCATE(next_new_domain(0:no_of_domains-1), &
-      &  remain_domain_space(0:no_of_domains-1), stat=return_status)
+      &  remain_domain_space(0:no_of_domains-1), &
+      &  distributed_cells_per_domain(0:no_of_domains-1), &
+      &  stat=return_status)
     IF (return_status > 0) &
       & CALL finish (method_name, "ALLOCATE(next_new_domain")
 
@@ -498,7 +501,7 @@ CONTAINS
     ! re-distribute in groups of cells_group_size
     ! the current group size for each subdomain
     !  will be hold in cells_per_domain
-    cells_per_domain(:) = 0
+    distributed_cells_per_domain(:) = 0
     remain_domain_space(:) = max_subdomain_size
     DO cell_no = 1, decomposition_struct%no_of_cells
       in_domain_id = decomposition_struct%domain_id(in_decomposition_id, cell_no)
@@ -516,18 +519,19 @@ CONTAINS
           CALL finish(method_name, "round robin decomposition cannot balance")
         ENDIF
       ENDIF
-      cells_per_domain(in_domain_id) = cells_per_domain(in_domain_id) + 1
-      IF (cells_per_domain(in_domain_id) >= cells_group_size) THEN
+      distributed_cells_per_domain(in_domain_id) = distributed_cells_per_domain(in_domain_id) + 1
+      IF (distributed_cells_per_domain(in_domain_id) >= cells_group_size) THEN
         next_new_domain(in_domain_id) = &
           & MOD(next_new_domain(in_domain_id) + 1, no_of_domains)
-        cells_per_domain(in_domain_id) = 0
+        distributed_cells_per_domain(in_domain_id) = 0
       ENDIF
     ENDDO
 
     ! all cells have been re-distributed
     decomposition_struct%no_of_domains(out_decomposition_id) = no_of_domains
 
-    DEALLOCATE(cells_per_domain,next_new_domain, remain_domain_space)
+    DEALLOCATE(cells_per_domain,next_new_domain, remain_domain_space, &
+      & distributed_cells_per_domain)
     
   END SUBROUTINE decompose_round_robin
   !-------------------------------------------------------------------------

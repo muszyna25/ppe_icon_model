@@ -14,14 +14,14 @@ PROGRAM grid_command
     & check_inverse_connect_verts, check_read_write_grid, calculate_triangle_properties
   USE mo_local_grid_optimization, ONLY: optimize_grid_file
   USE mo_icosahedron_grid,      ONLY: create_icon_grid
-  USE mo_grid_conditions,       ONLY: cut_local_grid, cut_local_grid_ascii
+  USE mo_grid_conditions,       ONLY: cut_local_grid, cut_local_grid_ascii, flag_conditional_grid
   USE mo_grid_decomposition,    ONLY: decompose_file_round_robin_opp, &
     & inherit_file_decomposition, print_decomposition_statistics,   &
     & decompose_file_metis, file_pair_opposite_subdomains,          &
     & shrink_file_decomposition, file_reorder_latlon_subdomains,    &
     & file_reorder_lonlat_subdomains, file_cluster_subdomains,      &
     & decompose_file_geometric_medial, decomp_file_geom_medial_cluster
-  USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry, file_rotate_sphere_xaxis_90
+  USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry, file_rotate_sphere_xaxis
   
 #ifndef __ICON_GRID_GENERATOR__
   USE mo_global_grid_generator, ONLY: global_graph_generator, global_grid_generator, &
@@ -40,6 +40,7 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: refine_grid_c ='refine_grid'
   CHARACTER(len=32), PARAMETER :: cut_local_grid_c ='cut_local_grid'
   CHARACTER(len=32), PARAMETER :: cut_local_grid_ascii_c ='cut_local_grid_ascii'
+  CHARACTER(len=32), PARAMETER :: flag_conditional_grid_c ='flag_conditional_grid'
   CHARACTER(len=32), PARAMETER :: zero_chilrden_c ='zero_children'
   CHARACTER(len=32), PARAMETER :: create_patch_hierarchy_c ='create_patch_hierarchy'
   CHARACTER(len=32), PARAMETER :: concatenate_grids_c ='concatenate_grids'
@@ -113,6 +114,9 @@ PROGRAM grid_command
     CASE (cut_local_grid_ascii_c)
       CALL cut_local_grid_ascii(param_1)
 
+    CASE (flag_conditional_grid_c)
+      CALL flag_conditional_grid(param_1)
+    
     CASE (concatenate_grids_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
       READ (500, *) command, param_1, param_2, param_3
@@ -162,9 +166,9 @@ PROGRAM grid_command
 
     CASE (rotate_sphere_xaxis_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
-      READ (500, *) command, param_1, param_2
+      READ (500, *) command, param_1, real_wp_param_1, param_2
       CLOSE(500)
-      CALL file_rotate_sphere_xaxis_90(param_1, param_2)
+      CALL file_rotate_sphere_xaxis(param_1, real_wp_param_1, param_2)
 
     CASE (create_torus_c)
       CALL create_torus_grid(param_1)
