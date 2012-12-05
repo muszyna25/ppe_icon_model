@@ -100,6 +100,45 @@ MODULE gscp_hydci_pp
 ! Microphysical constants and variables
 !------------------------------------------------------------------------------
 
+! Modules used by all 
+
+
+USE data_gscp, ONLY: &          ! all variables are used here
+!
+!   variables for hydci_pp
+!  
+    ccsrim,    & !
+    ccsagg,    & !
+    ccsdep,    & !
+    ccsvel,    & !
+    ccsvxp,    & !
+    ccslam,    & !
+    ccslxp,    & !
+    ccsaxp,    & !
+    ccsdxp,    & !
+    ccshi1,    & !
+    ccdvtp,    & !
+    ccidep,    & !
+    ccswxp,    & !
+    zconst,    & !
+    zcev,      & !
+    zbev,      & !
+    zcevxp,    & !
+    zbevxp,    & !
+    zvzxp,     & !
+    zvz0r,     & !
+!
+!   variables for hydci_pp and hydci_pp_gr
+!   
+    v0snow,    & ! factor in the terminal velocity for snow
+    mu_rain,   & ! 
+    mu_snow,   & ! 
+    rain_n0_factor, &
+    cloud_num
+
+!------------------------------------------------------------------------------
+
+
 #ifdef __COSMO__
 
 USE data_parameters, ONLY :   &
@@ -141,41 +180,6 @@ USE data_constants  , ONLY :   &
 
 !!USE data_fields     , ONLY :   &
 !!     tinc_lh    !! temperature increment due to latent heat      (  K  )
-
-!------------------------------------------------------------------------------
-
-USE data_gscp, ONLY: &          ! all variables are used here
-!
-!   variables for hydci_pp
-!  
-    ccsrim,    & !
-    ccsagg,    & !
-    ccsdep,    & !
-    ccsvel,    & !
-    ccsvxp,    & !
-    ccslam,    & !
-    ccslxp,    & !
-    ccsaxp,    & !
-    ccsdxp,    & !
-    ccshi1,    & !
-    ccdvtp,    & !
-    ccidep,    & !
-    ccswxp,    & !
-    zconst,    & !
-    zcev,      & !
-    zbev,      & !
-    zcevxp,    & !
-    zbevxp,    & !
-    zvzxp,     & !
-    zvz0r,     & !
-!
-!   variables for hydci_pp and hydci_pp_gr
-!
-    v0snow,    & ! factor in the terminal velocity for snow
-    mu_rain,   & ! 
-    rain_n0_factor, &
-    cloud_num
-
 
 !------------------------------------------------------------------------------
 
@@ -258,6 +262,8 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
 
+USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b2i   => c3ies , & !!               -- " --
@@ -269,8 +275,6 @@ USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
-USE data_gscp     !FR: common module COSMO/ICON, all variables are used here
-                  ! unify usage of data_gscp between COSMO/ICON   
 #endif
 
 !==============================================================================
@@ -299,7 +303,7 @@ INTEGER (KIND=iintegers), PARAMETER ::  &
 
 !FR new:
 LOGICAL (KIND=iintegers), PARAMETER ::  &
-  llimit_n0s     = .FALSE.                ! limit N0_snow (limit introduced by AS) 
+  llimit_n0s     = .TRUE.                ! limit N0_snow (limit introduced by AS) 
                                           ! no effect seen in real test case
 
   
@@ -415,7 +419,7 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
 !  exp_Rog_rain  = 600_ireals 
 
 ! fall velocity according to simplified Atlas:  v = v0 - v0 * exp(-x*D)
-! fit to data (Beard 1976) for rain drops up to 4mm
+! fit to data (Beard 1976) for rain drops up to 4mm by FR
   v0_Rog_rain = 10.4_ireals , &    !
   v1_Rog_rain = 10.4_ireals , &
   exp_Rog_rain  = 480_ireals 
@@ -425,9 +429,6 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
 !  v1_Rog_rain = 9.98_ireals , &
 !  exp_Rog_rain  = 518.5_ireals 
 
-
-
-  
 
 
 !> Global Variables
@@ -473,7 +474,6 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
     zvrxp,                       & ! exponent for vT_rain
     zvrgam,                      & ! gamma fct of zvrxp
     rhoqr,                       & ! rho * qr (mean)
-    mu_snow,                     & ! mu for Gamma PSD for snow
 ! FR N0_snow
     zn0gam1,                     & ! gamma fct of 4+mu_snow
     zn0gam2,                     & ! gamma fct of 3+mu_snow
@@ -482,14 +482,6 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
     ccn0s2,                      & ! consant coefficient 
     ex1,                         & ! exponent
     ex2                            ! exponent
-
-!>xxx FR testing N0s
-  REAL (KIND=ireals) ::          &
-    N0s_new,N0s_old,             & ! N0_snow for testing
-    ex3
-  INTEGER (KIND=iintegers)         ::  &
-  counter       
-!<xxx FR test
 
 
 !> Namelist Variables for hydci_pp and hydci_pp_gr
@@ -600,12 +592,12 @@ SUBROUTINE hydci_pp_init(idbg)
 !>  Initial setting of local and global variables
 !------------------------------------------------------------------------------
 
-  !xxx This should be handled with namelist parameters in the future: 
-  mu_rain = 0.0    ! is already a namelist parameter, overwritten here for testing with mu_snow
-  mu_snow = 0.0    ! is not yet a namelist parameter. Needs adaptation of N0s
-
-  counter = 1
-
+   
+#ifdef __ICON__
+    mu_rain = atm_phy_nwp_config(1)%mu_rain
+    mu_snow = atm_phy_nwp_config(1)%mu_snow
+#endif
+    
   
 !FR new: explicit coefficients, exponents, etc. 
   zcicri  =  0.25_ireals*pi * zeir * zn0r * gamma_fct(mu_rain + 3.0_ireals)
@@ -1263,12 +1255,8 @@ SUBROUTINE hydci_pp (             &
     loop_over_qs_prepare: DO i1d = 1, ic2
       iv = ivdx2(i1d)
 
+      qsg = qs(iv,k)
 
-
-! xxx
-!      qsg = qs(iv,k)
-      qsg = 1.0e-5_ireals
-!xxx
       tg  = t(iv,k)
 
       IF (isnow_n0temp == 1) THEN
@@ -1307,7 +1295,6 @@ SUBROUTINE hydci_pp (             &
 !         m3s = alf*EXP(bet*LOG(m2s))
 !         zn0s(iv) = 13.50_ireals * m2s**4 / m3s**3
 
-!>xxx commented for testing
          IF( llimit_n0s ) THEN
            hlp  = zn0s1*EXP(zn0s2*ztc)
            zn0s(iv) = MAX(zn0s(iv),0.5_ireals*hlp)
@@ -1315,7 +1302,7 @@ SUBROUTINE hydci_pp (             &
            zn0s(iv) = MIN(zn0s(iv),1e9_ireals)
            zn0s(iv) = MAX(zn0s(iv),1e6_ireals)
          END IF
-!<xxx
+
       ELSE
         ! Old constant n0s
         zn0s(iv) = 8.0e5_ireals

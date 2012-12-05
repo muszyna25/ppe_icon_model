@@ -83,6 +83,10 @@ MODULE mo_nwp_phy_nml
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
   LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
+  ! parameter for cloud microphysics
+  real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
+  real(wp) :: mu_snow            !! ...for snow
+  
 
 
   NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
@@ -92,7 +96,7 @@ MODULE mo_nwp_phy_nml
     &                    dt_conv, dt_ccov, dt_rad, dt_sso, dt_gwd, &
     &                    qi0, qc0,                                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
-    &                    latm_above_top, itype_z0
+    &                    latm_above_top, itype_z0, mu_rain, mu_snow
 
 
 
@@ -169,6 +173,9 @@ CONTAINS
     dt_sso  (:) = -999._wp
     dt_gwd  (:) = -999._wp
 
+   
+
+
 
     !------------------------------------------------------------------
     ! 0b. Real defaults for some other variables
@@ -177,6 +184,10 @@ CONTAINS
     itype_z0 = 1  !  1 = include orographic contribution to roughness length
     qi0      = 0.0_wp 
     qc0      = 0.0_wp 
+
+    ! shape paramter for gamma distribution for rain and snow
+    mu_rain = 0.0_wp
+    mu_snow = 0.0_wp
 
     ustart_raylfric    = 160._wp
     efdt_min_raylfric  = 10800._wp
@@ -301,6 +312,8 @@ CONTAINS
       atm_phy_nwp_config(jg)%ustart_raylfric = ustart_raylfric 
       atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
+      atm_phy_nwp_config(jg)%mu_rain         = mu_rain
+      atm_phy_nwp_config(jg)%mu_snow         = mu_snow
 
     ENDDO
 
