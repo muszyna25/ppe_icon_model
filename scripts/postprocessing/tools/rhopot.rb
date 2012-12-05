@@ -7,14 +7,20 @@ require 'jobqueue'
 require 'socket'
 require 'iconPlot'
 
+#==============================================================================
+# some helper methods =========================================================
 def myPlotter
   plotFile = 'thingol' == Socket.gethostname \
            ? '/home/ram/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl' \
-           : ENV['HOME'] +'/liz/icon/scripts/postprocessing/tools/icon_plot.ncl'
+           : '/pool/data/ICON/tools/icon_plot.ncl'
   plotter  = 'thingol' == Socket.gethostname \
            ? IconPlot.new(ENV['HOME']+'/local/bin/nclsh', plotFile, File.dirname(plotFile),'png','qiv',true,true) \
            : IconPlot.new("/home/zmaw/m300064/local/bin/nclsh", plotFile, File.dirname(plotFile), 'png','display',true,true)
   [plotter,plotFile]
+end
+#==============================================================================
+def initFilename(experiment)
+  "initial_#{experiment}.nc"
 end
 #==============================================================================
 def secPlot(ofile,experiment,secPlots,q,lock,plotDir=".")
@@ -50,29 +56,25 @@ def secPlot(ofile,experiment,secPlots,q,lock,plotDir=".")
   }
 end
 #==============================================================================
-def horizPlot(ofile,experiment,lastFile,plots,q,lock,plotDir=".")
-  plots = []
+def horizPlot(ofile,experiment,lastFile,plots,lock,plotDir=".")
   plotter, plotFile = myPlotter
   # compute the index of the last timestep
-  lastTimestep = Cdo.ntime(:input => lastFile)[0].to_i - 1
-  lastTimestepData = Cdo.seltimestep(lastTimestep, :input => lastFile,:output => "lastTimeStep_"+File.basename(lastFile))
-  q.push {
-    im = plotter.scalarPlot(lastTimestepData,'T_200m'+     File.basename(ofile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
+  lastTimestep = Cdo.ntime(:input => "-selname,ELEV #{lastFile}")[0].to_i - 1
+  lastTimestepData = Cdo.seltimestep(lastTimestep, :input => "-selname,T #{lastFile}",:output => "lastTimeStep_"+File.basename(lastFile),:force => true)
+  diffOfLast2Init = Cdo.sub(:input => [lastTimestepData,"-selname,T " +initFilename(experiment)].join(' '),:output => "diffOfLastTimestep_#{experiment}.nc")
+    im = plotter.scalarPlot(diffOfLast2Init,'T_200m'+     File.basename(ofile,'.nc'),'T',
+                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => lastFile,
                             :levIndex => 6,
                             :rStrg => 'Temperature')
-    lock.synchronize {plots << im }
-  }
-  q.push {
-    im = plotter.scalarPlot(lastTimestepData,'T_1000m'+     File.basename(ofile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",
+    lock.synchronize {(plots[experiment] ||= []) << im }
+    im = plotter.scalarPlot(diffOfLast2Init,'T_1000m'+     File.basename(ofile,'.nc'),'T',
+                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => lastFile,
                             :levIndex => 12,
                             :rStrg => 'Temperature')
-    lock.synchronize {plots << im }
-  }
+    lock.synchronize {(plots[experiment] ||= []) << im }
 end
 #==============================================================================
-def cropPlots(secPlots,plotDir='.')
+def cropSecPlots(secPlots,plotDir='.')
   plotDir << '/' unless '/' == plotDir[-1]
   q = JobQueue.new
   secPlots.each {|exp,files|
@@ -87,6 +89,28 @@ def cropPlots(secPlots,plotDir='.')
       }
       images = cropfiles[-3,3]
       system("convert +append #{(images.grep(/crop_T/) + images.grep(/crop_S/) + images.grep(/crop_rho/)).join(' ')} #{plotDir}#{exp}.png")
+    }
+  }
+  q.run
+  #system("convert +append #{(cropfiles.grep(/crop_T/) + cropfiles.grep(/crop_S/) + cropfiles.grep(/crop_rho/)).join(' ')} exp.png")
+  #system("display #{cropfiles.join(' ')}") #if 'thingol' == Socket.gethostname
+end
+#==============================================================================
+def cropMapPlots(plots,plotDir='.')
+  plotDir << '/' unless '/' == plotDir[-1]
+  q = JobQueue.new
+  plots.each {|exp,files|
+    q.push {
+      cropfiles = []
+      files.each {|sp|
+        cropfile = plotDir+"crop_#{File.basename(sp)}"
+        cmd      = "convert -crop 820x450+80+140 -resize 80% #{sp} #{cropfile}"
+        puts cmd
+        system(cmd)
+        cropfiles << cropfile
+      }
+#      images = cropfiles[-3,3]
+#      system("convert +append #{(images.grep(/crop_T/) + images.grep(/crop_S/) + images.grep(/crop_rho/)).join(' ')} #{plotDir}#{exp}.png")
     }
   }
   q.run
@@ -121,7 +145,7 @@ Cdo.forceOutput = false
 Cdo.debug       = true
 diff2init       = true
 def plot?
-  'thingol' == Socket.gethostname
+  not /(thingol|thunder)/.match(Socket.gethostname).nil?
 end
 #==============================================================================
 
@@ -132,7 +156,7 @@ gridfile, experimentFiles, experimentAnalyzedData = Cdp.splitFilesIntoExperiment
 #   start with selectiong the initial values from the first timestep
 experimentFiles.each {|experiment, files|
   q.push {
-    initFile    = "initial_#{experiment}.nc"
+    initFile    = initFilename(experiment)
     puts "Computing initial value file: #{initFile}"
     # create a separate File with the initial values
     if not File.exist?(initFile) or not Cdo.showname(:input => initFile).flatten.first.split(' ').include?("rhopot")
@@ -156,7 +180,7 @@ experimentFiles.each {|experiment, files|
       rhopotFile      = "rhopot_#{File.basename(file)}"
       mergedFile      = "T-S-rhopot_#{File.basename(file)}"
       diffFile        = "T-S-rhopot_diff2init_#{File.basename(file)}"
-      initFile        = "initial_#{experiment}.nc"
+      initFile        = initFilename(experiment)
 
       Cdo.div(:input => " -selname,T,S #{file} #{maskFile}",:output => maskedYMeanFile)
       # compute rhopot
@@ -187,9 +211,10 @@ experimentAnalyzedData.each {|experiment,files|
   Cdo.settunits('years',:input => "-yearmean #{ofile}", :output => ymfile,:force => !plot?)
 
   ofile = ymfile
-  secPlot(ofile,experiment,secPlots,q,lock) if plot?
-  horizPlot(ofile,experiment,experimentFiles[experiment][-1],mapPlots,q,lock) if plot? if false
+  q.push { secPlot(ofile,experiment,secPlots,q,lock) if plot? }
+  q.push { horizPlot(ofile,experiment,experimentFiles[experiment][-1],mapPlots,lock) if plot? }
 }
 q.run
-cropPlots(secPlots) if plot?
+cropSecPlots(secPlots) if plot?
+cropMapPlots(mapPlots) if plot?
 
