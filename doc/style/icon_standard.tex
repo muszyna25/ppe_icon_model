@@ -280,7 +280,6 @@ z = 4.0_wp * REAL(two,wp)
   
 
 \begin{itemize}
-\item Names of variables of type \texttt{LOGICAL} start with \texttt{l\_}
 \item Names of types start with \texttt{t\_}
 \item Variables used as constants should be declared with the \texttt{PARAMETER} 
 attribute and used always without copying to local
@@ -342,7 +341,7 @@ MODULE}; etc constructs, again specifying the name of the program
 unit. This helps finding the end of the current program  
 entity. \texttt{RETURN} is obsolete and so not necessary at the end of  
 program units.
-\item Programming and commenting in English. Use meaningful English variable names.
+\item Programming and commenting in English. Use readable and meaningful English variable names.
 \item Never use a Fortran 2003 keyword as a name of a routine or variable!
 \item CPP keys are only used for:
 \begin{itemize}  
@@ -480,13 +479,12 @@ at the beginning of the model run
 %
 \item types: \texttt{t\_<name>}
 %
-\item variables 
-\begin{itemize}
-\item English, concise
-\item Variables related to the parallelization have the prefix \texttt{p\_}.
-\item Variables of type LOGICAL have the prefix "\texttt{l\_}".
-\item Local scratch variables: \texttt{z\_aux, i\_aux, l\_aux}, (+ suffixes for grid position, if useful)
-\end{itemize}
+% \item variables 
+% \begin{itemize}
+% \item English, concise
+% % \item Variables related to the parallelization have the prefix \texttt{p\_}.
+% % \item Local scratch variables: \texttt{z\_aux, i\_aux, l\_aux}, (+ suffixes for grid position, if useful)
+% \end{itemize}
 %
 \item optional prefixes
 \begin{itemize}
