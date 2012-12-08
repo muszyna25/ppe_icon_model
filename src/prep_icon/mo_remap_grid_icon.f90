@@ -3,6 +3,9 @@
 !! @note We use direct NetCDF library calls since the CDI have no
 !! sufficient support for INTEGER fields.
 !!
+!! Possible compiler bug: The following option directive DISABLES VECTORIZATION! Proven to be necessary
+!! when compiling with "-Chopt" on the NEC SX9, Rev.451, running with 24x1 MPI tasks. - 2012/12/08 [F. Prill, DWD]:
+!option! -Nv
 MODULE mo_remap_grid_icon
 
   USE mo_kind,               ONLY: wp
@@ -220,13 +223,18 @@ CONTAINS
       CALL nf(nf_get_var_int(ncid, varid, c_of_v))
     END IF
     CALL p_bcast(c_of_v,rank0,p_comm_work)
+    grid%p_patch%verts%cell_idx(:,:,:) = -1
+    grid%p_patch%verts%cell_blk(:,:,:) = -1
     DO i=1,grid%p_patch%n_patch_verts
       jc = idx_no(i)
       jb = blk_no(i)
       DO j=1,6
         idx = c_of_v(i,j)
-        grid%p_patch%verts%cell_idx(jc,jb,j) = idx_no(idx)
-        grid%p_patch%verts%cell_blk(jc,jb,j) = blk_no(idx)
+        ! take care of pentagon cells:
+        IF (idx > 0) THEN
+          grid%p_patch%verts%cell_idx(jc,jb,j) = idx_no(idx)
+          grid%p_patch%verts%cell_blk(jc,jb,j) = blk_no(idx)
+        END IF
       END DO
     END DO
     DEALLOCATE(c_of_v)
@@ -365,10 +373,12 @@ CONTAINS
     INTEGER :: ilc_n(3), ibc_n(3)       ! line and block index for neighbors of direct neighbors
     INTEGER :: ilv(3), ibv(3)           ! vertex line and block indices
     INTEGER :: ilc_v(3,6), ibc_v(3,6)   ! cell line and block indices around each of the three vertices
-    INTEGER :: jb, jc, jj, jec, jtri, cnt, nblks_c, end_blk, start_idx, end_idx
+    INTEGER :: jb, jc, jj, jec, jtri, cnt, nblks_c, end_blk, start_idx, end_idx, &
+      &        nb_idx(13), nb_blk(13)
 
     grid%vertex_nb_idx(:,:,:) = -1
     grid%vertex_nb_blk(:,:,:) = -1
+
     nblks_c  = grid%p_patch%nblks_c
     end_blk  = nblks_c
 
@@ -380,8 +390,8 @@ CONTAINS
     !
     ! Note: At pentagon points the size of the stencil reduces to 12.
 
-!$OMP DO PRIVATE(jb,jc,jec,jj,jtri,cnt,ilv,ibv, &
-!$OMP            ilc_v,ibc_v,ilc_n,ibc_n) 
+!$OMP DO PRIVATE(jb,jc,jec,jj,jtri,cnt,ilv,ibv,start_idx,end_idx, &
+!$OMP            ilc_v,ibc_v,ilc_n,ibc_n,nb_idx,nb_blk) 
     DO jb = 1,nblks_c
       start_idx = 1
       end_idx   = nproma
@@ -389,10 +399,13 @@ CONTAINS
 
       DO jc = start_idx, end_idx
 
+        nb_idx(:) = -1
+        nb_blk(:) = -1
+
         ! First, add the control volume itself
         cnt = 1
-        grid%vertex_nb_idx(jc,jb,cnt) = jc
-        grid%vertex_nb_blk(jc,jb,cnt) = jb
+        nb_idx(cnt) = jc
+        nb_blk(cnt) = jb
 
         ! get get line and block indices of cell vertices
         ilv(1:3) = grid%p_patch%cells%vertex_idx(jc,jb,1:3)
@@ -411,8 +424,8 @@ CONTAINS
           ibc_n(jec) = grid%p_patch%cells%neighbor_blk(jc,jb,jec)
 
           cnt = cnt + 1
-          grid%vertex_nb_idx(jc,jb,cnt) = ilc_n(jec)
-          grid%vertex_nb_blk(jc,jb,cnt) = ibc_n(jec)
+          nb_idx(cnt) = ilc_n(jec)
+          nb_blk(cnt) = ibc_n(jec)
         ENDDO
 
         ! 2. loop over the vertices and add all the cells
@@ -424,15 +437,17 @@ CONTAINS
               &  .OR.  (ilc_v(jj,jtri) == ilc_n(2) .AND. ibc_v(jj,jtri) == ibc_n(2))  &
               &  .OR.  (ilc_v(jj,jtri) == ilc_n(3) .AND. ibc_v(jj,jtri) == ibc_n(3))  &
               &  .OR.  (ilc_v(jj,jtri) == jc       .AND. ibc_v(jj,jtri) == jb)        &
-              &  .OR.  (ilc_v(jj,jtri) == 0) ) ) THEN
+              &  .OR.  (ilc_v(jj,jtri) <= 0) ) ) THEN
 
               cnt = cnt + 1
-              grid%vertex_nb_idx(jc,jb,cnt) = ilc_v(jj,jtri)
-              grid%vertex_nb_blk(jc,jb,cnt) = ibc_v(jj,jtri)
+              nb_idx(cnt) = ilc_v(jj,jtri)
+              nb_blk(cnt) = ibc_v(jj,jtri)
             ENDIF
           ENDDO
         ENDDO
-        grid%vertex_nb_stencil(jc,jb) = cnt
+        grid%vertex_nb_idx(jc,jb,1:cnt) = nb_idx(1:cnt)
+        grid%vertex_nb_blk(jc,jb,1:cnt) = nb_blk(1:cnt)
+        grid%vertex_nb_stencil(jc,jb)   = cnt
       ENDDO ! loop over cells
     ENDDO ! loop over blocks
 !$OMP END DO NOWAIT

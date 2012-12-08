@@ -50,6 +50,7 @@ CONTAINS
     INTEGER, INTENT(IN)    :: in_idx(:,:,:), in_blk(:,:,:)
     INTEGER, INTENT(INOUT) :: out_idx(:,:,:), out_blk(:,:,:)
     ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::translate_g2l_idx')
     INTEGER :: jc_local,  jb_local,  jc_global,  jb_global, &
       &        jc_local2, jb_local2, jc_global2, jb_global2, nn, &
       &        ilocal_idx, i
@@ -62,16 +63,15 @@ CONTAINS
       jb_global = l2g_blk1(jc_local,jb_local)
       DO i=1,nn
         jc_global2 = in_idx(jc_global,jb_global,i)
-        jb_global2 = in_blk(jc_global,jb_global,i)
         ! take care of pentagon cells:
         IF (jc_global2 > 0) THEN
+          jb_global2 = in_blk(jc_global,jb_global,i)
           jc_local2  = g2l_idx2(jc_global2,jb_global2)
-          jb_local2  = g2l_blk2(jc_global2,jb_global2)
-          out_idx(jc_local,jb_local,i) = jc_local2
-          out_blk(jc_local,jb_local,i) = jb_local2
-        ELSE
-          out_idx(jc_local,jb_local,i) = jc_global2
-          out_blk(jc_local,jb_local,i) = jb_global2
+          IF (jc_local2 > 0) THEN
+            jb_local2  = g2l_blk2(jc_global2,jb_global2)
+            out_idx(jc_local,jb_local,i) = jc_local2
+            out_blk(jc_local,jb_local,i) = jb_local2
+          END IF
         END IF
       END DO
     END DO
@@ -245,8 +245,12 @@ CONTAINS
       &      ledges(nproma,grid_in%p_patch%nblks_e), lverts(nproma,grid_in%p_patch%nblks_v),               &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    g2l_cells_idx(:,:) = -1
     g2l_edges_idx(:,:) = -1
     g2l_verts_idx(:,:) = -1
+    l2g_cells_idx(:,:) = -1
+    l2g_edges_idx(:,:) = -1
+    l2g_verts_idx(:,:) = -1
 
     ilocal_idx = 0
     ! loop over global cells, mark those "owned" by this PE:
@@ -384,7 +388,6 @@ CONTAINS
         &                grid_out%vertex_nb_idx,grid_out%vertex_nb_blk)
       CALL translate_g2l(nlocal_c, l2g_cells_idx, l2g_cells_blk,       &
         &                grid_in%vertex_nb_stencil, grid_out%vertex_nb_stencil)
-
     CASE (GRID_TYPE_REGULAR)
       IF (PRESENT(opt_name)) THEN
         CALL allocate_gaussian_grid(grid_out, opt_name, n_patch_cells, &
@@ -460,6 +463,7 @@ CONTAINS
       &                grid_in%p_patch%edges%vertex_blk,       &
       &                grid_out%p_patch%edges%vertex_idx,      &
       &                grid_out%p_patch%edges%vertex_blk)
+    grid_out%p_patch%edges%cell_idx(:,:,:) = -1
     CALL translate_g2l(nlocal_e, l2g_edges_idx, l2g_edges_blk, &
       &                g2l_cells_idx, g2l_cells_blk,           &
       &                grid_in%p_patch%edges%cell_idx,         &
