@@ -190,7 +190,6 @@ CONTAINS
     CALL dbg_print('AdvVert: cell_thk_interm',cell_thick_intermed_c       ,str_module,idt_src)
     CALL dbg_print('AdvVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
     !CALL dbg_print('AdvVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)                             
     CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
     CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
     !---------------------------------------------------------------------
