@@ -536,9 +536,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !     turbulent diffusion coefficients in atmosphere
       CALL partura( zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),                      &
         &           u=p_diag%u(:,:,jb),         v=p_diag%v(:,:,jb), t=p_diag%temp(:,:,jb),      &
-        &           qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), & 
+        &           qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),         &
         &           ph=p_diag%pres_ifc(:,:,jb), pf=p_diag%pres(:,:,jb),                         &
         &           ie=nproma, ke=nlev, ke1=nlevp1,                                             &
+        &           i_startidx=i_startidx, i_endidx=i_endidx,                                   &
         &           tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb)  )
 
 !     turbulent diffusion coefficients at the surface
@@ -547,8 +548,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &           qv1=p_prog_rcf%tracer(:,nlev,jb,iqv),                                      &
         &           t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                      &
         &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=wtr_prog_now%h_ice(:,jb),        &
-        &           ie=nproma, tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                 &
-        &           gz0=prm_diag%gz0(:,jb) )
+        &           ie=nproma, i_startidx=i_startidx, i_endidx=i_endidx,                       &
+        &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), gz0=prm_diag%gz0(:,jb) )
 
 !     tendencies from turbulent diffusion
       CALL progimp_turb( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),      &
@@ -560,14 +561,32 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &                t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),         &
         &                h_ice=wtr_prog_now%h_ice(:,jb),                               &
         &                tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),               &
-        &                ie=nproma, ke=nlev, ke1=nlevp1, dt=tcall_turb_jg,             &
-        &                du_turb=prm_nwp_tend%ddt_u_turb(:,:,jb),                      &
+        &                ie=nproma, ke=nlev, ke1=nlevp1,                               &
+        &                i_startidx=i_startidx, i_endidx=i_endidx,                     &
+        &                dt=tcall_turb_jg, du_turb=prm_nwp_tend%ddt_u_turb(:,:,jb),    &
         &                dv_turb=prm_nwp_tend%ddt_v_turb(:,:,jb),                      &
         &                dt_turb=prm_nwp_tend%ddt_temp_turb(:,:,jb),                   &
         &                dqv_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),            &
         &                dqc_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),            &
         &                shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),   &
         &                umfl_s=z_umfl_s(:)          , vmfl_s=z_vmfl_s(:) )
+
+       ! Update QV, QC and temperature with turbulence tendencies
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
+               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
+          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
+               &           + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+        ENDDO
+      ENDDO
+      ! QC is updated only in that part of the model domain where moisture physics is active
+      DO jk = kstart_moist(jg), nlev
+        DO jc = i_startidx, i_endidx
+          p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
+               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+        ENDDO
+      ENDDO
 
 !     diagnose 2 m temperature, humidity, 10 m wind
       CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),        &
@@ -581,6 +600,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                             &
         &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb), &
         &           qv_s=lnd_diag%qv_s(:,jb), ie=nproma, ke=nlev,                   &
+        &           i_startidx=i_startidx, i_endidx=i_endidx,                       &
         &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),           &
         &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),         &
         &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb) )

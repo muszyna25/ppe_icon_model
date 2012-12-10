@@ -3064,7 +3064,8 @@ CONTAINS
       CASE ('TCM');             ptr2 => prm_diag(jg)%tcm
       CASE ('TCH');             ptr2 => prm_diag(jg)%tch
       CASE ('Z0')
-        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)

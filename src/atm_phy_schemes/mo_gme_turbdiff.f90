@@ -21,6 +21,7 @@ MODULE mo_gme_turbdiff
 SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
      &              qv  , qc , ph , pf ,        &
      &              ie  , ke , ke1,             &
+     &              i_startidx, i_endidx,       &
      &              tkvm, tkvh)
 !
  
@@ -37,7 +38,8 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
   IMPLICIT NONE
 !
 ! array dimensions
-  INTEGER, INTENT(IN) :: ie, ke, ke1         ! horizontal, vertical
+  INTEGER, INTENT(IN) :: ie, ke, ke1, &        ! horizontal, vertical
+                         i_startidx, i_endidx  ! start and end indices of loops in horizontal
 
   REAL(wp), INTENT(IN) :: zh (ie,ke1),&  ! height (m) of half levels
                           zf (ie,ke), &  ! height (m) of full levels
@@ -148,7 +150,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
 !     of clouds
 
 !     calculations for lowest layer
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !       Cloud cover
         IF ( qc(j1,ke) > 0.0_wp ) THEN
           zclcu (j1) = 1.0_wp      ! cloud cover
@@ -179,7 +181,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
       DO j3 = ke, 2, -1     ! Vertical loop
  
 !       Calculation of non-convective partial cloud cover
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
  
 !         Critical relative humdity as function of p/ps     
           zsigma = pf(j1,j3-1)/ph(j1,ke1)
@@ -224,7 +226,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
  
 !     compute source functions and Richardson number in cloud-free
 !     situation: Zu is below (unten), Zo is above (oben)
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           zdpu(j1) = ph(j1,j3+1) - ph(j1,j3)
           zdpo(j1) = ph(j1,j3)   - ph(j1,j3-1)
           zdpn2    = ph(j1,j3+1) - ph(j1,j3-1)
@@ -245,7 +247,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
         END DO
 
 !     modified Richardson number in the presence of clouds
-        DO j1=1, ie
+        DO j1 = i_startidx, i_endidx
  
 !         at cloud base, only upper layer values are computed 
           IF( zclco(j1) > 0.0_wp .AND. zclcu(j1) <= 0.0_wp ) THEN
@@ -269,7 +271,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
         END DO
 !
 !     inside of cloud
-        DO j1=1, ie
+        DO j1 = i_startidx, i_endidx
           IF( zclco(j1) > 0.0_wp .AND. zclcu(j1) > 0.0_wp ) THEN
             ztetlo(j1) = ztet(j1)*(1._wp-alvdcp*zclwco(j1)/t(j1,j3-1))
             ztl        = t(j1,j3-1)-zclwco(j1)*alvdcp
@@ -302,7 +304,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
         END DO
 
 !     cloud top or cloud cover is smaller in top layer
-        DO j1=1, ie
+        DO j1 = i_startidx, i_endidx
           IF ( zclcu(j1) > 0._wp .AND. zclco(j1) < zclcu(j1) ) THEN
             zgewu      = 0.7_wp
             zgewo      = 1._wp-zgewu
@@ -330,7 +332,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
           ENDIF
         END DO
 
-        DO j1=1, ie
+        DO j1 = i_startidx, i_endidx
           zriza(j1) = ztph(j1)/ztpm(j1)
  
 !       swap values needed for next layer:
@@ -345,7 +347,7 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
 !=======================================================================
 ! 
 !     compute vertical exchange coefficients
-        DO j1=1, ie
+        DO j1 = i_startidx, i_endidx
       
 !     very stable case   (Ri > Rik)
           IF(zriza(j1) >= zrik) THEN   ! very stable case
@@ -405,9 +407,10 @@ END SUBROUTINE partura
 
 !=======================================================================
 
-SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
-                    qv1  , t_g, qv_s, fr_land, h_ice,  &
-                    ie   , tcm, tch , gz0 )
+SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
+                    qv1  , t_g, qv_s , fr_land, h_ice,           &
+                    ie   , i_startidx, i_endidx,                 &
+                    tcm  , tch , gz0 )
 !                   ie   , tcm, tch, gz0, gz0s)
  
 !**** *parturs*  calculates turbulent transfer coefficients
@@ -426,7 +429,8 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 !     Input data
 !
-  INTEGER,       INTENT(IN) :: ie           ! array dimensions
+  INTEGER,       INTENT(IN) :: ie,      &   ! array dimensions
+                               i_startidx, i_endidx  ! start and end indices of loops
 
   REAL(KIND=wp), INTENT(IN) :: zsurf  (ie)  ! height of surface (m)
   REAL(KIND=wp), INTENT(IN) :: z1     (ie)  ! height (m) of lowest full level
@@ -489,7 +493,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
   IF ( msg_level >= 15) CALL message( 'mo_gme_turbdiff:', 'parturs')
  
 !     wind velocity in Prandtl layer
-      DO j1= 1, ie
+      DO j1 = i_startidx, i_endidx
         zvpb(j1) = MAX( SQRT( u1(j1)**2 +v1(j1)**2), zvmin)
         IF ( lseaice) THEN
           lo_ice(j1) = h_ice(j1) > 0._wp
@@ -499,7 +503,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
       END DO
  
 !     calculation of new transfer coefficients   
-      DO j1= 1, ie
+      DO j1 = i_startidx, i_endidx
         ztvg = t_g(j1)  * (1._wp + vtmpc1*qv_s(j1)   )
         ztvs = t1 (j1)*(1._wp + vtmpc1*qv1 (j1))
         zdfip(j1)= grav*( z1(j1) - zsurf(j1) )
@@ -628,6 +632,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
                             zh     , zf     , rho    , ps      ,            &
                             tkvm   , tkvh   , t_g    , qv_s   , h_ice  ,    &
                             tcm    , tch    , ie     , ke      , ke1     ,  &
+                            i_startidx, i_endidx,                           &
                             dt     , du_turb, dv_turb, dt_turb, dqv_turb ,  &
                             dqc_turb,                                       &
                             shfl_s , lhfl_s , umfl_s , vmfl_s )
@@ -652,7 +657,8 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 
   IMPLICIT NONE
 !
-  INTEGER      , INTENT(IN) :: ie, ke, ke1          ! dimensions
+  INTEGER      , INTENT(IN) :: ie, ke, ke1,  &       ! dimensions
+                               i_startidx, i_endidx  ! start and end indices of loops
 !
   REAL(KIND=wp), INTENT(IN) :: t    (ie,ke)   ! temperature at full levels
   REAL(KIND=wp), INTENT(IN) :: qv   (ie,ke)   ! specific humidity at full levels
@@ -724,7 +730,6 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
   REAL(KIND=wp) :: g_o_cp  ! grav / Cpd
 !
   INTEGER ::       j1, j3      ! DO loop variables
-! INTEGER ::       jp          ! processor number
 
   IF ( msg_level >= 15) CALL message( 'mo_gme_turbdiff:', 'progimp_turb')
 !
@@ -758,7 +763,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 ! 3.3 Compute the modified vertical transfer and diffusion coefficients
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
 !     Wind speed at lowest model layer (j3 = ke)
 !  
@@ -777,7 +782,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !     Modified vertical diffusion coefficient
 !
       DO j3 = 2, ke
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           rho_h = 0.5_wp*( rho(j1,j3) + rho(j1,j3-1) )
           ztmkv(j1,j3) = rho_h*tkvm(j1,j3)/( zf(j1,j3) - zf(j1,j3-1) )   ! < 0
         ENDDO
@@ -791,7 +796,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 !     Top layer: j3 = 1
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
         rdzrho     = 1._wp/( rho(j1,1)*( zh(j1,2)-zh(j1,1)) )
         zagct      = ztmkv(j1,2) * rdzrho
         zagc(j1,1) = -zagct*a1t(2)
@@ -809,7 +814,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !       The layers between j3 = 2 and ke-1
 !
       DO j3 = 2, ke-1
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           rdzrho      = 1._wp/( rho(j1,j3)*( zh(j1,j3+1)-zh(j1,j3)) )
           zagat       = ztmkv (j1,j3)  *rdzrho          
           zagct       = ztmkv (j1,j3+1)*rdzrho          
@@ -831,7 +836,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 !     Lowest model layer (j3 = ke)
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
         rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
         zagat       = ztmkv (j1,ke)*rdzrho
@@ -857,7 +862,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !     unit diagonal
 !
       DO j3 = ke-1, 1, -1
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           du_turb(j1,j3) = zag1(j1,j3) - zagc(j1,j3)* du_turb(j1,j3+1)
           dv_turb(j1,j3) = zag2(j1,j3) - zagc(j1,j3)* dv_turb(j1,j3+1)
         ENDDO
@@ -867,7 +872,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 ! 3.6 Turbulent momentum fluxes
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
         umfl_s(j1) = -ztmcm(j1) * ( du_turb(j1,ke) + u(j1,ke) )
         vmfl_s(j1) = -ztmcm(j1) * ( dv_turb(j1,ke) + v(j1,ke) )
       ENDDO
@@ -900,7 +905,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 ! 4.7 Compute the modified vertical transfer and diffusion coefficients
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
 !     Modified transfer coefficient for heat/moisture ---> "ztmcm"
 !
@@ -911,7 +916,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !     Modified vertical diffusion coefficient
 !
       DO j3 = 2, ke
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           rho_h = 0.5_wp*( rho(j1,j3) + rho(j1,j3-1) )
           ztmkv(j1,j3) = rho_h*tkvh(j1,j3)/( zf(j1,j3) - zf(j1,j3-1) )
         ENDDO
@@ -927,7 +932,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 !     Top layer (j3 = 1)
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
         rdzrho     = 1._wp/( rho(j1,1)*( zh(j1,2)-zh(j1,1)) )
         zagct      = ztmkv(j1,2)*rdzrho
@@ -950,7 +955,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !     The layers between j3 = 2 and ke-1
 !
       DO j3 = 2, ke-1
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           rdzrho      = 1._wp/( rho(j1,j3)*( zh(j1,j3+1)-zh(j1,j3)) )
           zagat       = ztmkv(j1,j3)  *rdzrho          
           zagct       = ztmkv(j1,j3+1)*rdzrho          
@@ -979,7 +984,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 !       Lowest model layer (j3 = ke)
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
         rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
         zagat       = ztmkv(j1,ke)*rdzrho
@@ -1013,7 +1018,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !     unit diagonal
 !
       DO j3 = ke-1, 1,-1
-        DO j1 = 1, ie
+        DO j1 = i_startidx, i_endidx
           dt_turb (j1,j3) = zag1(j1,j3) - zagc(j1,j3)*dt_turb (j1,j3+1)
           dqv_turb(j1,j3) = zag2(j1,j3) - zagc(j1,j3)*dqv_turb(j1,j3+1)
           dqc_turb(j1,j3) = zag3(j1,j3) - zagc(j1,j3)*dqc_turb(j1,j3+1)
@@ -1025,7 +1030,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !
 ! 4.10 Sensible and latent heat fluxes
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
         shfl_s(j1) = - ztmcm(j1)*cpd*                          &
           &           ( t_g(j1) - t(j1,ke) -dt_turb(j1,ke)     &
@@ -1055,6 +1060,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
                &      ps    , t_g   , tcm   , tch   , gz0  ,  &  ! gz0s, 
                &      shfl_s, lhfl_s, umfl_s, vmfl_s, zsurf,  &
                &      fr_land,pf1   , qv_s  , ie    , ke   ,  &
+               &      i_startidx, i_endidx,                   &
                &      t_2m  , qv_2m , td_2m , rh_2m ,         &
                &      u_10m , v_10m )
 !
@@ -1079,7 +1085,8 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !=======================================================================
 !
 ! array dimensions
-  INTEGER, INTENT(IN) :: ie, ke              ! horizontal, vertical
+  INTEGER, INTENT(IN) :: ie, ke,   &         ! horizontal, vertical
+                         i_startidx, i_endidx  ! start and end indices of loops in horizontal
 
 !=======================================================================
 !
@@ -1220,14 +1227,14 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 !     heat/moisture         ---> zch
 !     roughness length      ---> zgz0
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
         zv  (j1) = MAX ( SQRT (u(j1,ke)**2+v(j1,ke)**2), zvmin )
         zcm (j1) = MAX ( tcm(j1), 5.E-4_wp )
         zch (j1) = MAX ( tch(j1), 4.E-5_wp )
         zgz0(j1) = MAX ( gz0(j1), 1.E-3_wp )
       ENDDO
 !     IF ( lz0_snow) THEN
-!       DO j1 = 1, ie
+!       DO j1 = i_startidx, i_endidx
 !         IF ( lolp(j1) ) THEN
 !           IF( gz0s(j1)<=0._wp) THEN
 !             zgz0s(j1) = zgz0(j1)
@@ -1243,7 +1250,7 @@ SUBROUTINE parturs( zsurf, z1 , u1  , v1     , t1   ,  &
 ! 4.  Compute the temperature and dew point temperature at 2 m, and the
 !     wind components at 10 m
 !
-      DO j1 = 1, ie
+      DO j1 = i_startidx, i_endidx
 !
 !     Dry static energy at the surface            ---> zh_s
 !     Dry static energy at the Prandtl layer      ---> zh_p

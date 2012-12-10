@@ -912,28 +912,25 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ENDDO
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
-!?  IF (.NOT. is_restart_run() ) THEN
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-    rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
+    rl_start = 1 ! Initialization is done also for nest boundary points
     rl_end   = min_rlcell_int
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
+        &               i_startidx, i_endidx, rl_start, rl_end)
 
 !     turbulent diffusion coefficients in atmosphere
-      CALL partura( zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),                      &
-        &           u=p_diag%u(:,:,jb),         v=p_diag%v(:,:,jb), t=p_diag%temp(:,:,jb),      &
-        &           qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc),                 &
-        &           ph=p_diag%pres_ifc(:,:,jb), pf=p_diag%pres(:,:,jb),                         &
-        &           ie=nproma, ke=nlev, ke1=nlevp1,                                             &
+      CALL partura( zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),                     &
+        &           u=p_diag%u(:,:,jb),         v=p_diag%v(:,:,jb), t=p_diag%temp(:,:,jb),     &
+        &           qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc),                &
+        &           ph=p_diag%pres_ifc(:,:,jb), pf=p_diag%pres(:,:,jb),                        &
+        &           ie=nproma, ke=nlev, ke1=nlevp1,                                            &
+        &           i_startidx=i_startidx, i_endidx=i_endidx,                                  &
         &           tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb)  )
 
 !     turbulent diffusion coefficients at the surface
@@ -941,9 +938,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &           u1=p_diag%u(:,nlev,jb), v1=p_diag%v(:,nlev,jb), t1=p_diag%temp(:,nlev,jb), &
         &           qv1=p_prog%tracer(:,nlev,jb,iqv),                                          &
         &           t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb),                  &
-        &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=p_prog_wtr_now%h_ice(:,jb),        &
-        &           ie=nproma, tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                 &
-        &           gz0=prm_diag%gz0(:,jb) )
+        &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=p_prog_wtr_now%h_ice(:,jb),      &
+        &           ie=nproma, i_startidx=i_startidx, i_endidx=i_endidx,                       &
+        &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), gz0=prm_diag%gz0(:,jb) )
 
 !     tendencies from turbulent diffusion
       CALL progimp_turb( t=p_diag%temp(:,:,jb), qv=p_prog%tracer(:,:,jb,iqv),          &
@@ -953,9 +950,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &                rho=p_prog%rho(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),      &
         &                tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb),       &
         &                t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb),     &
-        &                h_ice=p_prog_wtr_now%h_ice(:,jb),                               &
+        &                h_ice=p_prog_wtr_now%h_ice(:,jb),                             &
         &                tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),               &
-        &                ie=nproma, ke=nlev, ke1=nlevp1, dt=1._wp,                     &
+        &                ie=nproma, ke=nlev, ke1=nlevp1,                               &
+        &                i_startidx=i_startidx, i_endidx=i_endidx, dt=1._wp,           &
         &                du_turb=prm_nwp_tend%ddt_u_turb(:,:,jb),                      &
         &                dv_turb=prm_nwp_tend%ddt_v_turb(:,:,jb),                      &
         &                dt_turb=prm_nwp_tend%ddt_temp_turb(:,:,jb),                   &
@@ -976,14 +974,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                             &
         &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb), &
         &           qv_s=p_diag_lnd%qv_s(:,jb), ie=nproma, ke=nlev,                 &
+        &           i_startidx=i_startidx, i_endidx=i_endidx,                       &
         &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),           &
         &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),         &
         &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb) )
 
     END DO
-!$OMP END DO
-!$OMP END PARALLEL
-
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
 
