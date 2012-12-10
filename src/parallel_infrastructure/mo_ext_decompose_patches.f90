@@ -88,7 +88,7 @@ MODULE mo_ext_decompose_patches
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
-  USE mo_base_geometry,       ONLY: geographical_to_cartesian
+  USE mo_math_utilities,       ONLY: geographical_to_cartesian
 
   IMPLICIT NONE
 

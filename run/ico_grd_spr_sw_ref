@@ -104,32 +104,32 @@ cd $WRKDIR
 #
 # First generate graphs
 #---------------------------------------
-#R=2    # nroot
-#B=6    # highest grid level to reach
-#
-#cat > NAMELIST_GRAPH << EOF
-#&graph_ini 
-#  nroot       = ${R}
-#  grid_levels = ${B}
-#/
-#EOF
-#
-#${BINDIR}/graph_generator
+R=2    # nroot
+B=5    # highest grid level to reach
+
+cat > NAMELIST_GRAPH << EOF
+&graph_ini
+ nroot       = ${R}
+ grid_levels = ${B}
+/
+EOF
+
+${BINDIR}/graph_generator
 #
 #-----------------------------------------------------------------------------
 # Then generate grids using the Heikes-Randall optimization
 #
-#cat > NAMELIST_GRID << EOF
-#&grid_ini
-#  nroot       = ${R}
-#  grid_levels = ${B}
-#/
-#&grid_options
-#  itype_optimize = 1     ! 1 = Heikes-Randall, 4 = spring dynamics
-#/
-#EOF
-#
-#${BINDIR}/grid_generator
+cat > NAMELIST_GRID << EOF
+&grid_ini
+ nroot       = ${R}
+ grid_levels = ${B}
+/
+&grid_options
+ itype_optimize = 1     ! 1 = Heikes-Randall, 4 = spring dynamics
+/
+EOF
+
+${BINDIR}/grid_generator
 #
 #-----------------------------------------------------------------------------
 # Generate grids for the test case with mesh refinement

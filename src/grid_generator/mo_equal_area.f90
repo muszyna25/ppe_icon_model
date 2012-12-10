@@ -194,7 +194,7 @@ MODULE mo_equal_area
   !
 
   USE mo_kind,          ONLY: wp
-  USE mo_base_geometry, ONLY: t_cartesian_coordinates, &
+  USE mo_math_utilities, ONLY: t_cartesian_coordinates, &
     & triangle_area,         &
     & circum_center,         &
     & arc_length,            &

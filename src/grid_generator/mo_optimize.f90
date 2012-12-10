@@ -59,7 +59,7 @@ MODULE mo_optimize
   USE mo_math_constants
   USE mo_base_datatypes, ONLY: t_triangle, vertex, edge, t_spheres
   USE mo_exception,      ONLY: message_text, message, finish
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates,&
+  USE mo_math_utilities, ONLY: t_cartesian_coordinates, t_geographical_coordinates,&
     & cc2gc, gc2cc, circum_center
   !thh
   USE mo_topology,       ONLY: spheres_on_levels

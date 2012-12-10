@@ -44,7 +44,7 @@ MODULE mo_decomposition_tools
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_io_units,           ONLY: find_next_free_unit
-  USE mo_base_geometry
+  USE mo_math_utilities
 
   IMPLICIT NONE
 

@@ -86,7 +86,7 @@ MODULE mo_setup_subdivision
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
-  USE mo_base_geometry,       ONLY: geographical_to_cartesian
+  USE mo_math_utilities,      ONLY: geographical_to_cartesian
 
   IMPLICIT NONE
 

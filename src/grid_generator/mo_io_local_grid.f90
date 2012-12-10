@@ -88,7 +88,7 @@ MODULE mo_io_local_grid
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
     & min_rlvert, max_rlvert, &
     & min_rledge, max_rledge
-  USE mo_base_geometry,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
   USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
        &                           uuid_unparse, uuid_string_length

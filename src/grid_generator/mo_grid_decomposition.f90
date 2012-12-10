@@ -42,7 +42,7 @@ MODULE mo_grid_decomposition
   USE mo_io_units,           ONLY: nnml, filename_max, find_next_free_unit
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_timer,              ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
-  USE mo_base_geometry
+  USE mo_math_utilities
   USE mo_local_grid
   USE mo_grid_toolbox,       ONLY: add_to_list_if_not_exist
   USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid

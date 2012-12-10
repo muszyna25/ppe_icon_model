@@ -71,7 +71,7 @@ MODULE mo_local_grid_optimization
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
   USE mo_local_grid
-  USE mo_base_geometry
+  USE mo_math_utilities
   USE mo_grid_conditions, ONLY: get_inner_vertices
 
   IMPLICIT NONE
@@ -738,10 +738,10 @@ CONTAINS
           DO vertex=1,no_of_vertices
             ! find the min distance from all R_reference points
             R_refine_min_distance(vertex) = &
-              & arc_length_normalsphere(verts%cartesian(vertex), R_refine_center(1))
+              & arc_length_on_unitsphere(verts%cartesian(vertex), R_refine_center(1))
             DO j = 2, R_refine_no_of_points
                R_refine_min_distance(vertex) = MIN(R_refine_min_distance(vertex), &
-                 & arc_length_normalsphere(verts%cartesian(vertex), R_refine_center(j)))
+                 & arc_length_on_unitsphere(verts%cartesian(vertex), R_refine_center(j)))
             ENDDO
           ENDDO
 !$OMP ENDDO

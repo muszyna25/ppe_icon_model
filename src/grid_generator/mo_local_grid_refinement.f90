@@ -44,7 +44,7 @@ MODULE mo_local_grid_refinement
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_timer,              ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
 
-  USE mo_base_geometry,      ONLY: sphere_cartesian_midpoint
+  USE mo_math_utilities,      ONLY: sphere_cartesian_midpoint
 
   USE mo_local_grid
 !   USE mo_local_grid,         ONLY: t_grid, t_grid_cells, t_grid_edges, t_grid_vertices,           &

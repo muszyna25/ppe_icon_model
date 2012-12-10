@@ -45,7 +45,7 @@ MODULE mo_icosahedron_grid
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
 !   USE mo_physical_constants, ONLY: re
 
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates!, cc2gc
+  USE mo_math_utilities, ONLY: t_cartesian_coordinates!, cc2gc
   USE mo_math_constants, ONLY: pi_5
   USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid

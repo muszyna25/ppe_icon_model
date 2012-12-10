@@ -48,7 +48,7 @@ MODULE mo_local_grid
   USE mo_kind,            ONLY: wp
   USE mo_io_units,        ONLY: nnml, filename_max
   USE mo_exception,       ONLY: message_text, message, finish
-  USE mo_base_geometry,   ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
+  USE mo_math_utilities,   ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
     & t_tangent_vectors
   USE mo_impl_constants,  ONLY: &
     & min_rlcell, max_rlcell, min_rlcell_int, &

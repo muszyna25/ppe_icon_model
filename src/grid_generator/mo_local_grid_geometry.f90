@@ -43,9 +43,9 @@ MODULE mo_local_grid_geometry
   USE mo_math_constants,     ONLY: rad2deg, deg2rad
   USE mo_exception,          ONLY: finish! , message
   USE mo_local_grid
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, vector_product, &
+  USE mo_math_utilities,  ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,  triangle_area, &
-    & inter_section, t_geographical_coordinates, angle_of_vectors,  &
+    & spherical_intersection, t_geographical_coordinates, angle_of_vectors,  &
     & sphere_cartesian_midpoint, cartesian_to_geographical,         &
     & geographical_to_cartesian
   USE mo_io_units,       ONLY: nnml, filename_max
@@ -315,7 +315,7 @@ CONTAINS
       !------------------------------------------
       ! edge center
 !       IF (cell_1 > 0 .and. cell_2 > 0 ) THEN
-!         cartesian_center = inter_section ( &
+!         cartesian_center = spherical_intersection ( &
 !           & cartesian_c(1), cartesian_c(2), &
 !           & cartesian_v(1), cartesian_v(2))        
 !       ELSE
@@ -364,7 +364,7 @@ CONTAINS
       !------------------------------------------
       ! compute normals
       ! define the coordinate system tangent on the sphere at the edge center
-      ! CALL sphere_tanget_coordinates(edges%center(edge_index),x,y)
+      ! CALL sphere_tangent_coordinates(edges%center(edge_index),x,y)
       !-------------------------------------------------------------------------
       lon = edges%center(edge_index)%lon
       lat = edges%center(edge_index)%lat

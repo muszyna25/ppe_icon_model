@@ -113,8 +113,6 @@ MODULE mo_model_domain
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
   ! ! the following abstract data types are taken from mo_grid,
-  ! ! mo_hierarchy and mo_base_geometry
-  !
   
   PUBLIC :: t_patch
   PUBLIC :: t_grid_cells

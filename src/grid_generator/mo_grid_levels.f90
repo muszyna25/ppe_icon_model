@@ -89,8 +89,9 @@ MODULE mo_grid_levels
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_math_constants,     ONLY: pi, rad2deg
   USE mo_physical_constants, ONLY: earth_radius
-  USE mo_base_geometry,      ONLY: t_geographical_coordinates,  &
-       &                           cc2gc, x_rot_angle, y_rot_angle, z_rot_angle
+  USE mo_math_utilities,     ONLY: t_geographical_coordinates,  &
+       &                           cc2gc
+  USE mo_base_geometry,      ONLY:  x_rot_angle, y_rot_angle, z_rot_angle
 
   USE mo_grid
 

@@ -44,7 +44,7 @@ MODULE mo_grid_conditions
   USE mo_io_units,           ONLY: nnml, filename_max
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_local_grid
-  USE mo_base_geometry,      ONLY: t_cartesian_coordinates, t_geographical_coordinates, gc2cc, &
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates, gc2cc, &
     & arc_length
 !  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian
   USE mo_grid_toolbox,       ONLY: smooth_boundaryfrom_cell_list, &

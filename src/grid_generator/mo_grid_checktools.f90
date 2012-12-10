@@ -44,9 +44,9 @@ MODULE mo_grid_checktools
   USE mo_exception,      ONLY: message, finish
   USE mo_local_grid
   USE mo_io_local_grid
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
-    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area, middle, angle_of_points, &
-    & project_point
+  USE mo_math_utilities, ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
+    & gc2cc, arc_length, norma, sin_cc, gvec2cvec, triangle_area, middle, &
+    & plane_angle_of_three_points, project_point_to_plane
   USE mo_math_constants, ONLY: rad2deg, deg2rad, pi
   USE mo_local_grid_geometry,  ONLY: edges_cell_angle, edges_normal_angle, no_angle, &
     & get_cell_barycenters
@@ -530,7 +530,7 @@ CONTAINS
        !see if they are orthogonal
        dproduct = DOT_PRODUCT(v1%x,vn%x)
 
-!       CALL sphere_tanget_coordinates(edges%center(edge_no),x,y)
+!       CALL sphere_tangent_coordinates(edges%center(edge_no),x,y)
 !       ! get x1x2 on local coordinates
 !       v3%x(1) = DOT_PRODUCT(v1%x,x%x)
 !       v3%x(2) = DOT_PRODUCT(v1%x,y%x)
@@ -820,7 +820,7 @@ CONTAINS
           ELSE
             prev_edge = cells%get_edge_index(cell_no, k-1)
           ENDIF
-          angle = angle_of_points(edges%cartesian_center(prev_edge), &
+          angle = plane_angle_of_three_points(edges%cartesian_center(prev_edge), &
             & cells%cartesian_center(cell_no), edges%cartesian_center(edge))
           CALL add_data_to(cell_edge_centers_angle_stats, angle)
      !     print *, "max/min dual", max_dual_edge, min_dual_edge
@@ -841,7 +841,7 @@ CONTAINS
 !         ENDIF
 !         p1 = middle(verts%cartesian(prev_vertex), verts%cartesian(this_vertex))
 !         p2 = middle(verts%cartesian(this_vertex), verts%cartesian(next_vertex))
-!         angle = angle_of_points(p1, cells%cartesian_center(cell_no), p2)
+!         angle = plane_angle_of_three_points(p1, cells%cartesian_center(cell_no), p2)
 !         CALL add_data_to(cell_edge_centers_angle_stats, angle)
       
       ENDDO  ! k=1,max_no_of_vertices

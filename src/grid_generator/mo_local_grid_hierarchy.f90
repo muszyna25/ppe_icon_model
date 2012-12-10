@@ -46,7 +46,6 @@ MODULE mo_local_grid_hierarchy
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_local_grid
   USE mo_io_local_grid,      ONLY: read_netcdf_grid, write_netcdf_grid
-!  USE mo_base_geometry,      ONLY: gvec2cvec
   USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, &
     & max_rlvert, min_rledge_int, min_rlvert_int
 

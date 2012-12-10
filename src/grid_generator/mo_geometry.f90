@@ -89,9 +89,9 @@ MODULE mo_geometry
   USE mo_exception,      ONLY: message_text, message, finish
   USE mo_math_constants, ONLY: pi
 
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, vector_product, &
+  USE mo_math_utilities, ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,      &
-    & inter_section2, t_geographical_coordinates
+    & spherical_intersection2, t_geographical_coordinates
 
   USE mo_physical_constants, ONLY: earth_radius
 
@@ -1124,9 +1124,9 @@ CONTAINS
           v2(j) = ptr_tl%ts(j)%vertex2%vertex
         ENDDO
 
-        CALL inter_section2 (tc,n0,v0,v1,e0,nots)
-        CALL inter_section2 (tc,n1,v1,v2,e1,nots)
-        CALL inter_section2 (tc,n2,v2,v0,e2,nots)
+        CALL spherical_intersection2 (tc,n0,v0,v1,e0,nots)
+        CALL spherical_intersection2 (tc,n1,v1,v2,e1,nots)
+        CALL spherical_intersection2 (tc,n2,v2,v0,e2,nots)
                
         DO j = 0, nots-1
           ptr_tl%ts(j)%edge0%edge_center = e0(j)
@@ -1150,19 +1150,19 @@ CONTAINS
             & ptr_tl%ts(j)%vertex0%vertex)
 
 
-          ptr_tl%ts(j)%edge0%edge_center     = inter_section2 ( &
+          ptr_tl%ts(j)%edge0%edge_center     = spherical_intersection2 ( &
             & ptr_tl%ts(j)%triangle_center, &
             & ptr_tl%ts(j)%neighbor0%triangle_center, &
             & ptr_tl%ts(j)%vertex0%vertex, &
             & ptr_tl%ts(j)%vertex1%vertex)
 
-          ptr_tl%ts(j)%edge1%edge_center     = inter_section2 ( &
+          ptr_tl%ts(j)%edge1%edge_center     = spherical_intersection2 ( &
             & ptr_tl%ts(j)%triangle_center, &
             & ptr_tl%ts(j)%neighbor1%triangle_center, &
             & ptr_tl%ts(j)%vertex1%vertex,  &
             & ptr_tl%ts(j)%vertex2%vertex)
 
-          ptr_tl%ts(j)%edge2%edge_center     = inter_section2 ( &
+          ptr_tl%ts(j)%edge2%edge_center     = spherical_intersection2 ( &
             & ptr_tl%ts(j)%triangle_center, &
             & ptr_tl%ts(j)%neighbor2%triangle_center, &
             & ptr_tl%ts(j)%vertex2%vertex, &
