@@ -5,7 +5,9 @@
 !!
 !! Possible compiler bug: The following option directive DISABLES VECTORIZATION! Proven to be necessary
 !! when compiling with "-Chopt" on the NEC SX9, Rev.451, running with 24x1 MPI tasks. - 2012/12/08 [F. Prill, DWD]:
-!option! -Nv
+!! !option! -Nv
+!! Update, Guenther Zaengl, 2012-12-10: The compiler bug actually happened during the inlining of the
+!! compute_vertex_nb_index subroutine. A NOIEXPAND directive for this routine fixes the problem
 MODULE mo_remap_grid_icon
 
   USE mo_kind,               ONLY: wp
@@ -300,6 +302,7 @@ CONTAINS
     ! set characteristic grid size
     grid%char_length = SQRT(4*pi/grid%p_patch%n_patch_cells)/pi_180
 
+!CDIR NOIEXPAND
     CALL compute_vertex_nb_index(grid)
  
   END SUBROUTINE load_icon_grid
