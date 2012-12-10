@@ -116,8 +116,11 @@ CONTAINS
     TYPE (t_heap_node), TARGET, ALLOCATABLE :: tmp(:)
 
     ! triangle copy
-    max_num_nodes = SIZE(node_storage(ithrd)%v)
-    IF (.NOT. ALLOCATED(node_storage(ithrd)%v))  max_num_nodes = 0
+    IF (ALLOCATED(node_storage(ithrd)%v)) THEN
+      max_num_nodes = SIZE(node_storage(ithrd)%v)
+    ELSE
+      max_num_nodes = 0
+    ENDIF
     new_max_num_nodes = max_num_nodes + expected_size
     IF (max_num_nodes > 0) THEN
       ALLOCATE(tmp(max_num_nodes))
