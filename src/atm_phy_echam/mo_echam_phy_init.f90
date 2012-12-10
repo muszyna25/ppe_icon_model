@@ -59,7 +59,7 @@ MODULE mo_echam_phy_init
   USE mo_ha_testcases,         ONLY: ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
 
-  USE mo_math_utilities,      ONLY: mean_domain_values
+  USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
 
   ! radiation
   USE mo_radiation_config,     ONLY: ssi, tsi
@@ -214,7 +214,7 @@ CONTAINS
     ndomain = SIZE(p_patch)
  
     DO jg= 1,ndomain
-      CALL mean_domain_values (p_patch(jg)%level, nroot, &
+      CALL sphere_cell_mean_char_length (p_patch(jg)%n_patch_cells_g, &
         & mean_charlen(jg))
     ENDDO
     

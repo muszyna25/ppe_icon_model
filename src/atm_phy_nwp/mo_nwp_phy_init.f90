@@ -44,7 +44,7 @@ MODULE mo_nwp_phy_init
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt
-  USE mo_math_utilities,      ONLY: mean_domain_values
+  USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
   USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
@@ -361,7 +361,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !--------------------------------------------------------------
   !< characteristic gridlength needed by convection and turbulence
   !--------------------------------------------------------------
-  CALL mean_domain_values (p_patch%level, nroot, phy_params%mean_charlen)
+  CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
 
 
   !--------------------------------------------------------------

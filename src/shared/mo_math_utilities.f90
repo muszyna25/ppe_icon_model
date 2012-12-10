@@ -166,7 +166,7 @@ MODULE mo_math_utilities
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
-  PUBLIC :: mean_domain_values
+  PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
@@ -2594,15 +2594,14 @@ CONTAINS
   !! Implemented by Kristina Froehlich, DWD (2010-10-29).
   !! moved to a more general place, Kristina Froehlich, MPI-M (2011-10-06)
   !!
-  SUBROUTINE mean_domain_values( p_level,nroot, mean_charlen ) ! output
+  SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
     
-    INTEGER , INTENT(in)  :: p_level !  level of patch
-    INTEGER , INTENT(in)  :: nroot   !  root division of initial edges
+    INTEGER , INTENT(in)  :: total_number_of_cells 
     REAL(wp), INTENT(out) :: mean_charlen
     
-    mean_charlen      = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(20*nroot**2*4**(p_level),wp))
+    mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
     
-  END SUBROUTINE mean_domain_values
+  END SUBROUTINE sphere_cell_mean_char_length
   !-------------------------------------------------------------------------
   
   
@@ -2678,10 +2677,7 @@ CONTAINS
   !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 351
   !!
   ELEMENTAL FUNCTION lintersect( line1, line2 )
-    !
-    
-    IMPLICIT NONE
-    
+        
     TYPE(t_line), INTENT(in) :: line1
     TYPE(t_line), INTENT(in) :: line2
     
@@ -2726,11 +2722,8 @@ CONTAINS
     TYPE(t_line), INTENT(in) :: line1
     TYPE(t_line), INTENT(in) :: line2
     
-    REAL(wp) :: m1, m2          !< slopes
-    
-    ! coordinates of intersection point
-    !
-    REAL(wp) :: intersect(2)
+    REAL(wp) :: m1, m2          !< slopes    
+    REAL(wp) :: intersect(2)    ! coordinates of intersection point 
     
     !-----------------------------------------------------------------------
     
