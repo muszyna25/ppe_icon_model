@@ -69,6 +69,7 @@ MODULE mo_base_geometry
   PUBLIC :: middle
   PUBLIC :: cartesian_to_geographical, geographical_to_cartesian
   PUBLIC :: project_point
+  PUBLIC :: plane_torus_distance
   PUBLIC :: operator(+), operator(-)
 
   TYPE t_cartesian_coordinates
@@ -124,6 +125,15 @@ CONTAINS
     middle%x = (p1%x + p2%x) / 2.0_wp
   
   END FUNCTION middle
+  !--------------------------------------------------------------------
+  
+  !--------------------------------------------------------------------
+  REAL(wp) ELEMENTAL FUNCTION plane_torus_distance(v1, v2)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: v1, v2
+    
+    plane_torus_distance = 0.0_wp
+    
+  END FUNCTION plane_torus_distance
   !--------------------------------------------------------------------
 
   !--------------------------------------------------------------------
