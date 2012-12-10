@@ -83,8 +83,8 @@ case $ac_sitename in
     config_target=blizzard
   #    load_modules="IBM/xlf13.1.0.0" "IBM/xlC12.1.0.0" "${load_modules}"
   #    load_modules="IBM/xlf13.1.0.2" "IBM/xlc10.1.0.2" "${load_modules}"
-  #    load_modules="IBM/xlf13.1.0.8" "IBM/xlc11.1.0.8" "${load_modules}"
-    load_modules="IBM/xlf14.1.0.2" "IBM/xlC12.1.0.2" "IBM/xlc12.1.0.2" "${load_modules}"
+     load_modules="IBM/xlf13.1.0.8" "IBM/xlc11.1.0.8" "${load_modules}"
+  #  load_modules="IBM/xlf14.1.0.2" "IBM/xlC12.1.0.2" "IBM/xlc12.1.0.2" "${load_modules}"
     NETCDFROOT  = /sw/aix53/netcdf-3.6.3
     LAPACKROOT  = /sw/aix53/lapack-3.2.0
    # LAPACK_LIB  = -llapack -lessl -lblas
