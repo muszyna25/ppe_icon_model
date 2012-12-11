@@ -283,9 +283,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          ! Over the land we keep the initial set value (0.001_wp)
          DO ic=1, ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
-           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
-           p_diag_lnd%qv_s    (jc,jb)    = &
-            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+           ! if not lseaice, all the pints are water points
+           IF ((.NOT. lseaice) .AND. (p_diag_lnd%fr_seaice(jc,jb) > 0.5_wp) ) THEN
+            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
+            p_diag_lnd%qv_s    (jc,jb)    = &
+             & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+           ELSE
+            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+            p_diag_lnd%qv_s    (jc,jb)    = &
+             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+           END IF
          END DO
          DO ic=1, ext_data%atm%spi_count(jb)
            jc = ext_data%atm%idx_lst_spi(ic,jb)

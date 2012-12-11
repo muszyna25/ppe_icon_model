@@ -271,6 +271,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
+    INTEGER :: a_steptype
     TYPE(t_list_element), POINTER    :: var_diag_rh
  
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
@@ -827,10 +828,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
             prefix = "a"
             meaning = "mean"
             varunits= "W/m**2"
+            a_steptype= TSTEP_AVG 
         ELSE
             prefix = "acc"
             meaning = "acc." 
-            varunits= "J/m**2"    
+            varunits= "J/m**2"
+            a_steptype= TSTEP_ACCUM     
         END IF
         WRITE(name,'(A,A5)') TRIM(prefix),"thb_t"
         WRITE(long_name,'(A26,A4,A18)') "longwave  net flux at TOA ", meaning, &
@@ -840,7 +843,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 5, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,               &
-          & ldims=shape2d, isteptype=TSTEP_ACCUM )
+          & ldims=shape2d, isteptype=a_steptype )
 
 
         ! &      diag%swflxtoa_a(nproma,nblks_c)
@@ -853,7 +856,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name) , diag%swflxtoa_a,                 &
           & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,               &
           & ldims=shape2d,                                                     &
-          & isteptype=TSTEP_ACCUM )
+          & isteptype=a_steptype )
 
         
         ! &      diag%lwflxsfc_a(nproma,nblks_c)
@@ -866,7 +869,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name), diag%lwflxsfc_a,                 &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_ACCUM)
+          & isteptype=a_steptype)
 
 
         ! &      diag%swflxsfc_a(nproma,nblks_c)
@@ -879,7 +882,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name), diag%swflxsfc_a,                 &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_ACCUM)
+          & isteptype=a_steptype)
 
 
         ! &      diag%vio3(nproma,nblks_c)
@@ -985,7 +988,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name), diag%shfl_s_a,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_ACCUM )
+          & isteptype=a_steptype )
 
 
         ! &      diag%lhfl_s(nproma,nblks_c)
@@ -1005,7 +1008,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name), diag%lhfl_s_a,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_ACCUM )
+          & isteptype=a_steptype )
 
 
         ! &      diag%qhfl_s(nproma,nblks_c)

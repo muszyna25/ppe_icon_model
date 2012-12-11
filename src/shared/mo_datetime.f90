@@ -103,6 +103,7 @@ MODULE mo_datetime
     &   date_to_time        ,& ! convert (yr,mo,dy,hr,mn,s) to time and compute auxiliary info
     &   time_to_date        ,& ! convert time to (yr,mo,dy,hr,mn,s) and compute auxiliary info
     &   add_time            ,& ! add a time increment in (dy,hr,mn,s) to a datetime variable
+    &   check_newday        ,& ! 
     &   print_datetime_all  ,& ! print a datetime variable, including: 
     &   print_calendar      ,& ! print calendar info
     &   print_datetime      ,& ! print date and time
@@ -112,6 +113,11 @@ MODULE mo_datetime
   PUBLIC::  month2hour
 
   PUBLIC :: string_to_datetime, datetime_to_string,  date_len
+
+  INTERFACE month2hour
+    MODULE PROCEDURE month2hour_clim
+    MODULE PROCEDURE month2hour_year
+  END INTERFACE month2hour
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -820,7 +826,27 @@ CONTAINS
     CALL aux_datetime(datetime)
 
   END SUBROUTINE add_time
+  !----------------------------------------------------------------------------
 
+  !>
+  !! Subroutine to check if %day is different in the two given datetime arguments
+  !!
+  !! @par Revision History
+  !! First version by P. Ripodas, DWD (2012-11-22)
+  !!
+  FUNCTION check_newday(datetime_old, datetime)
+
+    LOGICAL                          :: check_newday
+    TYPE (t_datetime), INTENT(inout) :: datetime_old
+    TYPE (t_datetime), INTENT(inout) :: datetime
+
+    IF (datetime%day /= datetime_old%day) THEN
+     check_newday=.TRUE.
+    ELSE
+     check_newday=.FALSE.
+    END IF
+
+  END FUNCTION check_newday
   !----------------------------------------------------------------------------
 
   !>
@@ -1147,6 +1173,10 @@ CONTAINS
 
   END SUBROUTINE datetime_to_string
 
+!! Generalize month2hour to use it not only to interpolate from climatological 
+!!  values (month2hour_clim), but also from actual monthly values (month2hour_year)
+!! P. Ripodas 2012-12
+
   !! Find the 2 nearest months m1, m2 and the weights pw1, pw2 to the actual
   !! date and time to interpolate data to the current hour from data valid in
   !! the middle of the months.
@@ -1155,7 +1185,7 @@ CONTAINS
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-07)
   !!
-  SUBROUTINE month2hour( datetime, m1, m2, pw2 )
+  SUBROUTINE month2hour_clim( datetime, m1, m2, pw2 )
     
     TYPE(t_datetime), INTENT(in)  :: datetime
     INTEGER,          INTENT(out) :: m1, m2     ! indices of nearest months
@@ -1240,17 +1270,118 @@ CONTAINS
     m2 = mod(m1,12) + 1
     pw2 =  zact / zdiff(m1)
 
-  CONTAINS
-    ! Function for leap year determination (1=yes, 0=no)
-    ! Same as in date_time.f90
-    ! leap year (1=yes, 0=no)
-    INTEGER FUNCTION mleapy(myy)
-      INTEGER, INTENT(in) :: myy
-      mleapy = MAX(1-MODULO(myy,4)  ,0)     &
-           &  -MAX(1-MODULO(myy,100),0)     &
-           &  +MAX(1-MODULO(myy,400),0)
-    END FUNCTION mleapy
 
-  END SUBROUTINE month2hour
+  END SUBROUTINE month2hour_clim
+  !! Find the 2 nearest months m1, m2 and the weights pw1, pw2 to the actual
+  !! date and time to interpolate data to the current hour from data valid in
+  !! the middle of the months.
+  !! Taken and adapted from DWD's INT2LM (v. 1.18).
+  !! It also outputs the years corresponding to the nearest months 
+  !!
+  !! @par Revision History
+  !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-07)
+  !!
+  SUBROUTINE month2hour_year( datetime, m1, m2, y1, y2, pw2 )
+    
+    TYPE(t_datetime), INTENT(in)  :: datetime
+    INTEGER,          INTENT(out) :: m1, m2     ! indices of nearest months
+    INTEGER,          INTENT(out) :: y1, y2     ! years of the nearest months
+    REAL   (wp),      INTENT(out) :: pw2        ! weights of nearest months
+    
+    !=======================================================================
+    
+    INTEGER ::                   &
+         month_days(12),         & ! number of days for each month
+         mmon, mday, mhour, myy, & ! month, day, hour and year of actual date
+         mdayhour,               & ! actual date (in hours of month)
+         mmidthhours,            & ! midth of month in hours
+         i, ip1                    ! month indices (ip1=i+1)
 
+    REAL   (wp)    ::            &
+         zdiff(12),              & ! difference between midth of following months in days
+         zhalf(12),              & ! number of days for half month
+         zact                      ! actual time in hours of month
+    
+    ! Number of days for each month
+    month_days = (/ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 /)
+    
+    !=======================================================================
+    
+    
+    ! Get values of day, month and hour out of actual date
+    
+    myy   = datetime%year
+    mmon  = datetime%month
+    mday  = datetime%day
+    mhour = datetime%hour
+    
+    ! Compute half of each month (in days)
+    ! Leap Year ??
+    month_days (2) = 28 + mleapy(myy)
+    zhalf(:) = 0.5_wp * REAL(month_days(:),wp)
+    
+    ! Compute difference between the midth of actual month and the
+    ! following one (in days)
+    DO i = 1,12
+      ip1 = MOD(i,12)+1
+      zdiff(i) = zhalf(i) + zhalf(ip1)
+    ENDDO
+    
+    ! Compute actual date (day and hours) and midth of actual month in hours
+    mdayhour = (mday-1)*24 + mhour
+    mmidthhours = NINT( zhalf(mmon)*24._wp)
+    
+    ! Determine the months needed for interpolation of current values
+    ! Search for the position of date in relation to first of month.
+    ! The original data are valid for the mid-month.
+    !
+    ! EXAMPLE 1
+    !        March    !  April     !   May             X : aerosol data
+    !       ----X-----!-----X----o-!-----X-----        ! : first of month
+    !                       !    ^       !             o : current date
+    !                       !    ^ interpolation for that point in time
+    !                       !  zdiff(4)  !
+    !                       !zact!
+    !
+    ! EXAMPLE 2
+    !        March    !  April     !   May             X : ndvi_ratio
+    !       ----X-----!-----X------!----oX-----        ! : first of month
+    !                       !           ^              o : current date
+    !                       !      interpolation for that point in time
+    !                       !zhalf !
+    !                       !  zdiff(4)  !
+    !                       !   zact    !
+    !
+    !
+    y1=myy
+    y2=myy
+    IF( mdayhour < mmidthhours) THEN
+      ! point is in first half of month (EXAMPLE 2)
+      m1 = mmon - 1
+      IF(mmon == 1) THEN
+       m1 = 12
+       y1 = myy - 1
+      END IF
+      zact   = zhalf(m1) + REAL(mdayhour,wp)/24._wp
+    ELSE
+      ! point is in second half of month (EXAMPLE 1)
+      m1 = mmon
+      zact   = REAL(mdayhour-mmidthhours,wp)/24._wp
+    ENDIF
+    m2 = mod(m1,12) + 1
+    IF (m1 == 12 .AND. m2 ==1 .AND.  m1 == mmon) y2 = myy + 1
+    pw2 =  zact / zdiff(m1)
+
+
+  END SUBROUTINE month2hour_year
+
+  ! Function for leap year determination (1=yes, 0=no)
+  ! Same as in date_time.f90
+  ! leap year (1=yes, 0=no)
+  INTEGER FUNCTION mleapy(myy)
+    INTEGER, INTENT(in) :: myy
+    mleapy = MAX(1-MODULO(myy,4)  ,0)     &
+         &  -MAX(1-MODULO(myy,100),0)     &
+         &  +MAX(1-MODULO(myy,400),0)
+  END FUNCTION mleapy
 END MODULE mo_datetime

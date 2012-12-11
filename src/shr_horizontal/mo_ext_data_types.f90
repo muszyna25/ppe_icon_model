@@ -374,6 +374,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
                                ! index1=1,nproma, index2=1,nblks_c
+    !
+    ! ***SST and sea ice fraction
+    REAL(wp), POINTER ::   &   !< (monthly) SST
+      &  sst_m(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    REAL(wp), POINTER ::   &   !< (monthly) sea ice fraction
+      &  fr_ice_m(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
   END TYPE t_external_atmos_td
 

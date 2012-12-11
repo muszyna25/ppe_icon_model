@@ -66,7 +66,8 @@ MODULE mo_ext_data_state
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
-                                   frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water
+                                   frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
+                                   sstice_mode
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
@@ -211,20 +212,20 @@ CONTAINS
 
     IF (iequations/=ihs_ocean ) THEN
 
-    !-------------------------------------------------------------------------
-    !Ozone and aerosols
-    !-------------------------------------------------------------------------
-
-      IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape) ) THEN
-        CALL message( TRIM(routine),'external ozone data required' )
-        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)   ! read ozone
-      ENDIF
+!!$    !-------------------------------------------------------------------------
+!!$    !Ozone and aerosols
+!!$    !-------------------------------------------------------------------------
+!!$
+!!$      IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape) ) THEN
+!!$        CALL message( TRIM(routine),'external ozone data required' )
+!!$        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)   ! read ozone
+!!$      ENDIF
 
 
     SELECT CASE(itopo)
 
-    CASE(0) ! do not read external data  (except land-sea mask for JSBACH)
-            ! topography from analytical functions
+    CASE(0) ! do not read external data  (except land-sea mask for JSBACH and ozone)
+            ! topography from analytical functions 
 
     !-------------------------------------------------------------------------
     ! surface/vegetation  parameter
@@ -256,9 +257,10 @@ CONTAINS
 
       CALL message( TRIM(routine),'Running with analytical topography' )
 
-      ! call read_ext_data_atm to read land-sea mask for JSBACH
-      IF (echam_phy_config%ljsbach) CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
-
+      ! call read_ext_data_atm to read land-sea mask for JSBACH and to read O3
+      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN
+        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
+      END IF 
     CASE(1) ! read external data from netcdf dataset
 
       CALL message( TRIM(routine),'Start reading external data from file' )
@@ -1189,8 +1191,12 @@ CONTAINS
     INTEGER :: shape3d_c(3)
     INTEGER :: shape3d_ape(3)
     INTEGER :: shape4d_c(4)
+    INTEGER :: shape3d_sstice(3)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data_state:new_ext_data_atm_td_list'
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1206,6 +1212,18 @@ CONTAINS
     shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /) 
     shape3d_ape = (/ nproma, nlev_o3, nblks_c          /) 
 
+    IF ( sstice_mode > 1 ) THEN
+     SELECT CASE (sstice_mode)
+     CASE(2)
+      shape3d_sstice = (/ nproma, nblks_c, 12 /)  
+     CASE(3)
+      shape3d_sstice = (/ nproma, nblks_c,  2 /)  
+     CASE(4)
+      CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+     CASE DEFAULT
+      CALL finish (TRIM(routine), 'sstice_mode not valid!')
+     END SELECT
+    END IF
 
     !
     ! Register a field list and apply default settings
@@ -1340,7 +1358,30 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c, loutput=.FALSE. )
+    !--------------------------------
+    !SST and sea ice fraction
+    !--------------------------------
+    IF ( sstice_mode > 1 ) THEN
+     ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+     cf_desc    = t_cf_var('sst_m', 'K', &
+       &                   '(monthly) sea surface temperature '  &
+       &                   , DATATYPE_FLT32)
+     grib2_desc = t_grib2_var(192 ,128 , 34, ibits, GRID_REFERENCE, GRID_CELL)
+     CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+       &           ldims=shape3d_sstice, loutput=.FALSE. )
 
+     ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
+     cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
+       &                   '(monthly) sea ice fraction '  &
+       &                   , DATATYPE_FLT32)
+     grib2_desc = t_grib2_var( 192,128 ,31 , ibits, GRID_REFERENCE, GRID_CELL)
+     CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
+       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+       &           ldims=shape3d_sstice, loutput=.FALSE. )
+
+
+    ENDIF ! sstice_mode
 
     ENDIF ! inwp
 
@@ -2405,6 +2446,25 @@ CONTAINS
 
       ENDDO ! ndom
     END IF ! irad_o3
+
+!
+! Read time dependent SST and ICE Fraction  
+!
+   IF (sstice_mode == 2) THEN
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+
+      DO jg = 1,n_dom
+       !Read the climatological values for SST and ice cover
+
+        CALL finish(TRIM(routine),'sstice_mode == 2 not yet implemented .')
+      END DO ! ndom
+
+   END IF ! sstice_mode
 
 
   END SUBROUTINE read_ext_data_atm

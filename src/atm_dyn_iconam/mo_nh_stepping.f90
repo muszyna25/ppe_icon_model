@@ -68,7 +68,7 @@ MODULE mo_nh_stepping
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_model_domain,        ONLY: p_patch
@@ -93,7 +93,7 @@ MODULE mo_nh_stepping
                                     outer_boundary_nudging, nest_boundary_nudging, &
                                     prep_rho_bdy_nudging, density_boundary_nudging
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
+  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday
   USE mo_output,              ONLY: init_output_files, write_output,  &
     &                               create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
@@ -138,8 +138,10 @@ MODULE mo_nh_stepping
   USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
-  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
+  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest
+  USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
+                                  & read_td_ext_data_file
 
   IMPLICIT NONE
 
@@ -292,6 +294,12 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping ()
 
+    IF (sstice_mode > 1 ) THEN
+      ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
+      !  the values from the analysis have to be overwritten
+      CALL set_actual_td_ext_data (.TRUE.,datetime,datetime,sstice_mode,  &
+                                  &  p_patch(1:), ext_data, p_lnd_state)
+    END IF
 
   IF (iforcing == inwp .AND. is_restart_run()) THEN
     DO jg=1, n_dom
@@ -408,6 +416,8 @@ MODULE mo_nh_stepping
   TYPE(t_simulation_status)            :: simulation_status
   INTEGER                              :: proc_id(2), keyval(2)
 
+  TYPE(t_datetime)                     :: datetime_old
+
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
@@ -419,12 +429,35 @@ MODULE mo_nh_stepping
   ! MPI communication from now on. 
   IF (test_mode > 0) iorder_sendrecv = 0
 
+  datetime_old = datetime
+
   TIME_LOOP: DO jstep = 1, nsteps
 
     CALL add_time(dtime,0,0,0,datetime)
 
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
+
+!Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
+    IF (sstice_mode > 1 ) THEN
+     IF ( check_newday(datetime_old,datetime) ) THEN
+
+      WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', datetime_old%day, &
+                &                 'day: ', datetime%day
+      CALL message(TRIM(routine),message_text)
+
+      CALL set_actual_td_ext_data (.FALSE., datetime,datetime_old,sstice_mode,  &
+                                  &  p_patch(1:), ext_data, p_lnd_state)
+
+      CALL update_sstice( p_patch(1:),           &
+                        & ext_data, p_lnd_state, p_nh_state )
+      ! Do for all the domains
+      !!CALL init_sea_lists(p_patch, ext_data, p_lnd_state%diag_lnd, lseaice)
+
+      datetime_old = datetime  
+     END IF  ! newday
+    END IF !sstice_mode>1
+! end SST and sea ice fraction update
 
     IF (msg_level >= 5 .AND. MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
 

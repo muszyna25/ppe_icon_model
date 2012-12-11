@@ -60,6 +60,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
   PUBLIC :: isub_water, isub_seaice
+  PUBLIC :: sstice_mode
 
   PUBLIC :: configure_lnd_nwp
 
@@ -101,7 +102,10 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
   LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 
   LOGICAL ::  lsnowtile   !! if .TRUE., snow is considered as a separate tile
-
+ 
+  INTEGER ::  sstice_mode      !< set if SST and sea ice cover are read from the analysis
+                                 !< and kept constant or read from external data files 
+                                 !< and updated regularly in run time
 
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)

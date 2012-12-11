@@ -1272,6 +1272,7 @@ src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface_edmf.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interp.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_utils.f90 -text
+src/lnd_phy_nwp/mo_td_ext_data.f90 -text
 src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_seaice_nwp.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
