@@ -1287,6 +1287,7 @@ CONTAINS
   SUBROUTINE radheat (jcs, jce, kbdim, &
     &                 klev  , klevp1,  &
     &                 ntiles        ,  &
+    &                 ntiles_wtr    ,  &
     &                 pmair         ,  &
     &                 pqv           ,  &
     &                 pi0           ,  &
@@ -1321,7 +1322,7 @@ CONTAINS
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
-      &     klev,   klevp1, ntiles
+      &     klev,   klevp1, ntiles, ntiles_wtr
 
     REAL(wp), INTENT(in)  ::         &
       &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
@@ -1340,10 +1341,10 @@ CONTAINS
       &     pqc       (kbdim,klev),  & ! specific cloud water               [kg/kg]
       &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
       &     ppres_ifc (kbdim,klevp1),& ! pressure at interfaces             [Pa]
-      &     ptsfc_t   (kbdim,ntiles),& ! tile-specific surface temperature at t  [K]
+      &     ptsfc_t   (kbdim,ntiles+ntiles_wtr),& ! tile-specific surface temperature at t  [K]
       &     cosmu0    (kbdim),       & ! cosine of solar zenith angle
       &     albedo    (kbdim),       & ! grid-box average albedo
-      &     albedo_t  (kbdim,ntiles)   ! tile-specific albedo
+      &     albedo_t  (kbdim,ntiles+ntiles_wtr)   ! tile-specific albedo
 
     INTEGER, INTENT(in), OPTIONAL  ::     &
       &     lp_count, gp_count_t(ntiles), &  ! number of land points
@@ -1361,8 +1362,10 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
-      &     pflxsfcsw_t(kbdim,ntiles), & ! tile-specific shortwave surface net flux [W/m2]
-      &     pflxsfclw_t(kbdim,ntiles), & ! tile-specific longwave surface net flux [W/m2]
+      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave 
+                                                    ! surface net flux [W/m2]
+      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
+                                                    ! surface net flux [W/m2]
       &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &

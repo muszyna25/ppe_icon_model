@@ -269,7 +269,7 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: extpar_td_filename,extpar_file 
     INTEGER                     :: ncid, jg, mpi_comm
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &  routine = '(mo_td_ext_data) read_td_ext_data_file:'
+    &  routine = 'mo_td_ext_data:read_td_ext_data_file:'
 
 !-----------------------------------------------------------------------
    ! extpar_td_filename = "<path>extpar_<year>_<month>_<gridfile>"
@@ -302,7 +302,7 @@ CONTAINS
             &                             y1,m1                   )
 
           CALL message  (routine, TRIM(extpar_file))
-          CALL nf( nf_open(TRIM(extpar_file), NF_NOWRITE, ncid) )
+          CALL nf( nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine )
 
         ENDIF
       
@@ -311,7 +311,7 @@ CONTAINS
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,1))
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
         IF(my_process_is_stdio()) THEN
 
@@ -320,14 +320,14 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),   &
             &                             y2,m2                   )
           CALL message  (routine, TRIM(extpar_file))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
         ENDIF
         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,2))
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
 
 
@@ -341,7 +341,7 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),   &
             &                             y1,m1                   )
           CALL message  (routine, TRIM(extpar_file))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
         ENDIF
       
@@ -349,7 +349,7 @@ CONTAINS
         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,1))
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
         IF(my_process_is_stdio()) THEN
 
@@ -358,14 +358,14 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),   &
             &                             y2,m2                   )
           CALL message  (routine, TRIM(extpar_file))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
         ENDIF
         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,2))
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
       ENDDO  ! jg
 
   END SUBROUTINE read_td_ext_data_file

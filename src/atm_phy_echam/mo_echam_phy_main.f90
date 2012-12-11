@@ -581,12 +581,13 @@ CONTAINS
         ! input
         ! -----
         !
-        & jcs        = jcs,                            &! in     loop start index
-        & jce        = jce,                            &! in     loop end index
-        & kbdim      = nbdim,                          &! in     dimension size
-        & klev       = nlev,                           &! in     vertical dimension size
-        & klevp1     = nlevp1,                         &! in     vertical dimension size
-        & ntiles     = 1,                              &! in     number of tiles of sfc flux fields
+        & jcs        = jcs,                            &! in    loop start index
+        & jce        = jce,                            &! in    loop end index
+        & kbdim      = nbdim,                          &! in    dimension size
+        & klev       = nlev,                           &! in    vertical dimension size
+        & klevp1     = nlevp1,                         &! in    vertical dimension size
+        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
+        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
         & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
@@ -612,12 +613,13 @@ CONTAINS
         ! input
         ! -----
         !
-        & jcs        = jcs,                            &! in     loop start index
-        & jce        = jce,                            &! in     loop end index
-        & kbdim      = nbdim,                          &! in     dimension size
-        & klev       = nlev,                           &! in     vertical dimension size
-        & klevp1     = nlevp1,                         &! in     vertical dimension size
-        & ntiles     = 1,                              &! in     number of tiles of sfc flux fields
+        & jcs        = jcs,                            &! in    loop start index
+        & jce        = jce,                            &! in    loop end index
+        & kbdim      = nbdim,                          &! in    dimension size
+        & klev       = nlev,                           &! in    vertical dimension size
+        & klevp1     = nlevp1,                         &! in    vertical dimension size
+        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
+        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
         & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]

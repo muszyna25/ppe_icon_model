@@ -13,7 +13,7 @@ MODULE mo_remap_grid_icon
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: SUCCESS
+  USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_math_constants,     ONLY: pi, pi_180
   USE mo_physical_constants, ONLY: inverse_earth_radius
@@ -43,7 +43,8 @@ CONTAINS
     INTEGER,                INTENT(IN)           :: rank0    !< MPI rank where file is actually read
     TYPE (t_file_metadata), INTENT(IN), OPTIONAL :: opt_file
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine    = TRIM(TRIM(modname)//'::load_icon_grid')
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+      &  routine    = TRIM(TRIM(modname)//'::load_icon_grid')
     INTEGER :: &
       &  i, start_idx, end_idx, start_blk, end_blk, jb, jc,        &
       &  ncid, dimid, j, idx, varID, n_patch_cells, n_patch_edges, &
@@ -57,17 +58,17 @@ CONTAINS
       IF (.NOT. PRESENT(opt_file))  CALL finish(routine, "Internal error!")
       ncid = opt_file%ncfileID
       IF (nf_inq_dimid(ncid, 'cell', dimid) /= nf_noerr) THEN
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
       END IF
-      CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_cells))
+      CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_cells), routine)
       IF (nf_inq_dimid(ncid, 'edge', dimid) /= nf_noerr) THEN
-        CALL nf(nf_inq_dimid(ncid, 'ncells2', dimid))
+        CALL nf(nf_inq_dimid(ncid, 'ncells2', dimid), routine)
       END IF
-      CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_edges))
+      CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_edges), routine)
       IF (nf_inq_dimid(ncid, 'vertex', dimid) /= nf_noerr) THEN
-        CALL nf(nf_inq_dimid(ncid, 'ncells3', dimid))
+        CALL nf(nf_inq_dimid(ncid, 'ncells3', dimid), routine)
       END IF
-      CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_verts))
+      CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_verts), routine)
       IF (dbg_level >= 5) THEN
         WRITE (0,*) "# n_patch_cells = ", n_patch_cells
         WRITE (0,*) "# n_patch_verts = ", n_patch_verts
@@ -88,7 +89,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'vlon', varID) /= nf_noerr) &
         &  CALL finish(routine, "Field <vlon> missing in grid file.")
-      CALL nf(nf_get_var_double(ncid, varid, vlon))
+      CALL nf(nf_get_var_double(ncid, varid, vlon), routine)
     END IF
     CALL p_bcast(vlon,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_verts
@@ -101,7 +102,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'vlat', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <vlat> missing in grid file.")
-      CALL nf(nf_get_var_double(ncid, varid, vlat))
+      CALL nf(nf_get_var_double(ncid, varid, vlat), routine)
     END IF
     CALL p_bcast(vlat,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_verts
@@ -127,7 +128,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'vertex_of_cell', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <vertex_of_cell> missing in grid file.")
-      CALL nf(nf_get_var_int(ncid, varid, v_of_c))
+      CALL nf(nf_get_var_int(ncid, varid, v_of_c), routine)
     END IF
     CALL p_bcast(v_of_c,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_cells
@@ -146,7 +147,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'edge_of_cell', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <edge_of_cell> missing in grid file.")
-      CALL nf(nf_get_var_int(ncid, varid, e_of_c))
+      CALL nf(nf_get_var_int(ncid, varid, e_of_c), routine)
     END IF
     CALL p_bcast(e_of_c,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_cells
@@ -165,7 +166,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'neighbor_cell_index', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <neighbor_cell_index> missing in grid file.")
-      CALL nf(nf_get_var_int(ncid, varid, c_of_c))
+      CALL nf(nf_get_var_int(ncid, varid, c_of_c), routine)
     END IF
     CALL p_bcast(c_of_c,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_cells
@@ -184,7 +185,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'edge_vertices', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <edge_vertices> missing in grid file.")
-      CALL nf(nf_get_var_int(ncid, varid, v_of_e))
+      CALL nf(nf_get_var_int(ncid, varid, v_of_e), routine)
     END IF
     CALL p_bcast(v_of_e,rank0,p_comm_work )
     DO i=1,grid%p_patch%n_patch_edges
@@ -203,7 +204,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <adjacent_cell_of_edge> missing in grid file.")
-      CALL nf(nf_get_var_int(ncid, varid, c_of_e))
+      CALL nf(nf_get_var_int(ncid, varid, c_of_e), routine)
     END IF
     CALL p_bcast(c_of_e,rank0,p_comm_work )
     DO i=1,grid%p_patch%n_patch_edges
@@ -222,7 +223,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'cells_of_vertex', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <cells_of_vertex> missing in grid file.")
-      CALL nf(nf_get_var_int(ncid, varid, c_of_v))
+      CALL nf(nf_get_var_int(ncid, varid, c_of_v), routine)
     END IF
     CALL p_bcast(c_of_v,rank0,p_comm_work)
     grid%p_patch%verts%cell_idx(:,:,:) = -1
@@ -246,7 +247,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'clon', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <clon> missing in grid file.")
-      CALL nf(nf_get_var_double(ncid, varid, clon))
+      CALL nf(nf_get_var_double(ncid, varid, clon), routine)
     END IF
     CALL p_bcast(clon,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_cells
@@ -259,7 +260,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'clat', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <clat> missing in grid file.")
-      CALL nf(nf_get_var_double(ncid, varid, clat))
+      CALL nf(nf_get_var_double(ncid, varid, clat), routine)
     END IF
     CALL p_bcast(clat,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_cells
@@ -286,7 +287,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (nf_inq_varid(ncid, 'cell_area', varid) /= nf_noerr) &
         &  CALL finish(routine, "Field <cell area> missing in grid file.")
-      CALL nf(nf_get_var_double(ncid, varid, area_of_c))
+      CALL nf(nf_get_var_double(ncid, varid, area_of_c), routine)
     END IF
     CALL p_bcast(area_of_c,rank0,p_comm_work)
     DO i=1,grid%p_patch%n_patch_cells

@@ -84,7 +84,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
@@ -916,6 +916,7 @@ CONTAINS
           & klev=nlev                              ,&! in     vertical dimension size
           & klevp1=nlevp1                          ,&! in     vertical dimension size
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
+          & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
           & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
@@ -962,7 +963,8 @@ CONTAINS
           & kbdim=nproma                           ,&! in     loop length and dimension size
           & klev=nlev                              ,&! in     vertical dimension size
           & klevp1=nlevp1                          ,&! in     vertical dimension size
-          & ntiles=1,                               &! in     number of tiles of sfc flux fields
+          & ntiles=1                               ,&! in     number of tiles of sfc flux fields
+          & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
           & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]

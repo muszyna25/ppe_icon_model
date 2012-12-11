@@ -45,12 +45,10 @@ MODULE mo_prepicon_utils
   USE mo_kind
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, nvclev, &
-                                    iqv, iqc, iqi, iqr, iqs
-  USE mo_extpar_config,       ONLY: n_iter_smooth_topo, &
-    &                               extpar_filename,    &
+  USE mo_run_config,          ONLY: msg_level, nvclev, iqv, iqc, iqi, iqr, iqs
+  USE mo_extpar_config,       ONLY: extpar_filename,     &
     &                               generate_extpar_filename => generate_filename
-  USE mo_dynamics_config,     ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf
+  USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_nonhydrostatic_config,ONLY: ivctype
   USE mo_sleve_config,        ONLY: lread_smt
   USE mo_nonhydro_types,      ONLY: t_nh_state
@@ -58,19 +56,17 @@ MODULE mo_prepicon_utils
   USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
   &                                 nlevsoil_in, l_sfc_in, l_hice_in,      &
   &                                 l_sst_in,                              &
-  &                                 l_extdata_out, ifs2icon_filename,      &
-  &                                 generate_filename
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom
+  &                                 ifs2icon_filename, generate_filename
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_physical_constants,  ONLY: tf_salt
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
+  USE mo_grid_config,         ONLY: n_dom, nroot, global_cell_type
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_smooth_topo,         ONLY: smooth_topography
-  USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single
+  USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
   USE mo_model_domain,        ONLY: p_patch
   USE mo_io_config,           ONLY: lkeep_in_sync
   USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
@@ -188,10 +184,13 @@ MODULE mo_prepicon_utils
 
   PUBLIC :: nzplev
 
-  PUBLIC :: init_prepicon, init_topo_output_files, write_prepicon_output,            &
-            setup_prepicon_vlist, compute_coord_fields, close_prepicon_output_files, &
-            convert_variables, init_atmo_output_files, deallocate_prepicon,          &
-            copy_prepicon2prog
+
+  PUBLIC :: init_prepicon
+  PUBLIC :: compute_coord_fields
+  PUBLIC :: convert_variables
+  PUBLIC :: deallocate_prepicon
+  PUBLIC :: copy_prepicon2prog
+
 
   CONTAINS
 
@@ -220,7 +219,7 @@ MODULE mo_prepicon_utils
     INTEGER :: no_cells, no_verts, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
     CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
     LOGICAL :: l_sst_present = .FALSE.     !TRUE if SST is present in the IFS input file
@@ -279,23 +278,23 @@ MODULE mo_prepicon_utils
         !
         ! open file
         !
-        CALL nf(nf_open(TRIM(topo_file(jg)), NF_NOWRITE, ncid))
+        CALL nf(nf_open(TRIM(topo_file(jg)), NF_NOWRITE, ncid), routine)
 
         !
         ! get number of cells and vertices
         !
-        CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+        CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
         IF (global_cell_type == 3) THEN ! triangular grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
         ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
         ENDIF
 
-        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
         IF (global_cell_type == 3) THEN ! triangular grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
         ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
         ENDIF
 
         !
@@ -343,7 +342,7 @@ MODULE mo_prepicon_utils
 
       ! close file
       !
-      IF(p_pe == p_io) CALL nf(nf_close(ncid))
+      IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
 
       IF (.NOT. PRESENT(extdata)) THEN
 
@@ -374,19 +373,19 @@ MODULE mo_prepicon_utils
         !
         ! open file
         !
-        CALL nf(nf_open(TRIM(ifs2icon_file(jg)), NF_NOWRITE, ncid))
+        CALL nf(nf_open(TRIM(ifs2icon_file(jg)), NF_NOWRITE, ncid), routine)
 
         !
         ! get number of cells
         !
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
         !
         ! get number of vertical levels
         !
-        CALL nf(nf_inq_dimid(ncid, 'lev', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
         !
         ! check the number of cells and vertical levels
@@ -663,11 +662,11 @@ MODULE mo_prepicon_utils
         ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
         IF(p_pe == p_io) THEN
-          CALL nf(nf_inq_varid(ncid, 'hyai', varid))
-          CALL nf(nf_get_var_double(ncid, varid, vct_a))
+          CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
+          CALL nf(nf_get_var_double(ncid, varid, vct_a), routine)
 
-          CALL nf(nf_inq_varid(ncid, 'hybi', varid))
-          CALL nf(nf_get_var_double(ncid, varid, vct_b))
+          CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
+          CALL nf(nf_get_var_double(ncid, varid, vct_b), routine)
         ENDIF
 
         IF(p_test_run) THEN
@@ -702,7 +701,7 @@ MODULE mo_prepicon_utils
 
       ! close file
       !
-      IF(p_pe == p_io .AND. i_oper_mode >= 2) CALL nf(nf_close(ncid))
+      IF(p_pe == p_io .AND. i_oper_mode >= 2) CALL nf(nf_close(ncid), routine)
 
     ENDDO ! loop over model domains
 
@@ -1121,62 +1120,6 @@ MODULE mo_prepicon_utils
 
 
 
-  SUBROUTINE init_topo_output_files
-
-    INTEGER :: jg, jlev
-    INTEGER :: nlev              !< number of full levels
-    CHARACTER(LEN=filename_max) :: gridtype, outputfile
-    CHARACTER(LEN=filename_max) :: gridfile(max_dom)
-
-    gridtype='icon'
-
-    DO jg = 1, n_dom
-
-      jlev = p_patch(jg)%level
-      nlev = p_patch(jg)%nlev
-
-      WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)') &
-        &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-
-      CALL setup_prepicon_vlist( TRIM(p_patch(jg)%grid_filename), jg )
-
-      WRITE (outputfile,'(a,i2.2,a,i0,a,i2.2,a,i0,a)')  &
-        'ICON_coord_DOM', jg, '_R', nroot, 'B', jlev, 'L', nlev, '.nc'
-
-      IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
-
-    ENDDO
-
-  END SUBROUTINE init_topo_output_files
-
-  SUBROUTINE init_atmo_output_files
-
-    INTEGER :: jg, jlev
-    INTEGER :: nlev              !< number of full levels
-    CHARACTER(LEN=filename_max) :: gridtype, outputfile
-    CHARACTER(LEN=filename_max) :: gridfile(max_dom)
-
-    gridtype='icon'
-
-    DO jg = 1, n_dom
-
-      jlev = p_patch(jg)%level
-      nlev = p_patch(jg)%nlev
-
-      WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)') &
-        &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-
-      CALL setup_prepicon_vlist( TRIM(p_patch(jg)%grid_filename), jg )
-
-      WRITE (outputfile,'(a,i2.2,a,i0,a,i2.2,a,i0,a)')  &
-        'ICON_initdata_DOM', jg, '_R', nroot, 'B', jlev, 'L', nlev, '.nc'
-
-      IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
-
-    ENDDO
-
-  END SUBROUTINE init_atmo_output_files
-
 
   !-------------
   !>
@@ -1416,1127 +1359,6 @@ MODULE mo_prepicon_utils
     ENDDO ! loop over model domains
 
   END SUBROUTINE deallocate_prepicon
-
-
-  SUBROUTINE setup_prepicon_vlist(grid_filename, k_jg)
-
-    CHARACTER(len=*), INTENT(in) :: grid_filename
-    INTEGER, INTENT(in) :: k_jg
-
-    INTEGER :: ncid, dimid, varid
-    INTEGER :: i_nc, i_ne, i_nv
-    INTEGER :: i_ncb, i_neb, i_nvb
-    INTEGER :: lnlen, ulen
-    INTEGER :: nlev, nlevp1
-
-    REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:), clatv(:)
-    REAL(wp), ALLOCATABLE :: elon(:), elat(:), elonv(:), elatv(:)
-    REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), vlonv(:), vlatv(:)
-
-    REAL(wp), ALLOCATABLE :: levels(:)
-
-    CHARACTER(len=11) :: name
-    CHARACTER(len=NF_MAX_NAME) :: long_name, units
-    INTEGER :: i
-    INTEGER :: ivar
-    INTEGER :: gridid, zaxisid
-
-    INTEGER                    :: astatus
-
-    !=========================================================================
-    ! horizontal grids
-    !
-    CALL nf(nf_open(TRIM(grid_filename), NF_NOWRITE, ncid))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    END SELECT
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
-    !
-    CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    END SELECT
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
-    !
-    i_ncb = global_cell_type*i_nc
-    i_neb = 4*i_ne
-    i_nvb = (9-global_cell_type)*i_nv
-    !
-    ALLOCATE(clon(i_nc), clat(i_nc), clonv(i_ncb), clatv(i_ncb))
-    ALLOCATE(elon(i_ne), elat(i_ne), elonv(i_neb), elatv(i_neb))
-    ALLOCATE(vlon(i_nv), vlat(i_nv), vlonv(i_nvb), vlatv(i_nvb))
-    !
-    !-------------------------------------------------------------------------
-    ! cell grid
-    !
-    gridCellID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nc)
-    CALL gridDefNvertex(gridCellID(k_jg), global_cell_type)
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'clon'
-    CASE (6)
-      name = 'vlon'
-    END SELECT
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, clon))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefXname(gridCellID(k_jg), name)
-    CALL gridDefXvals(gridCellID(k_jg), clon)
-    CALL gridDefXlongname(gridCellID(k_jg), long_name(1:lnlen))
-    CALL gridDefXunits(gridCellID(k_jg), units(1:ulen))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'clat'
-    CASE (6)
-      name = 'vlat'
-    END SELECT
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, clat))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefYname(gridCellID(k_jg), name)
-    CALL gridDefYvals(gridCellID(k_jg), clat)
-    CALL gridDefYlongname(gridCellID(k_jg), long_name(1:lnlen))
-    CALL gridDefYunits(gridCellID(k_jg), units(1:ulen))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    END SELECT
-    CALL nf(nf_get_var_double(ncid, varid, clonv))
-    !
-    CALL gridDefXbounds(gridCellID(k_jg), clonv)
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    END SELECT
-    CALL nf(nf_get_var_double(ncid, varid, clatv))
-    !
-    CALL gridDefYbounds(gridCellID(k_jg), clatv)
-    !
-    !-------------------------------------------------------------------------
-    ! edge grid
-    !
-    gridEdgeID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_ne)
-    CALL gridDefNvertex(gridEdgeID(k_jg), 4)
-    !
-    name = 'elon'
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, elon))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefXname(gridEdgeID(k_jg), name)
-    CALL gridDefXvals(gridEdgeID(k_jg), elon)
-    CALL gridDefXlongname(gridEdgeID(k_jg), long_name(1:lnlen))
-    CALL gridDefXunits(gridEdgeID(k_jg), units(1:ulen))
-    !
-    name = 'elat'
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, elat))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefYname(gridEdgeID(k_jg), name)
-    CALL gridDefYvals(gridEdgeID(k_jg), elat)
-    CALL gridDefYlongname(gridEdgeID(k_jg), long_name(1:lnlen))
-    CALL gridDefYunits(gridEdgeID(k_jg), units(1:ulen))
-    !
-    CALL nf(nf_inq_varid(ncid, 'elon_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elonv))
-    !
-    CALL gridDefXbounds(gridEdgeID(k_jg), elonv)
-    !
-    CALL nf(nf_inq_varid(ncid, 'elat_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elatv))
-    !
-    CALL gridDefYbounds(gridEdgeID(k_jg), elatv)
-    !
-    !-------------------------------------------------------------------------
-    ! vertex grid
-    !
-    gridVertexID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nv)
-    CALL gridDefNvertex(gridVertexID(k_jg), 9-global_cell_type)
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'vlon'
-    CASE (6)
-      name = 'clon'
-    END SELECT
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, vlon))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefXname(gridVertexID(k_jg), name)
-    CALL gridDefXvals(gridVertexID(k_jg), vlon)
-    CALL gridDefXlongname(gridVertexID(k_jg), long_name(1:lnlen))
-    CALL gridDefXunits(gridVertexID(k_jg), units(1:ulen))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'vlat'
-    CASE (6)
-      name = 'clat'
-    END SELECT
-    CALL nf(nf_inq_varid(ncid, name , varid))
-    CALL nf(nf_get_var_double(ncid, varid, vlat))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefYname(gridVertexID(k_jg), name)
-    CALL gridDefYvals(gridVertexID(k_jg), vlat)
-    CALL gridDefYlongname(gridVertexID(k_jg), long_name(1:lnlen))
-    CALL gridDefYunits(gridVertexID(k_jg), units(1:ulen))
-    !
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    ENDIF
-    CALL nf(nf_get_var_double(ncid, varid, vlonv))
-    !
-    CALL gridDefXbounds(gridVertexID(k_jg), vlonv)
-    !
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    ENDIF
-    CALL nf(nf_get_var_double(ncid, varid, vlatv))
-    !
-    CALL gridDefYbounds(gridVertexID(k_jg), vlatv)
-    !
-    !-------------------------------------------------------------------------
-    !
-    DEALLOCATE(clon, clat, clonv, clatv)
-    DEALLOCATE(elon, elat, elonv, elatv)
-    DEALLOCATE(vlon, vlat, vlonv, vlatv)
-    !
-    !=========================================================================
-    ! vertical grids
-    !
-    nlev   = num_lev(k_jg)
-    nlevp1 = num_levp1(k_jg)
-
-    zaxisID_surface(k_jg) = zaxisCreate(ZAXIS_SURFACE, 1)
-    !
-    ALLOCATE(levels(1))
-    levels(1) = 0.0_wp
-    CALL zaxisDefLevels(zaxisID_surface(k_jg), levels)
-    DEALLOCATE(levels)
-    !
-    zaxisID_hybrid(k_jg)  = zaxisCreate(ZAXIS_HYBRID, nlev)
-    zaxisID_hybrid_half(k_jg)  = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
-    !
-    ALLOCATE(levels(nlev))
-    DO i = 1, nlev
-      levels(i) = REAL(i,wp)
-    END DO
-    CALL zaxisDefLevels(zaxisID_hybrid(k_jg), levels)
-    DEALLOCATE(levels)
-    CALL zaxisDefVct(zaxisID_hybrid(k_jg), 2*nlevp1, vct(1:2*nlevp1))
-    !
-    ALLOCATE(levels(nlevp1))
-    DO i = 1, nlevp1
-      levels(i) = REAL(i,wp)
-    END DO
-    CALL zaxisDefLevels(zaxisID_hybrid_half(k_jg), levels)
-    DEALLOCATE(levels)
-    CALL zaxisDefVct(zaxisID_hybrid_half(k_jg), 2*nlevp1, vct(1:2*nlevp1))
-
-   IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
-      zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nzplev)
-      zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzplev)
-      ALLOCATE(levels(nzplev))
-      DO i = 1, nzplev
-        levels(i) = REAL(i,wp)
-      END DO
-      CALL zaxisDefLevels(zaxisID_pres(k_jg), levels)
-      CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
-      DEALLOCATE(levels)
-      CALL zaxisDefVct(zaxisID_pres(k_jg), nzplev, prepicon(k_jg)%plev%levels(1:nzplev))
-      CALL zaxisDefVct(zaxisID_hgt(k_jg),  nzplev, prepicon(k_jg)%zlev%levels(1:nzplev))
-    ENDIF
-
-    !
-    !=========================================================================
-    ! time dimension
-    !
-    taxisID(k_jg) = taxisCreate(TAXIS_ABSOLUTE)
-    !
-    !=========================================================================
-    !
-    vlistID(k_jg) = vlistCreate()
-    !
-    !-------------------------------------------------------------------------
-    ! register time axis
-    !
-    CALL vlistDefTaxis(vlistID(k_jg), taxisID(k_jg))
-    !
-    !-------------------------------------------------------------------------
-    ! global attributes
-    !
-    !
-    ! Parameters of /grid_nml/
-    ! ------------------------
-    CALL addGlobAttInt('nroot',nroot,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('start_lev',start_lev,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('n_dom',n_dom,vlistID(k_jg),astatus)
-    !
-    ! Parameters of /run_nml/
-    ! -----------------------
-    CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
-
-    CALL addGlobAttInt('run_nml:iequations',iequations,vlistID(k_jg),astatus)
- 
-
-    !
-    ! Parameters of /nonhydrostatic_nml/
-    ! ----------------------------
-
-    IF (iequations == 3) THEN
-       CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlistID(k_jg),astatus)
-
-    END IF
-
-
-    !-------------------------------------------------------------------------
-    ! register variables
-    !
-    varids(:,k_jg)   = 0
-    ! initialize total number of varids for domain jg
-    num_varids(k_jg) = 0
-
-
-    CALL addVar(TimeVar('ZF3',&
-    &                   'geopotential height',&
-    &                   'm', 156, 128,&
-    &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-    &          k_jg)
-
-    CALL addVar(TimeVar('ZH3',&
-    &                   'half level height',&
-    &                   'm', 253, 128,&
-    &                    vlistID(k_jg), gridCellID(k_jg), zaxisID_hybrid_half(k_jg)),&
-    &           k_jg)
-
-    CALL addVar(TimeVar('topography_c',&
-    &                   'topogaphy at cell points',&
-    &                   'm', 001, 001,&
-    &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-    &           k_jg)
-
-    CALL addVar(TimeVar('topography_v',&
-    &                   'topography at vertex points',&
-    &                   'm', 001, 001,&
-    &                   vlistID(k_jg), gridVertexID(k_jg),zaxisID_surface(k_jg)),&
-    &           k_jg)
-
-    IF (i_oper_mode >= 2) THEN
-
-      CALL addVar(TimeVar('normal_velocity',&
-      &                   'velocity normal to edge',&
-      &                   'm/s', 254, 128, &
-      &                   vlistID(k_jg), gridEdgeID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('U',&
-      &                   'zonal wind',&
-      &                   'm/s', 131, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('V',&
-      &                   'meridional wind',&
-      &                   'm/s', 132, 128, &
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('W',&
-      &                   'upward air velocity',&
-      &                   'm/s', 40, 2,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('T', &
-      &                   'temperature',&
-      &                   'K',130, 128, &
-      &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('THETA_V', &
-      &                   'virtual potential temperature',&
-      &                   'K',192, 128, &
-      &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('EXNER',&
-      &                   'Exner pressure', &
-      &                   '-', 193, 128, &
-      &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('RHO', &
-      &                   'density', &
-      &                   'kg/m**3', 194, 128,&
-      &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)), &
-      &           k_jg)
-
-      CALL addVar(TimeVar('QV',&
-      &                   'specific humidity',&
-      &                   '(0-1)', 91, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('QC',&
-      &                   'cloud water',&
-      &                   '(0-1)', 92, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('QI',&
-      &                   'cloud ice',&
-      &                   '(0-1)', 93, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('QR',&
-      &                   'rain water',&
-      &                   '(0-1)', 94, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('QS',&
-      &                   'snow',&
-      &                   '(0-1)', 95, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-      &           k_jg)
-
-    ENDIF
-
-    IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN
-
-      CALL addVar(TimeVar('TSN',&
-      &                   'temperature of snow layer',&
-      &                   'K', 238, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSK',&
-      &                   'skin temperature',&
-      &                   'K', 235, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SST',&
-      &                   'sea surface temperature',&
-      &                   'K', 235, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SNWE',&
-      &                   'snow water equivalent',&
-      &                   'm', 141, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SNDENS',&
-      &                   'snow density',&
-      &                   'kg/m**3', 33, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SRC',&
-      &                   'skin reservoir content',&
-      &                   'm', 33, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SEAICE',&
-      &                   'sea-ice cover',&
-      &                   '(0-1)', 33, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('LSM',&
-      &                   'land-sea mask',&
-      &                   '(0-1)', 172, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL1',&
-      &                   'soil temperature level 1',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL2',&
-      &                   'soil temperature level 2',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL3',&
-      &                   'soil temperature level 3',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL4',&
-      &                   'soil temperature level 4',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL5',&
-      &                   'soil temperature level 5',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL6',&
-      &                   'soil temperature level 6',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL7',&
-      &                   'soil temperature level 7',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TSOIL8',&
-      &                   'soil temperature level 8',&
-      &                   'K', 139, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL1',&
-      &                   'soil water content level 1',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL2',&
-      &                   'soil water content level 2',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL3',&
-      &                   'soil water content level 3',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL4',&
-      &                   'soil water content level 4',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL5',&
-      &                   'soil water content level 5',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL6',&
-      &                   'soil water content level 6',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('WSOIL7',&
-      &                   'soil water content level 7',&
-      &                   'm**3/m**3', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-    ENDIF
-
-    IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
-      CALL addVar(TimeVar('UZ',&
-      &                   'zonal wind',&
-      &                   'm/s', 131, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('VZ',&
-      &                   'meridional wind',&
-      &                   'm/s', 132, 128, &
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TZ', &
-      &                   'temperature',&
-      &                   'K',130, 128, &
-      &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('QVZ',&
-      &                   'specific humidity',&
-      &                   '(0-1)', 91, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('PZ',&
-      &                   'pressure',&
-      &                   'Pa', 255, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('UP',&
-      &                   'zonal wind',&
-      &                   'm/s', 131, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('VP',&
-      &                   'meridional wind',&
-      &                   'm/s', 132, 128, &
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('TP', &
-      &                   'temperature',&
-      &                   'K',130, 128, &
-      &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_pres(k_jg)),&
-      &          k_jg)
-
-      CALL addVar(TimeVar('QVP',&
-      &                   'specific humidity',&
-      &                   '(0-1)', 91, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('ZP',&
-      &                   'geopotential height',&
-      &                   'm', 156, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-      &          k_jg)
-
-    ENDIF
-
-    ! Optional output of external parameter fields for the purpose of checking
-    IF (i_oper_mode >= 2 .AND. l_extdata_out) THEN
-
-      CALL addVar(TimeVar('FR_LAND',&
-      &                   'land fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('ICE', 'sea-ice cover fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('PLCOV_MX', 'max. plant cover fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('LAI_MX', 'leaf-area index',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('ROOTDP', 'root depth',&
-      &                   'm', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('RSMIN', 'min. stomata resistance',&
-      &                   's/m', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('FOR_D', 'deciduous forest fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('FOR_E', 'evergreen forest fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('URBAN', 'urban fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('Z0', 'roughness length',&
-      &                   'm', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('NDVI_MAX', 'max. NDVI',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SOILTYP', 'soil type',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('EMIS_RAD', 'lw emissivity',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('T_CL', 'climatological temperature',&
-      &                   'K', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SSO_STDH', 'SSO stdev',&
-      &                   'm', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SSO_THETA', 'SSO angle',&
-      &                   'rad', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SSO_GAMMA', 'SSO anisotropy',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('SSO_SIGMA', 'SSO slope',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('FR_LAKE', 'lake fraction',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('DEPTH_LK', 'lake depth',&
-      &                   '(0-1)', 255, 255,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-
-    ENDIF
-
-
-    CALL nf(nf_close(ncid))
-    !
-    !=========================================================================
-
-    ! Create description of all output variables in vlist
-    num_output_vars(k_jg) = vlistNvars(vlistID(k_jg))
-
-    DO ivar = 1, num_output_vars(k_jg)
-
-      gridid = vlistInqVarGrid(vlistID(k_jg), varids(ivar, k_jg))
-      IF(gridid == gridCellID(k_jg)) THEN
-        outvar_desc(ivar, k_jg)%type = GATHER_C
-      ELSEIF(gridid == gridEdgeID(k_jg)) THEN
-        outvar_desc(ivar, k_jg)%type = GATHER_E
-      ELSEIF(gridid == gridVertexID(k_jg)) THEN
-        outvar_desc(ivar, k_jg)%type = GATHER_V
-      ELSE
-        CALL finish('setup_vlist','got illegal gridid')
-      ENDIF
-
-      zaxisid = vlistInqVarZaxis(vlistID(k_jg), varids(ivar, k_jg))
-      outvar_desc(ivar, k_jg)%nlev = zaxisInqSize(zaxisid)
-
-      CALL vlistInqVarName(vlistID(k_jg), varids(ivar, k_jg), outvar_desc(ivar, k_jg)%name)
-
-    ENDDO
-
-  END SUBROUTINE setup_prepicon_vlist
-
-
-
-  SUBROUTINE write_prepicon_output(datetime, z_sim_time)
-
-    !=========================================================================
-    !> Write output directly: PE 0 gathers and writes, others send
-    !=========================================================================
-
-    TYPE(t_datetime),            INTENT(in) :: datetime
-    REAL(wp), OPTIONAL,          INTENT(in) :: z_sim_time(n_dom)
-    INTEGER :: idate, itime
-    INTEGER :: istatus
-    INTEGER :: jg, ivar, n_tot
-
-    REAL(wp), POINTER :: ptr2(:,:)
-    REAL(wp), POINTER :: ptr3(:,:,:)
-    LOGICAL :: reset, delete
-
-    REAL(wp), ALLOCATABLE :: streamvar1(:), streamvar2(:,:)
-    REAL(wp) :: p_sim_time
-    
-    idate   = cdiEncodeDate(datetime%year, datetime%month, datetime%day)
-    itime   = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
-
-    ! Make streamvar1/streamvar2 defined everywhere
-
-    IF(p_pe /= p_io) ALLOCATE(streamvar1(1), streamvar2(1,1))
-
-    DO jg = 1, n_dom
-
-      IF (PRESENT(z_sim_time)) THEN
-        p_sim_time = z_sim_time(jg)
-      ELSE
-        p_sim_time = 1.0_wp
-      ENDIF
-      
-      IF(p_pe == p_io) THEN
-        CALL taxisDefVdate(taxisID(jg), idate)   ! YYYYMMDD
-        CALL taxisDefVtime(taxisID(jg), itime)   ! HHMM
-
-        istatus = streamDefTimestep(streamID(jg), iostep)
-      ENDIF
-
-      DO ivar = 1, num_output_vars(jg)
-
-        CALL get_outvar_ptr_prepicon &
-          & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
-
-        SELECT CASE(outvar_desc(ivar, jg)%type)
-          CASE (GATHER_C)
-            n_tot = p_patch(jg)%n_patch_cells_g
-          CASE (GATHER_E)
-            n_tot = p_patch(jg)%n_patch_edges_g
-          CASE (GATHER_V)
-            n_tot = p_patch(jg)%n_patch_verts_g
-          CASE DEFAULT
-            CALL finish('write_vlist', 'Illegal type in outvar_desc')
-        END SELECT
-
-        klev = outvar_desc(ivar, jg)%nlev
-
-        ! Pack and output variable
-
-        IF(ASSOCIATED(ptr2)) THEN
-
-          IF(p_pe == p_io) ALLOCATE(streamvar1(n_tot))
-
-          CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
-               &                        streamvar1,outvar_desc(ivar,jg)%name )
-
-          IF(p_pe == p_io) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
-            DEALLOCATE(streamvar1)
-          ENDIF
-          IF(reset) ptr2 = 0._wp
-          IF(delete) DEALLOCATE(ptr2)
-
-        ELSE
-
-          IF(p_pe == p_io) ALLOCATE(streamvar2(n_tot, klev))
-          CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,&
-               &                       streamvar2,outvar_desc(ivar,jg)%name )
-          IF(p_pe == p_io) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
-            DEALLOCATE(streamvar2)
-          ENDIF
-          IF(reset) ptr3 = 0._wp
-          IF(delete) DEALLOCATE(ptr3)
-
-        ENDIF
-
-      ENDDO
-
-      IF(p_pe == p_io) THEN
-        IF (lkeep_in_sync) THEN
-          CALL streamSync(streamID(jg))
-        END IF
-      END IF
-
-    END DO
-
-    IF(p_pe /= p_io) DEALLOCATE(streamvar1, streamvar2)
-
-
-  END SUBROUTINE write_prepicon_output
-
-
-
-  SUBROUTINE close_prepicon_output_files
-
-    INTEGER jg
-
-    DO jg = n_dom, 1, -1
-      IF (p_pe == p_io) CALL close_output_vlist(jg)
-
-      CALL vlistDestroy(vlistID(jg))
-      CALL zaxisDestroy(zaxisID_hybrid(jg))
-      CALL zaxisDestroy(zaxisID_hybrid_half(jg))
-      CALL zaxisDestroy(zaxisID_surface(jg))
-      CALL gridDestroy(gridVertexID(jg))
-      CALL gridDestroy(gridEdgeID(jg))
-      CALL gridDestroy(gridCellID(jg))
-
-      num_output_vars(jg) = 0
-
-    ENDDO
-
-  END SUBROUTINE close_prepicon_output_files
-
-
-  SUBROUTINE get_outvar_ptr_prepicon(varname, jg, ptr2, ptr3, reset, delete)
-
-    CHARACTER(LEN=*), INTENT(IN) :: varname
-    INTEGER, INTENT(IN) :: jg
-    LOGICAL, INTENT(OUT) :: reset, delete
-
-    LOGICAL :: not_found
-
-    REAL(wp), POINTER :: ptr2(:,:)
-    REAL(wp), POINTER :: ptr3(:,:,:)
- 
-
-    ptr2 => NULL()
-    ptr3 => NULL()
-    reset  = .FALSE.
-    delete = .FALSE.
-    not_found = .FALSE.
-
-    SELECT CASE(varname)
-      CASE ('ZF3');             ptr3 => prepicon(jg)%z_mc
-      CASE ('ZH3');             ptr3 => prepicon(jg)%z_ifc
-      CASE ('topography_c');    ptr2 => prepicon(jg)%topography_c
-      CASE ('topography_v');    ptr2 => prepicon(jg)%topography_v
-      CASE ('normal_velocity'); ptr3 => prepicon(jg)%atm%vn
-      CASE ('U');               ptr3 => prepicon(jg)%atm%u
-      CASE ('V');               ptr3 => prepicon(jg)%atm%v
-      CASE ('W');               ptr3 => prepicon(jg)%atm%w
-      CASE ('T');               ptr3 => prepicon(jg)%atm%temp
-      CASE ('THETA_V');         ptr3 => prepicon(jg)%atm%theta_v
-      CASE ('EXNER');           ptr3 => prepicon(jg)%atm%exner
-      CASE ('RHO');             ptr3 => prepicon(jg)%atm%rho
-      CASE ('QV');              ptr3 => prepicon(jg)%atm%qv
-      CASE ('QC');              ptr3 => prepicon(jg)%atm%qc
-      CASE ('QI');              ptr3 => prepicon(jg)%atm%qi
-      CASE ('QR');              ptr3 => prepicon(jg)%atm%qr
-      CASE ('QS');              ptr3 => prepicon(jg)%atm%qs
-
-      CASE ('TSN');             ptr2 => prepicon(jg)%sfc%tsnow
-      CASE ('TSK');             ptr2 => prepicon(jg)%sfc%tskin
-      CASE ('SST');             ptr2 => prepicon(jg)%sfc%sst
-      CASE ('ALBSNOW');         ptr2 => prepicon(jg)%sfc%snowalb
-      CASE ('SNWE');            ptr2 => prepicon(jg)%sfc%snowweq
-      CASE ('SNDENS');          ptr2 => prepicon(jg)%sfc%snowdens
-      CASE ('SRC');             ptr2 => prepicon(jg)%sfc%skinres
-      CASE ('SEAICE');          ptr2 => prepicon(jg)%sfc%seaice
-      CASE ('LSM');             ptr2 => prepicon(jg)%sfc%ls_mask
-      CASE ('TSOIL1');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,1)
-      CASE ('TSOIL2');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,2)
-      CASE ('TSOIL3');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,3)
-      CASE ('TSOIL4');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,4)
-      CASE ('TSOIL5');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,5)
-      CASE ('TSOIL6');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,6)
-      CASE ('TSOIL7');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,7)
-      CASE ('TSOIL8');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,8)
-      CASE ('WSOIL1');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,1)
-      CASE ('WSOIL2');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,2)
-      CASE ('WSOIL3');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,3)
-      CASE ('WSOIL4');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,4)
-      CASE ('WSOIL5');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,5)
-      CASE ('WSOIL6');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,6)
-      CASE ('WSOIL7');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,7)
-
-      CASE ('UP');              ptr3 => prepicon(jg)%plev%u
-      CASE ('VP');              ptr3 => prepicon(jg)%plev%v
-      CASE ('TP');              ptr3 => prepicon(jg)%plev%temp
-      CASE ('ZP');              ptr3 => prepicon(jg)%plev%z3d
-      CASE ('QVP');             ptr3 => prepicon(jg)%plev%qv
-      CASE ('UZ');              ptr3 => prepicon(jg)%zlev%u
-      CASE ('VZ');              ptr3 => prepicon(jg)%zlev%v
-      CASE ('TZ');              ptr3 => prepicon(jg)%zlev%temp
-      CASE ('PZ');              ptr3 => prepicon(jg)%zlev%pres
-      CASE ('QVZ');             ptr3 => prepicon(jg)%zlev%qv
-
-      CASE ('FR_LAND');         ptr2 => ext_data(jg)%atm%fr_land
-      CASE ('ICE');             ptr2 => ext_data(jg)%atm%fr_ice
-      CASE ('PLCOV_MX');        ptr2 => ext_data(jg)%atm%plcov_mx
-      CASE ('LAI_MX');          ptr2 => ext_data(jg)%atm%lai_mx
-      CASE ('ROOTDP');          ptr2 => ext_data(jg)%atm%rootdp
-      CASE ('RSMIN');           ptr2 => ext_data(jg)%atm%rsmin
-      CASE ('FOR_D');           ptr2 => ext_data(jg)%atm%for_d
-      CASE ('FOR_E');           ptr2 => ext_data(jg)%atm%for_e
-      CASE ('URBAN');           ptr2 => ext_data(jg)%atm%urban
-      CASE ('Z0');              ptr2 => ext_data(jg)%atm%z0
-      CASE ('NDVI_MAX');        ptr2 => ext_data(jg)%atm%ndvi_max
-      CASE ('SOILTYP');         ptr2 => dup2(REAL(ext_data(jg)%atm%soiltyp, wp))
-      CASE ('EMIS_RAD');        ptr2 => ext_data(jg)%atm%emis_rad
-      CASE ('T_CL');            ptr2 => ext_data(jg)%atm%t_cl
-      CASE ('SSO_STDH');        ptr2 => ext_data(jg)%atm%sso_stdh
-      CASE ('SSO_THETA');       ptr2 => ext_data(jg)%atm%sso_theta
-      CASE ('SSO_GAMMA');       ptr2 => ext_data(jg)%atm%sso_gamma
-      CASE ('SSO_SIGMA');       ptr2 => ext_data(jg)%atm%sso_sigma
-      CASE ('FR_LAKE');         ptr2 => ext_data(jg)%atm%fr_lake
-      CASE ('DEPTH_LK');        ptr2 => ext_data(jg)%atm%depth_lk
-
-      CASE DEFAULT;             not_found = .TRUE.
-    END SELECT
-
-    IF (not_found) CALL finish('get_outvar_ptr_prepicon', 'Unkown variable type name: '//varname)
-
-  END SUBROUTINE get_outvar_ptr_prepicon
-
-  SUBROUTINE open_output_vlist(vlist_filename, k_jg)
-
-    CHARACTER(len=*), INTENT(in) :: vlist_filename
-    INTEGER, INTENT(in) :: k_jg
-
-    ! Each time a new NetCDF is created, reset "iostep" to zero
-    ! (Otherwise we will get an error message from a CDI subroutine.)
-
-    iostep = 0
-
-    !=========================================================================
-    ! open file for writing (using netCDF)
-    !
-
-    streamID(k_jg) = streamOpenWrite(TRIM(vlist_filename), FILETYPE_NC2)
-    IF (streamID(k_jg) < 0) THEN
-      CALL finish('setup_vlist', cdiStringError(streamID(k_jg)))
-    ENDIF
-    !
-    CALL streamDefVlist(streamID(k_jg), vlistID(k_jg))
-    !
-    !=========================================================================
-
-  END SUBROUTINE open_output_vlist
-
-  !-------------------------------------------------------------------------------------------------
-
-  SUBROUTINE close_output_vlist(k_jg)
-
-    INTEGER, INTENT(in) :: k_jg
-
-    !=========================================================================
-    ! close file
-    !
-    CALL streamClose(streamID(k_jg))
-    !
-    !=========================================================================
-
-  END SUBROUTINE close_output_vlist
-
-  SUBROUTINE addGlobAttInt(att_name, att_int, vlist, astatus)
-    CHARACTER(*), INTENT(IN)  :: att_name
-    INTEGER     , INTENT(IN)  :: att_int, vlist
-    INTEGER     , INTENT(OUT) :: astatus
-
-    astatus = vlistDefAttInt(vlist,CDI_GLOBAL,TRIM(att_name),DATATYPE_INT32,1,att_int)
-  END SUBROUTINE addGlobAttInt
-
-  SUBROUTINE addGlobAttTxt(att_name, att_txt, vlist, astatus)
-    CHARACTER(*), INTENT(IN)  :: att_name, att_txt
-    INTEGER     , INTENT(IN)  :: vlist
-    INTEGER     , INTENT(OUT) :: astatus
-
-    astatus = vlistDefAttTxt(vlist,CDI_GLOBAL,TRIM(att_name),LEN(TRIM(att_txt)),TRIM(att_txt))
-  END SUBROUTINE addGlobAttTxt
-
-  SUBROUTINE addGlobAttTxtFromLog(att_name, boolian, vlist, astatus)
-    CHARACTER(*), INTENT(IN)  :: att_name
-    LOGICAL, INTENT(IN)       :: boolian
-    INTEGER     , INTENT(IN)  :: vlist
-    INTEGER     , INTENT(OUT) :: astatus
-    CALL addGlobAttTxt(att_name, TRIM(MERGE('.true. ','.false.',boolian)), vlist, astatus)
-  END SUBROUTINE addGlobAttTxtFromLog
-
-  SUBROUTINE addGlobAttFlt(att_name, att_flt, vlist, astatus)
-    CHARACTER(*), INTENT(IN)  :: att_name
-    REAL(wp)    , INTENT(IN)  :: att_flt
-    INTEGER     , INTENT(IN)  :: vlist
-    INTEGER     , INTENT(OUT) :: astatus
-
-    astatus = vlistDefAttFlt(vlist,CDI_GLOBAL,TRIM(att_name),DATATYPE_FLT32,1,att_flt)
-  END SUBROUTINE addGlobAttFlt
-
-  SUBROUTINE addVar(var,k_jg)
-    INTEGER, INTENT(IN)    :: var,k_jg
-
-    num_varids(k_jg)              = num_varids(k_jg) + 1
-    varids(num_varids(k_jg),k_jg) = var
-  END SUBROUTINE addVar
-
-  FUNCTION TimeVar(vname,vlongname,vunit,vcode,vtable,vlist,grid,zaxis) RESULT(var)
-    INTEGER                  :: var
-    CHARACTER(*), INTENT(IN) :: vname, vlongname, vunit
-    INTEGER, INTENT(IN)      :: vcode, vtable, vlist, grid, zaxis
-
-    var = vlistdefvar(vlist, grid, zaxis, TIME_VARIABLE)
-    CALL vlistdefvarname(vlist, var, vname)
-    CALL vlistdefvarlongname (vlist, var, vlongname)
-    CALL vlistdefvarunits(vlist, var, vunit)
-    IF ( vcode .gt. 0 ) THEN
-      CALL vlistdefvarcode(vlist, var, vcode)
-    ELSE
-      CALL message('WARNING:TimeVar','Prevent setting negative var code for'//TRIM(vname))
-    END IF
-  END FUNCTION TimeVar
-
-
-  SUBROUTINE nf(status)
-    INTEGER, INTENT(in) :: status
-
-    IF (status /= nf_noerr) THEN
-      CALL finish('mo_io_vlist netCDF error', nf_strerror(status))
-    ENDIF
-
-  END SUBROUTINE nf
-
-  !-------------------------------------------------------------------------------------------------
-  ! dup2: duplicates an array and returns a pointer to the duplicate
-  FUNCTION dup2(arr)
-    REAL(wp), INTENT(IN) :: arr(:,:)
-    REAL(wp), POINTER :: dup2(:,:)
-
-    ALLOCATE(dup2(size(arr,1),size(arr,2)))
-
-    dup2 = arr
-
-  END FUNCTION dup2
 
 END MODULE mo_prepicon_utils
 

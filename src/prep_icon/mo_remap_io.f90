@@ -4,6 +4,7 @@ MODULE mo_remap_io
   USE mo_io_units,           ONLY: nnml
   USE mo_mpi,                ONLY: get_my_mpi_work_id
   USE mo_namelist,           ONLY: POSITIONED, position_nml, open_nml, close_nml
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_netcdf,        ONLY: nf
@@ -115,7 +116,8 @@ CONTAINS
     TYPE (t_file_metadata), INTENT(OUT) :: file_metadata
     INTEGER,                INTENT(IN)  :: rank0
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_grid_interface::open_file')
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+      &       routine = TRIM('mo_grid_interface::open_file')
     INTEGER                     :: ngrids, i, gridID
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
 
@@ -125,7 +127,7 @@ CONTAINS
       SELECT CASE(file_metadata%structure) 
       CASE (GRID_TYPE_ICON)
         IF (dbg_level >= 2)  WRITE (0,*) "# open file '",TRIM(filename),"' (unstructured NetCDF)"
-        CALL nf(nf_open(TRIM(filename), NF_NOWRITE, file_metadata%ncfileID))
+        CALL nf(nf_open(TRIM(filename), NF_NOWRITE, file_metadata%ncfileID), routine)
         file_metadata%structure = GRID_TYPE_ICON
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
@@ -157,11 +159,11 @@ CONTAINS
   SUBROUTINE close_file(file_metadata)
     TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_grid_interface::close_file')
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = TRIM('mo_grid_interface::close_file')
     
     SELECT CASE(file_metadata%structure) 
     CASE (GRID_TYPE_ICON)
-      CALL nf(nf_close(file_metadata%ncfileID))
+      CALL nf(nf_close(file_metadata%ncfileID), routine)
       CALL streamClose(file_metadata%streamID)
     CASE (GRID_TYPE_REGULAR)
       CALL streamClose(file_metadata%streamID)

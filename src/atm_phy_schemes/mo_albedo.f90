@@ -245,9 +245,9 @@ CONTAINS
 
 
           !
-          ! 4. Consider seaice points
+          ! 4. Consider sea-ice points
           !
-          ! - loop over seaice points
+          ! - loop over sea-ice points
           !
           i_count_seaice = ext_data%atm%spi_count(jb)
           jt = isub_seaice

@@ -1587,7 +1587,7 @@ CONTAINS
     LOGICAL :: l_exist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data: inquire_external_files'
+      routine = 'mo_ext_data:inquire_external_files'
 
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
@@ -1623,23 +1623,23 @@ CONTAINS
           !
           ! open file
           !
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
           !
           ! get number of cells and vertices
           !
-          CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+          CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
           IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
           ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
           ENDIF
 
-          CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+          CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
           IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
           ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
           ENDIF
 
           !
@@ -1657,13 +1657,13 @@ CONTAINS
           !
           ! get the number of landuse classes
           !
-          CALL nf(nf_inq_dimid (ncid, 'nclass_lu', dimid))
-          CALL nf(nf_inq_dimlen(ncid, dimid, nclass_lu(jg)))
+          CALL nf(nf_inq_dimid (ncid, 'nclass_lu', dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, nclass_lu(jg)), routine)
 
 
           ! get time dimension from external data file
-          CALL nf(nf_inq_dimid (ncid, 'time', dimid))
-          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths_ext(jg)))
+          CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths_ext(jg)), routine)
 
           WRITE(message_text,'(A,I4)')  &
             & 'Number of months in external data file = ', &
@@ -1673,7 +1673,7 @@ CONTAINS
           !
           ! close file
           !
-          CALL nf(nf_close(ncid))
+          CALL nf(nf_close(ncid), routine)
 
         ENDIF ! my_process_is_stdio()
 
@@ -1731,7 +1731,7 @@ CONTAINS
           !
           ! open file
           !
-          CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid), routine)
 
           WRITE(0,*)'open ozone file'
           ! get number of cells in triangles and hexagons
@@ -1739,8 +1739,8 @@ CONTAINS
 
           !triangles
           IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid), routine)
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
   
             WRITE(0,*)'number of cells are', no_cells
           !
@@ -1754,8 +1754,8 @@ CONTAINS
        
           !hexagons
           IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid), routine)
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
             WRITE(0,*)'number of hexcells_o3 are', no_cells
             WRITE(0,*)'number of hexverts are', p_patch(jg)%n_patch_verts_g
@@ -1771,8 +1771,8 @@ CONTAINS
           ENDIF
 
           ! check the time structure
-          CALL nf(nf_inq_dimid (ncid, 'time', dimid))
-          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
+          CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths), routine)
 
           WRITE(message_text,'(A,I4)')  &
             & 'Number of months in ozone file = ', &
@@ -1784,16 +1784,16 @@ CONTAINS
 !          SELECT CASE (iequations)
 !          CASE(ihs_atm_temp,ihs_atm_theta)
 
-            CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
+            CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid), routine)
+            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3), routine)
 
             WRITE(message_text,'(A,I4)')  &
               & 'Number of pressure levels in ozone file = ', nlev_o3
             CALL message(TRIM(ROUTINE),message_text)
 
 !          CASE(inh_atmosphere)
-!            CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid))
-!            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
+!            CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid), routine)
+!            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3), routine)
 !            WRITE(message_text,'(A,I4)')  &
 !              & 'Number of height levels in ozone file = ', nlev_o3
 !            CALL message(TRIM(ROUTINE),message_text)
@@ -1802,7 +1802,7 @@ CONTAINS
           !
           ! close file
           !
-          CALL nf(nf_close(ncid))
+          CALL nf(nf_close(ncid), routine)
 
         END IF IF_IO ! pe
 
@@ -1927,7 +1927,7 @@ CONTAINS
       i_lev = p_patch(jg)%level
 
       IF(my_process_is_stdio()) &
-        CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid))
+        CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
 
       IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
@@ -1947,9 +1947,9 @@ CONTAINS
 
       ENDIF
 
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
-      IF(my_process_is_stdio()) CALL nf(nf_open('sst.nc', NF_NOWRITE, ncid))
+      IF(my_process_is_stdio()) CALL nf(nf_open('sst.nc', NF_NOWRITE, ncid), routine)
 
       IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid      
 
@@ -1959,9 +1959,9 @@ CONTAINS
 
       END IF
 
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
-      IF(my_process_is_stdio()) CALL nf(nf_open('sst_mon.nc', NF_NOWRITE, ncid))
+      IF(my_process_is_stdio()) CALL nf(nf_open('sst_mon.nc', NF_NOWRITE, ncid), routine)
 
       IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid      
 
@@ -1971,7 +1971,7 @@ CONTAINS
 
       END IF
 
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
       IF(my_process_is_stdio()) THEN
         !
@@ -1980,8 +1980,8 @@ CONTAINS
           &                             model_base_dir,                   &
           &                             TRIM(p_patch(jg)%grid_filename))
 
-        CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
-!!$ TR        CALL nf(nf_open('/pf/m/m212070/jsbach_R2B04_v1.nc', NF_NOWRITE, ncid))
+        CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
+!!$ TR      CALL nf(nf_open('/pf/m/m212070/jsbach_R2B04_v1.nc', NF_NOWRITE, ncid), routine)
       END IF
 
       IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
@@ -2007,7 +2007,7 @@ CONTAINS
           &                     ext_data(jg)%atm%forest_fract)
       ENDIF
 
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
     END DO
     END IF
@@ -2024,10 +2024,10 @@ CONTAINS
           extpar_file = generate_filename(extpar_filename,                  &
             &                             model_base_dir,                   &
             &                             TRIM(p_patch(jg)%grid_filename))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
           ! Check which data source has been used to generate the external perameters
-          CALL nf(nf_get_att_text(ncid, nf_global, 'rawdata', rawdata_attr))
+          CALL nf(nf_get_att_text(ncid, nf_global, 'rawdata', rawdata_attr), routine)
 
           IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
             i_lctype(jg) = 1
@@ -2337,7 +2337,7 @@ CONTAINS
         !
         ! close file
         !
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
       ENDDO  ! jg
 
@@ -2362,18 +2362,18 @@ CONTAINS
           ! open file
           !
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
-          CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+          CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid), routine)
           WRITE(0,*)'read ozone levels'
 
           !          SELECT CASE (iequations)
           !          CASE(ihs_atm_temp,ihs_atm_theta)
 
-          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
-          CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid), routine)
+          CALL nf(nf_get_var_double(ncid, varid, zdummy_o3lev(:)), routine)
 
           !          CASE(inh_atmosphere)
-          !            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
-          !            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+          !            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid), routine)
+          !            CALL nf(nf_get_var_double(ncid, varid, zdummy_o3lev(:)), routine)
           !          END SELECT
 
           !
@@ -2442,7 +2442,7 @@ CONTAINS
           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
 
         ! close file
-        IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+        IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
       ENDDO ! ndom
     END IF ! irad_o3
@@ -2534,23 +2534,23 @@ CONTAINS
       !
       ! open file
       !
-      CALL nf(nf_open(TRIM(grid_file), NF_NOWRITE, ncid))
+      CALL nf(nf_open(TRIM(grid_file), NF_NOWRITE, ncid), routine)
 
       !
       ! get number of cells and vertices
       !
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+      CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
       IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
       ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
       ENDIF
 
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
       IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
       ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
       ENDIF
 
       !
@@ -2608,7 +2608,7 @@ CONTAINS
     !
     ! close file
     !
-    IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+    IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
     !ENDDO ! jg
 
@@ -2644,15 +2644,15 @@ CONTAINS
         !
         ! open file
         !
-        CALL nf(nf_open(TRIM(omip_file), NF_NOWRITE, ncid))
+        CALL nf(nf_open(TRIM(omip_file), NF_NOWRITE, ncid), routine)
         CALL message( TRIM(routine),'Ocean OMIP flux file opened for read' )
 
         !
         ! get and check number of cells in OMIP data
         !
-     !  CALL nf(nf_inq_dimid(ncid, 'cell', dimid))  !  workaround for r2b2 omip.daily
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+     !  CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)  !  workaround for r2b2 omip.daily
+        CALL nf(nf_inq_dimid (ncid, 'ncells', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
         IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
@@ -2662,8 +2662,8 @@ CONTAINS
         !
         ! get number of timesteps
         !
-        CALL nf(nf_inq_dimid(ncid, 'time', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst))
+        CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst), routine)
         !
         ! check
         !
@@ -2837,7 +2837,7 @@ CONTAINS
       !
       ! close file
       !
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+      IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
     !ENDDO
 

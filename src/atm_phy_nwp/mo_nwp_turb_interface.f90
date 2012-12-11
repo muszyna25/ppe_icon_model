@@ -347,7 +347,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             jt1 = isub_water   !ntiles_total + 1
             i_count = ext_data%atm%fp_count(jb)
             ilist => ext_data%atm%idx_lst_fp(:,jb)
-            ! depth_lk_t(:) = ...
+            ! depth_lk_t(:) = 1._wp ! prelim. implementation. Only needed for checking whether 
+                                    ! this is a lake point or not
             ! h_ice_t(:) = ...
           ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
             jt1 = isub_seaice    !ntiles_total + 2

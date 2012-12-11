@@ -76,13 +76,16 @@ MODULE mo_prepicon_old
   ! USE statements referring directly to prep_icon
   !
   USE mo_time_config,           ONLY: time_config 
-  USE mo_prepicon_utils,        ONLY: init_prepicon, prepicon, write_prepicon_output, &
-    & compute_coord_fields, init_topo_output_files, close_prepicon_output_files,      &
-    & convert_variables, init_atmo_output_files, deallocate_prepicon
+  USE mo_prepicon_utils,        ONLY: init_prepicon, prepicon, &
+    & compute_coord_fields, convert_variables, deallocate_prepicon
+!DR removed close_prepicon_output_files,
+!DR removed write_prepicon_output,
+!DR removed init_topo_output_files, 
+!DR removed init_atmo_output_files,
 
   USE mo_prepicon_config,       ONLY: i_oper_mode, l_zp_out
-  USE mo_nh_vert_interp,        ONLY: vertical_interpolation,                         &
-    &                                 intp_to_p_and_z_levels_prepicon
+  USE mo_nh_vert_interp,        ONLY: vertical_interpolation
+!DR removed    &                                 intp_to_p_and_z_levels_prepicon
 
   IMPLICIT NONE
 
@@ -289,10 +292,11 @@ CONTAINS
       CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
     ENDIF
 
-    IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
-      ! Interpolate prognostic variables to pressure and height levels for diagnostic output
-      CALL intp_to_p_and_z_levels_prepicon(p_patch(1:), prepicon)
-    ENDIF
+!DR removed
+!!$    IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
+!!$      ! Interpolate prognostic variables to pressure and height levels for diagnostic output
+!!$      CALL intp_to_p_and_z_levels_prepicon(p_patch(1:), prepicon)
+!!$    ENDIF
 
     !------------------------------------------------------------------
     ! Write output
@@ -300,15 +304,15 @@ CONTAINS
 
     IF (i_oper_mode == 1) THEN
 
-      CALL init_topo_output_files
-      CALL write_prepicon_output( time_config%ini_datetime )
-      CALL close_prepicon_output_files
+!DR removed      CALL init_topo_output_files
+!DR removed      CALL write_prepicon_output( time_config%ini_datetime )
+!DR removed      CALL close_prepicon_output_files
 
     ELSE
 
-      CALL init_atmo_output_files
-      CALL write_prepicon_output( time_config%ini_datetime )
-      CALL close_prepicon_output_files
+!DR removed      CALL init_atmo_output_files
+!DR removed      CALL write_prepicon_output( time_config%ini_datetime )
+!DR removed      CALL close_prepicon_output_files
 
     ENDIF
 

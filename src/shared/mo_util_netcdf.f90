@@ -43,7 +43,8 @@
 MODULE mo_util_netcdf
 
   USE mo_kind,               ONLY: wp, sp
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: message, finish, em_warn
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
@@ -51,7 +52,6 @@ MODULE mo_util_netcdf
 
   IMPLICIT NONE
 
-  ! required for testing/reading topography
   INCLUDE 'netcdf.inc'
 
 
@@ -103,12 +103,15 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:)
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_2d'
+
     INTEGER :: varid, mpi_comm, j, jl, jb
     REAL(wp):: z_dummy_array(glb_arr_len)!< local dummy array
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -118,7 +121,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:) = 0._wp
@@ -157,12 +160,15 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: &          !< output field
       &  var_out(:,:)
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_2d_int'
+
     INTEGER :: varid, mpi_comm, j, jl, jb
     INTEGER :: z_dummy_array(glb_arr_len)!< local dummy array
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -172,7 +178,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF( my_process_is_stdio()) CALL nf(nf_get_var_int(ncid, varid, z_dummy_array(:)))
+    IF( my_process_is_stdio()) CALL nf(nf_get_var_int(ncid, varid, z_dummy_array(:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:) = 0
@@ -215,12 +221,15 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_3d'
+
     INTEGER :: varid, mpi_comm, j, jl, jb, jk
     REAL(wp):: z_dummy_array(glb_arr_len,nlevs)!< local dummy array
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -230,7 +239,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -273,12 +282,15 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_3d_single'
+
     INTEGER :: varid, mpi_comm, j, jl, jb, jk
     REAL(sp):: z_dummy_array(glb_arr_len,nlevs)!< SINGLE PRECISION local array
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -288,7 +300,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_real(ncid, varid, z_dummy_array(:,:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_real(ncid, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -325,12 +337,15 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_aero'
+
     INTEGER :: varid, mpi_comm, j, jl, jb, jt
     REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -341,7 +356,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -383,6 +398,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_lu'
+
     INTEGER :: varid, mpi_comm, j, jl, jb, js
     REAL(wp):: z_dummy_array(glb_arr_len, nslice)!< local dummy array
 
@@ -390,7 +408,7 @@ CONTAINS
 
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -402,7 +420,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -449,13 +467,16 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:,:)                !< dimensions: nproma, nlevs, nblks, ntime
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_4d'
+
     INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
     REAL(wp):: z_dummy_array(glb_arr_len,nlevs,ntime)!< local dummy array
     
     !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -466,7 +487,7 @@ CONTAINS
     ! I/O PE reads and broadcasts data
 
     write(0,*) ' ncep set ',varname,': begin of read - whole time array'
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:,:) = 0._wp
@@ -515,13 +536,16 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)                  !< dimensions: nproma, nblks, ntime
 
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_util_netcdf:read_netcdf_time'
+
     INTEGER :: varid, mpi_comm, j, jl, jb, jt
     REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
 
     !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -537,7 +561,7 @@ CONTAINS
     !write(0,*) ' nstart, ncount: ',nstart, ncount
 
     IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(ncid, varid, &
-      &                               nstart(:), ncount(:), z_dummy_array(:,:)))
+      &                               nstart(:), ncount(:), z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:) = 0.0_wp
@@ -565,14 +589,32 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE nf(status)
+  SUBROUTINE nf(STATUS, routine, warnonly, silent)
+    
+    INTEGER, INTENT(in)           :: STATUS
+    CHARACTER(len=MAX_CHAR_LENGTH), INTENT(in) :: routine
+    LOGICAL, INTENT(in), OPTIONAL :: warnonly
+    LOGICAL, INTENT(in), OPTIONAL :: silent
+    
+    LOGICAL :: lwarnonly, lsilent
+    
+    lwarnonly = .FALSE.
+    lsilent   = .FALSE.
+    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
+    IF(PRESENT(silent))   lsilent   = silent
+    
+    IF (lsilent) RETURN
 
-    INTEGER, INTENT(in) :: status
 
-    IF (status /= nf_noerr) THEN
-      CALL finish('mo_ext_data netCDF error', nf_strerror(status))
+    IF (STATUS /= nf_noerr) THEN
+      IF (lwarnonly) THEN
+        CALL message( TRIM(routine)//' netCDF error', nf_strerror(STATUS), &
+          & level=em_warn)
+      ELSE
+        CALL finish( TRIM(routine)//' netCDF error', nf_strerror(STATUS))
+      ENDIF
     ENDIF
-
+    
   END SUBROUTINE nf
 
 
