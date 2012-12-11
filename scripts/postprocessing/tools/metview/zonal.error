@@ -1,6 +1,14 @@
 # Metview Macro: ICON errors
 # 
-# run as: metview -b zonal.error 22 CLC ml diff 20110101 00 20110103 00 2 R2B04
+# run as: metview -b zonal.error dei2_005 T ml diff 20110101 00 20110103 00 2 R2B04
+#
+# export PLOTDIR=metplots
+# export DATAFILE=grb_data/dei2_005_
+# export YYYYMM=201201
+# export LMONTH=0
+# export TAILFILE=.grb
+# export LMONTH=1
+# export TAILFILE=_0_24_mn2-31.grb   or  _0_240_mn11-31.grb
 #
 # Koehler Martin, August 2011
 #-----------------------------------------------------------------------
@@ -282,7 +290,8 @@ level_count = 12
 maxi = -1e10
 mini =  1e10
 sqr  = 0
-for k = 1 to nlev do
+#for k = 1 to nlev do
+for k = 10 to nlev do
   ave  = average_ew(var_data[k], [90,-180,-90,180], 2.0)
   maxi = max(maxi,maxvalue(ave))
   mini = min(mini,minvalue(ave))
@@ -419,40 +428,59 @@ print('output: ',plotfile,'.*')
 function build_layout()
 
     #PageDescription  
-    CartesianView = cartesianview(  
-    		MAP_PROJECTION              : "cartesian", 
-    		X_AXIS_TYPE                 : "regular", 
-    		X_AUTOMATIC                 : "ON", 
-    		X_MIN                       : 0, 
-    		X_MAX                       : 100, 
-    		Y_AXIS_TYPE                 : "regular", 
-    		Y_AUTOMATIC                 : "ON", 
-    		Y_MIN                       : 1000, 
-    		Y_MAX                       : 0, 
-    		SUBPAGE_X_POSITION          : 5, 
-    		SUBPAGE_Y_POSITION          : 12, 
-    		SUBPAGE_X_LENGTH            : 90, 
-    		SUBPAGE_Y_LENGTH            : 90, 
-    		PAGE_FRAME                  : "ON", 
-    		PAGE_FRAME_COLOUR           : "BLUE", 
-    		PAGE_FRAME_LINE_STYLE       : "SOLID", 
-    		PAGE_FRAME_THICKNESS        : 2, 
-    		PAGE_ID_LINE                : "OFF", 
-    		PAGE_ID_LINE_TYPE           : "BOTH", 
-    		PAGE_ID_LINE_COLOUR         : "BLUE", 
-    		PAGE_ID_LINE_SYSTEM_PLOT    : "OFF", 
-    		PAGE_ID_LINE_DATE_PLOT      : "OFF", 
-    		PAGE_ID_LINE_USER_TEXT_PLOT : "ON", 
-    		PAGE_ID_LINE_ERRORS_PLOT    : "OFF", 
-    		PAGE_ID_LINE_LOGO_PLOT      : "OFF", 
-    		PAGE_ID_LINE_HEIGHT         : 0.25, 
-    		PAGE_ID_LINE_QUALITY        : "MEDIUM", 
-    		SUBPAGE_FRAME               : "ON", 
-    		SUBPAGE_FRAME_COLOUR        : "BLACK", 
-    		SUBPAGE_FRAME_LINE_STYLE    : "SOLID", 
-    		SUBPAGE_FRAME_THICKNESS     : 2, 
-    		SUBPAGE_BACKGROUND_COLOUR   : "WHITE" 
-    	) 
+    axis_plotting = maxis(
+        axis_title                :    "on",
+        axis_title_text           :    "Latitude",
+        axis_title_height         :    1.2,
+        axis_tick_label_height    :    1.5,
+        axis_minor_tick           :    "on"
+        )
+
+
+     CartesianView = cartesianview(       )
+
+#     CartesianView = cartesianview(
+#         horizontal_axis    :     axis_plotting,
+#         vertical_axis      :     axis_plotting,
+#         Y_AUTOMATIC                 : "OFF",
+#         X_AUTOMATIC                 : "OFF" 
+#         )
+
+#     CartesianView = cartesianview(  
+#     		MAP_PROJECTION              : "cartesian", 
+#     		X_AXIS_TYPE                 : "regular", 
+#     		X_AUTOMATIC                 : "ON", 
+#     		X_MIN                       : 0, 
+#     		X_MAX                       : 100, 
+#     		Y_AXIS_TYPE                 : "regular", 
+#     		Y_AUTOMATIC                 : "ON", 
+#     		Y_MIN                       : 1000, 
+#     		Y_MAX                       : 0, 
+#     		SUBPAGE_X_POSITION          : 5, 
+#     		SUBPAGE_Y_POSITION          : 12, 
+#     		SUBPAGE_X_LENGTH            : 90, 
+#     		SUBPAGE_Y_LENGTH            : 90, 
+#     		PAGE_FRAME                  : "ON", 
+#     		PAGE_FRAME_COLOUR           : "BLUE", 
+#     		PAGE_FRAME_LINE_STYLE       : "SOLID", 
+#     		PAGE_FRAME_THICKNESS        : 2, 
+#     		PAGE_ID_LINE                : "OFF", 
+#     		PAGE_ID_LINE_TYPE           : "BOTH", 
+#     		PAGE_ID_LINE_COLOUR         : "BLUE", 
+#     		PAGE_ID_LINE_SYSTEM_PLOT    : "OFF", 
+#     		PAGE_ID_LINE_DATE_PLOT      : "OFF", 
+#     		PAGE_ID_LINE_USER_TEXT_PLOT : "ON", 
+#     		PAGE_ID_LINE_ERRORS_PLOT    : "OFF", 
+#     		PAGE_ID_LINE_LOGO_PLOT      : "OFF", 
+#     		PAGE_ID_LINE_HEIGHT         : 0.25, 
+#     		PAGE_ID_LINE_QUALITY        : "MEDIUM", 
+#     		SUBPAGE_FRAME               : "ON", 
+#     		SUBPAGE_FRAME_COLOUR        : "BLACK", 
+#     		SUBPAGE_FRAME_LINE_STYLE    : "SOLID", 
+#     		SUBPAGE_FRAME_THICKNESS     : 2, 
+#     		SUBPAGE_BACKGROUND_COLOUR   : "WHITE"
+#     	)
+
     Page = plot_page(  
     		TOP        : 5, 
     		BOTTOM     : 100, 

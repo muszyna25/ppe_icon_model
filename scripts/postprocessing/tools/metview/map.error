@@ -1,6 +1,14 @@
 # Metview Macro: ICON errors
 # 
-# run as: metview -b map.error 22 CC ml diff 20110101 00 20110103 00 2 R2B04
+# run as: metview -b map.error dei2_005 T ml diff 20110101 00 20110103 00 2 R2B04
+#
+# export PLOTDIR=metplots
+# export DATAFILE=grb_data/dei2_005_
+# export YYYYMM=201201
+# export LMONTH=0
+# export TAILFILE=.grb
+# export LMONTH=1
+# export TAILFILE=_0_24_mn2-31.grb   or  _0_240_mn11-31.grb
 #
 # Koehler Martin, August 2011
 #-----------------------------------------------------------------------
@@ -54,6 +62,7 @@ yyyymm   = getenv("YYYYMM")
 #plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
 firstinidate = inidate
 
+grid     = [2,2]
 expres  = 'NWP.'&exphres&'L90'
 
 varfile  = varname
@@ -185,6 +194,7 @@ for nd=1 to ndays do
   if stat <> 'ctr' then
     temp = read(
                 SOURCE   : source_ini_icon,
+                grid     : grid,
 #               param    : varname,
 #               levtype  : levtype,
   		date     : inidate,
@@ -197,6 +207,7 @@ for nd=1 to ndays do
        varname = 'RAIN_GSP'  or varname = 'SNOW_CON'  or varname = 'SNOW_GSP' then 
       temp_24h = read(
                 SOURCE   : source_ini_icon,
+                grid     : grid,
   	       #date     : inidate,         #attention: date maybe 1 day off in monthly means?
   		time     : initime,
                 step     : step-24
@@ -242,6 +253,7 @@ for nd=1 to ndays do
         end case
         temp = read(  
                 SOURCE   : source_pl_ifs,
+                grid     : grid,  
                 param    : param,
                 date     : verdate,
   		time     : vertime
@@ -285,6 +297,7 @@ for nd=1 to ndays do
         end if
         temp = read(  
   		SOURCE   : source_sfc_ifs,
+                grid     : grid,  
   		param    : param,
   		time     : vertime,
                 date     : date_sfc,
@@ -300,6 +313,7 @@ for nd=1 to ndays do
         end case
         temp = read(  
   		SOURCE   : source_ver_icon, 
+                grid     : grid,  
 #               param    : varname,
 #               levtype  : levtype,
    		date     : verdate,
