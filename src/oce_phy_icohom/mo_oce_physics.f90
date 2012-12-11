@@ -183,9 +183,11 @@ CONTAINS
       CASE(1)!use uniform viscosity coefficient from namelist
         CALL calc_lower_bound_veloc_diff(  ppatch, z_lower_bound_diff )
         IF(z_lower_bound_diff>p_phys_param%K_veloc_h_back)THEN
+          ! SX9 cannot handle messages of that size -> split
           CALL message ('init_ho_params','WARNING: Specified diffusivity&
-                        & does not satisfy Munk criterion. This may lead&
-                        &to stability problems for experiments with lateral boundaries')
+                        & does not satisfy Munk criterion.')
+          CALL message ('init_ho_params','WARNING: This may lead&
+                        & to stability problems for experiments with lateral boundaries')
         ENDIF
 
         p_phys_param%K_veloc_h(:,:,:) = p_phys_param%K_veloc_h_back
