@@ -221,7 +221,6 @@ cat > ${atmo_namelist} << EOF
                      -20.00,-120.00, 'Tropical Ocean cumumulus',
                      -20.00, -85.00, 'Tropical Ocean IMET strcu',
                       60.00,  80.00, 'Snow Test Russia',
-                      51.97,   4.93, 'Cabauw',
                       46.81,   6.94, 'Payerne',
                       67.36,  26.64, 'Sodankyla',
 /
