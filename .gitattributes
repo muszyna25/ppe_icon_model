@@ -641,6 +641,7 @@ run/exp.nh_dcmip_gw_31_R2B4L10 -text
 run/exp.nh_dcmip_gw_32_R2B4L10 -text
 run/exp.nh_dcmip_tc_52_r2b4 -text
 run/exp.nh_dcmip_tc_52_r5b4 -text
+run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
 run/exp.oce_base -text
 run/exp.oce_channel -text
