@@ -465,7 +465,7 @@ CONTAINS
            &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)-tmelt) + &
            &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)-tmelt)
 
-       END IF
+      END IF
 
       IF (irelax_2d_S == 2 .AND. no_tracer >1) THEN
 
@@ -533,16 +533,6 @@ CONTAINS
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         !  done in mo_sea_ice:upper_ocean_TS
 
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        !---------------------------------------------------------------------
-
       ELSE   !  no sea ice
 
         ! bulk formula applied to boundary forcing for ocean model:
@@ -572,19 +562,19 @@ CONTAINS
             p_os%p_prog(nold(1))%tracer(:,1,:,1) = Tf
           ENDWHERE
 
-          !---------DEBUG DIAGNOSTICS-------------------------------------------
-          idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
-          idt_src=2  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-          !---------------------------------------------------------------------
-
         ENDIF
 
       ENDIF  !  sea ice
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
+      idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     CASE (FORCING_FROM_FILE_FIELD)                                    !  13
       ! 1) Read field data from file
