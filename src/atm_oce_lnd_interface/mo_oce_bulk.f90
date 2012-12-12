@@ -566,6 +566,12 @@ CONTAINS
 
       ENDIF  !  sea ice
 
+      ! for diagnosis and output
+      p_sfc_flx%forc_swflx(:,:) = Qatm%SWin   (:,:)
+      p_sfc_flx%forc_lwflx(:,:) = Qatm%LWnet  (:,1,:)
+      p_sfc_flx%forc_ssflx(:,:) = Qatm%sens   (:,1,:)
+      p_sfc_flx%forc_slflx(:,:) = Qatm%lat    (:,1,:)
+
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
