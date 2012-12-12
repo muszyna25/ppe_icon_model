@@ -27,7 +27,7 @@ echo "dir = " $dir " iFile = " $iFile
 #oType="png" !doesn't work on AIX (NCL 5.2.1)
 oType="eps"
 
-set -A iStation 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+set -A iStation 1 2 3 4 5 6 7 8 9 10 11 12 13 14
 
 set -A varNameSfc \
   P_SFC    PL_Cov   LA_Ind   RO_Dept  Z0       qv_s     w_i      w_snow   \
