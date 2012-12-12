@@ -1333,6 +1333,13 @@ CONTAINS
       &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+ &
       &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
+
+    ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
+    p_sfc_flx%forc_swflx(:,:) = QatmAve%SWin(:,:)*(1.0_wp-albedoW)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%forc_lwflx(:,:) = QatmAve%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%forc_ssflx(:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%forc_slflx(:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+
     ! Change temperature of upper ocean grid cell according to heat fluxes
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
     !  &                                    + dtime*(heatOceI + heatOceW) /               &

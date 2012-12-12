@@ -526,12 +526,30 @@ CONTAINS
         Qatm%counter = 2
         p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
         p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
+
+        ! (#slo# 2012-12):
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        ! diagnosis of 4 parts is stored in p_sfc_flx%forc_swflx/lwflx/ssflx/slflx
+        ! this diagnosis is done in mo_sea_ice:upper_ocean_TS
+        ! 
+        ! under ice the conductive heat flux is not yet stored specifically
+        ! the sum forc_hflx is aggregated and stored accordingly which cannot be done here
+
+        ! ATTENTION
+        !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
+        !   this should be done by the coupler if ice_fast is moved to the atmosphere
+
+        WHERE (v_base%lsm_oce_c(:,1,:) > sea_boundary )
+          p_sfc_flx%forc_hflx (:,:) = 0.0_wp
+          p_sfc_flx%forc_swflx(:,:) = 0.0_wp
+          p_sfc_flx%forc_lwflx(:,:) = 0.0_wp
+          p_sfc_flx%forc_ssflx(:,:) = 0.0_wp
+          p_sfc_flx%forc_slflx(:,:) = 0.0_wp
+        END WHERE
+
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
         ! transform ice mask from logical to real for saving it to the restart file
         CALL prepare4restart(p_ice)
-
-        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
-        !  done in mo_sea_ice:upper_ocean_TS
 
       ELSE   !  no sea ice
 
@@ -549,11 +567,24 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
+
+              IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+                p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWin  (jc,jb) * (1.0_wp-albedoW) ! Incoming SW radiation flux
+                p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb)                    ! net LW radiation flux over water
+                p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb)                    ! Sensible heat flux over water
+                p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb)                    ! Latent heat flux over water
+              ELSE
+                p_sfc_flx%forc_swflx(jc,jb) = 0.0_wp
+                p_sfc_flx%forc_lwflx(jc,jb) = 0.0_wp
+                p_sfc_flx%forc_ssflx(jc,jb) = 0.0_wp
+                p_sfc_flx%forc_slflx(jc,jb) = 0.0_wp
+              END IF
          
-              p_sfc_flx%forc_hflx(jc,jb)                 &
-              & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
-              & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-              & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
+       !      p_sfc_flx%forc_hflx(jc,jb)                 &
+       !      & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
+       !      & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
+       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
+
             ENDDO
           ENDDO
 
@@ -562,23 +593,21 @@ CONTAINS
             p_os%p_prog(nold(1))%tracer(:,1,:,1) = Tf
           ENDWHERE
 
+          ! sum of fluxes for ocean boundary condition
+          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
+            &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
+
         ENDIF
 
       ENDIF  !  sea ice
 
-      ! for diagnosis and output
-      p_sfc_flx%forc_swflx(:,:) = Qatm%SWin   (:,:)
-      p_sfc_flx%forc_lwflx(:,:) = Qatm%LWnet  (:,1,:)
-      p_sfc_flx%forc_ssflx(:,:) = Qatm%sens   (:,1,:)
-      p_sfc_flx%forc_slflx(:,:) = Qatm%lat    (:,1,:)
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
       idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: Bulk SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
+      idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
       !---------------------------------------------------------------------
 
