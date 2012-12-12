@@ -1016,6 +1016,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ! 5a. QR-factorization of design matrix A
     !
     IF (.NOT. advection_config(pid)%llsq_svd) THEN
+!CDIR NOIEXPAND
     CALL qrdec(lsq_dim_c, lsq_dim_unk, i_startidx, & ! in
      &         i_endidx, z_lsq_mat_c,              & ! in
      &         z_qmat, z_rmat)                       ! out
