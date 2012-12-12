@@ -499,7 +499,7 @@ CONTAINS
     
       DO x=0, x_no_of_columns-1
         x_lon_ref        = x_lon_row_starts + REAL(x,wp) * x_lon_step        
-        x_ref            = x_row_starts + REAL(x,wp) * x_lon_step
+        x_ref            = x_row_starts + REAL(x,wp) * x_step
 
         ! for vertices
         index_no=vertex_index(x,y)
@@ -657,6 +657,7 @@ CONTAINS
         WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%edges%center(index_no)%lat
         WRITE(*,*) TRIM(message_text)
+        WRITE(*,*) "edge center cartesian coord:", torus_grid%edges%cartesian_center(index_no)%x
         WRITE(message_text,*) 'verts', &
           (torus_grid%edges%get_vertex_index(index_no,i),i=1,2)
         WRITE(*,*) TRIM(message_text)
@@ -675,6 +676,7 @@ CONTAINS
         WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%edges%center(index_no)%lat
         WRITE(*,*) TRIM(message_text)
+        WRITE(*,*) "edge center cartesian coord:", torus_grid%edges%cartesian_center(index_no)%x
         WRITE(message_text,*) 'verts', &
           (torus_grid%edges%get_vertex_index(index_no,i),i=1,2)
         WRITE(*,*) TRIM(message_text)
@@ -692,6 +694,7 @@ CONTAINS
         WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%edges%center(index_no)%lat
         WRITE(*,*) TRIM(message_text)
+        WRITE(*,*) "edge center cartesian coord:", torus_grid%edges%cartesian_center(index_no)%x
         WRITE(message_text,*) 'verts', &
           (torus_grid%edges%get_vertex_index(index_no,i),i=1,2)
         WRITE(*,*) TRIM(message_text)
@@ -711,6 +714,7 @@ CONTAINS
         WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%cells%center(index_no)%lat
         WRITE(*,*) TRIM(message_text)
+        WRITE(*,*) "cell center cartesian coord:", torus_grid%cells%cartesian_center(index_no)%x
         WRITE(message_text,*) 'neigs', &
           (torus_grid%cells%get_neighbor_index(index_no,i),i=1,3)
         WRITE(*,*) TRIM(message_text)
