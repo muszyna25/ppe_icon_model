@@ -176,6 +176,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
 
     INTEGER :: i_status
+    CHARACTER(*), PARAMETER :: method_name = "read_torus_grid_parameters"
 
     NAMELIST /torus_grid_parameters/ y_no_of_rows, x_no_of_columns, &
       & edge_length, x_center, y_center, &
@@ -221,6 +222,14 @@ CONTAINS
     WRITE(message_text,'(a,a)')    'asciiFilename=', TRIM(ascii_filename)
     CALL message ('', TRIM(message_text))
 
+    IF (y_no_of_rows < 2) &
+      CALL finish(method_name, "y_no_of_rows must be at least 2")
+    IF (x_no_of_columns < 2) &
+      CALL finish(method_name, "x_no_of_columns must be at least 2")
+    IF (MOD(y_no_of_rows, 2) /= 0) &
+      CALL finish(method_name, "y_no_of_rows must be even")
+    IF (MOD(x_no_of_columns, 2) /= 0) &
+      CALL finish(method_name, "x_no_of_columns must be even")
 
   END SUBROUTINE read_torus_grid_parameters
   !-------------------------------------------------------------------------
@@ -230,12 +239,6 @@ CONTAINS
   !   SUBROUTINE create_torus_grid()
   !>
   !! The main subroutine for creating the torus grid
-  !!
-  !! Calls the
-  !!   read_torus_grid_parameters()
-  !!   create_torus_topology()
-  !!   create_torus_geometry()
-  !!   write_grid(torus_grid, outFileName)
   !!
   SUBROUTINE create_torus_grid(param_file_name)
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
@@ -248,9 +251,9 @@ CONTAINS
     max_cell_vertices  = 3
     max_vertex_connect = 6
 
-    no_of_cells     = (y_no_of_rows*x_no_of_columns) * 2
-    no_of_edges     = (y_no_of_rows*x_no_of_columns) * 3
-    no_of_vertices  = (y_no_of_rows*x_no_of_columns)
+    no_of_cells     = (y_no_of_rows * x_no_of_columns) * 2
+    no_of_edges     = (y_no_of_rows * x_no_of_columns) * 3
+    no_of_vertices  = (y_no_of_rows * x_no_of_columns)
 
     torus_grid_id = new_grid()
     torus_grid => get_grid(torus_grid_id)
@@ -260,7 +263,8 @@ CONTAINS
     torus_grid%nverts = no_of_vertices
     torus_grid%cells%max_no_of_vertices = max_cell_vertices
     torus_grid%verts%max_connectivity   = max_vertex_connect
-    torus_grid%geometry_type   = torus_geometry
+    
+    torus_grid%geometry_type = torus_geometry
 
     CALL allocate_grid_object(torus_grid_id)
     CALL grid_set_exist_eq_allocated(torus_grid_id)
@@ -292,8 +296,6 @@ CONTAINS
 !almut    !  write unfolded_grid to ascii file
 !almut    !  CALL write_grid_ascii(unfolded_grid, asciiFilename)
     !--------------------------------------------------------------
-
-    RETURN
   END SUBROUTINE create_torus_grid
 
 
@@ -453,79 +455,113 @@ CONTAINS
 
     INTEGER :: x, y, index_no
     ! the geometry (distances, areas) fields
-    REAL(wp) :: x_start,x_row_starts,y_start,x_ref,y_ref,x_step,y_step
+    REAL(wp) :: x_lon_start,x_lon_row_starts,y_lat_start,x_lon_ref,y_lat_ref,x_lon_step,y_lat_step
+    REAL(wp) :: x_start, x_row_starts,y_start,x_ref,y_ref,x_step,y_step
     REAL(wp) :: dual_edge_length,triangle_area,hexagon_area
+    REAL(wp), PARAMETER :: sin60 = SQRT(0.75_wp)
 
     !--------------------------------------------------------------
     ! GEOMETRY PART
-    dual_edge_length = edge_length * (1.0_wp / SQRT(3.0_wp))
+    dual_edge_length  = edge_length * (1.0_wp / SQRT(3.0_wp))
     triangle_area     = edge_length * edge_length * SQRT(0.1875_wp)
     hexagon_area      = dual_edge_length * edge_length * 1.5_wp
-    ! find x_step, y_step, x_start, y_start
+    ! find x_lon_step, y_lat_step, x_lon_start, y_lat_start
     ! Almut: scale to the length of 2pi to be similar to Radians (as in the Model)
-    x_step  = (2.0_wp * pi)/ (REAL(x_no_of_columns,wp)*1.0_wp)
-    y_step  = x_step * SQRT(0.75_wp)
+    x_lon_step  = (2.0_wp * pi)/ (REAL(x_no_of_columns,wp)*1.0_wp)
+    y_lat_step  = x_lon_step * sin60
+    x_lon_start = x_center - (REAL(x_no_of_columns,wp) * 0.5_wp) * x_lon_step
+    y_lat_start = y_center - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_lat_step
+    
+    x_step  = edge_length
+    y_step  = edge_length * sin60
     x_start = x_center - (REAL(x_no_of_columns,wp) * 0.5_wp) * x_step
     y_start = y_center - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_step
+    
     !--------------------------------------------------------------
     !  get  coordinates
-    DO x=0, x_no_of_columns-1
-      DO y=0, y_no_of_rows-1
-        x_row_starts = x_start - x_step * 0.5_wp * REAL(MOD(y,2),wp)
-        x_ref=  x_row_starts + REAL(x,wp) * x_step
-        y_ref=  y_start + REAL(y,wp) * y_step
+    DO y=0, y_no_of_rows-1
+      x_lon_row_starts = x_lon_start - x_lon_step * 0.5_wp * REAL(MOD(y,2),wp)
+      y_lat_ref        = y_lat_start + REAL(y,wp) * y_lat_step
+      x_row_starts     = x_start - x_step * 0.5_wp * REAL(MOD(y,2),wp)
+      y_ref            = y_start + REAL(y,wp) * y_step
+    
+      DO x=0, x_no_of_columns-1
+        x_lon_ref        = x_lon_row_starts + REAL(x,wp) * x_lon_step        
+        x_ref            = x_row_starts + REAL(x,wp) * x_lon_step
 
         ! for vertices
         index_no=vertex_index(x,y)
-        torus_grid%verts%vertex(index_no)%lon = x_ref
-        torus_grid%verts%vertex(index_no)%lat = y_ref
-        torus_grid%verts%dual_area(index_no) = hexagon_area
+        torus_grid%verts%vertex(index_no)%lon     = x_lon_ref
+        torus_grid%verts%vertex(index_no)%lat     = y_lat_ref
+        torus_grid%verts%cartesian(index_no)%x(1) = x_ref
+        torus_grid%verts%cartesian(index_no)%x(2) = y_ref
+        torus_grid%verts%cartesian(index_no)%x(3) = 0.0_wp
+        torus_grid%verts%dual_area(index_no)      = hexagon_area
 
         ! for cells (top)
         index_no=cell_index_top(x,y)
-        torus_grid%cells%center(index_no)%lon = x_ref
-        torus_grid%cells%center(index_no)%lat = y_ref + y_step*2.0_wp/3.0_wp
+        torus_grid%cells%center(index_no)%lon            = x_lon_ref
+        torus_grid%cells%center(index_no)%lat            = y_lat_ref + y_lat_step * 2.0_wp / 3.0_wp
+        torus_grid%cells%cartesian_center(index_no)%x(1) = x_ref
+        torus_grid%cells%cartesian_center(index_no)%x(2) = y_ref     + y_step * 2.0_wp / 3.0_wp
+        torus_grid%cells%cartesian_center(index_no)%x(3) = 0.0_wp
 
         ! for cells (right)
         index_no=cell_index_top_right(x,y)
-        torus_grid%cells%center(index_no)%lon = x_ref + 0.5_wp*x_step
-        torus_grid%cells%center(index_no)%lat = y_ref + y_step*1.0_wp/3.0_wp
+        torus_grid%cells%center(index_no)%lon            = x_lon_ref + 0.5_wp * x_lon_step
+        torus_grid%cells%center(index_no)%lat            = y_lat_ref + y_lat_step / 3.0_wp
+        torus_grid%cells%cartesian_center(index_no)%x(1) = x_ref     + 0.5_wp * x_step
+        torus_grid%cells%cartesian_center(index_no)%x(2) = y_ref     + y_step / 3.0_wp
+        torus_grid%cells%cartesian_center(index_no)%x(3) = 0.0_wp
 
       ENDDO
     ENDDO
 
     !--------------------------------------------------------------
     !  get edge geometry
-    ! the dual_normal is on the right of the rimal_normal (left-handed system)
-    DO x=0, x_no_of_columns-1
-      DO y=0, y_no_of_rows-1
+    ! the dual_normal is on the right of the primal_normal (left-handed system)
+    DO y=0, y_no_of_rows-1
+      x_lon_row_starts = x_lon_start - x_lon_step * 0.5_wp * REAL(MOD(y,2),wp)
+      y_lat_ref        =  y_lat_start + REAL(y,wp) * y_lat_step
+      x_row_starts     = x_start - x_step * 0.5_wp * REAL(MOD(y,2),wp)
+      y_ref            =  y_start + REAL(y,wp) * y_step
+      
+      DO x=0, x_no_of_columns-1
 
-        x_row_starts = x_start - x_step * 0.5_wp * REAL(MOD(y,2),wp)
-        x_ref=  x_row_starts + REAL(x,wp) * x_step
-        y_ref=  y_start + REAL(y,wp) * y_step
+        x_lon_ref = x_lon_row_starts + REAL(x,wp) * x_lon_step
+        x_ref     = x_row_starts + REAL(x,wp) * x_step
 
         ! left_diagonal edges
-        index_no=edge_index_left_diagonal(x,y)
-        torus_grid%edges%center(index_no)%lon = x_ref - x_step * 0.25_wp
-        torus_grid%edges%center(index_no)%lat = y_ref + (y_step * 0.5_wp)
-        torus_grid%edges%primal_normal(index_no)%v1 = SQRT(0.75_wp)
+        index_no = edge_index_left_diagonal(x,y)
+        torus_grid%edges%center(index_no)%lon            = x_lon_ref - x_lon_step * 0.25_wp
+        torus_grid%edges%center(index_no)%lat            = y_lat_ref + (y_lat_step * 0.5_wp)
+        torus_grid%edges%cartesian_center(index_no)%x(1) = x_ref     - x_step * 0.25_wp
+        torus_grid%edges%cartesian_center(index_no)%x(2) = y_ref     + (y_step * 0.5_wp)
+        torus_grid%edges%cartesian_center(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%primal_normal(index_no)%v1 = sin60
         torus_grid%edges%primal_normal(index_no)%v2 = 0.5_wp
         torus_grid%edges%dual_normal(index_no)%v1   = 0.5_wp
-        torus_grid%edges%dual_normal(index_no)%v2   = -SQRT(0.75_wp)
+        torus_grid%edges%dual_normal(index_no)%v2   = -sin60
 
         ! right_diagonal edges
         index_no=edge_index_right_diagonal(x,y)
-        torus_grid%edges%center(index_no)%lon = x_ref + x_step * 0.25_wp
-        torus_grid%edges%center(index_no)%lat = y_ref + (y_step * 0.5_wp)
-        torus_grid%edges%primal_normal(index_no)%v1 = SQRT(0.75_wp)
+        torus_grid%edges%center(index_no)%lon            = x_lon_ref + x_lon_step * 0.25_wp
+        torus_grid%edges%center(index_no)%lat            = y_lat_ref + (y_lat_step * 0.5_wp)
+        torus_grid%edges%cartesian_center(index_no)%x(1) = x_ref     + x_step * 0.25_wp
+        torus_grid%edges%cartesian_center(index_no)%x(2) = y_ref     + (y_step * 0.5_wp)
+        torus_grid%edges%cartesian_center(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%primal_normal(index_no)%v1 = sin60
         torus_grid%edges%primal_normal(index_no)%v2 = -0.5_wp
         torus_grid%edges%dual_normal(index_no)%v1   = -0.5_wp
-        torus_grid%edges%dual_normal(index_no)%v2   = -SQRT(0.75_wp)
+        torus_grid%edges%dual_normal(index_no)%v2   = -sin60
 
         ! horizontal edges
         index_no=edge_index_horizontal(x,y)
-        torus_grid%edges%center(index_no)%lon = x_ref + x_step * 0.5_wp
-        torus_grid%edges%center(index_no)%lat = y_ref
+        torus_grid%edges%center(index_no)%lon            = x_lon_ref + x_lon_step * 0.5_wp
+        torus_grid%edges%center(index_no)%lat            = y_lat_ref
+        torus_grid%edges%cartesian_center(index_no)%x(1) = x_ref     + x_step * 0.5_wp
+        torus_grid%edges%cartesian_center(index_no)%x(2) = y_ref
+        torus_grid%edges%cartesian_center(index_no)%x(3) = 0.0_wp        
         torus_grid%edges%primal_normal(index_no)%v1 = 0.0_wp
         torus_grid%edges%primal_normal(index_no)%v2 = 1.0_wp
         torus_grid%edges%dual_normal(index_no)%v1   = 1.0_wp
@@ -1009,7 +1045,7 @@ CONTAINS
   SUBROUTINE create_unfolded_torus()
     INTEGER :: x, y, index_no,  unfolded_index_no
     ! the geometry (distances, areas) fields
-    REAL(wp) :: x_start,y_start,x_ref,y_ref,x_step,y_step
+    REAL(wp) :: x_lon_start,y_lat_start,x_lon_ref,y_lat_ref,x_lon_step,y_lat_step
 
 
     !--------------------------------------------------------------
@@ -1027,10 +1063,10 @@ CONTAINS
     no_of_unfolded_vertices  = (y_no_of_rows*x_no_of_columns)     &
       & + y_no_of_rows + x_no_of_columns + 1 ! torus +  the cut vertices
     !--------------------------------------------------------------
-    x_step  = (2.0_wp * pi)/ (REAL(x_no_of_columns,wp)*1.0_wp)
-    y_step  = x_step * SQRT(0.75_wp)
-    x_start = x_center - (REAL(x_no_of_columns,wp) * 0.5_wp) * x_step
-    y_start = y_center - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_step
+    x_lon_step  = (2.0_wp * pi)/ (REAL(x_no_of_columns,wp)*1.0_wp)
+    y_lat_step  = x_lon_step * SQRT(0.75_wp)
+    x_lon_start = x_center - (REAL(x_no_of_columns,wp) * 0.5_wp) * x_lon_step
+    y_lat_start = y_center - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_lat_step
     !--------------------------------------------------------------
 
     !--------------------------------------------------------------
@@ -1116,10 +1152,10 @@ CONTAINS
       index_no=vertex_index(x,y)
       unfolded_index_no = unfolded_vertex_index(x,y)
       unfolded_grid%verts%idx(unfolded_index_no) = index_no
-      x_ref =  x_start + REAL(x,wp) * x_step - x_step * 0.5_wp * REAL(y,wp)
-      y_ref=  y_start + REAL(y,wp) * y_step
-      unfolded_grid%verts%vertex(unfolded_index_no)%lon = x_ref
-      unfolded_grid%verts%vertex(unfolded_index_no)%lat = y_ref
+      x_lon_ref =  x_lon_start + REAL(x,wp) * x_lon_step - x_lon_step * 0.5_wp * REAL(y,wp)
+      y_lat_ref=  y_lat_start + REAL(y,wp) * y_lat_step
+      unfolded_grid%verts%vertex(unfolded_index_no)%lon = x_lon_ref
+      unfolded_grid%verts%vertex(unfolded_index_no)%lat = y_lat_ref
       ! left_diagonal edges
       index_no=edge_index_left_diagonal(x,y)
       unfolded_index_no = unfoldleftright_diag_edgeindex(x,y)
@@ -1135,10 +1171,10 @@ CONTAINS
       index_no=vertex_index(x,y)
       unfolded_index_no = unfolded_vertex_index(x,y)
       unfolded_grid%verts%idx(unfolded_index_no) = index_no
-      x_ref =  x_start + REAL(x,wp) * x_step - x_step * 0.5_wp * REAL(y,wp)
-      y_ref=  y_start + REAL(y,wp) * y_step
-      unfolded_grid%verts%vertex(unfolded_index_no)%lon = x_ref
-      unfolded_grid%verts%vertex(unfolded_index_no)%lat = y_ref
+      x_lon_ref =  x_lon_start + REAL(x,wp) * x_lon_step - x_lon_step * 0.5_wp * REAL(y,wp)
+      y_lat_ref=  y_lat_start + REAL(y,wp) * y_lat_step
+      unfolded_grid%verts%vertex(unfolded_index_no)%lon = x_lon_ref
+      unfolded_grid%verts%vertex(unfolded_index_no)%lat = y_lat_ref
       ! horizontal edges
       index_no=edge_index_horizontal(x,y)
       unfolded_index_no = unfolded_horizontal_edge_index(x,y)
@@ -1153,10 +1189,10 @@ CONTAINS
     index_no=vertex_index(x,y)
     unfolded_index_no = unfolded_vertex_index(x,y)
     unfolded_grid%verts%idx(unfolded_index_no) = index_no
-    x_ref =  x_start + REAL(x,wp) * x_step - x_step * 0.5_wp * REAL(y,wp)
-    y_ref=  y_start + REAL(y,wp) * y_step
-    unfolded_grid%verts%vertex(unfolded_index_no)%lon = x_ref
-    unfolded_grid%verts%vertex(unfolded_index_no)%lat = y_ref
+    x_lon_ref =  x_lon_start + REAL(x,wp) * x_lon_step - x_lon_step * 0.5_wp * REAL(y,wp)
+    y_lat_ref=  y_lat_start + REAL(y,wp) * y_lat_step
+    unfolded_grid%verts%vertex(unfolded_index_no)%lon = x_lon_ref
+    unfolded_grid%verts%vertex(unfolded_index_no)%lat = y_lat_ref
     !  WRITE(message_text,*) 'Top Right Vertex:',unfoldedIndexNo,noOfUnfoldedVertices,'->',indexNo
     !--------------------------------------------------------------
 

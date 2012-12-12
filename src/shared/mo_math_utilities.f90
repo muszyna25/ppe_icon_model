@@ -621,8 +621,10 @@ CONTAINS
   !-----------------------------------------------------------------------
   
   !--------------------------------------------------------------------
-  REAL(wp) ELEMENTAL FUNCTION plane_torus_distance(v1, v2)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: v1, v2
+  REAL(wp) FUNCTION plane_torus_distance(center_of_torus, length_of_torus, &
+    & height_of_torus, v0, v1)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: center_of_torus, v0, v1
+    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
     
     plane_torus_distance = 0.0_wp
     
@@ -2407,8 +2409,7 @@ CONTAINS
     !!   See Numerical Recipes (Fortran)
     !!
     !! @author   A. Tompkins, MPI, 2000
-    !!
-    
+    !!    
     USE mo_kind,      ONLY: wp
     USE mo_exception, ONLY: finish
     
@@ -2476,8 +2477,7 @@ CONTAINS
     !!   See Numerical Recipes
     !!
     !! @author  A. Tompkins, MPI, 2000
-    !
-    
+    !    
     USE mo_kind, ONLY: wp
     
     IMPLICIT NONE
@@ -2520,8 +2520,7 @@ CONTAINS
     !!   See Numerical Recipes (Fortran)
     !!
     !! @author   A. Tompkins, MPI, 2000
-    !!
-    
+    !!    
     USE mo_kind, ONLY: wp
     
     IMPLICIT NONE
