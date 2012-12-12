@@ -127,7 +127,7 @@ MODULE mo_math_utilities
   PUBLIC :: cartesian_to_geographical, geographical_to_cartesian
   PUBLIC :: arc_length_on_unitsphere
   PUBLIC :: cos_arc_length
-  PUBLIC :: plane_torus_distance
+  PUBLIC :: plane_torus_distance, plane_torus_closest_coordinates
   PUBLIC :: plane_angle_of_three_points
   PUBLIC :: sphere_cartesian_midpoint
   PUBLIC :: norma, normalize
@@ -621,12 +621,59 @@ CONTAINS
   !-----------------------------------------------------------------------
   
   !--------------------------------------------------------------------
-  REAL(wp) FUNCTION plane_torus_distance(center_of_torus, length_of_torus, &
-    & height_of_torus, v0, v1)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: center_of_torus, v0, v1
+  FUNCTION plane_torus_closest_coordinates(v0, v1, &
+    & length_of_torus, height_of_torus) result(new_v1_coord)
+    
+    TYPE(t_cartesian_coordinates), INTENT(in) :: v0, v1
     REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
     
-    plane_torus_distance = 0.0_wp
+    TYPE(t_cartesian_coordinates) :: new_v1_coord
+
+    TYPE(t_cartesian_coordinates) :: dv
+
+    ! check the x coordinate
+    IF ( ABS(v0%x(1) - v1%x(1)) >  length_of_torus * 0.5_wp) THEN
+      ! we will wrap around + or -  length_of_torus       
+      IF (v0%x(1) > v1%x(1)) THEN
+        new_v1_coord%x(1) = v1%x(1) + length_of_torus
+      ELSE
+        new_v1_coord%x(1) = v1%x(1) - length_of_torus
+      ENDIF
+    ELSE
+      ! keep the same 
+      new_v1_coord%x(1) = v1%x(1)
+    ENDIF
+
+    ! check the y coordinate
+    IF ( ABS(v0%x(2) - v1%x(2)) >  height_of_torus * 0.5_wp) THEN
+      ! we will wrap around + or -  length_of_torus       
+      IF (v0%x(2) > v1%x(2)) THEN
+        new_v1_coord%x(2) = v1%x(2) + height_of_torus
+      ELSE
+        new_v1_coord%x(2) = v1%x(2) - height_of_torus
+      ENDIF
+    ELSE
+      ! keep the same 
+      new_v1_coord%x(2) = v1%x(2)
+    ENDIF
+
+    ! this should be zero
+    new_v1_coord%x(3) = v1%x(3)
+    
+  END FUNCTION plane_torus_closest_coordinates
+  !--------------------------------------------------------------------
+
+  !--------------------------------------------------------------------
+  REAL(wp) FUNCTION plane_torus_distance(v0, v1, &
+    & length_of_torus, height_of_torus)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: v0, v1
+    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+
+    TYPE(t_cartesian_coordinates) :: dv
+
+    dv = plane_torus_closest_coordinates(v0, v1, length_of_torus, height_of_torus)
+    dv%x = dv%x - v0%x
+    plane_torus_distance = d_norma_3d(dv)
     
   END FUNCTION plane_torus_distance
   !--------------------------------------------------------------------

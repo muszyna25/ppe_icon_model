@@ -133,6 +133,7 @@ MODULE mo_create_torus_grid
   USE mo_io_local_grid,   ONLY: write_netcdf_grid
   USE mo_math_constants,  ONLY: pi
   USE mo_local_grid_geometry,  ONLY: order_cell_connectivity
+  USE mo_math_utilities,  ONLY: plane_torus_distance, plane_torus_closest_coordinates
 
   IMPLICIT NONE
 
@@ -609,6 +610,7 @@ CONTAINS
   SUBROUTINE print_torus_grid()
 
     INTEGER :: i, x, y, index_no, counter
+    INTEGER :: vertex_no, next_vertex_no
 
     !--------------------------------------------------------------
     WRITE(message_text,*) '-------------------------------'
@@ -750,6 +752,24 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! check the plane_torus_distance, plane_torus_closest_coordinates routines
+    DO vertex_no = 1, torus_grid%verts%no_of_existvertices
+      DO next_vertex_no = 1, torus_grid%verts%no_of_existvertices
+        write(*,*) "---------- check plane_torus_distance, plane_torus_closest_coordinates ------------"
+        write(*,*) " Coordinates 0:", torus_grid%verts%cartesian(vertex_no)%x
+        write(*,*) " Coordinates 1:", torus_grid%verts%cartesian(next_vertex_no)%x
+        write(*,*) " New coordinates 1:", plane_torus_closest_coordinates(&
+          & torus_grid%verts%cartesian(vertex_no),      &
+          & torus_grid%verts%cartesian(next_vertex_no), &
+          & torus_grid%planar_torus_info%length, torus_grid%planar_torus_info%height)
+        write(*,*) " distance:", plane_torus_distance(  &
+          & torus_grid%verts%cartesian(vertex_no),      &
+          & torus_grid%verts%cartesian(next_vertex_no), &
+          & torus_grid%planar_torus_info%length, torus_grid%planar_torus_info%height)
+      ENDDO
+    ENDDO
+    
+    
   END SUBROUTINE print_torus_grid
 
 

@@ -105,6 +105,7 @@ MODULE mo_model_domain
   USE mo_communication,  ONLY: t_comm_pattern
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
+  USE mo_grid_geometry_info, ONLY: t_planar_torus_geometry_info
   
   IMPLICIT NONE
   
@@ -668,9 +669,17 @@ MODULE mo_model_domain
     !
     ! indicator if current model domain is active
     LOGICAL :: ldom_active 
-    !
+    
+    !-------------------------------------
+    !> The grid domain geometry parameters
     ! cell type =3 or 6
     INTEGER :: cell_type
+    
+    INTEGER :: geometry_type
+
+    TYPE(t_planar_torus_geometry_info) :: planar_torus_info
+    !-------------------------------------
+
     !
     ! domain ID of parent domain
     INTEGER :: parent_id

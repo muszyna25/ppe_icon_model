@@ -136,6 +136,8 @@ MODULE mo_model_domimp_patches
   USE mo_name_list_output_config, ONLY: is_grib_output
   USE mo_master_nml,         ONLY: model_base_dir
 
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry
+  USE mo_io_utils_grid,      ONLY: read_planar_torus_info
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
@@ -2136,13 +2138,19 @@ CONTAINS
           CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
             & p_p%verts%cartesian(:,:)%x(3) )
         ENDDO
-
-
       
       ENDIF
       
     ENDIF ! (global_cell_type == 3) THEN
+    !-------------------------------------------------
+    ! read geometry parameters
+    return_status = nf_get_att_int(ncid, nf_global,'grid_geometry', p_p%geometry_type)
+    IF (return_status /= nf_noerr) p_p%geometry_type = 0 ! undefined
+    IF (p_p%geometry_type == planar_torus_geometry) &
+      CALL read_planar_torus_info(ncid, p_p%planar_torus_info)
     
+            
+    !-------------------------------------------------
 
     CALL nf(nf_close(ncid))
         
