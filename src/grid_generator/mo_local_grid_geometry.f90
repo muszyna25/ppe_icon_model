@@ -39,9 +39,10 @@ MODULE mo_local_grid_geometry
 #include "grid_definitions.inc"
 
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
-  USE mo_math_constants,     ONLY: rad2deg, deg2rad
-  USE mo_exception,          ONLY: finish! , message
+  USE mo_kind,            ONLY: wp
+  USE mo_math_constants,  ONLY: rad2deg, deg2rad
+  USE mo_exception,       ONLY: finish! , message
+  USE mo_grid_geometry_info,  ONLY: sphere_geometry
   USE mo_local_grid
   USE mo_math_utilities,  ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,  triangle_area, &

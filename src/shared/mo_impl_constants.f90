@@ -81,7 +81,6 @@ MODULE mo_impl_constants
   
   INTEGER, PARAMETER :: HALO_LEVELS_CEILING = 256 ! should be greater than the max level
                                          ! of halo levels
-
 !-------------------------------------------------------------------------------
 ! Comments by Hui:
 ! According to Luis' explanation, the declarations above related to the blocking

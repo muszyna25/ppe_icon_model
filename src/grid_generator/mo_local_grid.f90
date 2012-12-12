@@ -54,6 +54,9 @@ MODULE mo_local_grid
     & min_rlcell, max_rlcell, min_rlcell_int, &
     & min_rlvert, max_rlvert,                 & ! min_rlvert_int,
     & min_rledge, max_rledge, min_rledge_int
+  USE mo_grid_geometry_info,  ONLY: sphere_geometry, t_planar_torus_geometry_info,  &
+    & copy_planar_torus_info
+
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
   USE mo_physical_constants, ONLY: earth_radius
 
@@ -99,7 +102,7 @@ MODULE mo_local_grid
     & land_inner, land_boundary, sea_inner, sea_boundary,             &
     & linear_interpolation, min_interpolation, max_interpolation,     &
     & parents_from_idpointers, parents_from_parentpointers,           &
-    & netcdf_CF_1_1_convention, sphere_geometry, torus_geometry,      &
+    & netcdf_CF_1_1_convention,                                       &
     & max_decompositions, dualy_refined_grid
   !--------------------------------------------------------------
   ! definitions of parameters (constants)
@@ -156,11 +159,6 @@ MODULE mo_local_grid
   INTEGER, PARAMETER ::  refined_bisection_grid = 2
   INTEGER, PARAMETER ::  dualy_refined_grid = 3
   
-  ! -----------------------------
-  ! types of grid geometries
-  INTEGER, PARAMETER ::  sphere_geometry = 1
-  INTEGER, PARAMETER ::  torus_geometry  = 2
-
   ! -----------------------------
   ! types of grid optimization
 
@@ -423,13 +421,17 @@ MODULE mo_local_grid
     CHARACTER(LEN=filename_max) ::  out_file_name
     !> flags for the netcdf files
     INTEGER :: netcdf_flags
+    
     !> The creation process of the grid (cut_off, refined, etc, see parameters).
     INTEGER :: grid_creation_process
     !> The grid optimization procces
     INTEGER :: grid_optimization_process
-    
+        
     !> The grid domain geometry parameters
     INTEGER :: geometry_type
+
+    TYPE(t_planar_torus_geometry_info) :: planar_torus_info
+    
     !> Sphere radious. 
     REAL(wp) :: sphere_radius
     !> Earth rescaling factor.
@@ -1048,6 +1050,9 @@ CONTAINS
     to_grid%no_of_subgrids            = from_grid%no_of_subgrids + to_grid%no_of_subgrids
 
     to_cells%no_of_domains(:)         = from_cells%no_of_domains(:)
+
+    CALL copy_planar_torus_info(from_grid%planar_torus_info, to_grid%planar_torus_info)
+    
 
 !     print *, 'from_grid%start_subgrid_id:',from_grid%start_subgrid_id
 !     print *, 'to_grid%start_subgrid_id:',to_grid%start_subgrid_id
@@ -2408,23 +2413,29 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in), OPTIONAL :: param_file_name
     INTEGER, OPTIONAL :: from_grid_id
 
-    TYPE(t_grid), POINTER :: grid
+    TYPE(t_grid), POINTER :: grid, from_grid
     INTEGER  :: geometry_type
     REAL(wp) :: sphere_radius, earth_rescale_factor
     INTEGER  :: i_status
     
     NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radius, earth_rescale_factor
-
     
+    grid => get_grid(to_grid_id)
     geometry_type = sphere_geometry
     earth_rescale_factor = 1.0_wp
     sphere_radius = earth_radius
-    
+
+    grid%planar_torus_info%cell_edge_length = 0.0_wp
+    grid%planar_torus_info%center%x         = 0.0_wp
+    grid%planar_torus_info%length           = 0.0_wp
+    grid%planar_torus_info%height           = 0.0_wp
+        
     IF (PRESENT(from_grid_id)) THEN
-      grid => get_grid(from_grid_id)
-      geometry_type          = grid%geometry_type
-      earth_rescale_factor = grid%earth_rescale_factor
-      sphere_radius         = grid%sphere_radius
+      from_grid => get_grid(from_grid_id)
+      geometry_type         = from_grid%geometry_type
+      earth_rescale_factor  = from_grid%earth_rescale_factor
+      sphere_radius         = from_grid%sphere_radius
+      CALL copy_planar_torus_info(from_grid%planar_torus_info, grid%planar_torus_info)
     ENDIF
            
     IF (PRESENT(param_file_name)) THEN
@@ -2448,7 +2459,6 @@ CONTAINS
       sphere_radius = earth_radius * earth_rescale_factor
     ENDIF
     
-    grid => get_grid(to_grid_id)
     grid%geometry_type = geometry_type
     grid%sphere_radius = sphere_radius
     grid%earth_rescale_factor = earth_rescale_factor

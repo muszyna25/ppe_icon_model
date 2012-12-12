@@ -85,11 +85,13 @@ MODULE mo_io_local_grid
   USE mo_math_constants,     ONLY: pi,pi_2!, eps
 !   USE mo_physical_constants, ONLY: re
   USE mo_local_grid
+  USE mo_grid_geometry_info, ONLY: sphere_geometry, planar_torus_geometry, &
+    & t_planar_torus_geometry_info
+  USE mo_io_utils_grid,      ONLY: read_planar_torus_info, write_planar_torus_info, &
+    & nf
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
-    & min_rlvert, max_rlvert, &
-    & min_rledge, max_rledge
+    & min_rlvert, max_rlvert, min_rledge, max_rledge
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
   USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
        &                           uuid_unparse, uuid_string_length
 
@@ -114,17 +116,6 @@ MODULE mo_io_local_grid
 
 CONTAINS
 
-
-
-  SUBROUTINE nf(return_status)
-    INTEGER, INTENT(in) :: return_status
-
-    IF (return_status /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE read_netcdf_cell_elevation(grid_id, file_name, elevation_field)
@@ -376,6 +367,9 @@ CONTAINS
         & CALL finish(method_name, "earth_rescale_factor not defined")
     ENDIF
     
+    IF (grid_obj%geometry_type == planar_torus_geometry) &
+      CALL read_planar_torus_info(ncid, grid_obj%planar_torus_info)
+        
     print *, 'Read ', grid_obj%ncells, ' cells...'
     CALL allocate_grid_object(grid_id)
 
@@ -879,6 +873,10 @@ CONTAINS
 !     END SELECT
     CALL nf(nf_put_att_double  (ncid, nf_global, 'rotation_vector', nf_double, 3, &
       & rotation_vector))
+
+
+    CALL write_planar_torus_info(ncid, grid_obj%planar_torus_info)
+      
     !----------------------------------------------------------------------
     ! Dimensions
     CALL nf(nf_def_dim(ncid, 'cell',   no_of_cells, dim_ncell))

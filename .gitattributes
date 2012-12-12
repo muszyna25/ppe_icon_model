@@ -1234,6 +1234,7 @@ src/grid_generator/mo_grid.f90 -text
 src/grid_generator/mo_grid_checktools.f90 -text
 src/grid_generator/mo_grid_conditions.f90 -text
 src/grid_generator/mo_grid_decomposition.f90 -text
+src/grid_generator/mo_grid_geometry_info.f90 -text
 src/grid_generator/mo_grid_levels.f90 -text
 src/grid_generator/mo_grid_toolbox.f90 -text
 src/grid_generator/mo_gridrefinement.f90 -text

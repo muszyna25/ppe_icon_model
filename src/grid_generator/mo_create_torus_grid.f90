@@ -124,10 +124,11 @@ MODULE mo_create_torus_grid
   USE mo_io_units,        ONLY: nnml, filename_max
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
   USE mo_exception,       ONLY: message, message_text, finish
+  USE mo_grid_geometry_info,  ONLY: planar_torus_geometry
   USE mo_local_grid,      ONLY: t_grid, &
     & new_grid, delete_grid,get_grid, allocate_grid_object,        &
-    & undefined, set_grid_creation, torus_geometry, &
-    & grid_set_exist_eq_allocated, set_nest_defaultindexes
+    & undefined, set_grid_creation, grid_set_exist_eq_allocated,   &
+    & set_nest_defaultindexes
   !  & grid_cells, grid_edges, grid_vertices
   USE mo_io_local_grid,   ONLY: write_netcdf_grid
   USE mo_math_constants,  ONLY: pi
@@ -143,8 +144,8 @@ MODULE mo_create_torus_grid
 
   !--------------------------------------------------------------
   !  Grid Parameters
-  INTEGER :: y_no_of_rows=4
-  INTEGER :: x_no_of_columns=8
+  INTEGER  :: y_no_of_rows=4
+  INTEGER  :: x_no_of_columns=8
   REAL(wp) :: edge_length=1000.0_wp
   REAL(wp) :: x_center=0.0_wp
   REAL(wp) :: y_center=0.0_wp
@@ -215,11 +216,11 @@ CONTAINS
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.2)') 'y_center=', y_center
     CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,a)')    'outFileName=', TRIM(out_file_name)
+    WRITE(message_text,'(a,a)')    'out_file_name=', TRIM(out_file_name)
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,a)')    'unfoldedTorusFileName=', TRIM(unfolded_torus_file_name)
     CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,a)')    'asciiFilename=', TRIM(ascii_filename)
+    WRITE(message_text,'(a,a)')    'ascii_filename=', TRIM(ascii_filename)
     CALL message ('', TRIM(message_text))
 
     IF (y_no_of_rows < 2) &
@@ -264,7 +265,7 @@ CONTAINS
     torus_grid%cells%max_no_of_vertices = max_cell_vertices
     torus_grid%verts%max_connectivity   = max_vertex_connect
     
-    torus_grid%geometry_type = torus_geometry
+    torus_grid%geometry_type = planar_torus_geometry
 
     CALL allocate_grid_object(torus_grid_id)
     CALL grid_set_exist_eq_allocated(torus_grid_id)
@@ -272,7 +273,7 @@ CONTAINS
     !--------------------------------------------------------------
 
     CALL create_torus_topology()
-    CALL create_torus_geometry()
+    CALL create_planar_torus_geometry()
     CALL order_cell_connectivity(torus_grid_id)
     CALL set_nest_defaultindexes(torus_grid_id)
 
@@ -284,9 +285,9 @@ CONTAINS
     CALL write_netcdf_grid(torus_grid_id, out_file_name)
 
     !  print to standard output
-    !  CALL print_torus_grid()
-    !--------------------------------------------------------------
+    CALL print_torus_grid()
     CALL delete_grid(torus_grid_id)
+    !--------------------------------------------------------------
 
     !--------------------------------------------------------------
 !almut    ! create unfolded grid
@@ -294,7 +295,8 @@ CONTAINS
 !almut    !  write netcdf file
 !almut    CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
 !almut    !  write unfolded_grid to ascii file
-!almut    !  CALL write_grid_ascii(unfolded_grid, asciiFilename)
+!     CALL write_grid_ascii(torus_grid_id, ascii_filename)
+    
     !--------------------------------------------------------------
   END SUBROUTINE create_torus_grid
 
@@ -439,7 +441,7 @@ CONTAINS
   !--------------------------------------------------------------
 
   !--------------------------------------------------------------
-  !  SUBROUTINE create_torus_geometry()
+  !  SUBROUTINE create_planar_torus_geometry()
   !>
   !! Calculates the torus geometry (distances and areas)
   !!
@@ -451,15 +453,16 @@ CONTAINS
   !
   ! The normals, lengths and the areas though are correct.
   !--------------------------------------------------------------
-  SUBROUTINE create_torus_geometry()
+  SUBROUTINE create_planar_torus_geometry()
 
     INTEGER :: x, y, index_no
     ! the geometry (distances, areas) fields
     REAL(wp) :: x_lon_start,x_lon_row_starts,y_lat_start,x_lon_ref,y_lat_ref,x_lon_step,y_lat_step
     REAL(wp) :: x_start, x_row_starts,y_start,x_ref,y_ref,x_step,y_step
     REAL(wp) :: dual_edge_length,triangle_area,hexagon_area
-    REAL(wp), PARAMETER :: sin60 = SQRT(0.75_wp)
+    REAL(wp) :: sin60
 
+    sin60 = SQRT(0.75_wp) 
     !--------------------------------------------------------------
     ! GEOMETRY PART
     dual_edge_length  = edge_length * (1.0_wp / SQRT(3.0_wp))
@@ -478,6 +481,15 @@ CONTAINS
     y_start = y_center - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_step
     
     !--------------------------------------------------------------
+    ! write planar torus geometry properties
+    torus_grid%planar_torus_info%center%x(1)  = x_center
+    torus_grid%planar_torus_info%center%x(2)  = y_center
+    torus_grid%planar_torus_info%center%x(3)  = 0.0_wp
+    torus_grid%planar_torus_info%cell_edge_length  = edge_length
+    torus_grid%planar_torus_info%length  = x_step * REAL(x_no_of_columns,wp)
+    torus_grid%planar_torus_info%height  = y_step * REAL(y_no_of_rows,wp)
+    
+   !--------------------------------------------------------------
     !  get  coordinates
     DO y=0, y_no_of_rows-1
       x_lon_row_starts = x_lon_start - x_lon_step * 0.5_wp * REAL(MOD(y,2),wp)
@@ -585,7 +597,7 @@ CONTAINS
       torus_grid%cells%area(index_no) = triangle_area
     ENDDO
     !--------------------------------------------------------------
-  END SUBROUTINE create_torus_geometry
+  END SUBROUTINE create_planar_torus_geometry
   !--------------------------------------------------------------
 
 
@@ -600,34 +612,36 @@ CONTAINS
 
     !--------------------------------------------------------------
     WRITE(message_text,*) '-------------------------------'
-    CALL message ('', TRIM(message_text))
+    WRITE(*,*) TRIM(message_text)
     WRITE(message_text,*) '    ==  TORUS GRID  ==='
-    CALL message ('', TRIM(message_text))
+    WRITE(*,*) TRIM(message_text)
+    write(*,*) " Center:", torus_grid%planar_torus_info%center%x 
     WRITE(message_text,*) '-------------------------------'
-    CALL message ('', TRIM(message_text))
+    WRITE(*,*) TRIM(message_text)
     ! print vertices
     DO x=0, x_no_of_columns-1
       DO y=0, y_no_of_rows-1
         index_no=vertex_index(x,y)
         counter=torus_grid%verts%no_of_neigbors(index_no)
         WRITE(message_text,*) 'vertex:',index_no, '(',x,y,')'
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lon  ', torus_grid%verts%vertex(index_no)%lon
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%verts%vertex(index_no)%lat
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
+        WRITE(*,*) " cartesian coord:", torus_grid%verts%cartesian(index_no)%x
         WRITE(message_text,*) 'neigs', &
           (torus_grid%verts%get_neighbor_index(index_no,i),i=1,counter)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'cells', &
           (torus_grid%verts%get_cell_index(index_no,i),i=1,counter)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'edges', &
           (torus_grid%verts%get_edge_index(index_no,i),i=1,counter)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'edori', &
           (torus_grid%verts%get_edge_orient(index_no,i),i=1,counter)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
       ENDDO
     ENDDO
     ! print edges
@@ -635,99 +649,100 @@ CONTAINS
       DO y=0, y_no_of_rows-1
         index_no=edge_index_left_diagonal(x,y)
         WRITE(message_text,*) 'vertical edge:',index_no, '(',x,y,')'
-        CALL message ('', TRIM(message_text))
+        write(*,*) TRIM(message_text)
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'sysor', torus_grid%edges%system_orientation(index_no)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lon  ', torus_grid%edges%center(index_no)%lon
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%edges%center(index_no)%lat
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'verts', &
           (torus_grid%edges%get_vertex_index(index_no,i),i=1,2)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'cells', &
           (torus_grid%edges%get_cell_index(index_no,i),i=1,2)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
 
         index_no=edge_index_right_diagonal(x,y)
         WRITE(message_text,*) 'diagonal edge:',index_no, '(',x,y,')'
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'sysor', &
           torus_grid%edges%system_orientation(index_no)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lon  ', &
           torus_grid%edges%center(index_no)%lon
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%edges%center(index_no)%lat
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'verts', &
           (torus_grid%edges%get_vertex_index(index_no,i),i=1,2)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'cells', &
           (torus_grid%edges%get_cell_index(index_no,i),i=1,2)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
 
         index_no=edge_index_horizontal(x,y)
         WRITE(message_text,*) 'horizontal edge:',index_no, '(',x,y,')'
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'sysor', &
           torus_grid%edges%system_orientation(index_no)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lon  ', torus_grid%edges%center(index_no)%lon
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%edges%center(index_no)%lat
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'verts', &
           (torus_grid%edges%get_vertex_index(index_no,i),i=1,2)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'cells', &
           (torus_grid%edges%get_cell_index(index_no,i),i=1,2)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
 
       ENDDO
-    ENDDO
+    ENDDO 
     ! print cells
     DO x=0, x_no_of_columns-1
       DO y=0, y_no_of_rows-1
         index_no=cell_index_top(x,y)
         WRITE(message_text,*) 'top triangle:',index_no, '(',x,y,')'
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lon  ', torus_grid%cells%center(index_no)%lon
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%cells%center(index_no)%lat
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'neigs', &
           (torus_grid%cells%get_neighbor_index(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'verts', &
           (torus_grid%cells%get_vertex_index(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'edges', &
           (torus_grid%cells%get_edge_index(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'edori', &
           (torus_grid%cells%get_edge_orient(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
 
         index_no=cell_index_top_right(x,y)
         WRITE(message_text,*) 'right triangle:',index_no, '(',x,y,')'
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lon  ', torus_grid%cells%center(index_no)%lon
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'lat  ', torus_grid%cells%center(index_no)%lat
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'neigs', &
           (torus_grid%cells%get_neighbor_index(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'verts', &
           (torus_grid%cells%get_vertex_index(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'edges', &
           (torus_grid%cells%get_edge_index(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
         WRITE(message_text,*) 'edori', &
           (torus_grid%cells%get_edge_orient(index_no,i),i=1,3)
-        CALL message ('', TRIM(message_text))
+        WRITE(*,*) TRIM(message_text)
       ENDDO
     ENDDO
 
