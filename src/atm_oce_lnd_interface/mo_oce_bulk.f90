@@ -539,14 +539,6 @@ CONTAINS
         !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
-        WHERE (v_base%lsm_oce_c(:,1,:) > sea_boundary )
-          p_sfc_flx%forc_hflx (:,:) = 0.0_wp
-          p_sfc_flx%forc_swflx(:,:) = 0.0_wp
-          p_sfc_flx%forc_lwflx(:,:) = 0.0_wp
-          p_sfc_flx%forc_ssflx(:,:) = 0.0_wp
-          p_sfc_flx%forc_slflx(:,:) = 0.0_wp
-        END WHERE
-
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
         ! transform ice mask from logical to real for saving it to the restart file
         CALL prepare4restart(p_ice)

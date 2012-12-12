@@ -1366,6 +1366,15 @@ CONTAINS
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
 
+    ! set to zero on land points
+    WHERE (v_base%lsm_oce_c(:,1,:) > sea_boundary )
+      p_sfc_flx%forc_hflx (:,:) = 0.0_wp
+      p_sfc_flx%forc_swflx(:,:) = 0.0_wp
+      p_sfc_flx%forc_lwflx(:,:) = 0.0_wp
+      p_sfc_flx%forc_ssflx(:,:) = 0.0_wp
+      p_sfc_flx%forc_slflx(:,:) = 0.0_wp
+    END WHERE
+
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
   !
