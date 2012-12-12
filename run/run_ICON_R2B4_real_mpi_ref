@@ -127,7 +127,7 @@ atmo_namelist=NAMELIST_${EXP}
 # global timing
 start_date="2011-01-01T00:00:00Z"
 ndays_restart=60
-dt_restart=`expr ${ndays_restart} \* 86400`
+dt_restart=`expr 5 \* 240`
 #
 #
 #-----------------------------------------------------------------------------
@@ -257,7 +257,7 @@ cat > ${atmo_namelist} << EOF
  dom                          =  -1                        ! write all domains
  output_time_unit             =   1                        ! 1: seconds
  output_bounds                =  0., 10000000., ${dtime}.  ! start, end, increment
- steps_per_file               =  5
+ steps_per_file               =  2
  include_last                 =  .TRUE.
  output_filename              = '${EXP}'                ! file name base
  ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'tke', 'pres_sfc', 'group:precip_vars', 'group:pbl_vars', 'group:land_vars', 'group:multisnow_vars'
@@ -271,7 +271,7 @@ cat > ${atmo_namelist} << EOF
  dom                          =   1
  output_time_unit             =   1                        ! 1: seconds
  output_bounds                =  0., 10000000., ${dtime}.  ! start, end, increment
- steps_per_file               =  5
+ steps_per_file               =  2
  include_last                 =  .TRUE.
  output_filename              =  '${EXP}'                ! file name base
  pl_varlist                   =  'u', 'v', 'temp', 'gh', 'geopot'
