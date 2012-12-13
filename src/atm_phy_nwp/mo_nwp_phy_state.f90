@@ -1202,154 +1202,116 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
 !tiled quantities
-        ! &      diag%shfl_s_t(nproma,nblks_c,ntiles_total)
+        ! &      diag%shfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('shfl_s_t', 'W m-2 ', 'tile-based surface sensible heat flux', &
              &                DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'shfl_s_t', diag%shfl_s_t,                             &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
         ! fill the separate variables belonging to the container shfl_s_t
-        ALLOCATE(diag%shfl_s_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
+        ALLOCATE(diag%shfl_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
           WRITE(csfc,'(i1)') jsfc
           CALL add_ref( diag_list, 'shfl_s_t',                            &
              & 'shfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
              & diag%shfl_s_t_ptr(jsfc)%p_2d,                              &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('shfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL),   &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-        ! &      diag%lhfl_s_t(nproma,nblks_c,ntiles_total)
+        ! &      diag%lhfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('lhfl_s_t', 'W m-2 ', 'tile-based surface latent heat flux', &
              &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lhfl_s_t', diag%lhfl_s_t,                                &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs,    &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
         ! fill the separate variables belonging to the container lhfl_s_t
-        ALLOCATE(diag%lhfl_s_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
+        ALLOCATE(diag%lhfl_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
           WRITE(csfc,'(i1)') jsfc
           CALL add_ref( diag_list, 'lhfl_s_t',                            &
              & 'lhfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
              & diag%lhfl_s_t_ptr(jsfc)%p_2d,                              &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
              & t_cf_var('lhfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    & 
+             & t_grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),   & 
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-        ! &      diag%tcm_t(nproma,nblks_c,ntiles_total)
+        ! &      diag%tcm_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('tcm_t', ' ', &
           & 'tile-based turbulent transfer coefficients for momentum', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 2, 29, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tcm_t', diag%tcm_t,                                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
         ! fill the separate variables belonging to the container tcm_t
-        ALLOCATE(diag%tcm_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
+        ALLOCATE(diag%tcm_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
           WRITE(csfc,'(i1)') jsfc
           CALL add_ref( diag_list, 'tcm_t',                               &
              & 'tcm_t_'//TRIM(ADJUSTL(csfc)),                             &
              & diag%tcm_t_ptr(jsfc)%p_2d,                                 &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
              & t_cf_var('tcm_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    & 
+             & t_grib2_var(0, 2, 29, ibits, GRID_REFERENCE, GRID_CELL),   & 
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-        ! &      diag%tch_t(nproma,nblks_c,ntiles_total)
+        ! &      diag%tch_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('tch_t', ' ', &
              &                'tile-based turbulent transfer coefficients for heat', &
              &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 0, 19, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tch_t', diag%tch_t,                                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)                       
           
         ! fill the separate variables belonging to the container tch_t
-        ALLOCATE(diag%tch_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
+        ALLOCATE(diag%tch_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
           WRITE(csfc,'(i1)') jsfc
           CALL add_ref( diag_list, 'tch_t',                               &
              & 'tch_t_'//TRIM(ADJUSTL(csfc)),                             &
              & diag%tch_t_ptr(jsfc)%p_2d,                                 &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('tch_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & t_grib2_var(0, 0, 19, ibits, GRID_REFERENCE, GRID_CELL),   &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-        ! &      diag%tfm_t(nproma,nblks_c,ntiles_total)
-        cf_desc    = t_cf_var('tfm_t', ' ', 'tile-based factor of laminar transfer of momentum', &
-             &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'tfm_t', diag%tfm_t,                                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-        ! fill the separate variables belonging to the container tfm_t
-        ALLOCATE(diag%tfm_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
-          WRITE(csfc,'(i1)') jsfc
-          CALL add_ref( diag_list, 'tfm_t',                               &
-             & 'tfm_t_'//TRIM(ADJUSTL(csfc)),                             &
-             & diag%tfm_t_ptr(jsfc)%p_2d,                                 &
-             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-             & t_cf_var('tfm_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-        ENDDO
-
-        ! &      diag%tfh_t(nproma,nblks_c,ntiles_total)
-        cf_desc    = t_cf_var('tfh_t', ' ', 'tile-based factor of laminar transfer of heat', &
-             &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'tfh_t', diag%tfh_t,                                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-        ! fill the separate variables belonging to the container tfh_t
-        ALLOCATE(diag%tfh_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
-          WRITE(csfc,'(i1)') jsfc
-          CALL add_ref( diag_list, 'tfh_t',                               &
-             & 'tfh_t_'//TRIM(ADJUSTL(csfc)),                             &
-             & diag%tfh_t_ptr(jsfc)%p_2d,                                 &
-             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-             & t_cf_var('tfh_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-        ENDDO
-
-        ! &      diag%tfv_t(nproma,nblks_c,ntiles_total)
-        cf_desc    = t_cf_var('tfv_t', ' ', &
-             &                'tile-based laminar reduction factor for evaporation', &
-             &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'tfv_t', diag%tfv_t,                                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-        ! fill the separate variables belonging to the container tfv_t
-        ALLOCATE(diag%tfv_t_ptr(ntiles_total))
-        DO jsfc = 1,ntiles_total
-          WRITE(csfc,'(i1)') jsfc
-          CALL add_ref( diag_list, 'tfv_t',                               &
-             & 'tfv_t_'//TRIM(ADJUSTL(csfc)),                             &
-             & diag%tfv_t_ptr(jsfc)%p_2d,                                 &
-             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-             & t_cf_var('tfv_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-        ENDDO
+!!!! NOT USED SO FAR>
+!!$
+!!$
+!!$        ! &      diag%tfv_t(nproma,nblks_c,ntiles_total)
+!!$        cf_desc    = t_cf_var('tfv_t', ' ', &
+!!$             &                'tile-based laminar reduction factor for evaporation', &
+!!$             &                DATATYPE_FLT32)
+!!$        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
+!!$        CALL add_var( diag_list, 'tfv_t', diag%tfv_t,                                   &
+!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
+!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+!!$
+!!$        ! fill the separate variables belonging to the container tfv_t
+!!$        ALLOCATE(diag%tfv_t_ptr(ntiles_total))
+!!$        DO jsfc = 1,ntiles_total
+!!$          WRITE(csfc,'(i1)') jsfc
+!!$          CALL add_ref( diag_list, 'tfv_t',                               &
+!!$             & 'tfv_t_'//TRIM(ADJUSTL(csfc)),                             &
+!!$             & diag%tfv_t_ptr(jsfc)%p_2d,                                 &
+!!$             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+!!$             & t_cf_var('tfv_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
+!!$             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+!!$        ENDDO
+!!!! NOT USED SO FAR<
 
         ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &
