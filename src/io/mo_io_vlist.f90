@@ -3133,7 +3133,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      DO jt = 1, 3
+      DO jt = 1, 5
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'TQ'//ctracer) THEN
           ptr2 => p_diag%tracer_vi(:,:,jt)
