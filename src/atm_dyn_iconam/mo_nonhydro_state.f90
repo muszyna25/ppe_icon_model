@@ -682,8 +682,8 @@ MODULE mo_nonhydro_state
         ! art
         IF (artconf%lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
-                    & p_prog%tracer_ptr,advconf,&
-                    & timelev,ldims=shape3d_c,tlev_source=1)
+                    & p_prog%tracer_ptr,advconf,p_prog=p_prog,&
+                    & timelev=timelev,ldims=shape3d_c,tlev_source=1)
         ENDIF
    
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)

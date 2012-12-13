@@ -118,6 +118,7 @@ MODULE mo_cumaster
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
   USE mo_nwp_parameters,  ONLY: t_phy_params
+  USE mo_fortran_tools,   ONLY: t_ptr_tracer
 
   IMPLICIT NONE
 
@@ -147,8 +148,8 @@ CONTAINS
     & pmfude_rate,        pmfdde_rate,              &
     & ptu,      pqu,      plu,                      &
     & pmflxr,   pmflxs,   prain,                    &
-    &   pcape) !,    &
-    ! & pcen,     ptenc) these have zero size
+    & pcape ,    &
+    & ktrac, pcen,     ptenc) 
 
     !
 
@@ -327,9 +328,8 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
     !>KF
-    !INTEGER(KIND=JPIM),INTENT(IN),OPTIONAL  :: KTRAC
-    INTEGER(KIND=jpim),PARAMETER :: ktrac = 0 ! NOTE: if you change this you should uncomment
-                                              ! the related statements, ie search for ktrac
+!    INTEGER(KIND=JPIM),INTENT(IN),OPTIONAL  :: KTRAC
+    INTEGER(KIND=jpim),INTENT(in)  :: ktrac 
     
     !<KF
     INTEGER(KIND=jpim)               :: ktdia
@@ -361,7 +361,8 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)
     ! with ktrac=0 this has zero size
-!     REAL(KIND=jprb)   ,INTENT(in), OPTIONAL :: pcen(klon,klev,ktrac)
+!    REAL(KIND=jprb)   ,INTENT(in), OPTIONAL :: pcen(klon,klev,ktrac)
+    TYPE(t_ptr_tracer)   ,INTENT(in), OPTIONAL :: pcen(ktrac)
     REAL(KIND=jprb)   ,INTENT(inout) :: ptent(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: ptenq(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout)   :: ptenl(klon,klev)
@@ -371,6 +372,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: ptenv(klon,klev)
     ! with ktrac=0 this has zero size
 !     REAL(KIND=jprb)   ,INTENT(inout), OPTIONAL :: ptenc(klon,klev,ktrac)
+    TYPE(t_ptr_tracer)   ,INTENT(inout), OPTIONAL :: ptenc(ktrac)
     LOGICAL           ,INTENT(inout) :: ldcum(klon)
     INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon)
     INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon)
@@ -1209,7 +1211,7 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
-  
+
     !*UPG change to operations
     IF ( llconscheck ) THEN
       ALLOCATE(ztent(klon,klev))
@@ -1224,22 +1226,23 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
-      
-!       IF ( lmftrac .AND. ktrac>0 ) THEN
-!         ALLOCATE(ztenc(klon,klev,ktrac))
-!         ALLOCATE(zsumc(klon,4+ktrac))
-!         DO jn=1,ktrac
-!           DO jk=ktdia+1,klev
-!             DO jl=kidia,kfdia
-!               IF ( ldcum(jl) ) THEN
+
+       IF ( lmftrac .AND. ktrac>0 ) THEN
+         ALLOCATE(ztenc(klon,klev,ktrac))
+         ALLOCATE(zsumc(klon,4+ktrac))
+         DO jn=1,ktrac
+           DO jk=ktdia+1,klev
+             DO jl=kidia,kfdia
+               IF ( ldcum(jl) ) THEN
 !                 ztenc(jl,jk,jn)=ptenc(jl,jk,jn)
-!               ENDIF
-!             ENDDO
-!           ENDDO
-!         ENDDO
-!       ELSE
+                 ztenc(jl,jk,jn)=ptenc(jn)%ptr(jl,jk)
+               ENDIF
+             ENDDO
+           ENDDO
+         ENDDO
+       ELSE
         ALLOCATE(zsumc(klon,4))
-!       ENDIF
+       ENDIF
     ENDIF
     !*UPG change to operations
 
@@ -1495,8 +1498,7 @@ CONTAINS
     !*   11.0          CHEMICAL TRACER TRANSPORT
     !                  -------------------------
 
-#if 0
-! ktrac = 0, this is inactive
+
     IF ( lmftrac .AND. ktrac>0 ) THEN
 
       ! transport switched off for mid-level convection
@@ -1583,7 +1585,6 @@ CONTAINS
           & pcen,     ptenc     )
       ENDIF
     ENDIF
-#endif
 
     !----------------------------------------------------------------------
 
@@ -1632,18 +1633,19 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
-!       IF ( lmftrac .AND. ktrac>0 ) THEN
-!         DO jn=1,ktrac
-!           DO jk=klev,ktdia+1,-1
-!             DO jl=kidia,kfdia
-!               IF ( ldcum(jl) .AND. jk>=kctop(jl)-1) THEN
-!                 zdz=(paph(jl,jk+1)-paph(jl,jk))/rg
-!                 zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenc(jl,jk,jn)-ztenc(jl,jk,jn))*zdz
-!               ENDIF
-!             ENDDO
-!           ENDDO
-!         ENDDO
-!       ENDIF
+       IF ( lmftrac .AND. ktrac>0 ) THEN
+         DO jn=1,ktrac
+           DO jk=klev,ktdia+1,-1
+             DO jl=kidia,kfdia
+               IF ( ldcum(jl) .AND. jk>=kctop(jl)-1) THEN
+                 zdz=(paph(jl,jk+1)-paph(jl,jk))/rg
+            !     zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenc(jl,jk,jn)-ztenc(jl,jk,jn))*zdz
+                 zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenc(jn)%ptr(jl,jk)-ztenc(jl,jk,jn))*zdz
+               ENDIF
+             ENDDO
+           ENDDO
+         ENDDO
+       ENDIF
 
       DO jl=kidia,kfdia
         IF ( ldcum(jl) ) THEN
@@ -1680,9 +1682,9 @@ CONTAINS
       ! ENDDO
 
       DEALLOCATE(zsumc)
-!       IF ( lmftrac .AND. ktrac>0 ) THEN
-!         DEALLOCATE(ztenc)
-!       ENDIF
+       IF ( lmftrac .AND. ktrac>0 ) THEN
+         DEALLOCATE(ztenc)
+       ENDIF
       DEALLOCATE(ztenq)
       DEALLOCATE(ztent)
 

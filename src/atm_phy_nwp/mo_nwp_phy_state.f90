@@ -95,6 +95,11 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               FILETYPE_NC2, TSTEP_INSTANT, TSTEP_ACCUM,     &
   &                               TSTEP_AVG, TSTEP_MAX, TSTEP_MIN
 
+USE mo_advection_config,     ONLY: advection_config
+USE mo_art_config,           ONLY: t_art_config,art_config,nart_tendphy
+USE mo_art_tracer_interface, ONLY: art_tracer_interface
+
+
 IMPLICIT NONE
 PRIVATE
 
@@ -828,12 +833,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
             prefix = "a"
             meaning = "mean"
             varunits= "W/m**2"
-            a_steptype= TSTEP_AVG 
+            a_steptype= TSTEP_AVG
         ELSE
             prefix = "acc"
             meaning = "acc." 
             varunits= "J/m**2"
-            a_steptype= TSTEP_ACCUM     
+            a_steptype= TSTEP_ACCUM
         END IF
         WRITE(name,'(A,A5)') TRIM(prefix),"thb_t"
         WRITE(long_name,'(A26,A4,A18)') "longwave  net flux at TOA ", meaning, &
@@ -1767,15 +1772,24 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
+    TYPE(t_art_config), POINTER :: artconf
+
     INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
     INTEGER :: ibits, ktracer
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
+    ! ART: pointer to art_config(jg) to save some paperwork
+    artconf => art_config(k_jg)
+
     shape3d    = (/nproma, klev  , kblks            /)
     shape3dkp1 = (/nproma, klev+1, kblks            /)
-    shape4d    = (/nproma, klev  , kblks, nqtendphy /)
 
+    IF (artconf%lart) THEN
+     shape4d    = (/nproma, klev  , kblks, nqtendphy+nart_tendphy /)
+    ELSE
+     shape4d    = (/nproma, klev  , kblks, nqtendphy /)
+    ENDIF 
 
     CALL new_var_list( phy_tend_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( phy_tend_list,             &
@@ -1926,9 +1940,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-
-    ktracer=nqtendphy
-    ALLOCATE( phy_tend%tracer_turb_ptr(nqtendphy) )
+    IF (artconf%lart) THEN
+     ktracer=nqtendphy+nart_tendphy
+    ELSE
+     ktracer=nqtendphy
+    ENDIF
+    ALLOCATE( phy_tend%tracer_turb_ptr(ktracer) )
 
          !qv
         CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
@@ -1957,8 +1974,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
                     & ldims=shape3d, lrestart=.FALSE.)
 
+        ! art
+!        IF (artconf%lart) THEN
+!          CALL art_tracer_interface('turb',k_jg,nblks_c,phy_tend_list,'ddt_',  phy_tend%tracer_turb_ptr,&
+!                    & advconf,timelev,ldims=shape3d,tlev_source=1)
+!        ENDIF
 
-   ! &      phy_tend%ddt_tracer_pconv(nproma,nlev,nblks,nqtendphy)
     cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
          &                            'convective tendency y of tracers', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1966,8 +1987,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    ktracer=nqtendphy
-    ALLOCATE( phy_tend%tracer_conv_ptr(nqtendphy) )
+    IF (artconf%lart) THEN
+     ktracer=nqtendphy+nart_tendphy 
+    ELSE
+     ktracer=nqtendphy 
+    ENDIF
+    ALLOCATE( phy_tend%tracer_conv_ptr(ktracer) )
 
          !qv
         CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
@@ -1993,6 +2018,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & 'tendency_of_specific_cloud_ice_due_to_convection', DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
                     & ldims=shape3d)
+
+        ! art
+        IF (artconf%lart) THEN
+          CALL art_tracer_interface('conv',k_jg,kblks,phy_tend_list,&
+                    & 'ddt_',phy_tend%tracer_conv_ptr,&
+                    & advection_config(k_jg),phy_tend=phy_tend,ldims=shape3d,tlev_source=1)
+        ENDIF
 
 
     !------------------------------

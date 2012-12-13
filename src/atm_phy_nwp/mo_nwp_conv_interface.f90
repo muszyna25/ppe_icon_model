@@ -56,6 +56,8 @@ MODULE mo_nwp_conv_interface
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_fortran_tools,        ONLY: t_ptr_tracer
+  USE mo_art_config,           ONLY: art_config
 
   IMPLICIT NONE
 
@@ -75,7 +77,7 @@ CONTAINS
     &                         p_prog,                    & !>in
     &                         p_prog_rcf,                & !>inout
     &                         p_diag ,                   & !>inout
-    &                         prm_diag,prm_nwp_tend      ) !>inout 
+    &                         prm_diag,prm_nwp_tend      ) !>inout
 
 
 
@@ -236,8 +238,7 @@ CONTAINS
         ! The following input fields must be reset to zero because the convective
         ! tendencies are added to them
         prm_nwp_tend%ddt_temp_pconv  (:,:,jb)     = 0._wp
-        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc) = 0._wp
-        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi) = 0._wp
+        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,:)   = 0._wp
         prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp
 
@@ -285,8 +286,10 @@ CONTAINS
 &            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
-&            pcape =       prm_diag%cape     (:,jb)                           ) !! OUT
-
+&            pcape =       prm_diag%cape     (:,jb)                           ,& !! OUT
+&            ktrac = art_config(jg)%nconv_tracer                            ,& !! IN 
+&            pcen  =   p_prog_rcf%conv_tracer(jb,:)                         ,& !! IN 
+&            ptenc =   prm_nwp_tend%conv_tracer_tend(jb,:) )                   !!OUT
 
         ! Postprocessing on some fields
 
@@ -325,7 +328,6 @@ CONTAINS
           prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
             &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
             &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
-
 
           prm_diag%rain_con_rate(i_startidx:i_endidx,jb) =                                &
             &                    prm_diag%rain_con_rate_3d(i_startidx:i_endidx,nlevp1,jb)

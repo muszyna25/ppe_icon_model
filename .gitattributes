@@ -166,6 +166,7 @@ doc/technical/notes_remap.pdf -text
 doc/technical/notes_remap.tex -text
 doc/technical/remap_intersect.pdf -text
 doc/technical/transport_arlists.tex -text
+/doconfig_sx9_dwd -text
 include/cdi.inc -text
 lapack/dbbcsd.f -text
 lapack/dbdsdc.f -text

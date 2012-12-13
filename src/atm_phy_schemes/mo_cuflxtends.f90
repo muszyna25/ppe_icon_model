@@ -77,6 +77,11 @@ MODULE mo_cuflxtends
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
     & foeewl,   foeewi
 
+  USE mo_fortran_tools, ONLY: t_ptr_tracer
+
+!K.L. for testing:
+  USE mo_exception,           ONLY: message, message_text
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1308,8 +1313,11 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pudrate(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pddrate(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(in)    :: pcen(klon,klev,ktrac)
-    REAL(KIND=jprb)   ,INTENT(inout) :: ptenc(klon,klev,ktrac)
+!K.L. test with pcen%ptr and ptenc%ptr
+!    REAL(KIND=jprb)   ,INTENT(in)    :: pcen(klon,klev,ktrac)
+    TYPE(t_ptr_tracer)   ,INTENT(in), OPTIONAL :: pcen(ktrac)
+!    REAL(KIND=jprb)   ,INTENT(inout) :: ptenc(klon,klev,ktrac)
+    TYPE(t_ptr_tracer)   ,INTENT(inout),OPTIONAL :: ptenc(ktrac)
 
 
     ! Set MODULE PARAMETERS for offline
@@ -1351,6 +1359,7 @@ CONTAINS
            zdp(jl,jk)=rg/(paph(jl,jk+1)-paph(jl,jk))
           IF(jk>=kctop(jl)-1) THEN
             llcumask(jl,jk)=.TRUE.
+
           ENDIF
         ENDIF
       ENDDO
@@ -1365,17 +1374,17 @@ CONTAINS
       DO jk=ktdia+1,klev
         ik=jk-1
         DO jl=kidia,kfdia
-          zcen(jl,jk,jn)=pcen(jl,jk,jn)
-          zcd(jl,jk,jn) =pcen(jl,ik,jn)
-          zcu(jl,jk,jn) =pcen(jl,ik,jn)
-          zmfc(jl,jk,jn)=0.0_JPRB
-          ztenc(jl,jk,jn)=0.0_JPRB
+         zcen(jl,jk,jn)=pcen(jn)%ptr(jl,jk)
+         zcd(jl,jk,jn) =pcen(jn)%ptr(jl,ik)
+         zcu(jl,jk,jn) =pcen(jn)%ptr(jl,ik)
+         zmfc(jl,jk,jn)=0.0_JPRB
+         ztenc(jl,jk,jn)=0.0_JPRB
         ENDDO
       ENDDO
-      DO jl=kidia,kfdia
-        zcu(jl,klev,jn) =pcen(jl,klev,jn)
-      ENDDO
 
+      DO jl=kidia,kfdia
+        zcu(jl,klev,jn) =pcen(jn)%ptr(jl,klev)
+      ENDDO
       !*    2.0          COMPUTE UPDRAFT VALUES
       !!                 ----------------------
 
@@ -1386,7 +1395,7 @@ CONTAINS
             zerate=pmfu(jl,jk)-pmfu(jl,ik)+pudrate(jl,jk)
             zmfa=1.0_JPRB/MAX(rmfcmin,pmfu(jl,jk))
             IF (jk >=kctop(jl) )  THEN
-              zcu(jl,jk,jn)=( pmfu(jl,ik)*zcu(jl,ik,jn)+zerate*pcen(jl,jk,jn) &
+              zcu(jl,jk,jn)=( pmfu(jl,ik)*zcu(jl,ik,jn)+zerate*pcen(jn)%ptr(jl,jk) &
                 & -pudrate(jl,jk)*zcu(jl,ik,jn) )*zmfa
               !!if you have a source term dc/dt=dcdt write
               !!            ZCU(JL,JK,JN)=( PMFU(JL,IK)*ZCU(JL,IK,JN)+ZERATE*PCEN(JL,JK,JN) &
@@ -1408,11 +1417,11 @@ CONTAINS
             !Nota: in order to avoid final negative Tracer values at LFS the allowed value of ZCD
             !!     depends on the jump in mass flux at the LFS
             !ZCD(JL,JK,JN)=0.5_JPRB*ZCU(JL,JK,JN)+0.5_JPRB*PCEN(JL,IK,JN)
-            zcd(jl,jk,jn)=0.1_JPRB*zcu(jl,jk,jn)+0.9_JPRB*pcen(jl,ik,jn)
+            zcd(jl,jk,jn)=0.1_JPRB*zcu(jl,jk,jn)+0.9_JPRB*pcen(jn)%ptr(jl,ik)
           ELSEIF ( lddraf(jl).AND.jk>kdtop(jl) ) THEN
             zerate=-pmfd(jl,jk)+pmfd(jl,ik)+pddrate(jl,jk)
             zmfa=1._jprb/MIN(-rmfcmin,pmfd(jl,jk))
-            zcd(jl,jk,jn)=( pmfd(jl,ik)*zcd(jl,ik,jn)-zerate*pcen(jl,ik,jn) &
+            zcd(jl,jk,jn)=( pmfd(jl,ik)*zcd(jl,ik,jn)-zerate*pcen(jn)%ptr(jl,ik) &
               & +pddrate(jl,jk)*zcd(jl,ik,jn) )*zmfa
             !!if you have a source term dc/dt=dcdt write
             !!            ZCD(JL,JK,JN)=( PMFD(JL,IK)*ZCD(JL,IK,JN)-ZERATE*PCEN(JL,IK,JN) &
@@ -1430,12 +1439,12 @@ CONTAINS
           !KF
            ZPOSI=-ZDP(JL,JK)*(PMFU(JL,JK)*ZCU(JL,JK,JN)+PMFD(JL,JK)*ZCD(JL,JK,JN)&
           !zposi=-rg/zdph(jl,jk)*(pmfu(jl,jk)*zcu(jl,jk,jn)+pmfd(jl,jk)*zcd(jl,jk,jn)&
-            & -(pmfu(jl,jk)+pmfd(jl,jk))*pcen(jl,ik,jn) )
-          IF( pcen(jl,jk,jn)+zposi*ptsphy<0.0_JPRB ) THEN
+            & -(pmfu(jl,jk)+pmfd(jl,jk))*pcen(jn)%ptr(jl,ik) )
+          IF( pcen(jn)%ptr(jl,jk)+zposi*ptsphy<0.0_JPRB ) THEN
             zmfa=1._jprb/MIN(-rmfcmin,pmfd(jl,jk))
-            zcd(jl,jk,jn)=( (pmfu(jl,jk)+pmfd(jl,jk))*pcen(jl,ik,jn)-pmfu(jl,jk)*zcu(jl,jk,jn)&
+            zcd(jl,jk,jn)=( (pmfu(jl,jk)+pmfd(jl,jk))*pcen(jn)%ptr(jl,ik)-pmfu(jl,jk)*zcu(jl,jk,jn)&
             !  & +pcen(jl,jk,jn)/(ptsphy*rg/zdph(jl,jk)) )*zmfa
-              &+PCEN(JL,JK,JN)/(PTSPHY*ZDP(JL,JK)) )*ZMFA
+              &+pcen(jn)%ptr(jl,jk)/(PTSPHY*ZDP(JL,JK)) )*ZMFA
           ENDIF
         ENDIF
       ENDDO
@@ -1493,7 +1502,7 @@ CONTAINS
         DO jk=ktdia+1,klev
           DO jl=kidia,kfdia
             IF(llcumask(jl,jk)) THEN
-              ptenc(jl,jk,jn)=ptenc(jl,jk,jn)+ztenc(jl,jk,jn)
+              ptenc(jn)%ptr(jl,jk)=ptenc(jn)%ptr(jl,jk)+ztenc(jl,jk,jn)
             ENDIF
           ENDDO
         ENDDO
@@ -1531,7 +1540,7 @@ CONTAINS
                ZZP=RMFSOLCT*ZDP(JL,JK)*PTSPHY
               !zzp=rmfsolct*rg/zdph(jl,jk)*ptsphy
               zmfc(jl,jk,jn)=-zzp*(pmfu(jl,jk)+pmfd(jl,jk))
-              ztenc(jl,jk,jn) = ztenc(jl,jk,jn)*ptsphy+pcen(jl,jk,jn)
+              ztenc(jl,jk,jn) = ztenc(jl,jk,jn)*ptsphy+pcen(jn)%ptr(jl,jk)
               !  for implicit solution including tendency source term
               !  ZTENC(JL,JK,JN) = (ZTENC(JL,JK,JN)+PTENC(JL,JK,JN))*PTSPHY+PCEN(JL,JK,JN)
               IF(jk<klev) THEN
@@ -1553,7 +1562,7 @@ CONTAINS
         DO jk=ktdia+1,klev
           DO jl=kidia,kfdia
             IF(llcumbas(jl,jk)) THEN
-              ptenc(jl,jk,jn)=ptenc(jl,jk,jn)+(zr1(jl,jk)-pcen(jl,jk,jn))*ztsphy
+              ptenc(jn)%ptr(jl,jk)=ptenc(jn)%ptr(jl,jk)+(zr1(jl,jk)-pcen(jn)%ptr(jl,jk))*ztsphy
               !  for implicit solution including tendency source term
               !    PTENC(JL,JK,JN)=(ZR1(JL,JK)-PCEN(JL,JK,JN))*ZTSPHY
             ENDIF

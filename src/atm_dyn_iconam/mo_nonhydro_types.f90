@@ -44,7 +44,7 @@
 MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d,t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -80,6 +80,7 @@ MODULE mo_nonhydro_types
       tke   (:,:,:)        !! turbulent kinetic energy                         [m^2/s^2]
                            !! (defined on half levels) with 2 time levels
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_tracer),ALLOCATABLE :: conv_tracer(:,:)  
   END TYPE t_nh_prog
 
 

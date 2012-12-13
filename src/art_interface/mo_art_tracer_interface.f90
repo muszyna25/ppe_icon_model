@@ -43,6 +43,8 @@ MODULE mo_art_tracer_interface
     USE mo_linked_list,          ONLY: t_var_list
     USE mo_fortran_tools,        ONLY: t_ptr_2d3d
     USE mo_advection_config,     ONLY: t_advection_config
+    USE mo_nwp_phy_types,        ONLY: t_nwp_phy_tend
+    USE mo_nonhydro_types,       ONLY: t_nh_prog
 #ifdef __ICON_ART
     USE mo_art_tracer,       ONLY:art_tracer
 #endif
@@ -66,19 +68,20 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Kristina Lundgren, KIT (2012-04-03)
-
   SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
-    &                            ptr_arr,advconf,&
+    &                            ptr_arr,advconf,phy_tend, p_prog,&
     &                            timelev,ldims,tlev_source)
 
     INTEGER                 ,INTENT(in) :: jg                    !< patch id
-    INTEGER                 ,INTENT(in) :: nblks_c               !< patch block 
-    TYPE(t_var_list)        ,INTENT(INOUT) :: this_list          !< current list: prognostic or phys. tend. 
+    INTEGER                 ,INTENT(in) :: nblks_c               !< patch block
+    TYPE(t_var_list)        ,INTENT(INOUT) :: this_list          !< current list: prognostic or phys. tend.
     TYPE(t_ptr_2d3d)        ,INTENT(inout) :: ptr_arr(:)         !< pointer to each element in list
     TYPE(t_advection_config),INTENT(inout) :: advconf            !< advection config
-    INTEGER                 ,INTENT(in), OPTIONAL :: timelev     
-    INTEGER                 ,INTENT(in), OPTIONAL :: ldims(3)    !< local dimensions, for checking
-    INTEGER                 ,INTENT(in), OPTIONAL :: tlev_source !< actual TL for TL dependent vars
+    TYPE(t_nwp_phy_tend)    ,INTENT(inout),OPTIONAL :: phy_tend 
+    TYPE(t_nh_prog)         ,INTENT(inout),OPTIONAL :: p_prog 
+    INTEGER                 ,INTENT(in), OPTIONAL :: timelev 
+    INTEGER                 ,INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
+    INTEGER                 ,INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  vname_prefix
@@ -89,7 +92,8 @@ CONTAINS
  
 #ifdef __ICON_ART
    
-      CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,timelev,ldims,tlev_source) 
+      CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
+       & tlev_source) 
 
 #endif
 

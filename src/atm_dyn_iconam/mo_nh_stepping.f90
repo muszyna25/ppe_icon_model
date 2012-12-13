@@ -137,6 +137,7 @@ MODULE mo_nh_stepping
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface,  ONLY:art_emission_interface
+  USE mo_art_sedi_interface,  ONLY:art_sedi_interface
   USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest
@@ -418,6 +419,7 @@ MODULE mo_nh_stepping
 
   TYPE(t_datetime)                     :: datetime_old
 
+
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
@@ -454,7 +456,7 @@ MODULE mo_nh_stepping
       ! Do for all the domains
       !!CALL init_sea_lists(p_patch, ext_data, p_lnd_state%diag_lnd, lseaice)
 
-      datetime_old = datetime  
+      datetime_old = datetime
      END IF  ! newday
     END IF !sstice_mode>1
 ! end SST and sea ice fraction update
@@ -1230,6 +1232,21 @@ MODULE mo_nh_stepping
               &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
+              IF (art_config(jg)%lart) THEN
+
+                CALL art_sedi_interface( p_patch(jg),           &!in
+             &          dtadv_loc,                              &!in
+             &          p_nh_state(jg)%prog_list(n_new_rcf),    &!in
+             &          p_nh_state(jg)%metrics,                 &!in
+             &          p_nh_state(jg)%prog(n_new)%rho,         &!in
+             &          p_nh_state(jg)%diag,                    &!in
+             &          p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
+             &          p_nh_state(jg)%metrics%ddqz_z_full,     &!in
+             &          prep_adv(jg)%rhodz_mc_new,              &!in
+             &          opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
+
+
+              ENDIF
 
 !            IF (  iforcing==inwp .AND. inwp_turb == 1) THEN
 !              !> KF preliminary relabeling of TKE as long as there is no advection for it

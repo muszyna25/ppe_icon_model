@@ -60,7 +60,7 @@
 MODULE mo_nwp_phy_types
 
   USE mo_kind,                ONLY: wp
-  USE mo_fortran_tools,       ONLY: t_ptr_2d3d
+  USE mo_fortran_tools,       ONLY: t_ptr_2d3d,t_ptr_tracer
   USE mo_model_domain,        ONLY: t_patch
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_nwp_parameters,      ONLY: t_phy_params
@@ -80,7 +80,6 @@ MODULE mo_nwp_phy_types
   !types
   PUBLIC :: t_nwp_phy_diag
   PUBLIC :: t_nwp_phy_tend
-
 
   !
   !!data structure defining model states
@@ -114,6 +113,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
+
 
     REAL(wp), POINTER ::  &
       &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
@@ -305,6 +305,9 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component
       &  tracer_conv_ptr(:)       !< pointer array: one pointer for each component
+
+    TYPE(t_ptr_tracer), ALLOCATABLE :: conv_tracer_tend(:,:) !< pointer for chemical tracer conv. tend.
+
   END TYPE t_nwp_phy_tend
 
 END MODULE mo_nwp_phy_types

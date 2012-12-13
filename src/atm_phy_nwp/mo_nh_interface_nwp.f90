@@ -104,9 +104,9 @@ MODULE mo_nh_interface_nwp
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
-  USE mo_art_config,          ONLY:art_config
+  USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
-
+  USE mo_fortran_tools,       ONLY: t_ptr_tracer!,pcen,ptenc 
   IMPLICIT NONE
 
   PRIVATE
@@ -281,7 +281,7 @@ CONTAINS
            & CALL message('mo_nh_interface_nwp:', 'update_tracers')
 
       IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
-      
+
       CALL nh_update_prog_phy(pt_patch              ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  prm_nwp_tend          ,& !in
@@ -1694,6 +1694,18 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+
+      IF(art_config(jg)%lart .AND. art_config(jg)%lart_conv_volcano) THEN
+! KL add convective tendency and fix to positive values
+      DO jt=1,art_config(jg)%nconv_tracer  ! ASH
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+             pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
+             +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
+          ENDDO
+        ENDDO
+      ENDDO
+      ENDIF !lart
 
 !DR additional clipping for qr, qs 
 !DR (very small negative values may occur during the transport process (order 10E-15)) 
