@@ -23,7 +23,7 @@ iFile=${5}
 #iFile=${dir}"NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.nc"
 echo "dir = " $dir " iFile = " $iFile
 
-#mkdir -p ${dir}"/meteo"
+mkdir -p ${dir}"/meteo"
 #oType="png" !doesn't work on AIX (NCL 5.2.1)
 oType="eps"
 
