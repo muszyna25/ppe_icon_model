@@ -29,6 +29,7 @@ lock      = Mutex.new
 Cdp.setCDO
 Cdp.setDebug
 Cdo.forceOutput = false
+#Cdo.debug = true
 #=============================================================================== 
 #=============================================================================== 
 def plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,oType=nil,oTag=nil)
@@ -66,7 +67,7 @@ experimentFiles.each {|experiment, files|
                   :output => volumeFile)
 
       Cdo.setname('ice_extent',
-                  :input => " -divc,1e6 -mul -selname,cell_area #{gridfile}  -selname,#{iceConcentration} #{file}",
+                  :input => " -divc,1e6 -mul -selname,cell_area #{gridfile}  -mul -gtc,0.15 -selname,#{iceConcentration} #{file} -selname,#{iceConcentration} #{file}",
                   :output => extentFile)
 
       Cdo.merge(:input => [volumeFile,extentFile].join(' '),
@@ -89,6 +90,7 @@ experimentAnalyzedData.each {|experiment,files|
     q.push {
       tag   = ['nh','sh'][i]
       ofile = [experiment,'iceDiagnostics',tag].join('_') + '.nc'
+      FileUtils.rm(ofile) if File.exist?(ofile)
       Cdo.cat(:input => hemisphereFiles.sort.join(' '), :output => ofile, :options => '-r')
       lock.synchronize{ iceOutputsfiles << ofile }
     }
@@ -104,4 +106,4 @@ nhIceExtent = Cdo.readArray(nhFile,'ice_extent').flatten.to_gv
 shIceExtent = Cdo.readArray(shFile,'ice_extent').flatten.to_gv
 
 plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent)
-plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,'png','t')
+plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,'png','u')
