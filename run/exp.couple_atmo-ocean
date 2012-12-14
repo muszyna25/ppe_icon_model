@@ -117,7 +117,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -127,7 +127,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -144,7 +144,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .FALSE.
 /
 &coupling_nml
@@ -154,7 +154,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -164,7 +164,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -174,7 +174,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -184,7 +184,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -194,7 +194,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &parallel_nml
@@ -347,7 +347,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -356,7 +356,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -372,7 +372,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .FALSE.
 /
 &coupling_nml
@@ -381,7 +381,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -390,7 +390,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -399,7 +399,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -408,7 +408,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -417,7 +417,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 !
