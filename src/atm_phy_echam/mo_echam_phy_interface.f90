@@ -72,8 +72,9 @@ MODULE mo_echam_phy_interface
     & timer_echam_sync_temp , timer_echam_sync_tracers
                                 
   USE mo_coupling_config,    ONLY: is_coupled_run
-  USE mo_icon_cpl_exchg,    ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field, ONLY:ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices,ONLY: iwtr, iice
 
@@ -147,6 +148,7 @@ CONTAINS
     INTEGER :: jc, jk   !< column index, vertical level index
     INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
 
+    LOGICAL               :: write_coupler_restart
     INTEGER               :: nbr_fields
     INTEGER               :: nbr_hor_points ! = inner and halo points
     INTEGER               :: nbr_points     ! = nproma * nblks
@@ -436,15 +438,19 @@ CONTAINS
        ! Send fields away
        ! ----------------
        !
+       write_coupler_restart = .FALSE.
+       !
        ! TAUX
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! TAUY
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
        !
@@ -455,13 +461,15 @@ CONTAINS
         buffer(:,2) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
  
        field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), ierror )
+       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! SFTEMP
        !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        field_shape(3) = 1
-       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! THFLX, total heat flux
        !
@@ -471,9 +479,11 @@ CONTAINS
        buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
 
        field_shape(3) = 4
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), ierror )
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        field_shape(3) = 1
 
+       IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 5, field_id(1:5), ierror )
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------

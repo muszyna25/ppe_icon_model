@@ -89,6 +89,7 @@ USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,     &
   &                               ice_slow, ice_fast, prepareAfterRestart, prepare4restart
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
 USE mo_coupling_config,     ONLY: is_coupled_run
+USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -145,7 +146,8 @@ CONTAINS
     REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
 
     ! Local declarations for coupling:
-    INTEGER               :: info, ierror !< return values form cpl_put/get calls
+    LOGICAL               :: write_coupler_restart
+    INTEGER               :: info, ierror   !< return values form cpl_put/get calls
     INTEGER               :: nbr_hor_points ! = inner and halo points
     INTEGER               :: nbr_points     ! = nproma * nblks
     INTEGER               :: nbr_fields
@@ -652,25 +654,33 @@ CONTAINS
       ! Send fields from ocean to atmosphere
       ! ------------------------------------
       !
+        write_coupler_restart = .FALSE.
+      !
       ! SST/sea ice surface temperature:
       ! They need to be weighted now that p_ice%concSum is variable
         buffer(:,1) = RESHAPE(p_ice%Tsurf(:,1,:)*p_ice%concSum(:,:) +           &
           &     p_os%p_prog(nold(1))%tracer(:,1,:,1)*(1._wp-p_ice%concSum(:,:)),&
           &           (/nbr_points /) ) + tmelt
-        CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+        CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! zonal velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! ocean & ice albedo
         buffer(:,1) = RESHAPE(p_ice%alb(:,1,:)*p_ice%concSum(:,:) +   &
           &     albedoW*(1._wp-p_ice%concSum(:,:)), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+        CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
+
+        IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(6:9), ierror )
       !
       ! Receive fields from atmosphere
       ! ------------------------------
