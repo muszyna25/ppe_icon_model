@@ -117,8 +117,10 @@ done
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
 'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
-'tcc','tqv','tqc','tqi', 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
-'u_10m','v_10m', 't_2m', 
+'tcc','tqv','tqc','tqi', 
+'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05'
+'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
+'u_10m','v_10m', 't_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
 'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
 'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
@@ -221,6 +223,8 @@ cat > ${atmo_namelist} << EOF
                      -20.00,-120.00, 'Tropical Ocean cumumulus',
                      -20.00, -85.00, 'Tropical Ocean IMET strcu',
                       60.00,  80.00, 'Snow Test Russia',
+                      46.81,   6.94, 'Payerne',
+                      67.36,  26.64, 'Sodankyla',
 /
 &nwp_phy_nml
  inwp_gscp                    = 10  ! 1: default, or 10

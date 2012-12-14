@@ -47,11 +47,10 @@ else
   vertime = '00'
   ndays   = 1
   exphres = 'R2B04'
-end if  
+end if
 
 
-#-----------------------------------------------------------------------
-# --- setup
+# --- environment variables
 
 user     = getenv("USER")
 plotdir  = getenv("PLOTDIR")
@@ -60,6 +59,12 @@ tailfile = getenv("TAILFILE")
 lmonth   = getenv("LMONTH")
 yyyymm   = getenv("YYYYMM")
 #plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
+
+
+#-----------------------------------------------------------------------
+# --- setup
+
+precision( 4 )           # precision of numbers in plots
 
 expres  = 'NWP.'&exphres&'L90'
 
@@ -87,7 +92,6 @@ case levtype of
      end 
 end case
 
-
 if ndays > 1  then
   nd_txt1 = '_n'&ndays
   nd_txt2 = ' '&ndays&' days'
@@ -110,8 +114,6 @@ case stat of
     title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
   end
 end case
-
-precision( 4 )           # precision of numbers in plots
 
 
 #-----------------------------------------------------------------------
@@ -149,9 +151,9 @@ end case
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile
 case varname of
- 'QV':      varfile2 = 'QV'  end
- 'QC':      varfile2 = 'QC'          end
- 'QI':      varfile2 = 'QI'          end
+ 'QV':      varfile2 = 'Q1'          end
+ 'QC':      varfile2 = 'Q2'          end
+ 'QI':      varfile2 = 'Q3'          end
 end case
 
 
@@ -200,7 +202,6 @@ for nd=1 to ndays do
     if nd=1 then
       nlev    = count(temp)
       var_exp = temp
-     #print(var_exp)
     else
       var_exp = var_exp & temp
     end if
@@ -228,6 +229,11 @@ for nd=1 to ndays do
         )
         end
       otherwise:
+        case varname of
+          'QV' : varfile = 'Q1' end   # compare to Q1 initial condition
+          'QC' : varfile = 'Q2' end
+          'QI' : varfile = 'Q3' end
+        end case
         temp = read(  
   		SOURCE   : source_ver_icon, 
 #               param    : varname,
@@ -252,6 +258,7 @@ for nd=1 to ndays do
   verdate = verdate + 1
 
 end for
+
 
 #-----------------------------------------------------------------------
 #--- processing
@@ -281,6 +288,7 @@ var_zonal = xs_average(
 		DATA                : var_data 
 	)
 
+
 # --- variable specific plotting
 
 #level_type = 'count'         #linear
@@ -290,8 +298,7 @@ level_count = 12
 maxi = -1e10
 mini =  1e10
 sqr  = 0
-#for k = 1 to nlev do
-for k = 10 to nlev do
+for k = 1 to nlev do
   ave  = average_ew(var_data[k], [90,-180,-90,180], 2.0)
   maxi = max(maxi,maxvalue(ave))
   mini = min(mini,minvalue(ave))
@@ -299,45 +306,53 @@ for k = 10 to nlev do
 end for
 rms = sqrt( sum(sqr) / nlev / count(sqr) )
 
-min_level  = mini
-max_level  = max(-mini,maxi)
-if max_level > 0.0 then
-  max_level  = 4*round( max_level/4, -round(log10(max_level/4),0)+1 )
-end if
+maxi2 = -1e10
+mini2 =  1e10
+for k = 10 to nlev do
+  ave  = average_ew(var_data[k], [90,-180,-90,180], 2.0)
+  maxi2 = max(maxi2,maxvalue(ave))
+  mini2 = min(mini2,minvalue(ave))
+end for
 
-#custom contouring:
-#min_level = -20
-#max_level = 50
+diff_level  = max(-mini2,maxi2)
+if diff_level > 0.0 then
+  diff_level  = 4*round( diff_level/4, -round(log10(diff_level/4),0)+1 )
+end if
 
 statistic   = 'Min:  '&mini&'   Max:  '&maxi&'   Mean:  '&integrate(mean(var_data))
 if stat = 'diff' then 
   statistic = statistic & '   RMS:  ' & rms
 end if
           
+#custom contouring:
+#diff_level = 50
+#
 # case varname of
 #   'QC' :      #level_count = 9 
-#               min_level   = 0.00001
-#               max_level   = 0.0001       # 20               0.03   40
+#               mini   = 0.00001
+#               maxi   = 0.0001       # 20               0.03   40
 #   end
 #   end
-#   otherwise:  min_level  = minvalue(var_data)
-#               max_level  = maxvalue(var_data)
+#   otherwise:  mini  = minvalue(var_data)
+#               maxi  = maxvalue(var_data)
 #   end
 # end case
 
-#max_level = 4.0
- level_list = [-max_level, -max_level/2, -max_level/4, -max_level/8, -max_level/16, max_level/16, max_level/8, max_level/4, max_level/2, max_level]
-#level_list = [-max_level, -max_level/2, -max_level/4, -max_level/8,                              max_level/8, max_level/4, max_level/2, max_level]
+#diff_level = 4.0
+#level_list = [-diff_level, -diff_level/2, -diff_level/4, -diff_level/8,                              diff_level/8, diff_level/4, diff_level/2, diff_level]
 #level_list = [-20,-10,-5,-2,-1, 1,2,5,10,20]
 #level_list = [-2.5,-2,-1.5,-1,-0.5,0.5,1,1.5,2,2.5]
+ level_list = [-diff_level, -diff_level/2, -diff_level/4, -diff_level/8, -diff_level/16, diff_level/16, diff_level/8, diff_level/4, diff_level/2, diff_level]
+
 
 #-----------------------------------------------------------------------
 # --- Plot setup
 
 text = mtext(  
-        text_line_count :   2,
+        text_line_count :   3,
         TEXT_LINE_1     :   title, 
         text_line_2     :   statistic,
+        text_line_3     :   ' ',
         text_font_size  :   0.6,
         TEXT_COLOUR     :   'BLACK' 
     )
@@ -352,9 +367,6 @@ all = mcont(
                 CONTOUR_LABEL                  : 'OFF',
 		CONTOUR_SHADE                  : 'ON', 
 		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
-#		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'RED', 
-#		CONTOUR_SHADE_MIN_LEVEL_COLOUR : 'BLUE_PURPLE',
-#               contour_shade_colour_direction : "clockwise"
 		contour_shade_colour_method    : "list",
                 contour_shade_colour_list      : [                         # 12 colors:
                                                  "RGB(0.0 , 0.2 , 0.6)",   # dark blue
@@ -369,14 +381,14 @@ all = mcont(
                                                  "RGB(0.9 , 0.4 , 0.3)",   #  i 
                                                  "RGB(0.8 , 0.2 , 0.15)",  #  i
                                                  "RGB(0.7 , 0.0 , 0.0)" ]  # dark red
-        )
+    )
 cont = mcont(  
                 LEGEND                         : 'ON',
 		CONTOUR                        : 'OFF',
 		CONTOUR_LEVEL_SELECTION_TYPE   : level_type, 
 		CONTOUR_LEVEL_COUNT            : level_count,
-		CONTOUR_MAX_LEVEL              : max_level, 
-		CONTOUR_MIN_LEVEL              : -max_level, 
+		CONTOUR_MAX_LEVEL              : diff_level, 
+		CONTOUR_MIN_LEVEL              : -diff_level, 
 		contour_level_list             : level_list,
                 CONTOUR_LABEL                  : 'OFF',
 		CONTOUR_SHADE                  : 'ON', 
@@ -388,12 +400,12 @@ cont = mcont(
 #		contour_shade_colour_list      : ["red","orange","yellow","white","white","green","blue_green","blue"]
                 contour_shade_colour_list      : ["RGB(0.0,0.2,0.7)", "RGB(0.3,0.5,0.8)", "RGB(0.6,0.7,0.9)", "RGB(0.9,0.95,1.0)", "white", 
                                                   "RGB(1.0,0.9,0.7)", "RGB(0.9,0.6,0.4)", "RGB(0.8,0.3,0.2)", "RGB(0.7,0.0 ,0.0)" ]                   # 9
- 	)  
+    )  
 
 legend = mlegend(
         legend_text_colour      :    "black",
         legend_text_font_size   :    0.4
-        )
+    )
 
 
 #-----------------------------------------------------------------------
@@ -427,7 +439,6 @@ print('output: ',plotfile,'.*')
 
 function build_layout()
 
-    #PageDescription  
     axis_plotting = maxis(
         axis_title                :    "on",
         axis_title_text           :    "Latitude",
@@ -436,50 +447,13 @@ function build_layout()
         axis_minor_tick           :    "on"
         )
 
-
-     CartesianView = cartesianview(       )
-
-#     CartesianView = cartesianview(
-#         horizontal_axis    :     axis_plotting,
-#         vertical_axis      :     axis_plotting,
-#         Y_AUTOMATIC                 : "OFF",
-#         X_AUTOMATIC                 : "OFF" 
-#         )
-
-#     CartesianView = cartesianview(  
-#     		MAP_PROJECTION              : "cartesian", 
-#     		X_AXIS_TYPE                 : "regular", 
-#     		X_AUTOMATIC                 : "ON", 
-#     		X_MIN                       : 0, 
-#     		X_MAX                       : 100, 
-#     		Y_AXIS_TYPE                 : "regular", 
-#     		Y_AUTOMATIC                 : "ON", 
-#     		Y_MIN                       : 1000, 
-#     		Y_MAX                       : 0, 
-#     		SUBPAGE_X_POSITION          : 5, 
-#     		SUBPAGE_Y_POSITION          : 12, 
-#     		SUBPAGE_X_LENGTH            : 90, 
-#     		SUBPAGE_Y_LENGTH            : 90, 
-#     		PAGE_FRAME                  : "ON", 
-#     		PAGE_FRAME_COLOUR           : "BLUE", 
-#     		PAGE_FRAME_LINE_STYLE       : "SOLID", 
-#     		PAGE_FRAME_THICKNESS        : 2, 
-#     		PAGE_ID_LINE                : "OFF", 
-#     		PAGE_ID_LINE_TYPE           : "BOTH", 
-#     		PAGE_ID_LINE_COLOUR         : "BLUE", 
-#     		PAGE_ID_LINE_SYSTEM_PLOT    : "OFF", 
-#     		PAGE_ID_LINE_DATE_PLOT      : "OFF", 
-#     		PAGE_ID_LINE_USER_TEXT_PLOT : "ON", 
-#     		PAGE_ID_LINE_ERRORS_PLOT    : "OFF", 
-#     		PAGE_ID_LINE_LOGO_PLOT      : "OFF", 
-#     		PAGE_ID_LINE_HEIGHT         : 0.25, 
-#     		PAGE_ID_LINE_QUALITY        : "MEDIUM", 
-#     		SUBPAGE_FRAME               : "ON", 
-#     		SUBPAGE_FRAME_COLOUR        : "BLACK", 
-#     		SUBPAGE_FRAME_LINE_STYLE    : "SOLID", 
-#     		SUBPAGE_FRAME_THICKNESS     : 2, 
-#     		SUBPAGE_BACKGROUND_COLOUR   : "WHITE"
-#     	)
+#   CartesianView = cartesianview(
+#          horizontal_axis    :     axis_plotting,
+#          vertical_axis      :     axis_plotting,
+#          Y_AUTOMATIC                 : "OFF",
+#          X_AUTOMATIC                 : "OFF" 
+#          )
+    CartesianView = cartesianview( )
 
     Page = plot_page(  
     		TOP        : 5, 
