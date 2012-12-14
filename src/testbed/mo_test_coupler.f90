@@ -245,7 +245,7 @@ CONTAINS
           ENDIF
 
           id = field_id(nfld)
-          CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
+          CALL ICON_cpl_put ( id, field_shape, send_field, info, ierror )
        ENDDO
 
        DO nfld = 5, no_of_fields
@@ -272,7 +272,7 @@ CONTAINS
           ENDIF
 
           id = field_id(nfld)
-          CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
+          CALL ICON_cpl_put ( id, field_shape, send_field, info, ierror )
 
        ENDDO
 
