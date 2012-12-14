@@ -34,6 +34,7 @@ lmetview=1
 #-----------------------------------------------------------------------------
 # directory
 
+YYYYMM=`echo %YMD% | cut -c 1-6`
 EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 export ARCH="rs6000"

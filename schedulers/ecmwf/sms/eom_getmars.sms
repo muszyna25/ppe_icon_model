@@ -62,7 +62,7 @@ retrieve,
   expver  = 1,
   class   = od,
   type    = fc,
-  param   = TCWV/TCLW/TCIW/TCC/10U/10V/2T/CP/LSP/TP/SSTK/SD/RSN/SKT/SSR/STR/TSR/TTR/SLHF/SSHF,
+  param   = TCWV/TCLW/TCIW/TCC/10U/10V/2T/CP/LSP/TP/SSTK/SD/RSN/SKT/SSR/STR/TSR/TTR/SLHF/SSHF/SP,
   grid    = 1/1,
   target  = "ifs_oper_1x1_${YYYYMM}.sfc.grb"
 EOF_SFC
