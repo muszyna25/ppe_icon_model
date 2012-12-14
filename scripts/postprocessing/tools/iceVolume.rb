@@ -28,8 +28,8 @@ lock      = Mutex.new
 # setup of CDO on different machines
 Cdp.setCDO
 Cdp.setDebug
-Cdo.forceOutput = false
-#Cdo.debug = true
+Cdo.forceOutput = ! ENV['FORCE'].nil?
+Cdo.debug       = ! ENV['DEBUG'].nil?
 #=============================================================================== 
 #=============================================================================== 
 def plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,oType=nil,oTag=nil)
