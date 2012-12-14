@@ -172,7 +172,8 @@ USE mo_math_constants,      ONLY: pi2
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell
 USE mo_model_domain,        ONLY: t_patch
-USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
+USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon
+USE mo_math_utility_solvers, ONLY: qrdec
 USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config

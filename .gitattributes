@@ -1379,6 +1379,7 @@ src/shared/mo_linked_list.f90 -text
 src/shared/mo_loopindices.f90 -text
 src/shared/mo_math_constants.f90 -text
 src/shared/mo_math_utilities.f90 -text
+src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_namelist.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text

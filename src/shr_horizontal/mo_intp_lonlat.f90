@@ -60,10 +60,11 @@
     USE mo_timer,               ONLY: timer_start, timer_stop, &
       &                               timers_level,            &
       &                               timer_lonlat_setup
-    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
-      &                               arc_length_v, t_cartesian_coordinates,     &
-      &                               t_geographical_coordinates,                &
+    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v, &
+      &                               t_cartesian_coordinates,        &
+      &                               t_geographical_coordinates,     &
       &                               latlon_compute_area_weights
+    USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                         &
       &                               compute_lonlat_blocking,                &
       &                               compute_lonlat_specs
