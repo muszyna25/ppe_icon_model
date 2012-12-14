@@ -6,6 +6,7 @@ require 'fileutils'
 require 'jobqueue'
 require 'gsl'
 
+#=============================================================================== 
 # check input
 if ARGV[0].nil?
   warn "no input files given"
@@ -23,7 +24,6 @@ files.each {|file|
 q         = JobQueue.new([JobQueue.maxnumber_of_processors,20].min)
 p         = JobQueue.new([JobQueue.maxnumber_of_processors,20].min)
 lock      = Mutex.new
-
 #=============================================================================== 
 # setup of CDO on different machines
 Cdp.setCDO
@@ -32,6 +32,7 @@ Cdo.forceOutput = ! ENV['FORCE'].nil?
 Cdo.debug       = ! ENV['DEBUG'].nil?
 #=============================================================================== 
 #=============================================================================== 
+# helper method for plotting ice volume and extent for NH and SH
 def plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,oType=nil,oTag=nil)
   volumeOutput, extentOutput = '',''
   volumeOutput = "-T #{oType} > iceVolume_#{oTag}.#{oType}" unless (oType.nil? and oTag.nil?)
@@ -43,7 +44,7 @@ def plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,oType=nil,oTag=nil)
                     "-C -g 3 -X 'timesteps' -Y 'Ice Volume [km^3]' -L 'IceVolume (red:NH, green:SH)' #{volumeOutput}")
   GSL::Vector.graph([GSL::Vector.linspace(0,size-1,size),nhIceExtent],
                     [GSL::Vector.linspace(0,size-1,size),shIceExtent],
-                    "-C -g 3 -X 'timesteps' -Y 'Ice Extent [km^3]' -L 'IceExtent (red:NH, green:SH)' #{extentOutput}")
+                    "-C -g 3 -X 'timesteps' -Y 'Ice Extent [km^2]' -L 'IceExtent (red:NH, green:SH)' #{extentOutput}")
 end
 #=============================================================================== 
 # compute the experiments from the data directories and link the corresponding files
@@ -67,7 +68,7 @@ experimentFiles.each {|experiment, files|
                   :output => volumeFile)
 
       Cdo.setname('ice_extent',
-                  :input => " -divc,1e6 -mul -selname,cell_area #{gridfile}  -mul -gtc,0.15 -selname,#{iceConcentration} #{file} -selname,#{iceConcentration} #{file}",
+                  :input => " -divc,1e6 -mul -selname,cell_area #{gridfile}  -gtc,0.15 -selname,#{iceConcentration} #{file}",
                   :output => extentFile)
 
       Cdo.merge(:input => [volumeFile,extentFile].join(' '),
@@ -82,7 +83,7 @@ experimentFiles.each {|experiment, files|
   }
 }
 q.run
-# merge all yearmean data (T,S,rhopot) into one file per experiment
+# merge data together for NH and SH
 q.clear
 iceOutputsfiles = []
 experimentAnalyzedData.each {|experiment,files|
@@ -106,4 +107,4 @@ nhIceExtent = Cdo.readArray(nhFile,'ice_extent').flatten.to_gv
 shIceExtent = Cdo.readArray(shFile,'ice_extent').flatten.to_gv
 
 plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent)
-plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,'png','u')
+#plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,'png','iceTest')
