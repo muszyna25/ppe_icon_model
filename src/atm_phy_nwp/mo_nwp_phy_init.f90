@@ -796,6 +796,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !DR WARNING: plcov_mx and lai_mx have not been multiplied by ndvi_mrat in order 
 !DR          to account for seasonal variations.!!
 !DR
+!MR: init_canopy und turbtran ueber Tiles laufen lassen!
+
       CALL init_canopy( ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
          &  istartpar=i_startidx, iendpar=i_endidx,                 &
          &  fr_land=ext_data%atm%fr_land(:,jb), plcov=ext_data%atm%plcov_mx(:,jb), & 
@@ -830,6 +832,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
+
+
       CALL turbdiff(iini=1, lstfnct=.TRUE., &
 !
          &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
@@ -841,7 +845,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-         &  sai=prm_diag%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
+         &  h_ice=p_prog_wtr_now%h_ice (:,jb),                                        &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !
@@ -877,6 +881,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       DO ic = 1, ext_data%atm%spi_count(jb)
         jc = ext_data%atm%idx_lst_spi(ic,jb)
         ext_data%atm%sai_t(jc,jb,isub_seaice) = prm_diag%sai(jc,jb)
+      ENDDO
+      DO jt = 1, ntiles_total+ntiles_water 
+        prm_diag%gz0_t(:,jb,jt) = prm_diag%gz0(:,jb)
       ENDDO
     ENDDO
 !$OMP END DO

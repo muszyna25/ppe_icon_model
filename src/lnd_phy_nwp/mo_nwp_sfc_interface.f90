@@ -380,8 +380,8 @@ CONTAINS
 !         t_2m_t(ic,jb,isubs)                =  prm_diag%t_2m(jc,jb) 
           u_10m_t(ic,jb,isubs)               =  prm_diag%u_10m(jc,jb)
           v_10m_t(ic,jb,isubs)               =  prm_diag%v_10m(jc,jb)  
-          tch_t(ic,jb,isubs)                 =  prm_diag%tch(jc,jb)
-          tcm_t(ic,jb,isubs)                 =  prm_diag%tcm(jc,jb)
+          tch_t(ic,jb,isubs)                 =  prm_diag%tch_t(jc,jb,isubs)
+          tcm_t(ic,jb,isubs)                 =  prm_diag%tcm_t(jc,jb,isubs)
           tfv_t(ic,jb,isubs)                 =  prm_diag%tfv(jc,jb)
           sobs_t(ic,jb,isubs)                =  prm_diag%swflxsfc_t(jc,jb,isubs) 
           thbs_t(ic,jb,isubs)                =  prm_diag%lwflxsfc_t(jc,jb,isubs) 
@@ -543,6 +543,7 @@ CONTAINS
         &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)             & ! latent   heat flux snow/air interface         (W/m2) 
         &                                                    )
 
+!DR NOTE that LHFL_S_T MUST BE STORED!!!!
 
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
@@ -980,12 +981,8 @@ CONTAINS
       DO ic = 1, i_count
         jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-!DR !!! disaggregated fluxes should be used (shfl_s,lhfl_s,lwflxsfc,swflxsfc) !!!!
-!DR !!! TO BE CODED for shfl_s_t and lhfl_s_t
-!DR        shfl_s   (ic) = prm_diag%shfl_s_t(jc,jb,isub_seaice)     ! sensible heat flux at sfc    [W/m^2]
-!DR        lhfl_s   (ic) = prm_diag%lhfl_s_t(jc,jb,isub_seaice)     ! latent heat flux at sfc      [W/m^2]
-        shfl_s   (ic) = prm_diag%shfl_s(jc,jb)     ! sensible heat flux at sfc    [W/m^2]
-        lhfl_s   (ic) = prm_diag%lhfl_s(jc,jb)     ! latent heat flux at sfc      [W/m^2]
+        shfl_s   (ic) = prm_diag%shfl_s_t(jc,jb,isub_seaice)     ! sensible heat flux at sfc    [W/m^2]
+        lhfl_s   (ic) = prm_diag%lhfl_s_t(jc,jb,isub_seaice)     ! latent heat flux at sfc      [W/m^2]
         lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_seaice)   ! net lw radiation flux at sfc [W/m^2]
         swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_seaice)   ! net solar radiation flux at sfc [W/m^2]
         tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
