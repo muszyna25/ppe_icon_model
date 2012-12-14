@@ -851,7 +851,7 @@ MODULE mo_nonhydro_state
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
       &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
-      &        shape3d_c3(3), shape3d_ubcp(3), shape3d_ubcc(3),    &
+      &        shape3d_c5(3), shape3d_ubcp(3), shape3d_ubcc(3),    &
       &        shape3d_ubcp1(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
@@ -888,7 +888,7 @@ MODULE mo_nonhydro_state
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
     shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
-    shape3d_c3    = (/nproma, nblks_c, 5          /)
+    shape3d_c5    = (/nproma, nblks_c, 5          /)
     shape3d_ubcp  = (/nproma, nblks_c, iadv_rcf+2 /)
     shape3d_ubcp1 = (/nproma, nblks_c, iadv_rcf+1 /)
     shape3d_ubcc  = (/nproma, nblks_c, 2  /)
@@ -1666,75 +1666,53 @@ MODULE mo_nonhydro_state
       ENDDO
 
 
-      ! Q1 vertical integral, tracer_vi(nproma,nblks_c,5)
+      ! Q1-Q5 vertical integral, tracer_vi(nproma,nblks_c,5)
       cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 221, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
+                  & ldims=shape3d_c5, lrestart=.FALSE., loutput=.FALSE.,         &
                   & lcontainer=.TRUE.)
+
+      ! Q1 vertical integral, tracer_vi(nproma,nblks_c)
+      ALLOCATE(p_diag%tracer_vi_ptr(5))
       jt         = 1
-      ALLOCATE(p_diag%tracer_vi_ptr(nqtendphy))
-      WRITE(ctrc,'(I2.2)')jt
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
-                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                  & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
-
-      ! Q2 vertical integral, tracer_vi(nproma,nblks_c,5)
-      cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 222, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
-                  & lcontainer=.TRUE.)
+      WRITE(ctrc,'(I2.2)')jt
+      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
+                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                  & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+
+      ! Q2 vertical integral, tracer_vi(nproma,nblks_c)
       jt         = 2
-      ALLOCATE(p_diag%tracer_vi_ptr(nqtendphy))
       WRITE(ctrc,'(I2.2)')jt
       CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
                   & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q3 vertical integral, tracer_vi(nproma,nblks_c,5)
-      cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 1, 223, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
-                  & lcontainer=.TRUE.)
+      ! Q3 vertical integral, tracer_vi(nproma,nblks_c)
       jt         = 3
-      ALLOCATE(p_diag%tracer_vi_ptr(nqtendphy))
+      grib2_desc = t_grib2_var( 0, 1, 223, ibits, GRID_REFERENCE, GRID_CELL)
       WRITE(ctrc,'(I2.2)')jt
       CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
                   & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q4 vertical integral, tracer_vi(nproma,nblks_c,5)
-      cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 1, 224, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
-                  & lcontainer=.TRUE.)
+      ! Q4 vertical integral, tracer_vi(nproma,nblks_c)
       jt         = 4
-      ALLOCATE(p_diag%tracer_vi_ptr(nqtendphy))
+      grib2_desc = t_grib2_var( 0, 1, 224, ibits, GRID_REFERENCE, GRID_CELL)
       WRITE(ctrc,'(I2.2)')jt
       CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
                   & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q5 vertical integral, tracer_vi(nproma,nblks_c,5)
-      cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 1, 225, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
-                  & lcontainer=.TRUE.)
+      ! Q5 vertical integral, tracer_vi(nproma,nblks_c)
       jt         = 5
-      ALLOCATE(p_diag%tracer_vi_ptr(nqtendphy))
+      grib2_desc = t_grib2_var( 0, 1, 225, ibits, GRID_REFERENCE, GRID_CELL)
       WRITE(ctrc,'(I2.2)')jt
       CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
                   & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
@@ -1742,14 +1720,15 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
 
-      ! tracer_vi_avg(nproma,nblks_c,3), only Q1, Q2, Q3
+      ! tracer_vi_avg(nproma,nblks_c,5), only Q1, Q2, Q3
       cf_desc    = t_cf_var('tracer_vi_avg', '', 'tracer_vi_avg', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,          &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
+                  & ldims=shape3d_c5, lrestart=.FALSE., loutput=.FALSE.,         &
                   & lcontainer=.TRUE.)
 
+      ! Note: so far, only the first 3 entries are referenced
       ALLOCATE(p_diag%tracer_vi_avg_ptr(nqtendphy))
       DO jt =1,nqtendphy
         WRITE(ctrc,'(I2.2)')jt
