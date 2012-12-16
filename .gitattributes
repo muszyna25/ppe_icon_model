@@ -1470,7 +1470,6 @@ src/testcases/mo_pa_test.f90 -text
 src/testcases/mo_rh_test.f90 -text
 src/testcases/mo_sv_test.f90 -text
 src/testcases/mo_sw_test.f90 -text
-src_not_used/mo_nwp_mpiomp_rrtm_interface.f90.not_used -text
 support/cdilib.c -text
 support/cfortran.h -text
 support/rtc_sx.s -text
