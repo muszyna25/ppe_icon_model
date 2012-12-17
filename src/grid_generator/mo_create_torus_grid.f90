@@ -463,6 +463,8 @@ CONTAINS
     REAL(wp) :: dual_edge_length,triangle_area,hexagon_area
     REAL(wp) :: sin60
 
+    REAL(wp), PARAMETER :: max_lat = pi / 18.0_wp
+
     sin60 = SQRT(0.75_wp) 
     !--------------------------------------------------------------
     ! GEOMETRY PART
@@ -471,10 +473,11 @@ CONTAINS
     hexagon_area      = dual_edge_length * edge_length * 1.5_wp
     ! find x_lon_step, y_lat_step, x_lon_start, y_lat_start
     ! Almut: scale to the length of 2pi to be similar to Radians (as in the Model)
-    x_lon_step  = (2.0_wp * pi)/ (REAL(x_no_of_columns,wp)*1.0_wp)
-    y_lat_step  = x_lon_step * sin60
-    x_lon_start = x_center - (REAL(x_no_of_columns,wp) * 0.5_wp) * x_lon_step
-    y_lat_start = y_center - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_lat_step
+    ! it is centered at lon,lat=0,0
+    x_lon_step  = (2.0_wp * pi)/  REAL(x_no_of_columns,wp)
+    x_lon_start = - (REAL(x_no_of_columns,wp) * 0.5_wp) * x_lon_step
+    y_lat_step  = (max_lat * 2.0_wp) / REAL(y_no_of_rows,wp)
+    y_lat_start = - (REAL(y_no_of_rows,wp) * 0.5_wp) * y_lat_step
     
     x_step  = edge_length
     y_step  = edge_length * sin60

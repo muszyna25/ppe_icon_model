@@ -776,8 +776,6 @@ MODULE mo_nh_stepping
     ! Switch to determine if nested domains are called at a given time step
     LOGICAL :: l_call_nests = .FALSE.
 
-!$  INTEGER :: num_threads_omp, omp_get_max_threads
-
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
@@ -790,8 +788,6 @@ MODULE mo_nh_stepping
       IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
     ENDIF
     !--------------------------------------------------------------------------
-
-!$  num_threads_omp = omp_get_max_threads()
 
     ! Determine parent domain ID
     IF ( jg > 1) THEN
