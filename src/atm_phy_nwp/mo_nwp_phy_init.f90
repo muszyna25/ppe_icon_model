@@ -825,7 +825,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
 !
          &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
-         &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh (:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
+         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh (:,2:nlevp1,jb),  &
+         &  rcld=prm_diag%rcld(:,:,jb),                                             &
 !
          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m (:,jb), &
          &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m (:,jb), &
@@ -858,7 +859,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
 !
          &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
-         &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh (:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
+         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh (:,2:nlevp1,jb),  &
+         &  rcld=prm_diag%rcld(:,:,jb),                                             &
 !
          &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
@@ -945,7 +947,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &           ph=p_diag%pres_ifc(:,:,jb), pf=p_diag%pres(:,:,jb),                        &
         &           ie=nproma, ke=nlev, ke1=nlevp1,                                            &
         &           i_startidx=i_startidx, i_endidx=i_endidx,                                  &
-        &           tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb)  )
+        &           tkvm=prm_diag%tkvm(:,2:nlev,jb), tkvh=prm_diag%tkvh(:,2:nlev,jb)  )
 
 !     turbulent diffusion coefficients at the surface
       CALL parturs( zsurf=p_metrics%z_ifc(:,nlevp1,jb), z1=p_metrics%z_mc(:,nlev,jb),          &
@@ -962,7 +964,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &                u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                    &
         &                zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),        &
         &                rho=p_prog%rho(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),      &
-        &                tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb),       &
+        &                tkvm=prm_diag%tkvm(:,2:nlev,jb),                              &
+        &                tkvh=prm_diag%tkvh(:,2:nlev,jb),                              &
         &                t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb),     &
         &                h_ice=p_prog_wtr_now%h_ice(:,jb),                             &
         &                tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),               &

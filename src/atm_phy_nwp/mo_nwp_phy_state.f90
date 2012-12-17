@@ -81,8 +81,7 @@ USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list, &
-  &                               add_var_list_reference, create_vert_interp_metadata, &
-  &                               groups
+  &                               create_vert_interp_metadata, groups
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var
@@ -1287,31 +1286,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
-!!!! NOT USED SO FAR>
-!!$
-!!$
-!!$        ! &      diag%tfv_t(nproma,nblks_c,ntiles_total)
-!!$        cf_desc    = t_cf_var('tfv_t', ' ', &
-!!$             &                'tile-based laminar reduction factor for evaporation', &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 'tfv_t', diag%tfv_t,                                   &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs, &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$
-!!$        ! fill the separate variables belonging to the container tfv_t
-!!$        ALLOCATE(diag%tfv_t_ptr(ntiles_total))
-!!$        DO jsfc = 1,ntiles_total
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 'tfv_t',                               &
-!!$             & 'tfv_t_'//TRIM(ADJUSTL(csfc)),                             &
-!!$             & diag%tfv_t_ptr(jsfc)%p_2d,                                 &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-!!$             & t_cf_var('tfv_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-!!$             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
-!!!! NOT USED SO FAR<
+
+        ! &      diag%tfv_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('tfv_t', ' ', &
+             &                'tile-based laminar reduction factor for evaporation', &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'tfv_t', diag%tfv_t,                                   &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container tfv_t
+        ALLOCATE(diag%tfv_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'tfv_t',                               &
+             & 'tfv_t_'//TRIM(ADJUSTL(csfc)),                             &
+             & diag%tfv_t_ptr(jsfc)%p_2d,                                 &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+             & t_cf_var('tfv_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
+             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+        ENDDO
+
 
         ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &
@@ -1648,23 +1645,23 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     !------------------
     !Turbulence 3D variables
 
-   ! &      diag%tkvm(nproma,nlev,nblks_c)
+   ! &      diag%tkvm(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('tkvm', 'm**2/s', ' turbulent diffusion coefficients for momentum', &
          &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 2, 31, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tkvm', diag%tkvm,                             &
-      & GRID_UNSTRUCTURED_CELL,  ZA_HYBRID, cf_desc, grib2_desc,            &
-      & ldims=shape3d, in_group=groups("pbl_vars") )
+      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+      & ldims=shape3dkp1, in_group=groups("pbl_vars") )
 
-   ! &      diag%tkvh(nproma,nlev,nblks_c)
+   ! &      diag%tkvh(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('tkvh', 'm**2/s', ' turbulent diffusion coefficients for heat', &
          &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 20, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tkvh', diag%tkvh,                             &
-      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,             &
-      & ldims=shape3d, in_group=groups("pbl_vars") ) 
+      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+      & ldims=shape3dkp1, in_group=groups("pbl_vars") ) 
 
-   ! &      diag%rcld(nproma,nlev,nblks_c)
+   ! &      diag%rcld(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('rcld', '', 'standard deviation of the saturation deficit', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)

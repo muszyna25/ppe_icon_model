@@ -438,10 +438,10 @@ CONTAINS
 
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "total cloud cover", jg, &
       &               prm_diag%tot_cld(:,:,:,:), icc)
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVM", "m**2/s",             &
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s",             &
       &               "turbulent diffusion coefficients for momentum", &
       &               jg, prm_diag%tkvm(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVH", "m**2/s",             &
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVH", "m**2/s",             &
       &               "turbulent diffusion coefficients for heat",     &
       &               jg, prm_diag%tkvh(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", jg, &

@@ -236,7 +236,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ENDIF
     ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
       ! specify land-cover-related roughness length over land points
-      ! note:  water points are set in turbdiff
+      ! NOTE:  open water, lake and sea-ice points are set in turbtran
       DO jt = 1, ntiles_total
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
@@ -253,25 +253,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           ! quite large
         ENDDO
       ENDDO
-      ! water points - preliminary implementation
-!CDIR NODEP,VOVERTAKE,VOB
-!MR< 
-    ! DO ic = 1, ext_data%atm%spw_count(jb)
-    !   jc = ext_data%atm%idx_lst_spw(ic,jb)
-    !   prm_diag%gz0_t(jc,jb,isub_water) = prm_diag%gz0(jc,jb)
-    ! ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-    ! DO ic = 1, ext_data%atm%fp_count(jb)
-    !   jc = ext_data%atm%idx_lst_fp(ic,jb)
-    !   prm_diag%gz0_t(jc,jb,isub_water) = prm_diag%gz0(jc,jb)
-    ! ENDDO
-      ! seaice points - preliminary implementation
-!CDIR NODEP,VOVERTAKE,VOB
-    ! DO ic = 1, ext_data%atm%spi_count(jb)
-    !   jc = ext_data%atm%idx_lst_spi(ic,jb)
-    !   prm_diag%gz0_t(jc,jb,isub_seaice) = prm_diag%gz0(jc,jb)
-    ! ENDDO
-!MR>
       IF (ntiles_total == 1) THEN
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data%atm%lp_count(jb)
@@ -325,14 +306,22 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                         &
           & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                                     &
           & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),                 &
-          & gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),             &
-          & tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),             &
-          & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,:,jb),  &!  edr =prm_diag%edr(:,:,jb),       &
-          & tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb),                             &
+!DR          & gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),             &
+          & gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm_t(:,jb,1), tch=prm_diag%tch_t(:,jb,1),     &
+          & tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv_t(:,jb,1),         &
+!DR          & tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),             &
+          & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,2:nlevp1,jb),  &!  edr =prm_diag%edr(:,:,jb),   &
+          & tkvh=prm_diag%tkvh(:,2:nlevp1,jb), rcld=prm_diag%rcld(:,:,jb),                      &
           & t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb),   &
           & rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
           & shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),                         &
           & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+
+        ! copy
+        prm_diag%tcm(:,jb) = prm_diag%tcm_t(:,jb,1)
+        prm_diag%tch(:,jb) = prm_diag%tch_t(:,jb,1)
+        prm_diag%tfv(:,jb) = prm_diag%tfv_t(:,jb,1)
 
       ELSE ! tile approach used
 
@@ -389,11 +378,12 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             pres_t(ic,1:2,jt)  = p_diag%pres(jc,nlev-1:nlev,jb)
             qv_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqv)
             qc_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqc)
-!MR: tkvm, tkvh: benoetigt fuer nlev, nlev+1 als Nebenflaechengroessen, fuer nlev+1 sogar tile-spezifisch
+!MR: tkvm, tkvh: benoetigt fuer nlev, nlev+1 als Nebenflaechengroessen (done), 
+!MR: fuer nlev+1 sogar tile-spezifisch
 !MR: tke: ausserhalb der Initialisierung nur fuer ke1 noetig, dort aber tilespezifisch
             tvs_t(ic,1:3,1,jt) = z_tvs(jc,nlev-1:nlev+1,1)
-            tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev-1:nlev,jb)
-            tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev-1:nlev,jb)
+            tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev:nlevp1,jb)
+            tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev:nlevp1,jb)
 !MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
             rcld_t(ic,1:3,jt)  = prm_diag%rcld(jc,nlev-1:nlev+1,jb)
           ENDDO
@@ -434,9 +424,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         prm_diag%shfl_s(:,jb) = 0._wp
         prm_diag%lhfl_s(:,jb) = 0._wp
 
-        z_tvs(:,nlevp1,1)          = 0._wp
-        prm_diag%tkvm(:,nlev,jb)   = 0._wp
-        prm_diag%tkvh(:,nlev,jb)   = 0._wp
+        z_tvs        (:,nlevp1, 1) = 0._wp
+        prm_diag%tkvm(:,nlevp1,jb) = 0._wp
+        prm_diag%tkvh(:,nlevp1,jb) = 0._wp
         prm_diag%rcld(:,nlevp1,jb) = 0._wp
 
         ! ii) loop over index lists
@@ -466,37 +456,38 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           DO ic = 1, i_count
             jc = ilist(ic)
             area_frac = ext_data%atm%frac_t(jc,jb,jt1)
-            prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+gz0_t(ic,jt)*area_frac
-            prm_diag%tcm(jc,jb) = prm_diag%tcm(jc,jb)+tcm_t(ic,jt) *area_frac
-            prm_diag%tch(jc,jb) = prm_diag%tch(jc,jb)+tch_t(ic,jt) *area_frac
-            prm_diag%tfm(jc,jb) = prm_diag%tfm(jc,jb)+tfm_t(ic,jt) *area_frac
-            prm_diag%tfh(jc,jb) = prm_diag%tfh(jc,jb)+tfh_t(ic,jt) *area_frac
-            prm_diag%tfv(jc,jb) = prm_diag%tfv(jc,jb)+tfv_t(ic,jt) *area_frac
+            prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+gz0_t(ic,jt) * area_frac
+            prm_diag%tcm(jc,jb) = prm_diag%tcm(jc,jb)+tcm_t(ic,jt) * area_frac
+            prm_diag%tch(jc,jb) = prm_diag%tch(jc,jb)+tch_t(ic,jt) * area_frac
+            prm_diag%tfm(jc,jb) = prm_diag%tfm(jc,jb)+tfm_t(ic,jt) * area_frac
+            prm_diag%tfh(jc,jb) = prm_diag%tfh(jc,jb)+tfh_t(ic,jt) * area_frac
+            prm_diag%tfv(jc,jb) = prm_diag%tfv(jc,jb)+tfv_t(ic,jt) * area_frac
 
-            z_tvs(jc,nlevp1,1)          = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)        *area_frac
-            prm_diag%tkvm(jc,nlev,jb)   = prm_diag%tkvm(jc,nlev,jb)+tkvm_t(ic,2,jt)  *area_frac
-            prm_diag%tkvh(jc,nlev,jb)   = prm_diag%tkvh(jc,nlev,jb)+tkvh_t(ic,2,jt)  *area_frac
+            z_tvs(jc,nlevp1,1)          = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)         * area_frac
+            prm_diag%tkvm(jc,nlevp1,jb) = prm_diag%tkvm(jc,nlevp1,jb)+tkvm_t(ic,2,jt) * area_frac
+            prm_diag%tkvh(jc,nlevp1,jb) = prm_diag%tkvh(jc,nlevp1,jb)+tkvh_t(ic,2,jt) * area_frac
 !MR
          !  prm_diag%rcld(jc,nlevp1,jb) = prm_diag%rcld(jc,nlevp1,jb)+rcld_t(ic,3,jt)*area_frac
 !MR
 
-            prm_diag%t_2m(jc,jb)  = prm_diag%t_2m(jc,jb) +t_2m_t(ic,jt) *area_frac
-            prm_diag%qv_2m(jc,jb) = prm_diag%qv_2m(jc,jb)+qv_2m_t(ic,jt)*area_frac
-            prm_diag%td_2m(jc,jb) = prm_diag%td_2m(jc,jb)+td_2m_t(ic,jt)*area_frac
-            prm_diag%rh_2m(jc,jb) = prm_diag%rh_2m(jc,jb)+rh_2m_t(ic,jt)*area_frac
-            prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt)*area_frac
-            prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt)*area_frac
-
-            prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)+shfl_s_t(ic,jt)*area_frac
-            prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+lhfl_s_t(ic,jt)*area_frac
+            prm_diag%t_2m(jc,jb)   = prm_diag%t_2m(jc,jb) +t_2m_t(ic,jt)  * area_frac
+            prm_diag%qv_2m(jc,jb)  = prm_diag%qv_2m(jc,jb)+qv_2m_t(ic,jt) * area_frac
+            prm_diag%td_2m(jc,jb)  = prm_diag%td_2m(jc,jb)+td_2m_t(ic,jt) * area_frac
+            prm_diag%rh_2m(jc,jb)  = prm_diag%rh_2m(jc,jb)+rh_2m_t(ic,jt) * area_frac
+            prm_diag%u_10m(jc,jb)  = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt) * area_frac
+            prm_diag%v_10m(jc,jb)  = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt) * area_frac
+            prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)+shfl_s_t(ic,jt) * area_frac
+            prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+lhfl_s_t(ic,jt) * area_frac
 
             prm_diag%shfl_s_t(jc,jb,jt1) = shfl_s_t(ic,jt)
             prm_diag%lhfl_s_t(jc,jb,jt1) = lhfl_s_t(ic,jt)
-            prm_diag%tch_t(jc,jb,jt1)    = tch_t(ic,jt)
-            prm_diag%tcm_t(jc,jb,jt1)    = tcm_t(ic,jt)
-            prm_diag%gz0_t(jc,jb,jt1)    = gz0_t(ic,jt)
+            prm_diag%tch_t(jc,jb,jt1)    = tch_t(ic,jt)    ! needed by TERRA
+            prm_diag%tcm_t(jc,jb,jt1)    = tcm_t(ic,jt)    ! needed by TERRA
+            prm_diag%tfv_t(jc,jb,jt1)    = tfv_t(ic,jt)    ! needed by TERRA
+            prm_diag%gz0_t(jc,jb,jt1)    = gz0_t(ic,jt)    ! input for turbtran at n+1
+                                                           ! over land
 
-!MR: tke, tkvm, tkvh tfv(fuer terra), tilespezifisch speichern
+!MR: tke, tkvm, tkvh tilespezifisch speichern
 
           ENDDO
 
@@ -521,7 +512,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),             &
          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),             &
          &  tke=z_tvs (:,:,:)   ,&!  edr =prm_diag%edr(:,:,jb),                                 &
-         &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
+         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb),               &
+         &  rcld=prm_diag%rcld(:,:,jb),                                                         &
          &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb),     &
          &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb),                                          &
          &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),                                   &
@@ -570,7 +562,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &           ph=p_diag%pres_ifc(:,:,jb), pf=p_diag%pres(:,:,jb),                         &
         &           ie=nproma, ke=nlev, ke1=nlevp1,                                             &
         &           i_startidx=i_startidx, i_endidx=i_endidx,                                   &
-        &           tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb)  )
+        &           tkvm=prm_diag%tkvm(:,2:nlev,jb), tkvh=prm_diag%tkvh(:,2:nlev,jb)  )
 
 !     turbulent diffusion coefficients at the surface
       CALL parturs( zsurf=p_metrics%z_ifc(:,nlevp1,jb), z1=p_metrics%z_mc(:,nlev,jb),          &
@@ -587,7 +579,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &                u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                    &
         &                zh=p_metrics%z_ifc(:,:,jb), zf=p_metrics%z_mc(:,:,jb),        &
         &                rho=p_prog%rho(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),      &
-        &                tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb),       &
+        &                tkvm=prm_diag%tkvm(:,2:nlev,jb),                              &
+        &                tkvh=prm_diag%tkvh(:,2:nlev,jb),                              &
         &                t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),         &
         &                h_ice=wtr_prog_now%h_ice(:,jb),                               &
         &                tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),               &
