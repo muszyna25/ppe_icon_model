@@ -592,7 +592,7 @@ CONTAINS
   SUBROUTINE nf(STATUS, routine, warnonly, silent)
     
     INTEGER, INTENT(in)           :: STATUS
-    CHARACTER(len=MAX_CHAR_LENGTH), INTENT(in) :: routine
+    CHARACTER(len=*), INTENT(in) :: routine
     LOGICAL, INTENT(in), OPTIONAL :: warnonly
     LOGICAL, INTENT(in), OPTIONAL :: silent
     

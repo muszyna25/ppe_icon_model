@@ -21,32 +21,17 @@ MODULE mo_remap_hydcorr
   USE mo_remap_shared,       ONLY: t_grid
   USE mo_ifs_coord,          ONLY: alloc_vct, auxhyb, geopot,        &
     &                              half_level_pressure, init_vct, vct
+  USE mo_remap_input,        ONLY: t_field_adjustment
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
 
-  PUBLIC :: t_field_adjustment
   PUBLIC :: hydrostatic_correction
+  PUBLIC :: input_remap_horz
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_hydcorr')  
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_hydcorr')
 
   PRIVATE
-
-  !> Meta-data for field adjustments (e.g. hydrostatic correction)
-  !  applied prior to horizontal interpolation.
-  TYPE t_field_adjustment
-    LOGICAL                         :: lhydrostatic_correction
-    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_temp                  !< field name: "temperature"
-    INTEGER                         :: code_temp
-    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_geosp                 !< field name: "surface geopotential"
-    INTEGER                         :: code_geosp
-    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_qv                    !< field name: "specific humidity
-    INTEGER                         :: code_qv
-    REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
-    REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical 
-                                                                 !  temperature gradient above the inversion
-  END TYPE t_field_adjustment 
-
 
   INTEGER, PARAMETER :: NLEV_IFS = 91
 
@@ -57,104 +42,104 @@ MODULE mo_remap_hydcorr
   !
   REAL(wp), PARAMETER :: IFS_LEVEL_DATA(4*NLEV_IFS) = &
     !    p_f [hPa]    z [m]   z-h [m]  Delta z
-    &  (/     0.01 , 79303. ,  79303. , 4240.8 , &  !  1 
-    &         0.03 , 72745. ,  72745. , 4240.8 , &  !  2 
-    &         0.06 , 68689. ,  68689. , 3986.2 , &  !  3 
-    &         0.10 , 64847. ,  64847. , 3776.6 , &  !  4 
-    &         0.17 , 61204. ,  61204. , 3577.9 , &  !  5 
-    &         0.28 , 57748. ,  57748. , 3389.6 , &  !  6 
-    &         0.43 , 54470. ,  54470. , 3212.9 , &  !  7 
-    &         0.64 , 51360. ,  51360. , 3041.5 , &  !  8 
-    &         0.92 , 48442. ,  48442. , 2818.7 , &  !  9 
-    &         1.30 , 45759. ,  45759. , 2571.0 , &  ! 10 
-    &         1.78 , 43332. ,  43332. , 2319.6 , &  ! 11 
-    &         2.38 , 41136. ,  41136. , 2101.7 , &  ! 12 
-    &         3.12 , 39141. ,  39141. , 1912.2 , &  ! 13 
-    &         4.02 , 37322. ,  37322. , 1746.3 , &  ! 14 
-    &         5.09 , 35657. ,  35657. , 1600.4 , &  ! 15 
-    &         6.34 , 34128. ,  34128. , 1471.4 , &  ! 16 
-    &         7.80 , 32720. ,  32720. , 1356.9 , &  ! 17 
-    &         9.47 , 31417. ,  31417. , 1260.2 , &  ! 18 
-    &        11.37 , 30201. ,  30201. , 1179.7 , &  ! 19 
-    &        13.50 , 29061. ,  29061. , 1106.4 , &  ! 20 
-    &        15.88 , 27991. ,  27991. , 1039.4 , &  ! 21 
-    &        18.52 , 26985. ,  26985. ,  978.1 , &  ! 22 
-    &        21.41 , 26037. ,  26037. ,  921.9 , &  ! 23 
-    &        24.57 , 25142. ,  25142. ,  870.2 , &  ! 24 
-    &        27.99 , 24298. ,  24298. ,  822.5 , &  ! 25 
-    &        31.67 , 23498. ,  23498. ,  778.4 , &  ! 26 
-    &        35.63 , 22742. ,  22742. ,  737.6 , &  ! 27 
-    &        39.85 , 22024. ,  22024. ,  699.8 , &  ! 28 
-    &        44.33 , 21343. ,  21343. ,  664.7 , &  ! 29 
-    &        49.07 , 20695. ,  20695. ,  632.0 , &  ! 30 
-    &        54.07 , 20079. ,  20079. ,  601.6 , &  ! 31 
-    &        59.31 , 19492. ,  19492. ,  574.2 , &  ! 32 
-    &        64.80 , 18931. ,  18931. ,  548.3 , &  ! 33 
-    &        70.51 , 18396. ,  18396. ,  523.6 , &  ! 34 
-    &        76.43 , 17884. ,  17884. ,  500.5 , &  ! 35 
-    &        82.57 , 17394. ,  17394. ,  480.9 , &  ! 36 
-    &        88.96 , 16922. ,  16922. ,  464.6 , &  ! 37 
-    &        95.62 , 16464. ,  16464. ,  451.3 , &  ! 38 
-    &       102.58 , 16018. ,  16018. ,  440.7 , &  ! 39 
-    &       109.89 , 15582. ,  15582. ,  432.6 , &  ! 40 
-    &       117.59 , 15152. ,  15152. ,  426.8 , &  ! 41 
-    &       125.75 , 14727. ,  14727. ,  423.3 , &  ! 42 
-    &       134.40 , 14305. ,  14305. ,  420.8 , &  ! 43 
-    &       143.59 , 13885. ,  13885. ,  418.4 , &  ! 44 
-    &       153.35 , 13468. ,  13468. ,  416.0 , &  ! 45 
-    &       163.72 , 13053. ,  13053. ,  413.6 , &  ! 46 
-    &       174.72 , 12641. ,  12641. ,  411.2 , &  ! 47 
-    &       186.38 , 12231. ,  12231. ,  408.8 , &  ! 48 
-    &       198.76 , 11824. ,  11824. ,  406.4 , &  ! 49 
-    &       211.87 , 11418. ,  11418. ,  404.1 , &  ! 50 
-    &       225.77 , 11016. ,  11016. ,  402.2 , &  ! 51 
-    &       240.48 , 10613. ,  10613. ,  404.0 , &  ! 52 
-    &       256.07 , 10208. ,  10208. ,  406.5 , &  ! 53 
-    &       272.56 ,  9800. ,   9800. ,  409.0 , &  ! 54 
-    &       290.02 ,  9390. ,   9390. ,  411.4 , &  ! 55 
-    &       308.48 ,  8977. ,   8977. ,  413.9 , &  ! 56 
-    &       327.99 ,  8562. ,   8562. ,  416.3 , &  ! 57 
-    &       348.62 ,  8144. ,   8144. ,  418.7 , &  ! 58 
-    &       370.42 ,  7724. ,   7724. ,  421.1 , &  ! 59 
-    &       393.44 ,  7302. ,   7302. ,  423.5 , &  ! 60 
-    &       417.73 ,  6878. ,   6878. ,  425.6 , &  ! 61 
-    &       443.34 ,  6451. ,   6451. ,  427.2 , &  ! 62 
-    &       470.17 ,  6025. ,   6025. ,  424.3 , &  ! 63 
-    &       497.96 ,  5605. ,   5605. ,  417.6 , &  ! 64 
-    &       526.46 ,  5192. ,   5192. ,  407.3 , &  ! 65 
-    &       555.40 ,  4792. ,   4792. ,  394.0 , &  ! 66 
-    &       584.49 ,  4406. ,   4406. ,  378.1 , &  ! 67 
-    &       613.50 ,  4036. ,   4036. ,  361.6 , &  ! 68 
-    &       642.29 ,  3683. ,   3683. ,  345.0 , &  ! 69 
-    &       670.73 ,  3347. ,   3347. ,  328.3 , &  ! 70 
-    &       698.70 ,  3027. ,   3027. ,  311.7 , &  ! 71 
-    &       726.07 ,  2724. ,   2724. ,  294.6 , &  ! 72 
-    &       752.67 ,  2438. ,   2438. ,  277.4 , &  ! 73 
-    &       778.40 ,  2169. ,   2169. ,  260.4 , &  ! 74 
-    &       803.16 ,  1917. ,   1917. ,  243.6 , &  ! 75 
-    &       826.81 ,  1682. ,   1682. ,  226.5 , &  ! 76 
-    &       849.25 ,  1464. ,   1464. ,  209.4 , &  ! 77 
-    &       870.38 ,  1264. ,   1264. ,  192.6 , &  ! 78 
-    &       890.13 ,  1079. ,   1079. ,  176.1 , &  ! 79 
-    &       908.44 ,   911. ,    911. ,  159.7 , &  ! 80 
-    &       925.22 ,   760. ,    760. ,  143.4 , &  ! 81 
-    &       940.44 ,   625. ,    625. ,  127.6 , &  ! 82 
-    &       954.09 ,   505. ,    505. ,  112.4 , &  ! 83 
-    &       966.17 ,   399. ,    399. ,   97.7 , &  ! 84 
-    &       976.67 ,   309. ,    309. ,   83.3 , &  ! 85 
-    &       985.63 ,   232. ,    232. ,   69.8 , &  ! 86 
-    &       993.30 ,   167. ,    167. ,   60.4 , &  ! 87 
-    &       999.84 ,   112. ,    112. ,   49.9 , &  ! 88 
-    &      1005.12 ,    68. ,     68. ,   38.9 , &  ! 89 
-    &      1009.15 ,    34. ,     34. ,   28.4 , &  ! 90 
-    &      1012.05 ,    10. ,     10. ,   20.0 /)   ! 91 
+    &  (/     0.01 , 79303. ,  79303. , 4240.8 , &  !  1
+    &         0.03 , 72745. ,  72745. , 4240.8 , &  !  2
+    &         0.06 , 68689. ,  68689. , 3986.2 , &  !  3
+    &         0.10 , 64847. ,  64847. , 3776.6 , &  !  4
+    &         0.17 , 61204. ,  61204. , 3577.9 , &  !  5
+    &         0.28 , 57748. ,  57748. , 3389.6 , &  !  6
+    &         0.43 , 54470. ,  54470. , 3212.9 , &  !  7
+    &         0.64 , 51360. ,  51360. , 3041.5 , &  !  8
+    &         0.92 , 48442. ,  48442. , 2818.7 , &  !  9
+    &         1.30 , 45759. ,  45759. , 2571.0 , &  ! 10
+    &         1.78 , 43332. ,  43332. , 2319.6 , &  ! 11
+    &         2.38 , 41136. ,  41136. , 2101.7 , &  ! 12
+    &         3.12 , 39141. ,  39141. , 1912.2 , &  ! 13
+    &         4.02 , 37322. ,  37322. , 1746.3 , &  ! 14
+    &         5.09 , 35657. ,  35657. , 1600.4 , &  ! 15
+    &         6.34 , 34128. ,  34128. , 1471.4 , &  ! 16
+    &         7.80 , 32720. ,  32720. , 1356.9 , &  ! 17
+    &         9.47 , 31417. ,  31417. , 1260.2 , &  ! 18
+    &        11.37 , 30201. ,  30201. , 1179.7 , &  ! 19
+    &        13.50 , 29061. ,  29061. , 1106.4 , &  ! 20
+    &        15.88 , 27991. ,  27991. , 1039.4 , &  ! 21
+    &        18.52 , 26985. ,  26985. ,  978.1 , &  ! 22
+    &        21.41 , 26037. ,  26037. ,  921.9 , &  ! 23
+    &        24.57 , 25142. ,  25142. ,  870.2 , &  ! 24
+    &        27.99 , 24298. ,  24298. ,  822.5 , &  ! 25
+    &        31.67 , 23498. ,  23498. ,  778.4 , &  ! 26
+    &        35.63 , 22742. ,  22742. ,  737.6 , &  ! 27
+    &        39.85 , 22024. ,  22024. ,  699.8 , &  ! 28
+    &        44.33 , 21343. ,  21343. ,  664.7 , &  ! 29
+    &        49.07 , 20695. ,  20695. ,  632.0 , &  ! 30
+    &        54.07 , 20079. ,  20079. ,  601.6 , &  ! 31
+    &        59.31 , 19492. ,  19492. ,  574.2 , &  ! 32
+    &        64.80 , 18931. ,  18931. ,  548.3 , &  ! 33
+    &        70.51 , 18396. ,  18396. ,  523.6 , &  ! 34
+    &        76.43 , 17884. ,  17884. ,  500.5 , &  ! 35
+    &        82.57 , 17394. ,  17394. ,  480.9 , &  ! 36
+    &        88.96 , 16922. ,  16922. ,  464.6 , &  ! 37
+    &        95.62 , 16464. ,  16464. ,  451.3 , &  ! 38
+    &       102.58 , 16018. ,  16018. ,  440.7 , &  ! 39
+    &       109.89 , 15582. ,  15582. ,  432.6 , &  ! 40
+    &       117.59 , 15152. ,  15152. ,  426.8 , &  ! 41
+    &       125.75 , 14727. ,  14727. ,  423.3 , &  ! 42
+    &       134.40 , 14305. ,  14305. ,  420.8 , &  ! 43
+    &       143.59 , 13885. ,  13885. ,  418.4 , &  ! 44
+    &       153.35 , 13468. ,  13468. ,  416.0 , &  ! 45
+    &       163.72 , 13053. ,  13053. ,  413.6 , &  ! 46
+    &       174.72 , 12641. ,  12641. ,  411.2 , &  ! 47
+    &       186.38 , 12231. ,  12231. ,  408.8 , &  ! 48
+    &       198.76 , 11824. ,  11824. ,  406.4 , &  ! 49
+    &       211.87 , 11418. ,  11418. ,  404.1 , &  ! 50
+    &       225.77 , 11016. ,  11016. ,  402.2 , &  ! 51
+    &       240.48 , 10613. ,  10613. ,  404.0 , &  ! 52
+    &       256.07 , 10208. ,  10208. ,  406.5 , &  ! 53
+    &       272.56 ,  9800. ,   9800. ,  409.0 , &  ! 54
+    &       290.02 ,  9390. ,   9390. ,  411.4 , &  ! 55
+    &       308.48 ,  8977. ,   8977. ,  413.9 , &  ! 56
+    &       327.99 ,  8562. ,   8562. ,  416.3 , &  ! 57
+    &       348.62 ,  8144. ,   8144. ,  418.7 , &  ! 58
+    &       370.42 ,  7724. ,   7724. ,  421.1 , &  ! 59
+    &       393.44 ,  7302. ,   7302. ,  423.5 , &  ! 60
+    &       417.73 ,  6878. ,   6878. ,  425.6 , &  ! 61
+    &       443.34 ,  6451. ,   6451. ,  427.2 , &  ! 62
+    &       470.17 ,  6025. ,   6025. ,  424.3 , &  ! 63
+    &       497.96 ,  5605. ,   5605. ,  417.6 , &  ! 64
+    &       526.46 ,  5192. ,   5192. ,  407.3 , &  ! 65
+    &       555.40 ,  4792. ,   4792. ,  394.0 , &  ! 66
+    &       584.49 ,  4406. ,   4406. ,  378.1 , &  ! 67
+    &       613.50 ,  4036. ,   4036. ,  361.6 , &  ! 68
+    &       642.29 ,  3683. ,   3683. ,  345.0 , &  ! 69
+    &       670.73 ,  3347. ,   3347. ,  328.3 , &  ! 70
+    &       698.70 ,  3027. ,   3027. ,  311.7 , &  ! 71
+    &       726.07 ,  2724. ,   2724. ,  294.6 , &  ! 72
+    &       752.67 ,  2438. ,   2438. ,  277.4 , &  ! 73
+    &       778.40 ,  2169. ,   2169. ,  260.4 , &  ! 74
+    &       803.16 ,  1917. ,   1917. ,  243.6 , &  ! 75
+    &       826.81 ,  1682. ,   1682. ,  226.5 , &  ! 76
+    &       849.25 ,  1464. ,   1464. ,  209.4 , &  ! 77
+    &       870.38 ,  1264. ,   1264. ,  192.6 , &  ! 78
+    &       890.13 ,  1079. ,   1079. ,  176.1 , &  ! 79
+    &       908.44 ,   911. ,    911. ,  159.7 , &  ! 80
+    &       925.22 ,   760. ,    760. ,  143.4 , &  ! 81
+    &       940.44 ,   625. ,    625. ,  127.6 , &  ! 82
+    &       954.09 ,   505. ,    505. ,  112.4 , &  ! 83
+    &       966.17 ,   399. ,    399. ,   97.7 , &  ! 84
+    &       976.67 ,   309. ,    309. ,   83.3 , &  ! 85
+    &       985.63 ,   232. ,    232. ,   69.8 , &  ! 86
+    &       993.30 ,   167. ,    167. ,   60.4 , &  ! 87
+    &       999.84 ,   112. ,    112. ,   49.9 , &  ! 88
+    &      1005.12 ,    68. ,     68. ,   38.9 , &  ! 89
+    &      1009.15 ,    34. ,     34. ,   28.4 , &  ! 90
+    &      1012.05 ,    10. ,     10. ,   20.0 /)   ! 91
 
   REAL(wp), PARAMETER :: IFS_LEVELS(NLEV_IFS,4) = &
     &  RESHAPE(IFS_LEVEL_DATA, (/ NLEV_IFS, 4 /) , order=(/ 2,1 /))
 
   INTEGER, PARAMETER :: TEMP   = 1
   INTEGER, PARAMETER :: IQV    = 2
-  
+
 
 CONTAINS
 
@@ -163,7 +148,7 @@ CONTAINS
     TYPE (t_field_adjustment), INTENT(IN)    :: fa             !< meta-data for hydrostatic correction
     TYPE (t_grid)  ,           INTENT(IN)    :: grid           !< source grid
     TYPE (t_gather_c),         INTENT(IN)    :: gather_c       !< communication pattern
-    REAL(wp),                  INTENT(IN)    :: psfc(:,:)      !< surface orography height of input data [m] 
+    REAL(wp),                  INTENT(IN)    :: psfc(:,:)      !< surface orography height of input data [m]
     REAL(wp),                  INTENT(IN)    :: geosp(:,:)     !< surface geopotential
     REAL(wp),                  INTENT(INOUT) :: temp_v(:,:,:)  !< virtual temperature (result)
     REAL(wp),                  INTENT(INOUT) :: z3d(:,:,:)     !< orography height (result)
@@ -221,11 +206,11 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, delp, rdelp, rdlnpr, &
-!$OMP            rdalpha, geop_mc, geop_ic) 
+!$OMP            rdalpha, geop_mc, geop_ic)
     DO jb =1,grid%p_patch%nblks_c
       nlen = nproma
       IF (jb == grid%p_patch%nblks_c)  nlen = grid%p_patch%npromz_c
-      
+
       CALL half_level_pressure(psfc(:,jb), nproma, nlen, nlev, pres_ic)
       CALL auxhyb(pres_ic, nproma, nlen, nlev,        & ! in
                   delp, rdelp, lnp_ic, rdlnpr, rdalpha) ! out
@@ -252,7 +237,7 @@ CONTAINS
   !  virtual temperature at lowest main level, and at hpbl1, hpbl2.
   !
   SUBROUTINE compute_vtemp_sfc(zsfc_in, nblks, npromz, temp_v, z3d, idx_hpbl1, idx_hpbl2, vtemp_sfc)
-    REAL(wp),                  INTENT(IN)    :: zsfc_in(:,:)     !< surface orography height of input data [m] 
+    REAL(wp),                  INTENT(IN)    :: zsfc_in(:,:)     !< surface orography height of input data [m]
     INTEGER,                   INTENT(IN)    :: nblks, npromz
     REAL(wp),                  INTENT(IN)    :: temp_v(:,:,:), z3d(:,:,:)
     INTEGER,                   INTENT(IN)    :: idx_hpbl1, idx_hpbl2
@@ -271,7 +256,7 @@ CONTAINS
     ! between this level and the temperature at hpbl1
     idx_lowest_ml = UBOUND(z3d,2)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,dz,dtvdz,exdist) 
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,dz,dtvdz,exdist)
     DO jb=1,nblks
       i_startidx = 1
       i_endidx   = nproma
@@ -379,8 +364,8 @@ CONTAINS
 
     ! In general, the stencil size (and the stencil) depends on the current
     ! grid point:
-    INTEGER                         :: nstpts 
-    TYPE (t_heap_data), ALLOCATABLE :: stencil_data(:) 
+    INTEGER                         :: nstpts
+    TYPE (t_heap_data), ALLOCATABLE :: stencil_data(:)
 
 
     IF (dbg_level >= 11)  WRITE (0,*) "# perform hydrostatic correction."
@@ -453,7 +438,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,nidx,nstpts,stencil_data,js,ic,ib,rhpbl1,rhpbl2, &
-!$OMP            dtvdz1,dtvdz2,p_aux1,exdist,tv_aux2,p_aux2,tv_aux3,p_aux3,i,val) 
+!$OMP            dtvdz1,dtvdz2,p_aux1,exdist,tv_aux2,p_aux2,tv_aux3,p_aux3,i,val)
     DO jb=1,nblks_out
       i_startidx = 1
       i_endidx   = nproma
@@ -498,7 +483,7 @@ CONTAINS
 
           ! 1b) prolongate/shorten air column with the temperature gradient
           !     between hpbl1 and hpbl2 (i.e. dtvdz2)
-          
+
           exdist  = zsfc_out(jc,jb) - zsfc_in(ic,ib)         ! extrapolation distance
           tv_aux2 = temp_v(ic,idx_hpbl1,ib) + dtvdz2*exdist ! estimated intermediate temperature
           IF (ABS(dtvdz2) > dtvdz_thresh) THEN
@@ -564,5 +549,33 @@ CONTAINS
       END IF
     END DO
   END FUNCTION get_nearest_vlevel
+
+  !============================================================================
+  !> Performs horizontal remapping of a single data field.
+  !
+  !  Requires pre-computed interpolation weights.
+  !
+  SUBROUTINE input_remap_horz(file_metadata, field_src, field_dst, src_grid, dst_grid, &
+    &                         fa, dst_intp_data, gather_c)
+    TYPE (t_file_metadata),    INTENT(IN)    :: file_metadata    !< input file meta-data
+    REAL(wp),                  INTENT(INOUT) :: field_src(:,:)   !< input field (may be modified)
+    REAL(wp),                  INTENT(INOUT) :: field_dst(:,:)   !< output field
+    TYPE (t_grid),             INTENT(IN)    :: src_grid         !< source grid
+    TYPE (t_grid),             INTENT(IN)    :: dst_grid         !< destination grid
+    TYPE (t_field_adjustment), INTENT(IN)    :: fa               !< meta-data for hydrostatic correction
+    TYPE(t_intp_data),         INTENT(IN)    :: dst_intp_data    !< input file meta-data
+    TYPE(t_gather_c),          INTENT(IN)    :: gather_c         !< communication pattern
+
+    IF (dbg_level >= 5) &
+      & WRITE (0,*) "horizontal remapping..."
+    IF (.NOT. fa%lhydrostatic_correction) THEN
+      CALL interpolate_c(field_src, field_dst, dst_grid, dst_intp_data)
+    ELSE
+      CALL hydrostatic_correction(dst_intp_data, src_grid, dst_grid, file_metadata, &
+        &                         gather_c, fa, field_src, field_dst)
+    END IF
+
+  END SUBROUTINE input_remap_horz
+
 
 END MODULE mo_remap_hydcorr

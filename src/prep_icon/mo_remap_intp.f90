@@ -143,7 +143,7 @@ CONTAINS
     intp_data%smin(:,:)   =  1
     intp_data%smax(:,:)   =  0
 
-    ALLOCATE(intp_data%sl(S_MAXSIZE), STAT=ierrstat)
+    ALLOCATE(intp_data%sl(s_maxsize), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     intp_data%s_nlist = 0
 
@@ -431,7 +431,7 @@ CONTAINS
         intp_data%max_totstencil = MAX(intp_data%max_totstencil, &
           & (maxstencil + intp_data%smax(didx,dblk) - intp_data%smin(didx,dblk) + 1))
 
-        IF (seq_idx > S_MAXSIZE) THEN
+        IF (seq_idx > s_maxsize) THEN
           WRITE (0,*) "didx, dblk = ", didx, dblk
           CALL finish("reduce_mthreaded_weights", "List size exceeded!")
         END IF

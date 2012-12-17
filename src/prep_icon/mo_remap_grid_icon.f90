@@ -18,6 +18,7 @@ MODULE mo_remap_grid_icon
   USE mo_math_constants,     ONLY: pi, pi_180
   USE mo_physical_constants, ONLY: inverse_earth_radius
   USE mo_util_netcdf,        ONLY: nf
+  USE mo_model_domain,       ONLY: t_patch
   USE mo_remap_config,       ONLY: dbg_level, N_VNB_STENCIL
   USE mo_mpi,                ONLY: p_comm_work, p_int, p_real_dp,   &
     &                              get_my_mpi_work_id, p_bcast
@@ -43,7 +44,7 @@ CONTAINS
     INTEGER,                INTENT(IN)           :: rank0    !< MPI rank where file is actually read
     TYPE (t_file_metadata), INTENT(IN), OPTIONAL :: opt_file
     ! local variables
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &  routine    = TRIM(TRIM(modname)//'::load_icon_grid')
     INTEGER :: &
       &  i, start_idx, end_idx, start_blk, end_blk, jb, jc,        &
@@ -51,7 +52,7 @@ CONTAINS
       &  n_patch_verts
     REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), clon(:), clat(:), area_of_c(:)
     INTEGER,  ALLOCATABLE :: v_of_c(:,:), e_of_c(:,:), c_of_c(:,:), &
-      &                      v_of_e(:,:), c_of_e(:,:), c_of_v(:,:)
+      &                      v_of_e(:,:), c_of_e(:,:), c_of_v(:,:), v_of_v(:,:)
     REAL(wp)              :: i_rr
 
     IF (get_my_mpi_work_id() == rank0) THEN
@@ -179,6 +180,25 @@ CONTAINS
       END DO
     END DO
     DEALLOCATE(c_of_c)
+
+    IF (dbg_level >=5) WRITE (0,*) "# load vertex-neighbor indices from file"
+    ALLOCATE(v_of_v(grid%p_patch%n_patch_verts,6))
+    IF (get_my_mpi_work_id() == rank0) THEN
+      IF (nf_inq_varid(ncid, 'vertices_of_vertex', varid) /= nf_noerr) &
+        &  CALL finish(routine, "Field <vertices_of_vertex> missing in grid file.")
+      CALL nf(nf_get_var_int(ncid, varid, v_of_v), routine)
+    END IF
+    CALL p_bcast(v_of_v,rank0,p_comm_work)
+    DO i=1,grid%p_patch%n_patch_verts
+      jc = idx_no(i)
+      jb = blk_no(i)
+      DO j=1,6
+        idx = v_of_v(i,j)
+        grid%p_patch%verts%neighbor_idx(jc,jb,j) = idx_no(idx)
+        grid%p_patch%verts%neighbor_blk(jc,jb,j) = blk_no(idx)
+      END DO
+    END DO
+    DEALLOCATE(v_of_v)
 
     IF (dbg_level >=5) WRITE (0,*) "# load edge-vertex indices from file"
     ALLOCATE(v_of_e(grid%p_patch%n_patch_edges,2))
@@ -316,48 +336,53 @@ CONTAINS
     TYPE (t_grid),    INTENT(INOUT) :: grid
     CHARACTER(LEN=*), INTENT(IN)    :: name !< name string (for screen messages)
     INTEGER,          INTENT(IN)    :: n_patch_cells, n_patch_edges, n_patch_verts
+    TARGET                          :: grid
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::allocate_icon_grid')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::allocate_icon_grid'
     INTEGER :: ierrstat
+    type(t_patch), pointer   :: p
 
     grid%name = TRIM(name)
-    grid%p_patch%cell_type = 3
-    grid%p_patch%n_patch_cells = n_patch_cells
-    grid%p_patch%n_patch_edges = n_patch_edges
-    grid%p_patch%n_patch_verts = n_patch_verts
+    p => grid% p_patch
+    p%cell_type     = 3
+    p%n_patch_cells = n_patch_cells
+    p%n_patch_edges = n_patch_edges
+    p%n_patch_verts = n_patch_verts
 
     ! compute the no. of blocks:
-    grid%p_patch%nblks_c  = blk_no(grid%p_patch%n_patch_cells)
-    grid%p_patch%npromz_c = idx_no(grid%p_patch%n_patch_cells)
-    grid%p_patch%nblks_e  = blk_no(grid%p_patch%n_patch_edges)
-    grid%p_patch%npromz_e = idx_no(grid%p_patch%n_patch_edges)
-    grid%p_patch%nblks_v  = blk_no(grid%p_patch%n_patch_verts)
-    grid%p_patch%npromz_v = idx_no(grid%p_patch%n_patch_verts)
+    p%nblks_c  = blk_no(p%n_patch_cells)
+    p%npromz_c = idx_no(p%n_patch_cells)
+    p%nblks_e  = blk_no(p%n_patch_edges)
+    p%npromz_e = idx_no(p%n_patch_edges)
+    p%nblks_v  = blk_no(p%n_patch_verts)
+    p%npromz_v = idx_no(p%n_patch_verts)
 
     ! create vertices and topology info:
     IF (dbg_level >=5) WRITE (0,*) "# allocate data structures"
-    ALLOCATE(grid%p_patch%verts%vertex    (nproma, grid%p_patch%nblks_v), &
-      &      grid%p_patch%cells%vertex_idx(nproma, grid%p_patch%nblks_c, grid%p_patch%cell_type),  &
-      &      grid%p_patch%cells%vertex_blk(nproma, grid%p_patch%nblks_c, grid%p_patch%cell_type),  &
-      &      grid%p_patch%cells%edge_idx(  nproma, grid%p_patch%nblks_c, grid%p_patch%cell_type),  &
-      &      grid%p_patch%cells%edge_blk(  nproma, grid%p_patch%nblks_c, grid%p_patch%cell_type),  &
-      &      grid%p_patch%cells%center(   nproma, grid%p_patch%nblks_c),                           &
-      &      grid%p_patch%cells%area(   nproma, grid%p_patch%nblks_c),                             &
-      &      grid%p_patch%edges%vertex_idx(  nproma, grid%p_patch%nblks_e, 2),                     &
-      &      grid%p_patch%edges%vertex_blk(  nproma, grid%p_patch%nblks_e, 2),                     &
-      &      grid%p_patch%edges%cell_idx(    nproma, grid%p_patch%nblks_e, 2),                     &
-      &      grid%p_patch%edges%cell_blk(    nproma, grid%p_patch%nblks_e, 2),                     &
-      &      grid%p_patch%verts%cell_idx(  nproma, grid%p_patch%nblks_v, 6),                       &
-      &      grid%p_patch%verts%cell_blk(  nproma, grid%p_patch%nblks_v, 6),                       &
-      &      grid%p_patch%cells%neighbor_idx(nproma, grid%p_patch%nblks_c,grid%p_patch%cell_type), &
-      &      grid%p_patch%cells%neighbor_blk(nproma, grid%p_patch%nblks_c,grid%p_patch%cell_type), &
-      &      grid%p_patch%cells%glb_index(grid%p_patch%n_patch_cells),                             &
+    ALLOCATE(p%verts%vertex    (nproma,p%nblks_v), &
+      &      p%cells%vertex_idx(nproma,p%nblks_c,p%cell_type),  &
+      &      p%cells%vertex_blk(nproma,p%nblks_c,p%cell_type),  &
+      &      p%cells%edge_idx(  nproma,p%nblks_c,p%cell_type),  &
+      &      p%cells%edge_blk(  nproma,p%nblks_c,p%cell_type),  &
+      &      p%cells%center(   nproma,p%nblks_c),               &
+      &      p%cells%area  (   nproma,p%nblks_c),               &
+      &      p%edges%vertex_idx(  nproma,p%nblks_e, 2),         &
+      &      p%edges%vertex_blk(  nproma,p%nblks_e, 2),         &
+      &      p%edges%cell_idx(    nproma,p%nblks_e, 2),         &
+      &      p%edges%cell_blk(    nproma,p%nblks_e, 2),         &
+      &      p%verts%cell_idx(  nproma,p%nblks_v, 6),           &
+      &      p%verts%cell_blk(  nproma,p%nblks_v, 6),           &
+      &      p%cells%neighbor_idx(nproma,p%nblks_c,p%cell_type), &
+      &      p%cells%neighbor_blk(nproma,p%nblks_c,p%cell_type), &
+      &      p%verts%neighbor_idx(nproma,p%nblks_v,6),           &
+      &      p%verts%neighbor_blk(nproma,p%nblks_v,6),           &
+      &      p%cells%glb_index(p%n_patch_cells),                 &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    ALLOCATE(grid%vertex_nb_idx(nproma, grid%p_patch%nblks_c,N_VNB_STENCIL), &
-      &      grid%vertex_nb_blk(nproma, grid%p_patch%nblks_c,N_VNB_STENCIL), &
-      &      grid%vertex_nb_stencil(nproma, grid%p_patch%nblks_c),            &
+    ALLOCATE(grid%vertex_nb_idx(nproma,p%nblks_c,N_VNB_STENCIL), &
+      &      grid%vertex_nb_blk(nproma,p%nblks_c,N_VNB_STENCIL), &
+      &      grid%vertex_nb_stencil(nproma,p%nblks_c),           &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 

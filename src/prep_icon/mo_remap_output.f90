@@ -28,7 +28,7 @@ MODULE mo_remap_output
   PUBLIC :: varID
   PUBLIC :: t_output_grid
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_output')  
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_output')
 
   ! name and version of this tool
   ! (will be written as meta-data to output data file):
@@ -63,7 +63,7 @@ MODULE mo_remap_output
 
   ! CDI axis ID's for output file
   INTEGER  :: cdiTaxisID, varID(MAX_INPUT_FIELDS), cdiZaxisID(MAX_NZAXIS)
- 
+
 CONTAINS
 
   !> Read all meta-data from the output grid file which will be later
@@ -81,7 +81,7 @@ CONTAINS
     ! read data only on I/O process:
     IF (get_my_mpi_work_id() /= rank0) RETURN
 
-    SELECT CASE(file_metadata%structure) 
+    SELECT CASE(file_metadata%structure)
     CASE (GRID_TYPE_ICON)
       IF (dbg_level >= 10)  WRITE (0,*) "# load meta-data for output, ICON grid"
       ! read unstructured grid description from file:
@@ -134,9 +134,10 @@ CONTAINS
     TYPE (t_zaxis_metadata),  INTENT(IN)    :: zaxis_metadata(:)
     TYPE (t_output_grid),     INTENT(INOUT) :: grid_metadata
     INTEGER,                  INTENT(IN)    :: nfields, n_zaxis
-    TYPE (t_file_metadata),   INTENT(OUT)   :: file_metadata, infile_metadata
+    TYPE (t_file_metadata),   INTENT(OUT)   :: file_metadata
+    TYPE (t_file_metadata),   INTENT(IN)    :: infile_metadata
     ! local constants
-    CHARACTER(LEN=*), PARAMETER :: routine  = TRIM(TRIM(modname)//'::open_output')
+    CHARACTER(LEN=*), PARAMETER :: routine  = TRIM(modname)//'::open_output'
     CHARACTER(LEN=*), PARAMETER :: att_name = TRIM(tool_name)
     CHARACTER(LEN=*), PARAMETER :: att_txt  = TRIM(tool_version)
     LOGICAL,          PARAMETER :: ldefine = .TRUE.
@@ -147,7 +148,7 @@ CONTAINS
     cdiZaxisID(:) = CDI_UNDEFID
     output_type   = FILETYPE_NC2
     file_metadata%streamID  = streamOpenWrite(TRIM(out_filename), output_type)
-    file_metadata%vlistID   = vlistCreate() ! create cdi vlist 
+    file_metadata%vlistID   = vlistCreate() ! create cdi vlist
 
     file_metadata%structure = infile_metadata%structure
 
@@ -161,7 +162,7 @@ CONTAINS
       ! copy output grid (using CDI)
       CALL vlistCopy(file_metadata%vlistID, infile_metadata%vlistID)
 
-      SELECT CASE(file_metadata%structure) 
+      SELECT CASE(file_metadata%structure)
       CASE (GRID_TYPE_ICON)
         ! set file gridID to cell-grid:
         ngrids = vlistNgrids(file_metadata%vlistID)
@@ -181,7 +182,7 @@ CONTAINS
         CALL finish(routine, "Unknown grid type")
       END SELECT
     END IF
-      
+
     ! define vertical levels:
     ! -----------------------
 
@@ -247,19 +248,19 @@ CONTAINS
   !
   SUBROUTINE define_output_grid(grid_metadata, file_metadata)
     TYPE (t_output_grid),   INTENT(INOUT) :: grid_metadata
-    TYPE (t_file_metadata), INTENT(OUT)   :: file_metadata
+    TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::define_output_grid')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::define_output_grid'
     INTEGER :: nx, ny
 
     SELECT CASE(grid_metadata%structure)
-    CASE (GRID_LONLAT) 
+    CASE (GRID_LONLAT)
       ! define regular horizontal grid:
       nx = grid_metadata%nx
       ny = grid_metadata%ny
       IF (dbg_level >= 10) WRITE (0,*) "# define horizontal grid with size ", nx*ny
       grid_metadata%gridID = gridCreate(grid_metadata%structure, nx * ny)
-      
+
       CALL gridDefXsize (grid_metadata%gridID, nx)
       CALL gridDefXname (grid_metadata%gridID, 'lon')
       CALL gridDefXunits(grid_metadata%gridID, 'degrees_east')
@@ -284,7 +285,7 @@ CONTAINS
       CALL gridDefYname    (grid_metadata%gridID, 'clat')
       CALL gridDefYlongname(grid_metadata%gridID, 'center latitude')
       CALL gridDefYunits   (grid_metadata%gridID, 'radian')
-      
+
       CALL gridDefXvals    (grid_metadata%gridID, grid_metadata%clon)
       CALL gridDefYvals    (grid_metadata%gridID, grid_metadata%clat)
       CALL gridDefXbounds  (grid_metadata%gridID, grid_metadata%lonv)
@@ -306,10 +307,11 @@ CONTAINS
   !> Close output data file
   !
   SUBROUTINE close_output(file_metadata, grid_metadata)
-    TYPE (t_output_grid),   INTENT(INOUT) :: grid_metadata
     TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
+    TYPE (t_output_grid),   INTENT(INOUT) :: grid_metadata
     ! local variables
     INTEGER :: j
+    TYPE (t_file_metadata)      :: empty
 
     IF (dbg_level >= 5) WRITE (0,*) "# clean up grid"
 
@@ -320,17 +322,20 @@ CONTAINS
       IF(cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(cdiZaxisID(j))
       cdiZaxisID(j) = CDI_UNDEFID
     ENDDO
+    if (ALLOCATED (grid_metadata% clon )) DEALLOCATE (grid_metadata% clon)
+    if (ALLOCATED (grid_metadata% clat )) DEALLOCATE (grid_metadata% clat)
+    if (ALLOCATED (grid_metadata% lonv )) DEALLOCATE (grid_metadata% lonv)
+    if (ALLOCATED (grid_metadata% latv )) DEALLOCATE (grid_metadata% latv)
+    if (ALLOCATED (grid_metadata% xvals)) DEALLOCATE (grid_metadata% xvals)
+    if (ALLOCATED (grid_metadata% yvals)) DEALLOCATE (grid_metadata% yvals)
 
     CALL streamClose(file_metadata%streamID)
-    file_metadata%structure = -1
-    file_metadata%streamID  = -1
-    file_metadata%vlistID   = -1
-    file_metadata%ncfileID  = -1
+    file_metadata = empty
   END SUBROUTINE close_output
 
 
   !> Writes data field to output data file (using the CDI).
-  ! 
+  !
   !  @note The output file is assumed to be already open.
   !
   SUBROUTINE store_field2D(file_metadata, varID, ilevel, field)
@@ -339,7 +344,7 @@ CONTAINS
     REAL(wp),                INTENT(IN) :: field(:,:)
 
     ! get levelID:
-    CALL streamWriteVarSlice(file_metadata%streamID, varID, ilevel-1, field, 0)   
+    CALL streamWriteVarSlice(file_metadata%streamID, varID, ilevel-1, field, 0)
   END SUBROUTINE store_field2D
 
 END MODULE mo_remap_output

@@ -46,6 +46,7 @@ MODULE mo_remap
     &                             n_input_fields, input_field, n_zaxis,     &
     &                             zaxis_metadata, global_metadata,          &
     &                             input_import_data, close_input
+  USE mo_remap_hydcorr,     ONLY: input_remap_horz
   USE mo_remap_subdivision, ONLY: decompose_grid, create_grid_covering,     &
     &                             IMAX, IMIN, get_latitude_range
   USE mo_remap_output,      ONLY: load_metadata_output, open_output,        &
@@ -55,7 +56,7 @@ MODULE mo_remap
     &                             open_file, close_file, in_filename,       &
     &                             out_filename, in_grid_filename,           &
     &                             out_grid_filename, in_type, out_type,     &
-    &                             t_file_metadata, read_remap_namelist
+    &                             read_remap_namelist
 
   IMPLICIT NONE
 
@@ -64,6 +65,8 @@ MODULE mo_remap
 
   INTEGER,  PARAMETER :: rank0     = 0 !< Input process rank
   INTEGER,  PARAMETER :: rank0_out = 0 !< Output process rank
+
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap'
 
 CONTAINS
 
@@ -96,6 +99,11 @@ CONTAINS
       &                       time_comm_tot, time_read_tot,      &
       &                       time_intp_tot, time_write_tot
 
+    INTEGER                :: ilev, maxblk, maxblks
+    REAL                   :: time_intp
+    REAL(wp), ALLOCATABLE  :: tmp_rfield3D(:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::remap_main'
+
     WRITE (0,*) "# Conservative Remapping"
 
     IF (PRESENT(opt_input_cfg_filename)) THEN
@@ -105,14 +113,14 @@ CONTAINS
     END IF
 
     nthreads = 1
-    !$  nthreads = omp_get_max_threads()
+!$  nthreads = omp_get_max_threads()
     IF (get_my_mpi_work_id() == rank0) THEN
       WRITE (0,'(a,i4,a,i4,a)') "# running with ", p_n_work, " MPI processes and ", nthreads, " thread(s)."
     END IF
 
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! load data
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
 
     CALL tic(time_s)  ! performance measurement: start
     ! read namelists
@@ -157,9 +165,9 @@ CONTAINS
     ! performance measurement: stop
     IF (dbg_level >= 2)  WRITE (0,*) "# > partitioning grids: elapsed time: ", toc(time_s), " sec."
 
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! compute weights
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
 
     CALL tic(time_s)  ! performance measurement: start
 
@@ -192,9 +200,9 @@ CONTAINS
       CALL consistency_check(gridB, intp_data_B, "list 2")
     END IF
 
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! interpolation + output
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
 
     CALL tic(time_s)  ! performance measurement: start
 
@@ -208,6 +216,9 @@ CONTAINS
     ALLOCATE(fieldB_loc(nproma, max_nlev, gridB%p_patch%nblks_c), &
       &      fieldB_glb(nproma, glb_max_nlev, blk_no(gridB%p_patch%n_patch_cells_g)))
 
+    maxblks = max (gridA_cov% p_patch% nblks_c, gridB%     p_patch% nblks_c)
+    ALLOCATE(tmp_rfield3D(nproma, max_nlev, maxblks))
+
     time_comm_tot  = 0.
     time_read_tot  = 0.
     time_intp_tot  = 0.
@@ -215,11 +226,33 @@ CONTAINS
     DO ivar=1,n_input_fields
       IF (dbg_level >= 1) &
         &  WRITE (0,*) "# read and interpolate variable '", TRIM(input_field(ivar)%inputname), "'"
+      IF (input_field(ivar)%varID == -1) CYCLE
 
-      ! load input fields, e.g. IFS GRIB data, interpolate onto ICON grid
-      CALL input_import_data(in_data, ivar, comm_data_c_A_cov,          &
-        &                    fieldB_loc, gridA_cov, gridB, intp_data_B, &
-        &                    time_comm_tot, time_read_tot, time_intp_tot)
+      !--------------------------------------
+      ! load input fields, e.g. IFS GRIB data
+      !--------------------------------------
+      CALL input_import_data(in_data, ivar, comm_data_c_A_cov, &
+        &                    tmp_rfield3D, gridA_cov,          &
+        &                    time_comm_tot, time_read_tot      )
+      !----------------------------------------
+      ! interpolate onto other (e.g. ICON) grid
+      !----------------------------------------
+
+      ! perform horizontal interpolation
+      CALL tic(time_intp)  ! performance measurement: start
+      DO ilev=1,input_field(ivar)%nlev
+
+        maxblk = size (fieldB_loc, dim=3)
+        CALL input_remap_horz(in_data,                &
+                              tmp_rfield3D(:,ilev,:), &
+                              fieldB_loc  (:,ilev,:), &
+                              gridA_cov, gridB, input_field(ivar)%fa, &
+                              intp_data_B, comm_data_c_A_cov)
+
+      END DO ! ilev
+      time_intp_tot = time_intp_tot + toc(time_intp)
+
+      !------------------------------------------------------------------------
 
       IF (l_have3dbuffer) THEN
         ! for distributed computation: gather interpolation result on rank 0
@@ -249,6 +282,7 @@ CONTAINS
         END IF
       END DO
     END DO ! ivar
+    DEALLOCATE(tmp_rfield3D)
 
     ! performance measurement: stop
     IF (dbg_level >= 2)  WRITE (0,*) "# > interpolation and output: elapsed time: ", toc(time_s), " sec."
@@ -259,9 +293,9 @@ CONTAINS
       WRITE (0,*) "#     write: ", time_write_tot, " sec."
     END IF
 
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! clean up
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
 
     CALL deallocate_intp_data(intp_data_A)
     CALL deallocate_intp_data(intp_data_B)

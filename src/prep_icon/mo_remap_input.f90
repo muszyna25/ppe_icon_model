@@ -1,4 +1,4 @@
-!> Defines, loads and remaps input data.
+!> Defines, loads input data.
 !
 MODULE mo_remap_input
 
@@ -20,7 +20,6 @@ MODULE mo_remap_input
   USE mo_remap_sync,         ONLY: t_gather_c, scatter_field2D_c
   USE mo_remap_io,           ONLY: t_file_metadata, get_varID, &
     &                              in_file_gribedition
-  USE mo_remap_hydcorr,      ONLY: t_field_adjustment, hydrostatic_correction
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -38,9 +37,10 @@ MODULE mo_remap_input
   PUBLIC :: t_field_metadata
   PUBLIC :: t_global_metadata
   PUBLIC :: t_zaxis_metadata
+  PUBLIC :: t_field_adjustment
   PUBLIC :: MAX_INPUT_FIELDS, MAX_NZAXIS
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_input')  
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_input')
 
   !> Data structure containing global meta data
   TYPE t_global_metadata
@@ -55,6 +55,21 @@ MODULE mo_remap_input
     INTEGER                       :: gridID
   END TYPE t_global_metadata
 
+  !> Meta-data for field adjustments (e.g. hydrostatic correction)
+  !  applied prior to horizontal interpolation.
+  TYPE t_field_adjustment
+    LOGICAL                         :: lhydrostatic_correction
+    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_temp                  !< field name: "temperature"
+    INTEGER                         :: code_temp
+    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_geosp                 !< field name: "surface geopotential"
+    INTEGER                         :: code_geosp
+    CHARACTER (LEN=MAX_NAME_LENGTH) :: var_qv                    !< field name: "specific humidity
+    INTEGER                         :: code_qv
+    REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
+    REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical
+                                                                 !  temperature gradient above the inversion
+  END TYPE t_field_adjustment
+
   !> Data structure containing meta data for a single input field
   !
   !  @note Not all metadata is available on all working PEs in
@@ -65,7 +80,7 @@ MODULE mo_remap_input
     INTEGER                          :: code, table
     CHARACTER (len=MAX_NAME_LENGTH)  :: type_of_layer         !< level type
     ! meta-data (from input file):
-    TYPE (t_cf_var)                  :: cf                    !< CF convention information 
+    TYPE (t_cf_var)                  :: cf                    !< CF convention information
     TYPE(t_grib2_var)                :: grib2                 !< GRIB2 related information
     INTEGER                          :: steptype
     INTEGER                          :: idim(2)               !< horizontal field dimensions
@@ -83,9 +98,9 @@ MODULE mo_remap_input
     INTEGER                       :: zaxis_size            !< no. of levels
     REAL(wp), ALLOCATABLE         :: levels(:)             !< vertical levels
     INTEGER                       :: vct_size
-    REAL(wp), ALLOCATABLE         :: vct(:)         
+    REAL(wp), ALLOCATABLE         :: vct(:)
     ! internal IDs for CDI
-    INTEGER                       :: zaxisID    
+    INTEGER                       :: zaxisID
   END TYPE t_zaxis_metadata
 
   ! meta data ("config state")
@@ -111,13 +126,13 @@ MODULE mo_remap_input
   CHARACTER (LEN=MAX_NAME_LENGTH) :: var_qv                    !< field name: "specific humidity
   INTEGER                         :: code_qv
   REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
-  REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical 
+  REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical
                                                                !  temperature gradient above the inversion
   ! namelist definition: namelist for a single field
   NAMELIST/input_field_nml/ inputname, outputname, code, type_of_layer,   &
     &                       lhydrostatic_correction, var_temp, code_temp, &
     &                       var_geosp, code_geosp, var_qv, code_qv,       &
-    &                       hpbl1, hpbl2                    
+    &                       hpbl1, hpbl2
 
 
 CONTAINS
@@ -132,7 +147,7 @@ CONTAINS
     INTEGER :: istat, ierrstat
     LOGICAL :: lrewind
 
-    n_input_fields = 0    
+    n_input_fields = 0
     ALLOCATE(input_field(MAX_INPUT_FIELDS), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
@@ -157,11 +172,11 @@ CONTAINS
       type_of_layer = " "
 
       lhydrostatic_correction = .FALSE.
-      var_temp      = "T"            
+      var_temp      = "T"
       code_temp     = 130
-      var_geosp     = "FI"            
+      var_geosp     = "FI"
       code_geosp    = 129
-      var_qv        = "QV"            
+      var_qv        = "QV"
       code_qv       = 133
       hpbl1         = 500
       hpbl2         = 1000
@@ -172,19 +187,19 @@ CONTAINS
 
       n_input_fields = n_input_fields + 1
       input_field(n_input_fields)%inputname       = TRIM(inputname)
-      input_field(n_input_fields)%outputname      = TRIM(outputname)    
-      input_field(n_input_fields)%code            = code                     
+      input_field(n_input_fields)%outputname      = TRIM(outputname)
+      input_field(n_input_fields)%code            = code
       input_field(n_input_fields)%type_of_layer   = TRIM(type_of_layer)
 
-      input_field(n_input_fields)%fa%lhydrostatic_correction  = lhydrostatic_correction     
-      input_field(n_input_fields)%fa%var_temp                 = var_temp                    
-      input_field(n_input_fields)%fa%code_temp                = code_temp                    
-      input_field(n_input_fields)%fa%var_geosp                = var_geosp                   
-      input_field(n_input_fields)%fa%code_geosp               = code_geosp                   
-      input_field(n_input_fields)%fa%var_qv                   = var_qv                      
-      input_field(n_input_fields)%fa%code_qv                  = code_qv                      
-      input_field(n_input_fields)%fa%hpbl1                    = hpbl1                       
-      input_field(n_input_fields)%fa%hpbl2                    = hpbl2                       
+      input_field(n_input_fields)%fa%lhydrostatic_correction  = lhydrostatic_correction
+      input_field(n_input_fields)%fa%var_temp                 = var_temp
+      input_field(n_input_fields)%fa%code_temp                = code_temp
+      input_field(n_input_fields)%fa%var_geosp                = var_geosp
+      input_field(n_input_fields)%fa%code_geosp               = code_geosp
+      input_field(n_input_fields)%fa%var_qv                   = var_qv
+      input_field(n_input_fields)%fa%code_qv                  = code_qv
+      input_field(n_input_fields)%fa%hpbl1                    = hpbl1
+      input_field(n_input_fields)%fa%hpbl2                    = hpbl2
 
       IF (get_my_mpi_work_id() == rank0) &
         &  CALL input_print_metadata(input_field(n_input_fields))
@@ -213,7 +228,7 @@ CONTAINS
   !  Uses cdilib for file access. Checks for consistency of meta data.
   !
   ! @todo Consistency checks of variable metadata still missing!
-  ! 
+  !
   FUNCTION get_field_varID(vlistID, field_info) RESULT(result_varID)
     INTEGER                             :: result_varID
     INTEGER,                 INTENT(IN) :: vlistID             !< link to GRIB file vlist
@@ -256,7 +271,7 @@ CONTAINS
 
     input_field(:)%nlev = 0
     ! Loop over all fields from input config file, read file only on PE rank0:
-    DO i=1,n_input_fields    
+    DO i=1,n_input_fields
       IF (get_my_mpi_work_id() == rank0) THEN
         input_field(i)%varID = get_field_varID(vlistID, input_field(i))
       END IF
@@ -298,9 +313,9 @@ CONTAINS
       ! make sure that there is only one grid definition for regular
       ! grids:
       IF (file%structure == GRID_TYPE_REGULAR) THEN
-        DO i=2,n_input_fields    
+        DO i=2,n_input_fields
           IF (input_field(1)%gridID /= input_field(2)%gridID) &
-            &   CALL finish(routine, "Only single-grid source file supported!")          
+            &   CALL finish(routine, "Only single-grid source file supported!")
         END DO
       END IF
     END IF
@@ -328,7 +343,7 @@ CONTAINS
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
           CALL zaxisInqLevels(zaxisID, zaxis_metadata(n_zaxis)%levels)
         END IF
-        
+
         zaxis_metadata(n_zaxis)%vct_size = zaxisInqVctSize(zaxisID)
         IF (zaxis_metadata(n_zaxis)%vct_size > 0) THEN
           ALLOCATE(zaxis_metadata(n_zaxis)%vct(zaxis_metadata(n_zaxis)%vct_size), &
@@ -343,57 +358,29 @@ CONTAINS
   END SUBROUTINE load_metadata_input
 
 
-  !> Performs horizontal remapping of a single data field.
-  !
-  !  Requires pre-computed interpolation weights.
-  !
-  SUBROUTINE input_remap_horz(file_metadata, field_src, field_dst, src_grid, dst_grid, &
-    &                         fa, dst_intp_data, gather_c)
-    TYPE (t_file_metadata),    INTENT(IN)    :: file_metadata    !< input file meta-data
-    REAL(wp),                  INTENT(INOUT) :: field_src(:,:)   !< input field (may be modified)
-    REAL(wp),                  INTENT(INOUT) :: field_dst(:,:)   !< output field
-    TYPE (t_grid),             INTENT(IN)    :: src_grid         !< source grid     
-    TYPE (t_grid),             INTENT(IN)    :: dst_grid         !< destination grid
-    TYPE (t_field_adjustment), INTENT(IN)    :: fa               !< meta-data for hydrostatic correction
-    TYPE(t_intp_data),         INTENT(IN)    :: dst_intp_data    !< input file meta-data
-    TYPE(t_gather_c),          INTENT(IN)    :: gather_c         !< communication pattern
-
-    IF (dbg_level >= 5) &
-      & WRITE (0,*) "horizontal remapping..."
-    IF (.NOT. fa%lhydrostatic_correction) THEN
-      CALL interpolate_c(field_src, field_dst, dst_grid, dst_intp_data)
-    ELSE
-      CALL hydrostatic_correction(dst_intp_data, src_grid, dst_grid, file_metadata, &
-        &                         gather_c, fa, field_src, field_dst)
-    END IF
-
-  END SUBROUTINE input_remap_horz
-
-
-  !> Main subroutine: Reads and remaps data fields.
+  !> Main subroutine: Reads data fields.
   !
   !  Requires a pre-allocated variable list ("varlist") as output.
-  ! 
+  !
   ! @todo Check if grid ID corresponds to the grid for which the
   !       interpolation weights are computed.
   !
-  SUBROUTINE input_import_data(file_metadata, ivar, gather_c,                &
-    &                          dst_field, src_grid, dst_grid, dst_intp_data, &
-    &                          opt_time_comm, opt_time_read, opt_time_intp)
-    
+  SUBROUTINE input_import_data(file_metadata, ivar, gather_c, &
+    &                          dst_field, src_grid,           &
+    &                          opt_time_comm, opt_time_read   )
+
     TYPE (t_file_metadata), INTENT(IN) :: file_metadata
     INTEGER,           INTENT(IN)    :: ivar
     TYPE(t_gather_c),  INTENT(IN)    :: gather_c         !< communication pattern
     REAL(wp),          INTENT(INOUT) :: dst_field(:,:,:)
-    TYPE (t_grid),     INTENT(IN)    :: src_grid, dst_grid
-    TYPE(t_intp_data), INTENT(IN)    :: dst_intp_data
-    REAL, INTENT(INOUT), OPTIONAL    :: opt_time_comm, opt_time_read, opt_time_intp
+    TYPE (t_grid),     INTENT(IN)    :: src_grid
+    REAL, INTENT(INOUT), OPTIONAL    :: opt_time_comm, opt_time_read
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//':input_import_data')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//':input_import_data'
     INTEGER :: streamID, ierrstat, nmiss, nsize, &
-      &        shape2D_glb(2), shape2D_loc(2), ilev
+      &        shape2D_glb(2), shape2D_loc(2), ilev, maxblk
     REAL(wp), ALLOCATABLE :: rfield1D(:), rfield2D(:,:), rfield2D_loc(:,:)
-    REAL    :: time_comm, time_read, time_intp
+    REAL    :: time_comm, time_read
 
     streamID = file_metadata%streamID
     IF (dbg_level >= 2)  CALL message(routine, "Start")
@@ -446,12 +433,13 @@ CONTAINS
         CALL scatter_field2D_c(gather_c, rfield2D, rfield2D_loc)
         IF (PRESENT(opt_time_comm)) opt_time_comm = opt_time_comm + toc(time_comm)
 
-        ! perform horizontal interpolation
-        CALL tic(time_intp)  ! performance measurement: start
-        CALL input_remap_horz(file_metadata, rfield2D_loc, dst_field(:,ilev,:), &
-          &                   src_grid, dst_grid, input_field(ivar)%fa,         &
-          &                   dst_intp_data, gather_c)
-        IF (PRESENT(opt_time_intp)) opt_time_intp = opt_time_intp + toc(time_intp)
+        !-----------------------
+        ! Copy level to 3D field
+        ! (horizontal interpolation moved to caller!)
+        !-----------------------
+        maxblk = min (size (dst_field, dim=3), size (rfield2D_loc, dim=2))
+        dst_field(:,ilev,1:maxblk)  = rfield2D_loc(:,1:maxblk)
+        dst_field(:,ilev,maxblk+1:) = 0
       END DO ! ilev
     END IF ! (varID /= -1)
 

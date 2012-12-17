@@ -22,7 +22,7 @@ MODULE mo_remap_sync
   PUBLIC :: igather_field2D_c
   PUBLIC :: t_gather_c
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_sync')  
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_sync')
 
   !> Data structure for local-to-global communication of distributed
   !> field data
@@ -31,8 +31,12 @@ MODULE mo_remap_sync
     INTEGER,  ALLOCATABLE :: global_idx(:), &   !< mapping: (global, PE-ordered array) -> (global array)
       &                      local_size(:), &   !< local field size
       &                      displs(:)          !< offset in global, PE-ordered array
-    INTEGER :: local_dim, total_dim, rank0, nblks_c, npromz_c
-    
+    INTEGER :: local_dim = -1
+    INTEGER :: total_dim = -1
+    INTEGER :: rank0     = -1
+    INTEGER :: nblks_c   = -1
+    INTEGER :: npromz_c  = -1
+
     INTEGER :: mpi_request
 
     !> mpi_isend buffer
@@ -47,16 +51,18 @@ CONTAINS
     TYPE (t_grid), INTENT(IN)       :: grid             !< local grid partition
     INTEGER,       INTENT(IN)       :: rank0            !< root PE, where data is collected.
     TYPE(t_gather_c), INTENT(INOUT) :: gather_c         !< communication pattern
-#if !defined(NOMPI)
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::allocate_gather_c')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::allocate_gather_c'
     INTEGER :: ierrstat, i, this_pe
-    
+
     IF (dbg_level >= 5) &
       &   WRITE (0,*) "# allocate communication pattern"
     this_pe = get_my_mpi_work_id()
     gather_c%rank0     = rank0
     gather_c%local_dim = grid%p_patch%n_patch_cells
+
+!!! FIXME: gather_c should be properly initialized!!!
+#if !defined(NOMPI)
     ALLOCATE(gather_c%displs(p_n_work), gather_c%local_size(p_n_work), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
