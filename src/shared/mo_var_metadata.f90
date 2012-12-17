@@ -13,7 +13,7 @@ MODULE mo_var_metadata
   INTEGER, PARAMETER :: varname_len = 32
 
   ! list of variable groups
-  CHARACTER(len=varname_len), PARAMETER :: var_groups(15) = &
+  CHARACTER(len=varname_len), PARAMETER :: var_groups(16) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -26,6 +26,7 @@ MODULE mo_var_metadata
     &  "PBL_VARS              ",  &
     &  "PHYS_TENDENCIES       ",  &
     &  "LAND_VARS             ",  &
+    &  "LAND_TILE_VARS        ",  &
     &  "MULTISNOW_VARS        ",  &
     &  "ADDITIONAL_PRECIP_VARS",  &
     &  "SNOW_VARS             "/)

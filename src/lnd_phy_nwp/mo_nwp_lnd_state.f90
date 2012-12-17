@@ -392,7 +392,7 @@ MODULE mo_nwp_lnd_state
            & t_cf_var('w_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
            & t_grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
-           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
     ENDDO
 
 
@@ -417,7 +417,7 @@ MODULE mo_nwp_lnd_state
                & t_cf_var('t_g_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),       &
                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d,                                                &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
+               & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -441,7 +441,7 @@ MODULE mo_nwp_lnd_state
                & t_cf_var('t_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d,                                                &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
+               & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -468,7 +468,7 @@ MODULE mo_nwp_lnd_state
              & t_cf_var('t_snow_mult_t_'//csfc, '', '', DATATYPE_FLT32),     &
              & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
              & ldims=(/nproma,nlev_snow+1,kblks/), lrestart=.TRUE.,          &
-             & tlev_source=1 ) ! for output take field from nnow_rcf slice 
+             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
     ENDIF 
 
@@ -492,7 +492,7 @@ MODULE mo_nwp_lnd_state
            & t_cf_var('t_s_t_'//csfc, '', '', DATATYPE_FLT32),             &
            & t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
-           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
     ENDDO
 
 
@@ -515,7 +515,7 @@ MODULE mo_nwp_lnd_state
            & t_cf_var('rho_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
            & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
            & ldims=shape2d,                                                  &
-           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
     END DO
 
 
@@ -543,7 +543,7 @@ MODULE mo_nwp_lnd_state
              & t_cf_var('rho_snow_mult_t_'//csfc, '', '', DATATYPE_FLT32),      &
              & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),    &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
-             & tlev_source=1 ) ! for output take field from nnow_rcf slice 
+             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
     ENDIF
 
@@ -723,7 +723,7 @@ MODULE mo_nwp_lnd_state
                & t_cf_var('dzh_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
+               & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
     ENDIF
  
@@ -937,7 +937,7 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('qv_s_t_'//csfc, '', '', DATATYPE_FLT32),            &
                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d )
+               & ldims=shape2d, in_group=groups("land_tile_vars") )
       ENDDO
 
 !weighted variables
@@ -1131,7 +1131,7 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('h_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d )
+               & ldims=shape2d, in_group=groups("land_tile_vars") )
       ENDDO
 
 
@@ -1174,7 +1174,7 @@ MODULE mo_nwp_lnd_state
                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                  & t_cf_var('snowfrac_t_'//csfc, '', '', DATATYPE_FLT32),        &
                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                 & ldims=shape2d )
+                 & ldims=shape2d, in_group=groups("land_tile_vars") )
       END DO
 
     ! & p_diag_lnd%snowfrac_lc_t(nproma,nblks_c,ntiles_total)
@@ -1194,7 +1194,7 @@ MODULE mo_nwp_lnd_state
                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                  & t_cf_var('snowfrac_lc_t_'//csfc, '', '', DATATYPE_FLT32),     &
                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                 & ldims=shape2d )
+                 & ldims=shape2d, in_group=groups("land_tile_vars") )
       END DO
 
     ! & p_diag_lnd%w_snow_eff_t(nproma,nblks_c,ntiles_total)
