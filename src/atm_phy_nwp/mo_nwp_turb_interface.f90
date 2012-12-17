@@ -335,23 +335,24 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
           IF (jt <= ntiles_total) THEN ! land tile points
             jt1 = jt
-            i_count = ext_data%atm%gp_count_t(jb,jt)
-            ilist => ext_data%atm%idx_lst_t(:,jb,jt)
+            i_count =  ext_data%atm%gp_count_t(jb,jt)
+            ilist   => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points (open water)
             jt1 = isub_water   !jt
-            i_count = ext_data%atm%spw_count(jb)
-            ilist => ext_data%atm%idx_lst_spw(:,jb)
+            i_count =  ext_data%atm%spw_count(jb)
+            ilist   => ext_data%atm%idx_lst_spw(:,jb)
             fr_land_t(:) = 0._wp
           ELSE IF (jt == ntiles_total + 2) THEN ! lake points
             jt1 = isub_water   !ntiles_total + 1
-            i_count = ext_data%atm%fp_count(jb)
-            ilist => ext_data%atm%idx_lst_fp(:,jb)
-            ! depth_lk_t(:) = ...
+            i_count =  ext_data%atm%fp_count(jb)
+            ilist   => ext_data%atm%idx_lst_fp(:,jb)
+            fr_land_t(:)  = 0._wp
+            depth_lk_t(:) = 1._wp
             ! h_ice_t(:) = ...
           ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
             jt1 = isub_seaice    !ntiles_total + 2
-            i_count = ext_data%atm%spi_count(jb)
-            ilist => ext_data%atm%idx_lst_spi(:,jb)
+            i_count =  ext_data%atm%spi_count(jb)
+            ilist   => ext_data%atm%idx_lst_spi(:,jb)
             fr_land_t (:) = 0._wp
             depth_lk_t(:) = 0._wp
             h_ice_t   (:) = 1._wp  ! prelim. implementation. Only needed for checking whether 
@@ -364,10 +365,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           ! It remains to be determined which of the model levels are actually needed for non-init calls
           DO ic = 1, i_count
             jc = ilist(ic)
-            gz0_t(ic,jt) = prm_diag%gz0_t(jc,jb,jt1)
-            t_g_t(ic,jt)  = lnd_prog_now%t_g_t(jc,jb,jt1)
-            qv_s_t(ic,jt) = lnd_diag%qv_s_t(jc,jb,jt1)
-            sai_t(ic,jt)  = ext_data%atm%sai_t(jc,jb,jt1)
+            gz0_t(ic,jt)       = prm_diag%gz0_t(jc,jb,jt1)
+            t_g_t(ic,jt)       = lnd_prog_now%t_g_t(jc,jb,jt1)
+            qv_s_t(ic,jt)      = lnd_diag%qv_s_t(jc,jb,jt1)
+            sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt1)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
 !MR: Hauptflaechengroessen nur fuer level nlev
@@ -488,6 +489,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                                                            ! over land
 
 !MR: tke, tkvm, tkvh tilespezifisch speichern
+!DR should tile specific u10m, v10m fields be stored for TERRA?
 
           ENDDO
 

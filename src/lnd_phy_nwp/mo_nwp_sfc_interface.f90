@@ -277,7 +277,7 @@ CONTAINS
         ENDIF
       ELSE  ! inwp_surface/=0
          ! 
-         !> adjust humidity at water surface because of changed surface pressure
+         !> adjust humidity at water surface because of changing surface pressure
          !
          DO ic=1,ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)

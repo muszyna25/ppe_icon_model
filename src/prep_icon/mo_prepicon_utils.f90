@@ -53,6 +53,8 @@ MODULE mo_prepicon_utils
   USE mo_sleve_config,        ONLY: lread_smt
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
+  USE mo_prepicon_types,      ONLY: t_prepicon_state, t_pi_atm_in, t_pi_sfc_in, &
+    &                               t_pi_atm, t_pi_diag, t_pi_sfc
   USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
   &                                 nlevsoil_in, l_sfc_in, l_hice_in,      &
   &                                 l_sst_in,                              &
@@ -86,103 +88,24 @@ MODULE mo_prepicon_utils
 
   IMPLICIT NONE
 
-  INCLUDE 'cdi.inc'
   INCLUDE 'netcdf.inc'
 
   PRIVATE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  TYPE :: t_pi_atm_in ! atmospheric input variables; surface geopotential is regarded as
-                      ! atmospheric variable here because the atmospheric fields cannot be processed without it
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: psfc, phi_sfc
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d, u, v, omega, &
-      &                                         w, qv, qc, qi, qr, qs
-
-  END TYPE t_pi_atm_in
-
-  TYPE :: t_pi_sfc_in
-
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst, snowalb,snowweq, snowdens, &
-                                              skinres, ls_mask, seaice, phi
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
-
-  END TYPE t_pi_sfc_in
-
-  TYPE :: t_pi_atm
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
-                                               pres, qv, qc, qi, qr, qs
-
-  END TYPE t_pi_atm
-
-  TYPE :: t_pi_diag
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:)     :: levels
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: u, v, temp, pres, qv, z3d
-
-  END TYPE t_pi_diag
-
-  TYPE :: t_pi_sfc
-
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst,  snowalb, snowweq, snowdens, &
-                                              skinres, ls_mask, seaice
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
-
-  END TYPE t_pi_sfc
-
-
-  TYPE :: t_prepicon_state
-
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_c_smt, &
-      topography_v, topography_v_smt
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
-
-    TYPE (t_pi_atm_in) :: atm_in
-    TYPE (t_pi_sfc_in) :: sfc_in
-    TYPE (t_pi_atm)    :: atm
-    TYPE (t_pi_diag)   :: plev
-    TYPE (t_pi_diag)   :: zlev
-    TYPE (t_pi_sfc)    :: sfc
-
-  END TYPE t_prepicon_state
 
   TYPE(t_prepicon_state), ALLOCATABLE, TARGET :: prepicon(:) 
 
 
-  INTEGER, PARAMETER :: max_outvars  = 120 ! max. number of output variables
-  INTEGER, PARAMETER :: max_gridlevs = 12 ! max. number of grid levels
-
-  ! I/O stream handler
-  INTEGER, DIMENSION(max_gridlevs) ::  &
-    &  streamID
-
-  INTEGER, DIMENSION(max_gridlevs) ::  &
-    &  gridCellID, gridEdgeID, gridVertexID
-
-  INTEGER, DIMENSION(max_gridlevs) ::  &
-    &  vlistID, taxisID, zaxisID_surface, zaxisID_hybrid, &
-    &  zaxisID_hybrid_half, zaxisID_pres, zaxisID_hgt
-
-
-  INTEGER, DIMENSION(max_outvars,max_gridlevs) ::  &
-    &  varids
-  ! current number of output variables, gets updated by addVar()
-  INTEGER, PRIVATE :: num_varids(max_dom)
-
-  INTEGER, SAVE :: iostep = 0
-  INTEGER :: klev, nzplev
+  INTEGER :: nzplev
 
   CHARACTER(LEN=10) :: psvar 
   CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
   CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
   CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
 
-  PUBLIC :: prepicon, t_prepicon_state, t_pi_atm_in, t_pi_atm, t_pi_diag, t_pi_sfc_in, t_pi_sfc
-
-  PUBLIC :: nzplev
+  PUBLIC :: prepicon
 
 
   PUBLIC :: init_prepicon

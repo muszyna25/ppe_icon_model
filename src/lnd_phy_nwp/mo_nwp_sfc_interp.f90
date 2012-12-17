@@ -45,7 +45,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
   USE mo_prepicon_config,     ONLY: nlevsoil_in, nlev_in
-  USE mo_prepicon_utils,      ONLY: t_prepicon_state
+  USE mo_prepicon_types,      ONLY: t_prepicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
   USE mo_impl_constants,      ONLY: zml_soil
   USE mo_physical_constants,  ONLY: grav

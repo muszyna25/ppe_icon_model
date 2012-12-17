@@ -1341,6 +1341,7 @@ src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
 src/prep_icon/mo_prepicon_old.f90 -text
+src/prep_icon/mo_prepicon_types.f90 -text
 src/prep_icon/mo_prepicon_utils.f90 -text
 src/prep_icon/mo_remap.f90 -text
 src/prep_icon/mo_remap_config.f90 -text
