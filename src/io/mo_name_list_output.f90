@@ -2831,6 +2831,10 @@ CONTAINS
           &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
         CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
       ELSE
+        ! Set GRIB2 Triplet
+        CALL vlistDefVarParam(vlistID, varID,                                              &
+          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
