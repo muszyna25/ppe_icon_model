@@ -44,7 +44,8 @@ MODULE mo_prepicon_config
   IMPLICIT NONE
 
   PUBLIC :: i_oper_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
-  PUBLIC :: l_w_in, l_sfc_in      
+  PUBLIC :: MODE_GENERATE_COORDS, MODE_CONVERTIFS, MODE_VERTINTERP, MODE_REMAP
+  PUBLIC :: l_w_in, l_sfc_in, l_hice_in, l_sst_in     
   PUBLIC :: l_zp_out, l_extdata_out, l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
   PUBLIC :: generate_filename
@@ -64,6 +65,8 @@ MODULE mo_prepicon_config
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
   LOGICAL  :: l_w_in        ! Logical switch if w is provided as input
   LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
+  LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
+  LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
   LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
 
@@ -73,6 +76,11 @@ MODULE mo_prepicon_config
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
+
+  INTEGER, PARAMETER :: MODE_GENERATE_COORDS = 1
+  INTEGER, PARAMETER :: MODE_CONVERTIFS      = 2
+  INTEGER, PARAMETER :: MODE_VERTINTERP      = 3
+  INTEGER, PARAMETER :: MODE_REMAP           = 4 
 
 CONTAINS
   

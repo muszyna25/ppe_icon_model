@@ -47,7 +47,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_exception,           ONLY: message,finish
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_linked_list,         ONLY: t_var_list
@@ -55,8 +55,8 @@ MODULE mo_icoham_dyn_memory
                                   & add_var, add_ref,          &
                                   & new_var_list,              &
                                   & delete_var_list
-  USE mo_cf_convention
-  USE mo_grib2
+  USE mo_cf_convention,       ONLY: t_cf_var
+  USE mo_grib2,               ONLY: t_grib2_var
   USE mo_cdi_constants 
 
 
@@ -331,26 +331,26 @@ CONTAINS
     cf_desc    = t_cf_var('normal_wind', 'm s-1', 'wind normal to the edge', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( field_list, vname_prefix//'vn', field%vn,  &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,      &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,         &
                 & cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'pres_sfc', field%pres_sfc, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                   &
                 & cf_desc, grib2_desc, ldims=shape2d_c )
 
     cf_desc    = t_cf_var('temperature', 'K', 'absolute temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'temp', field%temp, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,            &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ltheta_dyn) THEN
       cf_desc    = t_cf_var('potential_temperature', 'K', 'potential temperature', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, vname_prefix//'theta', field%theta, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,           &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,              &
                   & cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
@@ -359,7 +359,7 @@ CONTAINS
       ! Tracer array for (model) internal use
 
       CALL add_var( field_list, vname_prefix//'tracer', field%tracer,           &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                          &
                   & t_cf_var('tracer', 'kg kg-1', 'tracer concentration', DATATYPE_FLT32), &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
                   & ldims = (/kproma,klev,kblks_c,ktracer/),                    &
@@ -373,7 +373,7 @@ CONTAINS
         CALL add_ref( field_list, vname_prefix//'tracer',                          &
                     & vname_prefix//'q'//ctracer_list(jtrc:jtrc),                  &
                     & field%tracer_ptr(jtrc)%p,                                    &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
                     & t_cf_var('tracer_'//ctracer_list(jtrc:jtrc), 'kg kg-1', '', DATATYPE_FLT32),&
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
                     & ldims=(/kproma,klev,kblks_c/))
@@ -434,155 +434,155 @@ CONTAINS
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'qx', field%qx, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,     &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,        &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'zonal wind', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'u', field%u, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,   &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,      &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'meridional wind', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'v', field%v, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,   &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,      &
                 & cf_desc, grib2_desc, ldims=shape3d_c  )
 
     cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'wind tangent to the edge', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( field_list, vname_prefix//'vt', field%vt, &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,     &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,        &
                 & cf_desc, grib2_desc, ldims=shape3d_e  )
 
     cf_desc    = t_cf_var('vorticity_vertex', 's-1', 'relative vorticity at vertices', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( field_list, vname_prefix//'rel_vort', field%rel_vort, &
-                & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID,                 &
+                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID,                    &
                 & cf_desc, grib2_desc, ldims=shape3d_v )
 
     cf_desc    = t_cf_var('vorticity_edge', 's-1', 'relative vorticity at edges', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( field_list, vname_prefix//'rel_vort_e', field%rel_vort_e, &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                     &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                        &
                 & cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('vorticity_cell', 's-1', 'relative vorticity at cell center', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'rel_vort_c', field%rel_vort_c,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                       &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('divergence', 's-1', 'wind divergence', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'div', field%div,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c  )
 
     cf_desc    = t_cf_var('kinetic_energy', 'm2 s-2', 'specific kinetic energy', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'e_kin', field%e_kin,     &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('geopotential_full', 'm2 s-2', 'geopotential at full level', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'geo_mc', field%geo_mc,   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('vert_vel_full', 'Pa s-1', 'pressure vertical velocity at full level', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'wpres_mc', field%wpres_mc, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                    &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_full', 'Pa', 'pressure at full level', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'pres_mc', field%pres_mc, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('delta_pres', 'Pa', 'layer thickness at cell center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'delp_c', field%delp_c,   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('delta_pres_new', 'Pa',                           &
                  &        'layer thickness at cell center at next time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'delp_c_new', field%delp_c_new, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                     &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                        &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('inv_delta_pres', 'Pa-1', 'inverser of layer thickness at cell center', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'rdelp_c', field%rdelp_c, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('inv_delta_pres_new', 'Pa-1',                          &
                  & 'inverser of layer thickness at cell center at next time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'rdelp_c_new', field%rdelp_c_new, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                          &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('delta_pres_e', 'Pa', 'layer thickness at edge center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( field_list, vname_prefix//'delp_e', field%delp_e, &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,             &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                &
                 & cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('delta_pres_v', 'Pa', 'layer thickness at vertex center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( field_list, vname_prefix//'delp_v', field%delp_v, &
-                & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID,             &
+                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID,                &
                 & cf_desc, grib2_desc, ldims=shape3d_v )
 
     cf_desc    = t_cf_var('delta_virtual_temp', 'K', 'virtual temperature increment', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'virt_incr', field%virt_incr, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                      &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'tempv', field%tempv,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,             &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('rd_log_pr', '', 'Rd * ln(p(k+.5)/p(k-.5)) at cell center', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'rdlnpr_c', field%rdlnpr_c, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                    &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('rd_alpha', '', 'Rd * \alpha at cell center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'rdalpha_c', field%rdalpha_c, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                      &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('mass_flux_edge', 'Pa m s-1', 'mass flux at edge', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( field_list, vname_prefix//'mass_flux_e', field%mass_flux_e, &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                       &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                          &
                 & cf_desc, grib2_desc, ldims=shape3d_e )
 
     IF(ltheta_dyn)THEN
       cf_desc    = t_cf_var('exner', ' ', 'exner function', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, vname_prefix//'exner', field%exner,&
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,          &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,             &
                   & cf_desc, grib2_desc, ldims=shape3d_c )
     END IF
 
@@ -597,40 +597,40 @@ CONTAINS
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'geo_ic', field%geo_ic,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,          &
                 &  cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('vert_vel_half', 'Pa s-1', 'pressure vertical velocity at half level', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'wpres_ic', field%wpres_ic,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,           &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,              &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('eta_vert_vel', 'Pa s-1', 'eta vertical velocity times dp_deta', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'weta', field%weta,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,   &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,      &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_half', 'Pa', 'pressure at half level', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'pres_ic', field%pres_ic,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,            &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_half_new', 'Pa', 'pressure at half level at next time step', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'pres_ic_new', field%pres_ic_new, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,                     &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('log_pressure', '', 'log of pressure at cell center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'lnp_ic', field%lnp_ic,&
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,          &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
     !------------------------
@@ -641,7 +641,7 @@ CONTAINS
       ! Tracer flux arrays for (model) internal use
 
       CALL add_var( field_list, vname_prefix//'hfl_tracer', field%hfl_tracer,          &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                              &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                                 &
                   & t_cf_var('hfl_tracer', 'kg m-1 s-1', 'horizontal flux of tracer', &
                   &          DATATYPE_FLT32), &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE),       &
@@ -649,7 +649,7 @@ CONTAINS
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.               )
 
       CALL add_var( field_list, vname_prefix//'vfl_tracer', field%vfl_tracer,        &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,                          &
                   & t_cf_var('vfl_tracer', 'kg m-1 s-1', 'vertical flux of tracer',  &
                   &          DATATYPE_FLT32), &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),     &
@@ -666,7 +666,7 @@ CONTAINS
         CALL add_ref( field_list, vname_prefix//'hfl_tracer',                       &
                     & vname_prefix//'hfl_q'//ctracer_list(jtrc:jtrc),               &
                     & field%hfl_tracer_ptr(jtrc)%p,                                 &
-                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                         &
+                    & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                            &
                     & t_cf_var('hfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', '',  &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE),  &
@@ -675,7 +675,7 @@ CONTAINS
         CALL add_ref( field_list, vname_prefix//'vfl_tracer',                       &
                     & vname_prefix//'vfl_q'//ctracer_list(jtrc:jtrc),               &
                     & field%vfl_tracer_ptr(jtrc)%p,                                 &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                    &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,                       &
                     & t_cf_var('vfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', '',  &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &

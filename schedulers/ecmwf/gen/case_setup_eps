@@ -115,8 +115,8 @@ done
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
 'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
-'TCC','TQV','TQC','TQI', 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 'U_10M','V_10M', 
-'ACCSHFL_S','ACCLHFL_S',  'ACCTHB_S','ACCTHB_T','ACCSOB_S','ACCSOB_T', 
+'tcc','tqv','tqc','tqi', 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 'u_10m','v_10m', 
+'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
 'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
 'ddt_u_turb',  'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv',  'ddt_v_turb',  'ddt_v_sso', 
 'ddt_v_gwd', 'ddt_v_pconv',  'ddt_qv_turb', 'ddt_qv_conv'"
@@ -252,7 +252,6 @@ cat > ${atmo_namelist} << EOF
  thhgtd_zdiffu                = 125.
  htop_moist_proc              = 22500.
  hbot_qvsubstep               = 30000.
- htop_qvadv                   = 90000.
 /
 &sleve_nml
  min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)

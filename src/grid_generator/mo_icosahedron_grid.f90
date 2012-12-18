@@ -45,10 +45,9 @@ MODULE mo_icosahedron_grid
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
 !   USE mo_physical_constants, ONLY: re
 
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates!, cc2gc
+  USE mo_math_utilities, ONLY: t_cartesian_coordinates!, cc2gc
   USE mo_math_constants, ONLY: pi_5
-  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid, &
-    & write_ascii_decomposition
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_local_grid_geometry,     ONLY: compute_sphere_grid_geometry, get_cell_barycenters!, &
 !    & use_cartesian_centers
@@ -57,8 +56,8 @@ MODULE mo_icosahedron_grid
   USE mo_local_grid_optimization, ONLY: read_grid_optimization_param, optimize_grid
   USE mo_local_grid
 !  USE mo_grid_checktools,         ONLY: check_grid
-  USE mo_grid_decomposition, ONLY: decompose_all_cells, redecompose_round_robin, &
-    & get_no_of_domains
+  USE mo_grid_decomposition, ONLY: decompose_all_cells, grid_cluster_subdomains, &
+    & get_no_of_domains, get_max_subdomain_cells, write_ascii_grid_decomposition
 
   IMPLICIT NONE
 
@@ -69,9 +68,9 @@ MODULE mo_icosahedron_grid
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   INTEGER :: no_of_levels, start_level, refinement_method, start_optimize, end_optimize
-  INTEGER :: decompose_cells_at_level = -2
   INTEGER :: dual_decomposition_domains = -2
-  INTEGER :: decompose_roundrobin_at_level = -2
+  LOGICAL :: use_clustered_decompositions
+!   INTEGER :: decompose_roundrobin_at_level = -2
   
   REAL(wp) :: icon_norm_edge, icon_norm_dual_edge
   CHARACTER(LEN=filename_max) :: input_file, output_file, decomposition_ascii_ext
@@ -94,9 +93,9 @@ CONTAINS
 
     NAMELIST /icosahedron_grid/ no_of_levels, start_level, &
       & refinement_method, input_file, output_file, optimization_extension, &
-      & start_optimize, end_optimize, decompose_cells_at_level, &
-      & dual_decomposition_domains, decomposition_ascii_ext,  &
-      & decompose_roundrobin_at_level
+      & start_optimize, end_optimize, use_clustered_decompositions, &
+      & dual_decomposition_domains, decomposition_ascii_ext
+!       & decompose_roundrobin_at_level
 
     ! set default values
     no_of_levels = 1
@@ -104,11 +103,11 @@ CONTAINS
     start_level = 0
     output_file = 'test'
     input_file = 'NULL'
-    decomposition_ascii_ext = ".cell_domain_ids"
+    decomposition_ascii_ext = "_cell_domain_ids"
     start_optimize = 1
     end_optimize = -1
-    decompose_cells_at_level = -2
     dual_decomposition_domains = -2
+    use_clustered_decompositions = .true.
     
     ! read namelist
     CALL open_nml(param_file_name)
@@ -167,9 +166,9 @@ CONTAINS
       CALL compute_sphere_grid_geometry(base_grid_id)
       CALL set_grid_level(base_grid_id, -1)
       CALL set_grid_parent_id(base_grid_id, 0)
-      IF (-1 == decompose_cells_at_level) THEN
-        CALL decompose_all_cells(base_grid_id, 1)
-      ENDIF
+!       IF (-1 == decompose_cells_at_level) THEN
+!         CALL decompose_all_cells(base_grid_id, 1)
+!       ENDIF
       WRITE(file_name,'(a,a)')  TRIM(output_file), '_icosahedron.nc'
       CALL write_netcdf_grid(base_grid_id, file_name)
       !  print *, ' icon_norm_edge=', icon_norm_edge, ' icon_norm_dual_edge=', icon_norm_dual_edge
@@ -232,15 +231,22 @@ CONTAINS
 
       CALL compute_sphere_grid_geometry(base_grid_id)
       CALL set_grid_parent_id(base_grid_id, 0)
-
-      IF (level == decompose_cells_at_level) THEN
-        CALL decompose_all_cells(base_grid_id, 1)
+            
+      IF (is_dual_decomposed) THEN
+        IF ( use_clustered_decompositions) &
+          CALL grid_cluster_subdomains(base_grid_id,1, 1)
+       
+        no_of_domains = get_no_of_domains(base_grid_id, 1)
+!         WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
+!           TRIM(optimization_extension), "_hex_dd_", no_of_domains, &
+!           TRIM(decomposition_ascii_ext)
+        WRITE(message_text,'(i6,a)') get_max_subdomain_cells(base_grid_id, 1), &
+          TRIM(decomposition_ascii_ext)
+        message_text = ADJUSTL(message_text)
+        WRITE(file_name,'(a,i2.2,a,".",a)')  TRIM(output_file), level,  &
+          TRIM(optimization_extension), TRIM(message_text)
+        CALL write_ascii_grid_decomposition(base_grid_id, 1, file_name)
       ENDIF
-      
-      IF (level == decompose_roundrobin_at_level) THEN
-        CALL redecompose_round_robin(base_grid_id, 1, 1, 2)
-      ENDIF
-
       
       WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
         TRIM(optimization_extension), ".nc"
@@ -248,34 +254,16 @@ CONTAINS
 
       ! if decomposition takes place write the ascci decomposition file
       !  if this level >= decompose level
-      IF (is_dual_decomposed) THEN        
-        no_of_domains = get_no_of_domains(base_grid_id, 1)
+      
+!       IF (decompose_cells_at_level > -2 .AND. &
+!         & level >= decompose_cells_at_level) THEN        
+!         no_of_domains = get_no_of_domains(base_grid_id, 1)
 !         WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
-!           TRIM(optimization_extension), "_hex_dd_", no_of_domains, &
+!           TRIM(optimization_extension), "_tri_dd_", no_of_domains, &
 !           TRIM(decomposition_ascii_ext)
-        WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
-          TRIM(optimization_extension), TRIM(decomposition_ascii_ext)
-        CALL write_ascii_decomposition(base_grid_id, 1, file_name)
-      ENDIF
+!         CALL write_ascii_grid_decomposition(base_grid_id, 1, file_name)
+!       ENDIF
       
-      IF (decompose_cells_at_level > -2 .AND. &
-        & level >= decompose_cells_at_level) THEN        
-        no_of_domains = get_no_of_domains(base_grid_id, 1)
-        WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
-          TRIM(optimization_extension), "_tri_dd_", no_of_domains, &
-          TRIM(decomposition_ascii_ext)
-        CALL write_ascii_decomposition(base_grid_id, 1, file_name)
-      ENDIF
-      
-      IF (decompose_roundrobin_at_level > -2 .AND. &
-        & level >= decompose_roundrobin_at_level) THEN        
-        no_of_domains = get_no_of_domains(base_grid_id, 2)
-        WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
-          TRIM(optimization_extension), "_roundrobin_dd_", no_of_domains, &
-          TRIM(decomposition_ascii_ext)
-        CALL write_ascii_decomposition(base_grid_id, 2, file_name)
-      ENDIF
-
     ENDDO ! level=1,no_of_levels
 
     CALL delete_grid(base_grid_id)

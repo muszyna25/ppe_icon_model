@@ -524,6 +524,13 @@ CONTAINS
                       & pevap_tile, pevap_gbm,                &! out
                       & evapotranspiration)                    ! in (optional)
 
+! For explicit coupling to ice:
+! Plug the fluxes into Qatm (Qatm%lat, Qatm%sens, Qatm%LWnet and Qatm%SWin)
+! Populate Tfw with the freezing point of sea-water - probably constant (Tf)
+!   CALL set_ice_temp_winton(p_patch, ice, Tfw, Qatm)
+! Caclulate the dry static energy from ice%Tsurf and copy ice%Tsurf to the appropriate atmospheric
+! variable.
+
 
   END SUBROUTINE update_surface
   !-------------

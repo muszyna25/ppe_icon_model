@@ -851,7 +851,11 @@ begin
   resource@cnFillOn                 = True
 
 ; lines/labels inside the plot ================================================
-  resource@cnLinesOn                = False
+  if (withLines) then
+    resource@cnLinesOn              = True
+  else
+    resource@cnLinesOn              = False
+  end if
   resource@cnLineLabelsOn           = False
   if (withLineLabels ) then
     withLines                       = True
@@ -1117,6 +1121,7 @@ begin
   else
     resource@lbTitleString      = ""
   end if
+  resource@tiMainFontHeightF  = 0.02
   if (itype .eq. "atm" .and. varname .eq. "T" .and. k2c) resource@lbTitleString = "C" end if
 
   resource@lbTitlePosition    = "Bottom"
@@ -1706,7 +1711,7 @@ end
 ;---------------------------------------------------------------
 ; Create a resource for the grid plot
 undef("performGridPlot")
-procedure performGridPlot(var,levels,colors,boundslon,boundslat,wks,plot,debug)
+procedure performGridPlot(var,levels,colors,boundslon,boundslat,wks,plot,flags,debug)
 begin
   pres             = True
   pres@gsEdgesOn   = True   ; Turn on edges
@@ -1719,7 +1724,9 @@ begin
   if (.not. ismissing(vlow(0))) then
     do j = 0, dimsizes(vlow)-1
       pres@gsFillColor = colors(i)   ; first color
+      ;if ( flags(vlow(i))) then
       gsn_polygon(wks,plot,boundslon(vlow(j),:),boundslat(vlow(j),:),pres)
+      ;end if
     end do
   end if
   if (debug) then
@@ -1735,7 +1742,9 @@ begin
     if (.not. ismissing(vind(0))) then
     do j = 0, dimsizes(vind)-1
       pres@gsFillColor = colors(i+1)
+      ;if ( flags(vind(i))) then
       gsn_polygon( wks,plot,   boundslon(vind(j),:),boundslat(vind(j),:),pres)
+      ;end if
     end do
     end if
     if (debug) then
@@ -1753,7 +1762,9 @@ begin
   if (.not. ismissing(vhig(0))) then
     do j = 0, dimsizes(vhig) -1
       pres@gsFillColor = colors(i+1)
+      ;if ( flags(vhig(i))) then
       gsn_polygon(wks,plot,boundslon(vhig(j),:),boundslat(vhig(j),:),pres)
+      ;end if
     end do
   end if
   if (debug) then
@@ -1761,6 +1772,18 @@ begin
            + dimsizes(vhig) + " triangles considered, color= " + colors(i+1))
   end if
   delete(vhig)
+end
+;---------------------------------------------------------------
+; mark the cell location
+undef("plotCellMarkers")
+procedure plotCellMarkers(cell_lons,cell_lats,wks,plot,debug)
+begin
+  pres             = True
+  pres@gsMarkerIndex = 1
+  pres@gsMarkerSizeF = 0.003
+  do i = 0,dimsizes(cell_lons)-1
+    gsn_polymarker(wks,plot,cell_lons(i),cell_lats(i),pres)
+  end do
 end
 ;---------------------------------------------------------------
 ; Plot the ICON grid of a variable to the plot.
@@ -1783,8 +1806,7 @@ begin
   levels = getLevelsFromPlot(plot)
 
   if (debug) printGridPlotInfo(colors,levels,flags) end if
-
-  performGridPlot(variable,levels,colors,boundslon,boundslat,workstation,plot,debug)
+  performGridPlot(variable,levels,colors,boundslon,boundslat,workstation,plot,flags,debug)
 end
 ;---------------------------------------------------------------
 ; read in mask variable

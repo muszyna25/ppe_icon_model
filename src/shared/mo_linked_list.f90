@@ -79,10 +79,12 @@ MODULE mo_linked_list
     INTEGER                       :: cdiFullZaxisID
     INTEGER                       :: cdiDepthHalfZaxisID
     INTEGER                       :: cdiDepthFullZaxisID
-    INTEGER                       :: cdiHeightHalfZaxisID
-    INTEGER                       :: cdiHeightFullZaxisID
+    INTEGER                       :: cdiH2mZaxisID
+    INTEGER                       :: cdiH10mZaxisID
     INTEGER                       :: cdiSnowGenericZaxisID
     INTEGER                       :: cdiSnowHalfGenericZaxisID
+    INTEGER                       :: cdiIceGenericZaxisID
+    INTEGER                       :: cdiToaZaxisID
     !
     INTEGER                       :: cdiTaxisID
     !
@@ -149,8 +151,9 @@ CONTAINS
     this_list%p%cdiFullZaxisID      = -1
     this_list%p%cdiDepthFullZaxisID = -1
     this_list%p%cdiDepthHalfZaxisID = -1
-    this_list%p%cdiHeightFullZaxisID= -1
-    this_list%p%cdiHeightHalfZaxisID= -1
+    this_list%p%cdiH2mZaxisID       = -1
+    this_list%p%cdiH10mZaxisID      = -1
+    this_list%p%cdiToaZaxisID       = -1
     !
     this_list%p%cdiTaxisID         = -1
     this_list%p%cdiTimeIndex       = -1

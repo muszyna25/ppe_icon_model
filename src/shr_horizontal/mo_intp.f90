@@ -153,6 +153,7 @@ MODULE mo_intp
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
@@ -319,8 +320,8 @@ END SUBROUTINE verts2edges_scalar
 !! Modification by Thomas Heinze, DWD (2007-08-06):
 !! - changed c_int to POINTER (was array)
 !!
-SUBROUTINE cells2edges_scalar( p_cell_in, ptr_patch, c_int, p_edge_out,  &
-  &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
+SUBROUTINE cells2edges_scalar( p_cell_in, ptr_patch, c_int, p_edge_out,                  &
+  &                            opt_slev, opt_elev, opt_rlstart, opt_rlend, opt_fill_latbc )
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
@@ -338,6 +339,8 @@ INTEGER, INTENT(in), OPTIONAL :: opt_elev  ! optional vertical end level
 ! start and end values of refin_ctrl flag
 INTEGER, INTENT(in), OPTIONAL :: opt_rlstart, opt_rlend
 
+LOGICAL, INTENT(in), OPTIONAL :: opt_fill_latbc  ! if true, fill lateral nest boundaries
+
 ! edge based scalar output field
 REAL(wp), INTENT(inout) :: p_edge_out(:,:,:) ! dim: (nproma,nlev,nblks_e)
 
@@ -348,6 +351,7 @@ INTEGER :: i_endblk                  ! end block
 INTEGER :: i_startidx                ! start index
 INTEGER :: i_endidx                  ! end index
 INTEGER :: rl_start, rl_end, i_nchdom
+LOGICAL :: lfill_latbc
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
@@ -380,18 +384,56 @@ IF ( PRESENT(opt_rlend) ) THEN
 ELSE
   rl_end = min_rledge
 END IF
+IF ( PRESENT(opt_fill_latbc) ) THEN
+  lfill_latbc = opt_fill_latbc
+ELSE
+  lfill_latbc = .FALSE.
+END IF
+
 
 iidx => ptr_patch%edges%cell_idx
 iblk => ptr_patch%edges%cell_blk
 
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
-i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+IF ( (l_limited_area .OR. ptr_patch%id > 1) .AND. lfill_latbc) THEN ! Fill outermost nest boundary
+
+  i_startblk = ptr_patch%edges%start_blk(1,1)
+  i_endblk   = ptr_patch%edges%end_blk(1,1)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1, 1)
+
+    DO je = i_startidx, i_endidx
+      IF (iidx(je,jb,1) >= 1 .AND. iblk(je,jb,1) >= 1) THEN
+        DO jk = slev, elev
+          p_edge_out(je,jk,jb) =  p_cell_in(iidx(je,jb,1),jk,iblk(je,jb,1))
+        END DO
+      ELSE IF (iidx(je,jb,2) >= 1 .AND. iblk(je,jb,2) >= 1) THEN
+        DO jk = slev, elev
+          p_edge_out(je,jk,jb) =  p_cell_in(iidx(je,jb,2),jk,iblk(je,jb,2))
+        END DO
+      ELSE
+        CALL finish ('mo_interpolation:cells2edges_scalar',  &
+          &          'error in lateral boundary filling')
+      ENDIF
+    END DO
+
+  END DO
+!$OMP END DO
+ENDIF
+
+! Process the remaining grid points for which a real interpolation is possible
+i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
+
 IF (slev > 1) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk

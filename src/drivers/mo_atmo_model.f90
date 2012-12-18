@@ -48,7 +48,8 @@ USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
   
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
-  & num_io_procs, nproma, use_icon_comm, parallel_radiation_mode
+  & num_io_procs, nproma, use_icon_comm, &
+  & division_method
   
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
@@ -65,7 +66,6 @@ USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_a
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, iadv_rcf, &
-  &                                kend_qvsubstep, l_open_ubc,      &
   &                                configure_nonhydrostatic
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
@@ -76,10 +76,8 @@ USE mo_run_config,           ONLY: configure_run, &
   & lrestore_states,      & ! flag if states should be restored
   & ldump_dd, lread_dd,   &
   & nproc_dd,             &
-  & nlev,nlevp1,          &
+  & nlev,nlevp1,nshift,   &
   & num_lev,num_levp1,    &
-  & iqc, iqi, iqr, iqs,   &
-  & nshift, lvert_nest,   &
   & ntracer, msg_level,   &
   & dtime, output_mode
 
@@ -88,7 +86,7 @@ USE mo_impl_constants, ONLY:&
   & ihs_atm_theta,        & !    :
   & inh_atmosphere,       & !    :
   & ishallow_water,       &
-  & max_dom, inwp
+  & max_dom
 
 
 ! For the coupling
@@ -111,6 +109,8 @@ USE mo_complete_subdivision, ONLY: &
   & copy_processor_splitting,      &
   & set_patch_communicators,       &
   & setup_phys_patches
+
+USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
 
 #ifndef NOMPI
 USE mo_setup_subdivision,   ONLY:  npts_local
@@ -152,8 +152,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 ! Time integration
 !
 ! External data
-USE mo_ext_data_state,      ONLY: ext_data, init_ext_data, init_index_lists, &
-  &                               destruct_ext_data
+USE mo_ext_data_state,      ONLY: ext_data, init_ext_data, destruct_ext_data
 
 
 !-------------------------------------------------------------------------
@@ -172,7 +171,6 @@ USE mo_read_namelists,       ONLY: read_atmo_namelists
 USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_interpol_config,      ONLY: configure_interpolation 
-USE mo_advection_config,     ONLY: configure_advection
 USE mo_diffusion_config,     ONLY: configure_diffusion
 
 USE mo_atmo_hydrostatic,    ONLY: atmo_hydrostatic 
@@ -181,7 +179,7 @@ USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic
 USE mo_icon_comm_interface, ONLY: construct_icon_communication, &
     & destruct_icon_communication
     
-USE mo_rrtm_data_interface, ONLY: construct_rrtm_model_repart, destruct_rrtm_model_repart
+USE mo_rrtm_data_interface, ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -338,8 +336,8 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
     !    This needs to be done very early (but anyway after atm_crosscheck)
-    !    because some component of the state, e.g., num_lev, may be 
-    !    modified in this subroutine which affect the following CALLs.
+    !    because some components of the state, e.g., num_lev, may be 
+    !    modified in this subroutine which affects the following CALLs.
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
     CASE (inh_atmosphere)
@@ -438,10 +436,19 @@ CONTAINS
         IF(lread_dd) THEN
           CALL restore_patches_netcdf( p_patch, .FALSE. )
         ELSE
-          ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
-          CALL decompose_domain(p_patch_global)
-          DEALLOCATE(p_patch_global)
+          IF (division_method(1) > 100) THEN
+            ! use ext decomposition library driver
+            ALLOCATE(p_patch_global(n_dom_start:n_dom))
+            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL ext_decompose_patches(p_patch_global)
+            DEALLOCATE(p_patch_global)
+          ELSE
+            ! use internal decomposition 
+            ALLOCATE(p_patch_global(n_dom_start:n_dom))
+            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL decompose_domain(p_patch_global)
+            DEALLOCATE(p_patch_global)
+          ENDIF
         ENDIF
         IF(ldump_dd) THEN
           DO jg = n_dom_start, n_dom
@@ -684,12 +691,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-    DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-       &                      iequations, iforcing, iqc, iqi, iqr, iqs,    &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),        &
-       &                      lvert_nest, l_open_ubc, ntracer ) 
-    ENDDO
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
@@ -706,22 +707,16 @@ CONTAINS
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    !
-    ! generation of tiles index lists
-    IF ( iequations == inh_atmosphere .AND. iforcing == inwp ) THEN
-      CALL init_index_lists (p_patch(1:), ext_data)
-    ENDIF
+
 
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
-    IF (use_icon_comm .OR. parallel_radiation_mode > 0) THEN
+    IF (use_icon_comm) THEN
       CALL construct_icon_communication()
     ENDIF
 
-    IF (parallel_radiation_mode == 1) THEN
-      CALL construct_rrtm_model_repart(p_patch(1))
-    ENDIF
+    CALL init_rrtm_model_repart()
     
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -783,10 +778,8 @@ CONTAINS
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
-    IF (parallel_radiation_mode == 1) THEN
-      CALL destruct_rrtm_model_repart()
-    ENDIF
-    IF (use_icon_comm .OR. parallel_radiation_mode > 0) THEN
+    CALL destruct_rrtm_model_repart()
+    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
     ENDIF
     
@@ -800,7 +793,7 @@ CONTAINS
   SUBROUTINE construct_atmo_coupler()
     ! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 8
+    INTEGER, PARAMETER :: no_of_fields = 9
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     INTEGER :: field_id(no_of_fields)
@@ -851,6 +844,7 @@ CONTAINS
       field_name(6) = "SST"
       field_name(7) = "OCEANU"
       field_name(8) = "OCEANV"
+      field_name(9) = "ALBEDO"
 
       field_shape(1:2) = grid_shape(1:2)
 

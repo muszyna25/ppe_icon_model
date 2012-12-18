@@ -84,7 +84,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
@@ -540,7 +540,7 @@ CONTAINS
                               & pt_diag ,                         & !>inout
                               & prm_diag,prm_nwp_tend,            & !>inout
                               & wtr_prog_now,                     & !>in
-                              & lnd_prog_now, lnd_prog_new,       & !>inout 
+                              & lnd_prog_now,                     & !>inout 
                               & lnd_diag                          ) !>inout
       ELSE
         ! Turbulence schemes including the call to the surface scheme
@@ -587,10 +587,7 @@ CONTAINS
        CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
                   &          pt_patch,                           & !>in
                   &          p_prog_list,                        & !>in
-                  &          prm_diag%rain_gsp_rate,             & !>in
-!                  &          prm_diag%snow_gsp_rate,             & !>in
-                  &          prm_diag%rain_con_rate,             & !>in
-!                  &          prm_diag%snow_con_rate,             & !>in
+                  &          prm_diag,                           & !>in
                   &          pt_prog%rho,                        & !>in               
                   &          pt_prog_rcf%tracer)                   !>inout             
 
@@ -851,7 +848,8 @@ CONTAINS
            &              lnd_diag,              & ! in
            &              pt_prog,               & ! inout
            &              pt_diag,prm_diag,      & ! inout
-           &              lnd_prog_new           ) ! in
+           &              lnd_prog_new,          & ! in
+           &              wtr_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF
@@ -918,6 +916,7 @@ CONTAINS
           & klev=nlev                              ,&! in     vertical dimension size
           & klevp1=nlevp1                          ,&! in     vertical dimension size
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
+          & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
           & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
@@ -928,9 +927,11 @@ CONTAINS
           & albedo=prm_diag%albvisdif(:,jb),        &! in     grid-box average albedo
           & albedo_t=prm_diag%albvisdif_t(:,jb,:),  &! in     tile-specific albedo
           & lp_count=ext_data%atm%lp_count(jb),     &! in     number of land points
-          & gp_count_t=ext_data%atm%gp_count_t(jb,:), &! in   number of land points per tile
+          & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in   number of land points per tile
+          & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
+          & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
           & cosmu0=zcosmu0(:,jb),                   &! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
@@ -962,7 +963,8 @@ CONTAINS
           & kbdim=nproma                           ,&! in     loop length and dimension size
           & klev=nlev                              ,&! in     vertical dimension size
           & klevp1=nlevp1                          ,&! in     vertical dimension size
-          & ntiles=1,                               &! in     number of tiles of sfc flux fields
+          & ntiles=1                               ,&! in     number of tiles of sfc flux fields
+          & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
           & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]

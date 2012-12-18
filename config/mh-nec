@@ -19,7 +19,7 @@ URDEPTHS = -D_URD=10 -D_URD2=10
 ###################################################################################
  
 config_target=sx9
-load_modules="sxf90/rev441" "sxcc/rev092" "crosskit/r181"
+load_modules="sxf90/rev451" "sxcc/rev092" "crosskit/r181"
 load_profile="." "/etc/profile.d/modules.sh"
 make_command="make"
 mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs"
@@ -52,9 +52,9 @@ FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'
 
 # Initialization with NaN for debugging purposes
 DEBUGFLAGS = -Wf,-init stack=nan heap=nan -Wf,-K a -D__BOUNDCHECK
-LDDEBUG    = -Wf"-K a" -Wl,-f nan
+LDDEBUG    = -Wf,-K a
 
-# linker flags
+# linker flags (required for linking with OpenMP - specifies the OMP stacksize)
 LDFLAGS = -Wl,-Z 16G
 
 # Inlining
@@ -86,7 +86,7 @@ INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
 INLINE   = $INLINE -pi rexp=p_wait
 
 # standard flags for C compiler
-CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.9.16/include
+CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.9.16-3/include
 
 NETCDFROOT = /usr/local/pkg-sx9/
 LAPACKROOT = /SX/opt/mathkeisan/inst
@@ -267,6 +267,22 @@ case "$mh_setup" in
 
     ;;
 
+*sx9mpidebugcheck)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   =    -sx9 $DEBUGFLAGS $FPTRAP -eC
+    LDFLAGS  = $LDFLAGS $LDDEBUG
+
+    ;;
+
 *sx9mpidebugomp)
 
     # Specific flags for selected configuration
@@ -320,7 +336,7 @@ esac
 
 # Add common flags defined above
 
-FFLAGS = $FFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS $LDFLAGS
+FFLAGS = $FFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS
 
 
 MPIROOT =
@@ -329,7 +345,7 @@ MPI_LIB =
 LAPACK_LIB  = -llapack -lblas
 
 LIBS        = -L../lib -lsupport \
-              -L/usr/local/pkg-sx9/grib_api/prerelease-1.9.16/lib -lgrib_api_f90 -lgrib_api
+              -L/usr/local/pkg-sx9/grib_api/prerelease-1.9.16-3/lib -lgrib_api_f90 -lgrib_api
 
 
 AR       = sxar

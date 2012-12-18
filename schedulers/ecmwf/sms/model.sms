@@ -108,6 +108,7 @@ cp -p ${outbasedir}/bin/control_model ./icon.exe
 
 echo "job::start"
 date
+export USE_SIGNAL_HANDLING=yes
 ./icon.exe
 echo "job::end"
 date

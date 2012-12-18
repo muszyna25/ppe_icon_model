@@ -43,7 +43,7 @@
 MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_exception,             ONLY: finish
+  USE mo_exception,             ONLY: finish, warning
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_master_control,        ONLY: is_restart_run
@@ -110,7 +110,7 @@ CONTAINS
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
 
-      IF (ndom>1) CALL finish(TRIM(routine), &
+      IF (ndom>1) CALL warning(TRIM(routine), &
       'Restart functionality can not handle multiple domains (yet)')
 
       jdom = 1  ! only consider one domain at the moment

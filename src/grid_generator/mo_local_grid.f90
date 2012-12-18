@@ -48,12 +48,15 @@ MODULE mo_local_grid
   USE mo_kind,            ONLY: wp
   USE mo_io_units,        ONLY: nnml, filename_max
   USE mo_exception,       ONLY: message_text, message, finish
-  USE mo_base_geometry,   ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
+  USE mo_math_utilities,   ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
     & t_tangent_vectors
   USE mo_impl_constants,  ONLY: &
     & min_rlcell, max_rlcell, min_rlcell_int, &
     & min_rlvert, max_rlvert,                 & ! min_rlvert_int,
     & min_rledge, max_rledge, min_rledge_int
+  USE mo_grid_geometry_info,  ONLY: sphere_geometry, t_planar_torus_geometry_info,  &
+    & copy_planar_torus_info
+
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
   USE mo_physical_constants, ONLY: earth_radius
 
@@ -86,7 +89,7 @@ MODULE mo_local_grid
     & grid_set_parents_from, set_grid_parent_id,                     &
     & set_no_of_subgrids, set_start_subgrids, grid_set_sea_depth,    &
     & grid_set_min_sea_depth, set_grid_level, get_grid_level,        &
-    & set_grid_netcdf_flags, get_number_of_vertices
+    & set_grid_netcdf_flags, get_number_of_vertices, zero_children
 
   PUBLIC :: print_grid_cell, print_grid_edge, print_grid_vertex
 
@@ -99,7 +102,7 @@ MODULE mo_local_grid
     & land_inner, land_boundary, sea_inner, sea_boundary,             &
     & linear_interpolation, min_interpolation, max_interpolation,     &
     & parents_from_idpointers, parents_from_parentpointers,           &
-    & netcdf_CF_1_1_convention, sphere_geometry, torus_geometry,      &
+    & netcdf_CF_1_1_convention,                                       &
     & max_decompositions, dualy_refined_grid
   !--------------------------------------------------------------
   ! definitions of parameters (constants)
@@ -156,11 +159,6 @@ MODULE mo_local_grid
   INTEGER, PARAMETER ::  refined_bisection_grid = 2
   INTEGER, PARAMETER ::  dualy_refined_grid = 3
   
-  ! -----------------------------
-  ! types of grid geometries
-  INTEGER, PARAMETER ::  sphere_geometry = 1
-  INTEGER, PARAMETER ::  torus_geometry  = 2
-
   ! -----------------------------
   ! types of grid optimization
 
@@ -391,7 +389,7 @@ MODULE mo_local_grid
 
     !> Holds the multiple domain ids for domain decompositions
     ! domain_id(max_decompositions, no_of_cells)
-    INTEGER, POINTER :: a_domain_id(:,:)
+    INTEGER, POINTER :: domain_id(:,:)
     !> The number of domains for each domain decompositions
     INTEGER, POINTER :: no_of_domains(:)
     
@@ -423,13 +421,17 @@ MODULE mo_local_grid
     CHARACTER(LEN=filename_max) ::  out_file_name
     !> flags for the netcdf files
     INTEGER :: netcdf_flags
+    
     !> The creation process of the grid (cut_off, refined, etc, see parameters).
     INTEGER :: grid_creation_process
     !> The grid optimization procces
     INTEGER :: grid_optimization_process
-    
+        
     !> The grid domain geometry parameters
     INTEGER :: geometry_type
+
+    TYPE(t_planar_torus_geometry_info) :: planar_torus_info
+    
     !> Sphere radious. 
     REAL(wp) :: sphere_radius
     !> Earth rescaling factor.
@@ -890,6 +892,22 @@ CONTAINS
 
   END SUBROUTINE grid_set_parents_from
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE zero_children(grid_id)
+    INTEGER, INTENT(in) :: grid_id
+
+    CALL check_active_grid_id(grid_id)
+    
+    get_grid_object(grid_id)%verts%child_id(:) = 0
+    get_grid_object(grid_id)%edges%child_index(:,:) = 0
+    get_grid_object(grid_id)%edges%child_id(:) = 0
+    get_grid_object(grid_id)%cells%child_index(:,:) = 0
+    get_grid_object(grid_id)%cells%child_id(:) = 0
+    
+  END SUBROUTINE zero_children
+  !-------------------------------------------------------------------------
 
  !-----------------------------------------------------------------------
   SUBROUTINE replace_grid(grid_id, new_grid_id)
@@ -1032,6 +1050,9 @@ CONTAINS
     to_grid%no_of_subgrids            = from_grid%no_of_subgrids + to_grid%no_of_subgrids
 
     to_cells%no_of_domains(:)         = from_cells%no_of_domains(:)
+
+    CALL copy_planar_torus_info(from_grid%planar_torus_info, to_grid%planar_torus_info)
+    
 
 !     print *, 'from_grid%start_subgrid_id:',from_grid%start_subgrid_id
 !     print *, 'to_grid%start_subgrid_id:',to_grid%start_subgrid_id
@@ -1235,7 +1256,7 @@ CONTAINS
       to_cells%child_index     (to_index,:) = from_cells%child_index     (i,:)
       to_cells%child_id        (to_index)   = from_cells%child_id        (i)
       to_cells%subgrid_id      (to_index)   = from_cells%subgrid_id      (i) + add_subgrid_id
-      to_cells%get_domain_id  (:,to_index)  = from_cells%get_domain_id (:,i)
+      to_cells%domain_id  (:,to_index)  = from_cells%domain_id (:,i)
 
     ENDDO
 !$OMP END DO
@@ -1543,9 +1564,9 @@ CONTAINS
     ist=ist+istat
     cells%area(:)=0.0_wp
 
-    ALLOCATE(cells%get_domain_id(max_decompositions, no_of_cells),stat=istat)
+    ALLOCATE(cells%domain_id(max_decompositions, no_of_cells),stat=istat)
     ist=ist+istat
-    cells%get_domain_id(:,:)=-1
+    cells%domain_id(:,:)=-1
     
     ALLOCATE(cells%no_of_domains(max_decompositions),stat=istat)
     ist=ist+istat
@@ -1918,7 +1939,7 @@ CONTAINS
     ist=ist+istat
     DEALLOCATE(cells%area,stat=istat)
     ist=ist+istat
-    DEALLOCATE(cells%a_domain_id,stat=istat)
+    DEALLOCATE(cells%domain_id,stat=istat)
     ist=ist+istat
     DEALLOCATE(cells%no_of_domains,stat=istat)
     ist=ist+istat
@@ -2392,23 +2413,29 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in), OPTIONAL :: param_file_name
     INTEGER, OPTIONAL :: from_grid_id
 
-    TYPE(t_grid), POINTER :: grid
+    TYPE(t_grid), POINTER :: grid, from_grid
     INTEGER  :: geometry_type
     REAL(wp) :: sphere_radius, earth_rescale_factor
     INTEGER  :: i_status
     
     NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radius, earth_rescale_factor
-
     
+    grid => get_grid(to_grid_id)
     geometry_type = sphere_geometry
     earth_rescale_factor = 1.0_wp
     sphere_radius = earth_radius
-    
+
+    grid%planar_torus_info%cell_edge_length = 0.0_wp
+    grid%planar_torus_info%center%x         = 0.0_wp
+    grid%planar_torus_info%length           = 0.0_wp
+    grid%planar_torus_info%height           = 0.0_wp
+        
     IF (PRESENT(from_grid_id)) THEN
-      grid => get_grid(from_grid_id)
-      geometry_type          = grid%geometry_type
-      earth_rescale_factor = grid%earth_rescale_factor
-      sphere_radius         = grid%sphere_radius
+      from_grid => get_grid(from_grid_id)
+      geometry_type         = from_grid%geometry_type
+      earth_rescale_factor  = from_grid%earth_rescale_factor
+      sphere_radius         = from_grid%sphere_radius
+      CALL copy_planar_torus_info(from_grid%planar_torus_info, grid%planar_torus_info)
     ENDIF
            
     IF (PRESENT(param_file_name)) THEN
@@ -2432,7 +2459,6 @@ CONTAINS
       sphere_radius = earth_radius * earth_rescale_factor
     ENDIF
     
-    grid => get_grid(to_grid_id)
     grid%geometry_type = geometry_type
     grid%sphere_radius = sphere_radius
     grid%earth_rescale_factor = earth_rescale_factor

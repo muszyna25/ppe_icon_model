@@ -240,7 +240,7 @@ CONTAINS
 
     END IF
 
- !! Calculate vertically integrated values of the grid-scale tracers q1, q2 and q3 
+ !! Calculate vertically integrated values of the grid-scale tracers q1, q2, q3, q4 and q5 
  !! and average values of the vertically integrated values from the model start 
  
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk,z_help) ICON_OMP_DEFAULT_SCHEDULE
@@ -249,22 +249,22 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-      pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
+      pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:5) = 0.0_wp
       DO jk = kstart_moist, nlev
         DO jc = i_startidx, i_endidx 
 
           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
-          pt_diag%tracer_vi(jc, jb,1:3) = pt_diag%tracer_vi(jc, jb,1:3)    + &
-                                          z_help * pt_prog_rcf%tracer(jc,jk,jb,1:3) 
+          pt_diag%tracer_vi(jc, jb,1:5) = pt_diag%tracer_vi(jc, jb,1:5)    + &
+                                 z_help * pt_prog_rcf%tracer(jc,jk,jb,1:5) 
 
         ENDDO
       ENDDO
       IF ( p_sim_time > 1.e-1_wp ) THEN
         DO jc = i_startidx, i_endidx 
 
-          pt_diag%tracer_vi_avg(jc,jb,1:3) = ( pt_diag%tracer_vi_avg(jc,jb,1:3) &
+          pt_diag%tracer_vi_avg(jc,jb,1:5) = ( pt_diag%tracer_vi_avg(jc,jb,1:5) &
                             &  * (p_sim_time - dt_phy_jg(itfastphy))      &
-                            &  + pt_diag%tracer_vi(jc,jb,1:3)             &
+                            &  + pt_diag%tracer_vi(jc,jb,1:5)             &
                             &  * dt_phy_jg(itfastphy) )                   &
                             & / p_sim_time
         ENDDO
@@ -337,7 +337,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
                                & / p_sim_time 
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)              &
@@ -378,7 +378,7 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  + prm_diag%lhfl_s(jc,jb)           &
                                &  * dt_phy_jg(itfastphy)
@@ -419,7 +419,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy) )              &
                                & / p_sim_time
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
+          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)/lh_v         &

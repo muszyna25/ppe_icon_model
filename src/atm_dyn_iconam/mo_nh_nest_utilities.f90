@@ -57,6 +57,7 @@ USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest
 USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
 USE mo_nonhydro_state,      ONLY: p_nh_state
+USE mo_nonhydrostatic_config,ONLY: iadv_rcf
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
       &                           MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -71,7 +72,6 @@ USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-
 IMPLICIT NONE
 
 PRIVATE
@@ -286,8 +286,8 @@ END SUBROUTINE complete_nesting_setup
 !! @par Revision History
 !! Developed by Guenther Zaengl, DWD, 2010-02-10
 !!
-SUBROUTINE compute_tendencies (jg,n_new,n_now,n_new_rcf,&
-  &                            n_now_rcf,rdt,rdt_rcf,lstep_adv)
+SUBROUTINE compute_tendencies (jg,n_new,n_now,n_new_rcf,n_now_rcf,&
+  &                            rdt,rdt_rcf,rdt_mflx,lstep_adv)
 
 
 INTEGER,  INTENT(IN) :: jg  ! domain ID
@@ -301,6 +301,8 @@ REAL(wp), INTENT(IN) ::  rdt
 ! Inverse value of time step for integration with reduced calling frequency,
 ! needed for computing the tracer-tendencies
 REAL(wp), INTENT(IN) ::  rdt_rcf
+! Inverse value of time step needed for computing the mass flux tendencies
+REAL(wp), INTENT(IN) ::  rdt_mflx
 
 LOGICAL :: lstep_adv  ! determines wheter tracer-tendencies should be computed
                       ! (.true.) or not (.false.)
@@ -308,9 +310,9 @@ LOGICAL :: lstep_adv  ! determines wheter tracer-tendencies should be computed
 ! local variables
 
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx,       &
-           jb, jc, je, jk, jt, i_nchdom, nshift
+           jb, jc, je, jk, jt, js, i_nchdom, nshift
 INTEGER :: nlev, nlevp1           !< number of full and half levels
-
+REAL(wp) :: rdt_ubc, dthalf
 ! Switch to control if the child domain is vertically nested and therefore 
 ! needs interpolation of upper boundary conditions
 LOGICAL :: l_child_vertnest
@@ -343,6 +345,8 @@ ELSE
   l_child_vertnest = .FALSE.
   nshift = 0
 ENDIF
+rdt_ubc = rdt*REAL(iadv_rcf,wp)/REAL(2*(MAX(1,iadv_rcf-2)),wp)
+dthalf = 1._wp/(2._wp*rdt)
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -350,7 +354,7 @@ ENDIF
 i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
 i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int-2,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,js) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -382,15 +386,35 @@ DO jb = i_startblk, i_endblk
     ( p_prog_new%w(jc,nlevp1,jb) - p_prog_now%w(jc,nlevp1,jb) )*rdt
   ENDDO
 
-  IF (l_child_vertnest) THEN ! Compute differences between uppermost 2 levels for upper boundary condition
-    DO jc = i_startidx, i_endidx
-      p_nh%diag%dw_int(jc,jb) = 0.5_wp*(p_nh%diag%dw_int(jc,jb) + &
-        p_prog_new%w(jc,nshift,jb) - p_prog_new%w(jc,nshift+1,jb))
-      p_nh%diag%drho_ic_int(jc,jb) = 0.5_wp*(p_nh%diag%drho_ic_int(jc,jb) + &
-        p_nh%diag%rho_ic(jc,nshift,jb) - p_nh%diag%rho_ic(jc,nshift+1,jb))
-      p_nh%diag%dtheta_v_ic_int(jc,jb) = 0.5_wp*(p_nh%diag%dtheta_v_ic_int(jc,jb) + &
-        p_nh%diag%theta_v_ic(jc,nshift,jb) - p_nh%diag%theta_v_ic(jc,nshift+1,jb))
+  IF (l_child_vertnest) THEN ! Compute upper boundary condition and its time derivative for nested domain
+    p_nh%diag%dw_int         (:,jb,iadv_rcf+1)            = 0._wp
+    p_nh%diag%mflx_ic_int    (:,jb,iadv_rcf+1:iadv_rcf+2) = 0._wp
+    p_nh%diag%dtheta_v_ic_int(:,jb,iadv_rcf+1)            = 0._wp
+    DO js = 1, iadv_rcf
+      DO jc = i_startidx, i_endidx
+        p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          = p_nh%diag%dw_int(jc,jb,iadv_rcf+1) +          &
+                                                      p_nh%diag%dw_int(jc,jb,js)
+        p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)     = p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1) +     &
+                                                      p_nh%diag%mflx_ic_int(jc,jb,js)
+        p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) + &
+                                                      p_nh%diag%dtheta_v_ic_int(jc,jb,js)
+      ENDDO
     ENDDO
+    DO jc = i_startidx, i_endidx
+      p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          = p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          / REAL(iadv_rcf,wp)
+      p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)     = p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)     / REAL(iadv_rcf,wp)
+      p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) / REAL(iadv_rcf,wp)
+    ENDDO
+    IF (iadv_rcf >= 3) THEN
+      DO jc = i_startidx, i_endidx
+        ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
+        p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+2)    = (SUM(p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf-1:iadv_rcf)) -    &
+                                                      SUM(p_nh%diag%mflx_ic_int(jc,jb,1:2)))*rdt_ubc
+        ! Shift time level of averaged field back to the beginning of the first dynamic substep
+        p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)    = p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1) -       &
+                                                     dthalf*p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+2)
+      ENDDO
+    ENDIF
   ENDIF
 
 ENDDO
@@ -433,7 +457,9 @@ DO jb = i_startblk, i_endblk
   DO jk = 1, nlev
     DO je = i_startidx, i_endidx
       p_nh%diag%grf_tend_vn(je,jk,jb) = &
-      ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
+        ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
+      p_nh%diag%grf_tend_mflx(je,jk,jb) = &
+        ( p_nh%diag%mass_fl_e(je,jk,jb) - p_nh%diag%mass_fl_e_sv(je,jk,jb) )*rdt_mflx
     ENDDO
   ENDDO
 
@@ -459,7 +485,8 @@ END SUBROUTINE compute_tendencies
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2008-07-10
 !!
-SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv)
+SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv, &
+                                   mass_flx_p,mass_flx_c)
 
 CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
@@ -470,7 +497,10 @@ INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
 ! Parent and child time levels for dynamical variables and tracers
 INTEGER, INTENT(IN)     :: ntp_dyn, ntc_dyn, ntp_tr, ntc_tr
 
-LOGICAL :: lstep_adv  ! time tendencies are only interpolated if transport is called
+LOGICAL, INTENT(IN) :: lstep_adv  ! time tendencies are only interpolated if transport is called
+
+! Mass fluxes at parent and child level
+REAL(wp), DIMENSION(:,:,:), INTENT(INOUT) :: mass_flx_p, mass_flx_c
 
 ! local variables
 
@@ -500,8 +530,8 @@ INTEGER :: nlev_c, nlevp1_c        ! number of full and half levels (child domai
 
 INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
 
-REAL(wp) :: aux3dp(nproma,ntracer+3,p_patch(jg)%nblks_c), &
-            aux3dc(nproma,ntracer+3,p_patch(jgc)%nblks_c), &
+REAL(wp) :: aux3dp(nproma,ntracer+4,p_patch(jg)%nblks_c), &
+            aux3dc(nproma,ntracer+4,p_patch(jgc)%nblks_c), &
             theta_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c), &
             rho_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c)
 
@@ -764,10 +794,19 @@ IF (grf_intmethod_e == 1 .OR. grf_intmethod_e == 2) THEN
 
 ELSE IF (grf_intmethod_e == 3 .OR. grf_intmethod_e == 4) THEN
 
-  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, &
+  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1,&
     p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
 
+ELSE IF (grf_intmethod_e == 5 .OR. grf_intmethod_e == 6) THEN
+
+!  CALL sync_patch_array_mult(SYNC_E,p_pp,2,mass_flx_p,p_diagp%grf_tend_mflx)
+
+  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3,&
+    p_diagp%grf_tend_vn, p_diagc%grf_tend_vn, mass_flx_p, mass_flx_c,         &
+    p_diagp%grf_tend_mflx, p_diagc%grf_tend_mflx )
+
 ENDIF
+
 
 ! Perform interpolations needed for vertical nesting
 IF (l_child_vertnest) THEN
@@ -783,7 +822,7 @@ IF (l_child_vertnest) THEN
                          p_diagp%dvn_ie_int, p_diagc%dvn_ie_ubc)
 
   ! Start and end blocks for which interpolation is needed
-  i_startblk = p_pp%cells%start_blk(grf_nudgintp_start_c+1,i_chidx)
+  i_startblk = p_pp%cells%start_blk(grf_nudgintp_start_c+2,i_chidx)
   i_endblk   = p_pp%cells%end_blk(min_rlcell_int,i_chidx)
 
   ! For back-copying at child level
@@ -796,16 +835,16 @@ IF (l_child_vertnest) THEN
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-                         grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+                         grf_nudgintp_start_c+2, min_rlcell_int, i_chidx)
 
       DO jc = i_startidx, i_endidx
-        aux3dp(jc,1,jb) = p_diagp%dw_int(jc,jb)
-        aux3dp(jc,2,jb) = p_diagp%drho_ic_int(jc,jb)
-        aux3dp(jc,3,jb) = p_diagp%dtheta_v_ic_int(jc,jb)
+        aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
+        aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
+        aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
       ENDDO
       DO jt = 1, ntracer
         DO jc = i_startidx, i_endidx
-          aux3dp(jc,3+jt,jb) = p_diagp%q_int(jc,jb,jt)
+          aux3dp(jc,4+jt,jb) = p_diagp%q_int(jc,jb,jt)
         ENDDO
       ENDDO
     ENDDO
@@ -813,7 +852,7 @@ IF (l_child_vertnest) THEN
     CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
     CALL interpol_scal_ubc (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,  &
-                            ntracer+3, aux3dp, aux3dc)
+                            ntracer+4, aux3dp, aux3dc)
 
     DO jb = i_sbc, i_ebc
 
@@ -822,12 +861,12 @@ IF (l_child_vertnest) THEN
 
       DO jc = i_startidx, i_endidx
         p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-        p_diagc%drho_ic_ubc(jc,jb)     = aux3dc(jc,2,jb)
-        p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,3,jb)
+        p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
+        p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
       ENDDO
       DO jt = 1, ntracer
         DO jc = i_startidx, i_endidx
-          p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+3,jb)
+          p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+4,jb)
         ENDDO
       ENDDO
     ENDDO
@@ -837,19 +876,19 @@ IF (l_child_vertnest) THEN
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-                         grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+                         grf_nudgintp_start_c+2, min_rlcell_int, i_chidx)
 
       DO jc = i_startidx, i_endidx
-        aux3dp(jc,1,jb) = p_diagp%dw_int(jc,jb)
-        aux3dp(jc,2,jb) = p_diagp%drho_ic_int(jc,jb)
-        aux3dp(jc,3,jb) = p_diagp%dtheta_v_ic_int(jc,jb)
+        aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
+        aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
+        aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
       ENDDO
     ENDDO
 
     CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
     CALL interpol_scal_ubc (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,  &
-                            3, aux3dp, aux3dc)
+                            4, aux3dp, aux3dc)
 
     DO jb = i_sbc, i_ebc
 
@@ -858,8 +897,8 @@ IF (l_child_vertnest) THEN
 
       DO jc = i_startidx, i_endidx
         p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-        p_diagc%drho_ic_ubc(jc,jb)     = aux3dc(jc,2,jb)
-        p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,3,jb)
+        p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
+        p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
       ENDDO
     ENDDO
 

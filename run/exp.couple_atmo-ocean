@@ -117,7 +117,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -127,7 +127,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -144,7 +144,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .FALSE.
 /
 &coupling_nml
@@ -154,7 +154,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -164,7 +164,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -174,7 +174,7 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -184,7 +184,17 @@ cat > $atmo_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   lag                 = 1
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'ALBEDO'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  lag                 = 1
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &parallel_nml
@@ -254,11 +264,11 @@ cat > $atmo_namelist << EOF
  lvdiff    = .TRUE.
  lrad      = .TRUE.
  lgw_hines = .TRUE.
+ dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
 /
 &echam_conv_nml
 /
 &radiation_nml
- dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
  irad_h2o   = 1         ! prognostic vapor, liquid and ice
  irad_co2   = 2         ! constant co2 vmr
  irad_ch4   = 0         ! switch off ch4
@@ -337,7 +347,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -346,7 +356,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -362,7 +372,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .FALSE.
 /
 &coupling_nml
@@ -371,7 +381,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -380,7 +390,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -389,7 +399,7 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -398,7 +408,16 @@ cat > ${ocean_namelist} << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_diagnostic        = .TRUE.
+  l_diagnostic        = .FALSE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'ALBEDO'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 !
@@ -433,7 +452,7 @@ cat > ${ocean_namelist} << EOF
                         500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
 /
 &ocean_physics_nml
-  i_sea_ice          =    2      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity

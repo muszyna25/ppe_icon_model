@@ -26,8 +26,10 @@ MODULE mo_var_list
     &                            HINTP_TYPE_LONLAT,                 &
     &                            max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, STR_VINTP_TYPE
-  USE mo_fortran_tools,    ONLY: assign_if_present
-  USE mo_nonhydro_types,   ONLY: t_ptr_nh
+  USE mo_advection_config, ONLY: t_advection_config
+  USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
+  
+  USE mo_art_config,       ONLY: t_art_config, art_config
 
   IMPLICIT NONE
 
@@ -61,7 +63,7 @@ MODULE mo_var_list
   PUBLIC :: collect_group             ! obtain variables in a group
   
   PUBLIC :: add_tracer_ref            ! add new tracer component
- 
+
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_r5d
     MODULE PROCEDURE add_var_list_element_r4d
@@ -2894,7 +2896,7 @@ CONTAINS
   ! optionally overwrite some default meta data 
   !
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
-       &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
+       &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
@@ -2908,6 +2910,7 @@ CONTAINS
     INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
@@ -2949,12 +2952,24 @@ CONTAINS
              TRIM(name)//' not created.')
       ENDIF
       !
-      target_info%ncontained = target_info%ncontained+1
-      IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
-        WRITE (message_text, *) &
-          &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-          &  SIZE(target_ptr4d,4)      
-        CALL finish('add_var_list_reference_r3d', message_text)
+      ! Counting the number of existing references is deactivated, if the slice index 
+      ! to be referenced is given explicitly.
+      IF ( PRESENT(ref_idx) ) THEN
+        ! only check validity of given slice index
+        IF ( (ref_idx > SIZE(target_ptr4d,4)) .OR. (ref_idx < 1)) THEN
+          WRITE (message_text, *) &
+            &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
+            &  ' out of allowable range [1,',SIZE(target_ptr4d,4),']'      
+          CALL finish('add_var_list_reference_r3d', message_text)
+        ENDIF
+      ELSE
+        target_info%ncontained = target_info%ncontained+1
+        IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
+          WRITE (message_text, *) &
+            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+            &  SIZE(target_ptr4d,4)      
+          CALL finish('add_var_list_reference_r3d', message_text)
+        ENDIF
       ENDIF
       IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
            ldims(2) /=  target_info%used_dimensions(2) .OR. & 
@@ -2998,11 +3013,17 @@ CONTAINS
     !
     IF (target_info%lcontainer) THEN
       ref_info%lcontained = .TRUE.
-      ref_info%ncontained = target_info%ncontained
       ref_info%used_dimensions(4) = 1
       !
+      IF ( PRESENT(ref_idx) ) THEN
+        ref_info%ncontained = ref_idx
+        ptr => target_element%field%r_ptr(:,:,:,ref_idx,1)
+      ELSE
+        ref_info%ncontained = target_info%ncontained
+        ptr => target_element%field%r_ptr(:,:,:,target_info%ncontained,1)
+      ENDIF
+      !
       new_list_element%field%r_ptr => target_element%field%r_ptr
-      ptr => target_element%field%r_ptr(:,:,:,target_info%ncontained,1)
     ELSE
       new_list_element%field%r_ptr => target_element%field%r_ptr
       ptr => target_element%field%r_ptr(:,:,:,1,1)
@@ -3032,7 +3053,7 @@ CONTAINS
   ! optionally overwrite some default meta data 
   !
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
-       &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
+       &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
@@ -3046,6 +3067,7 @@ CONTAINS
     INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
     INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
@@ -3087,12 +3109,24 @@ CONTAINS
              TRIM(name)//' not created.')
       ENDIF
       !
-      target_info%ncontained = target_info%ncontained+1
-      IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
-        WRITE (message_text, *) &
-          &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-          &  SIZE(target_ptr3d,3)
-        CALL finish('add_var_list_reference_r2d', message_text)
+      ! Counting the number of existing references is deactivated, if the slice index 
+      ! to be referenced is given explicitly.
+      IF ( PRESENT(ref_idx) ) THEN
+        ! only check validity of given slice index
+        IF ( (ref_idx > SIZE(target_ptr3d,3)) .OR. (ref_idx < 1)) THEN
+          WRITE (message_text, *) &
+            &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
+            &  ' out of allowable range [1,',SIZE(target_ptr3d,3),']'      
+          CALL finish('add_var_list_reference_r2d', message_text)
+        ENDIF
+      ELSE
+        target_info%ncontained = target_info%ncontained+1
+        IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
+          WRITE (message_text, *) &
+            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+            &  SIZE(target_ptr3d,3)
+          CALL finish('add_var_list_reference_r2d', message_text)
+        ENDIF
       ENDIF
       IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
            ldims(2) /=  target_info%used_dimensions(2) ) THEN
@@ -3135,11 +3169,17 @@ CONTAINS
     !
     IF (target_info%lcontainer) THEN
       ref_info%lcontained = .TRUE.
-      ref_info%ncontained = target_info%ncontained
       ref_info%used_dimensions(3) = 1
       !
+      IF ( PRESENT(ref_idx) ) THEN
+        ref_info%ncontained = ref_idx
+        ptr => target_element%field%r_ptr(:,:,ref_idx,1,1)
+      ELSE
+        ref_info%ncontained = target_info%ncontained
+        ptr => target_element%field%r_ptr(:,:,target_info%ncontained,1,1)
+      ENDIF
+      !
       new_list_element%field%r_ptr => target_element%field%r_ptr
-      ptr => target_element%field%r_ptr(:,:,target_info%ncontained,1,1)
     ELSE
       new_list_element%field%r_ptr => target_element%field%r_ptr
       ptr => target_element%field%r_ptr(:,:,1,1,1)
@@ -3330,6 +3370,19 @@ CONTAINS
              'CF convention long name                     : ', &
              TRIM(this_list_element%field%info%cf%long_name)
         !
+        IF (this_list_element%field%info%lcontained) THEN
+          CALL message('', 'Field is in a container                     : yes.')
+          WRITE (message_text,'(a,i2)')                        &
+             ' Index in container                          : ',&
+             this_list_element%field%info%ncontained
+          CALL message('', message_text)
+        ELSE
+          CALL message('', 'Field is in a container                     : no.')
+          WRITE (message_text,'(a)')                           &
+             ' Index in container                          : --'
+          CALL message('', message_text)
+        ENDIF
+        !
         WRITE (message_text,'(a,i2)')                          &
              ' horizontal grid type used (C=1,V=2,E=3)     : ',&
              this_list_element%field%info%hgrid
@@ -3413,12 +3466,12 @@ CONTAINS
             CALL message('', 'Washout                                     : no.')
           ENDIF
 
-          WRITE (message_text,'(a,e20.12)') &
-             'Particle diameter in m                 : ', &
+          WRITE (message_text,'(a,e18.12)') &
+             'Particle diameter in m                      : ', &
              this_list_element%field%info%tracer%rdiameter_tracer
           CALL message('', message_text)
 
-          WRITE (message_text,'(a,e20.12)') &
+          WRITE (message_text,'(a,e18.12)') &
              'particle density in kg m^-3                 : ', &
              this_list_element%field%info%tracer%rrho_tracer
           CALL message('', message_text)
@@ -3535,14 +3588,19 @@ CONTAINS
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
   !
-  SUBROUTINE collect_group(grp_name, var_name, nvars)
+  SUBROUTINE collect_group(grp_name, var_name, nvars, loutputvars_only)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
+    ! loutputvars_only: If set to .TRUE. all variables in the group
+    ! which have the the loutput flag equal to .FALSE. are skipped.
+    LOGICAL,                    INTENT(IN)    :: loutputvars_only
     ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
     INTEGER :: i, ivar, grp_id, idx, idx_x, idx_y, idx_t
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
+    CHARACTER(LEN=VARNAME_LEN)    :: name
     
     nvars  = 0
     grp_id = group_id(grp_name)
@@ -3575,10 +3633,19 @@ CONTAINS
           IF (idx_y > 0) idx=MIN(idx, idx_y)
           IF (idx==vname_len) idx=0
           IF (idx==0) THEN
-            var_name(nvars) = TRIM(info%name)
+            name = TRIM(info%name)
           ELSE
-            var_name(nvars) = TRIM(info%name(1:idx-1))
+            name = TRIM(info%name(1:idx-1))
           END IF
+
+          ! Skip element if we need only output variables:
+          IF (loutputvars_only .AND. &
+            & (.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput)) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            CYCLE LOOPVAR
+          END IF
+
+          var_name(nvars) = name
         END IF
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
@@ -3636,28 +3703,51 @@ CONTAINS
   ! reference to an existing pointer to a 3D tracer field
   ! optionally overwrite some default meta data
   !
-  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name, &
-    &        tracer_idx, ptr_arr, cf, grib2, ldims, loutput, lrestart,          &
-    &        tlev_source, tracer_info)
+  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
+    &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart,  &
+    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
+    &        lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,  &
+    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
+    &        rrho_tracer)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
     CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-    INTEGER             , INTENT(inout)        :: tracer_idx          ! index in 4D tracer container
-    TYPE(t_ptr_nh)      , INTENT(inout)        :: ptr_arr(:)
-    TYPE(t_cf_var)      , INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var)   , INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
-    LOGICAL             , INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL             , INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    INTEGER             , INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta) , INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
+    INTEGER             , INTENT(inout)        :: tracer_idx     ! index in 4D tracer container
+    TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
+    TYPE(t_cf_var)      , INTENT(in)           :: cf             ! CF related metadata
+    TYPE(t_grib2_var)   , INTENT(in)           :: grib2          ! GRIB2 related metadata
+    TYPE(t_advection_config), INTENT(inout)    :: advconf        ! adv configure state
+    INTEGER             , INTENT(in), OPTIONAL :: jg             ! patch id
+    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)       ! local dimensions, for checking
+    LOGICAL             , INTENT(in), OPTIONAL :: loutput        ! output flag
+    LOGICAL             , INTENT(in), OPTIONAL :: lrestart       ! restart flag
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype      ! type of statistical processing
+    INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
+    LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
+    INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
+    INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
+    LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer   ! turbulent transport (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: lsed_tracer    ! sedimentation (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: ldep_tracer    ! dry deposition (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: lconv_tracer   ! convection  (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
+    REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
+    REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
+
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
     TYPE(t_var_metadata), POINTER :: target_info
+    TYPE(t_tracer_meta)           :: tracer_info    ! tracer meta data
+
+    INTEGER :: zihadv_tracer, zivadv_tracer
 
     CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
+
   !------------------------------------------------------------------
 
     ! get pointer to target element (in this case 4D tracer container)
@@ -3677,13 +3767,61 @@ CONTAINS
     CALL message(TRIM(routine),message_text)
 
 
+
+    ! set default values
+    ! If ihadv_tracer or ivadv_tracer are not present, take respective value from the 
+    ! advection_config state.
+    ! If ihadv_tracer or ivadv_tracer are present, take those values, and overwrite 
+    ! the respective values of the advection_config state. 
+    !
+    IF ( PRESENT( ihadv_tracer )) THEN
+      zihadv_tracer = ihadv_tracer
+      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE 
+      ! SANITY CHECKED NAMELIST SETTINGS.
+      advconf%ihadv_tracer(tracer_idx) = ihadv_tracer
+    ELSE
+      zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
+    ENDIF
+
+    IF ( PRESENT( ivadv_tracer )) THEN
+      zivadv_tracer = ivadv_tracer
+      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE 
+      ! SANITY CHECKED NAMELIST SETTINGS.
+      advconf%ivadv_tracer(tracer_idx) = ivadv_tracer
+    ELSE
+      zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
+    ENDIF
+
+    ! generate tracer metadata information
+    !
+    tracer_info = create_tracer_metadata(                                     &
+      &                                  lis_tracer       = lis_tracer,       &
+      &                                  ihadv_tracer     = zihadv_tracer,    &
+      &                                  ivadv_tracer     = zivadv_tracer,    &
+      &                                  lturb_tracer     = lturb_tracer,     &
+      &                                  lsed_tracer      = lsed_tracer,      &
+      &                                  ldep_tracer      = ldep_tracer,      &
+      &                                  lconv_tracer     = lconv_tracer,     &
+      &                                  lwash_tracer     = lwash_tracer,     &
+      &                                  rdiameter_tracer = rdiameter_tracer, &
+      &                                  rrho_tracer      = rrho_tracer )
+
+
+
     ! create new table entry reference including additional tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
        &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
-       &          tlev_source=tlev_source, tracer_info=tracer_info )
+       &          isteptype=isteptype, tlev_source=tlev_source,                  &
+       &          vert_interp=vert_interp, hor_interp=hor_interp,                &
+       &          tracer_info=tracer_info, in_group=in_group                     )
 
+    ! Get the number of convection tracers  
+    IF (lconv_tracer) THEN
+      art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
+    ENDIF
 
   END SUBROUTINE add_var_list_reference_tracer
+
 
 END MODULE mo_var_list

@@ -132,6 +132,11 @@ MODULE mo_icon_cpl
   INTEGER, PARAMETER        :: cpl_field_acc  = 1
   INTEGER, PARAMETER        :: cpl_field_avg  = 2
 
+  INTEGER, PARAMETER        :: NOTHING = 0
+  INTEGER, PARAMETER        :: INITIAL = 1
+  INTEGER, PARAMETER        :: RESTART = 2
+  INTEGER, PARAMETER        :: XCHANGE = 4
+
   ! Maximum allowed length for characters
 
   INTEGER, PARAMETER        :: maxchar = 132
@@ -208,8 +213,11 @@ MODULE mo_icon_cpl
      INTEGER                :: time_operation
      INTEGER                :: dt_coupling
      INTEGER                :: dt_model
-     INTEGER                :: diagnostic
+     LOGICAL                :: l_diagnostic
      LOGICAL                :: l_activated
+     LOGICAL                :: restart_flag    ! flag to indicate that its time for writing a restart
+     INTEGER                :: cdi_varID       ! cdi ID for restart field
+     INTEGER                :: cdi_gridID      ! cdi ID for restart grid
   END TYPE t_coupling
 
 !>
@@ -374,6 +382,8 @@ MODULE mo_icon_cpl
    &        PRISM_LOGICAL, PRISM_REAL,          &
    &        PRISM_DOUBLE_PRECISION,             &
    &        PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX
+
+  PUBLIC :: NOTHING, INITIAL, RESTART, XCHANGE
 
   PUBLIC :: initial_date
   PUBLIC :: grids, t_grid

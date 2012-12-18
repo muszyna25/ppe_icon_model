@@ -50,7 +50,8 @@ MODULE mo_name_list_output
   USE mo_util_uuid,             ONLY: t_uuid
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
-    &                                 get_my_mpi_work_id, p_max, get_my_mpi_work_communicator
+    &                                 get_my_mpi_work_id, p_max,                  &
+    &                                 get_my_mpi_work_communicator, p_mpi_wtime
   ! MPI Communicators
   USE mo_mpi,                   ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
   ! MPI Data types
@@ -87,7 +88,7 @@ MODULE mo_name_list_output
 
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
     &                                 with_keywords, insert_group, MAX_STRING_LEN, &
-    &                                 tocompact
+    &                                 tocompact, tolower
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
@@ -109,6 +110,7 @@ MODULE mo_name_list_output
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
 
 
   IMPLICIT NONE
@@ -127,26 +129,6 @@ MODULE mo_name_list_output
   PUBLIC :: parse_variable_groups
 
   !------------------------------------------------------------------------------------------------
-
-  ! Parameters for naming all used Zaxis ID's in cdiZaxisID in TYPE t_output_file below
-
-  INTEGER, PARAMETER, PUBLIC      :: ZA_surface             =  1
-  ! Atmosphere
-  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid              =  2
-  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid_half         =  3
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land    =  4
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land_p1 =  5
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow        =  6
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow_p1     =  7
-  INTEGER, PARAMETER, PUBLIC      :: ZA_pressure            =  8
-  INTEGER, PARAMETER, PUBLIC      :: ZA_height              =  9
-  INTEGER, PARAMETER, PUBLIC      :: ZA_altitude            = 10
-  INTEGER, PARAMETER, PUBLIC      :: ZA_meansea             = 11
-  INTEGER, PARAMETER, PUBLIC      :: ZA_isentropic          = 12
-  ! Ocean
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 13
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 14
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 15
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6) :: GRP_PREFIX = "group:"
@@ -511,6 +493,20 @@ CONTAINS
       p_onl%remap_internal   = remap_internal
       p_onl%lonlat_id        = -1
 
+      ! allow case-insensitive variable names:
+      DO i=1,max_var_ml
+        p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+      END DO
+      DO i=1,max_var_pl
+        p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+      END DO
+      DO i=1,max_var_hl
+        p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+      END DO
+      DO i=1,max_var_il
+        p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+      END DO
+
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=0 .AND. remap/=1) &
         CALL finish(routine,'Unsupported value for remap')
@@ -625,7 +621,7 @@ CONTAINS
           IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
-            CALL collect_group(grp_name, grp_vars, ngrp_vars)
+            CALL collect_group(grp_name, grp_vars, ngrp_vars, loutputvars_only=.TRUE.)
             CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
               &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
               &               grp_vars(1:ngrp_vars), new_varlist)
@@ -670,7 +666,11 @@ CONTAINS
   SUBROUTINE init_name_list_output(lprintlist, isample)
 
 #ifndef NOMPI
-    USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
+#ifdef  __SUNPRO_F95
+  INCLUDE "mpif.h"
+#else
+  USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
+#endif
 #endif
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
@@ -770,7 +770,6 @@ CONTAINS
     DO jp = 1, n_dom_out
       IF(l_output_phys_patch) THEN
         patch_info(jp)%log_patch_id = p_phys_patch(jp)%logical_id
-        write(0,*)'JP(physPatch): ',jp
         IF (.NOT. my_process_is_io()) THEN
           patch_info(jp)%p_pat_c    => p_phys_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_phys_patch(jp)%n_patch_cells-1)/nproma + 1
@@ -781,7 +780,6 @@ CONTAINS
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
-        write(0,*)'JP: ',jp
         IF (.NOT. my_process_is_io()) THEN
           patch_info(jp)%p_pat_c    => p_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_patch(jp)%n_patch_cells_g-1)/nproma + 1
@@ -995,6 +993,14 @@ CONTAINS
           p_of%start_time    = start_time(p_of%log_patch_id)
           p_of%end_time      = end_time(p_of%log_patch_id)
           p_of%initialized   = .FALSE.
+
+          p_of%cdiCellGridID   = CDI_UNDEFID
+          p_of%cdiEdgeGridID   = CDI_UNDEFID
+          p_of%cdiVertGridID   = CDI_UNDEFID
+          p_of%cdiLonLatGridID = CDI_UNDEFID
+          p_of%cdiTaxisID      = CDI_UNDEFID
+          p_of%cdiZaxisID(:)   = CDI_UNDEFID
+          p_of%cdiVlistID      = CDI_UNDEFID
 
           ! Select all var_lists which belong to current logical domain and i_typ
 
@@ -1251,9 +1257,30 @@ CONTAINS
 
       ! Check that at least one element with this name has been found
 
-      IF(.NOT. found_1) &
+      IF (.NOT. found_1) THEN
+
+        DO i = 1, nvar_lists
+          IF (my_process_is_stdio()) THEN
+            WRITE(message_text,'(3a, i2)') &
+                 'Variable list name: ',TRIM(var_lists(i)%p%name), &
+                 ' Patch: ',var_lists(i)%p%patch_id
+            CALL message('',message_text)
+            element => var_lists(i)%p%first_list_element
+            DO
+              IF(.NOT. ASSOCIATED(element)) EXIT
+              WRITE (message_text,'(a,a,l1,a,a)') &
+                   &     '    ',element%field%info%name,              &
+                   &            element%field%info%loutput, '  ',     &
+                   &            trim(element%field%info%cf%long_name)
+              CALL message('',message_text)
+              element => element%next_list_element
+            ENDDO
+          ENDIF
+        ENDDO
+        
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
-      
+      ENDIF
+
       ! append variable descriptor to list; append two different
       ! variables (X and Y) if we have a lon-lat interpolated variable
       ! defined on edges:
@@ -1882,6 +1909,7 @@ CONTAINS
     INTEGER :: ll_dim(2)
     INTEGER :: gridtype
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
+    REAL(wp), ALLOCATABLE :: lbounds(:), ubounds(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
     TYPE(t_lon_lat_data), POINTER :: lonlat
@@ -1996,8 +2024,14 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
- !     CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
-   
+      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+      !
+      ! works, but makes no sense, yet. Proper grid numbers still missing
+      CALL gridDefNumber(of%cdiCellGridID, 42)
+      !
+      ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used    
+      CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
+
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -2011,7 +2045,13 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
- !     CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+      !
+      ! works, but makes no sense, yet. Proper grid numbers still missing
+      CALL gridDefNumber(of%cdiVertGridID, 42)
+      !
+      ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used  
+      CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
 
       ! Edges
 
@@ -2026,7 +2066,13 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-  !    CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+      !
+      ! works, but makes no sense, yet. Proper grid numbers still missing
+      CALL gridDefNumber(of%cdiEdgeGridID, 42)
+      !
+      ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used  
+      CALL gridDefPosition(of%cdiEdgeGridID, GRID_EDGE)
 
       of%cdiLonLatGridID = CDI_UNDEFID
 
@@ -2062,21 +2108,28 @@ CONTAINS
       ! introduce temporary variable znlev_soil, since global variable nlev_soil 
       ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
       ! mo_io_async complains about mismatch of levels. 
-      znlev_soil = SIZE(zml_soil)-1
+      znlev_soil = SIZE(zml_soil)
 
-      ! Hybrid
-
-      of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
-      of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
-
-      ALLOCATE(levels(nlev))
-      DO k = 1, nlev
-        levels(k) = REAL(k,wp)
-      END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid), levels)
-      DEALLOCATE(levels)
-      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
+      ! HYBRID_LAYER
       !
+      of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
+      ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
+      DO k = 1, nlev
+        lbounds(k) = REAL(k,wp)
+        levels(k)  = REAL(k,wp)
+      END DO
+      DO k = 2, nlevp1
+        ubounds(k-1) = REAL(k,wp)
+      END DO
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_hybrid), levels)  !necessary for NetCDF
+      DEALLOCATE(lbounds, ubounds, levels)
+      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
+
+      ! HYBRID
+      !
+      of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
       ALLOCATE(levels(nlevp1))
       DO k = 1, nlevp1
         levels(k) = REAL(k,wp)
@@ -2085,6 +2138,7 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
+      !
       ! Define axis for output on mean sea level
       !
       of%cdiZaxisID(ZA_meansea) = zaxisCreate(ZAXIS_MEANSEA, 1)
@@ -2093,23 +2147,40 @@ CONTAINS
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_meansea), levels)
       DEALLOCATE(levels)
 
-      ! Define axes for soil model
-
+      !
+      ! Define axes for soil model (DEPTH_BELOW_LAND)
+      !
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
-      ALLOCATE(levels(znlev_soil+2))
+        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      ALLOCATE(levels(znlev_soil+1))
       levels(1) = 0._wp
-      DO k = 1, znlev_soil+1
+      DO k = 1, znlev_soil
         levels(k+1) = zml_soil(k)*1000._wp  ! in mm
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
       CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
       DEALLOCATE(levels)
 
-      of%cdiZaxisID(ZA_depth_below_land) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land), zml_soil*1000._wp) ! in mm
-      CALL zaxisDefUnits (of%cdiZaxisID(ZA_depth_below_land), "mm")
+      !(DEPTH_BELOW_LAND_LAYER)
+      !
+      of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
+      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
+      lbounds(1) = 0._wp   ! surface
+      DO k = 2, znlev_soil
+        lbounds(k)   = (zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1)))
+      ENDDO
+      DO k = 1, znlev_soil
+        ubounds(k) = (zml_soil(k) + (zml_soil(k) - lbounds(k)))
+        levels(k)  = zml_soil(k)*1000._wp
+      ENDDO
+      ubounds(:) = ubounds(:) * 1000._wp        ! in mm
+      lbounds(:) = lbounds(:) * 1000._wp        ! in mm
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
+      DEALLOCATE(lbounds, ubounds, levels)
+
       !
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
@@ -2126,6 +2197,31 @@ CONTAINS
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow), levels)
       DEALLOCATE(levels)
+      !
+      ! Specified height level above ground: 2m
+      !
+      of%cdiZaxisID(ZA_height_2m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 2._wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_2m), levels)
+      DEALLOCATE(levels)
+      !
+      ! Specified height level above ground: 10m
+      !
+      of%cdiZaxisID(ZA_height_10m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 10._wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_10m), levels)
+      DEALLOCATE(levels)
+      !
+      ! Top of atmosphere
+      !
+      of%cdiZaxisID(ZA_toa)  = zaxisCreate(ZAXIS_TOA, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 1._wp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_toa), levels)
+      DEALLOCATE(levels)
+
 
 
       ! Define axes for output on p-, i- and z-levels
@@ -2145,23 +2241,6 @@ CONTAINS
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_pressure), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_pressure), nplev, levels)
-        DEALLOCATE(levels)
-
-        !
-        ! z-axis (height above ground)
-        !
-        ! DR: most probably this is wrong, because levels 
-        ! nh_pzlev_config(jg)%zlevels(k) are defined as "altitude above mean 
-        ! sea level"
-        ! 
-        nzlev = nh_pzlev_config(of%log_patch_id)%nzlev
-        of%cdiZaxisID(ZA_height)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
-        ALLOCATE(levels(nzlev))
-        DO k = 1, nzlev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%zlevels(k)
-        END DO
-        CALL zaxisDefLevels(of%cdiZaxisID(ZA_height), levels)
-        CALL zaxisDefVct(of%cdiZaxisID(ZA_height), nzlev, levels)
         DEALLOCATE(levels)
 
         !
@@ -2192,15 +2271,15 @@ CONTAINS
       ENDIF
 
     ELSE ! oce
-      of%cdiZaxisID(ZA_depth)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
+      of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
-      of%cdiZaxisID(ZA_depth_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
+      of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
 
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
       CALL set_zlev(levels_i, levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth)     , levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_half), levels_i)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), levels_m)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), levels_i)
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
@@ -2675,7 +2754,7 @@ CONTAINS
 
     TYPE (t_var_metadata), POINTER :: info
     !
-    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, znlev_soil, i
+    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, i
     CHARACTER(LEN=vname_len) :: mapped_name
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
@@ -2685,8 +2764,6 @@ CONTAINS
     nlev   = num_lev(of%log_patch_id)
     nlevp1 = num_levp1(of%log_patch_id)
 
-    ! See above ...
-    znlev_soil = SIZE(zml_soil)-1
     !
     DO iv = 1, of%num_vars
       !
@@ -2712,91 +2789,19 @@ CONTAINS
       !
       ! set z axis ID
       !
-      SELECT CASE (info%vgrid)
+      zaxisID = of%cdiZaxisID(info%vgrid)
+      IF (zaxisID /= CDI_UNDEFID) THEN
+        info%cdiZaxisID = zaxisID
+      ELSE
+        WRITE (message_text,'(a,i3,a,i3)') &
+             &  'Zaxis Nr.: ',info%vgrid,' not defined. zaxisID= ',zaxisID
+        CALL finish(routine, message_text)
+      ENDIF
 
-      CASE (ZAXIS_SURFACE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_surface)
 
-      CASE (ZAXIS_MEANSEA)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_meansea)
 
-      CASE (ZAXIS_HYBRID)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid)
-
-      CASE (ZAXIS_HYBRID_HALF)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid_half)
-
-      CASE (ZAXIS_DEPTH_BELOW_SEA)
-        ! RJ: Not sure about this ...
-        IF (info%used_dimensions(2) == n_zlev) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth)
-        ELSE IF (info%used_dimensions(2) == n_zlev+1) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_half)
-        ELSE
-          WRITE (message_text,'(a,a,a,i0)') &
-               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-          CALL message('',message_text)
-          CALL finish(routine,'Dimension mismatch for ZAXIS_DEPTH_BELOW_SEA')
-        ENDIF
-
-      CASE (ZAXIS_DEPTH_BELOW_LAND)
-        IF (info%used_dimensions(2) == znlev_soil+1) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_below_land)
-        ELSE IF (info%used_dimensions(2) == znlev_soil+2) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_depth_below_land_p1)
-        ELSE
-          WRITE (message_text,'(a,a,a,i0)') &
-               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-          CALL message('',message_text)
-          CALL finish(routine,'Dimension mismatch for ZAXIS_DEPTH_BELOW_LAND')
-        ENDIF
-
-      CASE (ZAXIS_HEIGHT)
-          ! In all other cases, ZAXIS_HEIGHT seems to be equivalent to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF
-          ! TODO: Is there a difference to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF ???
-          IF (info%used_dimensions(2) == nlevp1) THEN
-            info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid_half)
-          ELSE IF (info%used_dimensions(2) == nlev) THEN
-            info%cdiZaxisID =  of%cdiZaxisID(ZA_hybrid)
-          ELSE
-            WRITE (message_text,'(a,a,a,i0)') &
-                 &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-            CALL message('',message_text)
-            CALL finish(routine,'Dimension mismatch for ZAXIS_HEIGHT')
-          ENDIF
-
-      CASE (ZAXIS_GENERIC)
-        IF(info%used_dimensions(2) == nlev_snow) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow)
-        ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
-          info%cdiZaxisID =  of%cdiZaxisID(ZA_generic_snow_p1)
-        ELSE
-          WRITE (message_text,'(a,a,a,i0)') &
-               &  'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
-          CALL message('',message_text)
-          CALL finish(routine,'Dimension mismatch for ZAXIS_GENERIC')
-        ENDIF
-
-      CASE (ZAXIS_PRESSURE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_pressure)
-
-      CASE (ZAXIS_ALTITUDE)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_altitude)
-
-      CASE (ZAXIS_ISENTROPIC)
-        info%cdiZaxisID =  of%cdiZaxisID(ZA_isentropic)
-
-      CASE DEFAULT
-        WRITE (message_text,'(a,a,a,i0)') &
-             &  'Variable: ',TRIM(info%name),' ZAXIS: ',info%vgrid
-        CALL message('',message_text)
-        CALL finish(routine, 'ZAXIS definition missing for '//TRIM(info%name))
-
-      END SELECT
-
-      zaxisID = info%cdiZaxisID
       ! Search name mapping for name in NetCDF file
-
+      !
       mapped_name = info%name
       IF(ALLOCATED(of%name_map)) THEN
         DO i = 1, UBOUND(of%name_map, 2)
@@ -2826,6 +2831,10 @@ CONTAINS
           &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
         CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
       ELSE
+        ! Set GRIB2 Triplet
+        CALL vlistDefVarParam(vlistID, varID,                                              &
+          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
@@ -2976,7 +2985,7 @@ CONTAINS
       IF(of%cdiEdgeGridID   /= CDI_UNDEFID) CALL gridDestroy(of%cdiEdgeGridID)
       IF(of%cdiVertGridID   /= CDI_UNDEFID) CALL gridDestroy(of%cdiVertGridID)
       IF(of%cdiLonLatGridID /= CDI_UNDEFID) CALL gridDestroy(of%cdiLonLatGridID)
-      CALL taxisDestroy(of%cdiTaxisID)
+      IF(of%cdiTaxisID      /= CDI_UNDEFID) CALL taxisDestroy(of%cdiTaxisID)
       DO j = 1, SIZE(of%cdiZaxisID)
         IF(of%cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(of%cdiZaxisID(j))
       ENDDO
@@ -3011,6 +3020,7 @@ CONTAINS
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
     LOGICAL :: lnewly_initialized = .FALSE.
 
+    IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
     ! that the I/O PEs are ready with the last output step before
     ! writing data into the I/O memory window.
@@ -3165,6 +3175,8 @@ CONTAINS
     DO i = 1, SIZE(output_file)
       IF (sim_time > output_file(i)%end_time) CALL close_output_file(output_file(i))
     ENDDO
+    
+    IF (ltimer) CALL timer_stop(timer_write_output)
 
   END SUBROUTINE write_name_list_output
 
@@ -3175,7 +3187,11 @@ CONTAINS
   SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
+#ifdef  __SUNPRO_F95
+  INCLUDE "mpif.h"
+#else
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
+#endif
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
@@ -3505,9 +3521,6 @@ CONTAINS
     REAL(wp) :: sim_time
     INTEGER :: jg
 
-
-    print '(a,i0)','============================================ Hello from I/O PE ',p_pe
-
     ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
 
@@ -3563,7 +3576,6 @@ CONTAINS
 
     ! Finalization sequence:
 
-    print '(a,i0,a)','============================================ I/O PE ',p_pe,' shutting down'
     CALL close_name_list_output
 
     ! finalize meteogram output
@@ -3836,12 +3848,15 @@ CONTAINS
 
   SUBROUTINE init_memory_window
 
+#ifdef __SUNPRO_F95
+    INCLUDE "mpif.h"
+#else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+#endif
 
     INTEGER :: jp, i, iv, nlevs
     INTEGER :: nbytes_real, mpierr, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
-    TYPE (t_var_metadata), POINTER :: info
 #ifdef USE_CRAY_POINTER
     INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
     REAL(sp) :: tmp_sp
@@ -3872,16 +3887,15 @@ CONTAINS
 
       DO iv = 1, output_file(i)%num_vars
 
-        info => output_file(i)%var_desc(iv)%info
         jp = output_file(i)%phys_patch_id
 
-        IF(info%ndims == 2) THEN
+        IF(output_file(i)%var_desc(iv)%info%ndims == 2) THEN
           nlevs = 1
         ELSE
-          nlevs = info%used_dimensions(2)
+          nlevs = output_file(i)%var_desc(iv)%info%used_dimensions(2)
         ENDIF
 
-        SELECT CASE (info%hgrid)
+        SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
           CASE (GRID_UNSTRUCTURED_EDGE)
@@ -3889,7 +3903,7 @@ CONTAINS
           CASE (GRID_UNSTRUCTURED_VERT)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
           CASE (GRID_REGULAR_LONLAT)
-            lonlat_id = info%hor_interp%lonlat_id
+            lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
             i_log_dom = output_file(i)%log_patch_id
             n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
             mem_size  = mem_size + INT(nlevs*n_own,i8)
@@ -4024,7 +4038,11 @@ CONTAINS
 
   SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_Wtime
+#ifdef __SUNPRO_F95
+    INCLUDE "mpif.h"
+#else
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
+#endif
 
     TYPE (t_output_file), INTENT(IN), TARGET :: of
     LOGICAL, INTENT(IN) :: l_first_write
@@ -4056,7 +4074,7 @@ CONTAINS
     mb_wr   = 0._wp
 
     CALL date_and_time(TIME=ctime)
-    print '(a,i0,a)','#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    WRITE(0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
 
     ! Get maximum number of data points in a slice and allocate tmp variables
 
@@ -4133,7 +4151,7 @@ CONTAINS
 
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
-        t_0 = MPI_Wtime()
+        t_0 = p_mpi_wtime()
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
         IF(use_sp_output) THEN
@@ -4145,7 +4163,7 @@ CONTAINS
         ENDIF
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
-        t_get  = t_get  + MPI_Wtime()-t_0
+        t_get  = t_get  + p_mpi_wtime()-t_0
         mb_get = mb_get + nval
 
         ! Update the offset in var1
@@ -4167,7 +4185,7 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      t_0 = MPI_Wtime()
+      t_0 = p_mpi_wtime()
       IF(use_sp_output) THEN
         ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
@@ -4198,9 +4216,9 @@ CONTAINS
           ENDDO
         ENDIF
       ENDDO ! Loop over levels
-      t_copy = t_copy + MPI_Wtime()-t_0
+      t_copy = t_copy + p_mpi_wtime()-t_0
 
-      t_0 = MPI_Wtime()
+      t_0 = p_mpi_wtime()
       IF(use_sp_output) THEN
         CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
         mb_wr = mb_wr + SIZE(var3_sp)
@@ -4208,7 +4226,7 @@ CONTAINS
         CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
         mb_wr = mb_wr + SIZE(var3_dp)
       ENDIF
-      t_write = t_write + MPI_Wtime()-t_0
+      t_write = t_write + p_mpi_wtime()-t_0
 
       IF(use_sp_output) THEN
         DEALLOCATE(var3_sp, STAT=ierrstat)

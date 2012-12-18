@@ -89,8 +89,6 @@ MODULE mo_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, configure_atm_phy_nwp
-  USE mo_lnd_nwp_config,     ONLY: nlev_soil, nlev_snow ,ntiles_total,  &
-    &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
   USE mo_lnd_jsbach_config,  ONLY: lnd_jsbach_config, configure_lnd_jsbach
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
@@ -107,6 +105,7 @@ MODULE mo_nml_crosscheck
     & testbed_process,  atmo_process, ocean_process, radiation_process
   
   USE mo_art_config,         ONLY: art_config
+  USE mo_prepicon_config,    ONLY: i_oper_mode, MODE_REMAP
 
   IMPLICIT NONE
 
@@ -141,8 +140,9 @@ CONTAINS
     dtime     = dtime     * grid_rescale_factor
     IF (get_my_process_type() == atmo_process) THEN
       dtime_adv = dtime_adv * grid_rescale_factor
-      dt_rad    = dt_rad    * grid_rescale_factor
-
+      echam_phy_config%dt_rad = &
+        & echam_phy_config%dt_rad * grid_rescale_factor
+        
       DO jg=1,max_dom
         atm_phy_nwp_config(jg)%dt_conv = &
           atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
@@ -157,49 +157,52 @@ CONTAINS
       ENDDO
     ENDIF
     !--------------------------------------------------------------------
-    ! Length if this integration
+    ! Check length of this integration (skip for prep_icon remapping)
     !--------------------------------------------------------------------
-    IF (nsteps/=0) THEN   ! User specified a value
-
-      length_sec = REAL(nsteps,wp)*dtime
-      time_config%end_datetime = time_config%cur_datetime
-      CALL add_time(length_sec,0,0,0,time_config%end_datetime)
-
-   !HW (2011-07-17): run_day/hour/... not implemented in the restructured version ------
-   !ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
-   !  IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
-   !  IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
-   !  IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
-   !  IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
-   !  !
-   !  end_datetime = cur_datetime
-   !  CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
-   !  !
-   !  cur_datetime_calsec = (REAL(cur_datetime%calday,wp)+cur_datetime%caltime) &
-   !    &                   *REAL(cur_datetime%daylen,wp)
-   !  end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-   !    &                   *REAL(end_datetime%daylen,wp)
-   !  nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-   !-------------------------
-
-    ELSE
-      ! Compute nsteps from cur_datetime, end_datetime and dtime
+    IF (i_oper_mode /= MODE_REMAP) THEN
       !
-      cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
-                                 +time_config%cur_datetime%caltime   ) &
-                           * REAL(time_config%cur_datetime%daylen,wp)
-      end_datetime_calsec = (REAL(time_config%end_datetime%calday,wp)  &
-                                 +time_config%end_datetime%caltime   ) &
-                           * REAL(time_config%end_datetime%daylen,wp)
+      IF (nsteps/=0) THEN   ! User specified a value
+        
+        length_sec = REAL(nsteps,wp)*dtime
+        time_config%end_datetime = time_config%cur_datetime
+        CALL add_time(length_sec,0,0,0,time_config%end_datetime)
 
-      IF (end_datetime_calsec < cur_datetime_calsec) &
-        & CALL finish(TRIM(routine),'The end date and time must not be '// &
-        &            'before the current date and time')
+        !HW (2011-07-17): run_day/hour/... not implemented in the restructured version ------
+        !ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
+        !  IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
+        !  IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
+        !  IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
+        !  IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
+        !  !
+        !  end_datetime = cur_datetime
+        !  CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
+        !  !
+        !  cur_datetime_calsec = (REAL(cur_datetime%calday,wp)+cur_datetime%caltime) &
+        !    &                   *REAL(cur_datetime%daylen,wp)
+        !  end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+        !    &                   *REAL(end_datetime%daylen,wp)
+        !  nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+        !-------------------------
+        
+      ELSE
+        ! Compute nsteps from cur_datetime, end_datetime and dtime
+        !
+        cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
+          +time_config%cur_datetime%caltime   ) &
+          * REAL(time_config%cur_datetime%daylen,wp)
+        end_datetime_calsec = (REAL(time_config%end_datetime%calday,wp)  &
+          +time_config%end_datetime%caltime   ) &
+          * REAL(time_config%end_datetime%daylen,wp)
 
-      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+        IF (end_datetime_calsec < cur_datetime_calsec) &
+          & CALL finish(TRIM(routine),'The end date and time must not be '// &
+          &            'before the current date and time')
+
+        nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+
+      END IF
 
     END IF
-
 
     IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
       ! Check whether the end of the restart cycle is synchronized with a transport 
@@ -278,6 +281,7 @@ CONTAINS
   SUBROUTINE oce_crosscheck()
     CALL check_parallel_configuration()
     CALL resize_simulation_length()
+    CALL init_grid_configuration
   END SUBROUTINE oce_crosscheck
 
 
@@ -331,6 +335,12 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Grid and dynamics
     !--------------------------------------------------------------------
+
+    ! check the configuration (skip for prep_icon remapping)
+    IF (i_oper_mode /= MODE_REMAP) THEN
+      CALL init_grid_configuration()
+    END IF
+
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
       'Currently only the hexagon model can run on a plane')
 
@@ -503,6 +513,17 @@ CONTAINS
           END SELECT
           
         ENDIF !inwp_radiation
+
+        !! check microphysics scheme
+        IF (  atm_phy_nwp_config(jg)%mu_rain < 0.0   .OR. &
+          &   atm_phy_nwp_config(jg)%mu_rain > 5.0)  THEN
+          CALL finish(TRIM(routine),'mu_rain requires: 0 < mu_rain < 5')
+        END IF
+        
+        IF (  atm_phy_nwp_config(jg)%mu_snow < 0.0   .OR. &
+          &   atm_phy_nwp_config(jg)%mu_snow > 5.0)  THEN
+          CALL finish(TRIM(routine),'mu_snow requires: 0 < mu_snow < 5')
+        END IF ! microphysics 
         
       ENDDO
     END IF

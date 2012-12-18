@@ -45,6 +45,7 @@ MODULE mo_ha_diag_util
   USE mo_physical_constants, ONLY: grav, vtmpc1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
+  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
@@ -53,6 +54,8 @@ MODULE mo_ha_diag_util
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, &
   &                                iforcing, output_mode
+  USE mo_datetime,           ONLY: t_datetime
+  USE mo_time_config,        ONLY: time_config
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
@@ -100,7 +103,7 @@ CONTAINS
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_prog       !< the prognostic variables
   TYPE(t_patch),TARGET,    INTENT(IN)    :: pt_patch      !< grid/patch info.
   TYPE(t_int_state),TARGET,INTENT(IN)    :: pt_int_state  !< horizontal interpolation coeff.
-  TYPE(t_external_data),   INTENT(IN)    :: pt_ext_data   !< external data
+  TYPE(t_external_data),   INTENT(INOUT)    :: pt_ext_data   !< external data
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: pt_diag       !< diagnostic variables
 
     INTEGER :: rel_vort_comm
@@ -557,13 +560,15 @@ CONTAINS
 
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog
     TYPE(t_patch),           INTENT(in)    :: p_patch
-    TYPE(t_external_data),   INTENT(IN)    :: p_ext_data !< external data
+    TYPE(t_external_data),   INTENT(INOUT)    :: p_ext_data !< external data
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
 
     LOGICAL,INTENT(IN),OPTIONAL :: opt_lgeop_wrt_sfc
 
     ! Local variables
 
+    TYPE(t_datetime)                   :: ini_datetime, cur_datetime
+    REAL(wp) :: factor_topo
     REAL(wp) :: z_gzs(nproma)      !< surface geopotential
     INTEGER  :: jb, jbs, is, ie
     INTEGER  :: nblks_c
@@ -656,7 +661,17 @@ CONTAINS
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
 
         IF (lgeop_wrt_sfc) THEN
-          z_gzs(is:ie) = 0._wp
+          IF (phy_config%ljsbach) THEN
+            cur_datetime = time_config%cur_datetime
+            ini_datetime = time_config%ini_datetime
+            factor_topo = MIN(1._wp,(cur_datetime%calday + cur_datetime%caltime &
+              - ini_datetime%calday - ini_datetime%caltime) / 1000._wp)
+            p_ext_data%atm%topography_c(is:ie,jb) = &
+              p_ext_data%atm%elevation_c(is:ie,jb) * factor_topo
+            z_gzs(is:ie) = grav*p_ext_data%atm%topography_c(is:ie,jb)
+          ELSE
+            z_gzs(is:ie) = 0._wp
+          END IF
         ELSE
           z_gzs(is:ie) = grav*p_ext_data%atm%topography_c(is:ie,jb)
         ENDIF

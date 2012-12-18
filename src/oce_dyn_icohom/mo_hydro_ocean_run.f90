@@ -315,6 +315,7 @@ CONTAINS
     ENDIF  ! testcase 28
 
    ! Actually diagnostics for 3D not implemented, PK March 2011
+!TODO re-enable
    !IF (idiag_oce == 1 ) THEN
    !  CALL calculate_oce_diagnostics( p_patch(jg),p_patch_3D,    &
    !                                & p_os(jg),&
@@ -339,11 +340,9 @@ CONTAINS
         &                        p_os(jg)%p_diag%u_vint, datetime)
 
       IF (output_mode%l_nml) THEN
-        write(0,*)'NML-OUTPUT <<<<<<<<<<<<<<<<,======================='
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
       ENDIF
       IF (output_mode%l_vlist) THEN
-        write(0,*)'VLIST-OUTPUT <<<<<<<<<<<<<<<<,======================='
           CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
       ENDIF
 
@@ -367,8 +366,9 @@ CONTAINS
 
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
-      CALL create_restart_file( p_patch, datetime,  &
-                              & jfile, l_have_output,opt_depth=n_zlev)
+      CALL create_restart_file( p_patch, datetime,                 &
+                              & jfile, l_have_output,opt_depth=n_zlev,&
+                              & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
       CALL write_restart_info_file
@@ -439,14 +439,6 @@ CONTAINS
     CALL init_dbg_index(p_patch_3D%p_patch_2D(jg))!(p_patch(jg))
 
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
-!     CALL construct_hydro_ocean_base(p_patch(jg), v_base)
-!     CALL init_ho_base     (p_patch(jg), p_ext_data(jg), v_base)
-!     CALL init_ho_basins   (p_patch(jg),                 v_base)
-!     CALL init_coriolis_oce( p_patch(jg) )
-    !CALL construct_hydro_ocean_base(p_patch_3D%p_patch_2D(jg), v_base)
-    !CALL init_ho_base     (p_patch_3D%p_patch_2D(jg), p_ext_data(jg), v_base)
-    !!CALL init_ho_basins   (p_patch_3D%p_patch_2D(jg),                 v_base)
-    !!CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
 
     CALL construct_patch_3D(p_patch_3D)
 

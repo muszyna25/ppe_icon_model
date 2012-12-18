@@ -62,7 +62,7 @@ MODULE mo_output
     &                               init_restart, open_writing_restart_files,  &
     &                               write_restart, close_writing_restart_files,&
     &                               finish_restart, set_restart_depth,         &
-    &                               set_restart_depth_lnd, set_restart_height, &
+    &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D_oce, p_patch
@@ -424,9 +424,8 @@ CONTAINS
                                 & opt_jstep_adv_ntsteps,       &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth, opt_depth_lnd,    &
-                                & opt_zheight, opt_nlev_snow)!, &
-!                                & opt_zheight_mc,              &
-!                                & opt_zheight_ifc )
+                                & opt_nlev_snow,               &
+                                & opt_nice_class)
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -441,13 +440,11 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_zheight
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
-!    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_mc (:,:,:) 
-!    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_ifc(:,:,:)
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype 
-    INTEGER :: izlev, inlev_soil, inlev_snow, i
+    INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
 
 
@@ -524,29 +521,14 @@ CONTAINS
     END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
-    IF (PRESENT(opt_zheight)) THEN                           ! geometrical height for NH 
-!      CALL set_restart_height(opt_zheight_ifc ,opt_zheight_mc)
-!DR start preliminary fix
-      ALLOCATE(zlevels_full(opt_zheight))
-      ALLOCATE(zlevels_half(opt_zheight+1))
-      DO i = 1, opt_zheight
-        zlevels_full(i) = REAL(i,wp)
-      END DO
-      DO i = 1, opt_zheight+1
-        zlevels_half(i) = REAL(i,wp)
-      END DO
-      CALL set_restart_height(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
-    ENDIF
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
       inlev_soil = opt_depth_lnd
-      ALLOCATE(zlevels_full(inlev_soil+1))
-      ALLOCATE(zlevels_half(inlev_soil+2))
-      DO i = 1, inlev_soil+1
+      ALLOCATE(zlevels_full(inlev_soil))
+      ALLOCATE(zlevels_half(inlev_soil+1))
+      DO i = 1, inlev_soil
         zlevels_full(i) = REAL(i,wp)
       END DO
-      DO i = 1, inlev_soil+2
+      DO i = 1, inlev_soil+1
         zlevels_half(i) = REAL(i,wp)
       END DO
       CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
@@ -583,6 +565,11 @@ CONTAINS
     ELSE
       izlev = 0
     END IF
+    IF (.NOT.PRESENT(opt_nice_class)) THEN
+      nice_class = 1
+    ELSE
+      nice_class = opt_nice_class
+    END IF
 
     CALL init_restart( TRIM(out_expname), &! exp name
                      & '1.2.2',           &! model version
@@ -592,7 +579,8 @@ CONTAINS
                      & klev,              &! total # of vertical layers
                      & izlev,             &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA)
-                     & inlev_snow         )! total # of vertical snow layers (TERRA)      
+                     & inlev_snow,        &! total # of vertical snow layers (TERRA)
+                     & nice_class         )! total # of ice classes (sea ice)
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 

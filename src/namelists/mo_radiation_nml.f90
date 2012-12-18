@@ -62,7 +62,6 @@ MODULE mo_radiation_nml
                                  & config_vmr_o2     => vmr_o2,     &
                                  & config_vmr_cfc11  => vmr_cfc11,  &
                                  & config_vmr_cfc12  => vmr_cfc12,  &
-                                 & config_dt_rad     => dt_rad,     &
                                  & config_izenith    => izenith,    &
                                  & config_mmr_co2    => mmr_co2,    &
                                  & config_mmr_ch4    => mmr_ch4,    &
@@ -139,7 +138,6 @@ MODULE mo_radiation_nml
   !
   ! --- Time control
   !
-  REAL(wp) :: dt_rad  !< time interval of full radiation computation given in seconds 
   !
   ! --- Different specifications of the zenith angle
   INTEGER  :: izenith
@@ -156,7 +154,7 @@ MODULE mo_radiation_nml
     &                      irad_cfc11, vmr_cfc11, &
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
-    &                      dt_rad, izenith
+    &                      izenith
 
 CONTAINS
 
@@ -210,7 +208,6 @@ CONTAINS
     vmr_cfc11  =  252.8e-12_wp
     vmr_cfc12  =  466.2e-12_wp
 
-    dt_rad = 7200._wp
 
     izenith = 4  ! Default: seasonal orbit and diurnal cycle
 
@@ -265,7 +262,6 @@ CONTAINS
     config_mmr_ch4    = vmr_ch4 * amch4/amd
     config_mmr_n2o    = vmr_n2o * amn2o/amd
     config_mmr_o2     = vmr_o2  * amo2 /amd
-    config_dt_rad     = dt_rad
     config_izenith    = izenith
 
     !-----------------------------------------------------

@@ -599,8 +599,9 @@ CONTAINS
           CALL finish(modname, TRIM(prefix)//var_name//': pos_nproma/pos_nblks illegal')
         ENDIF
         ! Dimension at pos_dim2 must correspond to allocated dimension in NetCDF
-        IF(var_ubound(pos_dim2) /= dimlen(2)) &
+        IF(var_ubound(pos_dim2) /= dimlen(2)) THEN
           CALL finish(modname, TRIM(prefix)//var_name//': Dimension mismatch for dim2')
+        ENDIF
       ELSE
         ! Variable has 4 dimensions
         IF(pos_nproma == 1 .AND. pos_nblks == 2)  THEN
@@ -1899,6 +1900,7 @@ CONTAINS
     CALL def_var('int.cart_cell_coord',   nf_double, dim_ncells, dim_3) ! nproma,nblks_c,3
     CALL def_var('int.primal_normal_ec',  nf_double, dim_ncells, dim_nverts_per_cell, dim_2) ! nproma,nblks_c,p%cell_type,2
     CALL def_var('int.edge_cell_length',  nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,nblks_c,p%cell_type
+    CALL def_var('int.cell_vert_dist',    nf_double, dim_ncells, dim_3, dim_2) ! nproma,3,2,nblks_c
     IF (p%cell_type == 6) THEN
     CALL def_var('int.dir_gradh_index1',  nf_int,    dim_nedges, dim_6) ! 6,nproma,nblks_e
     CALL def_var('int.dir_gradh_index2',  nf_int,    dim_nedges, dim_6) ! 6,nproma,nblks_e
@@ -2029,6 +2031,7 @@ CONTAINS
     CALL bvar_io(1,2,'int.cart_cell_coord',   pi%cart_cell_coord ) ! nproma,nblks_c,3
     CALL bvar_io(1,2,'int.primal_normal_ec',  pi%primal_normal_ec) ! nproma,nblks_c,p%cell_type,2
     CALL bvar_io(1,2,'int.edge_cell_length',  pi%edge_cell_length) ! nproma,nblks_c,p%cell_type
+    CALL bvar_io(1,4,'int.cell_vert_dist',    pi%cell_vert_dist  ) ! nproma,3,2,nblks_c
     IF (p%cell_type == 6) THEN
     CALL bidx_io(2,3,'int.dir_gradh_index1',  pi%dir_gradh_i1, pi%dir_gradh_b1) ! 6,nproma,nblks_e
     CALL bidx_io(2,3,'int.dir_gradh_index2',  pi%dir_gradh_i2, pi%dir_gradh_b2) ! 6,nproma,nblks_e
@@ -3458,6 +3461,7 @@ CONTAINS
     END IF
     CALL def_dim('n_dim_1', 1, dim_1)
     CALL def_dim('n_dim_2', 2, dim_2)
+    CALL def_dim('n_dim_3', 3, dim_3)
     CALL def_dim('rbf_c2grad_dim', rbf_c2grad_dim, dim_rbf_c2grad_dim)
     CALL def_dim('rbf_vec_dim_c',  rbf_vec_dim_c,  dim_rbf_vec_dim_c)
     IF (l_intp_c2l) THEN
@@ -3500,6 +3504,8 @@ CONTAINS
       ! rbf_c2grad_dim,nproma,nblks_lonlat
       CALL def_var('int.lonlat.rbf_c2grad_index', nf_int, dim_lonlat, dim_rbf_c2grad_dim)
       ! 2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.cell_vert_dist', nf_double, dim_lonlat, dim_3, dim_2)
+      ! nproma,3,2,nblks_lonlat
       CALL def_var('int.lonlat.rdist', nf_double, dim_lonlat, dim_2)
       ! 2,nproma,nblks_lonlat
       CALL def_var('int.lonlat.tri_idx', nf_int, dim_lonlat, dim_2)
@@ -3545,6 +3551,8 @@ CONTAINS
     ! rbf_c2grad_dim,nproma,nblks_lonlat
     CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', intp%rbf_c2grad_idx, intp%rbf_c2grad_blk )
     ! 2,nproma,nblks_lonlat
+    CALL bvar_io(1,4,'int.lonlat.cell_vert_dist', intp%cell_vert_dist )
+    ! nproma,3,2,nblks_lonlat
     CALL bvar_io(2,3,'int.lonlat.rdist', intp%rdist )
     ! 2,nproma,nblks_lonlat
     CALL bvar_io(2,3,'int.lonlat.tri_idx', intp%tri_idx )

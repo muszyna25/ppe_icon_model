@@ -65,6 +65,8 @@ MODULE mo_echam_phy_main
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
     &                               timer_cucall, timer_vdiff
+  USE mo_datetime,            ONLY: t_datetime
+  USE mo_time_config,         ONLY: time_config
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -72,7 +74,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
-  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3,dt_rad
+  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_srtm_config,         ONLY: jpsw
   USE mo_lrtm_par,            ONLY: jpband => nbndlw
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -110,6 +112,7 @@ CONTAINS
                                           !< computation, scaled into radians
     ! Local variables
 
+    TYPE(t_datetime)                   :: datetime
     TYPE(t_echam_phy_field),   POINTER :: field 
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
@@ -161,6 +164,7 @@ CONTAINS
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
+    INTEGER  :: cur_month, pre_month, suc_month, cur_day !< (temporary var!)
 
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -205,6 +209,26 @@ CONTAINS
     ! 2. local switches and parameters
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
+
+    ! update prescribed SST
+    IF (phy_config%ljsbach) THEN
+       datetime = time_config%cur_datetime
+       cur_month = datetime%month
+       pre_month = cur_month - 1
+       IF (cur_month == 1) pre_month = 12
+       suc_month = cur_month + 1
+       IF (cur_month == 12) suc_month = 1
+       cur_day = datetime%day
+       IF (cur_day < 15) THEN
+          field%tsfc_tile(jcs:jce,jb,iwtr) = &
+            (ext_data(jg)%atm%sst_mon(jcs:jce,cur_month,jb) * REAL(cur_day + 15) + &
+             ext_data(jg)%atm%sst_mon(jcs:jce,pre_month,jb) * REAL(15 - cur_day)) / 30._wp
+       ELSE
+          field%tsfc_tile(jcs:jce,jb,iwtr) = &
+            (ext_data(jg)%atm%sst_mon(jcs:jce,cur_month,jb) * REAL(45 - cur_day) + &
+             ext_data(jg)%atm%sst_mon(jcs:jce,suc_month,jb) * REAL(cur_day - 15)) / 30._wp
+       END IF
+    END IF
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
@@ -454,46 +478,47 @@ CONTAINS
           ! indices and dimensions
 !!$          & jg                       ,&!< in     domain index
 !!$          & jb                       ,&!< in     block index
-          & jce                      ,&!< in     end   index for loop over block
-          & nbdim                    ,&!< in     dimension of block over cells
-          & nlev                     ,&!< in     number of full levels = number of layers
-          & nlevp1                   ,&!< in     number of half levels = number of layer interfaces
+          & jce        = jce         ,&!< in     end   index for loop over block
+          & kbdim      = nbdim       ,&!< in     dimension of block over cells
+          & klev       = nlev        ,&!< in     number of full levels = number of layers
+          & klevp1     = nlevp1      ,&!< in     number of half levels = number of layer interfaces
           !
-          & itype(:)                 ,&!< in     type of convection
+          & ktype      = itype(:)    ,&!< in     type of convection
           !
           ! surface: albedo + temperature
-          & field% lsmask(:,jb)      ,&!< in     land-sea mask. (1. = land, 0. = sea/lakes)
-          & field% glac(:,jb)        ,&!< in     fraction of land covered by glaciers
+          & zland      = field% lsmask(:,jb) ,&!< in     land-sea mask. (1. = land, 0. = sea/lakes)
+          & zglac      = field% glac(:,jb)   ,&!< in     fraction of land covered by glaciers
           !
-          & field% cosmu0(:,jb)      ,&!< in     cos of zenith angle mu0 for rad. transfer calc.
-          & field% albvisdir(:,jb)   ,&!< in     surface albedo for visible range, direct
-          & field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
-          & field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
-          & field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
-          & ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
+          & cos_mu0    = field% cosmu0(:,jb)      ,&!< in     cos of zenith angle mu0 for rad. transfer calc.
+          & alb_vis_dir= field% albvisdir(:,jb)   ,&!< in     surface albedo for visible range, direct
+          & alb_nir_dir= field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
+          & alb_vis_dif= field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
+          & alb_nir_dif= field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
+          & emis_rad   = ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
+          & tk_sfc     = ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
-          & field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
-          & field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
-          & field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt
-          & field% q (:,:,jb,iqv)    ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
-          & field% q (:,:,jb,iqc)    ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
-          & field% q (:,:,jb,iqi)    ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
-          & field% o3(:,:,jb)        ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
+          & pp_hl  =field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
+          & pp_fl  =field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
+          & tk_fl  =field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt
+          & qm_vap =field% q (:,:,jb,iqv)    ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
+          & qm_liq =field% q (:,:,jb,iqc)    ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
+          & qm_ice =field% q (:,:,jb,iqi)    ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
+          & qm_o3  =field% o3(:,:,jb)        ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
 !!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
-          & field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & zaedummy(:,:)            ,&!< in aerosol continental
-          & zaedummy(:,:)            ,&!< in aerosol maritime
-          & zaedummy(:,:)            ,&!< in aerosol urban
-          & zaedummy(:,:)            ,&!< in aerosol volcano ashes
-          & zaedummy(:,:)            ,&!< in aerosol stratospheric background
+          & cdnc   =field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
+          & cld_frc=field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
+          & zaeq1   = zaedummy(:,:)          ,&!< in aerosol continental
+          & zaeq2   = zaedummy(:,:)          ,&!< in aerosol maritime
+          & zaeq3   = zaedummy(:,:)          ,&!< in aerosol urban
+          & zaeq4   = zaedummy(:,:)          ,&!< in aerosol volcano ashes
+          & zaeq5   = zaedummy(:,:)          ,&!< in aerosol stratospheric background
+          & dt_rad  = phy_config%dt_rad      ,&
           !
           ! output
           ! ------
           !
-          & field% aclcov(:,jb)      ,&!< out    cloud cover in a column [m2/m2]
+          & cld_cvr    =field% aclcov(:,jb)      ,&!< out    cloud cover in a column [m2/m2]
           !
 !!$          ! surface shortwave
 !!$          ! - transmissivities in spectral range w.r.t. total solar irradiation
@@ -506,11 +531,11 @@ CONTAINS
 !!$          & field% pardffsfc(:,jb)   ,&!< out    diffuse fraction in PAR net downw. flux
           !
           ! atmospheric profiles
-          & field% emterclr(:,:,jb)  ,&!< out    terrestrial emissivity, clear sky, net downward
-          & field% trsolclr(:,:,jb)  ,&!< out    solar transmissivity  , clear sky, net downward
+          & emter_clr  =field% emterclr(:,:,jb)  ,&!< out    terrestrial emissivity, clear sky, net downward
+          & trsol_clr  =field% trsolclr(:,:,jb)  ,&!< out    solar transmissivity  , clear sky, net downward
           !
-          & field% emterall(:,:,jb)  ,&!< out    terrestrial flux      , all   sky, net downward
-          & field% trsolall(:,:,jb)   )!< out    solar transmissivity  , all   sky, net downward
+          & emter_all  =field% emterall(:,:,jb)  ,&!< out    terrestrial flux      , all   sky, net downward
+          & trsol_all  =field% trsolall(:,:,jb)   )!< out    solar transmissivity  , all   sky, net downward
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -556,12 +581,13 @@ CONTAINS
         ! input
         ! -----
         !
-        & jcs        = jcs,                            &! in     loop start index
-        & jce        = jce,                            &! in     loop end index
-        & kbdim      = nbdim,                          &! in     dimension size
-        & klev       = nlev,                           &! in     vertical dimension size
-        & klevp1     = nlevp1,                         &! in     vertical dimension size
-        & ntiles     = 1,                              &! in     number of tiles of sfc flux fields
+        & jcs        = jcs,                            &! in    loop start index
+        & jce        = jce,                            &! in    loop end index
+        & kbdim      = nbdim,                          &! in    dimension size
+        & klev       = nlev,                           &! in    vertical dimension size
+        & klevp1     = nlevp1,                         &! in    vertical dimension size
+        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
+        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
         & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
@@ -587,12 +613,13 @@ CONTAINS
         ! input
         ! -----
         !
-        & jcs        = jcs,                            &! in     loop start index
-        & jce        = jce,                            &! in     loop end index
-        & kbdim      = nbdim,                          &! in     dimension size
-        & klev       = nlev,                           &! in     vertical dimension size
-        & klevp1     = nlevp1,                         &! in     vertical dimension size
-        & ntiles     = 1,                              &! in     number of tiles of sfc flux fields
+        & jcs        = jcs,                            &! in    loop start index
+        & jce        = jce,                            &! in    loop end index
+        & kbdim      = nbdim,                          &! in    dimension size
+        & klev       = nlev,                           &! in    vertical dimension size
+        & klevp1     = nlevp1,                         &! in    vertical dimension size
+        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
+        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
         & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
@@ -886,6 +913,12 @@ CONTAINS
                        & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
                        & surface_temperature_eff = field%surface_temperature_eff(:,jb)  &! out
                        )
+
+!       ext_data(jg)%atm%topography_c(jcs:jce,jb) = ext_data(jg)%atm%elevation_c(jcs:jce,jb) * &
+!         MIN(1._wp,field%time_steps_soil(jcs:jce,jb) / 200000._wp)
+       field%swnet(jcs:jce,jb) = ext_data(jg)%atm%topography_c(jcs:jce,jb)
+!        field%swnet(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,iwtr)
+
     ELSE
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in

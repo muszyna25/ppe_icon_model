@@ -86,9 +86,10 @@ USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,     &
-  &                               ice_slow, ice_fast, prepareAfterRestart ! ,set_ice_albedo
+  &                               ice_slow, ice_fast, prepareAfterRestart, prepare4restart
 USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
 USE mo_coupling_config,     ONLY: is_coupled_run
+USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -124,7 +125,7 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
     TYPE(t_atmos_for_ocean)                     :: p_as
     TYPE(t_atmos_fluxes)                        :: Qatm
@@ -145,7 +146,8 @@ CONTAINS
     REAL(wp) :: Tfw (nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_c)
 
     ! Local declarations for coupling:
-    INTEGER               :: info, ierror !< return values form cpl_put/get calls
+    LOGICAL               :: write_coupler_restart
+    INTEGER               :: info, ierror   !< return values form cpl_put/get calls
     INTEGER               :: nbr_hor_points ! = inner and halo points
     INTEGER               :: nbr_points     ! = nproma * nblks
     INTEGER               :: nbr_fields
@@ -167,7 +169,7 @@ CONTAINS
     ! CALL message(TRIM(routine), 'No  forcing applied' )
       CONTINUE
 
-    CASE (ANALYT_FORC)
+    CASE (ANALYT_FORC)               !  11
 
       CALL update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
@@ -233,7 +235,7 @@ CONTAINS
 
         END IF
 
-      END IF!IF (iforc_type == 5) THEN
+      END IF
 
       !
       ! use annual forcing-data:
@@ -285,7 +287,7 @@ CONTAINS
           jmon2=jmon1
         ENDIF
 
-      END IF!(iforc_len == 1)
+      END IF
 
       !
       ! OMIP data read in mo_ext_data into variable ext_data
@@ -316,7 +318,7 @@ CONTAINS
 
        ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
-      END IF!(iforc_type >= 1)
+      END IF
 
       IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
@@ -355,7 +357,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
         !---------------------------------------------------------------------
 
-      END IF!IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+      END IF
 
       IF (iforc_type == 3) THEN
 
@@ -391,7 +393,7 @@ CONTAINS
 
         ENDIF
 
-      END IF !IF (iforc_type == 3) THEN
+      END IF
       
       ! this is used for "intermediate complexity flux forcing"
       IF (iforc_type == 4) THEN
@@ -454,7 +456,7 @@ CONTAINS
 
         ENDIF
 
-      END IF !IF (iforc_type == 4) THEN
+      END IF
 
       IF (temperature_relaxation == 2)  THEN
 
@@ -467,7 +469,7 @@ CONTAINS
            &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)-tmelt) + &
            &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)-tmelt)
 
-       END IF
+      END IF
 
       IF (irelax_2d_S == 2 .AND. no_tracer >1) THEN
 
@@ -507,6 +509,9 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
 
         IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+          ! ice mask can is converted from real to logical here
+          CALL prepareAfterRestart(p_ice)
+
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
         ENDIF
@@ -525,17 +530,22 @@ CONTAINS
         Qatm%counter = 2
         p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
         p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
-        CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        !---------------------------------------------------------------------
+        ! (#slo# 2012-12):
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        ! diagnosis of 4 parts is stored in p_sfc_flx%forc_swflx/lwflx/ssflx/slflx
+        ! this diagnosis is done in mo_sea_ice:upper_ocean_TS
+        ! 
+        ! under ice the conductive heat flux is not yet stored specifically
+        ! the sum forc_hflx is aggregated and stored accordingly which cannot be done here
+
+        ! ATTENTION
+        !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
+        !   this should be done by the coupler if ice_fast is moved to the atmosphere
+
+        CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+        ! transform ice mask from logical to real for saving it to the restart file
+        CALL prepare4restart(p_ice)
 
       ELSE   !  no sea ice
 
@@ -553,32 +563,49 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
+
+              IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+                p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWin  (jc,jb) * (1.0_wp-albedoW) ! Incoming SW radiation flux
+                p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb)                    ! net LW radiation flux over water
+                p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb)                    ! Sensible heat flux over water
+                p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb)                    ! Latent heat flux over water
+              ELSE
+                p_sfc_flx%forc_swflx(jc,jb) = 0.0_wp
+                p_sfc_flx%forc_lwflx(jc,jb) = 0.0_wp
+                p_sfc_flx%forc_ssflx(jc,jb) = 0.0_wp
+                p_sfc_flx%forc_slflx(jc,jb) = 0.0_wp
+              END IF
          
-              p_sfc_flx%forc_hflx(jc,jb)                 &
-              & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
-              & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-              & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
+       !      p_sfc_flx%forc_hflx(jc,jb)                 &
+       !      & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
+       !      & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
+       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
+
             ENDDO
           ENDDO
 
           ! for the setup with bulk and without sea ice the threshold for temperature is set to tf
-          WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) < Tf)
+          WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) .LT. Tf)
             p_os%p_prog(nold(1))%tracer(:,1,:,1) = Tf
           ENDWHERE
 
-          !---------DEBUG DIAGNOSTICS-------------------------------------------
-          idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%SWin                ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%LWnetw              ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%sensw               ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%latw                ,str_module,idt_src)
-          idt_src=2  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-          !---------------------------------------------------------------------
+          ! sum of fluxes for ocean boundary condition
+          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
+            &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
 
         ENDIF
 
-      ENDIF  ! IF (i_sea_ice >= 1) 
+      ENDIF  !  sea ice
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: Bulk SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     CASE (FORCING_FROM_FILE_FIELD)                                    !  13
       ! 1) Read field data from file
@@ -611,6 +638,8 @@ CONTAINS
       !   field_id(6) represents "SST"    sea surface temperature
       !   field_id(7) represents "OCEANU" u component of ocean surface current
       !   field_id(8) represents "OCEANV" v component of ocean surface current
+      !   field_id(9) represents "ALBEDO" ice & ocean albedo
+      !
       !
         CALL ICON_cpl_get_nbr_fields ( nbr_fields )
         ALLOCATE(field_id(nbr_fields))
@@ -627,23 +656,33 @@ CONTAINS
       ! Send fields from ocean to atmosphere
       ! ------------------------------------
       !
+        write_coupler_restart = .FALSE.
+      !
       ! SST/sea ice surface temperature:
-        WHERE (p_ice%isice(:,1,:))
-          z_c(:,1,:) = p_ice%Tsurf(:,1,:)
-        ELSEWHERE
-          z_c(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-        END WHERE
-        buffer(:,1) = RESHAPE(z_c(:,1,:), (/nbr_points /) ) + tmelt
-      ! buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp 
-        CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+      ! They need to be weighted now that p_ice%concSum is variable
+        buffer(:,1) = RESHAPE(p_ice%Tsurf(:,1,:)*p_ice%concSum(:,:) +           &
+          &     p_os%p_prog(nold(1))%tracer(:,1,:,1)*(1._wp-p_ice%concSum(:,:)),&
+          &           (/nbr_points /) ) + tmelt
+        CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! zonal velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
+      !
+      ! ocean & ice albedo
+        buffer(:,1) = RESHAPE(p_ice%alb(:,1,:)*p_ice%concSum(:,:) +   &
+          &     albedoW*(1._wp-p_ice%concSum(:,:)), (/nbr_points /) )
+        CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
+
+        IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(6:9), ierror )
       !
       ! Receive fields from atmosphere
       ! ------------------------------
@@ -745,10 +784,6 @@ CONTAINS
           Qatm%dlatdT (:,:,:) = 0.0_wp
           Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
-          ! This is a stripped down version of ice_fast, since we don't want to calculate albedo
-          ! For now the ice albedo is the same as ocean albedo
-          CALL prepareAfterRestart(p_ice)
-          ! CALL set_ice_albedo(p_patch,p_ice)
           IF ( no_tracer >= 2 ) THEN
             DO k=1,p_ice%kice
               Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -756,8 +791,14 @@ CONTAINS
           ELSE
             Tfw = Tf
           ENDIF
-          CALL set_ice_temp_winton(p_patch,p_ice,Tfw,Qatm)
-          Qatm%counter = 1
+
+          CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm, datetime%yeaday)
+          ! Ice_fast and ice_slow are designed for an ice model that's split between the
+          ! atmosphere and ocean models. For ice only in the ocean ocean we need to do some minor
+          ! corrections.
+          Qatm%counter = 2
+          p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
+          p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
@@ -1057,7 +1098,7 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
     TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
@@ -1201,7 +1242,7 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
   TYPE(t_hydro_ocean_state)                   :: p_os
   TYPE(t_sfc_flx)                             :: p_sfc_flx
   !

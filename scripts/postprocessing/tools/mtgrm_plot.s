@@ -25,21 +25,21 @@ echo "dir = " $dir " iFile = " $iFile
 
 mkdir -p ${dir}"/meteo"
 #oType="png" !doesn't work on AIX (NCL 5.2.1)
-oType="pdf"
+oType="eps"
 
-set -A iStation 1 2 3 4 5 6 7 8 9 #10
+set -A iStation 1 2 3 4 5 6 7 8 9 10 11 12 13 14
 
 set -A varNameSfc \
-  P_SFC    PL_Cov   LA_Ind  RO_Dept    Z0         qv_s       w_i_1    w_snow_1 \
-  TCM      TCH      SHFL    LHFL       RUNOFF_S_1 RUNOFF_G_1 VIO3     HMO3     \
-  t_snow_1 t_s_1    t_g     FRESHSNW_1 RHO_SNOW_1 H_SNOW_1   T2M      TD2M     \
-  U10M     V10M     SOBT    SOBS       THBS       ALB        RAIN_GSP SNOW_GSP \
+  P_SFC    PL_Cov   LA_Ind   RO_Dept  Z0       qv_s     w_i      w_snow   \
+  TCM      TCH      SHFL     LHFL     RUNOFF_S RUNOFF_G VIO3     HMO3     \
+  t_snow   t_s      t_g      FRESHSNW RHO_SNOW H_SNOW   T2M      TD2M     \
+  U10M     V10M     SOBT     SOBS     THBS     ALB      RAIN_GSP SNOW_GSP \
   RAIN_CON SNOW_CON 
 
 set -A varName3D \
-  P        T        PEXNER  QV         QC  QI   QR    QS       \
-  REL_HUM  RHO      THETAV  U          V   CLC  TKVM  TKVH  W  \
-  Phalf    t_so_1   w_so_1  w_so_ice_1
+  P        T        PEXNER   QV       QC       QI       QR       QS       \
+  REL_HUM  RHO      THETAV   U        V        CLC      TKVM     TKVH     \
+  W        Phalf    t_so     w_so     w_so_ice
 
 #set -A iStation   1 
 #set -A varNameSfc T2M
@@ -54,7 +54,8 @@ do
     oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
     ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
-    convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
+   #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
+    convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 
   for var in ${varName3D[*]}
@@ -62,7 +63,8 @@ do
     oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
     ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
-    convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
+   #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
+    convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 done	
 

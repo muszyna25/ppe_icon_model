@@ -44,7 +44,7 @@ MODULE mo_icon_comm_interface
   USE mo_grid_config,     ONLY: n_dom
   USE mo_model_domain,    ONLY: p_patch
   USE mo_icoham_dyn_memory,ONLY: p_hydro_state
-  USE mo_mpi,             ONLY: my_process_is_mpi_seq
+  USE mo_mpi,             ONLY: my_process_is_mpi_seq, work_mpi_barrier
   USE mo_icon_comm_lib
 
 #ifdef _OPENMP
@@ -82,7 +82,10 @@ CONTAINS
 !         & new_comm_variable(p_hydro_state(grid_id)%tend_phy%temp, on_cells, &
 !         & p_patch(grid_id))
     
-    ENDDO  
+    ENDDO
+
+!     CALL work_mpi_barrier()
+!     CALL finish("barrier returns", "")
     
     RETURN
 

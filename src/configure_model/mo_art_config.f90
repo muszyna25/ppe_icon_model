@@ -41,14 +41,13 @@
 !! software.
 !!
 MODULE mo_art_config
-
-  USE mo_impl_constants     ,ONLY: max_dom
-  USE mo_math_utilities,   ONLY: t_geographical_coordinates  
+  USE mo_kind,                 ONLY: wp
+  USE mo_impl_constants,       ONLY: max_dom
+  USE mo_math_utilities,       ONLY: t_geographical_coordinates  
   IMPLICIT NONE
 
-  PRIVATE
 
-  PUBLIC :: t_art_config, art_config ,t_volc_list, MAX_NUM_VOLC
+  PUBLIC 
 
 
   CHARACTER(len=*),PARAMETER :: version = '$Id$'
@@ -58,6 +57,7 @@ MODULE mo_art_config
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
    INTEGER, PARAMETER  :: MAX_NUM_VOLC  = 20 !Maximum number of volcanoes
+   INTEGER, PARAMETER  :: nart_tendphy  =6    !Maximum number of tracers that are effected by deep convective transport 
 
   TYPE t_volc_list
     CHARACTER(len=20)                :: zname    ! < name of volcanoe or location
@@ -92,7 +92,7 @@ MODULE mo_art_config
    INTEGER                     :: nvolc             !< Number ov volcanoes
    TYPE(t_volc_list), POINTER  :: volclist(:,:)    !< (idx,blk)
    INTEGER                     :: nblks,npromz              
-   
+   INTEGER                     :: nconv_tracer     ! number of tracers in convection 
   END TYPE t_art_config
 
   !>
@@ -100,27 +100,28 @@ MODULE mo_art_config
   TYPE(t_art_config), TARGET :: art_config(0:max_dom)
 
 
-!!$CONTAINS
+CONTAINS
 
-!!$  !>
-!!$  !! setup components of ICON-ART depending on this namelist
-!!$  !!
-!!$  !! Setup of additional ICON-ART control variables depending on the 
-!!$  !! art-NAMELIST and potentially other namelists. This routine is 
-!!$  !! called, after all namelists have been read and a synoptic consistency 
-!!$  !! check has been done.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! Initial revision by Daniel Reinert, DWD (2011-12-08)
-!!$  !!
-!!$  SUBROUTINE configure_art( )
-!!$  !
-!!$    INTEGER, INTENT(IN) :: jg           !< patch 
-!!$
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$
-!!$  END SUBROUTINE configure_art
+  !>
+  !! setup components of ICON-ART depending on this namelist
+  !!
+  !! Setup of additional ICON-ART control variables depending on the 
+  !! art-NAMELIST and potentially other namelists. This routine is 
+  !! called, after all namelists have been read and a synoptic consistency 
+  !! check has been done.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2011-12-08)
+  !! Modification by kristina Lundgren, KIT (2012-11-27)
+  !
+  SUBROUTINE configure_art(jg)
+  !
+    INTEGER, INTENT(IN) :: jg           !< patch 
+
+    !-----------------------------------------------------------------------
+  art_config(jg)%nconv_tracer=0
+ 
+  END SUBROUTINE configure_art
 
 
 END MODULE mo_art_config

@@ -45,8 +45,8 @@ MODULE mo_pp_tasks
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,               &
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
     & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
-    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z,                   &
-    & TASK_INIT_VER_IZ, TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ,         &
+    & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,   &
+    & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom
@@ -57,7 +57,9 @@ MODULE mo_pp_tasks
   USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
-  USE mo_nh_vert_interp,          ONLY: prepare_vert_interp,                &
+  USE mo_nh_vert_interp,          ONLY: prepare_vert_interp_z,              &
+    &                                   prepare_vert_interp_p,              &
+    &                                   prepare_vert_interp_i,              &
     &                                   lin_intp, uv_intp, qv_intp,         &
     &                                   diagnose_pmsl, diagnose_pmsl_gme,   &
     &                                   prepare_extrap
@@ -75,11 +77,10 @@ MODULE mo_pp_tasks
   USE mo_parallel_config,         ONLY: nproma
   USE mo_dynamics_config,         ONLY: nnow
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &
-    &                                   GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,  &
-    &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
+    &                                   GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT, &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16
+    &                                   GRID_UNSTRUCTURED_VERT, DATATYPE_FLT32,  &
+    &                                   DATATYPE_PACK16, is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl,                  &
@@ -251,9 +252,13 @@ CONTAINS
     nblks_ll  = (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
     npromz_ll =  ptr_int_lonlat%nthis_local_pts - (nblks_ll-1)*nproma
 
+    IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
+      CALL finish(routine, "Inconsistent dimension info!")
+    END IF
+
     SELECT CASE (p_info%hgrid)
     CASE (GRID_UNSTRUCTURED_CELL)
-      IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+      IF (is_2d_field(p_info%vgrid)) THEN
         ! For 2D variables (nproma, nblks) we first copy this to 1-level
         ! 3D variable (nproma, nlevs, nblks). This requires a temporary
         ! variable:
@@ -285,7 +290,7 @@ CONTAINS
       ! --------------------------------------------------------------
       !
     CASE (GRID_UNSTRUCTURED_EDGE)
-      IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+      IF (is_2d_field(p_info%vgrid)) THEN
         ! For 2D variables (nproma, nblks) we first copy this to 1-level
         ! 3D variable (nproma, nlevs, nblks). This requires a temporary
         ! variable:
@@ -386,15 +391,19 @@ CONTAINS
         IF (in_var%info%lcontained) &
           &  in_var_idx = in_var%info%ncontained
         
+        IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
+          CALL finish(routine, "Inconsistent dimension info!")
+        END IF
+
         SELECT CASE (p_info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
-          IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+          IF (is_2d_field(p_info%vgrid)) THEN
             CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
           ELSE
             CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE (GRID_UNSTRUCTURED_EDGE)
-          IF (p_info%vgrid == ZAXIS_SURFACE) THEN
+          IF (is_2d_field(p_info%vgrid)) THEN
             CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
           ELSE
             CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
@@ -430,8 +439,8 @@ CONTAINS
     TYPE(t_nh_diag),           POINTER :: p_diag
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
     TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
-
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
+    TYPE(t_int_state),         POINTER :: intp_hrz
 
     ! patch, state, and metrics
     jg             =  ptr_task%data_input%jg
@@ -441,6 +450,7 @@ CONTAINS
     p_diag         => ptr_task%data_input%p_nh_state%diag
     p_diag_pz      => ptr_task%data_input%p_nh_opt_diag%diag_pz
     prm_diag       => ptr_task%data_input%prm_diag
+    intp_hrz       => ptr_task%data_input%p_int_state
 
     ! ipz-level interpolation data
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
@@ -448,65 +458,26 @@ CONTAINS
     nzlev          =  nh_pzlev_config%nzlev
     nplev          =  nh_pzlev_config%nplev
     nilev          =  nh_pzlev_config%nilev
-                      
+
+    ! build data structure "vcoeff" containing coefficient tables                      
     SELECT CASE ( ptr_task%job_type )
-    CASE ( TASK_INIT_VER_PZ )
-      ! build data structure "vcoeff" containing coefficient tables
-      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
-      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
-        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
-        &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
-        &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
-        &                      p_diag_pz%p_temp,                                 & ! in
-        &                      p_p3d_out=nh_pzlev_config%p3d,                    & ! in
-        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
-        &                      p_i3d_out=nh_pzlev_config%i3d,                    & ! in
-        &                      p_metrics=p_metrics,                              & ! in
-        &                      vcoeff_z=p_diag_pz%vcoeff_z,                      & ! inout
-        &                      vcoeff_p=p_diag_pz%vcoeff_p)                        ! inout
-      !
-    CASE ( TASK_INIT_VER_IPZ )
-      ! build data structure "vcoeff" containing coefficient tables
-      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
-      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
-        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
-        &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
-        &                      p_diag_pz%z_pres, p_diag_pz%p_geopot,             & ! inout
-        &                      p_diag_pz%p_temp, p_diag_pz%i_geopot,             & ! inout
-        &                      p_diag_pz%i_temp,                                 & ! inout
-        &                      p_p3d_out=nh_pzlev_config%p3d,                    & ! in
-        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
-        &                      p_i3d_out=nh_pzlev_config%i3d,                    & ! in
-        &                      p_metrics=p_metrics,                              & ! in
-        &                      vcoeff_z=p_diag_pz%vcoeff_z,                      & ! inout
-        &                      vcoeff_p=p_diag_pz%vcoeff_p,                      & ! inout
-        &                      vcoeff_i=p_diag_pz%vcoeff_i                       ) ! inout
-      !
-    CASE ( TASK_INIT_VER_IZ )
-      ! build data structure "vcoeff" containing coefficient tables
-      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_PZ")
-      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
-        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
-        &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
-        &                      p_diag_pz%z_pres,                                 & ! inout
-        &                      geopot_i_out=p_diag_pz%i_geopot,                  & ! inout
-        &                      temp_i_out=p_diag_pz%i_temp,                      & ! inout
-        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
-        &                      p_i3d_out=nh_pzlev_config%i3d,                    & ! in
-        &                      p_metrics=p_metrics,                              & ! in
-        &                      vcoeff_z=p_diag_pz%vcoeff_z,                      & ! inout
-        &                      vcoeff_i=p_diag_pz%vcoeff_i                       ) ! inout
-      !
     CASE ( TASK_INIT_VER_Z )
-      ! build data structure "vcoeff" containing coefficient tables
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_Z")
-      CALL prepare_vert_interp(p_patch, p_prog, p_diag, prm_diag, nzlev, nplev,  & ! in
-        &                      nilev, p_diag_pz%z_temp, p_diag_pz%z_tracer_iqv,  & ! inout
-        &                      p_diag_pz%z_tot_cld_iqv,                          & ! inout
-        &                      p_diag_pz%z_pres,                                 & ! inout
-        &                      p_z3d_out=nh_pzlev_config%z3d,                    & ! in
-        &                      p_metrics=p_metrics,                              & ! in
-        &                      vcoeff_z=p_diag_pz%vcoeff_z )                       ! inout
+      CALL prepare_vert_interp_z(p_patch, p_diag, p_metrics, intp_hrz, nzlev,          &
+        &                        p_diag_pz%z_temp, p_diag_pz%z_pres,                   &
+        &                        nh_pzlev_config%z3d, p_diag_pz%vcoeff_z)
+      !
+    CASE ( TASK_INIT_VER_P )
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_P")
+      CALL prepare_vert_interp_p(p_patch, p_diag, p_metrics, intp_hrz, nplev,          &
+        &                        p_diag_pz%p_geopot, p_diag_pz%p_temp,                 &
+        &                        nh_pzlev_config%p3d, p_diag_pz%vcoeff_p)
+      !
+    CASE ( TASK_INIT_VER_I )
+      IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_I")
+      CALL prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, intp_hrz, nilev,  &
+        &                        p_diag_pz%i_geopot, p_diag_pz%i_temp,                 &
+        &                        nh_pzlev_config%i3d, p_diag_pz%vcoeff_i)
       !
     CASE ( TASK_FINALIZE_IPZ )
       ! deallocate coefficient tables:
@@ -532,8 +503,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev")
     INTEGER                            :: &
-      &  vert_intp_method, jg,                  &
-      &  in_var_idx, out_var_idx, nlev, nlevp1, &
+      &  vert_intp_method, jg,                    &
+      &  in_var_idx, out_var_idx, nlev, nlevp1,   &
       &  nzlev, nplev, nilev, n_ipzlev, npromz,   &
       &  nblks, dim2, ierrstat
     TYPE(t_patch),             POINTER :: p_patch
@@ -548,7 +519,7 @@ CONTAINS
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_vcoeff),            POINTER :: vcoeff
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
-    REAL(wp),                  POINTER :: p_z3d(:,:,:)
+    REAL(wp),                  POINTER :: p_z3d(:,:,:), p_pres(:,:,:), p_temp(:,:,:)
     REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
 
     LOGICAL                            :: &
@@ -596,16 +567,25 @@ CONTAINS
       n_ipzlev  =   nzlev
       vcoeff  =>  p_diag_pz%vcoeff_z
       p_z3d   =>  nh_pzlev_config%z3d
+      p_pres  =>  p_diag_pz%z_pres
+      p_temp  =>  p_diag_pz%z_temp
     CASE ( TASK_INTP_VER_PLEV )
       ! vertical levels for p-level interpolation
       n_ipzlev  =   nplev
       vcoeff  =>  p_diag_pz%vcoeff_p
       p_z3d   =>  p_diag_pz%p_geopot
+      p_pres  =>  nh_pzlev_config%p3d
+      p_temp  =>  p_diag_pz%p_temp
     CASE ( TASK_INTP_VER_ILEV )
       ! vertical levels for isentropic-level interpolation
       n_ipzlev  =   nilev
       vcoeff  =>  p_diag_pz%vcoeff_i
       p_z3d   =>  p_diag_pz%i_geopot
+      p_pres  =>  nh_pzlev_config%p3d ! ** this still needs to be fixed! we either need i_pres here
+      p_temp  =>  p_diag_pz%i_temp    !    or have to turn off the saturation adjustment for theta levels
+                                      !    or have to use log-linear interpolation in this case **
+      IF (vert_intp_method == VINTP_METHOD_QV) & ! Let's stop with an error message for the time being
+        CALL finish(routine, "QV interpolation to isentropic levels not available.")
     CASE DEFAULT
       CALL finish(routine, "Unknown post-processing job.")
     END SELECT
@@ -659,58 +639,62 @@ CONTAINS
       SELECT CASE ( vert_intp_method )
       CASE ( VINTP_METHOD_UV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_UV")
-        CALL uv_intp(tmp_var(:,:,:),                                       & !in
-          &          out_var%r_ptr(:,:,:,out_var_idx,1),                   & !out
-          &          p_metrics%z_mc, p_z3d,                                & !in
-          &          nblks, npromz, nlev, n_ipzlev,                        & !in
-          &          vcoeff%coef1, vcoeff%coef2,                           & !in
-          &          vcoeff%coef3, vcoeff%wfac_lin,                        & !in
-          &          vcoeff%idx0_cub, vcoeff%idx0_lin,                     & !in
-          &          vcoeff%bot_idx_cub, vcoeff%bot_idx_lin,               & !in
-          &          vcoeff%wfacpbl1, vcoeff%kpbl1, vcoeff%wfacpbl2,       & !in
-          &          vcoeff%kpbl2,                                         & !in
-          &          l_hires_intp=l_hires_intp,                            & !in
-          &          l_restore_fricred=l_restore_fricred )                   !in
+        CALL uv_intp(tmp_var(:,:,:),                                                & !in
+          &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
+          &          p_metrics%z_mc, p_z3d,                                         & !in
+          &          nblks, npromz, nlev, n_ipzlev,                                 & !in
+          &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
+          &          vcoeff%cub_cell%coef3, vcoeff%lin_cell%wfac_lin,               & !in
+          &          vcoeff%cub_cell%idx0_cub, vcoeff%lin_cell%idx0_lin,            & !in
+          &          vcoeff%cub_cell%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,      & !in
+          &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
+          &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
+          &          l_hires_intp=l_hires_intp,                                     & !in
+          &          l_restore_fricred=l_restore_fricred )                            !in
         !
       CASE ( VINTP_METHOD_LIN )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
-        CALL lin_intp(tmp_var(:,:,:),                                      & !inout
-          &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-          &           nblks, npromz, nlev, n_ipzlev,                       & !in
-          &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & !in
-          &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & !in
-          &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & !in
-          &           l_loglin=l_loglin,                                   & !in
-          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,        & !in
-          &           lower_limit=lower_limit )                              !in
+        CALL lin_intp(tmp_var(:,:,:),                                               & !inout
+          &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
+          &           nblks, npromz, nlev, n_ipzlev,                                & !in
+          &           vcoeff%lin_cell%wfac_lin, vcoeff%lin_cell%idx0_lin,           & !in
+          &           vcoeff%lin_cell%bot_idx_lin,                                  & !in
+          &           vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,              & !in
+          &           vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,              & !in
+          &           l_loglin=l_loglin,                                            & !in
+          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,                 & !in
+          &           lower_limit=lower_limit )                                       !in
         !
       CASE ( VINTP_METHOD_LIN_NLEVP1 )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
-        CALL lin_intp(tmp_var(:,:,:),                                      & !inout
-          &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
-          &           nblks, npromz, nlevp1, n_ipzlev,                     & !in
-          &           vcoeff%wfac_lin_nlevp1, vcoeff%idx0_lin_nlevp1,      & !in
-          &           vcoeff%bot_idx_lin_nlevp1,                           & !in
-          &           vcoeff%wfacpbl1_nlevp1, vcoeff%kpbl1_nlevp1,         & !in
-          &           vcoeff%wfacpbl2_nlevp1, vcoeff%kpbl2_nlevp1,         & !in
-          &           l_loglin=l_loglin,                                   & !in
-          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,        & !in
-          &           lower_limit=lower_limit )                              !in
+        CALL lin_intp(tmp_var(:,:,:),                                               & !inout
+          &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
+          &           nblks, npromz, nlevp1, n_ipzlev,                              & !in
+          &           vcoeff%lin_cell_nlevp1%wfac_lin,                              & !in
+          &           vcoeff%lin_cell_nlevp1%idx0_lin,                              & !in
+          &           vcoeff%lin_cell_nlevp1%bot_idx_lin,                           & !in
+          &           vcoeff%lin_cell_nlevp1%wfacpbl1, vcoeff%lin_cell_nlevp1%kpbl1,& !in
+          &           vcoeff%lin_cell_nlevp1%wfacpbl2, vcoeff%lin_cell_nlevp1%kpbl2,& !in
+          &           l_loglin=l_loglin,                                            & !in
+          &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,                 & !in
+          &           lower_limit=lower_limit )                                       !in
         !
       CASE (VINTP_METHOD_QV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
-        CALL qv_intp(tmp_var(:,:,:),                                     & !in
-          &          out_var%r_ptr(:,:,:,out_var_idx,1),                 & !out
-          &          p_metrics%z_mc, p_z3d, p_diag%temp,                 & !in
-          &          p_diag%pres, p_diag_pz%p_temp, nh_pzlev_config%p3d, & !in
-          &          nblks, npromz, nlev, n_ipzlev,                      & !in
-          &          vcoeff%coef1, vcoeff%coef2, vcoeff%coef3,           & !in
-          &          vcoeff%wfac_lin, vcoeff%idx0_cub, vcoeff%idx0_lin,  & !in
-          &          vcoeff%bot_idx_cub, vcoeff%bot_idx_lin,             & !in
-          &          vcoeff%wfacpbl1, vcoeff%kpbl1,                      & !in
-          &          vcoeff%wfacpbl2, vcoeff%kpbl2,                      & !in
-          &          l_satlimit=l_satlimit, lower_limit=lower_limit,     & !in
-          &          l_restore_pbldev=l_restore_pbldev )                   !in
+        CALL qv_intp(tmp_var(:,:,:),                                                & !in
+          &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
+          &          p_metrics%z_mc, p_z3d, p_diag%temp,                            & !in
+          &          p_diag%pres, p_temp, p_pres,                                   & !in
+          &          nblks, npromz, nlev, n_ipzlev,                                 & !in
+          &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
+          &          vcoeff%cub_cell%coef3,                                         & !in
+          &          vcoeff%lin_cell%wfac_lin, vcoeff%cub_cell%idx0_cub,            & !in
+          &          vcoeff%lin_cell%idx0_lin,                                      & !in
+          &          vcoeff%cub_cell%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,      & !in
+          &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
+          &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
+          &          l_satlimit=l_satlimit, lower_limit=lower_limit,                & !in
+          &          l_restore_pbldev=l_restore_pbldev )                              !in
       END SELECT ! vert_intp_method
 
     END IF
@@ -736,7 +720,7 @@ CONTAINS
     REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
       &                    EXTRAPOL_DIST = -500._wp
 
-    INTEGER                            :: nblks, npromz, jg,            &
+    INTEGER                            :: nblks_c, npromz_c, nblks_e, jg,          &
       &                                   in_var_idx, out_var_idx, nlev, i_endblk
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     TYPE(t_vcoeff)                     :: vcoeff
@@ -767,9 +751,10 @@ CONTAINS
 
     IF (TRIM(p_info%name) /= "pres")  CALL message(routine, "Invalid input field!")
 
-    nlev   = p_patch%nlev
-    nblks  = p_patch%nblks_c
-    npromz = p_patch%npromz_c
+    nlev     = p_patch%nlev
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
     
     in_var_idx  = 1
     IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
@@ -781,18 +766,18 @@ CONTAINS
 
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_SAI: stepwise analytical integration")
       ! allocate coefficient table:
-      CALL vcoeff_allocate(nblks, NZLEV, vcoeff)
+      CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
       ! compute extrapolation coefficients:
-      CALL prepare_extrap(p_metrics%z_mc,                               & !in
-        &                 nblks, npromz, nlev,                          & !in
-        &                 vcoeff%kpbl1, vcoeff%wfacpbl1,                & !out
-        &                 vcoeff%kpbl2, vcoeff%wfacpbl2   )               !out
+      CALL prepare_extrap(p_metrics%z_mc,                                     & !in
+        &                 nblks_c, npromz_c, nlev,                            & !in
+        &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1,    & !out
+        &                 vcoeff%lin_cell%kpbl2, vcoeff%lin_cell%wfacpbl2   )   !out
       ! Interpolate pressure on z-level "0": 
-      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_ifc,    &
-        &                pmsl_aux(:,1,:),                               &
-        &                nblks, npromz, p_patch%nlev,                   &
-        &                vcoeff%wfacpbl1, vcoeff%kpbl1,                 &
-        &                vcoeff%wfacpbl2, vcoeff%kpbl2,                 &
+      CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,           &
+        &                pmsl_aux(:,1,:),                                     &
+        &                nblks_c, npromz_c, p_patch%nlev,                       &
+        &                vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,     &
+        &                vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,     &
         &                ZERO_HEIGHT, EXTRAPOL_DIST)
       ! deallocate coefficient tables:
       CALL vcoeff_deallocate(vcoeff)
@@ -804,7 +789,7 @@ CONTAINS
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    pmsl_aux(:,1,:),                           &  ! out
-        &                    nblks, npromz, p_patch%nlev )                 ! in
+        &                    nblks_c, npromz_c, p_patch%nlev )             ! in
 
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')

@@ -41,6 +41,7 @@
 MODULE mo_ext_data_types
 
   USE mo_kind,               ONLY: wp
+  USE mo_fortran_tools,      ONLY: t_ptr_2d3d
   USE mo_linked_list,        ONLY: t_var_list
 
   IMPLICIT NONE
@@ -54,7 +55,6 @@ MODULE mo_ext_data_types
   PUBLIC :: t_external_atmos
   PUBLIC :: t_external_atmos_td
   PUBLIC :: t_external_ocean
-
 
 
 
@@ -95,6 +95,15 @@ MODULE mo_ext_data_types
 
     INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER  ::   &  !< elevation at cell centers               [m]
+      &  elevation_c(:,:)
+
+    REAL(wp), POINTER ::   &   !< SST annual mean prescribed              [K]
+       &  sst(:,:)
+ 
+    REAL(wp), POINTER ::   &   !< SST monthly prescribed                  [K]
+      &  sst_mon(:,:,:)
 
     REAL(wp), POINTER ::   &   !< soil surface albedo visible             [ ]
       &  albedo_vis_soil(:,:)
@@ -313,6 +322,9 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_water      !< Specification of land-use class for water
 
 
+    ! for output purposes.
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: frac_t_ptr(:)
+
   END TYPE t_external_atmos
 
 
@@ -362,6 +374,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
                                ! index1=1,nproma, index2=1,nblks_c
+    !
+    ! ***SST and sea ice fraction
+    REAL(wp), POINTER ::   &   !< (monthly) SST
+      &  sst_m(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    REAL(wp), POINTER ::   &   !< (monthly) sea ice fraction
+      &  fr_ice_m(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
   END TYPE t_external_atmos_td
 

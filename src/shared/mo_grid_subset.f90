@@ -58,7 +58,8 @@ CONTAINS
   ! Assumes that level is of the shape (1:,1:)
   SUBROUTINE fill_subset(subset_range, patch, level, start_level, end_level)
     TYPE(t_subset_range), INTENT(inout) :: subset_range
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch
+    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset_range
+                                                ! unless the patch is declared INTENT(in)!
     INTEGER, INTENT(in) :: level(:,:), start_level, end_level
 
     INTEGER :: levels_size(2) 

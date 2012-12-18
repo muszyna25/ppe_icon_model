@@ -81,7 +81,6 @@ MODULE mo_impl_constants
   
   INTEGER, PARAMETER :: HALO_LEVELS_CEILING = 256 ! should be greater than the max level
                                          ! of halo levels
-
 !-------------------------------------------------------------------------------
 ! Comments by Hui:
 ! According to Luis' explanation, the declarations above related to the blocking
@@ -238,9 +237,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: min_rlvert_int = min_rlcell_int
   INTEGER, PARAMETER :: min_rlvert     = min_rlvert_int - (max_hw+1)
   INTEGER, PARAMETER :: max_rlvert     = max_rlcell
-  INTEGER, PARAMETER :: min_rledge_int = 2*min_rlcell_int
-  INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)
-  INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell
+  INTEGER, PARAMETER :: min_rledge_int = 2*min_rlcell_int          ! -8
+  INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)  ! -13
+  INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell              ! 10
 
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
@@ -480,10 +479,9 @@ MODULE mo_impl_constants
 
   INTEGER, PARAMETER, PUBLIC :: TASK_NONE              = 0 
   !------ setup tasks (coefficients,...)
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_IPZ      = 1  !< task: setup ipz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_IZ       = 2  !< task: setup iz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_PZ       = 3  !< task: setup pz-interpolation
-  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 4  !< task: setup only z-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_Z        = 1  !< task: setup z-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_P        = 2  !< task: setup p-interpolation
+  INTEGER, PARAMETER, PUBLIC :: TASK_INIT_VER_I        = 3  !< task: setup i-interpolation
   INTEGER, PARAMETER, PUBLIC :: TASK_FINALIZE_IPZ      = 5  !< task: deallocate ipz-interpolation
   !------ interpolation tasks:
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_HOR_LONLAT   = 6  !< task: lon-lat

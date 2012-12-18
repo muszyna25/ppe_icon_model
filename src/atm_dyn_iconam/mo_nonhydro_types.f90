@@ -44,6 +44,7 @@
 MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -63,16 +64,6 @@ MODULE mo_nonhydro_types
 
   PUBLIC :: t_buffer_memory
 
-  PUBLIC :: t_ptr_nh
-
-
-  !>
-  !! Derived data type for building pointer arrays
-  !!
-  TYPE t_ptr_nh
-    REAL(wp),POINTER :: p_3d(:,:,:)  ! pointer to 3D (spatial) array
-    REAL(wp),POINTER :: p_2d(:,:)    ! pointer to 2D (spatial) array
-  END TYPE t_ptr_nh
 
 
   ! prognostic variables state vector
@@ -88,7 +79,7 @@ MODULE mo_nonhydro_types
       tracer(:,:,:,:),   & !! tracer concentration (nproma,nlev,nblks_c,ntracer) [kg/kg]
       tke   (:,:,:)        !! turbulent kinetic energy                         [m^2/s^2]
                            !! (defined on half levels) with 2 time levels
-    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_nh_prog
 
 
@@ -129,6 +120,7 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlevp1,nblks_c,ntracer)
     &  div(:,:,:),          & ! divergence(nproma,nlev,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
+    &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
@@ -147,17 +139,21 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlevp1,nblks_c)                      [m/s^2]
     &  grf_tend_rho(:,:,:), & ! rho tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_c)                     [kg/m^3/s]
+    &  grf_tend_mflx(:,:,:),& ! rho*vn tendency field for use in grid refinement
+                              ! (nproma,nlev,nblks_e)                     [kg/m^2/s^2]
+    &  grf_bdy_mflx(:,:,:),&  ! rho*vn boundary field for use in grid refinement
+                              ! (nlev,npoints,2)                            [kg/m^2/s^2]
     &  grf_tend_thv(:,:,:), & ! theta_v tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_c)                          [K/s]
     &  grf_tend_tracer(:,:,:,:), & ! tracer tendency field for use in grid refinement
                                    ! (nproma,nlev,nblks_c,ntracer)          [kg/kg/s]
     &  dvn_ie_int(:,:),    & ! Storage field for vertical nesting: vn at parent interface level
     &  dvn_ie_ubc(:,:),    & ! Storage field for vertical nesting: vn at child upper boundary
-    &  drho_ic_int(:,:),   & ! Storage field for vertical nesting: rho at parent interface level
-    &  drho_ic_ubc(:,:),   & ! Storage field for vertical nesting: rho at child upper boundary
-    &  dtheta_v_ic_int(:,:),& ! Storage field for vertical nesting: theta at parent interface level
+    &  mflx_ic_int(:,:,:), & ! Storage field for vertical nesting: mass flux at parent interface level
+    &  mflx_ic_ubc(:,:,:), & ! Storage field for vertical nesting: mass flux at child upper boundary
+    &  dtheta_v_ic_int(:,:,:),& ! Storage field for vertical nesting: theta at parent interface level
     &  dtheta_v_ic_ubc(:,:),& ! Storage field for vertical nesting: theta at child upper boundary
-    &  dw_int(:,:),        & ! Storage field for vertical nesting: w at parent interface level
+    &  dw_int(:,:,:),      & ! Storage field for vertical nesting: w at parent interface level
     &  dw_ubc(:,:),        & ! Storage field for vertical nesting: w at child upper boundary
     &  q_int(:,:,:),       & ! Storage field for vertical nesting: q at parent interface level
     &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
@@ -192,24 +188,24 @@ MODULE mo_nonhydro_types
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
      &  extra_3d(:,:,:,:)     !!                       3d
 
-    REAL(wp), POINTER :: &
-      vn_con(:,:,:),     &! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
-      omega_t(:,:,:)      ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
+    REAL(wp), POINTER ::   &
+     &  vn_con(:,:,:),     &  ! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
+     &  omega_t(:,:,:)        ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
 
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_grf_trc_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: hfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: vfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_trc_adv_ptr(:)  !< pointer array: one pointer for each tracer
 
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_vn_adv_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_w_adv_ptr (:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: q_int_ptr     (:)
-    TYPE(t_ptr_nh),ALLOCATABLE :: q_ubc_ptr     (:)
-
-    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_ptr(:)      !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_avg_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: extra_2d_ptr(:)
-    TYPE(t_ptr_nh),ALLOCATABLE :: extra_3d_ptr(:)
+    TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
+      &  ddt_grf_trc_ptr(:),   &  !< pointer array: one pointer for each tracer
+      &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
+      &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_w_adv_ptr  (:),   &  !< pointer array: one pointer for each tracer
+      &  q_int_ptr      (:),   &  
+      &  q_ubc_ptr      (:),   &
+      &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
+      &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
+      &  extra_2d_ptr   (:),   &
+      &  extra_3d_ptr   (:)
 
   END TYPE t_nh_diag
 
@@ -343,6 +339,10 @@ MODULE mo_nonhydro_types
    INTEGER,  POINTER :: ovlp_halo_c_dim(:)
    INTEGER,  POINTER :: ovlp_halo_c_idx(:,:)
    INTEGER,  POINTER :: ovlp_halo_c_blk(:,:)
+   ! d) index lists for mass fluxes at lateral nest boundary (including the required halo points)
+   INTEGER           :: bdy_mflx_e_dim  
+   INTEGER,  POINTER :: bdy_mflx_e_idx(:)
+   INTEGER,  POINTER :: bdy_mflx_e_blk(:)
    ! Correction term needed to use perturbation density for lateral boundary nudging
    ! (note: this field is defined on the local parent grid in case of MPI parallelization)
    REAL(wp), POINTER :: rho_ref_corr(:,:,:)

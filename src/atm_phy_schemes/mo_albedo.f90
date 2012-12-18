@@ -50,16 +50,17 @@ MODULE mo_albedo
   USE mo_kind,                 ONLY: wp
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, lseaice
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, lseaice,     &
+    &                                isub_water, isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
-  USE mo_physical_constants,   ONLY: tmelt
+  USE mo_physical_constants,   ONLY: tmelt, tf_salt
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
 
@@ -87,15 +88,17 @@ CONTAINS
   !! - Moved here from mo_nwp_rad_interface and mo_nwp_rrtm_interface.
   !!   Adaption to TERRA-tile approach.
   !!
-  SUBROUTINE sfc_albedo(pt_patch, ext_data, lnd_prog, lnd_diag, prm_diag)
+  SUBROUTINE sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
-    TYPE(t_patch),          INTENT(   in):: pt_patch    !< grid/patch info.
+    TYPE(t_patch),          INTENT(   in):: pt_patch  !< grid/patch info.
 
-    TYPE(t_external_data),  INTENT(   in):: ext_data    !< external data
+    TYPE(t_external_data),  INTENT(   in):: ext_data  !< external data
 
-    TYPE(t_lnd_prog),       INTENT(   in):: lnd_prog    !< land prognostic state
+    TYPE(t_lnd_prog),       INTENT(   in):: lnd_prog  !< land prognostic state (new)
 
-    TYPE(t_lnd_diag),       INTENT(   in):: lnd_diag    !< land diagnostic state
+    TYPE(t_wtr_prog),       INTENT(   in):: wtr_prog  !< water prognostic state (new)
+
+    TYPE(t_lnd_diag),       INTENT(   in):: lnd_diag  !< land diagnostic state
 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag
 
@@ -127,9 +130,9 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,i_startidx,i_endidx,jt,ist,zvege,zsnow, &
+!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow, &
 !$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea,    &
-!$OMP            i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -144,55 +147,9 @@ CONTAINS
       
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
-        !
-        ! 1. Consider sea points (no tiles)
-        !
-        ! - loop over sea points
-        !
-        i_count_sea = ext_data%atm%sp_count(jb)
-        jt = ntiles_total + MIN(1,ntiles_water)
-
-        DO ic = 1, i_count_sea
-          jc = ext_data%atm%idx_lst_sp(ic,jb)
-
-          ! special handling of sea ice points
-          IF (lnd_prog%t_g(jc,jb) < tmelt-1.7_wp) THEN ! sea ice
-            ist = 10
-          ELSE
-            ist = ext_data%atm%soiltyp(jc,jb)
-          ENDIF
-
-          prm_diag%albvisdif(jc,jb) = csalb(ist)
-          prm_diag%albvisdif_t(jc,jb,jt) = prm_diag%albvisdif(jc,jb)
-        ENDDO
-
-
 
         !
-        ! 2. Consider lake points (no tiles)
-        !
-        ! - loop over lake points
-        !
-        i_count_flk = ext_data%atm%fp_count(jb)
-
-        DO ic = 1, i_count_flk
-          jc = ext_data%atm%idx_lst_fp(ic,jb)
-
-          ! special handling of sea ice points
-          IF (lnd_prog%t_g(jc,jb) < tmelt-1.7_wp) THEN ! sea ice
-            ist = 10
-          ELSE
-            ist = 9 ! water
-          ENDIF
-
-          prm_diag%albvisdif(jc,jb) = csalb(ist)
-          prm_diag%albvisdif_t(jc,jb,jt) = prm_diag%albvisdif(jc,jb)
-        ENDDO
-
-
-
-        !
-        ! 4. Consider land points only (may have tiles)
+        ! 1. Consider land points (may have tiles)
         !
         ! - loop over surface tiles
         ! - note that different grid points may have different numbers 
@@ -218,7 +175,7 @@ CONTAINS
 
 
             ! Account for Snow cover and vegetation
-            ! -------------------------------------
+            !---------------------------------------
             zvege= 0.0_wp
             zsnow= 0.0_wp
 
@@ -247,71 +204,166 @@ CONTAINS
         ENDDO  !ntiles
 
 
+
+        ! Different treatment of water points with/without seaice model
         !
-        ! Consider seaice points  (with tile approach)
-        !
-        IF ( (lseaice) .AND. (ntiles_total>1) ) THEN
+        IF ( (lseaice) ) THEN  ! seaice model switched on
+
           !
-          ! - loop over seaice points
+          ! 2a. Consider (open) sea points
+          !
+          ! - loop over sea points
+          !
+          i_count_sea = ext_data%atm%spw_count(jb)
+          jt = isub_water
+
+          DO ic = 1, i_count_sea
+            jc = ext_data%atm%idx_lst_spw(ic,jb)
+
+            ist = 9  ! sea water
+
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+
+
+          !
+          ! 3a. Consider lake points (no tiles)
+          !
+          ! - loop over lake points (same jt as water points)
+          !
+          i_count_flk = ext_data%atm%fp_count(jb)
+
+          DO ic = 1, i_count_flk
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+            ist = 9  ! sea water
+
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+
+
+          !
+          ! 4. Consider sea-ice points
+          !
+          ! - loop over sea-ice points
           !
           i_count_seaice = ext_data%atm%spi_count(jb)
-          jt = ntiles_total + ntiles_water
+          jt = isub_seaice
 
           DO ic = 1, i_count_seaice
             jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-            ist = 10
+            ist = 10   ! seaice
+
+            ! In case the sea ice model is used, compute ice albedo for seaice 
+            ! points with an empirical formula taken from GME.
+            ! The ice albedo is the lower the warmer, and therefore wetter 
+            ! the ice is. Use ice temperature at time level nnew 
+            ! (2-time level scheme in sea ice model).
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
+              &                            * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
+            ! gives alb_max = 0.70
+            !       alb_min = 0.43
+            ! compare with Mironov et. al (2012), Tellus
+            !       alb_max = 0.65
+            !       alb_min = 0.40
+          ENDDO
+
+
+        ELSE   ! no seaice model
+
+          !
+          ! 2b. Consider sea points
+          !
+          ! - loop over sea points
+          !
+          i_count_sea = ext_data%atm%spw_count(jb)
+          jt = isub_water
+
+          DO ic = 1, i_count_sea
+            jc = ext_data%atm%idx_lst_spw(ic,jb)
+
+            ! special handling of sea ice points
+            IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
+              ist = 10  ! sea ice
+            ELSE
+              ist = ext_data%atm%soiltyp(jc,jb)
+            ENDIF
 
             prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
           ENDDO
-        ENDIF
 
+
+
+          !
+          ! 3b. Consider lake points (no tiles)
+          !
+          ! - loop over lake points (same jt as water points)
+          !
+          i_count_flk = ext_data%atm%fp_count(jb)
+
+          DO ic = 1, i_count_flk
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+            ! special handling of sea ice points
+            IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN ! sea ice
+              ist = 10
+            ELSE
+              ist = 9 ! water
+            ENDIF
+
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+        ENDIF  ! lseaice
+
+
+
+
+
+        !*****************************!
+        !                             !
+        !  Aggregate surface albedo   !
+        !                             !
+        !*****************************!
+
+        ! Loop over ALL grid points
 
 
         !
-        ! Aggregate surface albedo on land points
+        ! Aggregate surface albedo on all points
         !
-        IF (ntiles_total == 1) THEN 
-          i_count_lnd = ext_data%atm%lp_count(jb)
+        IF (ntiles_total == 1) THEN
+ 
+          DO jc = i_startidx, i_endidx
+            prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
+          ENDDO
 
-          IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
-
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count_lnd
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
-              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
-            ENDDO
-          ENDIF  ! i_count_lnd > 0
         ELSE ! aggregate fields over tiles
-          i_count_lnd = ext_data%atm%lp_count(jb)
 
-          IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count_lnd
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
-              prm_diag%albvisdif(jc,jb) = 0._wp
+          prm_diag%albvisdif(i_startidx:i_endidx,jb) = 0._wp
+
+          DO jt = 1, ntiles_total+ntiles_water
+            DO jc = i_startidx, i_endidx
+              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)      &
+                &                       + prm_diag%albvisdif_t(jc,jb,jt) &
+                &                       * ext_data%atm%frac_t(jc,jb,jt)
             ENDDO
+          ENDDO
 
-            DO jt = 1, ntiles_total+ntiles_water
-!CDIR NODEP,VOVERTAKE,VOB
-              DO ic = 1, i_count_lnd
-                jc = ext_data%atm%idx_lst_lp(ic,jb)
-                prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)     &
-                  &                       + ext_data%atm%frac_t(jc,jb,jt) &
-                  &                       * prm_diag%albvisdif_t(jc,jb,jt)
-              ENDDO
-            ENDDO
-          ENDIF
+        ENDIF  ! ntiles_total = 1
 
-        ENDIF
 
       ELSE  ! surface model switched OFF
+
 
         DO jc = i_startidx, i_endidx
           
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tf_salt ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
 
@@ -324,7 +376,6 @@ CONTAINS
 
 
 
-      !sea-ice model not yet implemented
 !      IF (atm_phy_nwp_config(jg)%lseaice) THEN
 !        DO jc = i_startidx,i_endidx
 !          ! In case the sea ice model is used AND water point AND ice is present,
@@ -363,6 +414,7 @@ CONTAINS
     ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
 
   END SUBROUTINE sfc_albedo
 

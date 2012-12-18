@@ -60,6 +60,7 @@
 MODULE mo_nwp_phy_types
 
   USE mo_kind,                ONLY: wp
+  USE mo_fortran_tools,       ONLY: t_ptr_2d3d
   USE mo_model_domain,        ONLY: t_patch
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_nwp_parameters,      ONLY: t_phy_params
@@ -77,11 +78,9 @@ MODULE mo_nwp_phy_types
   !public interface
   !
   !types
-  PUBLIC :: t_nwp_phy_diag, t_nwp_phy_tend
-#ifdef HAVE_F95
-  PUBLIC :: t_ptr_phy
-#endif
-  !
+  PUBLIC :: t_nwp_phy_diag
+  PUBLIC :: t_nwp_phy_tend
+
 
   !
   !!data structure defining model states
@@ -89,44 +88,38 @@ MODULE mo_nwp_phy_types
   !!diagnostic variables
   !
 
-  TYPE t_ptr_phy
-    REAL(wp),POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array
-    REAL(wp),POINTER :: p_2d(:,:)  ! pointer to 2D (spatial) array
-  END TYPE t_ptr_phy
-
-
   TYPE t_nwp_phy_diag
 
-    TYPE(t_ptr_phy),ALLOCATABLE :: tot_ptr(:)  !< pointer array: one pointer for each tot var (grid+subgrid)
-    TYPE(t_ptr_phy),ALLOCATABLE :: tci_ptr(:)  !< pointer array: total column-integrated values
-    TYPE(t_ptr_phy),ALLOCATABLE :: tav_ptr(:)  !< pointer array: average of tci
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tot_ptr(:)  !< pointer array: one pointer for each tot var (grid+subgrid)
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tci_ptr(:)  !< pointer array: total column-integrated values
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tav_ptr(:)  !< pointer array: average of tci
 
-    TYPE(t_ptr_phy),ALLOCATABLE :: cfm_ptr(:)  !< pointer array: average of cfm
-    TYPE(t_ptr_phy),ALLOCATABLE :: cfh_ptr(:)  !< pointer array: average of cfh
-    TYPE(t_ptr_phy),ALLOCATABLE :: z0m_ptr(:)  !< pointer array: average of z0m
-    TYPE(t_ptr_phy),ALLOCATABLE :: albvisdif_t_ptr(:)!< pointer array: tile-specific albedo
-    TYPE(t_ptr_phy),ALLOCATABLE :: swflxsfc_t_ptr(:) !< pointer array: shortwave net flux at surface
-    TYPE(t_ptr_phy),ALLOCATABLE :: lwflxsfc_t_ptr(:) !< pointer array: longwave net flux at surface
-    TYPE(t_ptr_phy),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum
-    TYPE(t_ptr_phy),ALLOCATABLE :: tch_t_ptr(:) !< pointer array: turbulent transfer coefficients for heat
-    TYPE(t_ptr_phy),ALLOCATABLE :: tfm_t_ptr(:) !< pointer array: factor of laminar transfer of momentum
-    TYPE(t_ptr_phy),ALLOCATABLE :: tfh_t_ptr(:) !< pointer array: factor of laminar transfer of heat 
-    TYPE(t_ptr_phy),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
-    TYPE(t_ptr_phy),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
-    TYPE(t_ptr_phy),ALLOCATABLE :: t_2m_t_ptr(:)  !< pointer array: temperature at 2m
-    TYPE(t_ptr_phy),ALLOCATABLE :: qv_2m_t_ptr(:) !< pointer array: specific water vapor content at 2m
-    TYPE(t_ptr_phy),ALLOCATABLE :: rh_2m_t_ptr(:) !< pointer array: relative humidity at 2m
-    TYPE(t_ptr_phy),ALLOCATABLE :: td_2m_t_ptr(:) !< pointer array: dew point at 2m
-    TYPE(t_ptr_phy),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 2am
-    TYPE(t_ptr_phy),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
-    TYPE(t_ptr_phy),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
-    TYPE(t_ptr_phy),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: cfm_ptr(:)  !< pointer array: average of cfm
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: cfh_ptr(:)  !< pointer array: average of cfh
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: z0m_ptr(:)  !< pointer array: average of z0m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: albvisdif_t_ptr(:)!< pointer array: tile-specific albedo
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: swflxsfc_t_ptr(:) !< pointer array: shortwave net flux at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: lwflxsfc_t_ptr(:) !< pointer array: longwave net flux at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tch_t_ptr(:) !< pointer array: turbulent transfer coefficients for heat
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: t_2m_t_ptr(:)  !< pointer array: temperature at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: qv_2m_t_ptr(:) !< pointer array: specific water vapor content at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: rh_2m_t_ptr(:) !< pointer array: relative humidity at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: td_2m_t_ptr(:) !< pointer array: dew point at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 2am
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
 
     REAL(wp), POINTER ::  &
       &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
       &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
       &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
       &   snow_con_rate(:,:),  & !! convective surface snow_rate                         [kg/m2/s]
+      &   rain_con_rate_3d(:,:,:),  & !! 3d convective rain rate                         [kg/m2/s]
+      &   snow_con_rate_3d(:,:,:),  & !! 3d convective snow_rate                         [kg/m2/s]
       &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain                  [kg/m2]
       &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
       &   rain_con(:,:),       & !! accumulated convective surface rain                  [kg/m2]
@@ -210,6 +203,8 @@ MODULE mo_nwp_phy_types
       tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
       t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
       t_2m_s6avg(:,:),     & !! 6 hourly sample 2 m temperature average       (  K  )
+      tmax_2m(:,:)    ,    & !! maximum temperature in 2m (for specified timerange) ( K )
+      tmin_2m(:,:)    ,    & !! minimum temperature in 2m (for specified timerange) ( K )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
       qv_2m_s6avg(:,:),    & !! 6 hourly sample 2 m specific water vapor content average   (kg/kg)
       td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
@@ -221,8 +216,6 @@ MODULE mo_nwp_phy_types
       edr   (:,:,:)    ,   & !! eddy dissipation rate
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
-      tfm_t(:,:,:)     ,   & !! factor of laminar transfer of momentum          --
-      tfh_t(:,:,:)     ,   & !! factor of laminar transfer of scalars           --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
       t_2m_t (:,:,:)   ,   & !! temperature at 2m                             (  K  )
@@ -304,8 +297,10 @@ MODULE mo_nwp_phy_types
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke         (:,:,:)     !! tendency for turbulent kinetic energy [m^2/s^3]
-    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_turb_ptr(:)  !< pointer array: one pointer for each component
-    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_conv_ptr(:)  !< pointer array: one pointer for each component
+
+    TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
+      &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component
+      &  tracer_conv_ptr(:)       !< pointer array: one pointer for each component
   END TYPE t_nwp_phy_tend
 
 END MODULE mo_nwp_phy_types

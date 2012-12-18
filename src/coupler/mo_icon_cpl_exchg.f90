@@ -66,9 +66,13 @@ MODULE mo_icon_cpl_exchg
    &                      msg_len,          &
    &                      datatype,         &
    &                      cpl_field_none,   &
-   &                      cpl_field_avg
+   &                      cpl_field_avg,    &
+   &                      NOTHING,          &
+   &                      RESTART,          &
+   &                      INITIAL,          &
+   &                      XCHANGE
 
-  USE mo_icon_cpl_restart, ONLY : cpl_read_restart, cpl_write_restart
+  USE mo_icon_cpl_restart, ONLY : cpl_read_restart ! , cpl_write_restart
   USE mo_master_control,  ONLY  : is_restart_run
   USE mo_io_config, ONLY        : dt_checkpoint
   USE mo_time_config, ONLY      : time_config
@@ -111,11 +115,6 @@ MODULE mo_icon_cpl_exchg
   ! Logical to activate MPI_Send/MPI_Recv behind the put/get
 
   LOGICAL                        :: l_action
-
-  INTEGER, PARAMETER             :: NOTHING = 0
-  INTEGER, PARAMETER             :: INITIAL = 1
-  INTEGER, PARAMETER             :: RESTART = 2
-  INTEGER, PARAMETER             :: XCHANGE = 4
 
   INTEGER                        :: msg_type = NOTHING
   CHARACTER(len=13)              :: timeString
@@ -171,7 +170,7 @@ CONTAINS
     ! -------------------------------------------------------------------
 
     ierror = 0
-    info   = 0
+    info   = NOTHING
 
     ! -------------------------------------------------------------------
     ! Check field id and return if field was not declared.
@@ -277,9 +276,9 @@ CONTAINS
 
     ENDDO
 
-    ! -------------------------------------------------------------------
-    ! Loop over the number of send operation (determined during the search)
-    ! -------------------------------------------------------------------
+    ! ------------------------------------------------------------------------
+    ! Loop over the number of receive operation (determined during the search)
+    ! ------------------------------------------------------------------------
 
     recv_field = dummy
 
@@ -349,7 +348,7 @@ CONTAINS
              PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
           ENDIF
  
-          IF ( fptr%coupling%diagnostic == 1 ) THEN
+          IF ( fptr%coupling%l_diagnostic ) THEN
 
              DO m = 1, nbr_bundles
                 recv_min(m) = MINVAL(recv_buffer(:,m))
@@ -367,7 +366,7 @@ CONTAINS
 
     ENDDO
 
-    IF ( fptr%coupling%diagnostic == 1 ) THEN
+    IF ( fptr%coupling%l_diagnostic ) THEN
 
        CALL MPI_Allreduce ( recv_min, recv_buf, nbr_bundles, datatype, &
             MPI_MIN, ICON_comp_comm, ierror )
@@ -395,7 +394,7 @@ CONTAINS
 
     ENDIF
 
-    info = 1
+    info = INITIAL
 
     DEALLOCATE ( lrequests )
     DEALLOCATE ( msg_fm_src )
@@ -447,7 +446,7 @@ CONTAINS
     INTEGER                :: nsum
 
     ierror = 0
-    info   = 0
+    info   = NOTHING
 
     ! -------------------------------------------------------------------
     ! Check field id and return if field was not declared.
@@ -599,7 +598,7 @@ CONTAINS
                 PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
              ENDIF
 
-             IF ( fptr%coupling%diagnostic == 1 ) THEN
+             IF ( fptr%coupling%l_diagnostic ) THEN
 
                 DO m = 1, nbr_bundles
                    recv_min(m) = MINVAL(recv_buffer(:,m))
@@ -628,9 +627,9 @@ CONTAINS
 
     DEALLOCATE ( msg_fm_src )
 
-    info = 1
+    info = INITIAL
 
-    IF ( fptr%coupling%diagnostic == 1 ) THEN
+    IF ( fptr%coupling%l_diagnostic ) THEN
 
        CALL MPI_Allreduce ( recv_min, recv_buf, nbr_bundles, datatype, &
             MPI_MIN, ICON_comp_comm, ierror )
@@ -701,7 +700,7 @@ CONTAINS
 #ifndef NOMPI
 
     ierror = 0
-    info   = 0
+    info   = NOTHING
 
     ! -------------------------------------------------------------------
     ! Check field id and return if field was not declared.
@@ -723,7 +722,7 @@ CONTAINS
 
     IF ( fptr%accumulation_count == 0 ) RETURN
 
-    info = 1
+    info = INITIAL
 
     ! -------------------------------------------------------------------
     ! Get averaged and/or accumulated data
@@ -759,6 +758,7 @@ CONTAINS
   SUBROUTINE ICON_cpl_put ( field_id,    &! in
                             field_shape, &! in
                             send_field,  &! in
+                            info,        &! out
                             ierror )      ! out
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
@@ -766,6 +766,7 @@ CONTAINS
 
     REAL (wp), INTENT(in)  :: send_field (field_shape(1):field_shape(2),field_shape(3))
 
+    INTEGER, INTENT(out)   :: info             !<  returned error code
     INTEGER, INTENT(out)   :: ierror           !<  returned error code
 
 #ifndef NOMPI
@@ -785,6 +786,7 @@ CONTAINS
     INTEGER                :: j, nsum
 
     ierror = 0
+    info   = NOTHING
 
     fptr => cpl_fields(field_id)
 
@@ -830,7 +832,7 @@ CONTAINS
     !
     ! -------------------------------------------------------------------
 
-    l_action     = event_check ( fptr%event_id )
+    l_action = event_check ( fptr%event_id )
 
     IF ( fptr%coupling%lag > 0 ) THEN
 
@@ -901,8 +903,15 @@ CONTAINS
             WRITE ( cplout , * ) ICON_global_rank, ' : writing restart for ', &
             TRIM(cpl_fields(field_id)%field_name)
 
-       CALL cpl_write_restart ( field_id, field_shape, &
-            fptr%send_field_acc, fptr%accumulation_count, l_checkpoint, ierror )
+       ! set restart flag
+
+       fptr%coupling%restart_flag = .TRUE.
+
+       info = RESTART
+
+       ! CALL cpl_write_restart ( field_id, field_shape, &
+       !     fptr%send_field_acc, fptr%accumulation_count, l_checkpoint, ierror )
+
     ENDIF
 
     IF ( .NOT. l_action .OR. l_restart ) RETURN
@@ -993,7 +1002,9 @@ CONTAINS
           CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
                datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-          IF ( fptr%coupling%diagnostic == 1 ) THEN
+          info = XCHANGE
+
+          IF ( fptr%coupling%l_diagnostic ) THEN
 
              send_avg(:) = 0.0_wp
 
@@ -1059,6 +1070,7 @@ CONTAINS
     PRINT *, ' send field  ', send_field(1,1)
 
     ierror = -1 
+    info   = 0
 
 #endif
 
@@ -1220,7 +1232,7 @@ CONTAINS
           CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
                datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-          IF ( fptr%coupling%diagnostic == 1 ) THEN
+          IF ( fptr%coupling%l_diagnostic ) THEN
 
              send_avg(:) = 0.0_wp
 

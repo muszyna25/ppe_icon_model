@@ -46,6 +46,8 @@ MODULE mo_util_debug
   !
   USE mo_kind,                  ONLY: wp
   USE mo_util_string,           ONLY: int2string
+  USE mo_util_netcdf,           ONLY: nf
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_exception,             ONLY: finish
 
   IMPLICIT NONE
@@ -86,27 +88,32 @@ CONTAINS
     INTEGER :: idim, ncfile, ncid_var, &
          &     ncid_dim(ndims), icount(ndims)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_util_debug:dump_array_to_netcdf_1d'
+
+
     IF (.NOT. ldebug_enable) RETURN
 
 #ifndef DISABLE_DUMP
     WRITE (*,*) "Dumping ", zfilename   
     ! create NetCDF file:
     CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", &
-      &               nf_clobber, ncfile))
+      &               nf_clobber, ncfile), routine)
     ! create dimensions:
     DO idim=1,ndims
-      CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
+      CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), &
+        &     ncid_dim(idim)), routine)
       icount(idim) = SIZE(p_array,idim)
     END DO
     ! create variable:
-    CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var))
+    CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var), routine)
     ! End of definition mode
-    CALL nf(nf_enddef(ncfile))
+    CALL nf(nf_enddef(ncfile), routine)
     ! put data:
     CALL nf(nf_put_vara_double(ncfile, ncid_var, (/ (1, idim=1,ndims) /), &
-      &                        icount, p_array))
+      &                        icount, p_array), routine)
     ! close file
-    CALL nf(nf_close(ncfile))
+    CALL nf(nf_close(ncfile), routine)
 #endif
 
   END SUBROUTINE dump_array_to_netcdf_1d
@@ -124,27 +131,33 @@ CONTAINS
     INTEGER :: idim, ncfile, ncid_var, &
          &     ncid_dim(ndims), icount(ndims)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_util_debug:dump_array_to_netcdf_2d'
+
+
     IF (.NOT. ldebug_enable) RETURN
 
 #ifndef DISABLE_DUMP
     WRITE (*,*) "Dumping ", zfilename
     ! create NetCDF file:
     CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", &
-      &               nf_clobber, ncfile))
+      &               nf_clobber, ncfile), routine)
     ! create dimensions:
     DO idim=1,ndims
-      CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
+      CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), &
+        &     ncid_dim(idim)), routine)
       icount(idim) = SIZE(p_array,idim)
     END DO
     ! create variable:
-    CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var))
+    CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var), &
+      &     routine)
     ! End of definition mode
-    CALL nf(nf_enddef(ncfile))
+    CALL nf(nf_enddef(ncfile), routine)
     ! put data:
     CALL nf(nf_put_vara_double(ncfile, ncid_var, (/ (1, idim=1,ndims) /), &
-      &                        icount, p_array))
+      &                        icount, p_array), routine)
     ! close file
-    CALL nf(nf_close(ncfile))
+    CALL nf(nf_close(ncfile), routine)
 #endif
 
   END SUBROUTINE dump_array_to_netcdf_2d
@@ -162,44 +175,35 @@ CONTAINS
     INTEGER :: idim, ncfile, ncid_var, &
          &     ncid_dim(ndims), icount(ndims)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_util_debug:dump_array_to_netcdf_3d'
+
+
     IF (.NOT. ldebug_enable) RETURN
 
 #ifndef DISABLE_DUMP
     WRITE (*,*) "Dumping ", zfilename   
     ! create NetCDF file:
     CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", &
-      &               nf_clobber, ncfile))
+      &               nf_clobber, ncfile), routine)
     ! create dimensions:
     DO idim=1,ndims
-      CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
+      CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), &
+        &     ncid_dim(idim)), routine)
       icount(idim) = SIZE(p_array,idim)
     END DO
     ! create variable:
-    CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var))
+    CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var), &
+      &     routine)
     ! End of definition mode
-    CALL nf(nf_enddef(ncfile))
+    CALL nf(nf_enddef(ncfile), routine)
     ! put data:
     CALL nf(nf_put_vara_double(ncfile, ncid_var, (/ (1, idim=1,ndims) /), &
-      &                        icount, p_array))
+      &                        icount, p_array), routine)
     ! close file
-    CALL nf(nf_close(ncfile))
+    CALL nf(nf_close(ncfile), routine)
 #endif
 
   END SUBROUTINE dump_array_to_netcdf_3d
 
-
-  !>
-  !!  Help functions for NetCDF I/O
-  !!
-  !!  Checks the return value of a NetCDF function and exits in case of
-  !!  an error
-  SUBROUTINE nf(status)
-
-    INTEGER, INTENT(in) :: status !< NetCDF error code
-
-    IF (status /= nf_noerr) &
-      CALL finish("mo_util_debug", 'NetCDF Error: '//nf_strerror(status))
-
-  END SUBROUTINE nf
-  !
 END MODULE mo_util_debug

@@ -70,7 +70,7 @@ MODULE mo_grid_nml
     & config_grid_rescale_factor          => grid_rescale_factor,          &
     & config_grid_angular_velocity        => namelst_grid_angular_velocity,&
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
-    & check_grid_configuration, max_rad_dom
+    & max_rad_dom
 
   IMPLICIT NONE
 
@@ -132,8 +132,9 @@ MODULE mo_grid_nml
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
       &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
-      &  dynamics_grid_filename,  dynamics_parent_grid_id,    &
-      &  radiation_grid_filename, dynamics_radiation_grid_link
+      &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
+      &  radiation_grid_filename, dynamics_radiation_grid_link,    &
+      &  grid_angular_velocity
 !       &  radiation_grid_distribution
 
 
@@ -160,7 +161,7 @@ MODULE mo_grid_nml
     cell_type   = itri
       
     lfeedback   = .TRUE.
-    ifeedback_type = 1
+    ifeedback_type = 2
     start_time(:) = 0._wp
     end_time(:)   = 1.e30_wp
     lplane      = .FALSE.
@@ -233,10 +234,7 @@ MODULE mo_grid_nml
     config_dyn_radiation_grid_link = dynamics_radiation_grid_link
     config_grid_rescale_factor     = grid_rescale_factor
     config_grid_angular_velocity   = grid_angular_velocity
-    
-    ! check the configuration
-    CALL check_grid_configuration()
-       
+          
   END SUBROUTINE read_grid_namelist
   !-----------------------------------------------------------------------
   

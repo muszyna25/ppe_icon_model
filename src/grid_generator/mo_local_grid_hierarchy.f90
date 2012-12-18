@@ -46,7 +46,6 @@ MODULE mo_local_grid_hierarchy
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_local_grid
   USE mo_io_local_grid,      ONLY: read_netcdf_grid, write_netcdf_grid
-!  USE mo_base_geometry,      ONLY: gvec2cvec
   USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, &
     & max_rlvert, min_rledge_int, min_rlvert_int
 
@@ -61,7 +60,6 @@ MODULE mo_local_grid_hierarchy
   PUBLIC :: create_grid_hierarchy
   PUBLIC :: set_bdy_indexing_depth
 
-  INTEGER :: max_boundary_depth
   INTEGER :: inner_boundary_depth  ! = -MAX_BOUNDARY_LEVEL  ?
   INTEGER :: outer_boundary_depth  ! = 2*MAX_BOUNDARY_LEVEL ?
   INTEGER :: inner_edge_boundary_depth, outer_edge_boundary_depth
@@ -90,9 +88,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE define_boundary_depths()
 
-    max_boundary_depth        = max_rlvert
     inner_boundary_depth      = min_rlvert_int
-    outer_boundary_depth      = max_boundary_depth
+    outer_boundary_depth      = max_rlvert
     inner_edge_boundary_depth = min_rledge_int
     outer_edge_boundary_depth = max_rledge
     min_edge_allocate         = min_rledge
@@ -629,16 +626,16 @@ CONTAINS
         edges%refin_ctrl(edge_index) = 0
       ENDIF
 
-      IF (edges%refin_ctrl(edge_index) < inner_edge_boundary_depth .or. &
-        & edges%refin_ctrl(edge_index) > outer_edge_boundary_depth) THEN
-        !        WRITE(*,*) "Out of limits edges%refin_ctrl=",edgeIndex, &
-        !             &     edges%refin_ctrl(edgeIndex) ,cell1_level,cell2_level
-        !        call flush(6)
-        ! this is caused by inconsistence of the definition of OUTER_EDGE_BOUNDARY_DEPTH
-        ! for the moment just zero it
-        edges%refin_ctrl(edge_index) = 0
-        !       CALL finish ('computeBoundaryLevels', 'edges%refin_ctrl out of limits')
-      ENDIF
+!       IF (edges%refin_ctrl(edge_index) < inner_edge_boundary_depth .or. &
+!         & edges%refin_ctrl(edge_index) > outer_edge_boundary_depth) THEN
+!         !        WRITE(*,*) "Out of limits edges%refin_ctrl=",edgeIndex, &
+!         !             &     edges%refin_ctrl(edgeIndex) ,cell1_level,cell2_level
+!         !        call flush(6)
+!         ! this is caused by inconsistence of the definition of OUTER_EDGE_BOUNDARY_DEPTH
+!         ! for the moment just zero it
+!         edges%refin_ctrl(edge_index) = 0
+!         !       CALL finish ('computeBoundaryLevels', 'edges%refin_ctrl out of limits')
+!       ENDIF
 
 
     ENDDO ! edgeIndex = 1, noOfEdges
@@ -710,6 +707,8 @@ CONTAINS
 
     INTEGER :: vertex_index, cell_vertex_index, cell_index, edge_index
     INTEGER :: i,j,level,step_level,i_status
+    
+    CHARACTER(*), PARAMETER :: method_name = "compute_boundary_entities"
 
     current_grid => get_grid(grid_id)
     edges       => current_grid%edges
@@ -724,13 +723,13 @@ CONTAINS
 
     no_of_boundary_edges = boundary_edge_index%list_size
 
-    WRITE(*,*) "computeBoundaryEntities: nodeID, childID=", grid_id,child_id
+    WRITE(*,*) method_name, ": nodeID, childID=", grid_id,child_id
     ! WRITE(*,*) "computeBoundaryEntities, nodeID, childID, noOfBoundaryEdges=", &
     !      & nodeID, childID, noOfBoundaryEdges
     ! fill initial stack of boundary cells
     ALLOCATE(init_vertex_stack(no_of_verts),next_vertex_stack(no_of_verts),stat=i_status)
     IF (i_status > 0) &
-      & CALL finish ('computeBoundaryLevels', 'ALLOCATE(boundaryEdgeIndex(noOfEdges))')
+      & CALL finish (method_name, 'ALLOCATE(init_vertex_stack...)')
     init_vertex_stack_size = 0
     DO i=1, no_of_boundary_edges
       edge_index = boundary_edge_index%value(i)
@@ -748,7 +747,7 @@ CONTAINS
             IF (verts%child_id(vertex_index) /= child_id) THEN
               WRITE(message_text,'(a,i9,i3,i3)') " Boundary vertex, child_id mismatch",&
                 & vertex_index, verts%child_id(vertex_index),child_id
-              CALL finish ('compute_boundary_entities.', message_text)
+              CALL finish (method_name, message_text)
             ENDIF
             ! verts%child_id(vertex_index)          = child_id
           ENDIF
@@ -805,7 +804,7 @@ CONTAINS
                         WRITE(message_text,'(i2,a,i9,i3,i3)') level, &
                           & " level. Vertex, child_id mismatch", &
                           & vertex_index, verts%child_id(vertex_index),child_id
-                        CALL finish ('compute_boundary_entities.', message_text)
+                        CALL finish (method_name, message_text)
                       ENDIF
                       ! verts%child_id(cell_vertex_index)          = child_id
                       ! WRITE(*,*) "  adding vertex to new stack ",nextVertexStackSize, &
@@ -858,6 +857,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: no_of_children(:)
     INTEGER :: j, parent_index, child_index, i_status
 !     REAL(wp) :: child_edge_vec(3), parent_edge_vec(3), orientation
+    CHARACTER(*), PARAMETER :: method_name = "mo_local_grid_hierarchy:get_child_pointers"
 
     parent_grid     => get_grid(parent_grid_id)
     parent_cells    => parent_grid%cells
@@ -876,26 +876,26 @@ CONTAINS
     no_of_child_verts = child_verts%no_of_existvertices
 
     IF (child_grid%parent_grid_id /= parent_grid_id) &
-      & CALL finish ('get_child_pointers', 'childGrid%parentGridID /= parentID')
+      & CALL finish (method_name, 'childGrid%parentGridID /= parentID')
 
     !-------------------------------
     ! fill child cells
     ALLOCATE(no_of_children(no_of_parent_cells),stat=i_status)
     IF (i_status > 0) &
-      & CALL finish ('get_child_pointers', 'ALLOCATE(noOfChilds(noOfParentCells))')
+      & CALL finish (method_name, 'ALLOCATE(noOfChilds(noOfParentCells))')
     no_of_children(:) = 0
     DO child_index=1, no_of_child_cells
       parent_index = child_cells%parent_index(child_index)
       !     WRITE(*,*) "Cell, child,parent=",childIndex,parentIndex
       IF (parent_index < 1 .or. parent_index > no_of_parent_cells) THEN
         WRITE(0,*) 'parent_index:', parent_index, ' > ', no_of_parent_cells
-        CALL finish ('get_child_pointers', 'cell parentIndex out of limits')
+        CALL finish (method_name, 'cell parentIndex out of limits')
       ENDIF
 
       ! this is only for checking
       no_of_children(parent_index) = no_of_children(parent_index) + 1
       IF (no_of_children(parent_index) > 4) &
-        & CALL finish ('get_child_pointers', 'cells: more than 4 children')
+        & CALL finish (method_name, 'cells: more than 4 children')
 
       ! the inner child triangle has parent_child_type = parenttype_triangle
       ! the other three have parent_child_type = parenttype_triangle + 1,2,3
@@ -912,7 +912,7 @@ CONTAINS
       parent_cells%child_index(parent_index, index_in_parent) = child_index
       IF (parent_cells%child_id(parent_index) /= 0 &
         & .and. parent_cells%child_id(parent_index) /= child_grid_id) &
-        & CALL finish ('get_child_pointers', 'more than 1 child for the same cell')
+        & CALL finish (method_name, 'more than 1 child for the same cell')
 
       parent_cells%child_id(parent_index) = child_grid_id
 
@@ -929,7 +929,7 @@ CONTAINS
       parent_index = child_edges%parent_index(child_index)
       parent_type  = child_edges%parent_child_type(child_index)
       IF (parent_index < 1 .or. parent_index > no_of_parent_edges) &
-        & CALL finish ('get_child_pointers', 'edge parentIndex out of limits')
+        & CALL finish (method_name, 'edge parentIndex out of limits')
       ! get the second index j for the parentEdges%child_index
       IF (parent_is_triangle(parent_type)) THEN
         IF (parent_edges%child_index(parent_index, 3) == 0) THEN
@@ -969,14 +969,14 @@ CONTAINS
 !       ENDIF
       IF (parent_edges%child_id(parent_index) /= 0 .and. &
         & parent_edges%child_id(parent_index) /= child_grid_id) &
-        & CALL finish ('get_child_pointers', 'more than 1 child for the same edge')
+        & CALL finish (method_name, 'more than 1 child for the same edge')
       parent_edges%child_id(parent_index) = child_grid_id
 
       ! WRITE(*,*) "Edges, child,parent,j,orientation=",parentEdges%child_index(parentIndex, j), &
       !      &     parentIndex,j,orientation
       !     noOfChildren(parentIndex) = noOfChildren(parentIndex) + 1
       !     IF (noOfChildren(parentIndex) > 4) &
-      !        CALL finish ('get_child_pointers', 'edges: more than 4 children')
+      !        CALL finish (method_name, 'edges: more than 4 children')
 
     ENDDO
     !  DEALLOCATE(noOfChildren)
@@ -989,7 +989,7 @@ CONTAINS
       ! WRITE(*,*) parentID, childID, " vertex childIndex,parentIndex=",childIndex,parentIndex
       IF (parent_index > no_of_parent_verts) THEN
         WRITE(*,*) "childIndex,parentIndex=",child_index,parent_index
-        CALL finish ('get_child_pointers', 'vertex parentIndex out of limits')
+        CALL finish (method_name, 'vertex parentIndex out of limits')
       ENDIF
       IF (parent_index > 0) THEN ! if parentIndex < 0 then the parent is an edge, not a vertex
         parent_verts%child_id(parent_index) = child_grid_id

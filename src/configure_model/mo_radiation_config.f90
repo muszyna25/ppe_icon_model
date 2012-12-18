@@ -111,10 +111,6 @@ MODULE mo_radiation_config
     REAL(wp) :: vmr_cfc11   !< CFC 11
     REAL(wp) :: vmr_cfc12   !< CFC 12
     !
-    ! --- Time control
-    !
-    REAL(wp) :: dt_rad = 0.0_wp   !< time interval of full radiation computation
-                            !< given in seconds 
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 

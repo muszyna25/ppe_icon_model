@@ -109,11 +109,11 @@ cat > ${atmo_namelist} << EOF
  ctracer_list='vwi44'        ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
+ dt_rad     = ${dt_rad}     ! [s] compute radiative transfer hourly
 /
 &echam_conv_nml
 /
 &radiation_nml
- dt_rad     = ${dt_rad}     ! [s] compute radiative transfer hourly
  irad_h2o   = 1             ! prognostic vapor, liquid and ice
  irad_co2   = 2             ! constant co2 vmr
  irad_ch4   = 0             ! switch off ch4

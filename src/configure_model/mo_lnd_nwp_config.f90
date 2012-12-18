@@ -59,6 +59,8 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
+  PUBLIC :: isub_water, isub_seaice
+  PUBLIC :: sstice_mode
 
   PUBLIC :: configure_lnd_nwp
 
@@ -91,7 +93,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_subs         !< type of subscale surface treatment =1 MOSAIC, =2 TILE 
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
-  LOGICAL ::  lseaice     !> forecast with sea ice model
+  LOGICAL ::  lseaice     !> forecast with sea-ice model
   LOGICAL ::  llake       !! forecast with lake model FLake
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
@@ -100,10 +102,15 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
   LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 
   LOGICAL ::  lsnowtile   !! if .TRUE., snow is considered as a separate tile
-
+ 
+  INTEGER ::  sstice_mode      !< set if SST and sea ice cover are read from the analysis
+                                 !< and kept constant or read from external data files 
+                                 !< and updated regularly in run time
 
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
+  INTEGER ::  isub_water  !< (open) water points tile number
+  INTEGER ::  isub_seaice !< seaice tile number
 
 !  END TYPE t_nwp_lnd_config
 
@@ -138,8 +145,8 @@ CONTAINS
 
     ! number of soil layers
     ! Note that this number must be consistent with the number of entries 
-    ! in zml_soil. zml_soil provides soil layer full level heights.
-    nlev_soil = SIZE(zml_soil)-1  !< currently 7
+    ! in zml_soil. zml_soil provides soil layer full level heights (confirmed).
+    nlev_soil = SIZE(zml_soil)
 
     IF (ntiles_lnd == 1) THEN ! Reset options that can be used in combination with tile approach
       lsnowtile     = .FALSE.
@@ -161,12 +168,19 @@ CONTAINS
       nlists_water = 0
     ELSE
       ! extra tiles for water points
-      ntiles_water = 2 
-!      ntiles_water = 1 ! currently one for lake and ocean points; will be increased to 2
-                       ! when sea ice model becomes active
-      nlists_water = 2 ! currently one for lake and ocean points; will be increased to 3 
-                       ! when sea ice model becomes active
+      ntiles_water = 2 ! one for lake and ocean points
+                       ! another one for seaice
+
+      nlists_water = 3 ! one for ocean points
+                       ! one for lake points
+                       ! one for sea-ice points 
     ENDIF
+
+    ! (open) water points tile number
+    isub_water  = MAX(1,ntiles_total + ntiles_water - 1)
+
+    ! sea-ice tile number
+    isub_seaice = ntiles_total + ntiles_water
 
   END SUBROUTINE configure_lnd_nwp
 

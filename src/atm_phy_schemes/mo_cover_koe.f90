@@ -50,6 +50,7 @@ MODULE mo_cover_koe
   USE mo_kind,               ONLY: wp, i4
 
   USE mo_physical_constants, ONLY: rdv    , & !! r_d / r_v
+                                   rv     , & !! Rv
                                    tmelt      !! melting temperature of ice/snow
 
   USE mo_convect_tables,     ONLY: c1es   , & !! constants for computing the sat. vapour
@@ -180,10 +181,11 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   & p0
 
 
-REAL(KIND=wp) ::          &
+REAL(KIND=wp) ::             &
   fgew   , fgee   , fgqs   , &!fgqv   , & ! name of statement functions
   ztt    , zzpv   , zzpa   , zzps   , &
-  zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid
+  zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid, &
+  vap_pres
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat
@@ -206,7 +208,7 @@ REAL(KIND=wp), PARAMETER  :: &
   fgee(ztt)            = c1es * EXP( c3ies*(ztt - tmelt)/(ztt - c4ies) )  ! ztt: temperature
 
 ! statement function to calculate specific humitdity
-!  fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
+! fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
 
 ! statement function to calculate saturation specific humidities from RH=esat/e (proper and safe)
   fgqs(zzps,zzpv,zzpa) = rdv * zzps / (zzpa - (1._wp-rdv)*zzpv)           ! zzps: saturation vapour pressure
@@ -214,17 +216,15 @@ REAL(KIND=wp), PARAMETER  :: &
 !-----------------------------------------------------------------------
 
 
-IF (kstart > 1) THEN
-  ! Set cloud fields for stratospheric levels to zero
-  DO jk = 1,kstart-1
-    DO jl = kidia,kfdia
-      qv_tot(jl,jk) = qv(jl,jk)
-      qc_tot(jl,jk) = 0.0_wp
-      qi_tot(jl,jk) = 0.0_wp
-      cc_tot(jl,jk) = 0.0_wp
-    ENDDO
+! Set cloud fields for stratospheric levels to zero
+DO jk = 1,kstart-1
+  DO jl = kidia,kfdia
+    qv_tot(jl,jk) = qv(jl,jk)
+    qc_tot(jl,jk) = 0.0_wp
+    qi_tot(jl,jk) = 0.0_wp
+    cc_tot(jl,jk) = 0.0_wp
   ENDDO
-ENDIF
+ENDDO
 
 !-----------------------------------------------------------------------
 ! Calculate water vapour saturation mixing ratios of over water 
@@ -236,9 +236,10 @@ zt_ice2 = tmelt - 25.0_wp
 
 DO jk = kstart,klev
   DO jl = kidia,kfdia
+    vap_pres = qv(jl,jk) * rho(jl,jk) * rv * tt(jl,jk)
     ! specific humidity at saturation over water (zqlsat) and ice (zqisat)
-    zqlsat (jl,jk) = fgqs ( fgew(tt(jl,jk)), qv_tot(jl,jk), pp(jl,jk) )
-    zqisat (jl,jk) = fgqs ( fgee(tt(jl,jk)), qv_tot(jl,jk), pp(jl,jk) )
+    zqlsat (jl,jk) = fgqs ( fgew(tt(jl,jk)), vap_pres, pp(jl,jk) )
+    zqisat (jl,jk) = fgqs ( fgee(tt(jl,jk)), vap_pres, pp(jl,jk) )
   ENDDO
 ENDDO
 

@@ -25,33 +25,51 @@
 echo "EOM_ARCHIVE.SMS" 
 
 
-ldeldata=1
+ldeldata=0
 
 
 #-----------------------------------------------------------------------------
 # directories
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-EXPDIR="%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM"
-cd ${EXPDIR}
-ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM"
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
+cd ${gatedir}
+ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
+emkdir -p $ecfsdir
+
+
+#-----------------------------------------------------------------------------
+# convert metview plots from ps to png 
+
+cd metplots
+for metfile in `ls *.ps` ; do
+  metfile2=`echo $metfile | sed 's/\.ps//'`
+  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
+done 
+cd -
+
+
+#-----------------------------------------------------------------------------
+# ectrans plots to mkoehler@DWD
+
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/${YYYYMM}/metplots metplots/*png 
 
 
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
 tar cvf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
-gzip    metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
-ecp     metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar /
-        metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz  
+gzip -f metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
+ecp  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
+\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
 
 
 #-----------------------------------------------------------------------------
 # delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
-  \rm -rf grb_data 
+  \rm -rf met.job.*
+  \rm -rf grb_data
 fi
 
 

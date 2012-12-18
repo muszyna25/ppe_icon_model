@@ -269,7 +269,9 @@ MODULE mo_icon_comm_lib
    
   LOGICAL :: comm_lib_is_initialized
 
-  INTEGER :: log_file_id
+  INTEGER :: log_file_id = 0
+
+  INTEGER :: max_send_buffer_size, max_recv_buffer_size
 
   !-------------------------------------------------------------------------
   INTEGER :: my_work_communicator
@@ -311,7 +313,7 @@ CONTAINS
 #endif
     
     DEALLOCATE(send_buffer, recv_buffer)
-    CLOSE(log_file_id)
+    IF (log_file_id > 0) CLOSE(log_file_id)
     
   END SUBROUTINE destruct_icon_comm_lib
   !-----------------------------------------------------------------------
@@ -356,9 +358,10 @@ CONTAINS
     IF (return_status > 0) &
       CALL finish (method_name, 'ALLOCATE grid_comm_pattern_list failed')
 
-    
-    ALLOCATE(send_buffer(max_send_recv_buffer_size), &
-      & recv_buffer(max_send_recv_buffer_size),stat=return_status)
+    max_send_buffer_size = max_send_recv_buffer_size
+    max_recv_buffer_size = max_send_recv_buffer_size    
+    ALLOCATE(send_buffer(max_send_buffer_size), &
+      & recv_buffer(max_recv_buffer_size),stat=return_status)
     IF (return_status > 0) &
       CALL finish (method_name, 'ALLOCATE send,recv buffers failed')
 
@@ -368,12 +371,13 @@ CONTAINS
     active_recv_buffers = 0
     comm_lib_is_initialized = .TRUE.
     buffer_comm_status = not_active
+    max_comm_patterns = 0
     
     DO i=1,max_no_of_comm_variables
       CALL clear_comm_variable(i)
     ENDDO
 
-    DO k=1,max_comm_patterns
+    DO k=1,allocated_comm_patterns
       grid_comm_pattern_list(k)%status = not_active
     ENDDO
 
@@ -382,21 +386,69 @@ CONTAINS
     my_work_comm_size    = get_my_mpi_work_comm_size()
     my_mpi_work_id       = get_my_mpi_work_id()
     
-!    IF (icon_comm_debug) THEN
-    DO log_file_id = 500, 5000
-      INQUIRE (UNIT=log_file_id, OPENED=unit_is_occupied)
-      IF ( .NOT. unit_is_occupied ) EXIT
-    ENDDO
-    IF (unit_is_occupied) &
-      CALL finish(method_name, "Cannot find avaliable file unit")
-    WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
-      & ".icon_comm.", my_mpi_work_id
-    OPEN (log_file_id, FILE=TRIM(message_text))
-!    ENDIF
+    IF (icon_comm_debug) THEN
+      DO log_file_id = 500, 5000
+        INQUIRE (UNIT=log_file_id, OPENED=unit_is_occupied)
+        IF ( .NOT. unit_is_occupied ) EXIT
+      ENDDO
+      IF (unit_is_occupied) &
+        CALL finish(method_name, "Cannot find avaliable file unit")
+      WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
+        & ".icon_comm.", my_mpi_work_id
+      OPEN (log_file_id, FILE=TRIM(message_text))
+    ENDIF
     
     RETURN
 
   END SUBROUTINE construct_icon_comm_lib
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE resize_send_buffer(new_size)
+    INTEGER, INTENT(in) :: new_size
+    
+    INTEGER :: return_status
+    CHARACTER(*), PARAMETER :: method_name = "resize_send_buffer"
+
+    IF (new_size <= max_send_buffer_size) THEN
+      CALL warning(method_name, "new_size <= max_send_buffer_size")
+      RETURN
+    ENDIF
+
+    max_send_buffer_size = new_size + 128
+    DEALLOCATE(send_buffer, stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'DEALLOCATE send_buffer failed')
+    ALLOCATE(send_buffer(max_send_buffer_size),stat=return_status)
+    IF (return_status > 0) &
+     CALL finish (method_name, 'ALLOCATE send_buffers failed')   
+    
+  END SUBROUTINE resize_send_buffer
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE resize_recv_buffer(new_size)
+    INTEGER, INTENT(in) :: new_size
+    
+    INTEGER :: return_status
+    CHARACTER(*), PARAMETER :: method_name = "resize_recv_buffer"
+
+    IF (new_size <= max_recv_buffer_size) THEN
+      CALL warning(method_name, "new_size <= max_recv_buffer_size")
+      RETURN
+    ENDIF
+
+    max_recv_buffer_size = new_size + 128
+    DEALLOCATE(recv_buffer, stat=return_status)
+    IF (return_status > 0) &
+      CALL finish (method_name, 'DEALLOCATE recv_buffer failed')
+    ALLOCATE(recv_buffer(max_recv_buffer_size),stat=return_status)
+    IF (return_status > 0) &
+     CALL finish (method_name, 'ALLOCATE recv_buffers failed')
+    
+  END SUBROUTINE resize_recv_buffer
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -414,10 +466,8 @@ CONTAINS
   SUBROUTINE init_icon_halo_comm_patterns(p_patch)
     TYPE(t_patch), INTENT(inout) :: p_patch
 
-    INTEGER :: i
     CHARACTER(*), PARAMETER :: method_name = "init_icon_std_comm_patterns"
     
-    max_comm_patterns = 0
     IF(this_is_mpi_sequential) RETURN
 !     ! set id of grid_comm_pattern_list to identity
 !     DO i = 1, max_comm_patterns
@@ -442,7 +492,7 @@ CONTAINS
       & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
       & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
       & halo_level=p_patch%cells%halo_level, level_start=1, level_end=1,&
-      & name="cells_not_in_domain" )
+      & name="cells_one_edge_in_domain" )
             
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
@@ -473,12 +523,18 @@ CONTAINS
       & name="verts_not_in_domain" )
         
     CALL print_grid_comm_stats(p_patch%sync_cells_not_in_domain)
+    CALL print_grid_comm_stats(p_patch%sync_cells_one_edge_in_domain)
     CALL print_grid_comm_stats(p_patch%sync_edges_not_owned)
+    CALL print_grid_comm_stats(p_patch%sync_edges_not_in_domain)
     CALL print_grid_comm_stats(p_patch%sync_verts_not_owned)
+    CALL print_grid_comm_stats(p_patch%sync_verts_not_in_domain)
     IF ( icon_comm_debug) THEN
       CALL print_grid_comm_pattern(p_patch%sync_cells_not_in_domain)
+      CALL print_grid_comm_pattern(p_patch%sync_cells_one_edge_in_domain)
       CALL print_grid_comm_pattern(p_patch%sync_edges_not_owned)
+      CALL print_grid_comm_pattern(p_patch%sync_edges_not_in_domain)
       CALL print_grid_comm_pattern(p_patch%sync_verts_not_owned)
+      CALL print_grid_comm_pattern(p_patch%sync_verts_not_in_domain)
     ENDIF    
         
  !   CALL finish("init_icon_std_comm_patterns","ends")
@@ -504,13 +560,13 @@ CONTAINS
     ENDIF
        
     grid_comm_pattern_list(max_comm_patterns)%id = max_comm_patterns
+    new_icon_comm_pattern = max_comm_patterns
     
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(max_comm_patterns), &
       & total_no_of_points, receive_from_owner, my_global_index, owners_local_index,    &
       & allow_send_to_myself,                                                           &
       & halo_level, level_start, level_end, name)
 
-    new_icon_comm_pattern = max_comm_patterns
 
   END FUNCTION new_icon_comm_pattern
   !-----------------------------------------------------------------------
@@ -781,6 +837,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "inverse_of_icon_comm_pattern"
 
+    ! get next avail comm_patterns space
     max_comm_patterns = max_comm_patterns + 1
     IF (max_comm_patterns > allocated_comm_patterns) THEN
       CALL finish("new_icon_comm_pattern","max_comm_patterns > allocated_comm_patterns")
@@ -869,6 +926,8 @@ CONTAINS
   
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: i, min_points, max_points, tot_points
+    
+    IF ( log_file_id <= 0 ) RETURN
 
     grid_comm_pattern => grid_comm_pattern_list(comm_pattern_id)
     write(log_file_id,*) " === Communication stats for ", TRIM(grid_comm_pattern%name), &
@@ -912,7 +971,8 @@ CONTAINS
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: i
         
-    IF ( .NOT. icon_comm_debug) RETURN
+    IF ( log_file_id <= 0 ) RETURN
+    
     grid_comm_pattern => grid_comm_pattern_list(comm_pattern_id)
     
     write(log_file_id,*) " === Communication pattern info for ", TRIM(grid_comm_pattern%name), &
@@ -1255,7 +1315,7 @@ CONTAINS
     
     INTEGER, INTENT(IN) :: comm_pattern_index
 
-     INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
+    INTEGER, INTENT(IN), OPTIONAL :: vertical_layers
     INTEGER, INTENT(IN), OPTIONAL :: status
     INTEGER, INTENT(IN), OPTIONAL :: scope
     CHARACTER(*), INTENT(IN), OPTIONAL :: name
@@ -1431,17 +1491,18 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index)
+  SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), TARGET   :: var(:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var = new_icon_comm_variable(var,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync )
+      & status=is_ready, scope=until_sync, name=name )
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_2D_1
@@ -1449,17 +1510,18 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_1(var,  comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_1(var,  comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), TARGET   :: var(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var = new_icon_comm_variable(var,  comm_pattern_index,  &
-      & status=is_ready, scope=until_sync )
+      & status=is_ready, scope=until_sync, name=name )
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_1
@@ -1467,21 +1529,22 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
     REAL(wp), TARGET   :: var1(:,:,:)
     REAL(wp), TARGET   :: var2(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var_1, comm_var_2
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index,  &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index,  &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_2
@@ -1489,24 +1552,25 @@ CONTAINS
           
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_3(var1,  var2, var3, comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_3(var1,  var2, var3, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
     REAL(wp), TARGET   :: var1(:,:,:)
     REAL(wp), TARGET   :: var2(:,:,:)
     REAL(wp), TARGET   :: var3(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var_1, comm_var_2, comm_var_3
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_3 = new_icon_comm_variable(var3,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_3
@@ -1514,7 +1578,7 @@ CONTAINS
         
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_3D_4(var1,  var2, var3, var4, comm_pattern_index)
+  SUBROUTINE icon_comm_sync_3D_4(var1,  var2, var3, var4, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
@@ -1522,19 +1586,20 @@ CONTAINS
     REAL(wp), TARGET   :: var2(:,:,:)
     REAL(wp), TARGET   :: var3(:,:,:)
     REAL(wp), TARGET   :: var4(:,:,:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
     
     INTEGER :: comm_var_1, comm_var_2, comm_var_3, comm_var_4
 
     IF(this_is_mpi_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_2 = new_icon_comm_variable(var2,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_3 = new_icon_comm_variable(var3,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     comm_var_4 = new_icon_comm_variable(var4,  comm_pattern_index, &
-      & status=is_ready, scope=until_sync)
+      & status=is_ready, scope=until_sync, name=name)
     CALL icon_comm_sync_all
  
   END SUBROUTINE icon_comm_sync_3D_4
@@ -1707,7 +1772,6 @@ CONTAINS
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
     INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size,&
       & message_size, message_seq_id  
-!     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
 
     IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillandsend)
     
@@ -1812,9 +1876,10 @@ CONTAINS
       send_procs_buffer(bfid)%current_index = send_procs_buffer(bfid)%start_index
     ENDDO
     
-    ! check if we went over the max_send_recv_buffer_size
-    IF (buffer_start >= max_send_recv_buffer_size) &
-      CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
+    ! check if we went over the max_send_buffer_size
+    IF (buffer_start >= max_send_buffer_size) &
+      & CALL resize_send_buffer(buffer_start)
+!       CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
  
   END SUBROUTINE compute_send_buffer_sizes
   !-----------------------------------------------------------------------
@@ -1851,7 +1916,7 @@ CONTAINS
       current_buffer_index = send_procs_buffer(bfid)%current_index
       var_send_size = grid_comm_pattern%send(np)%no_of_points * vertical_layers
       ! fill the header
-      ! this is the id of the variabkle and the size we sent
+      ! this is the id of the variable and the size we sent
       send_buffer(current_buffer_index) = REAL(comm_var,wp)
       current_buffer_index = current_buffer_index + 1
       send_buffer(current_buffer_index) = REAL(var_send_size,wp)
@@ -1892,7 +1957,7 @@ CONTAINS
 !         ENDDO
 
         IF (icon_comm_debug) THEN
-          k=1
+          k=2
           DO i = 1, grid_comm_pattern%send(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
               & send_procs_buffer(bfid)%pid, ":", &
@@ -1976,7 +2041,7 @@ CONTAINS
       ENDDO
 
       IF (icon_comm_debug) THEN
-        k=1
+        k=2
         DO i = 1, grid_comm_pattern%send(np)%no_of_points
           write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
             & send_procs_buffer(bfid)%pid, ":", &
@@ -2215,7 +2280,7 @@ CONTAINS
         ENDDO
         
         IF (icon_comm_debug) THEN
-          k=1
+          k=2
           DO i = 1, grid_comm_pattern%recv(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " recv from ", &
               & recv_procs_buffer(bfid)%pid, ":", &
@@ -2283,9 +2348,10 @@ CONTAINS
       recv_procs_buffer(bfid)%current_index = recv_procs_buffer(bfid)%start_index
     ENDDO
     
-    ! check if we went over the max_send_recv_buffer_size
-    IF (buffer_start >= max_send_recv_buffer_size) &
-      CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
+    ! check if we went over the max_recv_buffer_size
+    IF (buffer_start >= max_recv_buffer_size) &
+      & CALL resize_recv_buffer(buffer_start)
+!       CALL finish(method_name, "buffer_start >= max_send_recv_buffer_size")
  
   END SUBROUTINE compute_recv_buffer_sizes
   !-----------------------------------------------------------------------

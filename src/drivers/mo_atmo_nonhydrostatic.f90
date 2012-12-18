@@ -46,17 +46,21 @@ USE mo_intp,                 ONLY: edges2cells_scalar
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
-USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint
+USE mo_io_config,            ONLY: dt_file,dt_diag,dt_checkpoint
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
+USE mo_advection_config,     ONLY: configure_advection
+USE mo_art_config,           ONLY: configure_art
 USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist parameter
   &                                ltestcase,            &
   &                                nsteps,               & !    :
   &                                ltimer,               & !    :
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
-  &                                msg_level               !    namelist parameter
-USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
+  &                                msg_level,            & !    namelist parameter
+  &                                lvert_nest, ntracer,  &
+  &                                iqc, iqi, iqr, iqs
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time
@@ -64,7 +68,8 @@ USE mo_grid_config,          ONLY: n_dom, start_time
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: iadv_rcf
+USE mo_nonhydrostatic_config,ONLY: iadv_rcf, kstart_moist, kend_qvsubstep, l_open_ubc
+
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
@@ -82,7 +87,7 @@ USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
 USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation
-USE mo_ext_data_state,      ONLY: ext_data
+USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
@@ -147,13 +152,12 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
     
 
-    INTEGER :: jg,  ist, ntl, ntlr
+    INTEGER :: jg, ist, ntl, ntlr
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     TYPE(t_simulation_status) :: simulation_status
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    INTEGER :: k_jg
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -162,7 +166,19 @@ CONTAINS
     ENDDO
 
     IF(iforcing == inwp) THEN
-     CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
+      !
+      ! - generate index lists for tiles (land, ocean, lake)
+      ! index lists for ice-covered and non-ice covered ocean points 
+      ! are initialized in init_nwp_phy
+      CALL init_index_lists (p_patch(1:), ext_data)
+
+      CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
+
+     ! initialize number of chemical tracers for convection 
+     DO jg = 1, n_dom
+       CALL configure_art(jg)
+     ENDDO
+
     ENDIF
 
     IF (.NOT. ltestcase .AND. iforcing == inwp) THEN
@@ -233,9 +249,9 @@ CONTAINS
     ENDIF
 
     ! Now allocate memory for the states
-    DO k_jg=1,n_dom
-      l_pres_msl(k_jg) = is_any_output_nml_active(first_output_name_list, &
-        &                                   dtime=dtime, iadv_rcf=iadv_rcf, var_name="pres_msl")
+    DO jg=1,n_dom
+      l_pres_msl(jg) = is_any_output_nml_active(first_output_name_list, &
+        &                                 dtime=dtime, iadv_rcf=iadv_rcf, var_name="pres_msl")
     END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl)
@@ -244,14 +260,29 @@ CONTAINS
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
     IF(iforcing == inwp) THEN
-      DO k_jg=1,n_dom
-        l_rh(k_jg) = is_any_output_nml_active(first_output_name_list, &
-          &                                   dtime=dtime, iadv_rcf=iadv_rcf, var_name="rh")
+      DO jg=1,n_dom
+        l_rh(jg) = is_any_output_nml_active(first_output_name_list, &
+          &                                 dtime=dtime, iadv_rcf=iadv_rcf, var_name="rh")
       END DO
       CALL construct_nwp_phy_state( p_patch(1:), l_rh )
     ENDIF
 
     CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+
+
+    ! Due to the required ability to overwrite advection-Namelist settings 
+    ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called 
+    ! AFTER the nh_state is created. Otherwise, potential modifications of the 
+    ! advection-Namelist can not be taken into account properly.
+    ! Unfortunatley this conflicts with our trying to call the config-routines 
+    ! as early as possible. 
+    DO jg =1,n_dom
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
+       &                      iequations, iforcing, iqc, iqi, iqr, iqs,    &
+       &                      kstart_moist(jg), kend_qvsubstep(jg),        &
+       &                      lvert_nest, l_open_ubc, ntracer ) 
+    ENDDO
+
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping

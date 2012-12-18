@@ -83,7 +83,7 @@ MODULE mo_name_list_output_config
   ! and thus whether the domain number in output name lists pertains to physical
   ! or logical patches.
 
-  LOGICAL, PARAMETER :: l_output_phys_patch = .FALSE.
+  LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
 
   TYPE t_output_name_list
 
@@ -179,7 +179,7 @@ MODULE mo_name_list_output_config
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(15) ! All types of possible Zaxis ID's
+    INTEGER                     :: cdiZaxisID(18) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute

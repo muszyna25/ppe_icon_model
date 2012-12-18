@@ -1,0 +1,335 @@
+# --------------------------------------------------------------------
+# CASE_SETUP
+# --------------------------------------------------------------------
+#                                                                    
+# Purpose of this document:                                          
+#   This file contains the experiment parameters of the             
+#   ICON test case    
+#                                                                    
+# Corresponding author:                                              
+#   Florian Prill, DWD, mailto:florian.prill@dwd.de                  
+#                                                                    
+# Document version:                                                  
+#   $LastChangedDate: 2012-04-11 11:18:42 +0000 (Wed, 11 Apr 2012) $
+#   $Rev: 8630 $ -- $Author: florian.prill $
+#                                                                    
+# --------------------------------------------------------------------
+
+
+# absolute path to output directory
+EXPDIR=${outbasedir}/${INITIME}
+# absolute path to input directory
+INDIR=${basedir}/icon_input/grids
+# absolute path to external parameter directory
+EXTPARDIR=${basedir}/icon_input/extpar
+# absolute path to IFS2ICON data directory
+IFS2ICONDIR=${ifsdir}
+# absolute path to files needed for radiation
+RADDIR=${basedir}/icon_input/radiation
+
+# absolute path to model binary, including the executable
+#MODEL=${basedir}/icon-dev/build/${arch}/bin/control_model
+#echo ${MODEL}
+
+# --------------------------------------------------------------------
+
+set -x
+
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+cd $EXPDIR
+
+ln -sf $INDIR/icon*DOM*.nc .
+ln -sf $EXTPARDIR/extpar*DOM*.nc .
+ln -sf $IFS2ICONDIR/ifs2icon*DOM*.nc .
+
+ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
+ln -sf ${RADDIR}/rrtmg_lw.nc .
+
+# global timing
+start_date="${INITIME_FMT}"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+
+# model timing
+dtime=72
+dtconv=720             # convection, SSO, GWD. See iadv_rcf for TURB frequency
+dtrad=3600             # radiation time step
+ndays=10               # number of days to run
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+ninc_mtgrm=50          # output interval 3600s
+
+# model parameters
+atmo_namelist=NAMELIST_${basename}
+model_equations=3      #  3=non-hydrost. atm.,
+
+# grid parameters
+atmo_dyn_grids="iconR2B06_DOM01.nc"
+atmo_rad_grids="iconR2B05_DOM00.nc"
+
+
+# ---------------------------
+# create ICON master namelist
+# ---------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart                     = .FALSE.
+/
+&time_nml
+ ini_datetime_string          = "$start_date"
+ dt_restart                   = $dt_restart
+/
+&master_model_nml
+  model_type                  = 1
+  model_name                  = "ATMO"
+  model_namelist_filename     = "$atmo_namelist"
+  model_restart_info_filename = ""
+  model_min_rank              = 1
+  model_max_rank              = 65536
+  model_inc_rank              = 1
+/
+EOF
+
+
+# ------------------------------
+# write ICON namelist parameters
+# ------------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+# reconstruct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+# ---
+
+ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
+'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
+'tcc','tqv','tqc','tqi', 
+'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05'
+'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
+'u_10m','v_10m', 't_2m',
+'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
+'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
+'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
+'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv'"
+
+pl_varlist="'u','v','temp','geopot','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
+hl_varlist="'u','v','temp','pres',  'tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+
+# ---
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma                       = 10
+ p_test_run                   = .FALSE.
+ l_test_openmp                = .FALSE.
+ l_log_checks                 = .TRUE.
+ num_io_procs                 = 3
+ itype_comm                   = 1
+ iorder_sendrecv              = 1
+ use_sp_output                = .FALSE.    ! output fields gathered and written in single-precision 
+/
+&grid_nml
+ cell_type                    = 3
+ dynamics_grid_filename       = ${dynamics_grid_filename}
+ radiation_grid_filename      = ${radiation_grid_filename}
+ dynamics_parent_grid_id      = 0
+ lredgrid_phys                = .TRUE.
+ lfeedback                    = .TRUE.
+ ifeedback_type               = 2
+/
+&prepicon_nml
+ i_oper_mode                 = 3           ! operation mode
+ nlev_in                     = 91          ! number of levels of input data
+ zpbl1                       = 500. 
+ zpbl2                       = 1000. 
+ l_zp_out                    = .TRUE.
+ l_w_in                      = .TRUE.
+ l_sfc_in                    = .TRUE.
+/
+&run_nml
+ num_lev                      = 90
+ lvert_nest                   = .TRUE.
+ nsteps                       = ${nsteps}
+ dtime                        = ${dtime}    ! timestep in seconds
+ ldynamics                    = .TRUE.      ! dynamics
+ ltransport                   = .TRUE.
+ ntracer                      = 6
+ iforcing                     = 3           ! NWP forcing
+ ltestcase                    = .FALSE.     ! false: run with real data
+ msg_level                    = 5           ! default: 5, much more: 20
+ ldump_states                 = ${ldump_states}
+ lrestore_states              = ${lrestore_states}
+ ltimer                       = .FALSE.
+ timers_level                 = 4
+ activate_sync_timers         = .FALSE.
+ output                       = "nml"
+/
+&nh_pzlev_nml
+ nplev             = 25     ! number of p level output (attention: levels in [Pa] and top-down)
+ nzlev             = 25     ! number of z level output (attention: levels in [m] and top-down)
+ plevels           = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
+                     30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
+ zlevels           = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
+                     10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
+/
+! OUTPUT: Regular grid, model levels, all domains
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = -1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 43200.    ! start, end, increment
+ steps_per_file               =  40
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${basename}'             ! file name base
+ ml_varlist                   = ${ml_varlist}
+ pl_varlist                   = ${pl_varlist}
+ hl_varlist                   = ${hl_varlist}
+ output_grid                  = .TRUE.
+ remap                        = 1
+ reg_lon_def                  = 0.,1.,359.
+ reg_lat_def                  = 90.,-1., -90.
+!namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf
+ map_file                     = "${SETDIRTMP}/mapfile_vlist.txt"
+/
+&meteogram_output_nml
+ lmeteogram_enabled= .TRUE.
+ n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = ${ninc_mtgrm}  ! meteogram output interval
+ ldistributed      = .false.
+ stationlist_tot   =  50.16,   8.75, 'Offenbach',                         ! Lat,Lon
+                      52.17,  14.12, 'Lindenberg',
+                      51.97,   4.93, 'Cabauw',
+                     -10.08, -61.93, 'LBA_Rondonia',
+                      13.50,   2.5 , 'Niamey',
+                      36.61, -97.49, 'ARM_Southern_Great_Plains',
+                     -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
+                      -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
+                     -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
+                     -20.00,-120.00, 'Tropical Ocean cumumulus',
+                     -20.00, -85.00, 'Tropical Ocean IMET strcu',
+                      60.00,  80.00, 'Snow Test Russia',
+                      46.81,   6.94, 'Payerne',
+                      67.36,  26.64, 'Sodankyla',
+/
+&nwp_phy_nml
+ inwp_gscp                    = 10  ! 1: default, or 10
+ inwp_convection              = 1
+ inwp_radiation               = 1
+ inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
+ inwp_turb                    = 3   ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_satad                   = 1
+ inwp_sso                     = 1
+ inwp_gwd                     = 1
+ inwp_surface                 = 1
+ itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
+ dt_conv                      = ${dtconv}
+ dt_sso                       = ${dtconv}
+ dt_gwd                       = ${dtconv}
+ dt_rad                       = ${dtrad}
+ latm_above_top               = .TRUE.
+ efdt_min_raylfric            = 7200.
+/
+&lnd_nml
+ ntiles                       = 8       ! number of tiles
+ lana_rho_snow                = .TRUE.  ! true: initialization of rho_snow and depth_snow, false: set rho_snow to default value 
+ nlev_snow                    = 2       ! 2 for multi-level snow
+ lmulti_snow                  = .FALSE. ! true: multi-level snow, false: single-level snow
+ idiag_snowfrac               = 2
+ lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
+ lseaice                      = .true.
+/
+&radiation_nml
+ irad_o3                      = 7
+ irad_aero                    = 6
+ izenith                      = 4           ! 4: NWP default, 3: no annual cycle
+/
+&nonhydrostatic_nml
+ iadv_rhotheta                = 2
+ ivctype                      = 2
+ itime_scheme                 = 4
+ exner_expol                  = 0.333
+ vwind_offctr                 = 0.2
+ damp_height                  = 50000.
+ rayleigh_coeff               = 0.10
+ iadv_rcf                     = 5
+ lhdiff_rcf                   = .true.
+ divdamp_fac                  = 0.004
+ divdamp_order                = 4
+ l_open_ubc                   = .TRUE.
+ l_nest_rcf                   = .TRUE.
+ l_masscorr_nest              = .TRUE.
+ igradp_method                = 3
+ l_zdiffu_t                   = .TRUE.
+ thslp_zdiffu                 = 0.02
+ thhgtd_zdiffu                = 125.
+ htop_moist_proc              = 22500.
+ hbot_qvsubstep               = 24000.
+/
+&sleve_nml
+ min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
+ top_height                   = 75000.
+ stretch_fac                  = 0.9
+ decay_scale_1                = 4000.
+ decay_scale_2                = 2500.
+ decay_exp                    = 1.2
+ flat_height                  = 16000.
+/
+&dynamics_nml
+ iequations                   = 3
+ idiv_method                  = 1
+ divavg_cntrwgt               = 0.50
+ lcoriolis                    = .TRUE.
+/
+&transport_nml
+ ctracer_list                 = '12345'
+ ivadv_tracer                 = 3,3,3,3,3
+ itype_hlimit                 = 3,4,4,4,4,0
+ ihadv_tracer                 = 32,2,2,2,2,0
+/
+&diffusion_nml
+ hdiff_order                  = 5
+ itype_vn_diffu               = 1
+ itype_t_diffu                = 2
+ hdiff_efdt_ratio             = 17.5
+ hdiff_smag_fac               = 0.05
+ lhdiff_vn                    = .TRUE.
+ lhdiff_temp                  = .TRUE.
+ hdiff_multfac                = 1.0
+ hdiff_tv_ratio               = 1.0
+/
+&interpol_nml
+ nudge_zone_width             = 8
+ lsq_high_ord                 = 2
+ l_intp_c2l                   = .TRUE.
+ l_mono_c2l                   = .TRUE.
+/
+&gridref_nml
+ grf_intmethod_ct             = 2
+ grf_tracfbk                  = 2
+ denom_diffu_v                = 150.
+/
+&extpar_nml
+ itopo                        = 1
+ n_iter_smooth_topo           = 0
+ heightdiff_threshold         = 3000.
+/
+EOF
+
+ 
+#-----------------------------------------------------------------------------
+

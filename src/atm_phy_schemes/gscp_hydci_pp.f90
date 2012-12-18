@@ -246,6 +246,8 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
 
+USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b2i   => c3ies , & !!               -- " --
@@ -344,7 +346,8 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
 ! zcev  = 3.1E-3_ireals , & ! 2*PI*DIFF*HW*N0R*AR**(-1/2)
 ! zbev  = 9.0_ireals    , & ! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
   zcsmel= 1.48E-4_ireals, & ! 4*LHEAT*N0S*AS**(-2/3)/(RHO*lh_f)
-  zbsmel= 14.37_ireals  , & ! 0.26*sqrt(0.5*RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
+!FR old  zbsmel= 14.37_ireals  , & ! 0.26*sqrt(0.5*RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
+  zbsmel= 20.32_ireals  , & !        0.26*sqrt(    RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
   zasmel= 2.31E3_ireals , & ! DIFF*lh_v*RHO/LHEAT
   zcrfrz= 1.68_ireals   , & ! coefficient for raindrop freezing
   
@@ -493,12 +496,21 @@ SUBROUTINE hydci_pp_init(idbg)
 !------------------------------------------------------------------------------
 
 !!  mu_rain = 0.5  ! is a namelist parameter
+! FR new:
+#ifdef __ICON__
+  mu_rain = atm_phy_nwp_config(1)%mu_rain
+!  mu_snow = atm_phy_nwp_config(1)%mu_snow
+#endif
+
+
+
 
   zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
     * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
   ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
   ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
-  ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(0.5/zeta)
+!FR old:  ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(0.5/zeta)
+  ccsdep =         0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(1.0_ireals/zeta)
   ccsvxp = -(zv1s/(zbms+1.0_ireals)+1.0_ireals)
   ccsvel = zams*v0snow*gamma_fct(zbms+zv1s+1.0_ireals)&
     & *(zams*gamma_fct(zbms+1.0_ireals))**ccsvxp 
@@ -507,9 +519,11 @@ SUBROUTINE hydci_pp_init(idbg)
   ccslxp = 1.0_ireals / (zbms+1.0_ireals)
   ccswxp = zv1s*ccslxp
   ccsaxp = -(zv1s+3.0_ireals)
-  ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
+!FR old:  ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
+  ccsdxp = -(zv1s+1.0_ireals)/2.0_ireals
   ccshi1 = lh_s*lh_s/(zlheat*r_v)
-  ccdvtp = 2.11E-5 * t0**(-1.94) * 101325.0
+!FR old:  ccdvtp = 2.11E-5 * t0**(-1.94) * 101325.0
+  ccdvtp = 2.22E-5 * t0**(-1.94) * 101325.0
   ccidep = 4.0_ireals * zami**(-x1o3)
   zn0r   = 8e6 * EXP(3.2*mu_rain) * (0.01)**(-mu_rain)  ! empirical relation adapted from Ulbrich (1983)
 ! to tune the zn0r variable
@@ -519,8 +533,11 @@ SUBROUTINE hydci_pp_init(idbg)
   zcevxp = (mu_rain+2.)/(mu_rain+4.)
   zcev   = 2.0*pi*zdv/zhw*zn0r*zar**(-zcevxp) * gamma_fct(mu_rain+2.0)
   zbevxp = (2.*mu_rain+5.5_ireals)/(2.*mu_rain+8.)-zcevxp
-  zbev   = 0.26 * SQRT(0.5*zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
+! FR old:  zbev   = 0.26 * SQRT(0.5*zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
+!    &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
+  zbev   =          0.26 * SQRT(    zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
     &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
+
   zvzxp  = 0.5/(mu_rain+4.0)
   zvz0r  = 130.0_ireals*gamma_fct(mu_rain+4.5)/gamma_fct(mu_rain+4.0)*zar**(-zvzxp)
 

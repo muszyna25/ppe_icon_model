@@ -462,12 +462,16 @@ REAL(KIND=ireals), PARAMETER :: &
 
           ! Reduce the cloud cover of ice clouds in the upper troposphere
           ! for the diagnosis of clch and clct
+          ! Changed by FR from changes in corresponding COSMO module
 !         IF ((k <= klv500) .AND. (zclwcs <= 1.0E-10_ireals) .AND. &
           IF (                    (zclwcs <= 1.0E-10_ireals) .AND. &
                                   (zclics  > 0.0_ireals) ) THEN
-            clc_sgs(i,k) = clc_sgs(i,k)*MIN( 1._ireals, MAX(0.2_ireals, &
+! FR old    clc_sgs(i,k) = clc_sgs(i,k)*MIN( 1._ireals, MAX(0.2_ireals, &
+!                               ( LOG(zclics)       - LOG(1.E-7_ireals) )/ &
+!                               ( LOG(5.E-5_ireals) - LOG(1.E-7_ireals) )) )
+            clc_sgs(i,k) = clc_sgs(i,k)*MIN( 1._ireals, MAX(0.0_ireals, &
                                ( LOG(zclics)       - LOG(1.E-7_ireals) )/ &
-                               ( LOG(5.E-5_ireals) - LOG(1.E-7_ireals) )) )
+                               ( LOG(8.E-6_ireals) - LOG(1.E-7_ireals) )) )
           ENDIF
 
           ! set area-average cloud water/ice content

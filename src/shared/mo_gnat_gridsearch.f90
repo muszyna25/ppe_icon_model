@@ -63,8 +63,8 @@ MODULE mo_gnat_gridsearch
 
   USE mo_kind,                ONLY: wp, sp
   USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_math_constants,      ONLY: pi_180
   USE mo_math_utilities,      ONLY: t_geographical_coordinates
-  USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -72,11 +72,9 @@ MODULE mo_gnat_gridsearch
     &                               p_comm_work, my_process_is_mpi_test, p_max,           &
     &                               p_send, p_recv,                                       &
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
-  USE mo_parallel_config,     ONLY: p_test_run
-  USE mo_kind
-  USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
+
 
   IMPLICIT NONE
 
@@ -155,12 +153,15 @@ MODULE mo_gnat_gridsearch
   PUBLIC :: gnat_std_radius
   PUBLIC :: gnat_query_containing_triangles
   PUBLIC :: gnat_merge_distributed_queries
+  PUBLIC :: gnat_recursive_query
   ! data
   PUBLIC :: gk
   PUBLIC :: gnat_k
   PUBLIC :: t_gnat_tree, gnat_tree
   PUBLIC :: icoord_dim
   PUBLIC :: t_coord
+  PUBLIC :: UNASSOCIATED
+  PUBLIC :: MAX_RANGE
 
 CONTAINS
 
@@ -170,9 +171,12 @@ CONTAINS
     REAL(gk)                    :: dist
     TYPE (t_coord), INTENT(IN)  :: p1
     REAL(gk),       INTENT(IN)  :: p2(icoord_dim)
+    ! local variables
+    REAL(gk) :: val
 
     ! spherical distance:
-    dist = ACOS( p1%sin_p*SIN(p2(2)) + p1%cos_p*COS(p2(2))*COS(p1%p(1)-p2(1)) )
+    val = p1%sin_p*SIN(p2(2)) + p1%cos_p*COS(p2(2))*COS(p1%p(1)-p2(1))
+    dist = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
 
   END FUNCTION dist
 
@@ -182,9 +186,12 @@ CONTAINS
   PURE FUNCTION dist_p(p1, p2)
     REAL(gk)              :: dist_p
     REAL(gk), INTENT(IN)  :: p1(icoord_dim), p2(icoord_dim)
+    ! local variables
+    REAL(gk) :: val
 
     ! spherical distance:
-    dist_p = ACOS( SIN(p1(2))*SIN(p2(2)) + COS(p1(2))*COS(p2(2))*COS(p1(1)-p2(1)) )
+    val = SIN(p1(2))*SIN(p2(2)) + COS(p1(2))*COS(p2(2))*COS(p1(1)-p2(1))
+    dist_p = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
 
   END FUNCTION dist_p
 
@@ -199,14 +206,17 @@ CONTAINS
     REAL(gk)      , INTENT(INOUT)  :: pdist(gnat_k)
     INTEGER                        :: i
     REAL(gk)                       :: sin_p2, cos_p2
+    ! local variables
+    REAL(gk) :: val(n)
 
     sin_p2 = SIN(p2(2))
     cos_p2 = COS(p2(2))
 
     ! spherical distance:
     FORALL (i=1:n)
-      pdist(i) = ACOS((p1(i)%sin_p*sin_p2 +  &
-        &              p1(i)%cos_p*cos_p2*COS(p1(i)%p(1)-p2(1))))
+      val(i)   = (p1(i)%sin_p*sin_p2 +  &
+        &         p1(i)%cos_p*cos_p2*COS(p1(i)%p(1)-p2(1)))
+      pdist(i) = ACOS( MIN(1._gk, MAX(-1._gk, val(i))) )
     END FORALL
 
   END SUBROUTINE dist_vect
@@ -452,6 +462,8 @@ CONTAINS
     r = rr
     min_dist(:,istart:istart+iv-1)       = MAX_RANGE
     min_node_idx(:,istart:istart+iv-1,1) = INVALID_NODE
+    min_dist_old = 0._gk
+    p_old(:)     = 0._gk
 
     DO jb=istart, istart+iv-1
       ! set end index in current block:
@@ -504,11 +516,14 @@ CONTAINS
   !       interpolation purposes. Thus we insert only cells with
   !       "ref_ctrl" flags >= 2.
 
-  SUBROUTINE gnat_insert_mt(p_patch, nproc, count_dist)
+  SUBROUTINE gnat_insert_mt(p_patch, nproc, count_dist, &
+    &                       opt_ldegree, opt_startblk, opt_endblk)
 
     TYPE(t_patch), INTENT(IN)  :: p_patch
     INTEGER,       INTENT(IN)  :: nproc
     INTEGER,       INTENT(OUT) :: count_dist ! counter: distance calculations
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_ldegree
+    INTEGER, INTENT(IN), OPTIONAL :: opt_startblk, opt_endblk
 
     ! Local parameters
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_insert_mt")
@@ -541,9 +556,14 @@ CONTAINS
     rl_start = 2
     rl_end = min_rlcell_int
     
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)    
+    IF (PRESENT(opt_startblk) .AND. PRESENT(opt_endblk)) THEN
+      i_startblk = opt_startblk
+      i_endblk   = opt_endblk
+    ELSE
+      i_nchdom   = MAX(1,p_patch%n_childdom)
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)    
+    END IF
 
     count_dist = 1
 
@@ -551,20 +571,35 @@ CONTAINS
     ALLOCATE(cell_indices(3,p_patch%n_patch_cells), &
       &      permutation(p_patch%n_patch_cells),STAT=errstat)
     IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
+
     ntotal = 0
-    DO jb=i_startblk,i_endblk
-      CALL get_indices_c(p_patch, jb,  &
-        &                i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, &
-        &                rl_start, rl_end)
-      DO jc=i_startidx,i_endidx
-        IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
-        ntotal = ntotal + 1
-        cell_indices(1,ntotal) = jc
-        cell_indices(2,ntotal) = jb
-        cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+    IF (PRESENT(opt_startblk) .AND. PRESENT(opt_endblk)) THEN
+      DO jb=i_startblk,i_endblk
+        i_startidx = 1
+        i_endidx   = UBOUND(p_patch%cells%center,1) ! = nproma
+        IF (jb == i_endblk) i_endidx = p_patch%npromz_c
+        DO jc=i_startidx,i_endidx
+          ntotal = ntotal + 1
+          cell_indices(1,ntotal) = jc
+          cell_indices(2,ntotal) = jb
+          cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+        END DO
       END DO
-    END DO
+    ELSE
+      DO jb=i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb,  &
+          &                i_startblk, i_endblk, &
+          &                i_startidx, i_endidx, &
+          &                rl_start, rl_end)
+        DO jc=i_startidx,i_endidx
+          IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
+          ntotal = ntotal + 1
+          cell_indices(1,ntotal) = jc
+          cell_indices(2,ntotal) = jb
+          cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+        END DO
+      END DO
+    END IF
     icount = 0
 
     DO jb=1,nstrides
@@ -653,6 +688,7 @@ CONTAINS
           pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
           p(1,j)       = REAL( pcoord%lon, gk)
           p(2,j)       = REAL( pcoord%lat, gk)
+          IF (PRESENT(opt_ldegree)) p(:,j) = p(:,j)*pi_180
           idx(:,j)     = new_idx(:)
           work(j)      = work(j) + 1
           tree_depth   = MAX(tree_depth, depth(j))
@@ -844,9 +880,11 @@ CONTAINS
   ! (Possible) improvement for the future:
   ! - implementation of min/max range boundaries if not
   !   all grid points are of interest.
-  SUBROUTINE gnat_init_grid(p_patch)
+  SUBROUTINE gnat_init_grid(p_patch, opt_ldegree, opt_startblk, opt_endblk)
 
-    TYPE(t_patch), INTENT(IN)    :: p_patch
+    TYPE(t_patch), INTENT(IN)     :: p_patch
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_ldegree
+    INTEGER, INTENT(IN), OPTIONAL :: opt_startblk, opt_endblk
     ! local variables:
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_init_grid")
     INTEGER                      :: count_dist, nproc
@@ -865,7 +903,7 @@ CONTAINS
     expected_num_nodes = 5*p_patch%n_patch_cells/gnat_k + 1
 
     ! build GNAT data structure based on clon, clat:
-    CALL gnat_insert_mt(p_patch, nproc, count_dist)
+    CALL gnat_insert_mt(p_patch, nproc, count_dist, opt_ldegree, opt_startblk, opt_endblk)
 
   END SUBROUTINE gnat_init_grid
 
@@ -1039,12 +1077,15 @@ CONTAINS
   ! Performs a nearest-neighbor query for a given list of points and
   ! returns the indices and block indices of the mesh triangles that
   ! contain these points.
-  SUBROUTINE gnat_query_containing_triangles(p_patch, tree, v, iv_nproma, iv_nblks,  &
-    &                                        iv_npromz, tri_idx, min_dist)
+  SUBROUTINE gnat_query_containing_triangles(p_patch, tree, v, iv_nproma, iv_nblks,       &
+    &                                        iv_npromz, grid_sphere_radius, l_p_test_run, &
+    &                                        tri_idx, min_dist)
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
     INTEGER,  INTENT(IN)    :: tree                                ! tree root node (index)
     INTEGER,  INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz      ! list size
+    REAL(wp), INTENT(IN)    :: grid_sphere_radius
+    LOGICAL,  intent(IN)    :: l_p_test_run
     REAL(gk), INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim)  ! list of search points
     INTEGER,  INTENT(OUT)   :: tri_idx(2,iv_nproma, iv_nblks)      ! containing triangle (idx,block)
     REAL(gk), INTENT(OUT)   :: min_dist(iv_nproma, iv_nblks)       ! minimal distance
@@ -1099,7 +1140,7 @@ CONTAINS
       & /grid_sphere_radius, gk)
     ! for MPI-independent behaviour: determine global max. of search radii
     radius = p_max(radius, comm=p_comm_work)
-    IF(p_test_run) THEN
+    IF(l_p_test_run) THEN
       IF(.NOT. my_process_is_mpi_test()) THEN
         ! Send to test PE
         CALL p_send(radius, process_mpi_all_test_id, 1)

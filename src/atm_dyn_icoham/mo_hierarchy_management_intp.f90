@@ -299,7 +299,7 @@ IF ((grf_intmethod_e == 1) .OR. (grf_intmethod_e == 2)) THEN
 
 ELSE IF ((grf_intmethod_e == 3) .OR. (grf_intmethod_e == 4)) THEN
 
-  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, &
+  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1, &
                           p_parent_tend%vn, p_child_tend%vn)
 
 ENDIF

@@ -48,13 +48,15 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type
+                                     rayleigh_type, iadv_rcf
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
+  USE mo_gridref_config,    ONLY: grf_intmethod_e
+  USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_intp,              ONLY: cells2edges_scalar
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
@@ -62,7 +64,7 @@ MODULE mo_solve_nonhydro
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_gradients,    ONLY: grad_green_gauss_cell
-  USE mo_math_constants,    ONLY: pi
+  USE mo_math_constants,    ONLY: pi, dbl_eps
   USE mo_math_divrot,       ONLY: div, rot_vertex, div_avg
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_nh_init_utils,     ONLY: nflatlev
@@ -511,20 +513,26 @@ MODULE mo_solve_nonhydro
   !! Based on the initial release of divergent_modes by Almut Gassmann (2009-05-12)
   !! Modified by Guenther Zaengl starting on 2010-02-03
   !!
-  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, nnow, nnew, l_init, l_recompute, &
-                       linit_vertnest, l_bdy_nudge, dtime)
+  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, mflx_avg, nnow, nnew, l_init, l_recompute, &
+                       lsave_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
     TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
     TYPE(t_buffer_memory),     INTENT(INOUT) :: bufr
 
+    REAL(wp), INTENT(IN)                     :: mflx_avg(:,:,:)
+
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
     LOGICAL,                   INTENT(INOUT) :: l_init
     ! Switch to recompute velocity tendencies after a physics call irrespective of the time scheme option
     LOGICAL,                   INTENT(IN)    :: l_recompute
-    ! Initialization switch set in dynamics_integration
-    LOGICAL,                   INTENT(IN)    :: linit_vertnest(2)
+    ! Switch if mass flux needs to be saved for nest boundary interpolation tendency computation
+    LOGICAL,                   INTENT(IN)    :: lsave_mflx
+    ! Counter of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
+    INTEGER,                   INTENT(IN)    :: idyn_timestep
+    ! Time step count since last boundary interpolation (ranges from 0 to 2*iadv_rcf-1)
+    INTEGER,                   INTENT(IN)    :: jstep
     ! Switch to determine if boundary nudging is executed
     LOGICAL,                   INTENT(IN)    :: l_bdy_nudge
     ! Time levels
@@ -578,11 +586,13 @@ MODULE mo_solve_nonhydro
                 z_theta_v_pr_ic (nproma,p_patch%nlevp1),          &
                 z_w_concorr_mc  (nproma,p_patch%nlev  ),          &
                 z_thermal_exp   (nproma,p_patch%nblks_c),         &
+                z_mflx_top      (nproma,p_patch%nblks_c),         &
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp
-    INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim, &
+               dt_shift, bdy_divdamp
+    INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
     ! Local variables to control vertical nesting
@@ -657,6 +667,12 @@ MODULE mo_solve_nonhydro
       scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
         & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
     ENDIF
+
+    ! Time increment for backward-shifting of lateral boundary mass flux 
+    dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
+
+    ! Coefficient for reduced fourth-order divergence damping along nest boundaries
+    bdy_divdamp = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp)
 
     ! Set pointer to velocity field that is used for mass flux computation
     IF (idiv_method == 1) THEN
@@ -963,7 +979,8 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
 
-      ! rho and theta at top level (fields are interpolated from parent domain in case of vertical nesting)
+      ! rho and theta at top level (in case of vertical nesting, upper boundary conditions 
+      !                             are set in the vertical solver loop)
       IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
         DO jc = i_startidx, i_endidx
           p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
@@ -977,13 +994,6 @@ MODULE mo_solve_nonhydro
             p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nvar)%rho(jc,1,jb) +  &
             p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
             p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
-        ENDDO
-      ELSE IF (l_vert_nested) THEN
-        DO jc = i_startidx, i_endidx
-          p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
-            p_nh%diag%dtheta_v_ic_ubc(jc,jb)
-          p_nh%diag%rho_ic(jc,1,jb)     = p_nh%diag%rho_ic(jc,2,jb) +    &
-            p_nh%diag%drho_ic_ubc(jc,jb)
         ENDDO
       ENDIF
 
@@ -1013,22 +1023,6 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDIF
 
-        ! Store values at nest interface levels
-        IF (linit_vertnest(1) .AND. l_child_vertnest) THEN
-          DO jc = i_startidx, i_endidx
-            p_nh%diag%drho_ic_int    (jc,jb) = p_nh%diag%rho_ic(jc,nshift,jb)     - &
-                                               p_nh%diag%rho_ic(jc,nshift+1,jb)
-            p_nh%diag%dtheta_v_ic_int(jc,jb) = p_nh%diag%theta_v_ic(jc,nshift,jb) - &
-                                               p_nh%diag%theta_v_ic(jc,nshift+1,jb)
-          ENDDO
-        ENDIF
-        IF (linit_vertnest(2) .AND. l_child_vertnest) THEN
-          DO jc = i_startidx, i_endidx
-            p_nh%diag%dw_int(jc,jb) = p_nh%prog(nnow)%w(jc,nshift,jb)    - &
-                                      p_nh%prog(nnow)%w(jc,nshift+1,jb)
-          ENDDO
-        ENDIF
-
       ENDIF ! istep == 1
 
     ENDDO
@@ -1050,7 +1044,7 @@ MODULE mo_solve_nonhydro
                            i_startidx, i_endidx, rl_start, rl_end)
 
         ! Store values at nest interface levels
-        IF (linit_vertnest(1) .AND. l_child_vertnest) THEN
+        IF (idyn_timestep == 1 .AND. l_child_vertnest) THEN
           DO je = i_startidx, i_endidx
             p_nh%diag%dvn_ie_int(je,jb) = p_nh%diag%vn_ie(je,nshift,jb) - &
                                           p_nh%diag%vn_ie(je,nshift+1,jb)
@@ -1263,6 +1257,17 @@ MODULE mo_solve_nonhydro
                 + scal_divdamp*z_graddiv_vn(je,jk,jb)
             ENDDO
           ENDDO
+        ELSE IF (divdamp_order == 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
+          ! fourth-order divergence damping with reduced damping coefficient along nest boundary
+          ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
+          ! damping along nest boundaries is beneficial because this reduces the interference
+          ! with the increased diffusion applied in nh_diffusion)
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                       &
+                + (scal_divdamp+bdy_divdamp*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk,jb)
+            ENDDO
+          ENDDO
         ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
@@ -1373,13 +1378,16 @@ MODULE mo_solve_nonhydro
       ENDIF
       IF (istep == 1) THEN
         IF (idiv_method == 1) THEN
-          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned)
+          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned, &
+            & name="solve_step1_vn")
         ELSE
           CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, z_theta_v_e, &
-            & p_patch%sync_edges_not_owned)
+            & p_patch%sync_edges_not_owned, &
+            & name="solve_step1_vn")
         ENDIF
       ELSE
-        CALL icon_comm_sync(p_nh%prog(nnew)%vn, p_patch%sync_edges_not_owned)
+        CALL icon_comm_sync(p_nh%prog(nnew)%vn, p_patch%sync_edges_not_owned, &
+            & name="solve_step2_vn")
       ENDIF
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)
@@ -1705,8 +1713,35 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
 
+      IF (lsave_mflx) THEN
+        p_nh%diag%mass_fl_e_sv(i_startidx:i_endidx,:,jb) = p_nh%diag%mass_fl_e(i_startidx:i_endidx,:,jb)
+      ENDIF
+
     ENDDO
+!$OMP END DO
+
+    IF (p_patch%id > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
+!$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
+        je = p_nh%metrics%bdy_mflx_e_idx(ic)
+        jb = p_nh%metrics%bdy_mflx_e_blk(ic)
+
+        IF (jstep == 0) THEN
+          DO jk = 1, nlev
+            p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
+            p_nh%diag%grf_bdy_mflx(jk,ic,1) = mflx_avg(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+          ENDDO
+        ENDIF
+
+        DO jk = 1, nlev
+          p_nh%diag%mass_fl_e(je,jk,jb) = p_nh%diag%grf_bdy_mflx(jk,ic,1) + &
+            REAL(jstep,wp)*dtime*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+          z_theta_v_fl_e(je,jk,jb) = p_nh%diag%mass_fl_e(je,jk,jb) * z_theta_v_e(je,jk,jb)
+        ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
+    ENDIF
+
 !$OMP END PARALLEL
 
 
@@ -1733,13 +1768,36 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,    &
-!$OMP            z_exner_expl,z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,&
-!$OMP z_raylfac) ICON_OMP_DEFAULT_SCHEDULE
+    IF (l_vert_nested) THEN
+      jk_start = 2
+    ELSE
+      jk_start = 1
+    ENDIF
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,   &
+!$OMP            z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,z_w_lim) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
+
+      ! upper boundary conditions for rho_ic and theta_v_ic in the case of vertical nesting
+      IF (l_vert_nested .AND. istep == 1) THEN
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
+            p_nh%diag%dtheta_v_ic_ubc(jc,jb)
+          z_mflx_top(jc,jb)             = p_nh%diag%mflx_ic_ubc(jc,jb,1) + &
+            REAL(jstep,wp)*dtime*p_nh%diag%mflx_ic_ubc(jc,jb,2)
+          p_nh%diag%rho_ic(jc,1,jb) =  0._wp ! not used in dynamical core in this case, will be set for tracer interface later
+        ENDDO
+      ELSE IF (l_vert_nested .AND. istep == 2) THEN
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
+            p_nh%diag%dtheta_v_ic_ubc(jc,jb)
+          z_mflx_top(jc,jb)             = p_nh%diag%mflx_ic_ubc(jc,jb,1) + &
+            (REAL(jstep,wp)+0.5_wp)*dtime*p_nh%diag%mflx_ic_ubc(jc,jb,2)
+        ENDDO
+      ENDIF
 
       IF (istep == 2 .AND. (itime_scheme >= 4)) THEN
 !CDIR UNROLL=5
@@ -1825,8 +1883,7 @@ MODULE mo_solve_nonhydro
         z_contr_w_fl_l(:,1)       = 0._wp
       ELSE  ! l_vert_nested
         DO jc = i_startidx, i_endidx
-          z_contr_w_fl_l(jc,1) = p_nh%diag%rho_ic(jc,1,jb)*p_nh%prog(nnow)%w(jc,1,jb)   &
-            * p_nh%metrics%vwind_expl_wgt(jc,jb)
+          z_contr_w_fl_l(jc,1) = z_mflx_top(jc,jb) * p_nh%metrics%vwind_expl_wgt(jc,jb)
         ENDDO
       ENDIF
 
@@ -1922,7 +1979,7 @@ MODULE mo_solve_nonhydro
       ENDIF
 
       ! Results
-      DO jk = 1, nlev
+      DO jk = jk_start, nlev
         DO jc = i_startidx, i_endidx
 
           ! density
@@ -1950,6 +2007,44 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
 
+      ! Special treatment of uppermost layer in the case of vertical nesting
+      IF (l_vert_nested) THEN
+        DO jc = i_startidx, i_endidx
+
+          ! density
+          p_nh%prog(nnew)%rho(jc,1,jb) = z_rho_expl(jc,1)                             &
+            - p_nh%metrics%vwind_impl_wgt(jc,jb)*dtime                                &
+            * p_nh%metrics%inv_ddqz_z_full(jc,1,jb)                                   &
+            *(z_mflx_top(jc,jb) - p_nh%diag%rho_ic(jc,2,jb)*p_nh%prog(nnew)%w(jc,2,jb))
+
+          ! exner
+          p_nh%prog(nnew)%exner(jc,1,jb) = z_exner_expl(jc,1)                  &
+            + p_nh%metrics%exner_ref_mc(jc,1,jb)-z_beta(jc,1)                  &
+            *(p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%diag%theta_v_ic(jc,1,jb) &
+            * z_mflx_top(jc,jb) - z_alpha(jc,2)*p_nh%prog(nnew)%w(jc,2,jb))
+
+          ! rho*theta
+          p_nh%prog(nnew)%rhotheta_v(jc,1,jb) = p_nh%prog(nnow)%rhotheta_v(jc,1,jb)   &
+            *( (p_nh%prog(nnew)%exner(jc,1,jb)/p_nh%prog(nnow)%exner(jc,1,jb)-1.0_wp) &
+            *   cvd_o_rd+1.0_wp)
+
+          ! theta
+          p_nh%prog(nnew)%theta_v(jc,1,jb) = &
+            p_nh%prog(nnew)%rhotheta_v(jc,1,jb)/p_nh%prog(nnew)%rho(jc,1,jb)
+
+        ENDDO
+      ENDIF
+
+      IF (istep == 2 .AND. l_vert_nested) THEN
+        ! Rediagnose appropriate rho_ic(jk=1) for tracer transport
+        DO jc = i_startidx, i_endidx
+          z_w_lim = p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,1,jb) + &
+                    p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,1,jb)
+          z_w_lim = SIGN(MAX(1.e-6_wp,ABS(z_w_lim)),z_w_lim)
+          p_nh%diag%rho_ic(jc,1,jb) = z_mflx_top(jc,jb)/z_w_lim
+        ENDDO
+      ENDIF
+
       IF (istep == 2) THEN
         ! store dynamical part of exner time increment in exner_dyn_incr
         ! the conversion into a temperature tendency is done in the NWP interface
@@ -1959,6 +2054,23 @@ MODULE mo_solve_nonhydro
               p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%diag%exner_old(jc,jk,jb) -   &
               dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb)
           ENDDO
+        ENDDO
+      ENDIF
+
+      IF (istep == 2 .AND. l_child_vertnest) THEN
+        ! Store values at nest interface levels
+        DO jc = i_startidx, i_endidx
+
+          p_nh%diag%dw_int(jc,jb,idyn_timestep) =                                         &
+            0.5_wp*(p_nh%prog(nnow)%w(jc,nshift,jb)   + p_nh%prog(nnew)%w(jc,nshift,jb) - &
+                   (p_nh%prog(nnow)%w(jc,nshift+1,jb) + p_nh%prog(nnew)%w(jc,nshift+1,jb)))
+
+          p_nh%diag%mflx_ic_int(jc,jb,idyn_timestep) = p_nh%diag%rho_ic(jc,nshift,jb) * &
+            (p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,nshift,jb) + &
+             p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,nshift,jb))
+
+          p_nh%diag%dtheta_v_ic_int(jc,jb,idyn_timestep) = p_nh%diag%theta_v_ic(jc,nshift,jb) - &
+            p_nh%diag%theta_v_ic(jc,nshift+1,jb)
         ENDDO
       ENDIF
 
@@ -2007,6 +2119,13 @@ MODULE mo_solve_nonhydro
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
+          p_nh%diag%rho_ic(jc,1,jb) =  0.5_wp*(                              &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnow)%rho(jc,2,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnow)%rho(jc,3,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnew)%rho(jc,1,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnew)%rho(jc,2,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnew)%rho(jc,3,jb) )
         ENDDO
       ENDDO
 !OMP END DO
@@ -2087,11 +2206,13 @@ MODULE mo_solve_nonhydro
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
       IF (istep == 1) THEN ! Only w is updated in the predictor step
-        CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned)
+        CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned, &
+            & name="solve_step1_w")
       ELSE IF (istep == 2) THEN
         ! Synchronize all prognostic variables
         CALL icon_comm_sync(p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w, &
-          & p_patch%sync_cells_not_owned)
+          & p_patch%sync_cells_not_owned, &
+          & name="solve_step2_w")
       ENDIF
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)

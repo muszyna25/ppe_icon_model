@@ -39,10 +39,13 @@ MODULE mo_atmo_hydrostatic
 
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
-  USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev, &
-    & msg_level, output_mode
+  USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer, iforcing, nlev, &
+    &                             msg_level, output_mode, ntracer, iqc, iqi, iqr, iqs
+  USE mo_dynamics_config,   ONLY: iequations
+  USE mo_advection_config,  ONLY: configure_advection
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios,lwrite_initial
+  USE mo_grid_config,       ONLY: n_dom
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state
@@ -81,9 +84,7 @@ CONTAINS
     LOGICAL :: l_have_output
     INTEGER :: n_io, n_file, n_diag, n_chkpt
     INTEGER :: jfile
-#ifndef NOMPI
     INTEGER :: jg
-#endif
 
     CHARACTER(*), PARAMETER :: routine = "atmo_hydrostatic"
 
@@ -93,6 +94,21 @@ CONTAINS
     !------------------------------------------------------------------
 
     CALL prepare_ha_dyn( p_patch(1:) )
+
+
+    ! Due to the required ability to overwrite advection-Namelist settings 
+    ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called 
+    ! AFTER the ha_state is craeted. Otherwise, potential modifications of the 
+    ! advection-Namelist can not be taken into account properly.
+    ! Unfortunatley this conflicts with our trying to call the config-routines 
+    ! as early as possible. Input variables which are usually provided by 
+    ! nonhydrostatic_nml are set to default values. 
+    DO jg =1,n_dom
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,   &
+       &                      iequations, iforcing, iqc, iqi, iqr, iqs, &
+       &                      1, 0, .FALSE., .FALSE., ntracer           ) 
+    ENDDO
+
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL prepare_echam_phy( p_patch(1:), ltestcase, ctest_name, &
@@ -104,7 +120,7 @@ CONTAINS
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
     ! Here constant values are also initialized,
-    ! such as anayltical topography.
+    ! such as analytical topography.
     ! It should be caleed even in reastart mode
     CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
                         & p_grf_state(1:), p_hydro_state )

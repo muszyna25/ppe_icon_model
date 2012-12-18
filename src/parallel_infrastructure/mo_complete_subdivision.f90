@@ -1065,7 +1065,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
 
-    INTEGER :: j, n, jc, je, jb, jp, p_index_s, p_index_e, i_chidx
+    INTEGER :: j, n, jc, js, jl, je, jb, jp, p_index_s, p_index_e, i_chidx
     INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
     INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
 
@@ -1249,9 +1249,31 @@ CONTAINS
         jb = blk_no(j)
         jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
         IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-        IF(p_patch%edges%pc_idx(je,jb) /= n) CYCLE
+        IF(p_patch%edges%pc_idx(je,jb) /= n .OR. p_patch%edges%refin_ctrl(je,jb) > grf_bdywidth_e) CYCLE
         glb_index(j) = jp
         owner(j) = p_parent_patch%edges%owner_g(jp)
+      ENDDO
+
+
+      ! include halo edges for nest boundary points in order to avoid extra synchronization
+      js = idx_1d(p_patch%edges%start_idx(min_rledge_int-1,1), &
+        &         p_patch%edges%start_blk(min_rledge_int-1,1))
+      je = idx_1d(p_patch%edges%end_idx(min_rledge_int-2,1), &
+        &         p_patch%edges%end_blk(min_rledge_int-2,1))
+
+! GZ: this loop is not vectorized properly, probably because the nested IF clauses are merged
+!     in an incorrect way. As the runtime cost of this loop is negligible, we just turn off vectorization
+!CDIR NOVECTOR
+      DO j = js, je
+        jb = blk_no(j) ! Block index
+        jl = idx_no(j) ! Line  index
+        IF (p_patch%edges%refin_ctrl(jl,jb) > 0 .AND. p_patch%edges%refin_ctrl(jl,jb) <= grf_bdywidth_e ) THEN
+          jp = idx_1d(p_patch%edges%parent_idx(jl,jb),p_patch%edges%parent_blk(jl,jb))
+          IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
+          IF(p_patch%edges%pc_idx(jl,jb) /= n) CYCLE
+          glb_index(j) = jp
+          owner(j) = p_parent_patch%edges%owner_g(jp)
+        ENDIF
       ENDDO
 
       ! Set up communication pattern

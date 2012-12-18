@@ -72,12 +72,14 @@ MODULE mo_lnd_nwp_nml
     &                            config_itype_heatcond => itype_heatcond, &
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
-    &                            config_lsnowtile      => lsnowtile
+    &                            config_lsnowtile      => lsnowtile     , &
+    &                            config_sstice_mode  => sstice_mode
 
   IMPLICIT NONE
 
   PRIVATE
-
+! Variable to set the sst and seaice fraction mode      
+  INTEGER ::  sstice_mode
 !> Action Variables for physical schemes
 ! --------------------------------------
   INTEGER ::  nlev_snow         !< number of snow layers
@@ -127,7 +129,8 @@ MODULE mo_lnd_nwp_nml
     &               l2tls                                     , & 
     &               lana_rho_snow                             , & 
     &               itype_subs                                , &
-    &               lsnowtile
+    &               lsnowtile                                 , &
+    &               sstice_mode
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -164,6 +167,10 @@ MODULE mo_lnd_nwp_nml
     !-----------------------
     ! 1. default settings   
     !-----------------------
+
+    sstice_mode  = 1       ! forecast mode, sst and sea ice fraction is read from 
+                             !  the analysis, sst ist kept constant, sea ice fraction
+                             !  is modified by the sea ice model
 
     nlev_snow      = 1       ! 0 = default value for number of snow layers
     ntiles         = 1       ! 1 = default value for number of static surface types
@@ -231,6 +238,7 @@ MODULE mo_lnd_nwp_nml
     ENDIF
 
 
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -260,6 +268,7 @@ MODULE mo_lnd_nwp_nml
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
       config_lsnowtile   = lsnowtile
+      config_sstice_mode   = sstice_mode
     ENDDO
 
     !-----------------------------------------------------

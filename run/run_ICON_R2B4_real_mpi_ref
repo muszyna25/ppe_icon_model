@@ -1,0 +1,405 @@
+#! /bin/ksh
+#-----------------------------------------------------------------------------
+#
+# Jochen Foerstner, DWD, November 2008
+#
+#-----------------------------------------------------------------------------
+#
+# NEC@DWD
+#
+#PBS -q normal
+#PBS -j o
+#PBS -l cpunum_job=4
+#PBS -b 4
+#PBS -T mpisx
+#PBS -l elapstim_req=1440
+#PBS -m n
+#-----------------------------------------------------------------------------
+#
+
+set -x
+
+#
+# set number of threads for OpenMP parallelization
+#     and other OpenMP environment variables
+#
+export OMP_NUM_THREADS=1
+export ICON_THREADS=${OMP_NUM_THREADS}
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+
+export MPIMULTITASKMIX=ON
+
+NODES=4        # muss gleich -b sein
+NMPITASKS=4   # MPI tasks pro Knoten (muss multipliziert mit OMP_NUM_THREADS gleich cpunum_job sein)
+
+export NC_BLOCKSIZE=128mb
+#
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n ${PBS_O_WORKDIR} ]] ; then
+  cd ${PBS_O_WORKDIR}
+fi
+export F_PROGINF=DETAIL
+export F_NORCW=65535
+
+export MPIPROGINF=yes
+export MPIPROGINF=ALL_DETAIL
+
+export MPIEXPORT="MPIPROGINF F_PROGINF NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC F_NORCW"
+
+
+#
+# determine base directory
+dir=$(pwd -P)
+basedir=${dir%/*}
+#
+# determine architecture
+#arch=$(${basedir}/config/config.guess)
+arch=sx9-nec-superux-sx9mpidebug
+arch=x86_64-unknown-linux-gnu
+#
+#-----------------------------------------------------------------------------
+#
+# experiment identifier (replace III with your initials and EEEE by a four 
+# digit number for the current experiment and  TTTT  by some text).
+# EXP=IIIEEEETTTT (see as well above for the job names)
+#
+EXP="NWPcoarse"  # experiment identifier
+EDIR="test_nwp"  # working directory
+IDIR="GRF_R2B4P3" # input directory
+EXTPDIR="Extpar_R2B4" # external parameter directory
+#
+WORK_DIR=${basedir}
+#
+# absolute path to directory with job scripts:
+SCRIPTDIR=${WORK_DIR}/run
+#
+# absolute path to directory with plenty of space:
+EXPDIR=$WORK_DIR/experiments/${EDIR}
+#
+# absolute path to input directory
+INDIR=$WORK_DIR/grids
+#
+# absolute path to external parameter directory
+EXTPARDIR=$WORK_DIR/grids
+#
+# absolute path to model binary, including the executable
+MODEL=${WORK_DIR}/build/${arch}/bin/control_model
+
+#
+#-----------------------------------------------------------------------------
+#
+
+set +x
+
+#
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+#
+cd $EXPDIR
+#
+
+ln -sf $INDIR/iconR2B03_DOM00.nc iconR2B03_DOM00.nc
+ln -sf $INDIR/iconR2B04_DOM01.nc iconR2B04_DOM01.nc
+
+ln -sf $EXTPARDIR/extpar_R2B04_DOM01.nc extpar_iconR2B04_DOM01.nc
+
+ln -sf $INDIR/icon_ifs_T255_2011010100_hori_R2B04_P3.nc ifs2icon_R2B04_DOM01.nc
+
+# files needed for radiation
+cp $INDIR/ECHAM6_CldOptProps.nc .
+cp $INDIR/rrtmg_lw.nc .
+
+#-----------------------------------------------------------------------------
+#
+
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXP}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2011-01-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr 5 \* 240`
+#
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm.,
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#-----------------------------------------------------------------------------
+# the grid parameters
+atmo_dyn_grids="iconR2B04_DOM01.nc"
+atmo_rad_grids="iconR2B03_DOM00.nc"
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+# model timing
+dtime=240
+ndays=1
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+nsteps=10
+
+
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart               = .false.
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ dt_restart          = $dt_restart
+/
+&master_model_nml
+  model_type=1
+  model_name="ATMO"
+  model_namelist_filename="$atmo_namelist"
+  model_restart_info_filename=""
+  model_min_rank=1
+  model_max_rank=65536
+  model_inc_rank=1
+/
+EOF
+
+#-----------------------------------------------------------------------------
+#
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+
+# ------------------------
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma         = 8
+ p_test_run     = .false.
+ l_test_openmp  = .true.
+ l_log_checks   = .true.
+ num_io_procs   = 0
+ iorder_sendrecv = 1
+ itype_comm = 1
+ itype_exch_barrier = 0
+ exch_msgsize = 16384
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename  = ${dynamics_grid_filename}
+ radiation_grid_filename = ${radiation_grid_filename}
+! radiation_grid_filename = ' '
+ dynamics_parent_grid_id = 0,1
+ lredgrid_phys           = .true.,.true.
+! lredgrid_phys           = .false.,.false.
+ lfeedback               = .true.
+/
+&prepicon_nml
+  i_oper_mode = 3           ! operation mode
+  nlev_in     = 91          ! number of levels of input data
+  zpbl1       = 500. 
+  zpbl2       = 1000. 
+  l_zp_out    = .true.
+  l_w_in      = .true.
+  l_sfc_in    = .true.
+/
+&nh_testcase_nml
+ nh_test_name   = 'jabw_m'     ! test case identifier
+! nh_test_name   = 'mrw_nh'
+ rh_at_1000hpa  = 0.99
+ qv_max         = 35.e-3
+ mount_height   = 7500.
+/
+&io_nml
+ out_expname    = '${EXP}'   ! file name base
+ dt_data  = 43200.           ! [hr] output interval
+ dt_file  = 86400. !  432000.
+ dt_diag  = 1728000.
+ dt_checkpoint = 4320000.
+ lwrite_tend_phy = .false.
+ lwrite_radiation = .TRUE.
+ lwrite_precip = .TRUE.
+ lwrite_cloud = .false.
+ lwrite_tke = .TRUE.
+ lwrite_surface  = .TRUE.
+/
+&output_nml
+ dom                          =  -1                        ! write all domains
+ output_time_unit             =   1                        ! 1: seconds
+ output_bounds                =  0., 10000000., ${dtime}.  ! start, end, increment
+ steps_per_file               =  2
+ include_last                 =  .TRUE.
+ output_filename              = '${EXP}'                ! file name base
+ ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'tke', 'pres_sfc', 'group:precip_vars', 'group:pbl_vars', 'group:land_vars', 'group:multisnow_vars'
+ output_grid                  =  .TRUE.
+/
+&nh_pzlev_nml
+ nplev                        = 20
+ plevels                      = 4000., 5000., 7000., 10000., 15000., 20000., 25000., 30000., 40000., 50000., 60000., 70000., 75000., 80000., 85000., 87500., 90000., 92500., 95000., 100000.
+/
+&output_nml
+ dom                          =   1
+ output_time_unit             =   1                        ! 1: seconds
+ output_bounds                =  0., 10000000., ${dtime}.  ! start, end, increment
+ steps_per_file               =  2
+ include_last                 =  .TRUE.
+ output_filename              =  '${EXP}'                ! file name base
+ pl_varlist                   =  'u', 'v', 'temp', 'gh', 'geopot'
+ hl_varlist                   = 'pres'
+ output_grid                  =  .TRUE.
+/
+&run_nml
+ num_lev  = 90,
+ lvert_nest = .true.
+ nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
+ dtime          = ${dtime}     ! timestep in seconds
+ ldynamics      = .TRUE.       ! dynamics
+ ltransport     = .true.
+ ntracer        = 5            ! default: 0
+ iforcing       = 3            ! NWP forcing
+ ltestcase      = .false.      ! false: run with real data
+ msg_level      = 12           ! detailed report during integration
+ ltimer         = .false.
+ timers_level = 0
+ ldump_states   = .false.
+ lrestore_states= .false.
+ output         =  "nml"
+/
+&nwp_phy_nml
+inwp_gscp       = 10
+inwp_convection = 1
+inwp_radiation  = 1
+inwp_cldcover   = 3
+inwp_turb       = 1
+inwp_satad      = 1
+inwp_sso        = 1
+inwp_gwd        = 1
+inwp_surface    = 1
+latm_above_top  = .false.,.true.
+efdt_min_raylfric = 7200.
+itype_z0         = 2
+/
+&lnd_nml
+ntiles   = 3
+nlev_snow = 2
+lmulti_snow = .true.
+idiag_snowfrac = 2
+lsnowtile    = .true.
+lseaice      = .true.
+/
+&turbdiff_nml
+tkhmin  = 0.2
+tkmmin  = 0.2
+rat_sea =  10.0
+/
+&radiation_nml
+ irad_o3    = 7
+ irad_aero  = 6        ! areosols
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ ivctype       = 2
+ itime_scheme   = 4
+ exner_expol = 0.63
+ vwind_offctr = 1.0
+ damp_height = 55000.
+ rayleigh_coeff = 0.02
+ iadv_rcf = 4
+ l_open_ubc    = .true.
+ l_nest_rcf   = .true.
+ l_masscorr_nest = .true.
+ igradp_method = 3
+ lhdiff_rcf   = .true.
+ divdamp_fac  = 0.004
+ l_zdiffu_t    = .true.
+ thslp_zdiffu   = 0.02
+ thhgtd_zdiffu  = 125.
+ htop_moist_proc = 22500.
+ hbot_qvsubstep  = 24000.
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ top_height      = 90000.
+ stretch_fac     = 0.85
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.
+/
+&dynamics_nml
+ iequations     = 3
+ idiv_method    = 1
+ divavg_cntrwgt = 0.50
+ lcoriolis      = .TRUE.
+/
+&transport_nml
+  ctracer_list  = '12345'
+ ivadv_tracer  = 3,3,3,3,3
+ itype_hlimit = 3,4,4,4,4,0
+ ihadv_tracer  = 32,2,2,2,2,0
+/
+&diffusion_nml
+ hdiff_order      = 5
+ hdiff_efdt_ratio = 10.0
+ hdiff_smag_fac   = 0.15
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&interpol_nml
+nudge_zone_width  = 8
+/
+&gridref_nml
+ grf_intmethod_ct = 2
+ grf_tracfbk      = 2
+ denom_diffu_v    = 150.
+/
+&extpar_nml
+ itopo          = 1
+ n_iter_smooth_topo = 0
+ heightdiff_threshold = 3000.
+/
+EOF
+
+#
+#cp -p $MODEL ./icon.exe
+#mpirun -nn $NODES -nnp $NMPITASKS ./icon.exe
+mpiexec -n $NODES $MODEL
+
+#
+#-----------------------------------------------------------------------------
+#
+exit
+#
+#-----------------------------------------------------------------------------

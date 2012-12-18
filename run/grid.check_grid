@@ -66,7 +66,7 @@ echo $command  iconR2B0${level}-base.nc \"$latex_file\" > $commandFile
 #${run_commmand}
 #-----------------------------------------------------------------------------
 cd ${basedir}/grids
-echo $command  iconR2B0${level}-grid_spr0.90.nc \"$latex_file\" > $commandFile
+echo $command  iconR2B0${level}-grid.nc \"$latex_file\" > $commandFile
 ${run_commmand}
 #-----------------------------------------------------------------------------
 # cd ${basedir}/grids

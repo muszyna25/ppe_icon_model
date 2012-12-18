@@ -80,7 +80,7 @@ MODULE mo_gridref
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_grid,               ONLY: t_grid,                                  &
        &                           t_grid_cells, t_grid_vertices, t_grid_edges
-  USE mo_base_geometry,      ONLY: gvec2cvec, t_cartesian_coordinates,      &
+  USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates,      &
        &                           gc2cc, arc_length
   USE mo_grid_levels,        ONLY: nf, check_orientation
   USE mo_math_utilities,     ONLY: rotate_latlon

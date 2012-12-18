@@ -35,14 +35,14 @@ MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish
   USE mo_io_units,           ONLY: filename_max
-!   USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
   PRIVATE
   ! Exported variables:
   PUBLIC :: nproma, openmp_threads
-  PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
+!   PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
   PUBLIC :: parallel_radiation_mode, test_parallel_radiation
 
   PUBLIC :: n_ghost_rows,                                     &
@@ -55,7 +55,10 @@ MODULE mo_parallel_config
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
-       &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier
+       &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
+       &  redrad_split_factor
+  PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
+       & ext_div_medial_redrad_cluster, ext_div_from_file
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -73,10 +76,16 @@ MODULE mo_parallel_config
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
+  INTEGER, PARAMETER :: ext_div_medial = 101
+  INTEGER, PARAMETER :: ext_div_medial_cluster = 102
+  INTEGER, PARAMETER :: ext_div_medial_redrad = 103
+  INTEGER, PARAMETER :: ext_div_medial_redrad_cluster = 104
+  INTEGER, PARAMETER :: ext_div_from_file = 201
 
-  INTEGER :: division_method = 1
-  CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
-  CHARACTER(LEN=filename_max) :: radiation_division_file_name ! if parallel_radiation_mode = 1
+  INTEGER :: division_method(0:max_dom) = 1
+  CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if div_from_file
+  CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
+  INTEGER :: redrad_split_factor = 6
 
   ! Flag if (in case of merged domains) physical domains shall be considered for 
   ! computing the domain decomposition
@@ -106,8 +115,8 @@ MODULE mo_parallel_config
   ! only 1 thread. This allows for verifying the OpenMP implementation
   LOGICAL :: l_test_openmp = .false.
 
-  LOGICAL :: parallel_radiation_omp = .false.
-  INTEGER :: parallel_radiation_mode = 0
+!   LOGICAL :: parallel_radiation_omp = .false.
+  INTEGER :: parallel_radiation_mode(max_dom) = 0
   LOGICAL :: test_parallel_radiation = .false.
 
   LOGICAL :: use_icon_comm = .false.
@@ -145,8 +154,8 @@ MODULE mo_parallel_config
   ! maximum message size if iorder_sendrecv = 4
   INTEGER :: exch_msgsize = 8192 ! 64 KB with REAL*8
 
-  INTEGER :: radiation_ompthreads   = 1
-  INTEGER :: nh_stepping_ompthreads = 1
+!   INTEGER :: radiation_ompthreads   = 1
+!   INTEGER :: nh_stepping_ompthreads = 1
 
   ! Flag. Enable this flag if output fields shall be gathered and written in
   ! single-precision. The resulting files are identical to the "normal"
@@ -212,20 +221,22 @@ CONTAINS
     END IF
 
     ! check division_method
-    SELECT CASE (division_method)
-    CASE(div_from_file, div_geometric)
-      ! ok
-    CASE(div_metis)
-#ifdef HAVE_METIS
-    ! ok
-#else
-      CALL finish(method_name, &
-        & 'division_method=div_metis=2 in parallel_nml namelist is not allowed')
-#endif
-    CASE DEFAULT
-      CALL finish(method_name, &
-        & 'value of division_method in parallel_nml namelist is not allowed')
-    END SELECT
+    ! this will be checked during the decomposition
+!     SELECT CASE (division_method)
+!     CASE(div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
+!       & ext_div_medial_redrad, ext_div_medial_redrad_cluster)
+!       ! ok
+!     CASE(div_metis)
+! #ifdef HAVE_METIS
+!     ! ok
+! #else
+!       CALL finish(method_name, &
+!         & 'division_method=div_metis=2 in parallel_nml namelist is not allowed')
+! #endif
+!     CASE DEFAULT
+!       CALL finish(method_name, &
+!         & 'value of division_method in parallel_nml namelist is not allowed')
+!     END SELECT
     ! for safety only
     IF(num_io_procs < 0) num_io_procs = 0
   

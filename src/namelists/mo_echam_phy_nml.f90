@@ -45,6 +45,7 @@
 !!
 MODULE mo_echam_phy_nml
 
+  USE mo_kind,               ONLY: wp
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
@@ -74,11 +75,13 @@ MODULE mo_echam_phy_nml
   LOGICAL :: ljsbach    !< .true. for calculating the JSBACH land surface
   LOGICAL :: lhd        !< .true. for hydrologic discharge model
 !!$  LOGICAL :: lmidatm    !< .true. for middle atmosphere model version
+  REAL(wp) :: dt_rad   !! "-"                     radiation
+
 
   NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
                          & lcover, lssodrag, lgw_hines, &
                          & llandsurf, lice, lmeltpond,  &
-                         & lmlo, ljsbach, lhd !!$, lmidatm
+                         & lmlo, ljsbach, lhd, dt_rad!!$, lmidatm
 
 CONTAINS
   !>
@@ -104,6 +107,7 @@ CONTAINS
     lmlo      = .FALSE.
     ljsbach   = .FALSE.
     lhd       = .FALSE.
+    dt_rad    = 3600.0_wp
 !!$    lmidatm   = .FALSE.
 
     !------------------------------------------------------------------
@@ -162,6 +166,7 @@ CONTAINS
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% ljsbach   = ljsbach
     echam_phy_config% lhd       = lhd                                                 
+    echam_phy_config% dt_rad    = dt_rad
 !!$    echam_phy_config% lmidatm   = lmidatm  
 
   END SUBROUTINE read_echam_phy_namelist

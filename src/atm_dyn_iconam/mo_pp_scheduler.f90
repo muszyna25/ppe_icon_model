@@ -1,3 +1,10 @@
+! Option directive to avoid a possible SX compiler bug with OpenMP + MPI;
+! assumes that pointer references are overlapped in optimization.
+! disable moving invariant expressions outside of a loop by the compiler.
+! [2012-11-08, F. Prill, DWD / 2012-11-27, J. Beismann, NEC]
+!option! -O overlap
+!option! -O nomove
+
 !>
 !! Scheduler for internal post-processing.
 !!
@@ -62,11 +69,10 @@ MODULE mo_pp_scheduler
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY: SUCCESS,                       &
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,                &
-    & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,              &     
-    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,     &
+    & HINTP_TYPE_NONE, HINTP_TYPE_LONLAT,                              &
     & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
-    & TASK_NONE, TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_INIT_VER_IZ,  &
-    & TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ,                            &
+    & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,    &
+    & TASK_FINALIZE_IPZ,                                               &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,        &
     & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,              &
     & TASK_INTP_VER_ILEV, max_phys_dom
@@ -95,11 +101,12 @@ MODULE mo_pp_scheduler
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &
-    &                                   GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,  &
-    &                                   ZAXIS_PRESSURE, GRID_REGULAR_LONLAT,     &
+    &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
+    &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,        &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE,   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZAXIS_ISENTROPIC
+    &                                   GRID_UNSTRUCTURED_VERT,                  &
+    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC, &
+    &                                   is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
@@ -279,7 +286,7 @@ CONTAINS
         CASE (4)
           varlist => p_onl%il_varlist
           ilev_type  =  level_type_il
-          max_var    =  max_var_hl
+          max_var    =  max_var_il
         END SELECT
         IF (varlist(1) == ' ') CYCLE
       
@@ -333,7 +340,7 @@ CONTAINS
         IF (var_lists(i)%p%vlevel_type/=ll_varlevs(ivar)) CYCLE LIST_LOOP
         ! loop only over variables on requested domains:
         jg = var_lists(i)%p%patch_id
-        IF (.NOT. lonlat_grid_list(ll_vargrid(nvars_ll))%l_dom(jg)) &
+        IF (.NOT. lonlat_grid_list(ll_vargrid(ivar))%l_dom(jg)) &
           &  CYCLE LIST_LOOP
           
         element => NULL()
@@ -387,7 +394,10 @@ CONTAINS
           ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape         =  info%used_dimensions(:)
-          IF (info%vgrid == ZAXIS_SURFACE) THEN
+          IF (is_2d_field(info%vgrid) .AND. (info%ndims /= 2)) THEN
+            CALL finish(routine, "Inconsistent dimension info!")
+          END IF
+          IF (is_2d_field(info%vgrid)) THEN
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE
             var_shape(3)     =  nblks_lonlat
@@ -399,6 +409,7 @@ CONTAINS
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element,              &
+              &           isteptype=info%isteptype,                             &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ) )
           CASE (GRID_UNSTRUCTURED_EDGE)
@@ -411,12 +422,14 @@ CONTAINS
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element,              &
+              &           isteptype=info%isteptype,                             &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ))
             CALL add_var( p_opt_diag_list, TRIM(vname)//".Y", p_opt_field_r3d,  &
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element_2,            &
+              &           isteptype=info%isteptype,                             &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ))
           CASE DEFAULT
@@ -469,7 +482,7 @@ CONTAINS
     IF (l_horintp) THEN
       IF (dbg_level >= 10) &
         CALL message(routine, "Creating synchronization task for horizontal interpolation.")
-      task => pp_task_insert(HIGH_PRIORITY)
+      task => pp_task_insert(DEFAULT_PRIORITY1)
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
@@ -492,6 +505,10 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_pp_scheduler:pp_scheduler_init_ipz")
+    INTEGER,      PARAMETER :: init_tasks(3) = &
+      &  (/ TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I /)
+    CHARACTER,    parameter :: init_names(3) = &
+      &  (/ 'z', 'p', 'i' /)
     INTEGER                            :: &
       &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
       &  iaxis, vgrid, nlev, iphys_dom
@@ -509,11 +526,10 @@ CONTAINS
     TYPE(t_list_element),      POINTER :: element, new_element
     ! variable lists (for all domains + output name lists):
     INTEGER                            :: nvars_pl, nvars_hl, nvars_il, nvars, &
-         &                                nvars_predef, job_type
+         &                                job_type
     CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: &
          &                                pl_varlist(:), hl_varlist(:), il_varlist(:)
     CHARACTER(LEN=vname_len), POINTER  :: varlist(:)
-    CHARACTER(LEN=vname_len)           :: varlist_predef(5)
     CHARACTER(LEN=10)                  :: prefix
     TYPE(t_var_metadata), POINTER      :: info
 
@@ -686,9 +702,9 @@ CONTAINS
       IF (.NOT. (l_intp_z .OR. l_intp_p .OR. l_intp_i)) CYCLE DOM_LOOP
 
       ! remove duplicates from variable lists
-      CALL remove_duplicates(pl_varlist, nvars_pl)
-      CALL remove_duplicates(hl_varlist, nvars_hl)
-      CALL remove_duplicates(il_varlist, nvars_il)
+      IF (l_intp_z) CALL remove_duplicates(hl_varlist, nvars_hl)
+      IF (l_intp_p) CALL remove_duplicates(pl_varlist, nvars_pl)
+      IF (l_intp_i) CALL remove_duplicates(il_varlist, nvars_il)
 
       !-- First, add some diagnostic variables which are essential for
       !-- p/z-level interpolation, e.g. temp_z, pres_z:
@@ -703,57 +719,35 @@ CONTAINS
       nblks_v   = p_patch(jg)%nblks_v
 
       shape3d = (/ nproma, nh_pzlev_config(jg)%nzlev, nblks_c /)
-      nvars_predef = 0
         
-      ! temp         (nproma,nzlev,nblks_c)        
-      cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-      nvars_predef = nvars_predef + 1
-      varlist_predef(nvars_predef) = "temp"
-      CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef), p_diag_pz%z_temp, &
-        & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
-        & ldims=shape3d )
-      
-      ! pres         (nproma,nzlev,nblks_c)
-      nvars_predef = nvars_predef + 1
-      varlist_predef(nvars_predef) = "pres"
-      cf_desc    = t_cf_var('pressure', 'Pa', 'pressure', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef), p_diag_pz%z_pres, &
-        & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
-        & ldims=shape3d )
+      IF (l_intp_z) THEN
+        ! temp         (nproma,nzlev,nblks_c)        
+        cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_z, "temp", p_diag_pz%z_temp,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE, cf_desc, grib2_desc,           &
+          & ldims=shape3d )
 
-      ! tracer_qv
-      nvars_predef = nvars_predef + 1
-      varlist_predef(nvars_predef) = "qv"
-      cf_desc    = t_cf_var('tracer_qv', 'kg kg-1', 'specific_humidity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 1, 201, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef),          &
-        & p_diag_pz%z_tracer_iqv, GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,     &
-        & cf_desc, grib2_desc, ldims=shape3d)
-
-      ! tot_qv
-      nvars_predef = nvars_predef + 1
-      varlist_predef(nvars_predef) = "tot_qv"
-      cf_desc    = t_cf_var('tot_qv', '','total_specific_humidity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 6, 6, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_opt_diag_list_z, varlist_predef(nvars_predef),          &
-        & p_diag_pz%z_tot_cld_iqv, GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,    &
-        & cf_desc, grib2_desc, ldims=shape3d)
-
+        ! pres         (nproma,nzlev,nblks_c)
+        cf_desc    = t_cf_var('pressure', 'Pa', 'pressure', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_z, "pres", p_diag_pz%z_pres,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE, cf_desc, grib2_desc,           &
+          & ldims=shape3d )
+      END IF
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
         ! GEOPOT
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_geopot,             &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
+        CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_geopot,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
           & ldims=shape3d )
         ! temp
         cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_p, 'temp', p_diag_pz%p_temp,            &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,      &
+        CALL add_var( p_opt_diag_list_p, 'temp', p_diag_pz%p_temp,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
           & ldims=shape3d )
       END IF
       IF (l_intp_i) THEN
@@ -761,49 +755,40 @@ CONTAINS
         ! GEOPOT
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_geopot,             &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_ISENTROPIC, cf_desc, grib2_desc,      &
+        CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_geopot,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
           & ldims=shape3d )
         ! temp
         cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_opt_diag_list_i, 'temp', p_diag_pz%i_temp,            &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_ISENTROPIC, cf_desc, grib2_desc,      &
+        CALL add_var( p_opt_diag_list_i, 'temp', p_diag_pz%i_temp,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
           & ldims=shape3d )
       END IF
 
-      !-- register interpolation setup as a post-processing task
+      !-- register interpolation setup as post-processing task(s)
+      DO i=1,SIZE(init_tasks)
+        IF ((init_tasks(i) == TASK_INIT_VER_Z) .AND. .NOT. l_intp_z) CYCLE
+        IF ((init_tasks(i) == TASK_INIT_VER_P) .AND. .NOT. l_intp_p) CYCLE
+        IF ((init_tasks(i) == TASK_INIT_VER_I) .AND. .NOT. l_intp_i) CYCLE
 
-      task => pp_task_insert(HIGH_PRIORITY)
-      task%data_input%p_int_state      => p_int_state(jg)
-      task%data_input%jg               =  jg           
-      task%data_input%p_patch          => p_patch(jg)
-      task%data_input%p_nh_state       => p_nh_state(jg)
-      task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
-      IF (l_init_prm_diag) THEN
-        task%data_input%prm_diag       => prm_diag(jg)
-      ELSE
-        task%data_input%prm_diag       => NULL() 
-      END IF
-      task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
-      task%activity     = new_simulation_status(l_output_step=.TRUE.)
-      task%activity%ldom_active(jg)    =  .TRUE.
-
-      IF (l_intp_i) THEN
-        IF (l_intp_p) THEN
-          task%job_name = "Init: ipz-level interpolation, DOM "//TRIM(int2string(jg))
-          task%job_type = TASK_INIT_VER_IPZ
+        task => pp_task_insert(HIGH_PRIORITY)
+        task%data_input%p_int_state      => p_int_state(jg)
+        task%data_input%jg               =  jg           
+        task%data_input%p_patch          => p_patch(jg)
+        task%data_input%p_nh_state       => p_nh_state(jg)
+        task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
+        IF (l_init_prm_diag) THEN
+          task%data_input%prm_diag       => prm_diag(jg)
         ELSE
-          task%job_name = "Init: iz-level interpolation, DOM "//TRIM(int2string(jg))
-          task%job_type = TASK_INIT_VER_IZ
+          task%data_input%prm_diag       => NULL() 
         END IF
-      ELSE IF (l_intp_p) THEN
-        task%job_name = "Init: pz-level interpolation, DOM "//TRIM(int2string(jg))
-        task%job_type = TASK_INIT_VER_PZ
-      ELSE
-        task%job_name = "Init:  z-level interpolation, DOM "//TRIM(int2string(jg))
-        task%job_type = TASK_INIT_VER_Z
-      END IF
+        task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
+        task%activity     = new_simulation_status(l_output_step=.TRUE.)
+        task%activity%ldom_active(jg)    = .TRUE.
+        task%job_type                    = init_tasks(i)
+        task%job_name                    = "Init: "//init_names(i)//"-level interpolation, DOM "//TRIM(int2string(jg))
+      END DO
 
       !-- register clean-up routine as a post-processing task
 
@@ -811,7 +796,7 @@ CONTAINS
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
       task%activity%ldom_active(jg) =  .TRUE.
       task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
-      task%job_name     = "Clean-up: pz-level interpolation, level "//TRIM(int2string(jg))
+      task%job_name     = "Clean-up: ipz-level interpolation, level "//TRIM(int2string(jg))
       task%job_type     = TASK_FINALIZE_IPZ
       task%data_input%p_int_state      => NULL()
       task%data_input%jg               =  jg           
@@ -822,11 +807,12 @@ CONTAINS
 
       ! remove already defined variables from list of requested output
       ! fields:
-      CALL difference(hl_varlist, nvars_hl, varlist_predef, nvars_predef)
+      IF (l_intp_z) &
+        CALL difference(hl_varlist, nvars_hl, (/ "temp  ", "pres  " /), 2)
       IF (l_intp_p) &
-        CALL difference(pl_varlist, nvars_pl, (/ "gh  ", "temp" /), 2)
+        CALL difference(pl_varlist, nvars_pl, (/ "gh    ", "temp  " /), 2)
       IF (l_intp_i) &
-        CALL difference(il_varlist, nvars_il, (/ "gh  ", "temp" /), 2)
+        CALL difference(il_varlist, nvars_il, (/ "gh    ", "temp  " /), 2)
 
       !-- loop over requested p-, z-, and i-level variables, add variables
       !-- ("add_var") and register interpolation tasks:
@@ -836,7 +822,7 @@ CONTAINS
           varlist => hl_varlist
           nvars   =  nvars_hl
           nlev    =  nh_pzlev_config(jg)%nzlev
-          vgrid   =  ZAXIS_ALTITUDE
+          vgrid   =  ZA_ALTITUDE
           p_opt_diag_list => p_opt_diag_list_z
           job_type = TASK_INTP_VER_ZLEV
         END IF
@@ -845,7 +831,7 @@ CONTAINS
           varlist => pl_varlist
           nvars   =  nvars_pl
           nlev    =  nh_pzlev_config(jg)%nplev
-          vgrid   =  ZAXIS_PRESSURE
+          vgrid   =  ZA_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
           job_type = TASK_INTP_VER_PLEV
         END IF
@@ -854,7 +840,7 @@ CONTAINS
           varlist => il_varlist
           nvars   =  nvars_il
           nlev    =  nh_pzlev_config(jg)%nilev
-          vgrid   =  ZAXIS_ISENTROPIC
+          vgrid   =  ZA_ISENTROPIC
           p_opt_diag_list => p_opt_diag_list_i
           job_type = TASK_INTP_VER_ILEV
         END IF
@@ -925,15 +911,18 @@ CONTAINS
 
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
-                &           ldims=shape3d, lrestart=.FALSE.,           &
+                &           ldims=shape3d, lrestart=.FALSE.,             &
+                &           isteptype=info%isteptype,                    &
                 &           loutput=.TRUE., new_element=new_element)
 
               !-- add post-processing task for interpolation
 
-              task => pp_task_insert(DEFAULT_PRIORITY1)
+              task => pp_task_insert(DEFAULT_PRIORITY0)
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
                 &  //", DOM "//TRIM(int2string(jg))
+              IF (dbg_level > 8) CALL message(routine, task%job_name)
+
               task%job_type                    =  job_type
               task%activity                    =  new_simulation_status(l_output_step=.TRUE.)
               task%activity%ldom_active(jg)    =  .TRUE.
@@ -1052,8 +1041,8 @@ CONTAINS
       END IF
 
       SELECT CASE ( ptr_task%job_type )
-      CASE ( TASK_INIT_VER_PZ, TASK_INIT_VER_Z, TASK_INIT_VER_IZ, &
-           & TASK_INIT_VER_IPZ, TASK_FINALIZE_IPZ)
+      CASE ( TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I, &
+           & TASK_FINALIZE_IPZ)
         CALL pp_task_ipzlev_setup(ptr_task)
       CASE ( TASK_INTP_HOR_LONLAT )
         CALL pp_task_lonlat(ptr_task)

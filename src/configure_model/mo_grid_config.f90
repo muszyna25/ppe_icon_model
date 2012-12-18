@@ -39,6 +39,7 @@ MODULE mo_grid_config
   USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius
+  USE mo_parallel_config,    ONLY: division_method, division_file_name
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -58,7 +59,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PRIVATE
 
-  PUBLIC :: check_grid_configuration, get_grid_rescale_factor
+  PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
@@ -142,16 +143,16 @@ CONTAINS
  !! @par Revision History
  !!  Leonidas Linardakis, MPI-M, 2011/7/7
  !!  - Restructuring the namelists
-  SUBROUTINE check_grid_configuration
+  SUBROUTINE init_grid_configuration
                                                
     !local variables
     INTEGER  :: jg
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
-    CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:check_grid_configuration"
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
 
     IF (no_of_dynamics_grids /= 0) &
-      CALL finish( "check_grid_configuration", 'should not be called twice')
+      CALL finish( method_name, 'should not be called twice')
     
     !-----------------------------------------------------------------------
     ! find out how many grids we have
@@ -216,6 +217,13 @@ CONTAINS
     ELSE
       n_dom_start = 1
       lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
+    
+      ! the division method starts from 0, shift if there's no 0 grid (ie no reduced radiation)
+      DO jg = no_of_dynamics_grids-1, 0, -1
+        division_method(jg+1)              = division_method(jg)
+        division_file_name(jg+1)           = division_file_name(jg)
+      ENDDO
+
     ENDIF
     
     
@@ -243,7 +251,7 @@ CONTAINS
 
 !     CALL finish("grid_nml_setup","stop")
 
-  END SUBROUTINE check_grid_configuration
+  END SUBROUTINE init_grid_configuration
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

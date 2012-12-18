@@ -44,11 +44,11 @@ MODULE mo_grid_conditions
   USE mo_io_units,           ONLY: nnml, filename_max
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_local_grid
-  USE mo_base_geometry,      ONLY: t_cartesian_coordinates, t_geographical_coordinates, gc2cc, &
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates, gc2cc, &
     & arc_length
 !  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian
   USE mo_grid_toolbox,       ONLY: smooth_boundaryfrom_cell_list, &
-    & get_grid_from_cell_list
+    & get_grid_from_cell_list, flag_grid_cells_list
   USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_timer
 
@@ -63,6 +63,7 @@ MODULE mo_grid_conditions
   PUBLIC :: cut_conditional_grid, read_grid_conditions
   PUBLIC :: get_conditional_cells
   PUBLIC :: get_boundary_vertices, get_inner_vertices
+  PUBLIC :: flag_conditional_grid
   !----------------------------------------
 
   ! !DEFINE PARAMETERS:
@@ -78,6 +79,8 @@ MODULE mo_grid_conditions
   REAL(wp) :: rectangle_xradious(max_no_of_conditions), rectangle_yradious(max_no_of_conditions)
   REAL(wp) :: circle_radious(max_no_of_conditions)
   INTEGER :: patch_shape(max_no_of_conditions)
+  INTEGER :: smooth_boundary_iterations
+  INTEGER :: flag_value
 
   CHARACTER(LEN=filename_max) :: input_file, output_file
   !-------------------------------------------------------------------------
@@ -100,7 +103,8 @@ CONTAINS
       & no_of_conditions, patch_shape,   &
       & patch_center_x, patch_center_y,         &
       & rectangle_xradious, rectangle_yradious, &
-      & circle_radious
+      & circle_radious, smooth_boundary_iterations, &
+      & flag_value
 
     ! set default values
     input_file=''
@@ -114,6 +118,8 @@ CONTAINS
     patch_center_y = 0.0_WP
     no_of_conditions = 0
     no_of_read_conditions = 0
+    smooth_boundary_iterations = 1
+    flag_value = 0
     
     ! read namelist
     CALL open_nml(param_file_name)
@@ -192,6 +198,44 @@ CONTAINS
   !   SUBROUTINE cut_local_grid(param_file_name)
   !>
   !! Main routine for cutting-off a sub-grid. Public
+  SUBROUTINE flag_conditional_grid(param_file_name)
+
+   CHARACTER(LEN=*), INTENT(in) :: param_file_name
+
+    TYPE(t_integer_list)  :: cut_cell_list, smooth_cell_list
+    INTEGER :: grid_id, i
+    TYPE(t_grid_cells), POINTER :: cells
+    INTEGER, POINTER :: flags_array(:)
+ 
+    i = read_grid_conditions(param_file_name)
+
+    grid_id = read_new_netcdf_grid(input_file)
+
+    IF (no_of_conditions  < 1) RETURN
+
+    CALL get_conditional_cells(grid_id, cut_cell_list)
+    
+    CALL smooth_boundaryfrom_cell_list(grid_id, cut_cell_list, smooth_cell_list, &
+      & opt_iterations = smooth_boundary_iterations )
+
+    cells => get_cells(grid_id)
+    flags_array => cells%sea_land_mask
+    CALL flag_grid_cells_list(grid_id=grid_id, cell_list=smooth_cell_list, &
+      & flags_array=flags_array, flag_value=flag_value)
+    
+
+    DEALLOCATE(cut_cell_list%value)
+    DEALLOCATE(smooth_cell_list%value)
+
+    CALL write_netcdf_grid(grid_id, output_file)
+    CALL delete_grid(grid_id)
+
+  END SUBROUTINE flag_conditional_grid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Main routine for cutting-off a sub-grid. Public
   SUBROUTINE cut_local_grid_ascii(param_file_name)
 
    CHARACTER(LEN=*), INTENT(in) :: param_file_name
@@ -209,7 +253,8 @@ CONTAINS
 
     CALL get_conditional_cells(in_grid_id, cut_cell_list)
     
-    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list)
+    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list, &
+      & opt_iterations = smooth_boundary_iterations )
 
     cells => get_cells(in_grid_id)
     
@@ -451,7 +496,8 @@ CONTAINS
     IF (no_of_conditions  < 1) RETURN
 
     CALL get_conditional_cells(in_grid_id, cut_cell_list)
-    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list)
+    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list, &
+      & opt_iterations = smooth_boundary_iterations )
     cut_grid_id = get_grid_from_cell_list(in_grid_id, smooth_cell_list)
     CALL set_grid_creation(cut_grid_id, cut_off_grid, from_grid_id=in_grid_id)
 

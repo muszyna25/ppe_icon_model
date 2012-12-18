@@ -853,6 +853,7 @@ CONTAINS
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
   REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
+  REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
   REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
   CHARACTER(len=max_char_length) :: sst_case
 
@@ -1765,6 +1766,62 @@ CONTAINS
         END DO
       END DO
 
+    CASE (47)
+    ! T and S are horizontally and vertically homegeneous
+    ! include some special init - here Indonesia set to warm/salty surface
+      CALL message(TRIM(routine), 'Initialization of testcases (47)')
+      CALL message(TRIM(routine), &
+        &  ' - here: horizontally and vertically homogen+warm/salty Indonesia')
+
+      ! 2012-10-31: Indonesian Archipelago - connected to Atlantic? (4 cpu)
+      z_lat1  =  -5.0_wp
+      z_lat2  =  10.0_wp
+      z_lon1  = 115.0_wp
+      z_lon2  = 135.0_wp
+      ! 2012-10-31: corresponding NAtl: 1N 20W, 3 levels
+      z_lon1  = 145.0_wp
+      z_lon2  = 160.0_wp
+      ! 2012-11-08: Test homogen with one cell differ at 10N; 70E
+      z_lat1  =   0.0_wp
+      z_lat2  =  15.0_wp
+      z_lon1  =  60.0_wp
+      z_lon2  =  80.0_wp
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk=1,n_zlev
+
+          !latitude given in radians
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lon = ppatch%cells%center(jc,jb)%lon
+          !transer to latitude in degrees
+          z_lat_deg = z_lat*rad2deg
+          z_lon_deg = z_lon*rad2deg
+
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              IF (no_tracer == 2) THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+              END IF
+
+              IF ( (z_lat_deg >= z_lat1 .AND. z_lat_deg <= z_lat2) .AND. &
+                &  (z_lon_deg >= z_lon1 .AND. z_lon_deg <= z_lon2) .AND. &
+                   ( jk <= 1 ) ) THEN
+
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =  6.0_wp
+                IF (no_tracer == 2) THEN
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
+                END IF
+
+              END IF
+
+            END IF
+          END DO
+        END DO
+      END DO
+
     CASE (50)
     ! Testcase for coupled Aquaplanet:
     !  - following APE_ATLAS Equations (2.1) - (2.5)
@@ -1787,7 +1844,7 @@ CONTAINS
       END DO
 
       z_temp_max  = 27.0_wp
-      z_temp_min  = 0.0_wp
+      z_temp_min  =  0.0_wp
       z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
       WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
 
@@ -1801,7 +1858,7 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr,0.0_wp)
+                &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
             ELSE
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
             ENDIF
@@ -1825,9 +1882,73 @@ CONTAINS
         END DO
       END IF
 
+    CASE (52)
+    ! Testcase for coupled Aquaplanet:
+    !  - following APE_ATLAS Equations (2.1) - (2.5)
+    !  - use function ape_sst for initializing SST
+    !  - decrease maximum temperature vertically by z_temp_incr
+    !  - now warmer init to avoid growing of sea ice:
+    !    maximum temperature = 27, minimum polar temperature = 10 deg C
+      CALL message(TRIM(routine), 'Initialization of testcases (52)')
+      CALL message(TRIM(routine), &
+        &  ' - here: testcase for coupled aquaplanet, using sst_qobs, min=10 deg C')
+
+      z_temp_max  = 27.0_wp
+      z_temp_min  = 10.0_wp
+      z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
+
+      sst_case='sst_qobs'
+      jk = 1
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
+          END IF
+        END DO
+      END DO
+      WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
+
+      p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
+      DO jk=2,n_zlev-1
+
+        z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
+        WRITE(0,*) TRIM(routine),': jk=',jk,' Maximum Temperature =',z_max
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+          DO jc = i_startidx_c, i_endidx_c
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+                &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
+            ELSE
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+            ENDIF
+          END DO
+        END DO
+      END DO
+
+      !  - add horizontally homogen, vertically increasing / homogen salinity
+      IF (no_tracer==2) THEN
+        DO jk=1,n_zlev
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+            DO jc = i_startidx_c, i_endidx_c
+              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
+              ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+              ENDIF
+            END DO
+          END DO
+          WRITE(0,*) TRIM(routine),': jk=',jk,' Salinity =', sprof_var(jk)
+        END DO
+      END IF
+
 
     CASE (51)
       CALL message(TRIM(routine), 'Simple Initialization of testcases (51)')
+      CALL message(TRIM(routine), &
+        &  ' - here: horizontally varying T with local perturbation')
 
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp

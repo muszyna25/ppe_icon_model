@@ -80,8 +80,8 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
-    &                                dt_rad,                  &
     &                                izenith
+  USE mo_lnd_nwp_config,       ONLY: isub_seaice
 
 !!$  USE mo_greenhouse_gases,     ONLY: ghg_co2mmr, ghg_mmr_ch4, ghg_n2ommr, ghg_cfcvmr
 !!$  USE mo_o3clim,               ONLY: o3clim
@@ -489,13 +489,13 @@ CONTAINS
     & ,qm_o3                                                               &
 !!$    & ,pgeom1                                                              &
     & ,cdnc              ,cld_frc                                          &
-    & , zaeq1, zaeq2, zaeq3, zaeq4, zaeq5                                  &
+    & , zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad,                        &
     ! output
-    & ,cld_cvr                                                             &
+    & cld_cvr                                                             &
 !!$    & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
 !!$    & ,dpar_sfc          ,par_dff_sfc                                      &
-    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all     &
-    & ,opt_halo_cosmu0  )
+    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all,    &
+    & opt_halo_cosmu0  )
 
     ! input
     ! -----
@@ -533,7 +533,8 @@ CONTAINS
       &  zaeq2(kbdim,klev) , & !< aerosol maritime
       &  zaeq3(kbdim,klev) , & !< aerosol urban
       &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
-      &  zaeq5(kbdim,klev)     !< aerosol stratospheric background
+      &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
+      &  dt_rad                !< radiation time step
     
     LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0    
 
@@ -1286,6 +1287,7 @@ CONTAINS
   SUBROUTINE radheat (jcs, jce, kbdim, &
     &                 klev  , klevp1,  &
     &                 ntiles        ,  &
+    &                 ntiles_wtr    ,  &
     &                 pmair         ,  &
     &                 pqv           ,  &
     &                 pi0           ,  &
@@ -1300,8 +1302,10 @@ CONTAINS
     &                 albedo, albedo_t,& ! optional: albedo fields
     &                 lp_count,        & ! optional: number of land points
     &                 gp_count_t,      & ! optional: number of land points per tile
+    &                 spi_count,       & ! optional: number of seaice points
     &                 idx_lst_lp,      & ! optional: index list of land points
     &                 idx_lst_t,       & ! optional: index list of land points per tile
+    &                 idx_lst_spi,     & ! optional: index list of seaice points
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 ptrmsw        ,  &
@@ -1318,7 +1322,7 @@ CONTAINS
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
-      &     klev,   klevp1, ntiles
+      &     klev,   klevp1, ntiles, ntiles_wtr
 
     REAL(wp), INTENT(in)  ::         &
       &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
@@ -1337,14 +1341,16 @@ CONTAINS
       &     pqc       (kbdim,klev),  & ! specific cloud water               [kg/kg]
       &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
       &     ppres_ifc (kbdim,klevp1),& ! pressure at interfaces             [Pa]
-      &     ptsfc_t   (kbdim,ntiles),& ! tile-specific surface temperature at t  [K]
+      &     ptsfc_t   (kbdim,ntiles+ntiles_wtr),& ! tile-specific surface temperature at t  [K]
       &     cosmu0    (kbdim),       & ! cosine of solar zenith angle
       &     albedo    (kbdim),       & ! grid-box average albedo
-      &     albedo_t  (kbdim,ntiles)   ! tile-specific albedo
+      &     albedo_t  (kbdim,ntiles+ntiles_wtr)   ! tile-specific albedo
 
     INTEGER, INTENT(in), OPTIONAL  ::     &
       &     lp_count, gp_count_t(ntiles), &  ! number of land points
-      &     idx_lst_lp(kbdim), idx_lst_t(kbdim,ntiles) ! corresponding index lists
+      &     spi_count,                    &  ! number of seaice points
+      &     idx_lst_lp(kbdim), idx_lst_t(kbdim,ntiles),& ! corresponding index lists
+      &     idx_lst_spi(kbdim)
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, opt_use_cv
@@ -1356,8 +1362,10 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
-      &     pflxsfcsw_t(kbdim,ntiles), & ! tile-specific shortwave surface net flux [W/m2]
-      &     pflxsfclw_t(kbdim,ntiles), & ! tile-specific longwave surface net flux [W/m2]
+      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave 
+                                                    ! surface net flux [W/m2]
+      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
+                                                    ! surface net flux [W/m2]
       &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &
@@ -1491,6 +1499,20 @@ CONTAINS
           ENDDO
         ENDDO
 
+        ! seaice points
+        !
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, spi_count
+          jc = idx_lst_spi(ic)
+          pflxsfcsw_t(jc,isub_seaice) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) &
+            &                  + dflxsw_o_dalb(jc)*(albedo_t(jc,isub_seaice)-albedo(jc)))
+          pflxsfclw_t(jc,isub_seaice) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1) &
+            &                  * (ptsfc_t(jc,isub_seaice)-ptsfc(jc))
+        ENDDO
+
+        ! (open) water points
+        ! not needed, yet
+
       ELSE IF (PRESENT(pflxsfcsw_t) .AND. PRESENT(pflxsfclw_t)) THEN
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1498,6 +1520,13 @@ CONTAINS
           jc = idx_lst_lp(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1) 
+        ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, spi_count
+          jc = idx_lst_spi(ic)
+          pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
+          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
       ENDIF ! ntiles

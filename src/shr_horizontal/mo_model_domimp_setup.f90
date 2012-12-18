@@ -954,7 +954,7 @@ CONTAINS
       & p_patch%cells%halo_level, 2, halo_levels_ceiling)
     p_patch%cells%not_in_domain%is_in_domain = .false.
     
-    CALL fill_subset(p_patch%cells%one_edge_in_domain, p_patch, p_patch%cells%halo_level, 1, 1)
+    CALL fill_subset(p_patch%cells%one_edge_in_domain, p_patch, p_patch%cells%halo_level, 0, 1)
     p_patch%cells%one_edge_in_domain%is_in_domain = .false.
     
     IF (p_patch%cells%in_domain%no_of_holes > 0) &

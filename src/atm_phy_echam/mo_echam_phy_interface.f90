@@ -61,7 +61,7 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: dt_rad,izenith
+  USE mo_radiation_config,  ONLY: izenith
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -72,8 +72,9 @@ MODULE mo_echam_phy_interface
     & timer_echam_sync_temp , timer_echam_sync_tracers
                                 
   USE mo_coupling_config,    ONLY: is_coupled_run
-  USE mo_icon_cpl_exchg,    ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field, ONLY:ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices,ONLY: iwtr, iice
 
@@ -147,6 +148,7 @@ CONTAINS
     INTEGER :: jc, jk   !< column index, vertical level index
     INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
 
+    LOGICAL               :: write_coupler_restart
     INTEGER               :: nbr_fields
     INTEGER               :: nbr_hor_points ! = inner and halo points
     INTEGER               :: nbr_points     ! = nproma * nblks
@@ -303,12 +305,12 @@ CONTAINS
     IF (phy_config%lrad) THEN
 
       datetime_radtran = datetime                ! copy current date and time
-      dsec = 0.5_wp*(dt_rad-pdtime)              ! [s] time increment for zenith angle computation
+      dsec = 0.5_wp*(phy_config%dt_rad - pdtime)              ! [s] time increment for zenith angle computation
       CALL add_time(dsec,0,0,0,datetime_radtran) ! add time increment to get date and
       !                                          ! time information for the zenith angle comp.
 
       ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
-                    ( MOD(NINT(datetime%daysec),NINT(dt_rad)) == 0 )
+                    ( MOD(NINT(datetime%daysec),NINT(phy_config%dt_rad)) == 0 )
       l1st_phy_call = .FALSE.
 
       ztime_radheat = 2._wp*pi * datetime%daytim 
@@ -421,6 +423,7 @@ CONTAINS
        !   field_id(6) represents "SST"    sea surface temperature
        !   field_id(7) represents "OCEANU" u component of ocean surface current
        !   field_id(8) represents "OCEANV" v component of ocean surface current
+       !   field_id(9) represents "ALBEDO" ocean & ice albedo
        !
        CALL ICON_cpl_get_nbr_fields ( nbr_fields )
        ALLOCATE(field_id(nbr_fields))
@@ -435,15 +438,19 @@ CONTAINS
        ! Send fields away
        ! ----------------
        !
+       write_coupler_restart = .FALSE.
+       !
        ! TAUX
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! TAUY
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
        !
@@ -454,13 +461,15 @@ CONTAINS
         buffer(:,2) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
  
        field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), ierror )
+       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! SFTEMP
        !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        field_shape(3) = 1
-       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! THFLX, total heat flux
        !
@@ -470,9 +479,11 @@ CONTAINS
        buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
 
        field_shape(3) = 4
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), ierror )
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        field_shape(3) = 1
 
+       IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 5, field_id(1:5), ierror )
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------
@@ -504,6 +515,21 @@ CONTAINS
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
+       ENDIF
+       !
+       ! ALBEDO
+       !
+       CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info > 0 ) THEN
+         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+         prm_field(jg)%albvisdir(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%albvisdif(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%albnirdir(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%albnirdif(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albvisdir(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albvisdif(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albnirdir(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albnirdif(:,:))
        ENDIF
 
        DEALLOCATE(buffer)

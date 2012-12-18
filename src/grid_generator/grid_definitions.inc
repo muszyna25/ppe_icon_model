@@ -8,7 +8,6 @@
 #define get_edge_orient(i,j)    a_edge_orientation(j,i)
 #define get_edge_cell_length(i,j) a_edge_cell_length(j,i)
 #define get_edge_vert_length(i,j) a_edge_vert_length(j,i)
-#define get_domain_id(i,j)      a_domain_id(i,j)
 !-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
@@ -18,5 +17,7 @@
 #define d_normalize(v) v%x=v%x/d_norma_3d(v)
 #define d_normalize_x(x) x=x/d_norma_3d_x(x)
 #define d_arc_of_hord_normalsphere(l) (2.0_wp*ASIN((l)*0.5_wp))
+#define d_normalize_f(v) v%x/d_norma_3d(v)
+#define d_sqrdistance_3d(v1,v2) DOT_PRODUCT((v1%x-v2%x),(v1%x-v2%x))
 
 !-----------------------------------------------------------------------

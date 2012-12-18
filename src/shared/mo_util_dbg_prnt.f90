@@ -104,7 +104,7 @@ CONTAINS
     TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
    
     INTEGER  :: i
-    REAL(wp) :: zlon, zlat
+    REAL(wp) :: zlon, zlat, zarea, zlength
    
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_util_dbg_prnt:init_dbg_index'
@@ -114,10 +114,18 @@ CONTAINS
     ! fill subset for use in dbg_print without passing the patch in every call
 !    v_subdom_cell = ppatch%cells%in_domain
 
-    ! module variables for check of cells/edges/verts
+    ! local module variables for check of cells/edges/verts
     loc_nblks_c =ppatch%nblks_c
     loc_nblks_e =ppatch%nblks_e
     loc_nblks_v =ppatch%nblks_v
+ 
+ !  For a correct dicision of cells/edges/verts the number of points on domain would be better
+ !    but is not available as local dimension
+ !  In order to keep a difference in number of blocks please use a low number for nproma
+ !    i.e nproma=1 for debugging
+ !  loc_patch_c =ppatch%n_patch_cells
+ !  loc_patch_e =ppatch%n_patch_edges
+ !  loc_patch_v =ppatch%n_patch_verts
    
     ! module index/block for one cell output
     IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
@@ -137,12 +145,14 @@ CONTAINS
     !------------------------------------------------------------------
    
     ! output format
-    99 FORMAT(     2(a,i4),2(a,f9.2))
-    97 FORMAT(a,i1,2(a,i4),2(a,f9.2))
+    99 FORMAT(     2(a,i4),2(a,f9.2),a,f13.2)
+    97 FORMAT(a,i1,2(a,i4),2(a,f9.2),a,f13.2)
    
+    zarea = ppatch%cells%area(c_i,c_b)*1.0e-6_wp ! in km2
     CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
     WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
-                 &         '  lat=',zlat,'  lon=',zlon
+      &                    '  lat=',zlat,'  lon=',zlon,                        &
+      &                    '  cell-area  =', zarea
     CALL message (' ', message_text)
    
     !------------------------------------------------------------------
@@ -154,9 +164,11 @@ CONTAINS
       ne_i(i) = ppatch%cells%edge_idx(c_i,c_b,i)
       zlat    = ppatch%edges%center(ne_i(i),ne_b(i))%lat * 180.0_wp / pi
       zlon    = ppatch%edges%center(ne_i(i),ne_b(i))%lon * 180.0_wp / pi
+      zlength = ppatch%edges%primal_edge_length(ne_i(i),ne_b(i))*0.001_wp  ! in km
       ! output
       WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i), &
-        &                    '  lat=',zlat,'  lon=',zlon
+        &                    '  lat=',zlat,'  lon=',zlon,                      &
+        &                    '  edge-length=',zlength
       CALL message (' ', message_text)
     END DO
    
@@ -181,8 +193,10 @@ CONTAINS
       ELSE
         zlat = ppatch%cells%center(nc_i(i),nc_b(i))%lat * 180.0_wp / pi
         zlon = ppatch%cells%center(nc_i(i),nc_b(i))%lon * 180.0_wp / pi
-        WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
-          &                    '  lat=',zlat,'  lon=',zlon
+        zarea= ppatch%cells%area(nc_i(i),nc_b(i))*1.0e-6_wp  ! in km2
+        WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),  &
+          &                    '  lat=',zlat,'  lon=',zlon,                       &
+          &                    '  cell-area  =', zarea
       END IF
       ! output
       CALL message (' ', message_text)
@@ -580,6 +594,8 @@ CONTAINS
   ! for output at given index
 
   IF (idbg_val >= idetail_src) THEN
+
+    !write(iout,*) ' ndimblk and loc_nblks = ',ndimblk, loc_nblks_c, loc_nblks_e, loc_nblks_v
 
     ! write value at index
     IF (ndimblk == loc_nblks_c) THEN

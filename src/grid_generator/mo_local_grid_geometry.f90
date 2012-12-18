@@ -39,14 +39,16 @@ MODULE mo_local_grid_geometry
 #include "grid_definitions.inc"
 
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
-  USE mo_math_constants,     ONLY: rad2deg
-  USE mo_exception,          ONLY: finish! , message
+  USE mo_kind,            ONLY: wp
+  USE mo_math_constants,  ONLY: rad2deg, deg2rad
+  USE mo_exception,       ONLY: finish! , message
+  USE mo_grid_geometry_info,  ONLY: sphere_geometry
   USE mo_local_grid
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, vector_product, &
+  USE mo_math_utilities,  ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,  triangle_area, &
-    & inter_section, t_geographical_coordinates, angle_of_vectors,  &
-    & sphere_cartesian_midpoint
+    & spherical_intersection, t_geographical_coordinates, angle_of_vectors,  &
+    & sphere_cartesian_midpoint, cartesian_to_geographical,         &
+    & geographical_to_cartesian
   USE mo_io_units,       ONLY: nnml, filename_max
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
@@ -61,7 +63,7 @@ MODULE mo_local_grid_geometry
 
   PUBLIC :: compute_sphere_geometry
   PUBLIC :: compute_sphere_grid_geometry
-  PUBLIC :: geographical_to_cartesian, cartesian_to_geographical
+  PUBLIC :: file_rotate_sphere_xaxis
   PUBLIC :: order_cell_connectivity     ! Reorders the cell vertices, edges, neigbors
   PUBLIC :: get_cell_barycenters
   PUBLIC :: get_triangle_circumcenters
@@ -120,6 +122,75 @@ CONTAINS
   END SUBROUTINE compute_sphere_geometry
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  !!Computes the sphere geometry for a netcdf grid
+  !-------------------------------------------------------------------------
+  SUBROUTINE file_rotate_sphere_xaxis(in_file_name, rotation_degrees, out_file_name)
+    CHARACTER(LEN=*), INTENT(in) :: in_file_name, out_file_name
+    REAL(wp), INTENT(in) :: rotation_degrees
+    
+    INTEGER :: grid_id
+    
+    grid_id = read_new_netcdf_grid(in_file_name)
+    CALL rotate_sphere_xaxis(grid_id, rotation_degrees)
+    CALL compute_sphere_grid_geometry(grid_id)
+    CALL write_netcdf_grid(grid_id, out_file_name)
+    
+    RETURN
+
+  END SUBROUTINE file_rotate_sphere_xaxis
+  !-------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------
+  SUBROUTINE rotate_sphere_xaxis(grid_id, rotation_degrees)
+    INTEGER, INTENT(in) :: grid_id
+    REAL(wp), INTENT(in) :: rotation_degrees
+
+    TYPE(t_grid_vertices), POINTER :: verts
+
+    REAL(wp) :: new_y, new_z, rotation_rad
+    REAL(wp) :: yy_coef, yz_coef, zy_coef, zz_coef!, det
+    INTEGER :: vertex_index
+
+    RETURN
+    
+    verts => get_vertices(grid_id)
+    rotation_rad = rotation_degrees * deg2rad
+    yy_coef = COS(rotation_rad)
+    yz_coef = SIN(rotation_rad)
+    zy_coef = -yz_coef
+    zz_coef = yy_coef
+!     det = yy_coef * yy_coef - yz_coef * zy_coef
+!     write(0,*) "det=", det
+    
+    IF (rotation_degrees == 90.0_wp) THEN
+!$OMP PARALLEL DO PRIVATE(vertex_index, new_z)
+      DO vertex_index=1,verts%no_of_existvertices
+        new_z = -verts%cartesian(vertex_index)%x(2)
+        verts%cartesian(vertex_index)%x(2) = verts%cartesian(vertex_index)%x(3)
+        verts%cartesian(vertex_index)%x(3) = new_z        
+      ENDDO
+!$OMP END PARALLEL DO
+    ELSE
+!$OMP PARALLEL DO PRIVATE(vertex_index, new_y, new_z)
+      DO vertex_index=1,verts%no_of_existvertices
+        new_y = yy_coef * verts%cartesian(vertex_index)%x(2) + &
+              & yz_coef * verts%cartesian(vertex_index)%x(3)
+        new_z = zy_coef * verts%cartesian(vertex_index)%x(2) + &
+              & zz_coef * verts%cartesian(vertex_index)%x(3)
+               
+        verts%cartesian(vertex_index)%x(2) = new_y
+        verts%cartesian(vertex_index)%x(3) = new_z
+      ENDDO
+!$OMP END PARALLEL DO
+    ENDIF
+          
+
+  END SUBROUTINE rotate_sphere_xaxis
+  !---------------------------------------------------------------------------
+  
+
   !---------------------------------------------------------------------------
   SUBROUTINE compute_sphere_grid_geometry(in_grid_id)
     INTEGER, INTENT(in) :: in_grid_id
@@ -163,10 +234,16 @@ CONTAINS
 
 !$OMP PARALLEL
 ! !$  PRINT*,  "OMP_GET_NUM_THREADS=", OMP_GET_NUM_THREADS()
-!$OMP DO PRIVATE(vertex_index)
-    ! get the vertices geocoordinates from the cartesian
+!$OMP DO PRIVATE(vertex_index, tmp_vector)
     DO vertex_index=1,no_of_verts
-        verts%vertex(vertex_index) = cc2gc(verts%cartesian(vertex_index))
+      ! normalize, just in case
+      tmp_vector%x = verts%cartesian(vertex_index)%x
+      verts%cartesian(vertex_index)%x = &
+        & d_normalize_f(tmp_vector)
+!       write(*,*) "before:", tmp_vector%x
+!       write(*,*) "after:", verts%cartesian(vertex_index)%x
+      ! get the vertices geocoordinates from the cartesian
+      verts%vertex(vertex_index) = cc2gc(verts%cartesian(vertex_index))
     ENDDO
 !$OMP END DO
 
@@ -238,15 +315,15 @@ CONTAINS
         & CALL finish("grid_sphericalTriangleGridGeometry",".not. associated(cartesian_c both)");
       !------------------------------------------
       ! edge center
-      IF (cell_1 > 0 .and. cell_2 > 0 ) THEN
-        cartesian_center = inter_section ( &
-          & cartesian_c(1), cartesian_c(2), &
-          & cartesian_v(1), cartesian_v(2))        
-      ELSE
+!       IF (cell_1 > 0 .and. cell_2 > 0 ) THEN
+!         cartesian_center = spherical_intersection ( &
+!           & cartesian_c(1), cartesian_c(2), &
+!           & cartesian_v(1), cartesian_v(2))        
+!       ELSE
         cartesian_center = sphere_cartesian_midpoint(cartesian_v(1), cartesian_v(2))
         IF (cell_1 <=0) cartesian_c(1) = cartesian_center
         IF (cell_2 <=0) cartesian_c(2) = cartesian_center
-      ENDIF
+!       ENDIF
       edges%cartesian_center(edge_index) = cartesian_center
       edges%center(edge_index)     = cc2gc(cartesian_center)
       edges%dual_cartesian_center(edge_index) = &
@@ -288,7 +365,7 @@ CONTAINS
       !------------------------------------------
       ! compute normals
       ! define the coordinate system tangent on the sphere at the edge center
-      ! CALL sphere_tanget_coordinates(edges%center(edge_index),x,y)
+      ! CALL sphere_tangent_coordinates(edges%center(edge_index),x,y)
       !-------------------------------------------------------------------------
       lon = edges%center(edge_index)%lon
       lat = edges%center(edge_index)%lat
@@ -811,74 +888,6 @@ CONTAINS
   END SUBROUTINE order_cell_connectivity
   !-------------------------------------------------------------------------
     
-  !-------------------------------------------------------------------------
-  SUBROUTINE cartesian_to_geographical(cartesian, no_of_points, geo_coordinates )
-    TYPE(t_cartesian_coordinates), POINTER :: cartesian(:)
-    TYPE(t_geographical_coordinates), POINTER :: geo_coordinates(:)
-    INTEGER, INTENT(in) :: no_of_points
-
-    INTEGER :: i
-
-    IF (.NOT. ASSOCIATED(geo_coordinates)) THEN
-      ALLOCATE (geo_coordinates(no_of_points), stat=i)
-      IF (i >0) THEN
-        CALL finish ('cartesian_to_geographical', 'Problem in allocating local arrays')
-      ENDIF
-    ENDIF
-    
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i)
-    DO i=1,no_of_points
-        geo_coordinates(i) = cc2gc(cartesian(i))
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-    
-  END SUBROUTINE cartesian_to_geographical
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE geographical_to_cartesian(geo_coordinates, no_of_points, cartesian)
-    TYPE(t_geographical_coordinates), POINTER :: geo_coordinates(:)
-    TYPE(t_cartesian_coordinates), POINTER :: cartesian(:)
-    INTEGER, INTENT(in) :: no_of_points
-
-    INTEGER :: i
-    REAL(wp) :: cos_lat
-    REAL(wp) :: check
-
-    IF (.NOT. ASSOCIATED(cartesian)) THEN
-      ALLOCATE (cartesian(no_of_points), stat=i)
-      IF (i >0) THEN
-        CALL finish ('geographical_to_cartesian', 'Problem in allocating local arrays')
-      ENDIF
-    ENDIF
-
-
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i, cos_lat, check)
-    DO i=1,no_of_points
-      cos_lat           = COS(geo_coordinates(i)%lat)
-      cartesian(i)%x(1) = COS(geo_coordinates(i)%lon) * cos_lat
-      cartesian(i)%x(2) = SIN(geo_coordinates(i)%lon) * cos_lat
-      cartesian(i)%x(3) = SIN(geo_coordinates(i)%lat)
-
-      check = d_norma_3d(cartesian(i))
-      IF (ABS(check-1.0_wp) > 1.0e-8_wp) &
-        & CALL finish ('geographicalToCartesian', 'Error in calculation')
-
-      !    WRITE(*,*) i, " LonLat=", geoCoordinates(i)
-      !    WRITE(*,*) i, " Cart=", cartesian(i)
-
-    ENDDO ! i=1,noOfPoints
-!$OMP END DO
-!$OMP END PARALLEL
-
-    RETURN
-
-  END SUBROUTINE geographical_to_cartesian
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   SUBROUTINE get_celledge_vertices(in_grid_id, edge1, edge2, vertex1, common_vertex, vertex2)

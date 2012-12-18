@@ -85,11 +85,13 @@ MODULE mo_io_local_grid
   USE mo_math_constants,     ONLY: pi,pi_2!, eps
 !   USE mo_physical_constants, ONLY: re
   USE mo_local_grid
+  USE mo_grid_geometry_info, ONLY: sphere_geometry, planar_torus_geometry, &
+    & t_planar_torus_geometry_info
+  USE mo_io_utils_grid,      ONLY: read_planar_torus_info, write_planar_torus_info, &
+    & nf
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
-    & min_rlvert, max_rlvert, &
-    & min_rledge, max_rledge
-  USE mo_base_geometry,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
+    & min_rlvert, max_rlvert, min_rledge, max_rledge
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
        &                           uuid_unparse, uuid_string_length
 
@@ -110,22 +112,10 @@ MODULE mo_io_local_grid
   PUBLIC :: read_netcdf_cell_elevation
   PUBLIC :: write_netcdf_vertical_strc, read_netcdf_vertical_strc
   PUBLIC :: read_no_of_subgrids, read_new_netcdf_grid
-  PUBLIC :: write_ascii_decomposition
   !--------------------------------------------------------------------
 
 CONTAINS
 
-
-
-  SUBROUTINE nf(return_status)
-    INTEGER, INTENT(in) :: return_status
-
-    IF (return_status /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE read_netcdf_cell_elevation(grid_id, file_name, elevation_field)
@@ -377,6 +367,9 @@ CONTAINS
         & CALL finish(method_name, "earth_rescale_factor not defined")
     ENDIF
     
+    IF (grid_obj%geometry_type == planar_torus_geometry) &
+      CALL read_planar_torus_info(ncid, grid_obj%planar_torus_info)
+        
     print *, 'Read ', grid_obj%ncells, ' cells...'
     CALL allocate_grid_object(grid_id)
 
@@ -678,7 +671,7 @@ CONTAINS
     !  read decompositions
     netcd_status = nf_inq_varid(ncid, 'cell_domain_id', varid)
     IF (netcd_status == nf_noerr) THEN
-      CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%get_domain_id(:,:)))
+      CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%domain_id(:,:)))
       CALL nf(nf_inq_varid(ncid, 'cell_no_of_domains', varid))
       CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%no_of_domains))
     ENDIF
@@ -880,6 +873,10 @@ CONTAINS
 !     END SELECT
     CALL nf(nf_put_att_double  (ncid, nf_global, 'rotation_vector', nf_double, 3, &
       & rotation_vector))
+
+
+    CALL write_planar_torus_info(ncid, grid_obj%planar_torus_info)
+      
     !----------------------------------------------------------------------
     ! Dimensions
     CALL nf(nf_def_dim(ncid, 'cell',   no_of_cells, dim_ncell))
@@ -1670,7 +1667,7 @@ CONTAINS
     CALL nf(nf_put_var_int   (ncid, varid_cell_sea_land_mask,&
       cells%sea_land_mask(1:no_of_cells)))
     CALL nf(nf_put_var_int   (ncid, varid_cell_domain_id,&
-      cells%get_domain_id(:,1:no_of_cells)))
+      cells%domain_id(:,1:no_of_cells)))
     CALL nf(nf_put_var_int   (ncid, varid_cell_no_of_domains,&
       cells%no_of_domains(:)))
     CALL nf(nf_put_var_double(ncid, varid15, verts%dual_area(1:no_of_verts)))
@@ -1999,31 +1996,6 @@ CONTAINS
     END IF
 
   END FUNCTION check_orientation
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE write_ascii_decomposition(grid_id, decomposition_id, ascii_file_name)
-    INTEGER, INTENT(in) :: grid_id, decomposition_id
-    CHARACTER(LEN=filename_max), INTENT(in) :: ascii_file_name
-
-    TYPE(t_grid_cells), POINTER :: cells
-
-    INTEGER :: file_id, error_status, cell_no
-    
-    WRITE(message_text,'(a,a,a,i1)')                          &
-      &  'Write decomposition file: ', TRIM(ascii_file_name), &
-      &  ',       decomposition_id: ', decomposition_id
-    CALL message ('', TRIM(message_text))
-    !----------------------------------------------------------------------
-    cells => get_cells(grid_id)
-    file_id = find_next_free_unit(100,1000)
-    OPEN (file_id, FILE=TRIM(ascii_file_name),IOSTAT=error_status)
-    DO cell_no = 1,cells%no_of_existcells
-      WRITE(file_id,*) cells%get_domain_id(decomposition_id, cell_no)
-    ENDDO
-    CLOSE(file_id)    
-
-  END SUBROUTINE write_ascii_decomposition
   !-------------------------------------------------------------------------
 
 END MODULE mo_io_local_grid

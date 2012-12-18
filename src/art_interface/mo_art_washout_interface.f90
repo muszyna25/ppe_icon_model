@@ -46,6 +46,7 @@ MODULE mo_art_washout_interface
     USE mo_exception,             ONLY: message, message_text, finish
     USE mo_linked_list,         ONLY: t_var_list,t_list_element
     USE mo_var_metadata,        ONLY: t_var_metadata
+    USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag
 #ifdef __ICON_ART
     USE mo_art_washout_volc,       ONLY:art_washout_volc
 #endif
@@ -61,24 +62,18 @@ CONTAINS
 
 
   !>
-  !! Interface for ART-routine emission_volc
+  !! Interface for ART-routine washout_volc
   !!
   !! This interface calls the ART-routine emission_volc, if ICON has been 
   !! built including the ART-package. Otherwise, this is simply a dummy 
   !! routine.
   !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2012-01-27)
-  !! Modification by Kristina Lundgren, KIT (2012-01-30)
-  !! - Call modified for emission of volcanic ash
+
   SUBROUTINE art_washout_interface(            & !>in
       &          dt_phy_jg,                    & !>in
       &          p_patch,                      & !>in
       &          p_prog_list,                  & !>in
-      &          p_rain_gsp_rate,              & !>in
-!      &          p_snow_gsp_rate,              & !>in
-      &          p_rain_con_rate,              & !>in
-!      &          p_snow_con_rate,              & !>in
+      &          prm_diag,                     & !>in
       &          p_rho,                        & !>in
       &          p_tracer_new)                  !>inout
 
@@ -87,23 +82,14 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::dt_phy_jg         !< time interval, fast physics
 
-    TYPE(t_var_list), INTENT(IN) :: & !current prognostic state list
+    TYPE(t_var_list), INTENT(IN) :: &        !< current prognostic state list
       &  p_prog_list
 
-    REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface rain rate  [kg/m2/s]
-      &  p_rain_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
+    TYPE(t_nwp_phy_diag),       INTENT(IN) ::& !< diagnostic variables
+     &  prm_diag 
 
-!    REAL(wp), INTENT(IN)    ::  &       !< grid-scale surface snow rate  [kg/m2/s]
-!      &  p_snow_gsp_rate(:,:)           !< dim: (nproma,nblks_c)
-
-    REAL(wp), INTENT(IN)    ::  &       !< convective surface rain rate  [kg/m2/s]
-      &  p_rain_con_rate(:,:)           !< dim: (nproma,nblks_c)
-
-!    REAL(wp), INTENT(IN)    ::  &       !< convective surface snow rate  [kg/m2/s]
-!      &  p_snow_con_rate(:,:)           !< dim: (nproma,nblks_c)
-
-    REAL(wp), INTENT(INOUT) ::  &       !< density of air 
-      &  p_rho(:,:,:)               !< 
+    REAL(wp), INTENT(IN) ::  &          !< density of air 
+      &  p_rho(:,:,:)                   !< 
                                         !< [kg/m3]
                                         !< dim: (nproma,nlev,nblks_c)
 
@@ -118,7 +104,7 @@ CONTAINS
                                                      !< metadata of current element
     INTEGER  :: jg                !< loop index
     INTEGER, POINTER :: jsp                          !< returns index of element
-    CHARACTER(len=5), POINTER :: var_name            !< returns a character containing the name
+    CHARACTER(len=32), POINTER :: var_name            !< returns a character containing the name
                                                      !< of current ash component without the time level
                                                      !< suffix at the end. e.g. qash1(.TL1)
 
@@ -150,10 +136,7 @@ CONTAINS
 
          CALL art_washout_volc(dt_phy_jg,       & !>in
          &          p_patch,                    & !>in
-         &          p_rain_gsp_rate,              & !>in
-!!$         &          p_snow_gsp_rate,              & !>in
-         &          p_rain_con_rate,              & !>in
-!!$         &          p_snow_con_rate,              & !>in
+         &          prm_diag,                   & !>in
          &          p_rho,                   & !>in
          &          p_tracer_new,jsp)                !>inout 
         ENDIF

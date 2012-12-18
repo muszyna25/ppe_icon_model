@@ -115,7 +115,7 @@ MODULE mo_physical_constants
 !   REAL(wp), PARAMETER :: rre   = 1._wp/ph_re         !! [1/m]
   REAL(wp), PARAMETER :: earth_radius           = 6.371229e6_wp    !! [m]    average radius
   REAL(wp), PARAMETER :: inverse_earth_radius   = 1._wp/earth_radius         !! [1/m]
-  REAL(wp), PARAMETER :: earth_angular_velocity = 7.29212e-5_wp    !! [1/s]  angular velocity
+  REAL(wp), PARAMETER :: earth_angular_velocity = 7.29212e-5_wp    !! [rad/s]  angular velocity
   !
 !!$  ! ECHAM values
 !!  REAL(wp), PARAMETER :: grav  = 9.80616_wp       ! [m/s2] av. gravitational acceleration
@@ -224,11 +224,19 @@ MODULE mo_physical_constants
     albsm        = 0.65_wp,         & ! Albedo of snow (melting)    
     albi         = 0.66_wp,         & ! Albedo of ice (not melting)
     albim        = 0.64_wp,         & ! Albedo of ice (melting)    
-    albedoW      = 0.1_wp,          & ! albedo of the ocean 
+    albedoW      = 0.07_wp,         & ! albedo of the ocean 
     !I_0          = 0.3             ! Ice-surface penetrating shortwave fraction
-    I_0          = 0.17_wp            ! Ice-surface penetrating shortwave fraction
+    I_0          = 0.00_wp            ! Ice-surface penetrating shortwave fraction
 
-!------------------------------------------------------------
+
+!--------- parameters for NWP sea-ice model (we should agree on a single value)-----
+!_cdm>
+! The value of the salt-water freezing point is the same as in GME and COSMO (-1.7 dgr C).
+! Note that a different value (Tf=-1.8 dgr C) is defined in "mo_physical_constants".
+!_cdm<
+  REAL (wp), PARAMETER ::                             &
+    &  tf_salt      = 271.45_wp     !< salt-water freezing point [K]
+                                    !< (note that it differs from Tf) 
 
 
 END MODULE mo_physical_constants

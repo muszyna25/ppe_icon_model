@@ -55,7 +55,9 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
-  &                               biharmonic_diffusion_factor
+  &                               biharmonic_diffusion_factor, &
+  &                               richardson_factor_tracer, richardson_factor_veloc,      &
+  &                               l_constant_mixing, l_smooth_veloc_diffusion
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -78,7 +80,6 @@ USE mo_grib2
 USE mo_cdi_constants
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, global_max
-
 IMPLICIT NONE
 
 
@@ -149,7 +150,7 @@ CONTAINS
   !
   !! mpi parallelized, syncs p_phys_param%K_tracer_h, p_phys_param%K_veloc_h
   SUBROUTINE init_ho_params(  p_patch_3D, p_phys_param )
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE (t_ho_params)                          :: p_phys_param
 
     ! Local variables
@@ -185,9 +186,11 @@ CONTAINS
       CASE(1)!use uniform viscosity coefficient from namelist
         CALL calc_lower_bound_veloc_diff(  p_patch, z_lower_bound_diff )
         IF(z_lower_bound_diff>p_phys_param%K_veloc_h_back)THEN
+          ! SX9 cannot handle messages of that size -> split
           CALL message ('init_ho_params','WARNING: Specified diffusivity&
-                        & does not satisfy Munk criterion. This may lead&
-                        &to stability problems for experiments with lateral boundaries')
+                        & does not satisfy Munk criterion.')
+          CALL message ('init_ho_params','WARNING: This may lead&
+                        & to stability problems for experiments with lateral boundaries')
         ENDIF
 
         p_phys_param%K_veloc_h(:,:,:) = p_phys_param%K_veloc_h_back
@@ -205,8 +208,7 @@ CONTAINS
             !calculate lower bound for diffusivity
             !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
             p_phys_param%K_veloc_h(je,:,jb) = 3.82E-12_wp&
-            &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3&
-            &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
+            &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
       END SELECT
@@ -222,10 +224,8 @@ CONTAINS
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
-             p_phys_param%K_veloc_h(je,:,jb) = z_diff_multfac*0.5_wp*&
-             &maxval(p_patch%edges%primal_edge_length)*maxval(p_patch%edges%primal_edge_length)&
-             &*maxval(p_patch%edges%dual_edge_length)*maxval(p_patch%edges%dual_edge_length)
-             !&p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
+             p_phys_param%K_veloc_h(je,:,jb) = &
+              &p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
           END DO
         END DO
 
@@ -238,15 +238,12 @@ CONTAINS
 !            END DO
 !          END DO
 
-write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
-&minval(p_phys_param%K_veloc_h(:,1,:))!, &
-!&maxval(p_patch%edges%area_edge),minval(p_patch%edges%area_edge),&
-!&maxval(p_patch%edges%primal_edge_length),minval(p_patch%edges%primal_edge_length),&
-!&maxval(p_patch%edges%dual_edge_length),minval(p_patch%edges%dual_edge_length)
+write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),&
+&minval(p_phys_param%K_veloc_h(:,1,:))
 
 
     ENDIF
-    CALL smooth_lapl_diff( p_patch, p_patch_3D,  p_phys_param%K_veloc_h )
+    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( p_patch, p_patch_3D, p_phys_param%K_veloc_h )
 
 
     DO i=1,no_tracer
@@ -319,7 +316,7 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
   !! mpi parallelized, no sync required
   SUBROUTINE smooth_lapl_diff( p_patch,p_patch_3D, K_h )
    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-   TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+   TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
    REAL(wp), INTENT(INOUT)    :: K_h(:,:,:)
     ! Local variables
     INTEGER  :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
@@ -431,13 +428,13 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
     nblks_e = p_patch%nblks_e
 
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
-    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
-    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev+1,nblks_e/))
@@ -446,13 +443,13 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
     !! Tracers
     IF ( no_tracer > 0 ) THEN
       CALL add_var(ocean_params_list, 'K_tracer_h', params_oce%K_tracer_h , &
-      &            GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA, &
+      &            GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
       &            t_cf_var('K_tracer_h', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
       &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
       &            ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
       &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%A_tracer_v , &
-      &            GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
       &            t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
       &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &            ldims=(/nproma,n_zlev+1,nblks_c,no_tracer/), &
@@ -466,7 +463,7 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
         CALL add_ref( ocean_params_list, 'K_tracer_h',&
                     & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
-                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA,            &
+                    & GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA,               &
                     & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)), &
                     &          'kg/kg', &
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
@@ -476,7 +473,7 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
                     & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,            &
+                    & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF,            &
                     & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)), &
                     &          'kg/kg', &
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
@@ -487,12 +484,12 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
       END DO
 !TODO     use the following code, if add_var support 1d arrays:
 !TODO     CALL add_var(ocean_params_list, 'K_tracer_h_back', params_oce%K_tracer_h_back , &
-!TODO     &            GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
+!TODO     &            GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
 !TODO     &            t_cf_var('K_tracer_h_back', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
 !TODO     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
 !TODO     &            ldims=(/ no_tracer /))
 !TODO     CALL add_var(ocean_params_list, 'A_tracer_v_back', params_oce%A_tracer_v_back , &
-!TODO     &            GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+!TODO     &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
 !TODO     &            t_cf_var('A_tracer_v_back', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
 !TODO     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
 !TODO     &            ldims=(/no_tracer/))
@@ -574,7 +571,7 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
   !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
   SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET           :: p_os
     TYPE(t_sfc_flx),   INTENT(IN)               :: p_sfc_flx
     TYPE(t_ho_params), INTENT(INOUT)            :: params_oce
@@ -617,10 +614,9 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
     REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
-    REAL(wp), PARAMETER :: z_av0             = 0.5E-2_wp
-    REAL(wp), PARAMETER :: z_dv0             = 0.5E-2_wp
+    REAL(wp)            :: z_av0             = 0.5E-2_wp ! later set via nml richardson_factor_veloc
+    REAL(wp)            :: z_dv0             = 0.5E-2_wp ! later set via nml richardson_factor_tracer
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
-    LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE. !TODO: in namelist
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
     REAL(wp) :: z_press!, z_frac
     REAL(wp) :: A_T_tmp!, A_v_tmp
@@ -628,9 +624,9 @@ write(*,*)'max-min coeff',maxval(p_phys_param%K_veloc_h(:,1,:)),&
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
-    TYPE(t_patch), POINTER        :: p_patch 
-    !-----------------------------------------------------------------------
-    p_patch         => p_patch_3D%p_patch_2D(1)
+    !-------------------------------------------------------------------------
+    z_av0 = richardson_factor_veloc
+    z_dv0 = richardson_factor_tracer
     !-------------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain

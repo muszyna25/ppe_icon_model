@@ -232,8 +232,8 @@ REAL (KIND = ireals) ::      &
 ! ------------------
 ! Gsigcr  = 0.80_ireals   , &   ! top layer for low level drag
 ! Gkdrag  = 0.30          , &   ! gw drag constant (Original ECMWF value)
-  Gkdrag  = 0.075_ireals  , &   ! gw drag constant
-  Gkwake  = 0.50_ireals   , &   ! low level wake drag constant
+  Gkdrag  = 0.125_ireals  , &   ! gw drag constant
+  Gkwake  = 1.00_ireals   , &   ! low level wake drag constant
 ! Gkdrag  = Gkdrag_read   , &   ! Gkdrag_read read in or set in gme_tuning_constants
 ! Gkwake  = Gkwake_read   , &   ! Gkwake_read read in or set in gme_tuning_constants
   Grcrit  = 0.25_ireals   , &   ! critical Richardson number

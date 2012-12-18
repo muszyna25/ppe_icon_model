@@ -789,6 +789,7 @@ SUBROUTINE turbtran(iini, dt_tke, nprv, ntur, ntim, &
           tke, tkvm, tkvh, rcld, edr, &
 !    
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
+          shfl_s, lhfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -1134,9 +1135,9 @@ REAL (KIND=ireals), DIMENSION(:), INTENT(IN) :: &
 
 
 #ifdef  __xlC__
- REAL (KIND=ireals), DIMENSION(ie,ke), TARGET, INTENT(INOUT) :: &
+ REAL (KIND=ireals), DIMENSION(ie,ke), TARGET, INTENT(IN) :: &
 #else
- REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
+ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(IN) :: &
 #endif
 !
 ! Atmospheric model variables:
@@ -1233,6 +1234,15 @@ REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
      rh_2m,        & ! relative humidity in 2m                       (  %  )
      u_10m,        & ! zonal wind in 10m                             ( m/s )
      v_10m           ! meridional wind in 10m                        ( m/s )
+ 
+#ifdef  __xlC__
+REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
+#else
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
+#endif
+!
+     shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
+     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1754,12 +1764,9 @@ REAL (KIND=ireals) :: &
             fh2_2d(i)=grav*(a_tet*grad(i,tet_l)+a_vap*grad(i,h2o_g))
 
             !Beachte:
-            !'grad(i,tet_l)' ist bislang der Temperaturgradient und haette zuvor durch
-            !den Exnerfaktor dividiert werden muessen, so wie 'a_tet' zuvor damit
-            !haette multipliziert werden muessen. Der Exnerfaktor kuerzt sich aber
-            !in 'fh2' wieder heraus. Im folgenden wird aber der Teta-Gradient benoetigt:
-
-            grad(i,tet_l)=grad(i,tet_l)/exnr
+            !'grad(i,tet_l)' ist bislang noch nicht durch den Exnerfaktor dividiert 
+            !worden, so wie auch 'a_tet' zuvor damit haette multipliziert werden muessen.
+            !Der Exnerfaktor kuerzt sich aber in 'fh2' wieder heraus. 
          END DO      
 
          END IF
@@ -1845,17 +1852,6 @@ REAL (KIND=ireals) :: &
                          frc=frc_2d, tvs=tke(:,ke1,ntur), tls=l_tur_z0, &
                          i_st=i_st,i_en=i_en)
 
-!-----------------------------------------------------------------------
-#ifdef SCLM
-         IF (lsclm) THEN
-            CALL turb_stat(lsm=tkvm(im,jm,ke1)*l_tur_z0(im,jm), lsh=tkvh(im,jm,ke1)*l_tur_z0(im,jm),   &
-                           fm2=fm2_2d(im,jm),                   fh2=fh2_2d(im,jm),                     &
-                           d_m=d_m,                             d_h=d_h,                               &
-                           tls=l_tur_z0(im,jm),                 tvs=tke(im,jm,ke1,ntur),               &
-                           tvt=z0,                              grd=grad(im,jm,:),                   k=ke1 )
-         END IF
-#endif
-!SCLM-------------------------------------------------------------------
 
          DO i=i_st,i_en
 
@@ -1911,6 +1907,36 @@ REAL (KIND=ireals) :: &
          RETURN !finish this subroutine
 
       END IF
+
+!     Berechnung der Enthalpieflussdichten:
+      
+      IF (PRESENT(shfl_s)) THEN 
+         DO i=istartpar,iendpar
+            shfl_s(i)=cp_d*rho_2d(i)*tkvh(i,ke1)*grad(i,tet_l)
+         END DO
+      END IF
+      IF (PRESENT(lhfl_s)) THEN 
+         DO i=istartpar,iendpar
+            lhfl_s(i)=lh_v*rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
+         END DO
+      END IF   
+
+!-----------------------------------------------------------------------
+#ifdef SCLM
+      IF (lsclm) THEN
+         !Im folgenden wird der wirkliche Teta_l-Gradient benoetigt:
+         DO i=i_st,i_en
+            grad(i,tet_l)=grad(i,tet_l)/zexner(ps(i))
+         END DO
+         CALL turb_stat(lsm=tkvm(im,jm,ke1)/tke(im,jm,ke1,ntur), &
+                        lsh=tkvh(im,jm,ke1)/tke(im,jm,ke1,ntur), &
+                        fm2=fm2_2d(im,jm),                   fh2=fh2_2d(im,jm          &
+                        d_m=d_m,                             d_h=d_h,                  &
+                        tls=l_tur_z0(im,jm),                 tvs=tke(im,jm,ke1,ntur),  &
+                        tvt=z0,                              grd=grad(im,jm,:),    k=ke1 )
+      END IF
+#endif
+!SCLM-------------------------------------------------------------------
 
 !----------------------------------------
 
@@ -2286,7 +2312,7 @@ SUBROUTINE turbdiff(iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim, &
 !    
           l_hori, hhl, dp0, &
 !    
-          fr_land, depth_lk, sai, &
+          fr_land, depth_lk, &
 !
           d_pat, c_big, c_sml, r_air, &
 !    
@@ -2596,8 +2622,7 @@ REAL (KIND=ireals), DIMENSION(:), INTENT(IN) :: &
 ! External parameter fields:
 ! ----------------------------
     fr_land,      & ! land portion of a grid point area             ( 1 )
-    depth_lk,     & ! lake depth                                    ( m )
-    sai             ! surface area index                            ( 1 )
+    depth_lk        ! lake depth                                    ( m )
 
 #ifdef  __xlC__
 REAL (KIND=ireals), DIMENSION(ie), TARGET, OPTIONAL, INTENT(IN) :: &
@@ -2784,8 +2809,8 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
  REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
-     shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive upward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive upward)
+     shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
+     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -5399,7 +5424,7 @@ END SUBROUTINE calc_impl_vert_diff
 
 !********************************************************************************
 
-!------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------------
 #ifdef SCLM
 SUBROUTINE turb_stat (lsm, lsh, fm2, fh2, d_m, d_h, tls, tvs, tvt, grd, k)
 

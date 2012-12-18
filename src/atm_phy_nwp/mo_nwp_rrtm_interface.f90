@@ -718,6 +718,7 @@ CONTAINS
         & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
         & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
         & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
+        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                               ! output
                               ! ------
                               !
@@ -1175,6 +1176,7 @@ CONTAINS
           & zaeq3      = zrg_aeq3(:,:,jb)       ,&!< in aerosol urban
           & zaeq4      = zrg_aeq4(:,:,jb)       ,&!< in aerosol volcano ashes
           & zaeq5      = zrg_aeq5(:,:,jb)       ,&!< in aerosol stratospheric background
+          & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                                 !
                                 ! output
                                 ! ------
@@ -1394,6 +1396,7 @@ CONTAINS
           & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
           & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
           & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
+          & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                                 ! output
                                 ! ------
                                 !
@@ -1495,6 +1498,7 @@ CONTAINS
         & zaeq3      = rrtm_data%zaeq3     (:,:,jb)    ,&!< in aerosol urban
         & zaeq4      = rrtm_data%zaeq4     (:,:,jb)    ,&!< in aerosol volcano ashes
         & zaeq5      = rrtm_data%zaeq5     (:,:,jb)    ,&!< in aerosol stratospheric background
+        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                               ! output
                               ! ------
                               !

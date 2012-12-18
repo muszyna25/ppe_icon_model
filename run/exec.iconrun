@@ -103,7 +103,17 @@ fi
 #all_grids="${atmo_grids} ${ocean_grids}"
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
 if [ ${atmo_dyn_grids} = 'iconR2B04-ocean_etopo40_planet.nc' ] ; then
+ # provide $HGRIDDIR since atmosphere/JSBACH model is run with grid used by the ocean
+ if [ ! -d ${HGRIDDIR} ] ;  then
+   mkdir -p ${HGRIDDIR}
+ fi 
  ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
+ rm ${EXPDIR}/sst.nc
+ ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
+ rm ${EXPDIR}/sst_mon.nc
+ ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-monmean.nc ${EXPDIR}/sst_mon.nc
+ rm ${EXPDIR}/extpar_${atmo_dyn_grids}
+ ln -s /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
 fi
 for gridfile in ${all_grids}; do
   ls -l ${HGRIDDIR}/$gridfile
@@ -173,6 +183,9 @@ if [[ $run_ocean = 'true' ]]; then
    POOL_FORC=${POOL_ICON}/ocean_data/ocean_forcing
    POOL_INIT=${POOL_ICON}/ocean_data/ocean_init
 
+   if [ -z "${ocean_grid_desc}" ]; then
+     ocean_grid_desc="R${R}B0${B}"
+   fi
    # provide $HGRIDDIR since ocean model can be run without grid generator
    if [ ! -d ${HGRIDDIR} ] ;  then
      mkdir -p ${HGRIDDIR}
@@ -214,17 +227,17 @@ if [[ $run_ocean = 'true' ]]; then
 
      # general filename: OMIP annual file
      if [[ "x$iforc_len" = "x1" ]] ; then
-       FORCNAME=omip4icon-R${R}B0${B}-annual.nc
+       FORCNAME=omip4icon-${ocean_grid_desc}-annual.nc
      # filename for OMIP 12 sets of monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
-       FORCNAME=omip4icon-R${R}B0${B}-monmean.nc
+       FORCNAME=omip4icon-${ocean_grid_desc}-monmean.nc
        # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
        if [[ "x$iforc_type" = "x5" ]] ; then
-         FORCNAME=ncep4icon_R${R}B0${B}.nc
+         FORCNAME=ncep4icon_${ocean_grid_desc}.nc
        fi
      # filename for OMIP 365 sets of daily data
      elif [[ "x$iforc_len" = "x365" ]] ; then
-       FORCNAME=omip4icon-R${R}B0${B}-daily.nc
+       FORCNAME=omip4icon-${ocean_grid_desc}-daily.nc
      fi
      rm ${EXPDIR}/${FLUXNAME}
 
@@ -253,8 +266,8 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$init_oce" = "x1" ]] ; then
 
      PROGNAME=iconR${R}B0${B}-prog.nc
-     OININAME=ts_phc_annual-iconR${R}B0${B}-${init_oce_suff}
-     RESTARTNAME=restart_500y_dailyOmip_noIce_iconR${R}B0${B}-${init_oce_suff}
+     OININAME=ts_phc_annual-icon${ocean_grid_desc}-${init_oce_suff}
+     RESTARTNAME=restart_500y_dailyOmip_noIce_icon${ocean_grid_desc}-${init_oce_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
@@ -274,11 +287,10 @@ if [[ $run_ocean = 'true' ]]; then
      ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
 
+     # link to fixed restart file for buildbot:
      if [ -f ${POOL_INIT}/${RESTARTNAME} ]; then
-       #copy to grids
-       cp -p ${POOL_INIT}/${RESTARTNAME} ${HGRIDDIR}/${RESTARTNAME}
-       #link to it form the experiment dir
-       ln -s ${HGRIDDIR}/${RESTARTNAME} ${EXPDIR}/restart_oce.nc
+       # direct link to it from the experiment dir
+       ln -s ${POOL_INIT}/${RESTARTNAME} ${EXPDIR}/restart_oce.nc
        #create default restart.info
        if [ ! -f "${EXPDIR}/restart.info" ];then
          echo "Create default ${EXPDIR}/restart.info"
@@ -297,7 +309,7 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$init_relax" = "x1" ]] ; then
 
      RELAXNAME=iconR${R}B0${B}-relax.nc
-     ORELNAME=ts_surf_annual-iconR${R}B0${B}-${init_rel_suff}
+     ORELNAME=ts_surf_annual-icon${ocean_grid_desc}-${init_rel_suff}
 
      # copy file from pool to grids directory $HGRIDDIR
      if [[ "x$LOC" = "xPOOL" ]] ; then
@@ -487,12 +499,10 @@ namelist_list=""
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
   cd $RUNSCRIPTDIR
-  this_script=$job_name
-  mv $this_script $this_script.tmp
-  echo  "restart=.true." > $this_script
-  cat $this_script.tmp >> $this_script
+  this_script="$0"
+  cp $this_script ${this_script}.tmp && echo  'restart=.true.' | cat - ${this_script}.tmp > ${this_script}
   chmod +x $this_script
-  $submit $this_script    
+  $submit $0    
 fi
 
 
@@ -543,4 +553,6 @@ cd $RUNSCRIPTDIR
 
 	
 # exit 0
+#
+# vim:ft=sh
 #-----------------------------------------------------------------------------

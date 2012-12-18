@@ -59,6 +59,7 @@ MODULE mo_run_nml
                          & config_dump_filename   => dump_filename,   &
                          & config_lonlat_dump_filename => lonlat_dump_filename, &
                          & config_dd_filename     => dd_filename,     &
+                         & config_write_timer_files => write_timer_files,  &
                          & t_output_mode, max_output_modes
 
   USE mo_kind,           ONLY: wp
@@ -117,7 +118,7 @@ MODULE mo_run_nml
 
   LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
   INTEGER :: timers_level  ! what level of timers to run
-  LOGICAL :: activate_sync_timers
+  LOGICAL :: activate_sync_timers, write_timer_files
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
@@ -148,6 +149,7 @@ MODULE mo_run_nml
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
+                     write_timer_files,             &
                      msg_level, check_epsilon,      &
                      test_mode,                  &
                      dump_filename, dd_filename,    &
@@ -197,6 +199,7 @@ CONTAINS
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
+    write_timer_files    = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
     check_epsilon        = 1.e-6_wp
@@ -282,6 +285,7 @@ CONTAINS
     config_ltimer          = ltimer
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
+    config_write_timer_files = write_timer_files
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon

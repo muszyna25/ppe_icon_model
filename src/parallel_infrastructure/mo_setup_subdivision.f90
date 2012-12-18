@@ -71,7 +71,9 @@ MODULE mo_setup_subdivision
     & get_my_mpi_all_id, my_process_is_mpi_parallel
 
   USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
-    & division_method, division_file_name, n_ghost_rows, div_from_file, div_geometric
+    & division_method, division_file_name, n_ghost_rows, div_from_file,   &
+    & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
+    & ext_div_medial_redrad_cluster, redrad_split_factor
     
 #ifdef HAVE_METIS
   USE mo_parallel_config,    ONLY: div_metis
@@ -84,6 +86,7 @@ MODULE mo_setup_subdivision
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
+  USE mo_math_utilities,      ONLY: geographical_to_cartesian
 
   IMPLICIT NONE
 
@@ -141,7 +144,8 @@ CONTAINS
     INTEGER :: jg, jgp, jc, jgc, n, &
       &        l1, i_nchdom, n_procs_decomp
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
-    INTEGER, ALLOCATABLE :: cell_owner(:), cell_owner_p(:)
+    INTEGER, POINTER :: cell_owner(:)
+    INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
@@ -298,7 +302,7 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
+      CALL divide_patch_cells(jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
 
       DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
@@ -506,12 +510,14 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch_cells(n_proc, proc0, cell_owner)
+  SUBROUTINE divide_patch_cells(patch_no, n_proc, proc0, cell_owner)
 
+    INTEGER, INTENT(IN)  :: patch_no !> The patch number,
+                                     ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
-    INTEGER, INTENT(OUT) :: cell_owner(:) !> Cell division
-
+    INTEGER, POINTER :: cell_owner(:) !> Cell division
+    
     INTEGER :: n, i, j, jl, jb, jl_p, jb_p
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
@@ -521,18 +527,18 @@ CONTAINS
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
 
-
-    IF(division_method==div_from_file) THEN
+    
+    IF (division_method(patch_no) == div_from_file) THEN
 
       ! Area subdivision is read from file
 
       IF(p_pe_work == 0) THEN
 
-        IF (division_file_name == "") THEN
+        IF (division_file_name(patch_no) == "") THEN
           use_division_file_name = &
             & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
         ELSE
-          use_division_file_name = division_file_name
+          use_division_file_name = division_file_name(patch_no)
         ENDIF
         
         WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
@@ -560,10 +566,13 @@ CONTAINS
 
       CALL p_bcast(cell_owner, 0, comm=p_comm_work)
 
-      IF(p_pe_work==0) WRITE(0,*) 'Successfully read: '//TRIM(division_file_name)
+      IF(p_pe_work==0) WRITE(0,*) 'Successfully read: '//TRIM(division_file_name(patch_no))
 
-    ELSE
+    ELSE IF (division_method(patch_no) > 100) THEN
 
+      CALL finish('mo_setup_subdivision', "external decompositions cannot be used from this module")
+        
+    ELSE    
       ! Built in subdivison methods
 
       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
@@ -593,11 +602,11 @@ CONTAINS
         ! Receives the PE  numbers for every cell
         ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
 
-        IF(division_method==div_geometric) THEN
+        IF(division_method(patch_no) == div_geometric) THEN
           wrk_divide_patch => wrk_p_parent_patch_g
           CALL divide_subset_geometric( flag_c, n_proc, tmp)
 #ifdef HAVE_METIS
-        ELSE IF(division_method==div_metis) THEN
+        ELSE IF(division_method(patch_no) == div_metis) THEN
           wrk_divide_patch => wrk_p_parent_patch_g
           CALL divide_subset_metis( flag_c, n_proc, tmp)
 #endif
@@ -632,11 +641,11 @@ CONTAINS
 
         ! Divide complete patch
 
-        IF(division_method==div_geometric) THEN
+        IF(division_method(patch_no) == div_geometric) THEN
           wrk_divide_patch => wrk_p_patch_g
           CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
 #ifdef HAVE_METIS
-        ELSE IF(division_method==div_metis) THEN
+        ELSE IF(division_method(patch_no) == div_metis) THEN
           wrk_divide_patch => wrk_p_patch_g
           CALL divide_subset_metis(flag_c, n_proc, cell_owner)
 #endif
@@ -665,6 +674,7 @@ CONTAINS
 
   END SUBROUTINE divide_patch_cells
 
+  
   !-------------------------------------------------------------------------------------------------
   !>
   !! Sets the owner for the division of the cells of the parent patch
@@ -673,7 +683,7 @@ CONTAINS
   SUBROUTINE divide_parent_cells(p_patch_g, cell_owner, cell_owner_p)
 
     TYPE(t_patch), INTENT(IN) :: p_patch_g  !> Global patch for which the parent should be divided
-    INTEGER, INTENT(IN)  :: cell_owner(:)   !> Ownership of cells in p_patch_g
+    INTEGER, POINTER  :: cell_owner(:)   !> Ownership of cells in p_patch_g
     INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
                                             !> Must be allocated to n_patch_cells of the global parent
 
@@ -727,7 +737,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
 
-    INTEGER, INTENT(IN) :: cell_owner(:)
+    INTEGER, POINTER :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
     LOGICAL, INTENT(IN) :: l_compute_grid
     INTEGER, INTENT(IN) :: my_proc

@@ -614,7 +614,7 @@ CONTAINS
       ! introduce temporary variable znlev_soil, since global variable nlev_soil 
       ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
       ! mo_io_async complains about mismatch of levels. 
-      znlev_soil = SIZE(zml_soil)-1
+      znlev_soil = SIZE(zml_soil)
 
       zaxisID_hybrid(k_jg)      = zaxisCreate(ZAXIS_HYBRID, nlev)
       zaxisID_hybrid_half(k_jg) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
@@ -635,10 +635,10 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(zaxisID_hybrid_half(k_jg), 2*nlevp1, vct(1:2*nlevp1))
       !
-      zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
-      ALLOCATE(levels(znlev_soil+2))
+      zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      ALLOCATE(levels(znlev_soil+1))
       levels(1) = 0._wp
-      DO i = 1, znlev_soil+1
+      DO i = 1, znlev_soil
       levels(i+1) = zml_soil(i)*100._wp
       END DO
       CALL zaxisDefLevels(zaxisID_depth_below_land_p1(k_jg), levels)
@@ -647,7 +647,7 @@ CONTAINS
 
       ! Define axes for soil model
       !
-      zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
       CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
       !
       zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
@@ -2165,22 +2165,22 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-    IF (iforc_oce > 10) THEN
-      CALL addVar(TimeVar('forc_u',&
-      &                   'u-forcing component at centers',&
-      &                   'N/m2',13,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('forc_v',&
-      &                   'v-forcing component at centers',&
-      &                   'N/m2',14,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF
+  ! IF (iforc_oce > 10) THEN
+  !   CALL addVar(TimeVar('forc_u',&
+  !   &                   'u-forcing component at centers',&
+  !   &                   'N/m2',13,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  !   CALL addVar(TimeVar('forc_v',&
+  !   &                   'v-forcing component at centers',&
+  !   &                   'N/m2',14,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  ! END IF
     IF (temperature_relaxation >= 1 ) THEN
       CALL addVar(TimeVar('forc_tdata',&
       &                   'temperature relaxation data',&
@@ -2207,25 +2207,53 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
-    END IF 
-    IF (irelax_2d_S >= 1 ) THEN
-      CALL addVar(TimeVar('forc_sdata',&
-      &                   'salinity relaxation data',&
-      &                   'psu',15,128,&
+      CALL addVar(TimeVar('forc_swflx',&
+      &                   'short wave surface heat flux',&
+      &                   'W/m2',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('forc_lwflx',&
+      &                   'long wave surface heat flux',&
+      &                   'W/m2',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('forc_ssflx',&
+      &                   'sensible surface heat flux',&
+      &                   'W/m2',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('forc_slflx',&
+      &                   'latent surface heat flux',&
+      &                   'W/m2',16,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    IF (irelax_2d_S /= 0 ) THEN
-      CALL addVar(TimeVar('forc_s',&
-      &                   'salinity relaxation flux at centers',&
-      &                   'psu*m/s',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+  ! IF (irelax_2d_S >= 1 ) THEN
+  !   CALL addVar(TimeVar('forc_sdata',&
+  !   &                   'salinity relaxation data',&
+  !   &                   'psu',15,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  ! END IF 
+  ! IF (irelax_2d_S /= 0 ) THEN
+  !   CALL addVar(TimeVar('forc_s',&
+  !   &                   'salinity relaxation flux at centers',&
+  !   &                   'psu*m/s',15,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  ! END IF 
     IF (irelax_2d_S /= 0 ) THEN
       CALL addVar(TimeVar('forc_fwfx',&
       &                   'diagnosed net freshwater flux',&
@@ -3070,7 +3098,8 @@ CONTAINS
       CASE ('TCM');             ptr2 => prm_diag(jg)%tcm
       CASE ('TCH');             ptr2 => prm_diag(jg)%tch
       CASE ('Z0')
-        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)
@@ -3110,7 +3139,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      DO jt = 1, 3
+      DO jt = 1, 5
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'TQ'//ctracer) THEN
           ptr2 => p_diag%tracer_vi(:,:,jt)
@@ -3336,6 +3365,10 @@ CONTAINS
       CASE ('forc_tdata');   ptr2d => forcing%forc_tracer_relax(:,:,1)
       CASE ('forc_t');       ptr2d => forcing%forc_tracer(:,:,1)
       CASE ('forc_hflx');    ptr2d => forcing%forc_hflx(:,:)
+      CASE ('forc_swflx');   ptr2d => forcing%forc_swflx(:,:)
+      CASE ('forc_lwflx');   ptr2d => forcing%forc_lwflx(:,:)
+      CASE ('forc_ssflx');   ptr2d => forcing%forc_ssflx(:,:)
+      CASE ('forc_slflx');   ptr2d => forcing%forc_slflx(:,:)
       CASE ('forc_sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
       CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
       CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)

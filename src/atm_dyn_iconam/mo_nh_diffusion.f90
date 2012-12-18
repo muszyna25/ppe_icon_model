@@ -58,7 +58,7 @@ MODULE mo_nh_diffusion
                                       iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltimer, iforcing
+  USE mo_run_config,          ONLY: ltimer, iforcing, lvert_nest
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int, inwp
@@ -152,7 +152,11 @@ MODULE mo_nh_diffusion
     nlev = p_patch%nlev
 
     ! Normalized diffusion coefficient for boundary diffusion
-    fac_bdydiff_v = 1._wp/denom_diffu_v
+    IF (lhdiff_rcf) THEN
+      fac_bdydiff_v = SQRT(REAL(iadv_rcf,wp))/denom_diffu_v
+    ELSE
+      fac_bdydiff_v = 1._wp/denom_diffu_v
+    ENDIF
 
     ! scaling factor for enhanced diffusion in nudging zone (if present, i.e. for
     ! limited-area runs and one-way nesting)
@@ -160,7 +164,7 @@ MODULE mo_nh_diffusion
 
     ! scaling factor for enhanced near-boundary diffusion for 
     ! two-way nesting (used with Smagorinsky diffusion only; not needed otherwise)
-    bdy_diff = 0.01_wp/(nudge_max_coeff + dbl_eps)
+    bdy_diff = 0.015_wp/(nudge_max_coeff + dbl_eps)
 
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
@@ -223,6 +227,13 @@ MODULE mo_nh_diffusion
       ! enhanced factor for Smagorinsky diffusion above the stratopause in order to
       ! properly damp breaking gravity waves
       enh_smag_fac(1:nlev) = MIN(1._wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2)
+
+      ! Smagorinsky coefficient is also enhanced in the three model levels beneath a vertical nest interface
+      IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN
+        enh_smag_fac(1) = MAX(0.25_wp, enh_smag_fac(1))
+        enh_smag_fac(2) = MAX(0.175_wp,enh_smag_fac(2))
+        enh_smag_fac(3) = MAX(0.10_wp, enh_smag_fac(3))
+      ENDIF
 
       ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
       ! larger than suggested in the literature)

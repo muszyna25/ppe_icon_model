@@ -48,7 +48,7 @@ USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
-USE mo_gridref_config,      ONLY: grf_velfbk
+USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr
 USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
 USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
 USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -64,8 +64,8 @@ USE mo_communication,       ONLY: exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
-USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
+USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
+USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 IMPLICIT NONE
@@ -135,6 +135,7 @@ TYPE(t_patch),      POINTER     :: p_pc => NULL()
 TYPE(t_lnd_prog),   POINTER     :: p_lndp => NULL()
 TYPE(t_lnd_prog),   POINTER     :: p_lndp_old => NULL()
 TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
+TYPE(t_wtr_prog),   POINTER     :: p_wtrp => NULL()
 TYPE(t_lnd_diag),   POINTER     :: p_ldiag => NULL()
 
 ! Indices
@@ -201,6 +202,7 @@ p_pc             => p_patch(jg)
 p_lndp           => p_lnd_state(jgp)%prog_lnd(nnew_rcf(jgp))
 p_lndp_old       => p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp))
 p_lndc           => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+p_wtrp           => p_lnd_state(jgp)%prog_wtr(nnew_rcf(jgp))
 p_ldiag          => p_lnd_state(jg)%diag_lnd
 
 IF(l_parallel) THEN
@@ -468,33 +470,38 @@ ENDDO
 
 ! fbk_dom_volume is now set in p_nh_state(jg)%metrics
 
-IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
-  ! compute conservation correction for global mass only
-  aux_diff(1:nlev_p) = global_sum_array3(1,.TRUE.,parent_tend,fbk_tend,diffmask=(/1/))
-  DO jk = 1, nlev_p
-    tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-  ENDDO
-ELSE IF (iforcing <= 1) THEN
-  ! compute conservation correction for global mass and each tracer separately
-  ! the correction is additive for density and multiplicative for tracer masses
-  aux_diff = global_sum_array3(ntracer+1,.TRUE.,parent_tend,fbk_tend,f4din=parent_tr_mass,&
-                               f4dd=fbk_tr_mass,diffmask=(/1,(2,jt=1,ntracer)/))
-  DO jk = 1, nlev_p
-    tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-  ENDDO
-  DO jk = 1, nlev_p*ntracer
-    tracer_corr(jk) = aux_diff(nlev_p+jk)
-   ENDDO
-ELSE ! iforcing >= 2; tracers represent moisture variables
-  ! compute conservation correction for global mass and total tracer mass
-  ! the correction is additive for density and multiplicative for tracer mass
-  aux_diff(1:2*nlev_p) = global_sum_array3(2,.TRUE.,parent_tend,fbk_tend,              &
-                                         f3din2=parent_tr_totmass,f3dd2=fbk_tr_totmass,&
-                                         diffmask=(/1,2/))
-  DO jk = 1, nlev_p
-    tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-    tracer_corr(jk)   = aux_diff(nlev_p+jk)
-  ENDDO
+IF (l_mass_consvcorr) THEN
+  IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
+    ! compute conservation correction for global mass only
+    aux_diff(1:nlev_p) = global_sum_array3(1,.TRUE.,parent_tend,fbk_tend,diffmask=(/1/))
+    DO jk = 1, nlev_p
+      tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+    ENDDO
+  ELSE IF (iforcing <= 1) THEN
+    ! compute conservation correction for global mass and each tracer separately
+    ! the correction is additive for density and multiplicative for tracer masses
+    aux_diff = global_sum_array3(ntracer+1,.TRUE.,parent_tend,fbk_tend,f4din=parent_tr_mass,&
+                                 f4dd=fbk_tr_mass,diffmask=(/1,(2,jt=1,ntracer)/))
+    DO jk = 1, nlev_p
+      tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+    ENDDO
+    DO jk = 1, nlev_p*ntracer
+      tracer_corr(jk) = aux_diff(nlev_p+jk)
+     ENDDO
+  ELSE ! iforcing >= 2; tracers represent moisture variables
+    ! compute conservation correction for global mass and total tracer mass
+    ! the correction is additive for density and multiplicative for tracer mass
+    aux_diff(1:2*nlev_p) = global_sum_array3(2,.TRUE.,parent_tend,fbk_tend,              &
+                                           f3din2=parent_tr_totmass,f3dd2=fbk_tr_totmass,&
+                                           diffmask=(/1,2/))
+    DO jk = 1, nlev_p
+      tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+      tracer_corr(jk)   = aux_diff(nlev_p+jk)
+    ENDDO
+  ENDIF
+ELSE ! conservation correction turned off
+  tendency_corr(:) = 0.0_wp
+  tracer_corr(:)   = 1.0_wp
 ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd,ic,jgc)
@@ -674,6 +681,12 @@ IF (.NOT. l_parallel) THEN
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
+    IF (lseaice) THEN
+      p_wtrp%t_ice(i_startidx:i_endidx,jb)     = p_wtrp%t_ice(i_startidx:i_endidx,jb)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_wtrp%t_snow_si(i_startidx:i_endidx,jb) = p_wtrp%t_snow_si(i_startidx:i_endidx,jb) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+    ENDIF
 
     IF (ltransport .AND. l_trac_fbk) THEN ! perform tracer feedback
       IF (iforcing <= 1) THEN
@@ -925,6 +938,12 @@ ENDIF
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
+    IF (lseaice) THEN
+      p_wtrp%t_ice(i_startidx:i_endidx,jb)     = p_wtrp%t_ice(i_startidx:i_endidx,jb)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_wtrp%t_snow_si(i_startidx:i_endidx,jb) = p_wtrp%t_snow_si(i_startidx:i_endidx,jb) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+    ENDIF
 
     ! divide tracer density (which is the feedback quantity) by air density,
     ! and apply multiplicative mass conservation correction
@@ -1115,6 +1134,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   TYPE(t_patch),      POINTER     :: p_pc => NULL()
   TYPE(t_lnd_prog),   POINTER     :: p_lndp => NULL()
   TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
+  TYPE(t_wtr_prog),   POINTER     :: p_wtrp => NULL()
 
   ! Indices
   INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
@@ -1187,6 +1207,7 @@ p_pc             => p_patch(jg)
 p_int            => p_int_state(jgp)
 p_lndp           => p_lnd_state(jgp)%prog_lnd(nnew_rcf(jgp))
 p_lndc           => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+p_wtrp           => p_lnd_state(jgp)%prog_wtr(nnew_rcf(jgp))
 
 IF(l_parallel) THEN
   p_grf => p_grf_state_local_parent(jg)
@@ -1680,23 +1701,27 @@ div_diff_vn(:,:,:) = 0._wp
 !$OMP END PARALLEL
 
 
-
-IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
-  ! compute conservation correction for global mass only
-  aux_diff(1:nlev_p) = global_sum_array3(1,.FALSE.,diff_mass)
-  DO jk = 1, nlev_p
-    rho_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-  ENDDO
-ELSE
-  ! compute conservation correction for global mass and total tracer mass
-  ! the correction is additive for density and multiplicative for tracer mass
-  aux_diff(1:2*nlev_p) = global_sum_array3(2,.TRUE.,diff_mass,div_diff_vn,     &
-                                         f3din2=parent_trmass,f3dd2=fbk_trmass,&
-                                         diffmask=(/1,2/))
-  DO jk = 1, nlev_p
-    rho_corr(jk)    = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-    tracer_corr(jk) = aux_diff(nlev_p+jk)
-  ENDDO
+IF (l_mass_consvcorr) THEN
+  IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
+    ! compute conservation correction for global mass only
+    aux_diff(1:nlev_p) = global_sum_array3(1,.FALSE.,diff_mass)
+    DO jk = 1, nlev_p
+      rho_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+    ENDDO
+  ELSE
+    ! compute conservation correction for global mass and total tracer mass
+    ! the correction is additive for density and multiplicative for tracer mass
+    aux_diff(1:2*nlev_p) = global_sum_array3(2,.TRUE.,diff_mass,div_diff_vn,     &
+                                           f3din2=parent_trmass,f3dd2=fbk_trmass,&
+                                           diffmask=(/1,2/))
+    DO jk = 1, nlev_p
+      rho_corr(jk)    = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+      tracer_corr(jk) = aux_diff(nlev_p+jk)
+    ENDDO
+  ENDIF
+ELSE ! conservation correction turned off
+  rho_corr(:)    = 0.0_wp
+  tracer_corr(:) = 1.0_wp
 ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -1769,6 +1794,12 @@ ENDIF
         p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
+    IF (lseaice) THEN
+      DO jc = i_startidx,i_endidx
+        p_wtrp%t_ice(jc,jb)     = p_wtrp%t_ice(jc,jb)     + relfac*diff_tg(jc,jb)
+        p_wtrp%t_snow_si(jc,jb) = p_wtrp%t_snow_si(jc,jb) + relfac*diff_tg(jc,jb)
+      ENDDO
+    ENDIF
 
   ENDDO
 !$OMP END DO

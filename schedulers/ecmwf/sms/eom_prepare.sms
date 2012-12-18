@@ -32,7 +32,7 @@ lecget=1
 lsplitdata=1
 lcatdata=1
 lcpdata=1
-ldeldata=0
+ldeldata=1
 
 
 #-----------------------------------------------------------------------------
@@ -74,6 +74,7 @@ for levtype1 in PL HL ML; do
     basename31=%SUITE%_%EXPNUM%_${date31}
     basenameMM=%SUITE%_%EXPNUM%_${YYYYMM}
     base=%SUITE%_%EXPNUM%
+
 
 #-----------------------------------------------------------------------------
 # GRIB: rename and copy to ecgate
@@ -135,6 +136,13 @@ for levtype1 in PL HL ML; do
 
     ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
   done                         # end days
+
+  case $levtype1 in
+    PL) smsevent get_pl_data ;;
+    HL) smsevent get_hl_data ;;
+    ML) smsevent get_ml_data ;;
+  esac
+
 done                           # end levtype
 
 
@@ -160,10 +168,10 @@ if [[ $lcatdata = 1 ]] ; then
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
-      grib_copy  grb_data/${basename}_DOM01_0001_${var}.grb \
-        ${mondir}/tmp_dir/${basename}_DOM01_0001_${var}_[forecastTime].grb
+      grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
+        ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
       if [[ $ldeldata = 1 ]] ; then
-        \rm -rf grb_data
+        \rm -rf  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
       fi
       ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
     done                         # end days
@@ -171,19 +179,19 @@ if [[ $lcatdata = 1 ]] ; then
 
 # all times:
 
-    cat ${base}*_DOM01_0001_${var}_0.grb \
-        ${base}*_DOM01_0001_${var}_24.grb \
-        ${base}*_DOM01_0001_${var}_240.grb \
-      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_240.grb
+#   cat ${base}*_DOM01_0001_${var}_0.grb \
+#       ${base}*_DOM01_0001_${var}_24.grb \
+#       ${base}*_DOM01_0001_${var}_240.grb \
+#     > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_240.grb
 
 # time mean: (works only from day 11 onwards because of 10 day forecast verification)
 
     DD=`echo %YMD% | cut -c 7-8`   #e.g. 30 (last day)
     DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
     DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
-    cat ${basename}_DOM01_*_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
-    cat ${basename}_DOM01_*_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
-    cat ${basename}_DOM01_*_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
+    cat ${base}*_DOM01_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
+    cat ${base}*_DOM01_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
+    cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
 
     $cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
     $cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
@@ -226,10 +234,10 @@ fi
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then
-  gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}"
+  gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}
   cd $mondir
   rsh ecgate mkdir -p ${gatedir}/grb_data
-  rcp *.grb ecgate:${gatedir}/grb_data
+  rcp *.grb    ecgate:${gatedir}/grb_data
   emkdir -p ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   ecp *.grb ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   smsevent cpdata

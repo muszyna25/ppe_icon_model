@@ -110,14 +110,15 @@ MODULE mo_seaice_nwp
                         &  message     !< external procedure, sends a message (error, warning, etc.)
 
 !_cdm>
-! Note that ki is equal to 2.03 in ICON, but is 2.29 in COSMO and GME. 
+! Note that ki is equal to 2.1656 in ICON, but is 2.29 in COSMO and GME. 
 !_cdm<
   USE mo_physical_constants, ONLY:                      &
-                                 &  tf_fresh => tmelt , &  !< fresh-water freezing point [K]
-                                 &              alf   , &  !< latent heat of fusion [J/kg]
-                                 &              rhoi  , &  !< density of ice [kg/m^3]
-                                 &              ci    , &  !< specific heat of ice [J/(kg K)]
-                                 &              ki         !< molecular heat conductivity of ice [J/(m s K)]  
+                                 & tf_fresh => tmelt  , &  !< fresh-water freezing point [K]
+                                 &             tf_salt, &  !< salt-water freezing point [K]
+                                 &             alf    , &  !< latent heat of fusion [J/kg]
+                                 &             rhoi   , &  !< density of ice [kg/m^3]
+                                 &             ci     , &  !< specific heat of ice [J/(kg K)]
+                                 &             ki          !< molecular heat conductivity of ice [J/(m s K)]  
 
   IMPLICIT NONE
 
@@ -125,16 +126,11 @@ MODULE mo_seaice_nwp
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-!_cdm>
-! The value of the salt-water freezing point is the same as in GME and COSMO (-1.7 dgr C).
-! Note that a different value (-1.8 dgr C) is defined in "mo_physical_constants".
-!_cdm<
   REAL (wp), PARAMETER ::                             &
-                       &  tf_salt      = 271.45_wp  , &  !< salt-water freezing point [K] 
                        &  frsi_min     = 0.03_wp    , &  !< minimum sea-ice fraction [-]
                        &  hice_min     = 0.05_wp    , &  !< minimum sea-ice thickness [m]
                        &  hice_max     = 3.0_wp     , &  !< maximum sea-ice thickness [m]
-                       &  hice_new     = 0.5_wp     , &  !< thickness of the newly formed sea ice [m]
+                       &  hice_ini     = 0.5_wp     , &  !< thickness of the newly formed sea ice [m]
                        &  csi_lin      = 0.5_wp     , &  !< shape factor for linear temperature profile [-]
                        &  phiipr0_lin  = 1.0_wp     , &  !< derivative (at zeta=0) of the linear 
                                                          !< temperature profile shape function [-]
@@ -182,6 +178,7 @@ MODULE mo_seaice_nwp
   PUBLIC ::                       &
          &  frsi_min            , & ! parameter
          &  hice_min            , & ! parameter 
+         &  hice_ini            , & ! parameter
          &  seaice_init_nwp     , & ! procedure     
          &  seaice_timestep_nwp     ! procedure  
 
@@ -222,11 +219,18 @@ CONTAINS
   !! 
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
+  !! Modification by Daniel Reinert, DWD (2012-11-05)
+  !! - modified initialization procedure for the case that the sea-ice thickness 
+  !!   field is not provided as input (i.e. when starting from IFS analysis)
+  !! Modification by Daniel Reinert, DWD (2012-11-07)
+  !! - moved tf_salt to mo_physical constant, since it is also needed elsewhere
   !!
 
   SUBROUTINE seaice_init_nwp (                                  & 
                           &  nsigb,                             &
                           &  frsi,                              &
+                          &  t_skin,                            &
+                          &  l_hice_in,                         &
                           &  tice_p, hice_p, tsnow_p, hsnow_p,  &
                           &  tice_n, hice_n, tsnow_n, hsnow_n   &
                           &  )
@@ -241,7 +245,14 @@ CONTAINS
                                   !< where the sea ice is present) 
 
     REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
-                                           &  frsi  !< sea-ice fraction [-] 
+                                           &  frsi      !< sea-ice fraction [-]
+ 
+    REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
+                                           &  t_skin    !< skin temperature (including sea-ice) [K]
+
+    LOGICAL, INTENT(IN)                   ::       &
+                                           &  l_hice_in !< Logical switch, if sea-ice thickness field is 
+                                                        !< provided as input                     
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) ::               &
                                               &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
@@ -249,6 +260,7 @@ CONTAINS
                                               &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
                                               &  hsnow_p , &  !< snow thickness at previous time level [m] 
                                               &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
+
                                               &  hice_n  , &  !< ice thickness at new time level [m] 
                                               &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
                                               &  hsnow_n      !< snow thickness at new time level [m] 
@@ -265,6 +277,7 @@ CONTAINS
     LOGICAL ::             &
             &  lcallabort  !< logical switch, set .TRUE. if errors are encountered 
                            !< (used to call modell abort outside a DO loop)
+
 
     !===============================================================================================
     !  Start calculations
@@ -285,11 +298,18 @@ CONTAINS
         EXIT GridBoxesWithSeaIce 
       END IF 
  
-      ! Create new ice 
-      IF( hice_p(isi) < (hice_min-csmall) ) THEN 
-        hice_p(isi) = hice_new
-        tice_p(isi) = tf_salt
-      END IF 
+
+      IF ( l_hice_in ) THEN ! sea-ice thickness field provided as input
+        ! Create new ice 
+        IF( hice_p(isi) < (hice_min-csmall) ) THEN 
+          hice_p(isi) = hice_ini
+          tice_p(isi) = tf_salt
+        END IF
+      ELSE  ! sea-ice thickness field NOT provided as input
+        hice_p(isi) = hice_ini
+        tice_p(isi) = t_skin(isi)  ! use skin temperature
+      ENDIF 
+
 
       ! Take security measures 
       hice_p(isi) = MAX(MIN(hice_p(isi), hice_max), hice_min) 

@@ -32,18 +32,36 @@ ldeldata=1
 # directories
 
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-cd $gatedir
+cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
-# archive plots and tranfer to DWD by ectrans
+# convert metview plots from ps to png 
+
+cd metplots
+for metfile in `ls *.ps` ; do
+  metfile2=`echo $metfile | sed 's/\.ps//'`
+  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
+done 
+cd -
+
+
+#-----------------------------------------------------------------------------
+# ectrans plots to mkoehler@DWD
+
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/meteo meteo/*png %SUITE%_%EXPNUM%_%YMD%%INIHOUR%_meteogram.nc
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/metplots metplots/*png 
+
+
+#-----------------------------------------------------------------------------
+# archive plots to ecfs
 
 tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
 gzip -f metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
 ecp  -o metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%EXPNUM%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
+\rm -rf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
 tar cvf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar meteo
 gzip -f meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
@@ -52,11 +70,13 @@ ecp  -o meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 
 
 #-----------------------------------------------------------------------------
-# delete grib data
+# delete complete date directory
 
 if [[ $ldeldata = 1 ]] ; then
-  \rm -rf met.job.*
-  \rm -rf grb_data 
+ #\rm -rf met.job.*
+ #\rm -rf grb_data
+  cd ..
+  \rm -rf ${gatedir}
 fi
 
 

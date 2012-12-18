@@ -312,7 +312,7 @@ CONTAINS
    TYPE(t_int_state), TARGET, INTENT(IN)  :: p_int_state
 
    TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_now
-   TYPE(t_external_data), INTENT(IN)    :: p_ext_data !< external data
+   TYPE(t_external_data), INTENT(INOUT) :: p_ext_data !< external data
    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_stg
    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_new
 

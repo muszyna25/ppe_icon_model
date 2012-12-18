@@ -29,7 +29,7 @@
 \newenvironment{longtab}
 {
 \begin{longtable}
-{|>{\raggedright}p{3cm}
+{|>{\raggedright}p{4cm}
  |>{\raggedright}p{1.5cm}
  |>{\raggedright}p{1.5cm}
  |>{\raggedright}p{1cm}
@@ -1065,19 +1065,19 @@ Type of parallel I/O. Only used if number of I/O processors greater number of do
 Experimental!&
 \tabularnewline
 
-\hline 
-nh\_stepping\_threads &
-I & 1& &
-The number of OpenMP threads to be used by the non-hydrostatic dycore. Only used if the \_\_OMP\_RADIATION\_\_
-flag is set during compilation. Experimental! &
-\tabularnewline
-
-\hline 
-radiation\_threads &
-I & 1& &
-The number of OpenMP threads to be used by the radiation. Only used if the \_\_OMP\_RADIATION\_\_
-flag is set during compilation. Experimental! &
-\tabularnewline
+% % \hline 
+% % nh\_stepping\_threads &
+% % I & 1& &
+% % The number of OpenMP threads to be used by the non-hydrostatic dycore. Only used if the \_\_OMP\_RADIATION\_\_
+% % flag is set during compilation. Experimental! &
+% % \tabularnewline
+% % 
+% % \hline 
+% % radiation\_threads &
+% % I & 1& &
+% % The number of OpenMP threads to be used by the radiation. Only used if the \_\_OMP\_RADIATION\_\_
+% % flag is set during compilation. Experimental! &
+% % \tabularnewline
 
 \hline 
 use\_icon\_comm &
@@ -1377,7 +1377,7 @@ grid because the send buffer may then be empty on some PEs) & iequations = 3
 
 \hline 
 output &
-L(:)& ``vlist'',''totint'' & &
+C(:)& ``vlist'',''totint'' & &
 Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
 \begin{itemize}
 \item ``none'': switch off all output;
@@ -1422,6 +1422,12 @@ Center of the f-plane is located at this geographical latitude &
 lplane=.TRUE.
 \tabularnewline
 
+\hline 
+grid\_angular \_velocity &
+R & Earth's & rad/sec &
+The angular velocity in rad per sec. &
+\tabularnewline
+
 %\hline 
 %start\_lev &
 %I & 4& &
@@ -1452,8 +1458,9 @@ n\_dom>1
 
 \hline 
 ifeedback\_type &
-I & 1& &
-1: incremental feedback \\ 2: relaxation-based feedback & n\_dom>1
+I & 2& &
+1: incremental feedback \\ 2: relaxation-based feedback \\
+Note: vertical nesting requires option 2 to run numerically stable over longer time periods & n\_dom>1
 \tabularnewline
 
 \hline 
@@ -1561,6 +1568,7 @@ n\_dom>1\tabularnewline
 & & & & 2: RBF interpolation & \tabularnewline
 & & & & 3: combination gradient-based / IDW & \tabularnewline
 & & & & 4: combination gradient-based / RBF & \tabularnewline
+& & & & 5/6: same as 3/4, respectively, but direct interpolation of mass fluxes along nest interface edges & \tabularnewline
 
 \hline 
 grf\_velfbk&
@@ -1621,7 +1629,18 @@ denom\_diffu\_v&
 R& 200& &
 Deniminator for lateral boundary diffusion of velocity&
 n\_dom>1\tabularnewline
+
 \hline 
+l\_mass\_consvcorr&
+L& .TRUE.& &
+.TRUE.: Apply mass conservation correction in feedback routine &
+n\_dom>1\tabularnewline
+
+\hline 
+l\_density\_nudging &
+L& .TRUE.& &
+.TRUE.: Apply density nudging near lateral nest boundary &
+n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
 
 \end{longtab}
 
@@ -1632,22 +1651,32 @@ Defined and used in: src/namelists/mo\_gridref\_nml.f90
 %------------------------------------------------------------------------------
 \subsection{prepicon\_nml}
 
-Remark: prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
+The namelist prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
 There are currently two ways of using it: 
 \begin{itemize}
 \item
-Using the preprocessing tool prep\_icon, it is possible to \\
-(a) generate the three-dimensional coordinate fields needed by IFS2ICON if IFS2ICON is requested to do
-the horizontal and vertical interpolation from the IFS grid to the ICON grid \\
-(b) convert the hydrostatic set of variables provided by IFS2ICON to the nonhydrostatic set of equations
-needed by ICONAM, and \\
-(c) perform the vertical interpolation to the ICON grid if IFS2ICON is requested to do only
-the horizontal interpolation step.
+Using the preprocessing tool prep\_icon, it is possible to
+{
+\renewcommand\theenumi{(\alph{enumi})}
+\renewcommand\labelenumi{\theenumi}
+%
+\begin{enumerate}
+\item \textbf{generate the three-dimensional coordinate fields} needed by IFS2ICON if IFS2ICON is requested to do
+the horizontal and vertical interpolation from the IFS grid to the ICON grid
+\item \textbf{convert the hydrostatic set of variables provided by IFS2ICON} to the nonhydrostatic set of equations
+needed by ICONAM,
+\item \label{item:c} \textbf{perform the vertical interpolation} to the ICON grid if IFS2ICON is requested to do only
+the horizontal interpolation step,
+\item  \label{item:d} \textbf{perform data remapping from a regular grid onto a triangular ICON grid and vice versa}.
+\end{enumerate}}
+
 \item
-If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality (c) while running
+If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality \ref{item:c} while running
 the ICON executable.
 \end{itemize}
 
+\textbf{Remark:}
+When using prep\_icon as a stand-alone tool, namelists must be defined in a file ``NAMELIST\_PREPICON''.
 
 \begin{longtab}
 
@@ -1657,7 +1686,8 @@ I & 1& &
 Operating mode if the prep\_icon executable is run: \\
 1: generate coordinate fields \\
 2: convert IFS2ICON output to NH prognostic variables\\
-3: do vertical interpolation&
+3: do vertical interpolation \\
+4: grid remapping &
 \tabularnewline
 
 \hline 
@@ -1697,6 +1727,14 @@ Logical switch if surface fields are provided as input (mandatory when inwp\_sur
 \tabularnewline
 
 \hline 
+l\_sst\_in&
+L & .FALSE.& &
+Logical switch. If true, the surface temperature of the water sea points is initialized 
+with the SST provided in the ifs2icon file. If false, it is initialized with the skin 
+temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
+\tabularnewline
+
+\hline 
 l\_zp\_out&
 L & .FALSE.& &
 Logical switch for diagnostic output on pressure and height levels & prep\_icon only
@@ -1730,6 +1768,179 @@ and \texttt{idom} defining the current patch. &
 
 Defined and used in: src/namelists/mo\_prepicon\_nml.f90
 
+
+%------------------------------------------------------------------------------
+% remap_nml
+%------------------------------------------------------------------------------
+\subsection{remap\_nml}
+
+The namelist remap\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
+
+\begin{longtab}
+
+\hline 
+in\_grid\_filename&
+C & ````& & input grid file name &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+in\_filename&
+C & ````& & input data file name (may be identical to input grid file name) &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+in\_type&
+I & 1 & &
+Type of input grid: 
+1: regular grid; 2: ICON triangular grid
+&
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_grid\_filename&
+C & ````& & file containing output grid that is read as input for the remapping process &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_filename&
+C & ````& & output data file name &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_type&
+I & 2 & & 
+Type of output grid: 
+1: regular grid; 2: ICON triangular grid
+&
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+s\_maxsize&
+I & 500\,000& & Maximum size of sequential list for very large stencils &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+l\_have3dbuffer&
+L & .FALSE.& & Flag. True if a 3D buffer is used for output &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+in\_file\_gribedition&
+I & 2& & GRIB edition number of input data file &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/prep\_icon/mo\_remap\_io.f90
+
+
+%------------------------------------------------------------------------------
+% input_field_nml
+%------------------------------------------------------------------------------
+\subsection{input\_field\_nml}
+
+The namelist input\_field\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
+
+\begin{longtab}
+
+\hline 
+inputname &
+C & ```` & & Name of input variable &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+outputname &
+C & ```` & & Name of output variable &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+code &
+I & 0 & & GRIB input code number &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+type\_of\_layer &
+C & ```` & & GRIB input layer type &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+lhydrostatic\_correction &
+L & F & & Flag. True, if hydrostatic correction shall be applied to this field &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+var\_temp &
+C & ``T'' & & field name: temperature &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+code\_temp &
+I & 130 & & GRIB1 code: temperature &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+var\_geosp &
+C & ``FI'' & & field name: surface geopotential &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+code\_geosp &
+I & 129 & & GRIB1 code: surface geopotential &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+var\_qv &
+C & ``QV'' & & field name: specific humidity &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+code\_qv &
+I & 133 & & GRIB1 code: specific humidity &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+hpbl1 &
+R & 500 & & height above ground of surface inversion top &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\hline 
+hpbl2 &
+R & 1000 & & top of layer used to estimate the vertical temperature gradient above the inversion &
+i\_oper\_mode=4 (prepicon\_nml) and
+lhydrostatic\_correction=.TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/prep\_icon/mo\_remap\_input.f90
 
 
 %------------------------------------------------------------------------------
@@ -1781,6 +1992,13 @@ Kernel type for reconstruction at vertices:& \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
 \hline 
+rbf\_vec\_kern\_ll&
+I& 1& &
+Kernel type for reconstruction at lon-lat-points:& \tabularnewline
+& & & & 1: Gaussian & \tabularnewline
+& & & & 3: inverse multiquadric & \tabularnewline
+
+\hline 
 rbf\_vec\_scale\_c&
 R(n\_dom)& resolution-dependent& &
 Scale factor for RBF reconstruction at cell centres&
@@ -1796,6 +2014,12 @@ Scale factor for RBF reconstruction at edges&
 rbf\_vec\_scale\_v&
 R(n\_dom)& resolution-dependent& &
 Scale factor for RBF reconstruction at vertices&
+\tabularnewline
+
+\hline 
+rbf\_vec\_scale\_ll&
+R(n\_dom)& resolution-dependent& &
+Scale factor for RBF reconstruction at lon-lat-points&
 \tabularnewline
 
 \hline 
@@ -1835,8 +2059,8 @@ i\_cori\_method=3
 
 \hline 
 l\_intp\_c2l&
-L& .FALSE.& &
-If .TRUE. directly interpolate from cell centers to
+L& .TRUE.& &
+If .TRUE. directly interpolate scalar variables from cell centers to
 lon-lat points, otherwise do gradient interpolation and
 reconstruction.&
 \tabularnewline
@@ -1852,7 +2076,7 @@ stencil size for direct lon-lat interpolation:
 
 \hline 
 l\_mono\_c2l&
-L& .FALSE.& &
+L& .TRUE.& &
 Monotonicity can be enforced by demanding that the interpolated 
 value is not higher or lower than the stencil point values.&
 \tabularnewline
@@ -3119,10 +3343,19 @@ Defined and used in: src/namelists/mo\_advection\_nml.f90
 %------------------------------------------------------------------------------
 \subsection{nwp\_phy\_nml}
 
+The switches for the physics schemes and the time steps can be set for each model domain individually.
+If only one value is specified, it is copied to all child domains, implying that the same set
+of parameterizations and time steps is used in all domains. If the number of values given
+in the namelist is larger than 1 but less than the number of model domains, then the settings
+from the highest domain ID are used for the remaining model domains. If the time steps are not
+an integer multiple of the advective time step (dtime*iadv\_rcf), then the time step of the 
+respective physics parameterization is automatically rounded to the next higher integer multiple
+of the advective time step.
+
 \begin{longtab}
 
 inwp\_gscp&
-I&
+I (max\_dom)&
 1&
 &
 cloud microphysics and precipitation &
@@ -3184,7 +3417,7 @@ inwp\_gscp=1
 \hline 
 inwp\_convection&
 I&
-1&
+1 (max\_dom)&
 &
 convection
 &run\_nml/iforcing = inwp
@@ -3206,7 +3439,7 @@ convection
 
 \hline 
 inwp\_cldcover&
-I&
+I (max\_dom)&
 3&
 &
 cloud cover scheme for radiation
@@ -3243,7 +3476,7 @@ cloud cover scheme for radiation
 
 \hline 
 inwp\_radiation&
-I&
+I (max\_dom)&
 1&
 &
 radiation
@@ -3296,7 +3529,7 @@ saturation adjustment
 
 \hline 
 inwp\_turb&
-I&
+I (max\_dom)&
 1&
 &
 vertical diffusion and transfer 
@@ -3339,7 +3572,7 @@ vertical diffusion and transfer
 \tabularnewline
 \hline 
 inwp\_sso&
-I&
+I (max\_dom)&
 1&
 &
 subgrid scale orographic drag
@@ -3362,7 +3595,7 @@ subgrid scale orographic drag
 
 \hline 
 inwp\_gwd&
-I&
+I (max\_dom)&
 1&
 &
 non-orographic gravity wave drag
@@ -3386,7 +3619,7 @@ non-orographic gravity wave drag
 
 \hline 
 inwp\_surface&
-I&
+I (max\_dom)&
 1&
 &
 surface scheme
@@ -3604,14 +3837,6 @@ Insolation scheme\\
 1: Use insolation from external file containing the spectrally resolved insolation averaged over a year (not yet implemented) &
 \tabularnewline
 
-\hline
-dt\_rad &
-R&
-7200.&
-second&
-time interval of full radiation computation&
-run\_nml/iforcing = iecham
-\tabularnewline
 \hline
 izenith&
 I&
@@ -3881,6 +4106,15 @@ L& .FALSE.&&
 lmlo &
 L& .FALSE.&&
 .TRUE. for mixed layer ocean& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+dt\_rad &
+R&
+3600.&
+second&
+time interval of full radiation computation&
+run\_nml/iforcing = iecham
 \tabularnewline
 
 \hline
@@ -4229,6 +4463,22 @@ lrmscon\_lat = .TRUE.
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
+
+\subsection{ocean\_physics\_nml}
+
+\begin{longtab}
+
+\hline
+i\_sea\_ice    & I & 0  && 1: Winton, 2:Semtner& \tabularnewline 
+&&&& .FALSE.: compute drag only & \tabularnewline
+\hline 
+richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
+\hline
+richardson\_factor\_veloc  & I & 0.5e-5 & m/s&  & \tabularnewline
+\hline
+l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
+
+\end{longtab}
 
 \section{Namelist parameters for testcases (NAMELIST\_ICON)}
 

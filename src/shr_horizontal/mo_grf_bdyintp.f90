@@ -57,7 +57,7 @@ USE mo_kind,                ONLY: wp
 USE mo_model_domain,        ONLY: t_patch
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,   &
-                                  grf_bdyintp_end_c, grf_bdyintp_end_e
+                                  grf_bdyintp_end_c, grf_bdyintp_end_e, grf_bdywidth_e
 USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, my_process_is_mpi_seq
@@ -322,11 +322,14 @@ IF (my_process_is_mpi_seq()) THEN
 
         p_vn_out(icheidx(je,jb,1),jk,icheblk(je,jb,1))   = vn_aux(je,jk,jb,1)
         p_vn_out(icheidx(je,jb,2),jk,icheblk(je,jb,2))   = vn_aux(je,jk,jb,2)
-        p_vn_out(icheidx(je,jb,3),jk,icheblk(je,jb,3))   = vn_aux(je,jk,jb,3)
 
-        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
+        ! Avoid overwriting prognostic grid points in case of applying this to a prognostic variable
+        IF (ptr_pc%edges%refin_ctrl(icheidx(je,jb,3),icheblk(je,jb,3)) <= grf_bdywidth_e) &
+          p_vn_out(icheidx(je,jb,3),jk,icheblk(je,jb,3))   = vn_aux(je,jk,jb,3)
+
+        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1 .AND.                                    &
+            ptr_pc%edges%refin_ctrl(icheidx(je,jb,4),icheblk(je,jb,4)) <= grf_bdywidth_e) &
           p_vn_out(icheidx(je,jb,4),jk,icheblk(je,jb,4)) = vn_aux(je,jk,jb,4)
-        ENDIF
 
       ENDDO
     ENDDO
@@ -356,15 +359,15 @@ END SUBROUTINE interpol_vec_grf
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD (2010-03-12)
 !!
-SUBROUTINE interpol2_vec_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, i_chidx, &
-                              p_vn_in, p_vn_out)
+SUBROUTINE interpol2_vec_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, i_chidx, nfields,&
+                              f3din1, f3dout1, f3din2, f3dout2, f3din3, f3dout3, &
+                              f3din4, f3dout4)
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pp
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pc
 
-! input normal components of vectors at edge midpoints
-REAL(wp), INTENT(IN) ::  &
-  p_vn_in(:,:,:) ! dim: (nproma,nlev,nblks_e)
+! input normal components of vectors at edge midpoints; dim: (nproma,nlev,nblks_e)
+REAL(wp), INTENT(IN), DIMENSION(:,:,:), OPTIONAL, TARGET :: f3din1, f3din2, f3din3, f3din4
 
 ! Indices of source points and interpolation coefficients
 TYPE(t_gridref_single_state),   TARGET, INTENT(IN)    ::  ptr_grf
@@ -373,26 +376,28 @@ TYPE(t_int_state),              TARGET, INTENT(IN)    ::  ptr_int
 ! child domain index as seen from parent domain
 INTEGER, INTENT(IN) :: i_chidx
 
+! number of fields provided on input (needed for aux fields and pointer allocation)
+INTEGER, INTENT(IN) :: nfields
 
-! reconstructed edge-normal wind component
-REAL(wp),INTENT(INOUT) :: p_vn_out(:,:,:) ! dim: (nproma,nlev_c,nblks_e)
+! reconstructed edge-normal vector component; dim: (nproma,nlev_c,nblks_e)
+REAL(wp), INTENT(INOUT), DIMENSION(:,:,:), OPTIONAL, TARGET :: f3dout1, f3dout2, f3dout3, f3dout4
 
 
-INTEGER :: jb, jk, je, jv            ! loop indices
+INTEGER :: jb, jk, je, jv, jn        ! loop indices
 INTEGER :: js                        ! shift parameter
 INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
 INTEGER :: i_endidx                  ! end index
 
-INTEGER :: nsendtot, nrecvtot        ! for MPI communication call
+INTEGER :: nsendtot, nrecvtot, nlevtot ! for MPI communication call
 
 REAL(wp) :: dvn_tang(nproma)
 
 ! Auxiliary fields
 REAL(wp) :: vn_aux(nproma,ptr_pc%nlev,ptr_pp%edges%start_blk(grf_bdyintp_start_e,i_chidx):&
                    MAX(ptr_pp%edges%start_blk(grf_bdyintp_start_e,i_chidx),               &
-                       ptr_pp%edges%end_blk(grf_bdyintp_end_e,i_chidx)),4)
+                       ptr_pp%edges%end_blk(grf_bdyintp_end_e,i_chidx)),4,nfields)
 
 REAL(wp), DIMENSION(nproma,ptr_pc%nlev,ptr_pp%verts%start_blk(grf_bdyintp_start_c,i_chidx):&
                     MAX(ptr_pp%verts%start_blk(grf_bdyintp_start_c,i_chidx),               &
@@ -405,9 +410,32 @@ INTEGER,  DIMENSION(:,:,:), POINTER :: iidx_2a, iblk_2a, iidx_2b, iblk_2b, ividx
 REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_rvcoeff
 REAL(wp), DIMENSION(:,:,:), POINTER   :: ptr_dist
 
+! Allocatable pointer to input and output fields
+TYPE t_fieldptr
+  REAL(wp), POINTER :: fld(:,:,:)
+END TYPE t_fieldptr
+TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
+
 INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 !-----------------------------------------------------------------------
 IF (p_test_run) vn_aux=0._wp
+
+IF (PRESENT(f3din1)) THEN
+  p_in(1)%fld  => f3din1
+  p_out(1)%fld => f3dout1
+ENDIF
+IF (PRESENT(f3din2)) THEN
+  p_in(2)%fld  => f3din2
+  p_out(2)%fld => f3dout2
+ENDIF
+IF (PRESENT(f3din3)) THEN
+  p_in(3)%fld  => f3din3
+  p_out(3)%fld => f3dout3
+ENDIF
+IF (PRESENT(f3din4)) THEN
+  p_in(4)%fld  => f3din4
+  p_out(4)%fld => f3dout4
+ENDIF
 
 ! Set pointers to index and coefficient fields
 
@@ -438,200 +466,212 @@ nlev_c = ptr_pc%nlev
 ! upper boundary of child domain (in terms of vertical levels
 js = ptr_pc%nshift
 
-!$OMP PARALLEL PRIVATE (jb,i_startblk,i_endblk,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE (jb,jn,i_startblk,i_endblk,i_startidx,i_endidx)
 
-! Start and end blocks for which vector reconstruction at vertices is needed
-! Note: the use of grf_bdyintp_start_c (=-1) and grf_bdyintp_end_c-1 (=-3) is intended
-i_startblk = ptr_pp%verts%start_blk(grf_bdyintp_start_c,i_chidx)
-i_endblk   = ptr_pp%verts%end_blk(grf_bdyintp_end_c-1,i_chidx)
+DO jn = 1, nfields
+
+  ! Start and end blocks for which vector reconstruction at vertices is needed
+  ! Note: the use of grf_bdyintp_start_c (=-1) and grf_bdyintp_end_c-1 (=-3) is intended
+  i_startblk = ptr_pp%verts%start_blk(grf_bdyintp_start_c,i_chidx)
+  i_endblk   = ptr_pp%verts%end_blk(grf_bdyintp_end_c-1,i_chidx)
 
 !$OMP DO PRIVATE(jk,jv) ICON_OMP_DEFAULT_SCHEDULE
-DO jb = i_startblk, i_endblk
+  DO jb = i_startblk, i_endblk
 
-  CALL get_indices_v(ptr_pp, jb, i_startblk, i_endblk, &
-   i_startidx, i_endidx, grf_bdyintp_start_c, grf_bdyintp_end_c-1, i_chidx)
+    CALL get_indices_v(ptr_pp, jb, i_startblk, i_endblk, &
+     i_startidx, i_endidx, grf_bdyintp_start_c, grf_bdyintp_end_c-1, i_chidx)
 
 
 #ifdef __LOOP_EXCHANGE
-  DO jv = i_startidx, i_endidx
-    DO jk = 1, nlev_c
+    DO jv = i_startidx, i_endidx
+      DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=6
-  DO jk = 1, nlev_c
-    DO jv = i_startidx, i_endidx
+    DO jk = 1, nlev_c
+      DO jv = i_startidx, i_endidx
 #endif
 
-      u_vert(jv,jk,jb) =  &
-        ptr_rvcoeff(1,1,jv,jb)*p_vn_in(irvidx(1,jv,jb),jk+js,irvblk(1,jv,jb)) + &
-        ptr_rvcoeff(2,1,jv,jb)*p_vn_in(irvidx(2,jv,jb),jk+js,irvblk(2,jv,jb)) + &
-        ptr_rvcoeff(3,1,jv,jb)*p_vn_in(irvidx(3,jv,jb),jk+js,irvblk(3,jv,jb)) + &
-        ptr_rvcoeff(4,1,jv,jb)*p_vn_in(irvidx(4,jv,jb),jk+js,irvblk(4,jv,jb)) + &
-        ptr_rvcoeff(5,1,jv,jb)*p_vn_in(irvidx(5,jv,jb),jk+js,irvblk(5,jv,jb)) + &
-        ptr_rvcoeff(6,1,jv,jb)*p_vn_in(irvidx(6,jv,jb),jk+js,irvblk(6,jv,jb))
-      v_vert(jv,jk,jb) =  &
-        ptr_rvcoeff(1,2,jv,jb)*p_vn_in(irvidx(1,jv,jb),jk+js,irvblk(1,jv,jb)) + &
-        ptr_rvcoeff(2,2,jv,jb)*p_vn_in(irvidx(2,jv,jb),jk+js,irvblk(2,jv,jb)) + &
-        ptr_rvcoeff(3,2,jv,jb)*p_vn_in(irvidx(3,jv,jb),jk+js,irvblk(3,jv,jb)) + &
-        ptr_rvcoeff(4,2,jv,jb)*p_vn_in(irvidx(4,jv,jb),jk+js,irvblk(4,jv,jb)) + &
-        ptr_rvcoeff(5,2,jv,jb)*p_vn_in(irvidx(5,jv,jb),jk+js,irvblk(5,jv,jb)) + &
-        ptr_rvcoeff(6,2,jv,jb)*p_vn_in(irvidx(6,jv,jb),jk+js,irvblk(6,jv,jb))
+        u_vert(jv,jk,jb) =  &
+          ptr_rvcoeff(1,1,jv,jb)*p_in(jn)%fld(irvidx(1,jv,jb),jk+js,irvblk(1,jv,jb)) + &
+          ptr_rvcoeff(2,1,jv,jb)*p_in(jn)%fld(irvidx(2,jv,jb),jk+js,irvblk(2,jv,jb)) + &
+          ptr_rvcoeff(3,1,jv,jb)*p_in(jn)%fld(irvidx(3,jv,jb),jk+js,irvblk(3,jv,jb)) + &
+          ptr_rvcoeff(4,1,jv,jb)*p_in(jn)%fld(irvidx(4,jv,jb),jk+js,irvblk(4,jv,jb)) + &
+          ptr_rvcoeff(5,1,jv,jb)*p_in(jn)%fld(irvidx(5,jv,jb),jk+js,irvblk(5,jv,jb)) + &
+          ptr_rvcoeff(6,1,jv,jb)*p_in(jn)%fld(irvidx(6,jv,jb),jk+js,irvblk(6,jv,jb))
+        v_vert(jv,jk,jb) =  &
+          ptr_rvcoeff(1,2,jv,jb)*p_in(jn)%fld(irvidx(1,jv,jb),jk+js,irvblk(1,jv,jb)) + &
+          ptr_rvcoeff(2,2,jv,jb)*p_in(jn)%fld(irvidx(2,jv,jb),jk+js,irvblk(2,jv,jb)) + &
+          ptr_rvcoeff(3,2,jv,jb)*p_in(jn)%fld(irvidx(3,jv,jb),jk+js,irvblk(3,jv,jb)) + &
+          ptr_rvcoeff(4,2,jv,jb)*p_in(jn)%fld(irvidx(4,jv,jb),jk+js,irvblk(4,jv,jb)) + &
+          ptr_rvcoeff(5,2,jv,jb)*p_in(jn)%fld(irvidx(5,jv,jb),jk+js,irvblk(5,jv,jb)) + &
+          ptr_rvcoeff(6,2,jv,jb)*p_in(jn)%fld(irvidx(6,jv,jb),jk+js,irvblk(6,jv,jb))
 
+      ENDDO
     ENDDO
-  ENDDO
 
-ENDDO
+  ENDDO
 !$OMP END DO
 
-! Start and end blocks for which interpolation to boundary edge points is needed
-i_startblk = ptr_pp%edges%start_blk(grf_bdyintp_start_e,i_chidx)
-i_endblk   = ptr_pp%edges%end_blk(grf_bdyintp_end_e,i_chidx)
+  ! Start and end blocks for which interpolation to boundary edge points is needed
+  i_startblk = ptr_pp%edges%start_blk(grf_bdyintp_start_e,i_chidx)
+  i_endblk   = ptr_pp%edges%end_blk(grf_bdyintp_end_e,i_chidx)
 
 !$OMP DO PRIVATE (jk,je,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
-DO jb =  i_startblk, i_endblk
+  DO jb =  i_startblk, i_endblk
 
-  CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
-   i_startidx, i_endidx, grf_bdyintp_start_e, grf_bdyintp_end_e, i_chidx)
+    CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
+     i_startidx, i_endidx, grf_bdyintp_start_e, grf_bdyintp_end_e, i_chidx)
 
 #ifndef __LOOP_EXCHANGE
-! child edges 1 and 2
+    ! child edges 1 and 2
 !CDIR UNROLL=6
-  DO jk = 1, nlev_c
-    DO je = i_startidx, i_endidx
+    DO jk = 1, nlev_c
+      DO je = i_startidx, i_endidx
 
-      dvn_tang(je) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,2)%v1 + &
-                     v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,2)%v2 - &
-                    (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,1)%v1 + &
-                     v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,1)%v2 )
+        dvn_tang(je) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,2)%v1 + &
+                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,2)%v2 - &
+                      (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,1)%v1 + &
+                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,1)%v2 )
 
-      vn_aux(je,jk,jb,1) = p_vn_in(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,1,jb)
-      vn_aux(je,jk,jb,2) = p_vn_in(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,2,jb)
+        vn_aux(je,jk,jb,1,jn) = p_in(jn)%fld(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,1,jb)
+        vn_aux(je,jk,jb,2,jn) = p_in(jn)%fld(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,2,jb)
+      ENDDO
     ENDDO
-  ENDDO
 
-! child edge 3
+    ! child edge 3
 !CDIR UNROLL=6
-  DO jk = 1, nlev_c
-    DO je = i_startidx, i_endidx
-      vn_aux(je,jk,jb,3) = ptr_grf%grf_vec_coeff_2a(1,je,jb) * &
-        p_vn_in(iidx_2a(je,1,jb),jk+js,iblk_2a(je,1,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(2,je,jb) *                    &
-        p_vn_in(iidx_2a(je,2,jb),jk+js,iblk_2a(je,2,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(3,je,jb) *                    &
-        p_vn_in(iidx_2a(je,3,jb),jk+js,iblk_2a(je,3,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(4,je,jb) *                    &
-        p_vn_in(iidx_2a(je,4,jb),jk+js,iblk_2a(je,4,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(5,je,jb) *                    &
-        p_vn_in(iidx_2a(je,5,jb),jk+js,iblk_2a(je,5,jb))
+    DO jk = 1, nlev_c
+      DO je = i_startidx, i_endidx
+        vn_aux(je,jk,jb,3,jn) = ptr_grf%grf_vec_coeff_2a(1,je,jb) * &
+          p_in(jn)%fld(iidx_2a(je,1,jb),jk+js,iblk_2a(je,1,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(2,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,2,jb),jk+js,iblk_2a(je,2,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(3,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,3,jb),jk+js,iblk_2a(je,3,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(4,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,4,jb),jk+js,iblk_2a(je,4,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(5,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,5,jb),jk+js,iblk_2a(je,5,jb))
+      ENDDO
     ENDDO
-  ENDDO
 
-! child edge 4
+    ! child edge 4
 !CDIR UNROLL=6
-  DO jk = 1, nlev_c
-    DO je = i_startidx, i_endidx
-      IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
-        vn_aux(je,jk,jb,4) = ptr_grf%grf_vec_coeff_2b(1,je,jb) * &
-          p_vn_in(iidx_2b(je,1,jb),jk+js,iblk_2b(je,1,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(2,je,jb) *                    &
-          p_vn_in(iidx_2b(je,2,jb),jk+js,iblk_2b(je,2,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(3,je,jb) *                    &
-          p_vn_in(iidx_2b(je,3,jb),jk+js,iblk_2b(je,3,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(4,je,jb) *                    &
-          p_vn_in(iidx_2b(je,4,jb),jk+js,iblk_2b(je,4,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(5,je,jb) *                    &
-          p_vn_in(iidx_2b(je,5,jb),jk+js,iblk_2b(je,5,jb))
-      ENDIF
+    DO jk = 1, nlev_c
+      DO je = i_startidx, i_endidx
+        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
+          vn_aux(je,jk,jb,4,jn) = ptr_grf%grf_vec_coeff_2b(1,je,jb) * &
+            p_in(jn)%fld(iidx_2b(je,1,jb),jk+js,iblk_2b(je,1,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(2,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,2,jb),jk+js,iblk_2b(je,2,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(3,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,3,jb),jk+js,iblk_2b(je,3,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(4,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,4,jb),jk+js,iblk_2b(je,4,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(5,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,5,jb),jk+js,iblk_2b(je,5,jb))
+        ENDIF
+      ENDDO
     ENDDO
-  ENDDO
 
 #else
 
-  DO je = i_startidx, i_endidx
-    DO jk = 1, nlev_c
+    DO je = i_startidx, i_endidx
+      DO jk = 1, nlev_c
 
-      ! child edges 1 and 2
-      dvn_tang(je) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,2)%v1 + &
-                     v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,2)%v2 - &
-                    (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,1)%v1 + &
-                     v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
-                     ptr_pp%edges%primal_normal_vert(je,jb,1)%v2 )
+        ! child edges 1 and 2
+        dvn_tang(je) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,2)%v1 + &
+                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,2)%v2 - &
+                      (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,1)%v1 + &
+                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
+                       ptr_pp%edges%primal_normal_vert(je,jb,1)%v2 )
 
-      vn_aux(je,jk,jb,1) = p_vn_in(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,1,jb)
-      vn_aux(je,jk,jb,2) = p_vn_in(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,2,jb)
+        vn_aux(je,jk,jb,1,jn) = p_in(jn)%fld(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,1,jb)
+        vn_aux(je,jk,jb,2,jn) = p_in(jn)%fld(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,2,jb)
 
-      ! child edge 3
-      vn_aux(je,jk,jb,3) = ptr_grf%grf_vec_coeff_2a(1,je,jb) * &
-        p_vn_in(iidx_2a(je,1,jb),jk+js,iblk_2a(je,1,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(2,je,jb) *                    &
-        p_vn_in(iidx_2a(je,2,jb),jk+js,iblk_2a(je,2,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(3,je,jb) *                    &
-        p_vn_in(iidx_2a(je,3,jb),jk+js,iblk_2a(je,3,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(4,je,jb) *                    &
-        p_vn_in(iidx_2a(je,4,jb),jk+js,iblk_2a(je,4,jb)) +     &
-        ptr_grf%grf_vec_coeff_2a(5,je,jb) *                    &
-        p_vn_in(iidx_2a(je,5,jb),jk+js,iblk_2a(je,5,jb))
+        ! child edge 3
+        vn_aux(je,jk,jb,3,jn) = ptr_grf%grf_vec_coeff_2a(1,je,jb) * &
+          p_in(jn)%fld(iidx_2a(je,1,jb),jk+js,iblk_2a(je,1,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(2,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,2,jb),jk+js,iblk_2a(je,2,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(3,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,3,jb),jk+js,iblk_2a(je,3,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(4,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,4,jb),jk+js,iblk_2a(je,4,jb)) +   &
+          ptr_grf%grf_vec_coeff_2a(5,je,jb) *                       &
+          p_in(jn)%fld(iidx_2a(je,5,jb),jk+js,iblk_2a(je,5,jb))
 
-      ! child edge 4
-      IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
-        vn_aux(je,jk,jb,4) = ptr_grf%grf_vec_coeff_2b(1,je,jb) * &
-          p_vn_in(iidx_2b(je,1,jb),jk+js,iblk_2b(je,1,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(2,je,jb) *                    &
-          p_vn_in(iidx_2b(je,2,jb),jk+js,iblk_2b(je,2,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(3,je,jb) *                    &
-          p_vn_in(iidx_2b(je,3,jb),jk+js,iblk_2b(je,3,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(4,je,jb) *                    &
-          p_vn_in(iidx_2b(je,4,jb),jk+js,iblk_2b(je,4,jb)) +     &
-          ptr_grf%grf_vec_coeff_2b(5,je,jb) *                    &
-          p_vn_in(iidx_2b(je,5,jb),jk+js,iblk_2b(je,5,jb))
-      ENDIF
+        ! child edge 4
+        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
+          vn_aux(je,jk,jb,4,jn) = ptr_grf%grf_vec_coeff_2b(1,je,jb) * &
+            p_in(jn)%fld(iidx_2b(je,1,jb),jk+js,iblk_2b(je,1,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(2,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,2,jb),jk+js,iblk_2b(je,2,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(3,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,3,jb),jk+js,iblk_2b(je,3,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(4,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,4,jb),jk+js,iblk_2b(je,4,jb)) +   &
+            ptr_grf%grf_vec_coeff_2b(5,je,jb) *                       &
+            p_in(jn)%fld(iidx_2b(je,5,jb),jk+js,iblk_2b(je,5,jb))
+        ENDIF
 
+      ENDDO
     ENDDO
-  ENDDO
 
 #endif
 
-ENDDO ! blocks
+  ENDDO ! blocks
 !$OMP END DO
+
+ENDDO ! fields
+
 
 ! Store results in p_vn_out
 
 IF (my_process_is_mpi_seq()) THEN
 
-!$OMP DO PRIVATE (jk,je) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb =  i_startblk, i_endblk
+  DO jn = 1, nfields
 
-    CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
-      i_startidx, i_endidx, grf_bdyintp_start_e, grf_bdyintp_end_e, i_chidx)
+!$OMP DO PRIVATE (jk,je) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb =  i_startblk, i_endblk
+
+      CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, grf_bdyintp_start_e, grf_bdyintp_end_e, i_chidx)
 
 #ifdef __LOOP_EXCHANGE
-    DO je = i_startidx, i_endidx
-      DO jk = 1, nlev_c
-#else
-    DO jk = 1, nlev_c
-!CDIR NODEP,VOVERTAKE,VOB
       DO je = i_startidx, i_endidx
+        DO jk = 1, nlev_c
+#else
+      DO jk = 1, nlev_c
+!CDIR NODEP,VOVERTAKE,VOB
+        DO je = i_startidx, i_endidx
 #endif
 
-        p_vn_out(icheidx(je,jb,1),jk,icheblk(je,jb,1))   = vn_aux(je,jk,jb,1)
-        p_vn_out(icheidx(je,jb,2),jk,icheblk(je,jb,2))   = vn_aux(je,jk,jb,2)
-        p_vn_out(icheidx(je,jb,3),jk,icheblk(je,jb,3))   = vn_aux(je,jk,jb,3)
+          p_out(jn)%fld(icheidx(je,jb,1),jk,icheblk(je,jb,1))   = vn_aux(je,jk,jb,1,jn)
+          p_out(jn)%fld(icheidx(je,jb,2),jk,icheblk(je,jb,2))   = vn_aux(je,jk,jb,2,jn)
 
-        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
-          p_vn_out(icheidx(je,jb,4),jk,icheblk(je,jb,4)) = vn_aux(je,jk,jb,4)
-        ENDIF
+          ! Avoid overwriting prognostic grid points in case of applying this to a prognostic variable
+          IF (ptr_pc%edges%refin_ctrl(icheidx(je,jb,3),icheblk(je,jb,3)) <= grf_bdywidth_e) &
+            p_out(jn)%fld(icheidx(je,jb,3),jk,icheblk(je,jb,3))   = vn_aux(je,jk,jb,3,jn)
 
+          IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
+            IF (ptr_pc%edges%refin_ctrl(icheidx(je,jb,4),icheblk(je,jb,4)) <= grf_bdywidth_e) &
+              & p_out(jn)%fld(icheidx(je,jb,4),jk,icheblk(je,jb,4)) = vn_aux(je,jk,jb,4,jn)
+          ENDIF
+
+        ENDDO
       ENDDO
     ENDDO
-  ENDDO
 !$OMP END DO
 
+  ENDDO
 ENDIF ! not MPI-parallel
 
 !$OMP END PARALLEL
@@ -640,9 +680,33 @@ IF (my_process_is_mpi_parallel()) THEN
 
   nsendtot = SUM(ptr_pc%comm_pat_interpol_vec_grf(1:4)%n_send)
   nrecvtot = SUM(ptr_pc%comm_pat_interpol_vec_grf(1:4)%n_recv)
-  CALL exchange_data_grf(ptr_pc%comm_pat_interpol_vec_grf,1,nlev_c,nsendtot,nrecvtot, &
-                         RECV1=p_vn_out,SEND1=vn_aux,SEND_LBOUND3=LBOUND(vn_aux,3))
 
+  IF (nfields == 1) THEN
+    nlevtot = nlev_c
+    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_vec_grf,nfields,nlevtot,nsendtot, &
+                           nrecvtot,RECV1=f3dout1,SEND1=vn_aux(:,:,:,:,1),            &
+                           SEND_LBOUND3=LBOUND(vn_aux,3))
+
+  ELSE IF (nfields == 2) THEN
+    nlevtot = 2*nlev_c
+    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_vec_grf,nfields,nlevtot,nsendtot,   &
+                           nrecvtot,RECV1=f3dout1,SEND1=vn_aux(:,:,:,:,1),RECV2=f3dout2,&
+                           SEND2=vn_aux(:,:,:,:,2),SEND_LBOUND3=LBOUND(vn_aux,3))
+
+  ELSE IF (nfields == 3) THEN
+    nlevtot = 3*nlev_c
+    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_vec_grf,nfields,nlevtot,nsendtot,    &
+                           nrecvtot,RECV1=f3dout1,SEND1=vn_aux(:,:,:,:,1),RECV2=f3dout2, &
+                           SEND2=vn_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=vn_aux(:,:,:,:,3),&
+                           SEND_LBOUND3=LBOUND(vn_aux,3))
+
+  ELSE IF (nfields == 4) THEN
+    nlevtot = 4*nlev_c
+    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_vec_grf,nfields,nlevtot,nsendtot,         &
+                           nrecvtot,RECV1=f3dout1,SEND1=vn_aux(:,:,:,:,1),RECV2=f3dout2,      &
+                           SEND2=vn_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=vn_aux(:,:,:,:,3),     &
+                           RECV4=f3dout4,SEND4=vn_aux(:,:,:,:,4),SEND_LBOUND3=LBOUND(vn_aux,3))
+  ENDIF
 ENDIF
 
 END SUBROUTINE interpol2_vec_grf

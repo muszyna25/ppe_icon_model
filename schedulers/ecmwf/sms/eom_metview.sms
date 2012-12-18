@@ -35,10 +35,12 @@ lmetview=1
 # directory
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-EXPDIR="%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM"
-METDIR="%ECPERM%/icon-dev/scripts/postprocessing/tools/metview"
+EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
+METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 export ARCH="rs6000"
 cd ${EXPDIR}
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_$YYYYMM
 
 
 #-----------------------------------------------------------------------------
@@ -53,7 +55,7 @@ if [[ $lmetview = 1 ]] ; then
 
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
-  export DATAFILE='grb_data/%SUITE%_DOM01_'
+  export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
  #export TAILFILE='_0_24_240.grb'
   export LMONTH=1
   export YYYYMM
@@ -73,8 +75,8 @@ if [[ $lmetview = 1 ]] ; then
     STEP=`expr ${DAYS_FC} \* 24`
     DAYS_FC_P1=`expr ${DAYS_FC} + 1`
     export TAILFILE='_0_'${STEP}'_mn'${DAYS_FC_P1}'-'${DAYS_MONTH}'.grb'
-   #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS r2B06 %SUITE%
-    ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         r2B06 %SUITE%
+   #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS r2B06 %SUITE%_%EXPNUM%
+    ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         r2B06 %SUITE%_%EXPNUM%
 %nopp
     awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end

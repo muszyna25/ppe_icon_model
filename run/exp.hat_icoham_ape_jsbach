@@ -34,13 +34,13 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=600
+dtime=300
 ndays=2
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 6 \* 3600  `   # global integral output each 6 hours
 dt_file=`expr 1 \* 86400 `   # 1 day per file
 dt_data=3600.               # write output every hour
-dt_rad=7200.                 # compute radiative transfer every other hour
+dt_rad=3600.                 # compute radiative transfer every other hour
 dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
@@ -125,11 +125,11 @@ cat > ${atmo_namelist} << EOF
  lvdiff = .TRUE.
  lrad   = .TRUE.
  ljsbach = .TRUE.
+ dt_rad  = ${dt_rad}     ! [s] compute radiative transfer every other hour
 /
 &echam_conv_nml
 /
 &radiation_nml
- dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
  irad_h2o   = 1             ! prognostic vapor, liquid and ice
  irad_co2   = 2             ! constant co2 vmr
  irad_ch4   = 0             ! switch off ch4

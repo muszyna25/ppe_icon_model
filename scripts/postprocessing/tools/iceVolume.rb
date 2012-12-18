@@ -1,17 +1,18 @@
 #!/usr/bin/env ruby
 
 require 'cdo'
+require 'cdp'
 require 'fileutils'
 require 'jobqueue'
-require 'socket'
-require 'iconPlot'
+require 'gsl'
 
+#=============================================================================== 
 # check input
 if ARGV[0].nil?
   warn "no input files given"
   exit(-1)
 else
-  puts 'Please remember, that the lat file in the list is expected to be an ICON grid file'
+  puts 'Please remember, that the last file in the list is expected to be an ICON grid file'
   sleep 1
 end
 files     = ( ARGV.size > 1 ) ? ARGV : Dir.glob(ARGV[0])
@@ -21,93 +22,89 @@ files.each {|file|
 }
 
 q         = JobQueue.new([JobQueue.maxnumber_of_processors,20].min)
+p         = JobQueue.new([JobQueue.maxnumber_of_processors,20].min)
 lock      = Mutex.new
-
 #=============================================================================== 
 # setup of CDO on different machines
-hostname = Socket.gethostname
-case hostname
-when /thingol/
-  Cdo.setCdo(ENV['HOME']+"/local/bin/cdo-dev")
-when /lizard/
-  Cdo.setCdo(ENV['HOME']+"/local/rhel55-x64/bin/cdo")
-when /blizzard/
-  Cdo.setCdo(ENV['HOME']+"/local/bin/cdo")
-else
-  puts "Use default Cdo:#{Cdo.getCdo} (version:#{Cdo.version})"
+Cdp.setCDO
+Cdp.setDebug
+Cdo.forceOutput = ! ENV['FORCE'].nil?
+Cdo.debug       = ! ENV['DEBUG'].nil?
+#=============================================================================== 
+#=============================================================================== 
+# helper method for plotting ice volume and extent for NH and SH
+def plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,oType=nil,oTag=nil)
+  volumeOutput, extentOutput = '',''
+  volumeOutput = "-T #{oType} > iceVolume_#{oTag}.#{oType}" unless (oType.nil? and oTag.nil?)
+  extentOutput = "-T #{oType} > iceExtent_#{oTag}.#{oType}" unless (oType.nil? and oTag.nil?)
+
+  size = nhIceVolume.size
+  GSL::Vector.graph([GSL::Vector.linspace(0,size-1,size),nhIceVolume],
+                    [GSL::Vector.linspace(0,size-1,size),shIceVolume],
+                    "-C -g 3 -X 'timesteps' -Y 'Ice Volume [km^3]' -L 'IceVolume (red:NH, green:SH)' #{volumeOutput}")
+  GSL::Vector.graph([GSL::Vector.linspace(0,size-1,size),nhIceExtent],
+                    [GSL::Vector.linspace(0,size-1,size),shIceExtent],
+                    "-C -g 3 -X 'timesteps' -Y 'Ice Extent [km^2]' -L 'IceExtent (red:NH, green:SH)' #{extentOutput}")
 end
-
-Cdo.checkCdo
-Cdo.debug = true unless ENV['DEBUG'].nil?
-
 #=============================================================================== 
 # compute the experiments from the data directories and link the corresponding files
-def splitFilesIntoExperiments(files)
-  gridFile = files.pop
-  experiments = files.map {|f| File.basename(File.dirname(f))}.uniq.sort_by {|f| f.length}.reverse
-  # take the larges part of the filenames as experiment name if the files are in
-  # the current directory
-  if experiments == ["."] then
-    n = files.map(&:size).min.times.map {|i| 
-      if files.map {|f| f[0,i-1]}.uniq.size == 1
-        1
-      else
-        nil
-      end 
-    }.find_all {|v| not v.nil?}.size-1
-    uniqName = files[0][0,n]
-    experiments = [uniqName]
-  end
-  experimentFiles, experimentAnalyzedData = {},{}
-  experiments.each {|experiment|
-    experimentFiles[experiment] = files.grep(/#{experiment}/)
-      experimentFiles[experiment].each {|file| files.delete(file)}
-    experimentFiles[experiment].sort!
-
-    experimentAnalyzedData[experiment] = []
-  }
-
-  [gridFile,experimentFiles,experimentAnalyzedData]
-end
 #=============================================================================== 
 # MAIN
-gridfile, experimentFiles, experimentAnalyzedData = splitFilesIntoExperiments(files)
+gridfile, experimentFiles, experimentAnalyzedData = Cdp.splitFilesIntoExperiments(files)
 iceHeight                                         = 'p_ice_hi'
 iceConcentration                                  = 'p_ice_concSum'
 #   process the experiments results
 experimentFiles.each {|experiment, files|
   files.each {|file|
     q.push {
-      volumeFile = "iceVolume_#{File.basename(file)}"
-      unless File.exist?(volumeFile)
-        Cdo.setname('ice_volume',:in => " -divc,1e9 -mul -mul -selname,#{iceHeight} #{file}  -selname,cell_area #{gridfile}  -selname,#{iceConcentration} #{file}",
-                   :out => volumeFile)
-      end
-      lock.synchronize {experimentAnalyzedData[experiment] << volumeFile }
+      iceDiagFile = "iceDiag_#{File.basename(file)}"
+      volumeFile  = "iceVolume_#{File.basename(file)}"
+      extentFile  = "iceExtent_#{File.basename(file)}"
+      nhFile      = "nh_#{File.basename(file)}"
+      shFile      = "sh_#{File.basename(file)}"
+
+      Cdo.setname('ice_volume',
+                  :input => " -divc,1e9 -mul -mul -selname,#{iceHeight} #{file}  -selname,cell_area #{gridfile}  -selname,#{iceConcentration} #{file}",
+                  :output => volumeFile)
+
+      Cdo.setname('ice_extent',
+                  :input => " -divc,1e6 -mul -selname,cell_area #{gridfile}  -gtc,0.15 -selname,#{iceConcentration} #{file}",
+                  :output => extentFile)
+
+      Cdo.merge(:input => [volumeFile,extentFile].join(' '),
+                :output => iceDiagFile)
+
+      # split the file in norther and sourtern hemisphere
+      Cdo.fldsum(:input => "-sellonlatbox,-180,180,50,90 #{iceDiagFile}",  :output => nhFile) 
+      Cdo.fldsum(:input => "-sellonlatbox,-180,180,-50,-90 #{iceDiagFile}",:output => shFile) 
+
+      lock.synchronize {experimentAnalyzedData[experiment] << [nhFile,shFile] }
     }
   }
 }
 q.run
-# merge all yearmean data (T,S,rhopot) into one file per experiment
+# merge data together for NH and SH
 q.clear
+iceOutputsfiles = []
 experimentAnalyzedData.each {|experiment,files|
-  q.push {
-  tag   = ''
-  ofile = [experiment,'iceVolume',tag].join('_') + '.nc'
-  unless File.exist?(ofile)
-    Cdo.cat(:in => files.sort.join(' '), :out => ofile, :options => '-r')
-  end
-# plotFile = 'thingol' == Socket.gethostname \
-#          ? '/home/ram/src/git/icon/scripts/postprocessing/tools/icon_plot.ncl' \
-#          : '../../scripts/postprocessing/tools/icon_plot.ncl'
-# plotter  = 'thingol' == Socket.gethostname \
-#          ? IconPlot.new(ENV['HOME']+'/local/bin/nclsh', plotFile, File.dirname(plotFile),'png','qiv',true,true) \
-#          : IconPlot.new('/sw/rhel55-x64/ncl-5.2.1/bin/ncl', plotFile, File.dirname(plotFile), 'ps','evince',true,true)
-# images = []
-# images << plotter.scalarPlot(ofile,'T_'+     File.basename(ofile,'.nc'),'T',     :tStrg => "#{experiment}", :bStrg => ' ',:hov => true,:minVar => -1.0,:maxVar => 5.0,:numLevs => 24,:rStrg => 'Temperature')
-# images << plotter.scalarPlot(ofile,'S_'+     File.basename(ofile,'.nc'),'S',     :tStrg => "#{experiment}", :bStrg => ' ',:hov => true,:minVar => -0.2,:maxVar => 0.2,:numLevs => 16,:rStrg => 'Salinity')
-# images << plotter.scalarPlot(ofile,'rhopot_'+File.basename(ofile,'.nc'),'rhopot',:tStrg => "#{experiment}", :bStrg => ' ',:hov => true,:minVar => -0.6,:maxVar => 0.6,:numLevs => 24,:rStrg => 'Pot.Density')
-# images.each {|im| plotter.show(im) }
+  files.transpose.each_with_index {|hemisphereFiles,i|
+    q.push {
+      tag   = ['nh','sh'][i]
+      ofile = [experiment,'iceDiagnostics',tag].join('_') + '.nc'
+      FileUtils.rm(ofile) if File.exist?(ofile)
+      Cdo.cat(:input => hemisphereFiles.sort.join(' '), :output => ofile, :options => '-r')
+      lock.synchronize{ iceOutputsfiles << ofile }
+    }
   }
 }
 q.run
+
+nhFile, shFile = iceOutputsfiles
+
+nhIceVolume = Cdo.readArray(nhFile,'ice_volume').flatten.to_gv
+shIceVolume = Cdo.readArray(shFile,'ice_volume').flatten.to_gv
+nhIceExtent = Cdo.readArray(nhFile,'ice_extent').flatten.to_gv
+shIceExtent = Cdo.readArray(shFile,'ice_extent').flatten.to_gv
+
+plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent)
+#plot(nhIceVolume,shIceVolume,nhIceExtent,shIceExtent,'png','iceTest')

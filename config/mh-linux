@@ -93,7 +93,7 @@ case "$fortran_compiler" in
         GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
-	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatterv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" 
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
@@ -172,13 +172,35 @@ case "$fortran_compiler" in
         ;;
     sun-debug)
         config_compiler=sun_debug
+	GRIBAPIBASE = /usr/local/pkg/grib_api/1.9.9
         CC          = suncc
-        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/include -I${GRIBAPIBASE}/include
         FC          = sunf95
         F77         = sunf95
-        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
+        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0 -DNOMPI
         F77FLAGS    = -O0 -fpp -fstore -fnonstd -g -C
+	LIBS        = ${LIBS} -L${GRIBAPIBASE}/lib -L/usr/local/pkg/lib -lgrib_api_f90 -lgrib_api -ljasper -lpng
 	OMPFLAG     =
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -M
+        MODDIR      = -moddir=
+	LAPACKROOT  = /opt/sun/sunstudio12
+	LAPACK_LIB  = -lsunperf
+        ;;
+    sun-mpidebug)
+        config_compiler=sun_mpidebug
+	GRIBAPIBASE = /usr/local/pkg/grib_api/1.9.9
+        CC          = mpicc
+        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/include -I${GRIBAPIBASE}/include
+        FC          = mpif90
+        F77         = mpif90
+        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -u -xcommonchk -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE
+        F77FLAGS    = -O0 -fpp -fstore -fnonstd
+#        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
+#        F77FLAGS    = -O0 -fpp -fstore -fnonstd -g -C
+	LIBS        = ${LIBS} -L${GRIBAPIBASE}/lib -L/usr/local/pkg/lib -lgrib_api_f90 -lgrib_api -ljasper -lpng
+	OMPFLAG     = -xopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -M
@@ -400,7 +422,7 @@ case "$ac_sitename" in
 		esac		   
 		SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
 		ZLIBROOT = /usr
-		load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "${load_modules}"
+		load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "python/2.7-ve0" "${load_modules}"
 		load_profile = "." "/client/etc/profile.zmaw"
 		case "$(hostname)" in
 		    squall?)

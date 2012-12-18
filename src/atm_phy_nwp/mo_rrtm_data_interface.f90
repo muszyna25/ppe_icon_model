@@ -44,13 +44,16 @@ MODULE mo_rrtm_data_interface
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: find_next_free_unit, filename_max
   
-  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain,        ONLY: t_patch, p_patch
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydro_types,      ONLY: t_nh_diag
   
-  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, nproma
+  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
+    & nproma, division_method, ext_div_medial_redrad, ext_div_medial_redrad_cluster,       &
+    & div_from_file, use_icon_comm
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
     & get_my_mpi_work_communicator, p_bcast
@@ -65,10 +68,9 @@ MODULE mo_rrtm_data_interface
   PRIVATE
 
   PUBLIC :: t_rrtm_data
-  PUBLIC :: construct_rrtm_model_repart
+  PUBLIC :: init_rrtm_model_repart
   PUBLIC :: destruct_rrtm_model_repart
   PUBLIC :: recv_rrtm_input, send_rrtm_output
-  PUBLIC :: init_rrtm_data
     
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
     
@@ -147,81 +149,138 @@ MODULE mo_rrtm_data_interface
   END TYPE t_rrtm_data
   !--------------------------------------------------------------------------
 
-  TYPE(t_rrtm_data), TARGET :: rrtm_model_data
+  TYPE(t_rrtm_data), POINTER :: rrtm_model_data_array(:)
     
-
 CONTAINS
-
 
 
   !-----------------------------------------
   !>
-  SUBROUTINE construct_rrtm_model_repart(patch)
-    TYPE(t_patch), INTENT(in), TARGET :: patch
+  SUBROUTINE init_rrtm_model_repart()
 
-    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER :: return_status, dom
+    CHARACTER(*), PARAMETER :: method_name = "init_rrtm_model_repart"
+    
+    IF (my_process_is_mpi_seq()) THEN
+      parallel_radiation_mode(:) = 0
+      RETURN
+    ENDIF
+    
+    ALLOCATE (rrtm_model_data_array(n_dom), STAT=return_status)
+    IF (return_status /= 0 ) &
+      CALL finish (method_name,'ALLOCATE(rrtm_model_data)')
+
+    DO dom=1, n_dom
+    
+      SELECT CASE (parallel_radiation_mode(dom))
+
+      CASE(1) 
+        CALL construct_rrtm_model_repart(dom)
+
+      CASE(0)
+         ! no parallel_radiation
+         
+      CASE default
+        CALL finish(method_name, "Wrong parallel_radiation_mode")
+        
+      END SELECT
+      
+    ENDDO
+
+    RETURN
+    
+  END SUBROUTINE init_rrtm_model_repart
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  SUBROUTINE construct_rrtm_model_repart(patch_no)
+    
+    INTEGER, INTENT(in), TARGET :: patch_no
+    
+    TYPE(t_patch), POINTER :: patch
+    TYPE(t_rrtm_data), POINTER :: rrtm_model_data
+
     INTEGER :: my_radiation_cells
     
     INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
     INTEGER :: return_status, file_id, j
+    INTEGER, POINTER :: radiation_owner(:)
     
     CHARACTER(*), PARAMETER :: method_name = "construct_rrtm_model_repart"
-    
-    IF (parallel_radiation_mode <= 0) RETURN
-    IF (my_process_is_mpi_seq()) THEN
-      parallel_radiation_mode = 0
-      RETURN
-    ENDIF
 
+    IF (.NOT.use_icon_comm) &
+      & CALL finish(method_name, "repartitioned radiation cannot be used without icon_comm")
+
+    patch => p_patch(patch_no)
+    rrtm_model_data => rrtm_model_data_array(patch_no)
+    rrtm_model_data%pt_patch => patch
+    IF (patch%id /= patch_no) &
+      & CALL finish(method_name, "patch%id /= patch_no")
+    radiation_owner => patch%cells%radiation_owner
+        
     my_mpi_work_id           = get_my_mpi_work_id()
     my_mpi_work_comm_size    = get_my_mpi_work_comm_size()
     workroot_mpi_id          = get_mpi_all_workroot_id()
     my_mpi_work_communicator = get_my_mpi_work_communicator()
 
-    ! NOTE: this global array should be eventully replaced by local arrays
-    !       this is a first implementation
-    ALLOCATE(radiation_owner(patch%n_patch_cells_g), STAT=return_status)
-    IF (return_status /= 0 ) &
-      CALL finish (method_name,'ALLOCATE(radiation_owner) failed')
+    SELECT CASE (division_method(patch_no))
+    CASE(div_from_file) 
+      ! read the radiation re-distribution from file
+      
+      ! NOTE: this global array should be eventully replaced by local arrays
+      !       this is a first implementation
+      ALLOCATE(radiation_owner(patch%n_patch_cells_g), STAT=return_status)
+      IF (return_status /= 0 ) &
+        CALL finish (method_name,'ALLOCATE(radiation_owner) failed')
     
-    ! read the radiation re-distribution from file
-    IF (my_mpi_work_id == workroot_mpi_id) THEN
+      IF (my_mpi_work_id == workroot_mpi_id) THEN
 
-      ! read all the radiation owners and sent the info to each procs
-        
-      IF (radiation_division_file_name == "") THEN
-        radiation_division_file_name = &
-          & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
-      ENDIF
-        
-      WRITE(0,*) "Read radiation redistribution from file: ", TRIM(radiation_division_file_name), &
-        & " total cells=", patch%n_patch_cells_g
-      file_id = find_next_free_unit(10,900)
-      OPEN(file_id,FILE=TRIM(radiation_division_file_name), STATUS='OLD', IOSTAT=return_status)
-      IF(return_status /= 0) CALL finish(method_name,&
-        & 'Unable to open input file: '//TRIM(radiation_division_file_name))
-        
-      DO j = 1, patch%n_patch_cells_g
-        READ(file_id,*,IOSTAT=return_status) radiation_owner(j)
+        ! read all the radiation owners and sent the info to each procs
+          
+        IF (radiation_division_file_name(patch_no) == "") THEN
+          radiation_division_file_name(patch_no) = &
+            & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
+        ENDIF
+          
+        WRITE(0,*) "Read radiation redistribution from file: ", &
+          & TRIM(radiation_division_file_name(patch_no)), &
+          & " total cells=", patch%n_patch_cells_g
+        file_id = find_next_free_unit(10,900)
+        OPEN(file_id,FILE=TRIM(radiation_division_file_name(patch_no)), &
+          & STATUS='OLD', IOSTAT=return_status)
         IF(return_status /= 0) CALL finish(method_name,&
-          & 'Error reading: '//TRIM(radiation_division_file_name))
-      ENDDO
-      
-      CLOSE(file_id)
-
-      ! some checks
-      IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
-         & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
-        WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
-        & " MINAVAL=", MINVAL(radiation_owner(:)), &
-          " MAXVAL=",  MAXVAL(radiation_owner(:))
-        CALL finish(method_name,'Invalid redistribution')
+          & 'Unable to open input file: '//TRIM(radiation_division_file_name(patch_no)))
+          
+        DO j = 1, patch%n_patch_cells_g
+          READ(file_id,*,IOSTAT=return_status) radiation_owner(j)
+          IF(return_status /= 0) CALL finish(method_name,&
+            & 'Error reading: '//TRIM(radiation_division_file_name(patch_no)))
+        ENDDO        
+        CLOSE(file_id)
+        
       ENDIF
       
-    ENDIF
+      CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
+    
+    CASE(ext_div_medial_redrad, ext_div_medial_redrad_cluster)      
+       !  radiation_owner should be already filled   
+    CASE DEFAULT
+      CALL finish(method_name, &
+        & 'value of division_method not compatible with redistributed radiation')
+    END SELECT
       
-    CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
 
+    !-------------------------------
+    ! some checks
+    IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
+      & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
+      WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
+      & " MINAVAL=", MINVAL(radiation_owner(:)), &
+        " MAXVAL=",  MAXVAL(radiation_owner(:))
+      CALL finish(method_name,'Invalid redistribution')
+    ENDIF
+    
     !-------------------------------
     ! get my radiation cells
     my_radiation_cells = 0
@@ -229,7 +288,7 @@ CONTAINS
       IF (radiation_owner(j) == my_mpi_work_id) THEN
         my_radiation_cells = my_radiation_cells + 1
         ! keep the global index in the first part of the radiation_owner
-        radiation_owner(my_radiation_cells) = j
+        radiation_owner(my_radiation_cells) = j      
       ENDIF
     ENDDO
     
@@ -390,13 +449,18 @@ CONTAINS
   !>
   SUBROUTINE destruct_rrtm_model_repart()
     
-    IF (parallel_radiation_mode <= 0) RETURN
+    INTEGER :: dom
+    
     IF (my_process_is_mpi_seq()) THEN
-      parallel_radiation_mode = 0
       RETURN
     ENDIF
-
-    CALL deallocate_rrtm_model_data(rrtm_model_data)
+    
+    DO dom=1,n_dom
+      IF (parallel_radiation_mode(dom) == 1) THEN
+        CALL deallocate_rrtm_model_data(rrtm_model_data_array(dom))
+      ENDIF
+    ENDDO
+    DEALLOCATE(rrtm_model_data_array)
   
   END SUBROUTINE destruct_rrtm_model_repart
   !-----------------------------------------
@@ -513,8 +577,9 @@ CONTAINS
 
     IF (patch%id /= 1) &
       CALL finish(method_name,"patch%id /= 1")
-    recv_comm_pattern = rrtm_model_data%radiation_recv_comm_pattern
-    rrtm_data => rrtm_model_data
+
+    rrtm_data => rrtm_model_data_array(patch%id)
+    recv_comm_pattern = rrtm_data%radiation_recv_comm_pattern
    !-----------------------------------
    
     recv_fr_land_smt = new_icon_comm_variable ( &
@@ -726,7 +791,7 @@ CONTAINS
 
     INTEGER :: send_comm_pattern, send_tmp
     
-    send_comm_pattern = rrtm_model_data%radiation_send_comm_pattern
+    send_comm_pattern = rrtm_data%radiation_send_comm_pattern
     
     send_tmp      = new_icon_comm_variable ( &
       &  recv_var = lwflxclr,                       &

@@ -56,9 +56,9 @@ MODULE mo_icosahedron_geometry
 
   USE mo_kind,               ONLY: wp
   USE mo_math_constants,     ONLY: pi_5
-  USE mo_base_geometry,      ONLY: t_coordinates_reference, t_cartesian_coordinates, &
-    & rotate_z, rotate_y,rotate_x,                  &
-    & x_rot_angle,y_rot_angle,z_rot_angle
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, &
+    & rotate_x, rotate_y, rotate_z
+  USE mo_base_geometry,      ONLY: x_rot_angle,y_rot_angle,z_rot_angle
 
   IMPLICIT NONE
 
@@ -69,6 +69,10 @@ MODULE mo_icosahedron_geometry
   PUBLIC :: init_icosahedron_vertices
   PUBLIC :: init_planar_vertices
   PUBLIC :: get_icosahedron_vertex
+  
+  TYPE t_coordinates_reference
+    TYPE(t_cartesian_coordinates), POINTER :: px
+  END TYPE t_coordinates_reference
 
   TYPE(t_coordinates_reference)          :: icosahedron_vertices(0:2,0:19)
   TYPE(t_cartesian_coordinates), TARGET :: base_vertex(12)

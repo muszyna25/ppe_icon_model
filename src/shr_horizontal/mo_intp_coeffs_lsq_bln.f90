@@ -172,7 +172,8 @@ USE mo_math_constants,      ONLY: pi2
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell
 USE mo_model_domain,        ONLY: t_patch
-USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
+USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon
+USE mo_math_utility_solvers, ONLY: qrdec
 USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config
@@ -1016,6 +1017,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ! 5a. QR-factorization of design matrix A
     !
     IF (.NOT. advection_config(pid)%llsq_svd) THEN
+!CDIR NOIEXPAND
     CALL qrdec(lsq_dim_c, lsq_dim_unk, i_startidx, & ! in
      &         i_endidx, z_lsq_mat_c,              & ! in
      &         z_qmat, z_rmat)                       ! out
@@ -1602,10 +1604,17 @@ DO jb = i_startblk, i_endblk
     ! are not aliased into a checkerboard pattern between upward- and downward
     ! directed cells. The third condition is sum(w(i)) = 1. Analytical elimination yields...
 
-    wgt(3) = 1.0_wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
-                ( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
-    wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
-    wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+    IF (ABS(x(2)-x(1)) > 1.e-11_wp .AND. ABS(y(3)-y(1)) > 1.e-11_wp ) THEN
+      wgt(3) = 1.0_wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
+                  ( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
+      wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
+      wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+    ELSE
+      wgt(2) = 1.0_wp/( (y(2)-y(1)) - (x(2)-x(1))*(y(3)-y(1))/(x(3)-x(1)) ) * &
+                  ( -y(1) + x(1)*(y(3)-y(1))/(x(3)-x(1)) )
+      wgt(3) = (-x(1) - wgt(2)*(x(2)-x(1)))/(x(3)-x(1))
+      wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+    ENDIF
 
     ! Store results in ptr_int_state%e_bln_c_s
     ptr_int_state%e_bln_c_s(jc,1,jb) = wgt(1)

@@ -90,9 +90,10 @@ PUBLIC
 
   REAL (KIND=ireals) ::              &
     v0snow         = 20.0_ireals,    & ! factor in the terminal velocity for snow
-    mu_rain        = 0.0_ireals,     & ! COSMO_EU default
-    rain_n0_factor = 1.0_ireals        ! COSMO_EU default
-
+    rain_n0_factor = 1.0_ireals,     & ! COSMO_EU default
+    mu_rain,                         & ! 
+    mu_snow
+  
 
 #ifdef __COSMO__
   REAL (KIND=ireals) ::              &
@@ -102,7 +103,11 @@ PUBLIC
     cloud_num = 200.00e+06_ireals      ! cloud droplet number concentration
 #endif
 
-
+    
+#ifdef __COSMO__
+    PRINT*,"define mu_rain and mu_snow in data_gscp.f90. Stop."
+    STOP
+#endif
 
 
 !==============================================================================

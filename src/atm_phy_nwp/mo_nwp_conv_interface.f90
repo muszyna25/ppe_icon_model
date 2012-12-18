@@ -104,8 +104,6 @@ CONTAINS
     REAL(wp) :: z_plitot (nproma,p_patch%nlev) !< cloud water + cloud ice
     REAL(wp) :: z_qhfl (nproma,p_patch%nlevp1) !< 3D moisture flux( convection)
     REAL(wp) :: z_shfl (nproma,p_patch%nlevp1) !< 3D sensible heat flux "-"
-    REAL(wp) :: z_mflxr(nproma,p_patch%nlevp1) !< 3D conv. rain flux
-    REAL(wp) :: z_mflxs(nproma,p_patch%nlevp1) !< 3D conv. snow flux
     REAL(wp) :: z_dtdqv  (nproma,p_patch%nlev) !< 3D moisture convergence
     REAL(wp) :: z_dtdt   (nproma,p_patch%nlev) !< temporal temperature tendency
     REAL(wp) :: z_dtdqv_sv(nproma,p_patch%nlev)!< save array for moisture convergence
@@ -140,11 +138,11 @@ CONTAINS
 !$OMP PARALLEL
 
 #ifdef __xlC__
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_mflxr,&
-!$OMP            z_mflxs,z_dtdqv,z_dtdt,z_dtdqv_sv,z_dtdt_sv)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
+!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv)
 #else
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_mflxr,&
-!$OMP            z_mflxs,z_dtdqv,z_dtdt,z_dtdqv_sv,z_dtdt_sv),SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
+!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv),SCHEDULE(guided)
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -200,7 +198,7 @@ CONTAINS
             z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
           ENDIF
 
-        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
 
           ! In turb3, the flux is negative upwards.
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv ! moisture flux kg/m2/s
@@ -243,8 +241,8 @@ CONTAINS
         prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp
 
-        z_mflxs(:,:)   = 0._wp
-        z_mflxr(:,:)   = 0._wp
+        prm_diag%rain_con_rate_3d(:,:,jb)         = 0._wp
+        prm_diag%snow_con_rate_3d(:,:,jb)         = 0._wp
 
         !-------------------------------------------------------------------------
         !> Convection
@@ -284,8 +282,8 @@ CONTAINS
 &            ptu    =      prm_diag%con_udd(:,:,jb,5)                         ,& !! OUT
 &            pqu    =      prm_diag%con_udd(:,:,jb,6)                         ,& !! OUT
 &            plu    =      prm_diag%con_udd(:,:,jb,7)                         ,& !! OUT
-&            pmflxr =      z_mflxr                                            ,& !! OUT
-&            pmflxs =      z_mflxs                                            ,& !! OUT
+&            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
+&            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pcape =       prm_diag%cape     (:,jb)                           ) !! OUT
 
@@ -328,8 +326,11 @@ CONTAINS
             &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
             &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
 
-          prm_diag%rain_con_rate(i_startidx:i_endidx,jb) = z_mflxr(i_startidx:i_endidx,nlevp1)
-          prm_diag%snow_con_rate(i_startidx:i_endidx,jb) = z_mflxs(i_startidx:i_endidx,nlevp1)
+
+          prm_diag%rain_con_rate(i_startidx:i_endidx,jb) =                                &
+            &                    prm_diag%rain_con_rate_3d(i_startidx:i_endidx,nlevp1,jb)
+          prm_diag%snow_con_rate(i_startidx:i_endidx,jb) =                                &
+            &                    prm_diag%snow_con_rate_3d(i_startidx:i_endidx,nlevp1,jb)
 
 
         ENDIF !inwp_conv

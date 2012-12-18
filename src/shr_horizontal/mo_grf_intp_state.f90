@@ -145,9 +145,9 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
     IF (ptr_patch%n_childdom > 0) THEN  ! n_childdom = 0 in the innermost nest(s)
 
       isb_e      = ptr_patch%edges%start_blk(grf_bdyintp_start_e,jcd)
-      ieb_e      = ptr_patch%edges%end_blk(min_rledge_int,jcd)
+      ieb_e      = MAX(isb_e,ptr_patch%edges%end_blk(min_rledge_int,jcd))
       isb_c      = ptr_patch%cells%start_blk(grf_bdyintp_start_c,jcd)
-      ieb_c      = ptr_patch%cells%end_blk(min_rlcell_int,jcd)
+      ieb_c      = MAX(isb_c,ptr_patch%cells%end_blk(min_rlcell_int,jcd))
       nproma_grf = nproma
 
     ELSE
@@ -371,9 +371,9 @@ IF (n_dom_start == 0 .OR. n_dom > 1) THEN
   CALL compute_pe2ce_distances ( ptr_grf_state)
 
   CALL grf_index( ptr_grf_state)
-  IF (grf_intmethod_e == 2 .OR. grf_intmethod_e == 4) THEN
+  IF ( MOD(grf_intmethod_e,2) == 0) THEN
     CALL rbf_compute_coeff_grf_e ( ptr_grf_state)
-  ELSE IF (grf_intmethod_e == 1 .OR. grf_intmethod_e == 3) THEN
+  ELSE IF (MOD(grf_intmethod_e,2) == 1) THEN
     CALL idw_compute_coeff_grf_e ( ptr_grf_state)
   ENDIF
 
@@ -515,10 +515,12 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
-  p_grf%p_dom(jcd)%grf_vec_stencil_1a(:,:) = INT(z_tmp_r(:,1,isb_e:ieb_e))
-  p_grf%p_dom(jcd)%grf_vec_stencil_1b(:,:) = INT(z_tmp_r(:,2,isb_e:ieb_e))
-  p_grf%p_dom(jcd)%grf_vec_stencil_2a(:,:) = INT(z_tmp_r(:,3,isb_e:ieb_e))
-  p_grf%p_dom(jcd)%grf_vec_stencil_2b(:,:) = INT(z_tmp_r(:,4,isb_e:ieb_e))
+  IF (ieb_e >= isb_e) THEN
+    p_grf%p_dom(jcd)%grf_vec_stencil_1a(:,:) = INT(z_tmp_r(:,1,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_1b(:,:) = INT(z_tmp_r(:,2,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_2a(:,:) = INT(z_tmp_r(:,3,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_2b(:,:) = INT(z_tmp_r(:,4,isb_e:ieb_e))
+  ENDIF
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
 
@@ -555,27 +557,29 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
-  n = 0
-  DO k = 1, grf_vec_dim_1
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-  ENDDO
-  DO k = 1, grf_vec_dim_1
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-  ENDDO
-  DO k = 1, grf_vec_dim_2
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-  ENDDO
-  DO k = 1, grf_vec_dim_2
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-    p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-  ENDDO
+  IF (ieb_e >= isb_e) THEN
+    n = 0
+    DO k = 1, grf_vec_dim_1
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    ENDDO
+    DO k = 1, grf_vec_dim_1
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    ENDDO
+    DO k = 1, grf_vec_dim_2
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    ENDDO
+    DO k = 1, grf_vec_dim_2
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    ENDDO
+  ENDIF
 
   n = 0
   DO k = 1, grf_vec_dim_1
@@ -597,23 +601,25 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
-  n = 0
-  DO k = 1, grf_vec_dim_1
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_coeff_1a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
-  ENDDO
-  DO k = 1, grf_vec_dim_1
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_coeff_1b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
-  ENDDO
-  DO k = 1, grf_vec_dim_2
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_coeff_2a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
-  ENDDO
-  DO k = 1, grf_vec_dim_2
-    n = n+1
-    p_grf%p_dom(jcd)%grf_vec_coeff_2b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
-  ENDDO
+  IF (ieb_e >= isb_e) THEN
+    n = 0
+    DO k = 1, grf_vec_dim_1
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_coeff_1a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+    ENDDO
+    DO k = 1, grf_vec_dim_1
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_coeff_1b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+    ENDDO
+    DO k = 1, grf_vec_dim_2
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_coeff_2a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+    ENDDO
+    DO k = 1, grf_vec_dim_2
+      n = n+1
+      p_grf%p_dom(jcd)%grf_vec_coeff_2b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+    ENDDO
+  ENDIF
 
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
@@ -627,7 +633,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
-  p_grf%p_dom(jcd)%grf_dist_pe2ce(:,:,:) = z_tmp_r(:,:,isb_e:ieb_e)
+  IF (ieb_e >= isb_e) p_grf%p_dom(jcd)%grf_dist_pe2ce(:,:,:) = z_tmp_r(:,:,isb_e:ieb_e)
 
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
@@ -648,14 +654,16 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   CALL exchange_data(comm_pat_loc_to_glb_c, RECV=z_tmp_r, SEND=z_tmp_s)
 
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,:) = z_tmp_r(:,1,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,:) = z_tmp_r(:,2,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,:) = z_tmp_r(:,3,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,:) = z_tmp_r(:,4,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,:) = z_tmp_r(:,5,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,:) = z_tmp_r(:,6,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,:) = z_tmp_r(:,7,isb_c:ieb_c)
-  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,:) = z_tmp_r(:,8,isb_c:ieb_c)
+  IF (ieb_c >= isb_c) THEN
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,:) = z_tmp_r(:,1,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,:) = z_tmp_r(:,2,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,:) = z_tmp_r(:,3,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,:) = z_tmp_r(:,4,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,:) = z_tmp_r(:,5,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,:) = z_tmp_r(:,6,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,:) = z_tmp_r(:,7,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,:) = z_tmp_r(:,8,isb_c:ieb_c)
+  ENDIF
 
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)

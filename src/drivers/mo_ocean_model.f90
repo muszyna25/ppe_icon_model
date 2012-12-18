@@ -33,7 +33,7 @@
 MODULE mo_ocean_model
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish  ! use always
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
@@ -178,7 +178,7 @@ CONTAINS
     TYPE(t_patch_3D_oce),POINTER :: p_patch_3D
     ! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 8
+    INTEGER, PARAMETER :: no_of_fields = 9
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
@@ -532,6 +532,7 @@ CONTAINS
       field_name(6) = "SST"
       field_name(7) = "OCEANU"
       field_name(8) = "OCEANV"
+      field_name(9) = "ALBEDO"
 
       field_shape(1:2) = grid_shape(1:2)
 

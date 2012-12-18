@@ -101,7 +101,7 @@ CONTAINS
 !! mpi parallelized, sync required
 SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, laplacian_vn_out)
 
- TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+ TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(in)                :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
   TYPE(t_ho_params), INTENT(in)       :: p_param !mixing parameters
   TYPE(t_hydro_ocean_diag),INTENT(in) :: p_diag
@@ -129,12 +129,12 @@ SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, la
 
     ELSEIF(veloc_diffusion_form==1)THEN
 
-       CALL veloc_diff_harmonic_curl_curl( vn_in, p_diag%vort, &
-                                         & p_patch_3D,&
-                                         & p_param%K_veloc_h,  &
-                                         & p_op_coeff,         &
-                                         & p_diag%p_vn_dual,   &
-                                         & laplacian_vn_out)
+       CALL veloc_diff_harmonic_curl_curl( vn_in, p_diag%vort,&
+                                         & p_patch_3D,           &
+                                         & p_op_coeff,        &
+                                         & p_diag%p_vn_dual,  &
+                                         & laplacian_vn_out,  & 
+                                         & p_param%K_veloc_h)
    ENDIF
 
   ELSEIF(veloc_diffusion_order==2)THEN
@@ -158,12 +158,6 @@ SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, la
    ENDIF
  ENDIF
 
-!    DO jk=1, n_zlev
-!     write(*,*)'LAPLACIAN',jk,&
-!     &maxval(laplacian_vn_out(:,jk,:)),minval(laplacian_vn_out(:,jk,:))!,&
-!     &maxval(z_lapl(:,jk,:)),minval(z_lapl(:,jk,:))
-!    END DO
-
  CALL sync_patch_array(SYNC_E, p_patch_3D%p_patch_2D(1), laplacian_vn_out)
 
 
@@ -182,7 +176,7 @@ END SUBROUTINE velocity_diffusion
 SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
                                        & p_op_coeff, laplacian_vn_out)
  
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
   TYPE(t_hydro_ocean_diag)          :: p_diag
   TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
@@ -318,7 +312,7 @@ END SUBROUTINE veloc_diff_harmonic_div_grad
 SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
                                          & p_op_coeff, laplacian_vn_out)
 
- TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+ TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   !REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
   TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
   TYPE(t_hydro_ocean_diag)          :: p_diag
@@ -394,7 +388,7 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
 
         z_grad_u(je,jk,jb)%x = (p_diag%p_vn(il_c2,jk,ib_c2)%x &
           &                   - p_diag%p_vn(il_c1,jk,ib_c1)%x)&
-          &                  / p_patch%edges%dual_edge_length(je,jb)
+          &                   / p_patch%edges%dual_edge_length(je,jb)
       ENDIF 
       ENDDO
     END DO
@@ -402,12 +396,6 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
   DO idx_cartesian = 1,3
     CALL sync_patch_array(SYNC_E, p_patch,z_grad_u(:,:,:)%x(idx_cartesian) )
   END DO
-
-DO jk=1,n_zlev
-   write(*,*)'Bi-lapla 0',jk,maxval(z_grad_u(:,jk,:)%x(1)),&
-   &minval(z_grad_u(:,jk,:)%x(1))
-  END DO
-
 
   !Step 2: Apply divergence to each component of gradient vector
   iidx => p_patch%cells%edge_idx
@@ -522,19 +510,19 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
   !! @par Revision History
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch_3D, k_h, p_op_coeff,&
-    & p_vn_dual, nabla2_vec_e)
+  SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch_3D, p_op_coeff,&
+    & p_vn_dual, nabla2_vec_e,k_h )
     !
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
     REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) 
     REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
-    REAL(wp), INTENT(in)                      :: k_h(:,:,:)
     TYPE(t_operator_coeff), INTENT(in)        :: p_op_coeff
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
-    REAL(wp), INTENT(inout)                   ::  nabla2_vec_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    !
+    REAL(wp), INTENT(inout)                   :: nabla2_vec_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp),OPTIONAL, INTENT(in)             :: k_h(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)    
+!
     !Local variables
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
@@ -570,6 +558,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !  loop through all patch edges (and blocks)
     !
+    IF(PRESENT(k_h))THEN
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
@@ -589,7 +578,26 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
         END DO
       END DO
     END DO
+    ELSEIF(.NOT.PRESENT(k_h))THEN
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+          nabla2_vec_e(je,jk,jb) = v_base%wet_e(je,jk,jb)*&
+            &(   &
+            & p_patch%edges%system_orientation(je,jb) *     &
+            & ( vott(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
+            & - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )   &
+            & * p_patch%edges%inv_primal_edge_length(je,jb) &
+            & + &
+            & ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))     &
+            & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )   &
+            & * p_patch%edges%inv_dual_edge_length(je,jb))
+        END DO
+      END DO
+    END DO
 
+    ENDIF
   END SUBROUTINE veloc_diff_harmonic_curl_curl
   !-------------------------------------------------------------------------
   !>
@@ -608,7 +616,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
     REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) 
     REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp), INTENT(in)                      :: k_h(:,:,:)
@@ -643,7 +651,9 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
 
-    CALL veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch_3D, k_h, p_op_coeff,&
+    z_nabla2_e(1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
+!TODO review: k_h missing in current version but used in oce-struct-dev branch
+    CALL veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch_3D, p_op_coeff,&
                                       & p_vn_dual, z_nabla2_e)
     ! compute divergence of vector field
 !     CALL div_oce_3d( u_vec_e, p_patch, p_op_coeff%div_coeff, z_div_c)
@@ -694,7 +704,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
         DO jk = slev, elev
 
           nabla4_vec_e(je,jk,jb) =  &
-            & p_patch_3D%wet_e(je,jk,jb)*                  &!v_base%wet_e(je,jk,jb)*     &
+(??)            & v_base%wet_e(je,jk,jb)*     &
             & (p_patch%edges%system_orientation(je,jb) *  &
             & ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
             & - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &
@@ -784,7 +794,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff,&
                                            &p_param, laplacian_vn_out)
 
- TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+ TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_diag)          :: p_diag
   TYPE(t_hydro_ocean_aux)           :: p_aux
   TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
@@ -1025,7 +1035,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
   !Subroutine computes the horizontal diffusive flux of an arbitrary tracer.
   !
   ! Patch on which computation is performed
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(in)              :: trac_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   REAL(wp), INTENT(in)              :: K_T(:,:,:) !mixing coefficient for tracer
@@ -1352,7 +1362,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
                                          & p_op_coeff,  &
                                          & diff_column)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(IN)              :: h_c         (1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)  !surface height, relevant for thickness of first cell 
   REAL(wp), INTENT(in)              :: A_v(:,:,:)  
@@ -1398,48 +1408,6 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
       IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >=MIN_DOLIC ) THEN
 
-          !inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
-          !inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
-           !inv_zinv_i(1) = 1.0_wp/(v_base%del_zlev_i(1)+h_c(jc,jb))
-           !inv_zinv_m(1) = 1.0_wp/(v_base%del_zlev_m(1)+h_c(jc,jb))
-          !inv_zinv_i(:) = 1.0_wp/h_c(jc,:,jb)
-          !inv_zinv_m(:) = 1.0_wp/h_c(jc,:,jb)
-
-          !Fill triangular matrix
-          !b is diagonal a and c are upper and lower band
-          !DO jk = slev+1, z_dolic-1
-          !  a0(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)!*dtime
-          !  c0(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)!*dtime
-          !  b0(jk) = dt_inv-a0(jk)-c0(jk)
-          !END DO
-         !! The first row
-          !c0(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)!*dtime
-          !a0(slev) = 0.0_wp           
-          !b0(slev) = dt_inv- c0(slev)! - a(slev) 
-          !! The last row
-          !a0(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)!*dtime
-          !c0(z_dolic) = 0.0_wp
-          !b0(z_dolic) = dt_inv - a0(z_dolic)! - c(z_dolic)
-
-! ! ! !------------coefficient test--------------------------
-! DO jk = slev, z_dolic
-! IF(a0(jk)/=p_op_coeff%matrix_vert_diff_c(jc,jk,jb,1))THEN
-! write(1239,*)'a wrong',jc,jk,jb,a0(jk), p_op_coeff%matrix_vert_diff_c(jc,jk,jb,1)
-! !STOP
-! ENDIF
-! IF(b0(jk)/=p_op_coeff%matrix_vert_diff_c(jc,jk,jb,2))THEN
-! write(1239,*)'b wrong',jc,jk,jb,b0(jk), p_op_coeff%matrix_vert_diff_c(jc,jk,jb,2)
-! !STOP
-! ENDIF
-! IF(c0(jk)/=p_op_coeff%matrix_vert_diff_c(jc,jk,jb,3))THEN
-! write(1239,*)'c wrong',jc,jk,jb,c0(jk),p_op_coeff%matrix_vert_diff_c(jc,jk,jb,3)
-! !STOP
-! ENDIF
-! END DO
-! ! ! !------------coefficient test--------------------------
-           !a => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,1)
-           !b => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,2)
-           !c => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,3)
           !field_column(jc,1:z_dolic,jb)=field_column(jc,1:z_dolic,jb)*dt_inv
            a(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,1)
            b(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,2)
@@ -1504,7 +1472,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
                                         & A_v,           &
                                         & p_op_coeff,    &
                                         & diff_column)
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !surface height at edges, relevant for thickness of first cell 
   REAL(wp), INTENT(IN)              :: h_e(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -1556,30 +1524,10 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
       IF (p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
-          !inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
-          !inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
-          !!Fill triangular matrix
-          !!b is diagonal a and c are upper and lower band
-          !DO jk = slev+1, z_dolic-1
-          !  a(jk) = -A_v(je,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)!*dtime
-          !  c(jk) = -A_v(je,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)!*dtime
-          !  b(jk) = dt_inv-a(jk)-c(jk)
-          !END DO
-          !! The first row
-          ! c(slev) = -A_v(je,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)!*dtime
-          ! a(slev) = 0.0_wp           
-          ! b(slev) = dt_inv- c(slev) !- a(slev) 
-          !! The last row
-          !a(z_dolic) = -A_v(je,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)!*dtime
-          !c(z_dolic) = 0.0_wp
-          !b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
            a => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,1)
            b => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,2)
            c => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,3)
-           !a(1:z_dolic) = p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,1)
-           !b(1:z_dolic) = p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,2)
-           !c(1:z_dolic) = p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,3)
 
 
           !Apply the matrix

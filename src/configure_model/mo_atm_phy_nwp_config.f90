@@ -83,8 +83,11 @@ MODULE mo_atm_phy_nwp_config
     REAL(wp) :: dt_sso     !! "-"  for subscale orographic gravity waves
     REAL(wp) :: dt_gwd     !! "-"  for subscale gravity waves
     REAL(wp) :: dt_fastphy !! field element for fast physics processes
-                         !! microphysics, saturation adjustment, turbulence, 
-                         !! surface (in addition: update and radheat)
+                           !! microphysics, saturation adjustment, turbulence, 
+                           !! surface (in addition: update and radheat)
+    ! hydci_pp
+    real(wp) :: mu_rain    !! parameter in gamma distribution for rain
+    real(wp) :: mu_snow    !! ...for snow
 
     INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
     LOGICAL :: limpltkediff, ltkesso, lexpcor

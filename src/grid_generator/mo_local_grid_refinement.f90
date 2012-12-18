@@ -44,7 +44,7 @@ MODULE mo_local_grid_refinement
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_timer,              ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
 
-  USE mo_base_geometry,      ONLY: sphere_cartesian_midpoint
+  USE mo_math_utilities,      ONLY: sphere_cartesian_midpoint
 
   USE mo_local_grid
 !   USE mo_local_grid,         ONLY: t_grid, t_grid_cells, t_grid_edges, t_grid_vertices,           &
@@ -531,7 +531,7 @@ CONTAINS
       !inherit the values from the parent
       out_cells%elevation(out_cell1)     = in_elevation
       out_cells%sea_land_mask(out_cell1) = in_sea_land_mask
-      out_cells%get_domain_id(:,out_cell1)= in_cells%get_domain_id(:,in_cell_index)
+      out_cells%domain_id(:,out_cell1)= in_cells%domain_id(:,in_cell_index)
 
       ! get the vertices and the edges
       DO j=1,max_cell_vertices
@@ -574,7 +574,7 @@ CONTAINS
         out_cells%elevation(out_cell_index)        = in_elevation
         out_cells%sea_land_mask(out_cell_index)    = in_sea_land_mask
       
-        out_cells%get_domain_id(:,out_cell_index)  = in_cells%get_domain_id(:,in_cell_index)
+        out_cells%domain_id(:,out_cell_index)  = in_cells%domain_id(:,in_cell_index)
 
         ! fill the three vertices of the new triangle
         out_vertex1 = newvertexindex_edgecenter(in_edge1)
@@ -954,7 +954,7 @@ CONTAINS
           out_cells%get_vertex_index(out_cell_index,2) = cell_center
           out_cells%get_vertex_index(out_cell_index,3) = out_vertex1
 
-          out_cells%get_domain_id(:,out_cell_index) = in_cells%get_domain_id(:,in_cell_index)
+          out_cells%domain_id(:,out_cell_index) = in_cells%domain_id(:,in_cell_index)
 
           ! WRITE(0,*) 'cell edges:', out_cells%get_edge_index(out_cell_index,:)
         ENDIF

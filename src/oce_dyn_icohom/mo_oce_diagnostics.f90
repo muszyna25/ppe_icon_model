@@ -525,12 +525,12 @@ ALLOCATE(ocean_diagnostics)
     nblks_v = p_patch%nblks_v
 
     CALL add_var(ocean_diagnostics_list, 'volume', ocean_diagnostics%volume , GRID_UNSTRUCTURED_CELL,&
-    &            ZAXIS_SURFACE, &
+    &            ZA_SURFACE, &
     &            t_cf_var('volume', 'm^3', 'volume', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))
     CALL add_var(ocean_diagnostics_list, 'kin_energy', ocean_diagnostics%kin_energy , &
-        & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &            t_cf_var('kin_energy', 'J', 'kinetic_energy', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))

@@ -1,9 +1,7 @@
 !>
-!! @brief Main program for the ICON atmospheric model
 !!
 !! @author
 !!  Leonidas Linardakis (MPI-M)
-!!  Hui Wan             (MPI-M)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -73,7 +71,6 @@ MODULE mo_test_nh_communication
   USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys
@@ -130,9 +127,9 @@ MODULE mo_test_nh_communication
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
-  USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
-    & init_ompthread_radiation
-  USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
+!   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
+!     & init_ompthread_radiation
+!   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output, &
     &                               output_file
   !-------------------------------------------------------------------------

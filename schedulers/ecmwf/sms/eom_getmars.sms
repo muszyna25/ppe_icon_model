@@ -22,8 +22,9 @@
 
 echo "EOM_GETMARS.SMS"
 
-lgetmars=1
-lmean=1
+lgetecfs=0    # optionally get monthly means if previously calculated by eom_prepare 
+lgetmars=1    # read IFS data
+lmean=1       # monthly mean IFS data
 
 use cdo
 
@@ -35,7 +36,16 @@ use cdo
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
 cd %ECTEMP%
+mkdir -p ../ifs_data
 cd ../ifs_data
+
+
+if [[ $lgetecfs = 1 ]] ; then
+  gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}
+  mkdir -p ${gatedir}/grb_data
+  cd       ${gatedir}/grb_data
+  ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}/%SUITE%_%EXPNUM%_${YYYYMM}_DOM01_0001_*.grb .
+fi
 
 
 if [[ $lgetmars = 1 ]] ; then
@@ -52,7 +62,7 @@ retrieve,
   expver  = 1,
   class   = od,
   type    = fc,
-  param   = TCWV/TCLW/TCIW/TCC/10U/10V/2T/CP/LSP/TP/SSTK/SD/RSN/SKT/SSR/STR/TSR/TTR/SLHF/SSHF,
+  param   = TCWV/TCLW/TCIW/TCC/10U/10V/2T/CP/LSP/TP/SSTK/SD/RSN/SKT/SSR/STR/TSR/TTR/SLHF/SSHF/SP,
   grid    = 1/1,
   target  = "ifs_oper_1x1_${YYYYMM}.sfc.grb"
 EOF_SFC

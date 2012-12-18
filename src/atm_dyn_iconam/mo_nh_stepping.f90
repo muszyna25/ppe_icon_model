@@ -51,7 +51,8 @@ MODULE mo_nh_stepping
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
+  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
+    & nest_substeps
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
@@ -67,7 +68,7 @@ MODULE mo_nh_stepping
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_model_domain,        ONLY: p_patch
@@ -84,14 +85,15 @@ MODULE mo_nh_stepping
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
     &                               verts2cells_scalar
-  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state
+  USE mo_gridref_config,      ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
                                     complete_nesting_setup, prep_bdy_nudging,      &
                                     outer_boundary_nudging, nest_boundary_nudging, &
                                     prep_rho_bdy_nudging, density_boundary_nudging
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
+  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday
   USE mo_output,              ONLY: init_output_files, write_output,  &
     &                               create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
@@ -126,9 +128,9 @@ MODULE mo_nh_stepping
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
-  USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
-    & init_ompthread_radiation
-  USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
+!   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
+!     & init_ompthread_radiation
+!   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
@@ -136,8 +138,10 @@ MODULE mo_nh_stepping
   USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
-  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars
+  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest
+  USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
+                                  & read_td_ext_data_file
 
   IMPLICIT NONE
 
@@ -290,6 +294,12 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping ()
 
+    IF (sstice_mode > 1 ) THEN
+      ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
+      !  the values from the analysis have to be overwritten
+      CALL set_actual_td_ext_data (.TRUE.,datetime,datetime,sstice_mode,  &
+                                  &  p_patch(1:), ext_data, p_lnd_state)
+    END IF
 
   IF (iforcing == inwp .AND. is_restart_run()) THEN
     DO jg=1, n_dom
@@ -333,37 +343,37 @@ MODULE mo_nh_stepping
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
-  IF (parallel_radiation_omp) THEN
-
-    !---------------------------------------
-    CALL init_ompthread_radiation()
-    
-!$    CALL omp_set_nested(.true.)
-!$    CALL omp_set_num_threads(2)
-!$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
-!$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
-!$OMP PARALLEL SECTIONS
-!$OMP SECTION
-!$  CALL omp_set_num_threads(nh_stepping_ompthreads)
-!$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
-!$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
-
-    CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
-      &                       l_have_output )
-    CALL model_end_ompthread()
-
-!$OMP SECTION
-!$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
-!$    omp_get_max_threads()
-  CALL nwp_start_radiation_ompthread()
-!$OMP END PARALLEL SECTIONS
-
-  ELSE
+!   IF (parallel_radiation_omp) THEN
+! 
+!     !---------------------------------------
+!     CALL init_ompthread_radiation()
+!     
+! !$    CALL omp_set_nested(.true.)
+! !$    CALL omp_set_num_threads(2)
+! !$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
+! !$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
+! !$OMP PARALLEL SECTIONS
+! !$OMP SECTION
+! !$  CALL omp_set_num_threads(nh_stepping_ompthreads)
+! !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
+! !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
+! 
+!     CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
+!       &                       l_have_output )
+!     CALL model_end_ompthread()
+! 
+! !$OMP SECTION
+! !$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
+! !$    omp_get_max_threads()
+!   CALL nwp_start_radiation_ompthread()
+! !$OMP END PARALLEL SECTIONS
+! 
+!   ELSE
     !---------------------------------------
 
     CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
                               l_have_output )
-  ENDIF
+!   ENDIF
 
   CALL deallocate_nh_stepping ()
 
@@ -406,6 +416,8 @@ MODULE mo_nh_stepping
   TYPE(t_simulation_status)            :: simulation_status
   INTEGER                              :: proc_id(2), keyval(2)
 
+  TYPE(t_datetime)                     :: datetime_old
+
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
@@ -417,12 +429,35 @@ MODULE mo_nh_stepping
   ! MPI communication from now on. 
   IF (test_mode > 0) iorder_sendrecv = 0
 
+  datetime_old = datetime
+
   TIME_LOOP: DO jstep = 1, nsteps
 
     CALL add_time(dtime,0,0,0,datetime)
 
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
+
+!Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
+    IF (sstice_mode > 1 ) THEN
+     IF ( check_newday(datetime_old,datetime) ) THEN
+
+      WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', datetime_old%day, &
+                &                 'day: ', datetime%day
+      CALL message(TRIM(routine),message_text)
+
+      CALL set_actual_td_ext_data (.FALSE., datetime,datetime_old,sstice_mode,  &
+                                  &  p_patch(1:), ext_data, p_lnd_state)
+
+      CALL update_sstice( p_patch(1:),           &
+                        & ext_data, p_lnd_state, p_nh_state )
+      ! Do for all the domains
+      !!CALL init_sea_lists(p_patch, ext_data, p_lnd_state%diag_lnd, lseaice)
+
+      datetime_old = datetime  
+     END IF  ! newday
+    END IF !sstice_mode>1
+! end SST and sea ice fraction update
 
     IF (msg_level >= 5 .AND. MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
 
@@ -660,7 +695,6 @@ MODULE mo_nh_stepping
                                 & opt_sim_time               = sim_time(jg),               &
                                 & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                 & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                & opt_zheight                = p_patch(jg)%nlev           ,&
                                 & opt_depth_lnd              = nlev_soil,                  &
                                 & opt_nlev_snow              = nlev_snow )
       END DO
@@ -723,13 +757,13 @@ MODULE mo_nh_stepping
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain
 
     REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
-    REAL(wp):: rdt_loc,  rdtadv_loc ! inverse time step for local grid level
+    REAL(wp):: rdt_loc,  rdtadv_loc, rdtmflx_loc ! inverse time step for local grid level
 
     LOGICAL, PARAMETER :: l_straka=.FALSE.
     LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge
-    LOGICAL :: linit_vertnest(2)
-    LOGICAL :: l_recompute
+    INTEGER :: idyn_timestep
+    LOGICAL :: l_recompute, lsave_mflx
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
@@ -741,8 +775,6 @@ MODULE mo_nh_stepping
 
     ! Switch to determine if nested domains are called at a given time step
     LOGICAL :: l_call_nests = .FALSE.
-
-!$  INTEGER :: num_threads_omp, omp_get_max_threads
 
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
@@ -756,8 +788,6 @@ MODULE mo_nh_stepping
       IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
     ENDIF
     !--------------------------------------------------------------------------
-
-!$  num_threads_omp = omp_get_max_threads()
 
     ! Determine parent domain ID
     IF ( jg > 1) THEN
@@ -1078,17 +1108,9 @@ MODULE mo_nh_stepping
             l_bdy_nudge = .FALSE.
           ENDIF
 
-          IF (.NOT. l_nest_rcf .OR. lclean_mflx) THEN
-            linit_vertnest(1) = .TRUE.
-          ELSE
-            linit_vertnest(1) = .FALSE.
-          ENDIF
-
-          IF (.NOT. l_nest_rcf .OR. lstep_adv(jg)) THEN
-            linit_vertnest(2) = .TRUE.
-          ELSE
-            linit_vertnest(2) = .FALSE.
-          ENDIF
+          ! index of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
+          idyn_timestep = MOD(jstep_adv(jg)%ntsteps,iadv_rcf)
+          IF (idyn_timestep == 0) idyn_timestep = iadv_rcf
 
           IF (iforcing == inwp .AND. lclean_mflx) THEN
             l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
@@ -1103,6 +1125,13 @@ MODULE mo_nh_stepping
             lcall_hdiff = .FALSE.
           ENDIF
 
+          IF (p_patch(jg)%n_childdom > 0 .AND. (jg == 1 .AND. MOD(nstep_global,iadv_rcf) == 1 &
+              .OR. jg > 1 .AND. MOD(jstep,iadv_rcf) == 1) ) THEN
+            lsave_mflx = .TRUE.
+          ELSE
+            lsave_mflx = .FALSE.
+          ENDIF   
+
           ! For real-data runs, perform an extra diffusion call before the first time
           ! step because no other filtering of the interpolated velocity field is done
           IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn) THEN
@@ -1112,8 +1141,8 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),          &
-              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), prep_adv(jg)%mass_flx_me, &
+              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
@@ -1152,7 +1181,7 @@ MODULE mo_nh_stepping
 
         ! 5. tracer advection
         !-----------------------
-        IF ( ltransport ) THEN
+        IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
 
           ! Diagnose some velocity-related quantities for the tracer
           ! transport scheme
@@ -1166,7 +1195,9 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
             &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
 
+        ENDIF
 
+        IF ( ltransport ) THEN
           IF (lstep_adv(jg)) THEN
 
               IF (art_config(jg)%lart) THEN
@@ -1269,12 +1300,10 @@ MODULE mo_nh_stepping
           IF (ltimer)            CALL timer_start(timer_nesting)
           IF (timers_level >= 2) CALL timer_start(timer_nudging)
 
-          IF (lfeedback(jg)) THEN
-            CALL density_boundary_nudging(jg, &
-              &                        nnew(jg),REAL(iadv_rcf,wp))
-          ELSE
-            CALL nest_boundary_nudging(jg, &
-              &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+          IF (lfeedback(jg) .AND. l_density_nudging) THEN
+            CALL density_boundary_nudging(jg,nnew(jg),REAL(iadv_rcf,wp))
+          ELSE IF (.NOT. lfeedback(jg)) THEN
+            CALL nest_boundary_nudging(jg,nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
           ENDIF
 
           IF (timers_level >= 2) CALL timer_stop(timer_nudging)
@@ -1293,14 +1322,14 @@ MODULE mo_nh_stepping
       ! If there are nested domains...
       IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
         l_call_nests = .TRUE.
-        rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc ??
+        rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc
         n_now_grf    = nsav1(jg)
         nsteps_nest  = 2*iadv_rcf
       ELSE IF (.NOT. l_nest_rcf) THEN
         l_call_nests = .TRUE.
         rdt_loc = 1._wp/dt_loc
         n_now_grf    = n_now
-        nsteps_nest  = 2
+        nsteps_nest  = nest_substeps
       ELSE
         l_call_nests = .FALSE.
       ENDIF
@@ -1320,13 +1349,14 @@ MODULE mo_nh_stepping
         dt_sub     = dt_loc/2._wp    ! dyn. time step on next refinement level
         dtadv_sub  = dtadv_loc/2._wp ! adv. time step on next refinement level
         rdtadv_loc = 1._wp/dtadv_loc
+        rdtmflx_loc = 1._wp/(dt_loc*REAL(MAX(1,iadv_rcf-1),wp))
 
         IF (ltimer)            CALL timer_start(timer_nesting)
         IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
-        CALL compute_tendencies (jg,n_new,n_now_grf,n_new_rcf,            &
-          &                      n_now_rcf,rdt_loc,rdtadv_loc,lstep_adv(jg))
+        CALL compute_tendencies (jg,n_new,n_now_grf,n_new_rcf,n_now_rcf,     &
+          &                      rdt_loc,rdtadv_loc,rdtmflx_loc,lstep_adv(jg))
 
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
@@ -1336,7 +1366,8 @@ MODULE mo_nh_stepping
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
           IF (p_patch(jgc)%ldom_active) THEN
             CALL boundary_interpolation(jg, jgc,                         &
-              &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
+              &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg),&
+              &  prep_adv(jg)%mass_flx_me,prep_adv(jgc)%mass_flx_me)
           ENDIF
 
         ENDDO
@@ -1351,9 +1382,9 @@ MODULE mo_nh_stepping
           ! If feedback is turned off for child domain, compute parent-child
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
-          IF (lfeedback(jgc)) THEN
+          IF (lfeedback(jgc) .AND. l_density_nudging) THEN
             CALL prep_rho_bdy_nudging(jg,jgc)
-          ELSE
+          ELSE IF (.NOT. lfeedback(jgc)) THEN
             CALL prep_bdy_nudging(jg,jgc,lstep_adv(jg))
           ENDIF
         ENDDO
@@ -1676,7 +1707,10 @@ MODULE mo_nh_stepping
           lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips))) = .FALSE.
         ELSE
 
-          IF( t_elapsed_phy(jg,ips) >= dt_phy(jg,ips) ) THEN
+          ! The purpose of the 0.99999999 factor is to prevent pathological cases of 
+          ! truncation error accumulation; will become obsolete when changing to 
+          ! integer arithmetics for time control
+          IF( t_elapsed_phy(jg,ips) >= 0.99999999_wp*dt_phy(jg,ips) ) THEN
             lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .TRUE.
           ELSE
             lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .FALSE.
