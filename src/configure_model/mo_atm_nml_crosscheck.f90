@@ -55,7 +55,7 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
     &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
-    &                              RAYLEIGH_CLASSIC 
+    &                              RAYLEIGH_CLASSIC, MODE_REMAP
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -105,7 +105,7 @@ MODULE mo_nml_crosscheck
     & testbed_process,  atmo_process, ocean_process, radiation_process
   
   USE mo_art_config,         ONLY: art_config
-  USE mo_prepicon_config,    ONLY: i_oper_mode, MODE_REMAP
+  USE mo_prepicon_config,    ONLY: i_oper_mode
 
   IMPLICIT NONE
 

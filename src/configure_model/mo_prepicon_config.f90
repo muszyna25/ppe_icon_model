@@ -44,7 +44,6 @@ MODULE mo_prepicon_config
   IMPLICIT NONE
 
   PUBLIC :: i_oper_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
-  PUBLIC :: MODE_GENERATE_COORDS, MODE_CONVERTIFS, MODE_VERTINTERP, MODE_REMAP
   PUBLIC :: l_w_in, l_sfc_in, l_hice_in, l_sst_in     
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
@@ -75,10 +74,6 @@ MODULE mo_prepicon_config
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
 
-  INTEGER, PARAMETER :: MODE_GENERATE_COORDS = 1
-  INTEGER, PARAMETER :: MODE_CONVERTIFS      = 2
-  INTEGER, PARAMETER :: MODE_VERTINTERP      = 3
-  INTEGER, PARAMETER :: MODE_REMAP           = 4 
 
 CONTAINS
   

@@ -172,6 +172,8 @@ MODULE mo_prepicon_utils
         IF ( l_sfc_in ) THEN
           CALL read_ifs_sfc( prepicon )
         ENDIF
+      CASE DEFAULT
+        CALL finish("init_prepicon", "Invalid operation mode!")
     END SELECT
 
 

@@ -452,6 +452,12 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
   INTEGER, PARAMETER :: VINTP_METHOD_LIN_NLEVP1 = 5
 
+  !----- init ICON operation modes -----
+  INTEGER, PARAMETER :: MODE_GENERATE_COORDS = 1
+  INTEGER, PARAMETER :: MODE_CONVERTIFS      = 2
+  INTEGER, PARAMETER :: MODE_VERTINTERP      = 3
+  INTEGER, PARAMETER :: MODE_REMAP           = 4 
+
   !----------------!
   !  MODEL OUTPUT  !
   !----------------!
