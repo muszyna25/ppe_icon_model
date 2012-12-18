@@ -87,7 +87,7 @@ MODULE mo_prepicon_old
 !DR removed init_topo_output_files, 
 !DR removed init_atmo_output_files,
 
-  USE mo_prepicon_config,       ONLY: i_oper_mode, nlev_in, l_zp_out
+  USE mo_prepicon_config,       ONLY: i_oper_mode, nlev_in
   USE mo_nh_vert_interp,        ONLY: vertical_interpolation
 !DR removed    &                                 intp_to_p_and_z_levels_prepicon
 
