@@ -870,18 +870,19 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-      ! Copy sai over water points to the water tile-index of tile-based variables
-      DO ic = 1, ext_data%atm%spw_count(jb)
-        jc = ext_data%atm%idx_lst_spw(ic,jb)
+      ! Copy sai over all water/seaice points to the water tile-index of tile-based variables
+      ! otherwise the code breaks if a water seaice point becomes a water point.
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
         ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
         ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
-      ! Copy sai over water points to the seaice tile-index of tile-based variables
-      DO ic = 1, ext_data%atm%spi_count(jb)
-        jc = ext_data%atm%idx_lst_spi(ic,jb)
+      ! Copy sai over all water/seaice water points to the seaice tile-index of tile-based variables
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
         ext_data%atm%sai_t(jc,jb,isub_seaice) = prm_diag%sai(jc,jb)
       ENDDO
       DO jt = 1, ntiles_total+ntiles_water 
