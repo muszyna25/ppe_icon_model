@@ -42,7 +42,7 @@
 
 MODULE mo_prepicon_utils
 
-  USE mo_kind
+  USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: msg_level, nvclev, iqv, iqc, iqi, iqr, iqs
@@ -54,11 +54,10 @@ MODULE mo_prepicon_utils
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_prepicon_types,      ONLY: t_prepicon_state, t_pi_atm_in, t_pi_sfc_in, &
-    &                               t_pi_atm, t_pi_diag, t_pi_sfc
-  USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
-  &                                 nlevsoil_in, l_sfc_in, l_hice_in,      &
-  &                                 l_sst_in,                              &
-  &                                 ifs2icon_filename, generate_filename
+    &                               t_pi_atm, t_pi_sfc
+  USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_w_in, nlevsoil_in, &
+    &                               l_sfc_in, l_hice_in, l_sst_in,             &
+    &                               ifs2icon_filename, generate_filename
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_physical_constants,  ONLY: tf_salt
   USE mo_exception,           ONLY: message, finish, message_text
@@ -75,8 +74,7 @@ MODULE mo_prepicon_utils
     &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
   USE mo_datetime,            ONLY: t_datetime
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
-                                    hydro_adjust, interp_uv_2_vn, init_w, convert_thdvars, &
-                                    virtual_temp
+                                    hydro_adjust
   USE mo_nh_init_nest_utils,  ONLY: topography_blending, topography_feedback
   USE mo_grid_config,         ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
@@ -98,8 +96,6 @@ MODULE mo_prepicon_utils
   TYPE(t_prepicon_state), ALLOCATABLE, TARGET :: prepicon(:) 
 
 
-  INTEGER :: nzplev
-
   CHARACTER(LEN=10) :: psvar 
   CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
   CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
@@ -110,7 +106,6 @@ MODULE mo_prepicon_utils
 
   PUBLIC :: init_prepicon
   PUBLIC :: compute_coord_fields
-  PUBLIC :: convert_variables
   PUBLIC :: deallocate_prepicon
   PUBLIC :: copy_prepicon2prog
 
@@ -139,150 +134,119 @@ MODULE mo_prepicon_utils
     INTEGER :: jg, jlev, jk
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_verts, no_levels
+    INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
     CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
-    LOGICAL :: l_sst_present = .FALSE.     !TRUE if SST is present in the IFS input file
 
 !-------------------------------------------------------------------------
 
-    IF (l_zp_out) THEN ! set number of z and p levels for diagnostic output
-      nzplev = 10
-    ELSE
-      nzplev = 1
-    ENDIF
 
     ! Allocate memory for prep_icon state
     CALL allocate_prepicon (prepicon)
 
 
-    IF (i_oper_mode >= 2 .AND. l_zp_out) THEN ! set levels for test output on pressure and height levels
+    ! Copy the already smoothed extdata topography fields to prepicon
+    !
+    DO jg = 1, n_dom
+      prepicon(jg)%topography_c(:,:) = extdata(jg)%atm%topography_c(:,:)
+      prepicon(jg)%topography_v(:,:) = extdata(jg)%atm%topography_v(:,:)
+    ENDDO
 
+
+
+
+    SELECT CASE(i_oper_mode)
+!      CASE(2)
+!        CALL init_from_dwd()
+      CASE(3)
+        !
+        ! read horizontally interpolated IFS analysis for atmosphere
+        ! 
+        CALL read_ifs_atm( prepicon )
+        !
+        ! read horizontally interpolated IFS analysis for surface
+        !
+        IF ( l_sfc_in ) THEN
+          CALL read_ifs_sfc( prepicon )
+        ENDIF
+    END SELECT
+
+
+
+
+
+    IF (n_dom > 1) CALL topo_blending_and_fbk(p_int_state, p_grf_state, prepicon, 1)
+
+    IF (PRESENT(extdata)) THEN
+
+      ! Copy blended topography fields back to the external parameter state
       DO jg = 1, n_dom
-        ! set levels - attention: ordering of the levels must be top-down as for the model levels
-        DO jk = 1, nzplev
-          prepicon(jg)%zlev%levels(nzplev+1-jk) = REAL(jk-1,wp)*1000._wp ! every 1000 m
-        ENDDO
-        ! standard pressure levels
-        prepicon(jg)%plev%levels(10) = 100000._wp
-        prepicon(jg)%plev%levels(9)  =  92500._wp
-        prepicon(jg)%plev%levels(8)  =  85000._wp
-        prepicon(jg)%plev%levels(7)  =  70000._wp
-        prepicon(jg)%plev%levels(6)  =  50000._wp
-        prepicon(jg)%plev%levels(5)  =  40000._wp
-        prepicon(jg)%plev%levels(4)  =  30000._wp
-        prepicon(jg)%plev%levels(3)  =  25000._wp
-        prepicon(jg)%plev%levels(2)  =  20000._wp
-        prepicon(jg)%plev%levels(1)  =  10000._wp
+
+        extdata(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
+        extdata(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
+        IF (i_oper_mode > 1 .AND. l_sfc_in) THEN
+          ! In addition, copy climatological deep-soil temperature to soil level nlev_soil
+          ! These are limited to -60 deg C because less is definitely nonsense
+          prepicon(jg)%sfc%tsoil(:,:,nlev_soil) = MAX(213.15_wp,extdata(jg)%atm%t_cl(:,:))
+        ENDIF
       ENDDO
 
     ENDIF
+
+  END SUBROUTINE init_prepicon
+
+
+
+
+
+  !>
+  !! Read in horizontally interpolated IFS analysis (atmosphere only)
+  !!
+  !! Reads in horizontally interpolated IFS analysis atmosphere data 
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
+  !! Modification by Daniel Reinert, DWD (2012-12-18)
+  !! - encapsulate reading of IFS analysis
+  !!
+  SUBROUTINE read_ifs_atm (prepicon)
+
+    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+
+    INTEGER :: jg, jlev, jk
+    LOGICAL :: l_exist
+
+    INTEGER :: no_cells, no_levels
+    INTEGER :: ncid, dimid, varid, mpi_comm
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_prepicon_utils:read_ifs_atm'
+
+    CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
+
+
+    !-------------------------------------------------------------------------
+
+    !!!!!!!!!!!!!!!!!!!!
+    !! oper_mode = 3  !!
+    !!!!!!!!!!!!!!!!!!!!
 
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
 
-      IF(p_pe == p_io) THEN
-        !
-        ! generate file name
-        !
-        topo_file(jg) = generate_extpar_filename(extpar_filename,                   &
-          &                                      model_base_dir,                    &
-          &                                      TRIM(p_patch(jg)%grid_filename))
 
-        INQUIRE (FILE=topo_file(jg), EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'Topography file is not found: '//TRIM(topo_file(jg)))
-        ENDIF
-
-        !
-        ! open file
-        !
-        CALL nf(nf_open(TRIM(topo_file(jg)), NF_NOWRITE, ncid), routine)
-
-        !
-        ! get number of cells and vertices
-        !
-        CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-        IF (global_cell_type == 3) THEN ! triangular grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-        ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-        ENDIF
-
-        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
-        IF (global_cell_type == 3) THEN ! triangular grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-        ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-        ENDIF
-
-        !
-        ! check the number of cells and verts
-        !
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in topography file do not match.')
-        ENDIF
-        IF(p_patch(jg)%n_patch_verts_g /= no_verts) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch verts and verts in topography file do not match.')
-        ENDIF
-      ENDIF
-
-
-      !-------------------------------------------------------
-      !
-      ! Read topography for triangle centers and vertices
-      !
-      !-------------------------------------------------------
-
-      ! triangle center
-
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%topography_c)
-      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
-          &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
-          &                     prepicon(jg)%topography_v)
-      ENDIF
-
-      ! triangle vertex
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-        CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
-          &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
-          &                     prepicon(jg)%topography_v)
-      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-        CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%topography_c)
-      ENDIF
-
-      ! close file
-      !
-      IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
-
-      IF (.NOT. PRESENT(extdata)) THEN
-
-        CALL smooth_topography (p_patch(jg), p_int_state(jg), prepicon(jg)%topography_c, &
-                                prepicon(jg)%topography_v)
-
-      ELSE ! Copy the already smoothed extdata topography fields to prepicon
-
-        prepicon(jg)%topography_c(:,:) = extdata(jg)%atm%topography_c(:,:)
-        prepicon(jg)%topography_v(:,:) = extdata(jg)%atm%topography_v(:,:)
-
-      ENDIF
-
-      ! Skip reading the atmospheric input data if a model domain is not active at initial time
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-      IF(p_pe == p_io .AND. i_oper_mode >= 2) THEN ! Read in data from IFS2ICON
+
+      ! Read in data from IFS2ICON
+      !
+      IF(p_pe == p_io ) THEN 
         !
         ! generate file name
         !
@@ -323,264 +287,91 @@ MODULE mo_prepicon_utils
           & 'nlev_in does not match the number of levels in IFS2ICON file.')
         ENDIF
 
-      ENDIF
 
-      IF (i_oper_mode >= 2) THEN
-
-        CALL read_netcdf_data_single (ncid, 'T', p_patch(jg)%n_patch_cells_g,                  &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%temp)
-
-        CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,                  &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%u)
-
-        CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,                  &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%v)
-
-        IF (l_w_in) THEN ! note: input vertical velocity is in fact omega (Pa/s)
-          CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,                  &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     nlev_in,prepicon(jg)%atm_in%omega)
+        !
+        ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
+        !
+        IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
+          psvar = 'PS'
+        ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
+          psvar = 'LNPS'
         ENDIF
-
-        CALL read_netcdf_data_single (ncid, 'QV', p_patch(jg)%n_patch_cells_g,                 &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%qv)
-
-        CALL read_netcdf_data_single (ncid, 'QC', p_patch(jg)%n_patch_cells_g,                 &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%qc)
-
-        CALL read_netcdf_data_single (ncid, 'QI', p_patch(jg)%n_patch_cells_g,                 &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%qi)
-
-        CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,                 &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%qr)
-
-        CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,                 &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%qs)
-
-        IF (p_pe == p_io) THEN
-          !
-          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
-          !
-          IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
-            psvar = 'PS'
-          ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
-            psvar = 'LNPS'
-          ENDIF
-          !
-          ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
-          !
-          IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
-            geop_ml_var = 'GEOSP'
-          ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
-            geop_ml_var = 'GEOP_ML'
-          ELSE
-            CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
-          ENDIF
-        ENDIF
-
-        IF (msg_level >= 10) THEN
-          WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
-          CALL message('', TRIM(message_text))
-          WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
-          CALL message('', TRIM(message_text))
-        ENDIF
-
-        CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%atm_in%psfc)
-
-        CALL read_netcdf_data (ncid, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%atm_in%phi_sfc)
-
-      ENDIF
-
-      IF (i_oper_mode == 2) THEN ! read in additional fields when vertical interpolation 
-                                 ! has already been done in IFS2ICON
-        CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,              &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    nlev_in,prepicon(jg)%atm_in%pres)
-      ENDIF
-
-      IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN ! Read also surface data
-
-        ! Check, if the surface-level surface geopotential (GEOP_SFC) is available. 
-        ! If GEOP_SFC is missing, a warning will be issued and the model-level surface 
-        ! geopotential (GEOSP or GEOP_ML) will be used instead.
-        IF (p_pe == p_io) THEN
-          IF (nf_inq_varid(ncid, 'GEOP_SFC', varid) == nf_noerr) THEN
-            geop_sfc_var = 'GEOP_SFC'
-          ELSE
-
-            WRITE (message_text,'(a,a)')                            &
-              &  'surface-level surface geopotential is missing. ', &
-              &  'use model-level surface geopotential, instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-
-            ! use model level geopotential instead
-            geop_sfc_var = geop_ml_var
-          ENDIF
-       ENDIF
-
-        ! Check, if the snow albedo ALB_SNOW is available. 
-        ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW 
-        ! will be used instead to determine FRESHSNOW.
-        IF (p_pe == p_io) THEN
-          IF (nf_inq_varid(ncid, 'ALB_SNOW', varid) == nf_noerr) THEN
-            WRITE (message_text,'(a,a)')                            &
-              &  'snow albedo available, ', &
-              &  'used to determine freshsnow.'
-            alb_snow_var = 'ALB_SNOW'
-          ELSE
-
-            WRITE (message_text,'(a,a)')                            &
-              &  'snow albedo is missing. ', &
-              &  'use snow density value, instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-
-            alb_snow_var = 'RHO_SNOW'
-          ENDIF
-       ENDIF
-
-
-       ! Check, if sea-ice thickness field is provided as input
-       ! IF H_ICE is missing, set l_hice_in=.FALSE.
-        IF (p_pe == p_io) THEN
-          IF (nf_inq_varid(ncid, 'H_ICE', varid) == nf_noerr) THEN
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea-ice thickness available'
-            l_hice_in = .TRUE.
-          ELSE
-
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea-ice thickness not available. ', &
-              &  'initialize with constant value (0.5 m), instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-
-            l_hice_in = .FALSE.
-          ENDIF
-       ENDIF
-
-       ! Check, if sea surface temperature field is provided as input
-       ! IF SST is missing, set l_sst_in=.FALSE.
-        IF (p_pe == p_io) THEN
-          IF (nf_inq_varid(ncid, 'SST', varid) == nf_noerr) THEN
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea surface temperature available'
-            l_sst_present = .TRUE.
-
-          ELSE
-
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea surface temperature not available. ', &
-              &  'initialize with skin temperature, instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-            l_sst_present = .FALSE.
-            l_sst_in = .FALSE.     !it has to be set to FALSE
-          ENDIF
-       ENDIF
-
-
-        IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test 
+        !
+        ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
+        !
+        IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
+          geop_ml_var = 'GEOSP'
+        ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
+          geop_ml_var = 'GEOP_ML'
         ELSE
-          mpi_comm = p_comm_work
+          CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
         ENDIF
-
-        CALL p_bcast(l_hice_in, p_io, mpi_comm)
-
-        CALL p_bcast(l_sst_in, p_io, mpi_comm)
-
-        CALL p_bcast(l_sst_present, p_io, mpi_comm)
-
-        CALL p_bcast(alb_snow_var, p_io, mpi_comm)
-
-        CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%phi)
-
-        CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%tskin)
-        IF ( l_sst_present) THEN
-         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,                &
-           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-           &                     prepicon(jg)%sfc_in%sst)
-        ELSE 
-         prepicon(jg)%sfc_in%sst(:,:)=0.0_wp
-        END IF
-
-        CALL read_netcdf_data (ncid, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%tsnow)
-
-        CALL read_netcdf_data (ncid,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,             &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%snowalb)
- 
-        CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%snowweq)
-
-        CALL read_netcdf_data (ncid,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,           &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%snowdens)
-
-        CALL read_netcdf_data (ncid, 'W_I', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%skinres)
-
-        CALL read_netcdf_data (ncid, 'LSM', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%ls_mask)
-
-        CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%seaice)
-
-        CALL read_netcdf_data (ncid, 'STL1', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%tsoil(:,:,1))
-
-        CALL read_netcdf_data (ncid, 'STL2', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%tsoil(:,:,2))
-
-        CALL read_netcdf_data (ncid, 'STL3', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%tsoil(:,:,3))
-
-        CALL read_netcdf_data (ncid, 'STL4', p_patch(jg)%n_patch_cells_g,               &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%tsoil(:,:,4))
-
-        CALL read_netcdf_data (ncid, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%wsoil(:,:,1))
-
-        CALL read_netcdf_data (ncid, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%wsoil(:,:,2))
-
-        CALL read_netcdf_data (ncid, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%wsoil(:,:,3))
-
-        CALL read_netcdf_data (ncid, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%wsoil(:,:,4))
 
       ENDIF
 
-      IF (jg == 1 .AND. i_oper_mode == 3) THEN ! Allocate and read in vertical coordinate tables
+      IF (msg_level >= 10) THEN
+        WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
+        CALL message('', TRIM(message_text))
+        WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
+        CALL message('', TRIM(message_text))
+      ENDIF
+
+
+
+      ! start reading atmospheric fields
+      !
+      CALL read_netcdf_data_single (ncid, 'T', p_patch(jg)%n_patch_cells_g,                  &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%temp)
+
+      CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,                  &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%u)
+
+      CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,                  &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%v)
+
+      IF (l_w_in) THEN ! note: input vertical velocity is in fact omega (Pa/s)
+        CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,                &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     nlev_in,prepicon(jg)%atm_in%omega)
+      ENDIF
+
+      CALL read_netcdf_data_single (ncid, 'QV', p_patch(jg)%n_patch_cells_g,                 &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%qv)
+
+      CALL read_netcdf_data_single (ncid, 'QC', p_patch(jg)%n_patch_cells_g,                 &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%qc)
+
+      CALL read_netcdf_data_single (ncid, 'QI', p_patch(jg)%n_patch_cells_g,                 &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%qi)
+
+      CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,                 &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%qr)
+
+      CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,                 &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,prepicon(jg)%atm_in%qs)
+
+      CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%atm_in%psfc)
+
+      CALL read_netcdf_data (ncid, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%atm_in%phi_sfc)
+
+
+
+
+      ! Allocate and read in vertical coordinate tables
+      !
+      IF (jg == 1) THEN
 
         ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
@@ -620,33 +411,292 @@ MODULE mo_prepicon_utils
           ENDDO
         ENDIF
 
-      ENDIF
+      ENDIF  ! jg=1
+
 
       ! close file
       !
-      IF(p_pe == p_io .AND. i_oper_mode >= 2) CALL nf(nf_close(ncid), routine)
+      IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
 
     ENDDO ! loop over model domains
 
-    IF (n_dom > 1) CALL topo_blending_and_fbk(p_int_state, p_grf_state, prepicon, 1)
 
-    IF (PRESENT(extdata)) THEN
 
-      ! Copy blended topography fields back to the external parameter state
-      DO jg = 1, n_dom
+  END SUBROUTINE read_ifs_atm
 
-        extdata(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
-        extdata(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
-        IF (i_oper_mode > 1 .AND. l_sfc_in) THEN
-          ! In addition, copy climatological deep-soil temperature to soil level nlev_soil
-          ! These are limited to -60 deg C because less is definitely nonsense
-          prepicon(jg)%sfc%tsoil(:,:,nlev_soil) = MAX(213.15_wp,extdata(jg)%atm%t_cl(:,:))
+
+
+
+
+  !>
+  !! Read in horizontally interpolated IFS analysis (surface only)
+  !!
+  !! Reads in horizontally interpolated IFS analysis surface data
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
+  !! Modification by Daniel Reinert, DWD (2012-12-18)
+  !! - encapsulate reading of IFS analysis
+  !!
+  SUBROUTINE read_ifs_sfc (prepicon)
+
+    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+
+    INTEGER :: jg, jlev
+    LOGICAL :: l_exist
+
+    INTEGER :: no_cells, no_levels
+    INTEGER :: ncid, dimid, varid, mpi_comm
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_prepicon_utils:read_ifs_sfc'
+
+    CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
+    LOGICAL :: l_sst_present = .FALSE.     !TRUE if SST is present in the IFS input file
+
+
+    !-------------------------------------------------------------------------
+
+    !!!!!!!!!!!!!!!!!!!!
+    !! oper_mode = 3  !!
+    !!!!!!!!!!!!!!!!!!!!
+
+    DO jg = 1, n_dom
+
+      jlev = p_patch(jg)%level
+
+
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+
+      ! Read in data from IFS2ICON
+      !
+      IF(p_pe == p_io ) THEN 
+        !
+        ! generate file name
+        !
+        ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+          &                                   nroot, jlev, jg)
+        INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
         ENDIF
-      ENDDO
 
-    ENDIF
+        !
+        ! open file
+        !
+        CALL nf(nf_open(TRIM(ifs2icon_file(jg)), NF_NOWRITE, ncid), routine)
 
-  END SUBROUTINE init_prepicon
+        !
+        ! get number of cells
+        !
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+
+        !
+        ! get number of vertical levels
+        !
+        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
+
+        !
+        ! check the number of cells and vertical levels
+        !
+        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in IFS2ICON file do not match.')
+        ENDIF
+
+        IF(nlev_in /= no_levels) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'nlev_in does not match the number of levels in IFS2ICON file.')
+        ENDIF
+
+
+
+
+        ! Check, if the surface-level surface geopotential (GEOP_SFC) is available. 
+        ! If GEOP_SFC is missing, a warning will be issued and the model-level surface 
+        ! geopotential (GEOSP or GEOP_ML) will be used instead.
+        IF (nf_inq_varid(ncid, 'GEOP_SFC', varid) == nf_noerr) THEN
+          geop_sfc_var = 'GEOP_SFC'
+        ELSE
+
+          WRITE (message_text,'(a,a)')                            &
+            &  'surface-level surface geopotential is missing. ', &
+            &  'use model-level surface geopotential, instead.'
+          CALL message(TRIM(routine),TRIM(message_text))
+
+          ! use model level geopotential instead
+          geop_sfc_var = geop_ml_var
+        ENDIF
+
+        ! Check, if the snow albedo ALB_SNOW is available. 
+        ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW 
+        ! will be used instead to determine FRESHSNOW.
+        IF (nf_inq_varid(ncid, 'ALB_SNOW', varid) == nf_noerr) THEN
+          WRITE (message_text,'(a,a)')                            &
+            &  'snow albedo available, ', &
+            &  'used to determine freshsnow.'
+          alb_snow_var = 'ALB_SNOW'
+        ELSE
+
+          WRITE (message_text,'(a,a)')                            &
+            &  'snow albedo is missing. ', &
+            &  'use snow density value, instead.'
+          CALL message(TRIM(routine),TRIM(message_text))
+
+          alb_snow_var = 'RHO_SNOW'
+        ENDIF
+
+
+        ! Check, if sea-ice thickness field is provided as input
+        ! IF H_ICE is missing, set l_hice_in=.FALSE.
+        IF (nf_inq_varid(ncid, 'H_ICE', varid) == nf_noerr) THEN
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea-ice thickness available'
+          l_hice_in = .TRUE.
+        ELSE
+
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea-ice thickness not available. ', &
+            &  'initialize with constant value (0.5 m), instead.'
+          CALL message(TRIM(routine),TRIM(message_text))
+
+          l_hice_in = .FALSE.
+        ENDIF
+
+        ! Check, if sea surface temperature field is provided as input
+        ! IF SST is missing, set l_sst_in=.FALSE.
+        IF (nf_inq_varid(ncid, 'SST', varid) == nf_noerr) THEN
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea surface temperature available'
+          l_sst_present = .TRUE.
+
+        ELSE
+
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea surface temperature not available. ', &
+            &  'initialize with skin temperature, instead.'
+          CALL message(TRIM(routine),TRIM(message_text))
+          l_sst_present = .FALSE.
+          l_sst_in = .FALSE.     !it has to be set to FALSE
+        ENDIF
+
+      ENDIF  ! p_io
+
+
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test 
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+
+      CALL p_bcast(l_hice_in, p_io, mpi_comm)
+
+      CALL p_bcast(l_sst_in, p_io, mpi_comm)
+
+      CALL p_bcast(l_sst_present, p_io, mpi_comm)
+
+      CALL p_bcast(alb_snow_var, p_io, mpi_comm)
+
+
+      ! start reading surface fields
+      !
+      CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%phi)
+
+      CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%tskin)
+      IF ( l_sst_present) THEN
+       CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,                &
+         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+         &                     prepicon(jg)%sfc_in%sst)
+      ELSE 
+       prepicon(jg)%sfc_in%sst(:,:)=0.0_wp
+      END IF
+
+      CALL read_netcdf_data (ncid, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%tsnow)
+
+      CALL read_netcdf_data (ncid,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,    &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%snowalb)
+ 
+      CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%snowweq)
+
+      CALL read_netcdf_data (ncid,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,            &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%snowdens)
+
+      CALL read_netcdf_data (ncid, 'W_I', p_patch(jg)%n_patch_cells_g,                &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%skinres)
+
+      CALL read_netcdf_data (ncid, 'LSM', p_patch(jg)%n_patch_cells_g,                &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%ls_mask)
+
+      CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g,                 &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%seaice)
+
+      CALL read_netcdf_data (ncid, 'STL1', p_patch(jg)%n_patch_cells_g,               &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%tsoil(:,:,1))
+
+      CALL read_netcdf_data (ncid, 'STL2', p_patch(jg)%n_patch_cells_g,               &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%tsoil(:,:,2))
+
+      CALL read_netcdf_data (ncid, 'STL3', p_patch(jg)%n_patch_cells_g,               &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%tsoil(:,:,3))
+
+      CALL read_netcdf_data (ncid, 'STL4', p_patch(jg)%n_patch_cells_g,               &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%tsoil(:,:,4))
+
+      CALL read_netcdf_data (ncid, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%wsoil(:,:,1))
+
+      CALL read_netcdf_data (ncid, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%wsoil(:,:,2))
+
+      CALL read_netcdf_data (ncid, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%wsoil(:,:,3))
+
+      CALL read_netcdf_data (ncid, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     prepicon(jg)%sfc_in%wsoil(:,:,4))
+
+
+
+      ! close file
+      !
+      IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
+
+    ENDDO ! loop over model domains
+
+
+
+  END SUBROUTINE read_ifs_sfc
+
+
+
+
+
 
 
   RECURSIVE SUBROUTINE topo_blending_and_fbk(p_int, p_grf, prepicon, jg)
@@ -691,6 +741,7 @@ MODULE mo_prepicon_utils
 
 
   END SUBROUTINE topo_blending_and_fbk
+
 
   !-------------
   !>
@@ -925,54 +976,7 @@ MODULE mo_prepicon_utils
   END SUBROUTINE copy_prepicon2prog
 
 
-  SUBROUTINE convert_variables(p_int, prepicon)
 
-    TYPE(t_int_state),     TARGET, INTENT(IN) :: p_int(:)
-
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
-
-    INTEGER :: jg
-    REAL(wp), ALLOCATABLE :: temp_v(:,:,:)
-
-    DO jg = 1, n_dom
-
-      IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
-
-      ALLOCATE(temp_v(nproma,SIZE(prepicon(jg)%atm_in%temp,2),p_patch(jg)%nblks_c))
-
-      CALL virtual_temp(p_patch(jg), prepicon(jg)%atm_in%temp, prepicon(jg)%atm_in%qv, &
-                        prepicon(jg)%atm_in%qc, prepicon(jg)%atm_in%qi,                &
-                        prepicon(jg)%atm_in%qr, prepicon(jg)%atm_in%qs, temp_v  )
-
-      ! Convert thermodynamic variables into set of NH prognostic variables
-      CALL convert_thdvars(p_patch(jg), prepicon(jg)%atm_in%pres, temp_v, &
-                           prepicon(jg)%atm%rho, prepicon(jg)%atm%exner,  &
-                           prepicon(jg)%atm%theta_v                       )
-
-      ! Convert u and v on cell points to vn at edge points
-      CALL interp_uv_2_vn(p_patch(jg), p_int(jg), prepicon(jg)%atm_in%u,  &
-                          prepicon(jg)%atm_in%v, prepicon(jg)%atm%vn)
-
-      ! Initialize vertical wind field
-      CALL init_w(p_patch(jg), p_int(jg), prepicon(jg)%atm%vn, &
-                  prepicon(jg)%z_ifc, prepicon(jg)%atm%w)
-
-      ! Finally, copy u, v, and moisture variables from atm_in to atm
-!$OMP PARALLEL WORKSHARE
-      prepicon(jg)%atm%u(:,:,:)  = prepicon(jg)%atm_in%u(:,:,:)
-      prepicon(jg)%atm%v(:,:,:)  = prepicon(jg)%atm_in%v(:,:,:)
-      prepicon(jg)%atm%qv(:,:,:) = prepicon(jg)%atm_in%qv(:,:,:)
-      prepicon(jg)%atm%qc(:,:,:) = prepicon(jg)%atm_in%qc(:,:,:)
-      prepicon(jg)%atm%qi(:,:,:) = prepicon(jg)%atm_in%qi(:,:,:)
-      prepicon(jg)%atm%qr(:,:,:) = prepicon(jg)%atm_in%qr(:,:,:)
-      prepicon(jg)%atm%qs(:,:,:) = prepicon(jg)%atm_in%qs(:,:,:)
-!$OMP end PARALLEL WORKSHARE
-
-      DEALLOCATE(temp_v)
-
-    ENDDO
-
-  END SUBROUTINE convert_variables
 
   SUBROUTINE compute_coord_fields(p_int, prepicon)
 
@@ -1145,24 +1149,6 @@ MODULE mo_prepicon_utils
 
       ENDIF
 
-      IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
-        ! Allocate fields for diagostic output
-        ALLOCATE(prepicon(jg)%plev%levels(nzplev),                    &
-                 prepicon(jg)%zlev%levels(nzplev),                    &
-                 prepicon(jg)%plev%u         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%v         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%temp      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%pres      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%z3d       (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%qv        (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%u         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%v         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%temp      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%pres      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%z3d       (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%qv        (nproma,nzplev,nblks_c)  )
-      ENDIF
-
     ENDDO ! loop over model domains
 
   END SUBROUTINE allocate_prepicon
@@ -1261,23 +1247,6 @@ MODULE mo_prepicon_utils
 
       ENDIF
 
-      IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
-        !  fields for diagostic output
-        DEALLOCATE(prepicon(jg)%plev%levels, &
-                   prepicon(jg)%zlev%levels,   &
-                   prepicon(jg)%plev%u,        &
-                   prepicon(jg)%plev%v,        &
-                   prepicon(jg)%plev%temp,     &
-                   prepicon(jg)%plev%pres,     &
-                   prepicon(jg)%plev%z3d,      &
-                   prepicon(jg)%plev%qv,       &
-                   prepicon(jg)%zlev%u,        &
-                   prepicon(jg)%zlev%v,        &
-                   prepicon(jg)%zlev%temp,     &
-                   prepicon(jg)%zlev%pres,     &
-                   prepicon(jg)%zlev%z3d,      &
-                   prepicon(jg)%zlev%qv        )
-      ENDIF
 
     ENDDO ! loop over model domains
 

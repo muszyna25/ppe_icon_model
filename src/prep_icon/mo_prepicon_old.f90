@@ -10,6 +10,7 @@
 !
 MODULE mo_prepicon_old
 
+  USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: message, finish
 
   USE mo_parallel_config,       ONLY: p_test_run, nproma
@@ -58,8 +59,9 @@ MODULE mo_prepicon_old
 
   ! Vertical grid
   !
-  USE mo_nh_init_utils,         ONLY: init_hybrid_coord, init_sleve_coord
-
+  USE mo_nh_init_utils,         ONLY: init_hybrid_coord, init_sleve_coord, &
+    &                                 convert_thdvars, init_w, interp_uv_2_vn, &
+    &                                 virtual_temp
 
   USE mo_impl_constants,        ONLY: SUCCESS
 
@@ -75,15 +77,17 @@ MODULE mo_prepicon_old
 
   ! USE statements referring directly to prep_icon
   !
-  USE mo_time_config,           ONLY: time_config 
+  USE mo_time_config,           ONLY: time_config
+  USE mo_prepicon_types,        ONLY: t_prepicon_state
   USE mo_prepicon_utils,        ONLY: init_prepicon, prepicon, &
-    & compute_coord_fields, convert_variables, deallocate_prepicon
+    & compute_coord_fields, deallocate_prepicon
+  USE mo_intp_data_strc,        ONLY: t_int_state
 !DR removed close_prepicon_output_files,
 !DR removed write_prepicon_output,
 !DR removed init_topo_output_files, 
 !DR removed init_atmo_output_files,
 
-  USE mo_prepicon_config,       ONLY: i_oper_mode, l_zp_out
+  USE mo_prepicon_config,       ONLY: i_oper_mode, nlev_in, l_zp_out
   USE mo_nh_vert_interp,        ONLY: vertical_interpolation
 !DR removed    &                                 intp_to_p_and_z_levels_prepicon
 
@@ -368,5 +372,56 @@ CONTAINS
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE prepicon_main
+
+
+  SUBROUTINE convert_variables(p_int, prepicon)
+
+    TYPE(t_int_state),     TARGET, INTENT(IN) :: p_int(:)
+
+    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+
+    INTEGER :: jg
+    REAL(wp), ALLOCATABLE :: temp_v(:,:,:)
+
+    DO jg = 1, n_dom
+
+      IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
+
+      ALLOCATE(temp_v(nproma,SIZE(prepicon(jg)%atm_in%temp,2),p_patch(jg)%nblks_c))
+
+      CALL virtual_temp(p_patch(jg), prepicon(jg)%atm_in%temp, prepicon(jg)%atm_in%qv, &
+                        prepicon(jg)%atm_in%qc, prepicon(jg)%atm_in%qi,                &
+                        prepicon(jg)%atm_in%qr, prepicon(jg)%atm_in%qs, temp_v  )
+
+      ! Convert thermodynamic variables into set of NH prognostic variables
+      CALL convert_thdvars(p_patch(jg), prepicon(jg)%atm_in%pres, temp_v, &
+                           prepicon(jg)%atm%rho, prepicon(jg)%atm%exner,  &
+                           prepicon(jg)%atm%theta_v                       )
+
+      ! Convert u and v on cell points to vn at edge points
+      CALL interp_uv_2_vn(p_patch(jg), p_int(jg), prepicon(jg)%atm_in%u,  &
+                          prepicon(jg)%atm_in%v, prepicon(jg)%atm%vn)
+
+      ! Initialize vertical wind field
+      CALL init_w(p_patch(jg), p_int(jg), prepicon(jg)%atm%vn, &
+                  prepicon(jg)%z_ifc, prepicon(jg)%atm%w)
+
+      ! Finally, copy u, v, and moisture variables from atm_in to atm
+!$OMP PARALLEL WORKSHARE
+      prepicon(jg)%atm%u(:,:,:)  = prepicon(jg)%atm_in%u(:,:,:)
+      prepicon(jg)%atm%v(:,:,:)  = prepicon(jg)%atm_in%v(:,:,:)
+      prepicon(jg)%atm%qv(:,:,:) = prepicon(jg)%atm_in%qv(:,:,:)
+      prepicon(jg)%atm%qc(:,:,:) = prepicon(jg)%atm_in%qc(:,:,:)
+      prepicon(jg)%atm%qi(:,:,:) = prepicon(jg)%atm_in%qi(:,:,:)
+      prepicon(jg)%atm%qr(:,:,:) = prepicon(jg)%atm_in%qr(:,:,:)
+      prepicon(jg)%atm%qs(:,:,:) = prepicon(jg)%atm_in%qs(:,:,:)
+!$OMP end PARALLEL WORKSHARE
+
+      DEALLOCATE(temp_v)
+
+    ENDDO
+
+  END SUBROUTINE convert_variables
+
   
 END MODULE mo_prepicon_old
