@@ -621,7 +621,7 @@ CONTAINS
           IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
-            CALL collect_group(grp_name, grp_vars, ngrp_vars)
+            CALL collect_group(grp_name, grp_vars, ngrp_vars, loutputvars_only=.TRUE.)
             CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
               &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
               &               grp_vars(1:ngrp_vars), new_varlist)

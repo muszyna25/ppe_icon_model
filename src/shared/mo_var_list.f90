@@ -3588,14 +3588,19 @@ CONTAINS
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
   !
-  SUBROUTINE collect_group(grp_name, var_name, nvars)
+  SUBROUTINE collect_group(grp_name, var_name, nvars, loutputvars_only)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
+    ! loutputvars_only: If set to .TRUE. all variables in the group
+    ! which have the the loutput flag equal to .FALSE. are skipped.
+    LOGICAL,                    INTENT(IN)    :: loutputvars_only
     ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
     INTEGER :: i, ivar, grp_id, idx, idx_x, idx_y, idx_t
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
+    CHARACTER(LEN=VARNAME_LEN)    :: name
     
     nvars  = 0
     grp_id = group_id(grp_name)
@@ -3628,10 +3633,19 @@ CONTAINS
           IF (idx_y > 0) idx=MIN(idx, idx_y)
           IF (idx==vname_len) idx=0
           IF (idx==0) THEN
-            var_name(nvars) = TRIM(info%name)
+            name = TRIM(info%name)
           ELSE
-            var_name(nvars) = TRIM(info%name(1:idx-1))
+            name = TRIM(info%name(1:idx-1))
           END IF
+
+          ! Skip element if we need only output variables:
+          IF (loutputvars_only .AND. &
+            & (.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput)) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            CYCLE LOOPVAR
+          END IF
+
+          var_name(nvars) = name
         END IF
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
