@@ -3620,7 +3620,6 @@ CONTAINS
         IF (info%lcontainer) CYCLE LOOPVAR
         
         IF (info%in_group(grp_id)) THEN
-          nvars = nvars + 1
 
           ! find suffix position for component and time level indices:
           idx_x = INDEX(element%field%info%name,'.X')
@@ -3645,6 +3644,7 @@ CONTAINS
             CYCLE LOOPVAR
           END IF
 
+          nvars = nvars + 1
           var_name(nvars) = name
         END IF
       ENDDO LOOPVAR ! loop over vlist "i"
