@@ -107,7 +107,8 @@ MODULE mo_prepicon_utils
   PUBLIC :: init_prepicon
   PUBLIC :: compute_coord_fields
   PUBLIC :: deallocate_prepicon
-  PUBLIC :: copy_prepicon2prog
+  PUBLIC :: copy_prepicon2prog_atm
+  PUBLIC :: copy_prepicon2prog_sfc
 
 
   CONTAINS
@@ -131,15 +132,10 @@ MODULE mo_prepicon_utils
     TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
     TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: extdata(:)
 
-    INTEGER :: jg, jlev, jk
-    LOGICAL :: l_exist
-
-    INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: jg
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
-    CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
 
 !-------------------------------------------------------------------------
 
@@ -745,29 +741,30 @@ MODULE mo_prepicon_utils
   END SUBROUTINE topo_blending_and_fbk
 
 
+
+
   !-------------
   !>
-  !! SUBROUTINE copy_prepicon2prog
-  !! Copies atmospheric and surface fields interpolated by prep_icon to the
-  !! prognostic model state variables if the respective parts of prep_icon 
-  !! are called directly 
+  !! SUBROUTINE copy_prepicon2prog_atm
+  !! Copies atmospheric fields interpolated by prep_icon to the
+  !! prognostic model state variables 
   !!
   !! Required input: prepicon state
-  !! Output is written on fields of NH state and land state
+  !! Output is written on fields of NH state
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-28)
+  !! Modification by Daniel Reinert, DWD (2012-12-19)
+  !! - encapsulated surface specific part
   !!
   !!
-  SUBROUTINE copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state, ext_data)
+  SUBROUTINE copy_prepicon2prog_atm(prepicon, p_nh_state)
 
     TYPE(t_prepicon_state), INTENT(IN) :: prepicon(:)
 
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
-    INTEGER :: jg, jb, jk, jc, je, jt, js, jp, ic
+    INTEGER :: jg, jb, jk, jc, je
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -803,7 +800,7 @@ MODULE mo_prepicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js,jp,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -837,64 +834,132 @@ MODULE mo_prepicon_utils
         DO jc = 1, nlen
           p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)      = prepicon(jg)%atm%w(jc,nlevp1,jb)
           p_nh_state(jg)%prog(nnew(jg))%w(jc,nlevp1,jb) = prepicon(jg)%atm%w(jc,nlevp1,jb)
-       ENDDO
+        ENDDO
 
-        ! ground temperature
-        IF (l_sfc_in) THEN
-          DO jc = 1, nlen
-            p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = prepicon(jg)%sfc%tskin(jc,jb)
-            p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
-            p_lnd_state(jg)%diag_lnd%t_skin(jc,jb)            = prepicon(jg)%sfc%tskin(jc,jb)
-          ENDDO
-          ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
-          ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
-          ! are indicated with -999.9; non-ocean points are filled with zero for both fields
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-            IF ( l_sst_in .AND. prepicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
-              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = prepicon(jg)%sfc%sst(jc,jb)              
-            ELSE
-             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
-            ENDIF
-            !
-            ! In case of missing sea ice fraction values, we make use of the sea 
-            ! surface temperature (tskin over ocean points). For tskin<=tf_salt, 
-            ! we set the sea ice fraction to one. For tskin>tf_salt, we set it to 0.
-            ! Note: tf_salt=271.45K is the salt-water freezing point
-            !
-            IF ( prepicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
-              p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb) 
-            ELSE    ! missing value
-              IF ( prepicon(jg)%sfc%tskin(jc,jb) <= tf_salt ) THEN
-                p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp     ! sea ice point
-              ELSE
-                p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp     ! water point
-              ENDIF
-            ENDIF
+      ENDDO  ! jb
+!$OMP END DO NOWAIT
 
-            ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
-            ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. This will ensure in 
-            ! init_sea_lists, that sea-ice and water fractions sum up exactly to the total 
-            ! sea fraction.
-            IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
-               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
-            ENDIF
-            IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
-               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp
-            ENDIF
+    ENDDO  ! jg
+!$OMP END PARALLEL
 
-          ENDDO
-          ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
-          ! be used to initialize lake points until something more reasonable becomes available
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
-          ENDDO
+    ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+      ntl = nnow(jg)
+
+      CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
+                        p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
+                        p_nh_state(jg)%prog(ntl)%theta_v, p_nh_state(jg)%prog(ntl)%rhotheta_v )
+
+    ENDDO
+
+  END SUBROUTINE copy_prepicon2prog_atm
+
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE copy_prepicon2prog_sfc
+  !! Copies surface fields interpolated by prep_icon to the prognostic model 
+  !! state variables. 
+  !!
+  !! Required input: prepicon state
+  !! Output is written on fields of land state
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-28)
+  !! Modification by Daniel Reinert, DWD (2012-12-19)
+  !! - encapsulated surface specific part
+  !!
+  !!
+  SUBROUTINE copy_prepicon2prog_sfc(prepicon, p_lnd_state, ext_data)
+
+    TYPE(t_prepicon_state), INTENT(IN) :: prepicon(:)
+
+    TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
+
+    INTEGER :: jg, jb, jc, jt, js, jp, ic
+    INTEGER :: nblks_c, npromz_c, nlen, nlev, ntlr
+
+!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nlev,ntlr)
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
+      nlev      = p_patch(jg)%nlev
+      ntlr      = nnow_rcf(jg)
+
+
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks_c
+
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
         ENDIF
 
-        IF ( l_sfc_in .AND. atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
+
+        ! ground temperature
+        DO jc = 1, nlen
+          p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = prepicon(jg)%sfc%tskin(jc,jb)
+          p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
+          p_lnd_state(jg)%diag_lnd%t_skin(jc,jb)            = prepicon(jg)%sfc%tskin(jc,jb)
+        ENDDO
+
+        ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
+        ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
+        ! are indicated with -999.9; non-ocean points are filled with zero for both fields
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          IF ( l_sst_in .AND. prepicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = prepicon(jg)%sfc%sst(jc,jb)              
+          ELSE
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+          ENDIF
+          !
+          ! In case of missing sea ice fraction values, we make use of the sea 
+          ! surface temperature (tskin over ocean points). For tskin<=tf_salt, 
+          ! we set the sea ice fraction to one. For tskin>tf_salt, we set it to 0.
+          ! Note: tf_salt=271.45K is the salt-water freezing point
+          !
+          IF ( prepicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
+            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb) 
+          ELSE    ! missing value
+            IF ( prepicon(jg)%sfc%tskin(jc,jb) <= tf_salt ) THEN
+              p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp     ! sea ice point
+            ELSE
+              p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp     ! water point
+            ENDIF
+          ENDIF
+
+          ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
+          ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. This will ensure in 
+          ! init_sea_lists, that sea-ice and water fractions sum up exactly to the total 
+          ! sea fraction.
+          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
+             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
+          ENDIF
+          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
+             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp
+          ENDIF
+
+        ENDDO
+        ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
+        ! be used to initialize lake points until something more reasonable becomes available
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+        ENDDO
+
+        IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
             DO jc = 1, nlen
                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt)           = &
@@ -955,7 +1020,7 @@ MODULE mo_prepicon_utils
             ENDDO
 
           ENDDO
-        ENDIF
+        ENDIF   ! inwp_surface > 0
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -963,19 +1028,7 @@ MODULE mo_prepicon_utils
     ENDDO
 !$OMP END PARALLEL
 
-    ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
-    DO jg = 1, n_dom
-
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-      ntl = nnow(jg)
-
-      CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
-                        p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
-                        p_nh_state(jg)%prog(ntl)%theta_v, p_nh_state(jg)%prog(ntl)%rhotheta_v )
-
-    ENDDO
-
-  END SUBROUTINE copy_prepicon2prog
+  END SUBROUTINE copy_prepicon2prog_sfc
 
 
 
