@@ -984,7 +984,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,QatmAve,doy)
+  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,doy)
 
     TYPE(t_patch),            INTENT(IN)     :: p_patch 
     !TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
@@ -992,11 +992,12 @@ CONTAINS
     REAL(wp),                 INTENT(IN)     :: Tfw(:,:,:)
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
     TYPE (t_atmos_fluxes),    INTENT (IN)    :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
+    !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
     INTEGER,                  INTENT(IN)     :: doy
 
     !------------------------------------------------------------------------- 
     !CALL get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
+    CALL ice_zero       (ice)
     CALL set_ice_albedo(p_patch,ice)
     
     ! #achim
@@ -1006,7 +1007,7 @@ CONTAINS
       CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm,doy)
     END IF
 
-    CALL sum_fluxes    (Qatm, QatmAve)
+    !CALL sum_fluxes    (Qatm, QatmAve)
 
    END SUBROUTINE ice_fast
   !-------------------------------------------------------------------------------
@@ -1033,7 +1034,7 @@ CONTAINS
     
     !-------------------------------------------------------------------------------
 
-    CALL ave_fluxes     (ice, QatmAve)
+    !CALL ave_fluxes     (ice, QatmAve)
     !CALL ice_dynamics   (ice, QatmAve)
     !! At the moment we just pretend the ice movement is zero and modify the oceanic stress
     !! accordingly
@@ -1048,6 +1049,7 @@ CONTAINS
 
     
     ice%hiold(:,:,:) = ice%hi(:,:,:)
+    ice%hsold(:,:,:) = ice%hs(:,:,:)
     ! #achim
     IF      ( i_sea_ice == 1 ) THEN
       CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
@@ -1059,7 +1061,7 @@ CONTAINS
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,QatmAve,1,ie,je)
-    CALL ice_zero       (ice, QatmAve)
+    !CALL ice_zero       (ice, QatmAve)
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
@@ -1173,10 +1175,10 @@ CONTAINS
   !! Initial release by Einar Olason, MPI-M (2011-09). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_zero (ice,QatmAve)
+  SUBROUTINE ice_zero (ice)
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
     !Qatm    % sens        (:,:,:) = 0._wp
     !Qatm    % sensw       (:,:)   = 0._wp
@@ -1191,19 +1193,19 @@ CONTAINS
     !Qatm    % rprecw      (:,:)   = 0._wp
     !Qatm    % rpreci      (:,:)   = 0._wp
                           
-    QatmAve % sens        (:,:,:) = 0._wp
-    QatmAve % sensw       (:,:)   = 0._wp
-    QatmAve % lat         (:,:,:) = 0._wp
-    QatmAve % latw        (:,:)   = 0._wp
-    QatmAve % LWout       (:,:,:) = 0._wp
-    QatmAve % LWoutw      (:,:)   = 0._wp
-    QatmAve % LWnet       (:,:,:) = 0._wp
-    QatmAve % LWnetw      (:,:)   = 0._wp
-    QatmAve % SWin        (:,:)   = 0._wp
-    QatmAve % LWin        (:,:)   = 0._wp
-    QatmAve % rprecw      (:,:)   = 0._wp
-    QatmAve % rpreci      (:,:)   = 0._wp
-    QatmAve % counter             = 0 
+!    QatmAve % sens        (:,:,:) = 0._wp
+!    QatmAve % sensw       (:,:)   = 0._wp
+!    QatmAve % lat         (:,:,:) = 0._wp
+!    QatmAve % latw        (:,:)   = 0._wp
+!    QatmAve % LWout       (:,:,:) = 0._wp
+!    QatmAve % LWoutw      (:,:)   = 0._wp
+!    QatmAve % LWnet       (:,:,:) = 0._wp
+!    QatmAve % LWnetw      (:,:)   = 0._wp
+!    QatmAve % SWin        (:,:)   = 0._wp
+!    QatmAve % LWin        (:,:)   = 0._wp
+!    QatmAve % rprecw      (:,:)   = 0._wp
+!    QatmAve % rpreci      (:,:)   = 0._wp
+!    QatmAve % counter             = 0 
 
     ice     % Qbot        (:,:,:) = 0._wp
     ice     % Qtop        (:,:,:) = 0._wp
@@ -1211,6 +1213,7 @@ CONTAINS
     ice     % surfmeltT   (:,:,:) = 0._wp
     ice     % evapwi      (:,:,:) = 0._wp
     ice     % hiold       (:,:,:) = 0._wp
+    ice     % hsold       (:,:,:) = 0._wp
     ice     % snow_to_ice (:,:,:) = 0._wp
     ice     % heatOceI    (:,:,:) = 0._wp
 

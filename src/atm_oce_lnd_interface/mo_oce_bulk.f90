@@ -522,12 +522,7 @@ CONTAINS
           Tfw = Tf
         ENDIF
 
-        CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm, datetime%yeaday)
-        ! Ice_fast and ice_slow are designed for an ice model that's split between the
-        ! atmosphere and ocean models. For ice-ocean only we need to do some minor corrections.
-        Qatm%counter = 2
-        p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
-        p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
+        CALL ice_fast(p_patch, p_ice, Tfw, Qatm, datetime%yeaday)
 
         ! (#slo# 2012-12):
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
@@ -790,14 +785,12 @@ CONTAINS
             Tfw = Tf
           ENDIF
 
-          CALL ice_fast(p_patch, p_ice, Tfw, Qatm, Qatm, datetime%yeaday)
-          ! Ice_fast and ice_slow are designed for an ice model that's split between the
-          ! atmosphere and ocean models. For ice only in the ocean ocean we need to do some minor
-          ! corrections.
-          Qatm%counter = 2
-          p_ice%Qbot   (:,:,:) = 2.0_wp * p_ice%Qbot
-          p_ice%Qtop   (:,:,:) = 2.0_wp * p_ice%Qtop
+          ! ice mask can is converted from real to logical here
+          CALL prepareAfterRestart(p_ice)
+          CALL ice_fast(p_patch, p_ice, Tfw, Qatm, datetime%yeaday)
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+          ! transform ice mask from logical to real for saving it to the restart file
+          CALL prepare4restart(p_ice)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS
