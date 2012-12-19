@@ -103,13 +103,14 @@ case $ac_sitename in
     ;;
 
   ecmwf.int)
-    #  pwr6
+
+    #  pwr6 or 7
     config_target=blizzard
+ 
+    # modules will be loaded manually (fortran/xlf/13.1.0.7 )
+    load_modules=""
+
     NETCDFROOT  = /usr/local/apps/netcdf/3.6.3/LP64
-    LAPACKROOT  = /usr/local/lib/lapack/3.1.1
-    LAPACK_LIB_PATH  = "$LAPACKROOT"
-    LAPACK_LIB  = -llapack64_ -llapack_essl64_ -lblas64_
-    MPIROOT=/usr/lpp/ppe.poe
     # increased level of optimization to "-O3" for ECMWF config
     STD_FLAGS = -O3 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"  -qspillsize=32648
     # GRIB_API support:    
@@ -118,17 +119,34 @@ case $ac_sitename in
 
     load_profile="." "/etc/profile"
 #   make_command="/sw/aix61/qnq/0.0.5/bin/qnq" "-n" "32" "-c" "cluster" "-w" "03:50:00" "make" "-j" "32"
-    make_command="make" "-j" "4"
+    make_command="gmake" "-j" "4"
     mpi_startrun=poe
     submit="llsubmit"
     sync_submit=llsubmit -s
     use_shell=/bin/bash
 
-#   modules will be loaded manually (fortran/xlf/13.1.0.7 )
-    load_modules=""
-
 #   need to define that we are at ecmwf to adjust the util_sysonfo.c
     CFLAGS   = "$CFLAGS" -D_ECMWF
+
+    #--- host-dependent paths
+    case $ac_hostname in
+    c1a*)
+      LAPACKROOT  = /usr/local/lib/lapack/3.1.1
+      LAPACK_LIB_PATH  = "$LAPACKROOT"
+      LAPACK_LIB  = -llapack64_ -llapack_essl64_ -lblas64_
+      MPIROOT=/usr/lpp/ppe.poe
+      ;;
+    c2a*)
+      LAPACKROOT  = /usr/local/apps/lapack/3.1.1/LP64
+      LAPACK_LIB_PATH  = "$LAPACKROOT"
+      LAPACK_LIB  = -llapack -llapack_essl -lblas
+      MPIROOT=
+      ;;
+    *)
+      echo Unknown (to mh-aix) ECMWF host. Here I dunno any further.
+      exit 1
+      ;;
+    esac
+
     ;;
 esac
-
