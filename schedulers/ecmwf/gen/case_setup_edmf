@@ -27,13 +27,10 @@ IFS2ICONDIR=${ifsdir}
 # absolute path to files needed for radiation
 RADDIR=${basedir}/icon_input/radiation
 
-# absolute path to model binary, including the executable
-#MODEL=${basedir}/icon-dev/build/${arch}/bin/control_model
-#echo ${MODEL}
-
 # --------------------------------------------------------------------
 
-set -x
+
+#set -x
 
 # the directory for the experiment will be created, if not already there
 if [ ! -d $EXPDIR ]; then

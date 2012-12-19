@@ -42,9 +42,6 @@ PATH=$PATH:/usr/local/apps/ncl/5.2.1/LP64/bin
 export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
 ./mtgrm_plot.s %YMD%%INIHOUR% R2B06 %EXPNUM% ${outdir_mtg} ${outfile_mtg}
 
-# transfer to DWD
-#ectrans ...
-
 
 # -------------------------------------------------
 

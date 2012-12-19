@@ -58,6 +58,7 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 # architecture (corresponds to build/<build architecture>/bin/...)
 arch=powerpc-ibm-aix5.3.0.0  # compare with init_cp_binary.sms!
 
+
 # -------------------------------------------------
 
 export MP_WAIT_MODE=poll

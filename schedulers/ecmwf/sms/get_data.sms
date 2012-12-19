@@ -29,13 +29,15 @@ if [ %NENS% -gt 0 ]
   else DIRENS=''
 fi
 
+# ifsdir for IFS initial condition
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+# locat
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon${DIRENS}
 TMPDIR="${TEMP}"
 mkdir -p ${IFSDATADIR}
 
 DATCONVCMD="/home/ms/de/dfr/routfox/bin/datconv"
-PERL5LIB="/home/ms/de/dfi0/routfox/perl"
+PERL5LIB="/home/ms/de/dfr/routfox/perl"
 
 export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 
