@@ -87,7 +87,7 @@ USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, compute_coord_fields,
   &                               deallocate_prepicon, copy_prepicon2prog_atm,   &
   &                               copy_prepicon2prog_sfc
 USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
-USE mo_nh_vert_interp,      ONLY: vertical_interpolation
+USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
 USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
@@ -342,11 +342,16 @@ CONTAINS
 
       ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
       ! and convert variables to the NH set of prognostic variables
-      CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
+      CALL vert_interp_atm(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
 
       ! Finally copy the results to the prognostic model variables
       CALL copy_prepicon2prog_atm(prepicon, p_nh_state)
+
       IF (l_sfc_in) THEN
+        ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
+        ! and convert variables to the NH set of prognostic variables
+        CALL vert_interp_sfc(p_patch(1:), prepicon)
+        ! Finally copy the results to the prognostic model variables
         CALL copy_prepicon2prog_sfc(prepicon, p_lnd_state, ext_data )
       ENDIF
 
