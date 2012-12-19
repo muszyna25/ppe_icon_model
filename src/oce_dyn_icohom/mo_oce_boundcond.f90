@@ -103,7 +103,7 @@ CONTAINS
   SUBROUTINE top_bound_cond_horz_veloc( p_patch_3D, p_os, p_op_coeff, p_sfc_flx, &
     & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D 
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D 
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: p_os            ! ocean state variable
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
     TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
@@ -226,7 +226,7 @@ CONTAINS
   !!
   SUBROUTINE bot_bound_cond_horz_veloc( p_patch_3D, p_os, p_phys_param, p_op_coeff)
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout) :: p_os            ! ocean state variable
     TYPE(t_ho_params), INTENT(in)            :: p_phys_param    ! physical parameters
     TYPE(t_operator_coeff), INTENT(IN)       :: p_op_coeff
@@ -389,7 +389,7 @@ CONTAINS
   SUBROUTINE bot_bound_cond_vert_veloc( p_patch, p_patch_3D, p_os, bot_bc_w )
     !
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch     !  patch on which computation is performed
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
     !
     ! Normal verlocity at edges
     TYPE(t_hydro_ocean_state), TARGET :: p_os

@@ -961,18 +961,64 @@ CONTAINS
     &            t_cf_var('div mass flux','','divergence mass flux at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-    CALL add_var(ocean_restart_list, 'cons_thick_c', p_os_diag%cons_thick_c, &
-    &            GRID_UNSTRUCTURED_CELL, &
-    &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('cons thick','','consistent thickness at cells', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-    CALL add_var(ocean_restart_list, 'depth_c', p_os_diag%depth_c, &
-    &            GRID_UNSTRUCTURED_CELL, &
-    &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('depth_c','','time dependent depth at cells', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+
+
+! !     CALL add_var(ocean_restart_list, 'prism_thick_c', p_os_diag%prism_thick_c, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'prism_thick_e', p_os_diag%prism_thick_e, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('cons thick','','prism thickness at edges', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_c', p_os_diag%prism_thick_flat_sfc_c, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at cells', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_e', p_os_diag%prism_thick_flat_sfc_e, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'inverse prism_thick_c', p_os_diag%inv_prism_thick_c, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('inverse prism_thick_c','','time independent depth at cells', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'prism_center_dist_c', p_os_diag%prism_center_dist_c, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('prism_center_dist_c','','dist between prism centers', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'inverse prism_thick_e', p_os_diag%inv_prism_thick_e, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+! ! 
+! !     CALL add_var(ocean_restart_list, 'inverse prism center distance at cell', p_os_diag%inv_prism_center_dist_c, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('inverse inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
+! !     CALL add_var(ocean_restart_list, 'inverse prism center distance at edge', p_os_diag%inv_prism_center_dist_e, &
+! !     &            GRID_UNSTRUCTURED_CELL, &
+! !     &            ZAXIS_DEPTH_BELOW_SEA, &
+! !     &            t_cf_var('inverse inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
+! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+
     CALL add_var(ocean_restart_list, 'mass_flux', p_os_diag%mass_flx_e, &
     &            GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, t_cf_var('mass flux','',' mass flux', DATATYPE_FLT32),&

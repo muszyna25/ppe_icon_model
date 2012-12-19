@@ -99,6 +99,7 @@ CONTAINS
                                  & bc_top_tracer,        &
                                  & bc_bot_tracer,        &
                                  & flux_div_vert,        &
+                                 & cell_thick_intermed_c,&
                                  & tracer_id)
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
@@ -108,6 +109,7 @@ CONTAINS
     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c) !new tracer
+    REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
     INTEGER, INTENT(IN)               :: tracer_id
 
     !Local variables
@@ -216,7 +218,7 @@ CONTAINS
   !! Seperated from vertical flux calculation
   !!
   !! mpi parallelized, no sync
-(??)  SUBROUTINE apply_tracer_flux_top_layer_oce( p_patch, pvar_c, pw_c,pupflux_i, tracer_id )
+  SUBROUTINE apply_tracer_flux_top_layer_oce( p_patch_3D, pvar_c, pw_c,pupflux_i, tracer_id )
 
     TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable

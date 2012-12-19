@@ -1793,13 +1793,13 @@ CONTAINS
           DO jk=1,n_zlev
 
           !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lon = ppatch%cells%center(jc,jb)%lon
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
           !transer to latitude in degrees
           z_lat_deg = z_lat*rad2deg
           z_lon_deg = z_lon*rad2deg
 
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
               IF (no_tracer == 2) THEN
@@ -1902,8 +1902,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
           END IF
         END DO
@@ -1918,7 +1918,7 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
             ELSE
@@ -1934,7 +1934,7 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               ENDIF

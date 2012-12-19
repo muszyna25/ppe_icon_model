@@ -624,10 +624,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
+    TYPE(t_patch), POINTER        :: p_patch 
     !-------------------------------------------------------------------------
     z_av0 = richardson_factor_veloc
     z_dv0 = richardson_factor_tracer
     !-------------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all

@@ -313,7 +313,7 @@ CONTAINS
 
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(IN)                          :: grad_coeff(:,:,:)!(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(INOUT)                       :: grad_norm_psi_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -710,7 +710,7 @@ CONTAINS
   SUBROUTINE rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
     REAL(wp), INTENT(in)                      :: vn(:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),TARGET, INTENT(in) :: p_op_coeff
@@ -1108,7 +1108,7 @@ CONTAINS
     !>
     !!
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     REAL(wp), INTENT(in)           :: vt(:,:,:)
     REAL(wp), INTENT(inout)        :: rot_vec_v(:,:,:)
@@ -1404,7 +1404,7 @@ CONTAINS
   SUBROUTINE height_related_quantities( p_patch_3D, p_os, p_ext_data)
     !
     ! Patch on which computation is performed
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     !
     ! Type containing ocean state
     TYPE(t_hydro_ocean_state), TARGET :: p_os
@@ -1605,16 +1605,21 @@ CONTAINS
 
             !IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
             IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN
-
+!TODO review
                 p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
                  & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
                  & /(z_dist_e_c1+z_dist_e_c2)
 !              p_os%p_diag%h_e(je,jb)=&
 !              &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
 
-              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
-              & + v_base%zlev_i(v_base%dolic_e(je,jb)+1)
+            p_os%p_diag%thick_e(je,jb)=&
+            &min(p_os%p_diag%thick_c(il_c1,ib_c1),p_os%p_diag%thick_c(il_c2,ib_c2))
 
+            p_os%p_diag%h_e(je,jb)=&
+            &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
+
+
+              !write(*,*)'height_e',je,jb, p_os%p_diag%h_e(je,jb), p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2)
             ELSE
               p_os%p_diag%h_e(je,jb)    = 0.0_wp
               p_os%p_diag%thick_e(je,jb)= 0.0_wp

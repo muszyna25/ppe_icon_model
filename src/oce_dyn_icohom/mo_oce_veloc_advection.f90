@@ -100,7 +100,7 @@ CONTAINS
     & p_op_coeff)
     !
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(inout)          :: vn_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(inout)          :: vn_new(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
@@ -141,7 +141,7 @@ CONTAINS
   !!   mpi parallelized LL
   SUBROUTINE veloc_adv_vert_mimetic( p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -186,7 +186,7 @@ CONTAINS
     !
     !
     !  patch on which computation is performed
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     !
     ! normal velocity  of which advection is computed
     REAL(wp), INTENT(inout) :: vn_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -439,7 +439,7 @@ CONTAINS
     & veloc_adv_horz_e)
     !
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(inout)          :: vn(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) ! dim: (nproma,n_zlev,nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
     TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
@@ -692,7 +692,7 @@ CONTAINS
   !!
   SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -812,7 +812,7 @@ CONTAINS
   !!
   SUBROUTINE veloc_adv_vert_mim_rot_flux2( p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -966,7 +966,7 @@ CONTAINS
   !!
   SUBROUTINE veloc_adv_vert_mimetic_rot_flux( p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -1065,7 +1065,7 @@ CONTAINS
   !!
   SUBROUTINE veloc_adv_vert_mimetic_div( p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag    
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)

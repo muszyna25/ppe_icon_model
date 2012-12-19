@@ -583,10 +583,10 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
-          nabla2_vec_e(je,jk,jb) = v_base%wet_e(je,jk,jb)*&
+          nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)*&
             &(   &
             & p_patch%edges%system_orientation(je,jb) *     &
-            & ( vott(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
+            & ( vort(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
             & - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )   &
             & * p_patch%edges%inv_primal_edge_length(je,jb) &
             & + &
@@ -690,11 +690,11 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     CALL div_oce_3d( z_nabla2_e, p_patch, p_op_coeff%div_coeff, z_div_c)
 
     ! compute rotation of vector field for the ocean
-    CALL map_edges2vert_3D( p_patch, &
+    CALL map_edges2vert_3d( p_patch, &
                           & z_nabla2_e,&
                           & p_op_coeff%edge2vert_coeff_cc,&
                           & p_nabla2_dual)!h_e dummy, not used. Delete in sbr map_edges2vert
-    CALL rot_vertex_ocean_3D( p_patch_3D, z_nabla2_e, p_nabla2_dual, p_op_coeff, z_rot_v)!
+    CALL rot_vertex_ocean_3d( p_patch_3D, z_nabla2_e, p_nabla2_dual, p_op_coeff, z_rot_v)!
 
 
     !combine divergence and vorticity
@@ -704,7 +704,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
         DO jk = slev, elev
 
           nabla4_vec_e(je,jk,jb) =  &
-(??)            & v_base%wet_e(je,jk,jb)*     &
+            & p_patch_3D%wet_e(je,jk,jb)*     &
             & (p_patch%edges%system_orientation(je,jb) *  &
             & ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
             & - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &
@@ -1153,10 +1153,10 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
                                     & A_v,             &
                                     & div_diff_flx)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp), INTENT(in)              :: trac_c       (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(in)              :: top_bc_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
+  REAL(wp), INTENT(in)              :: A_v(:,:,:) 
   REAL(wp), INTENT(out)             :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   !
   !Local variables

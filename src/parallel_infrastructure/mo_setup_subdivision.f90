@@ -2480,7 +2480,7 @@ CONTAINS
     INTEGER :: jg, jgp, jc, jgc, n, &
       &        l1, i_nchdom, n_procs_decomp
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
-    INTEGER, ALLOCATABLE :: cell_owner(:), cell_owner_p(:)
+    INTEGER, POINTER :: cell_owner(:), cell_owner_p(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
@@ -2637,7 +2637,7 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(p_patch_2D(jg)%n_proc, p_patch_2D(jg)%proc0, cell_owner)
+      CALL divide_patch_cells(jg,p_patch_2D(jg)%n_proc, p_patch_2D(jg)%proc0, cell_owner)
 
       IF(jg > n_dom_start) THEN
         ! Assign the cell owners of the current patch to the parent cells

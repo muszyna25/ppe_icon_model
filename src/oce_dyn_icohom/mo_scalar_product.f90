@@ -148,7 +148,7 @@ CONTAINS
   SUBROUTINE calc_scalar_product_veloc_3D( p_patch_3D, vn_e_old, vn_e_new,&
     & p_diag, p_op_coeff)
     
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)      :: vn_e_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_hydro_ocean_diag)  :: p_diag
@@ -237,7 +237,7 @@ CONTAINS
   SUBROUTINE nonlinear_coriolis_3d(p_patch_3D, vn, p_vn_dual, h_e, vort_v, &
     & p_op_coeff, vort_flux)
 
-    TYPE(t_patch_3D_oce ),TARGET,INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET,INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(inout)                   :: vn       (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp), INTENT(in)                      :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -318,7 +318,7 @@ CONTAINS
   !! mpi parallelized by LL, openmp corrected
   SUBROUTINE nonlinear_coriolis_3d_2(p_patch_3D, vn, p_vn_dual,h_e, vort_v, &
     & p_op_coeff, vort_flux)
-    TYPE(t_patch_3D_oce ),TARGET,INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET,INTENT(IN) :: p_patch_3D
     REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(IN)  :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp), INTENT(IN)                       :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -409,7 +409,7 @@ CONTAINS
   SUBROUTINE map_edges2cell_with_height_3d( p_patch_3D, vn_e, p_op_coeff, p_vn_c, h_e,&
     & opt_slev, opt_elev, subset_range)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
     TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
@@ -558,7 +558,7 @@ CONTAINS
   SUBROUTINE map_edges2cell_no_height_3d( p_patch_3D, vn_e, p_op_coeff, p_vn_c, opt_slev, opt_elev, &
     &                                     subset_range)
     
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,nblks_c)
@@ -630,7 +630,7 @@ CONTAINS
   SUBROUTINE map_edges2edges_viacell_3d_mlev( p_patch_3D, vn_e, p_op_coeff, scalar, p_vn_e, opt_slev, opt_elev, &
     &                                     subset_range)
     
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
@@ -736,7 +736,7 @@ CONTAINS
   SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, scalar, p_vn_e, level, &
     &                                     subset_range)
    
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
@@ -835,7 +835,7 @@ CONTAINS
   SUBROUTINE map_edges2cell_no_h_3d_1vl( p_patch_3D,vn_e,p_op_coeff, p_vn_c, level, &
     &  subset_range)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
@@ -901,7 +901,7 @@ CONTAINS
   SUBROUTINE map_cell2edges_3D_mlevels( p_patch_3D, p_vn_c, ptp_vn, p_op_coeff,&
                                    & opt_slev, opt_elev, subset_range )
     
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(out)                      :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff
@@ -990,7 +990,7 @@ CONTAINS
   !!  mpi parallelized by LL, result not synced
   SUBROUTINE map_cell2edges_3D_1level( p_patch_3D, p_vn_c, ptp_vn,p_op_coeff, level, subset_range )
     
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(out)                      :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff
@@ -1061,7 +1061,7 @@ CONTAINS
   !!  mpi parallelized LL, result not synced
   SUBROUTINE map_cell2edges_2d( p_patch_3D, p_vn_c, ptp_vn, p_op_coeff)
     
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT):: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c) 
     REAL(wp), INTENT(inout)                    :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff

@@ -44,13 +44,13 @@ MODULE mo_oce_tracer
 !
 !
 USE mo_kind,                      ONLY: wp
-!USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     expl_vertical_tracer_diff, iswm_oce,&! l_edge_based,    &
-  &                                     FLUX_CALCULATION_HORZ, &!FLUX_CALCULATION_VERT, &
+  &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,    &
+  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
   &                                     MIMETIC_MIURA
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
@@ -116,9 +116,11 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   INTEGER  :: iloc(2)
   REAL(wp) :: zlat, zlon
   REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp) :: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   TYPE(t_subset_range), POINTER :: cells_in_domain
+  TYPE(t_patch), POINTER         :: p_patch 
   !-------------------------------------------------------------------------------
+  p_patch => p_patch_3D%p_patch_2D(1)
   cells_in_domain => p_patch%cells%in_domain
 
   z_cellthick_intmed = 0.0_wp
@@ -308,7 +310,7 @@ SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_int
   TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-  REAL(wp),INTENT(INOUT)               :: z_cellthick_intmed(nproma,n_zlev, p_patch%nblks_c)
+  REAL(wp),INTENT(INOUT)               :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
   !
   !Local variables
   INTEGER  :: slev, elev
@@ -318,7 +320,7 @@ SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_int
   INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
   INTEGER  :: il_c, ib_c
   REAL(wp) :: delta_z
-  TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc 
   TYPE(t_cartesian_coordinates):: flux_sum
   !-------------------------------------------------------------------------------
@@ -399,51 +401,52 @@ SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_int
 
 
   !calculate (dummy) height consistent with divergence of mass fluxx (UPPERMOST LEVEL)
-  jk = 1
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
-      IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-        delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
-                &*p_patch_3D%wet_c(jc,jk,jb)
-
-        p_os%p_diag%depth_c(jc,jk,jb) = delta_z
-        z_cellthick_intmed(jc,jk,jb)= delta_z
-        !z_cellthick_intmed(jc,jk,jb)= (v_base%del_zlev_m(jk)&
-        !&+p_os%p_prog(nnew(1))%h(jc,jb))*v_base%wet_c(jc,jk,jb)
-        !z_cellthick_intmed(jc,jk,jb)=& 
-        !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-        !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
-        !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
-      ENDIF
-    END DO
-  END DO
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 2, n_zlev
-      delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-      DO jc = i_startidx_c, i_endidx_c
-        IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          p_os%p_diag%depth_c(jc,jk,jb)= delta_z
-          z_cellthick_intmed(jc,jk,jb) = delta_z
-          !z_cellthick_intmed(jc,jk,jb)= &
-          !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-          !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
-          !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
-        ENDIF
-      END DO
-    END DO
-  END DO
-  CALL sync_patch_array(SYNC_C, p_patch,z_cellthick_intmed )
-  CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%depth_c)
+!TODO review
+! jk = 1
+! DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!   CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+!   DO jc = i_startidx_c, i_endidx_c
+!     IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!       delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
+!               &*p_patch_3D%wet_c(jc,jk,jb)
+!
+!       p_os%p_diag%depth_c(jc,jk,jb) = delta_z
+!       z_cellthick_intmed(jc,jk,jb)= delta_z
+!       !z_cellthick_intmed(jc,jk,jb)= (v_base%del_zlev_m(jk)&
+!       !&+p_os%p_prog(nnew(1))%h(jc,jb))*v_base%wet_c(jc,jk,jb)
+!       !z_cellthick_intmed(jc,jk,jb)=& 
+!       !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+!       !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)        &
+!       !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
+!     ENDIF
+!   END DO
+! END DO
+!
+! DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!   CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+!   DO jk = 2, n_zlev
+!     delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+!     DO jc = i_startidx_c, i_endidx_c
+!       IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!         p_os%p_diag%depth_c(jc,jk,jb)= delta_z
+!         z_cellthick_intmed(jc,jk,jb) = delta_z
+!         !z_cellthick_intmed(jc,jk,jb)= &
+!         !& delta_z-dtime*(p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+!         !& +(p_os%p_diag%w_time_weighted(jc,jk,jb)     &
+!         !& - p_os%p_diag%w_time_weighted(jc,jk+1,jb)))
+!       ENDIF
+!     END DO
+!   END DO
+! END DO
+! CALL sync_patch_array(SYNC_C, p_patch,z_cellthick_intmed )
+! CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%depth_c)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=4  ! output print level (1-5, fix)
-  CALL dbg_print('PrepTrans: depth_c'        ,p_os%p_diag%depth_c         ,str_module,idt_src)
+!  CALL dbg_print('PrepTrans: depth_c'        ,p_os%p_diag%depth_c         ,str_module,idt_src)
   CALL dbg_print('PrepTrans: mass_flx_e'     ,p_os%p_diag%mass_flx_e      ,str_module,idt_src)
   CALL dbg_print('PrepTrans: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
-  CALL dbg_print('PrepTrans: prism thickness',p_os%p_diag%prism_thick_c   ,str_module,idt_src)
+!  CALL dbg_print('PrepTrans: prism thickness',p_os%p_diag%prism_thick_c   ,str_module,idt_src)
   !---------------------------------------------------------------------
 
 END SUBROUTINE prepare_tracer_transport
@@ -643,7 +646,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
     !vertival diffusion is calculated explicitely
     ELSEIF(expl_vertical_tracer_diff==0)THEN
 
-       CALL tracer_diffusion_vert_expl( p_patch,        &
+       CALL tracer_diffusion_vert_expl( p_patch_3D,        &
                                      & trac_old,        &
                                      & bc_top_tracer,   & 
                                      & A_v,             &
@@ -712,6 +715,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
 END SUBROUTINE advect_individual_tracer_ab
 
 
+!TODO review, currently not used
 function tracer_content(p_patch, tracer, height) RESULT(content)
   TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
   REAL(wp), INTENT(IN) :: tracer(nproma,n_zlev, p_patch%nblks_c)
@@ -730,11 +734,11 @@ function tracer_content(p_patch, tracer, height) RESULT(content)
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       DO jk = 1, n_zlev
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          delta_z =v_base%del_zlev_m(jk)
-          IF(jk==1)delta_z =v_base%del_zlev_m(jk)+height(jc,jb)
-          content=content + tracer(jc,jk,jb)*p_patch%cells%area(jc,jb)*delta_z
-        ENDIF
+!        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!         delta_z =v_base%del_zlev_m(jk)
+!         IF(jk==1)delta_z =v_base%del_zlev_m(jk)+height(jc,jb)
+!         content=content + tracer(jc,jk,jb)*p_patch%cells%area(jc,jb)*delta_z
+!        ENDIF
       END DO
     END DO
   END DO

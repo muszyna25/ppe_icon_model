@@ -160,7 +160,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   REAL(wp) :: z_implcoeff
   REAL(wp) :: zresidual(nmax_iter)    ! norms of the residual (convergence history);an argument of dimension at least m is required
   LOGICAL  :: l_maxiter                 ! true if reached m iterations
-(??)  !LOGICAL  :: lverbose         = .TRUE.
   CHARACTER(len=max_char_length) :: string
   TYPE(t_subset_range), POINTER :: all_cells, all_edges
   TYPE(t_patch), POINTER :: p_patch_horz
@@ -195,7 +194,7 @@ REAL(wp)                     :: z_vn2 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nb
     p_os%p_prog(nnew(1))%h=p_os%p_prog(nold(1))%h
 
     IF (l_STAGGERED_TIMESTEP ) &
-     & CALL calc_scalar_product_veloc_3d( p_patch_3D,&
+     & CALL calc_scalar_product_veloc_3D( p_patch_3D,&
                                       & p_os%p_prog(nold(1))%vn,&
                                       & p_os%p_prog(nold(1))%vn,&
                                       & p_os%p_diag,            &
@@ -418,7 +417,7 @@ END SUBROUTINE solve_free_sfc_ab_mimetic
 !-------------------------------------------------------------------------  
 SUBROUTINE Jacobi_precon( p_jp, p_patch_3D, p_op_coeff,thick_e) !RESULT(p_jp)
 !
-TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
 REAL(wp),INTENT(INOUT)                        :: p_jp(:,:)    ! inout for sync, dimension: (nproma,p_patch%nblks_c)
 TYPE(t_operator_coeff),INTENT(in)             :: p_op_coeff
 REAL(wp),INTENT(in)                           :: thick_e(:,:)   
@@ -538,7 +537,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch_3D, p_os, p_phys_param,&
                                      & l_initial_timestep, p_op_coeff)
 
   !TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
   TYPE (t_ho_params)                            :: p_phys_param
   !TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
@@ -1018,15 +1017,18 @@ TYPE(t_patch), POINTER :: p_patch_horz
   CALL sync_patch_array(SYNC_E, p_patch_horz, p_os%p_diag%vn_impl_vert_diff)
 
   IF(iswm_oce == 1)THEN
-    z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
-                                          &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+    z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = &
+      &   ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+      & + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
   ELSEIF(iswm_oce /= 1)THEN
     IF(expl_vertical_velocity_diff==1)THEN
-      z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = ab_gam*p_os%p_diag%vn_impl_vert_diff(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
-                                            &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+      z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = &
+        &   ab_gam*p_os%p_diag%vn_impl_vert_diff(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+        & + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
     ELSEIF(expl_vertical_velocity_diff==0)THEN
-      z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
-                                            &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+      z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = &
+        &   ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+        & + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
     ENDIF
   ENDIF
 
@@ -1733,14 +1735,14 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 SUBROUTINE calc_vert_velocity_mim_bottomup( p_patch_3D, p_os, p_diag,p_op_coeff, &
                                           &ph_e, top_bc_w, bot_bc_w, pw_c )
 !
-TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
+TYPE(t_patch_3D_oce), TARGET, INTENT(IN) :: p_patch_3D       ! patch on which computation is performed
 TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
 TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
 REAL(wp),         INTENT(INOUT)   :: ph_e(:,:)  ! 
-REAL(wp),            INTENT(IN)   :: top_bc_w(nproma,p_patch_3D%p_patch_1D(1)%nblks_c)       ! bottom boundary condition for vertical velocity
-REAL(wp),            INTENT(IN)   :: bot_bc_w(nproma,p_patch_3D%p_patch_1D(1)%nblks_c)       ! bottom boundary condition for vertical velocity
-REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_1D(1)%nblks_c) ! vertical velocity on cells
+REAL(wp),            INTENT(IN)   :: top_bc_w(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)       ! bottom boundary condition for vertical velocity
+REAL(wp),            INTENT(IN)   :: bot_bc_w(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)       ! bottom boundary condition for vertical velocity
+REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) ! vertical velocity on cells
 !
 !
 ! Local variables
@@ -1748,10 +1750,10 @@ INTEGER :: jc, jk, jb, je
 INTEGER :: z_dolic
 INTEGER :: i_startidx, i_endidx
 REAL(wp) :: delta_z
-REAL(wp) :: div_depth_int(nproma,p_patch%nblks_c)
+REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 REAL(wp) :: z_vn_2D(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
-REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_1D(1)%nblks_e)
-REAL(wp) :: z_grad_h(nproma,1,p_patch_3D%p_patch_1D(1)%nblks_e)
+REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+REAL(wp) :: z_grad_h(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_e)
 INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
 TYPE(t_cartesian_coordinates):: z_vn_c (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
