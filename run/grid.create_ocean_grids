@@ -305,6 +305,7 @@ create_ocean_grid()
   circle_radious=${circle_radious:=0.0}
   patch_center_x=${patch_center_x:=0.0}
   patch_center_y=${patch_center_y:=0.0}
+  write_all_levels=${write_all_levels:=".false."}
   #-----------------------------------------------------------------------------
 
   #-----------------------------------------------------------------------------
@@ -332,6 +333,7 @@ cat > $parameterFile << EOF
   set_sea_depth             = $SEADEPTH
   set_min_sea_depth         = $MINDEPTH
   refine_iterations         = $REFINE_ITERATIONS
+  write_all_levels          = $write_all_levels
 /
 EOF
 
@@ -373,9 +375,12 @@ if [[ x$create_basin = "x.true." ]] ; then
   B=4                   # no. of bisections applied for the global grid
   REFINE_ITERATIONS=3   # no. of refinements after smoothing ocean boundary
                         #  - resolution for smoothing is ((B-REFINE_ITERATIONS))
-  optimize_ocean_grids=".true."
+#  optimize_ocean_grids=".true."
+#  smooth_ocean_boundary=".true."
+  optimize_ocean_grids=".false."
+  smooth_ocean_boundary=".false."
   only_get_sea_land_mask=".true."
-  smooth_ocean_boundary=".true."
+  write_all_levels=".true."
   #bathymetry parameters
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
@@ -398,10 +403,11 @@ if [[ x$create_basin = "x.true." ]] ; then
   # output grid name
   # OCEGRID=iconR${R}B0${B}-ocean_basin.nc
   OCEGRID=iconR${R}B0${B}-ocean_bas10-80N.nc  #  new Stommel basin slo 10-80N
-  OCEGRID=iconR${R}B0${B}-ocean_bas0-60N.nc   #  new Stommel basin pk 0-60N
-  ATMOGRID=iconR${R}B0${B}-atmo_basin.nc
+  OCEGRID="ocean-basin_60N_R${R}B0_"   #  new Stommel basin pk 0-60N
+  #ATMOGRID=iconR${R}B0${B}-atmo_basin.nc
 
   create_ocean_grid
+  write_all_levels=".false."
 fi
 
 
