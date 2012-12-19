@@ -35,6 +35,7 @@ MODULE mo_remap_intp
   ! subroutines
   PUBLIC :: allocate_intp_data
   PUBLIC :: deallocate_intp_data
+  PUBLIC :: resize_intp_data_mthreaded
   PUBLIC :: interpolate_c
   PUBLIC :: merge_heaps
   PUBLIC :: sync_foreign_wgts
@@ -48,9 +49,8 @@ MODULE mo_remap_intp
   ! Threshold. Weights smaller than this value are neglected.
   REAL(wp), PARAMETER :: W_THRESHOLD      = 1e-10_wp
 
-  ! Distributed computation: max. size of weight storage for other PEs
-  ! @todo Compute this value dependent on grid size.
-  INTEGER,  PARAMETER :: MAX_NFOREIGN     = 50000
+  ! Constant for resizing foreign weight lists:
+  INTEGER, PARAMETER :: expected_size = 50000
 
   !> data structure containing interpolation coefficients
   !
@@ -90,8 +90,8 @@ MODULE mo_remap_intp
   TYPE t_intp_data_mt
     TYPE (t_heap), ALLOCATABLE :: wgt_heap(:)          ! (thread)
     !> distributed computation: list of weights belonging to other PEs
-    TYPE (t_heap_data) :: foreign_wgt(MAX_NFOREIGN)
-    INTEGER            :: foreign_pe(MAX_NFOREIGN)
+    TYPE (t_heap_data), ALLOCATABLE :: foreign_wgt(:)
+    INTEGER           , ALLOCATABLE :: foreign_pe(:)
     INTEGER            :: nforeign
   END TYPE t_intp_data_mt
 
@@ -152,15 +152,19 @@ CONTAINS
 
   !> Allocate MULTI-THREADED data structure for interpolation coefficients.
   !
-  SUBROUTINE allocate_intp_data_mthreaded(intp_data, nthreads)
-    TYPE(t_intp_data_mt), INTENT(INOUT) :: intp_data   !< data structure with intp. weights
-    INTEGER,              INTENT(IN)    :: nthreads    !< no. of threads
+  SUBROUTINE allocate_intp_data_mthreaded(intp_data, nthreads, max_nforeign)
+    TYPE(t_intp_data_mt), INTENT(INOUT) :: intp_data     !< data structure with intp. weights
+    INTEGER,              INTENT(IN)    :: nthreads      !< no. of threads
+    INTEGER,              intent(IN)    :: max_nforeign  !< max. size of weight storage for other PEs
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &  TRIM(TRIM(modname)//'::allocate_intp_data_mthreaded')
     INTEGER :: ierrstat, ithrd
 
-    ALLOCATE(intp_data%wgt_heap(nthreads), STAT=ierrstat)
+    ALLOCATE(intp_data%wgt_heap(nthreads),        &
+      &      intp_data%foreign_wgt(max_nforeign), &
+      &      intp_data%foreign_pe(max_nforeign),  &
+      &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     DO ithrd=1,nthreads
       CALL heap_init(intp_data%wgt_heap(ithrd))
@@ -196,9 +200,52 @@ CONTAINS
     INTEGER :: ierrstat
 
     intp_data%nforeign = 0
-    DEALLOCATE(intp_data%wgt_heap, STAT=ierrstat)
+    DEALLOCATE(intp_data%wgt_heap, intp_data%foreign_wgt, &
+      &        intp_data%foreign_pe, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END SUBROUTINE deallocate_intp_data_mthreaded
+
+
+  !> Resize foreign weight lists for  MULTI-THREADED data structure.
+  !
+  SUBROUTINE resize_intp_data_mthreaded(intp_data)
+    TYPE(t_intp_data_mt), INTENT(INOUT) :: intp_data     !< data structure with intp. weights
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = &
+      &  TRIM(TRIM(modname)//'::resize_intp_data_mthreaded')
+    INTEGER :: ierrstat, max_size, new_max_size, i
+    TYPE (t_heap_data), ALLOCATABLE :: tmp_wgt(:)
+    INTEGER           , ALLOCATABLE :: tmp_pe(:)
+
+    IF (dbg_level >= 10) &
+      &   WRITE (0,*) "# resize foreign weight storage."
+
+    ! triangle copy
+    IF (ALLOCATED(intp_data%foreign_wgt)) THEN
+      max_size = SIZE(intp_data%foreign_wgt)
+    ELSE
+      max_size = 0
+    ENDIF
+    new_max_size = max_size + expected_size
+    IF (max_size > 0) THEN
+      ALLOCATE(tmp_wgt(max_size), tmp_pe(max_size))
+      tmp_wgt(1:max_size) = intp_data%foreign_wgt(1:max_size)
+      tmp_pe(1:max_size)  = intp_data%foreign_pe(1:max_size)
+      DEALLOCATE(intp_data%foreign_wgt, intp_data%foreign_pe)
+    END IF
+    ALLOCATE(intp_data%foreign_wgt(new_max_size), &
+      &      intp_data%foreign_pe(new_max_size))
+    DO i=(max_size+1),new_max_size
+!CDIR IEXPAND
+      intp_data%foreign_wgt(i) = t_heap_data(0._wp,0,0,0,0)
+      intp_data%foreign_pe(i)  = -1
+    END DO
+    IF (max_size > 0) THEN
+      intp_data%foreign_wgt(1:max_size) = tmp_wgt(1:max_size)
+      intp_data%foreign_pe(1:max_size)  = tmp_pe(1:max_size)
+      DEALLOCATE(tmp_wgt, tmp_pe)
+    END IF
+  END SUBROUTINE resize_intp_data_mthreaded
 
 
   !> Merges two binomial heaps into a single heap
