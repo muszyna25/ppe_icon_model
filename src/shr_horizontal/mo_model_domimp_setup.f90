@@ -182,10 +182,11 @@ CONTAINS
   !! Initial release by Jochen Foerstner (2008-05-19)
   !! Modifiaction by A. Gassmann(2010-09-05)
   !! - added also tangential normal, and generalize to lplane
-  !!
-  SUBROUTINE calculate_cart_normal( lplane, p_patch )
+  !! Modification by Anurag Dipankar (2012-12-12)
+  !! - added additional argument "lplane_torus" for HDCP2
+  SUBROUTINE calculate_cart_normal( lplane, lplane_torus, p_patch )
     !
-    LOGICAL,INTENT(in) :: lplane
+    LOGICAL,       INTENT(in) :: lplane, lplane_torus
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
     
     TYPE(t_cartesian_coordinates) :: z_vec
@@ -215,15 +216,16 @@ CONTAINS
       DO je = 1, nlen
         
         ! location of edge midpoint
-        IF (.NOT.lplane) THEN
-          z_lon = p_patch%edges%center(je,jb)%lon
-          z_lat = p_patch%edges%center(je,jb)%lat
-        ELSE
+        IF (lplane .OR. lplane_torus) THEN
           z_lon = -pi_2 !-90
           z_lat =  pi_2 !+90
+        ELSE
+          z_lon = p_patch%edges%center(je,jb)%lon
+          z_lat = p_patch%edges%center(je,jb)%lat
         ENDIF
         
         ! zonal and meridional component of primal normal
+        ! For plane_torus it returns local 2D cartesian vectors
         z_u = p_patch%edges%primal_normal(je,jb)%v1
         z_v = p_patch%edges%primal_normal(je,jb)%v2
         
@@ -240,6 +242,7 @@ CONTAINS
         p_patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
         
         ! zonal and meridional component of dual normal
+        ! For plane_torus it returns local 2D cartesian vectors
         z_u = p_patch%edges%dual_normal(je,jb)%v1
         z_v = p_patch%edges%dual_normal(je,jb)%v2
         
@@ -690,16 +693,16 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-07-13),
   !! - Allocation of f_c, f_e, f_v has been moved to read_patch
   !!
-  SUBROUTINE init_coriolis( lcorio, lplane, p_patch )
+  SUBROUTINE init_coriolis( lcorio, lplane, is_plane_torus, p_patch )
     
-    LOGICAL,INTENT(in) :: lcorio, lplane
+    LOGICAL,INTENT(in) :: lcorio, lplane, is_plane_torus
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch ! patch on specific level
     
     INTEGER :: nlen,                         &
       & nblks_c,  nblks_e,  nblks_v,  &
       & npromz_c, npromz_e, npromz_v
     INTEGER :: jc, je, jv, jb
-    
+    LOGICAL :: is_plane
     REAL(wp) :: zlat
     
     !-----------------------------------------------------------------------
@@ -712,7 +715,9 @@ CONTAINS
     nblks_v  = p_patch%nblks_v
     npromz_v = p_patch%npromz_v
     
-    IF (lcorio .AND. .NOT. lplane) THEN
+    IF(lplane .OR. is_plane_torus)is_plane=.TRUE.
+
+    IF (lcorio .AND. .NOT. is_plane) THEN
       
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
@@ -750,7 +755,7 @@ CONTAINS
         END DO
       END DO
       
-    ELSEIF (lcorio .AND. lplane) THEN
+    ELSEIF (lcorio .AND. is_plane) THEN
       
       p_patch%cells%f_c(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)
       p_patch%edges%f_e(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)

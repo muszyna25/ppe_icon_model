@@ -344,6 +344,9 @@ CONTAINS
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
       'Currently only the hexagon model can run on a plane')
 
+    IF (is_plane_torus .AND. global_cell_type==6) CALL finish( TRIM(routine),&
+      'Currently only the triangular model can run on a plane torus')
+
     IF (global_cell_type==6.AND.idiv_method==2) THEN
       CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model')
     ENDIF

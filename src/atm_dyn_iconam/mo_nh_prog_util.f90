@@ -71,7 +71,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_prog_util:nh_prog_add_random'
 
-    TYPE(t_patch)            :: p_patch
+    TYPE(t_patch)   :: p_patch
     TYPE(t_nh_prog) :: p_nh_prog
 
     REAL(wp), INTENT(IN) :: pscale ! magnitude of the perturbation

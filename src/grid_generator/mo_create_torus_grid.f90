@@ -286,15 +286,15 @@ CONTAINS
     CALL write_netcdf_grid(torus_grid_id, out_file_name)
 
     !  print to standard output
-    CALL print_torus_grid()
+    !CALL print_torus_grid()
     CALL delete_grid(torus_grid_id)
     !--------------------------------------------------------------
 
     !--------------------------------------------------------------
-!almut    ! create unfolded grid
-!almut    CALL create_unfolded_torus()
-!almut    !  write netcdf file
-!almut    CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
+    ! create unfolded grid
+    CALL create_unfolded_torus()
+    !  write netcdf file
+    CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
 !almut    !  write unfolded_grid to ascii file
 !     CALL write_grid_ascii(torus_grid_id, ascii_filename)
     
@@ -463,7 +463,7 @@ CONTAINS
     REAL(wp) :: dual_edge_length,triangle_area,hexagon_area
     REAL(wp) :: sin60
 
-    REAL(wp), PARAMETER :: max_lat = pi / 18.0_wp
+    REAL(wp), PARAMETER :: max_lat = pi /2 !/ 18.0_wp
 
     sin60 = SQRT(0.75_wp) 
     !--------------------------------------------------------------
@@ -756,21 +756,21 @@ CONTAINS
     ENDDO
 
     ! check the plane_torus_distance, plane_torus_closest_coordinates routines
-    DO vertex_no = 1, torus_grid%verts%no_of_existvertices
-      DO next_vertex_no = 1, torus_grid%verts%no_of_existvertices
-        write(*,*) "---------- check plane_torus_distance, plane_torus_closest_coordinates ------------"
-        write(*,*) " Coordinates 0:", torus_grid%verts%cartesian(vertex_no)%x
-        write(*,*) " Coordinates 1:", torus_grid%verts%cartesian(next_vertex_no)%x
-        write(*,*) " New coordinates 1:", plane_torus_closest_coordinates(&
-          & torus_grid%verts%cartesian(vertex_no),      &
-          & torus_grid%verts%cartesian(next_vertex_no), &
-          & torus_grid%planar_torus_info%length, torus_grid%planar_torus_info%height)
-        write(*,*) " distance:", plane_torus_distance(  &
-          & torus_grid%verts%cartesian(vertex_no),      &
-          & torus_grid%verts%cartesian(next_vertex_no), &
-          & torus_grid%planar_torus_info%length, torus_grid%planar_torus_info%height)
-      ENDDO
-    ENDDO
+    !DO vertex_no = 1, torus_grid%verts%no_of_existvertices
+    !  DO next_vertex_no = 1, torus_grid%verts%no_of_existvertices
+    !    write(*,*) "---------- check plane_torus_distance, plane_torus_closest_coordinates ------------"
+    !    write(*,*) " Coordinates 0:", torus_grid%verts%cartesian(vertex_no)%x
+    !    write(*,*) " Coordinates 1:", torus_grid%verts%cartesian(next_vertex_no)%x
+    !    write(*,*) " New coordinates 1:", plane_torus_closest_coordinates(&
+    !      & torus_grid%verts%cartesian(vertex_no)%x(:),      &
+    !      & torus_grid%verts%cartesian(next_vertex_no)%x(:), &
+    !      & torus_grid%planar_torus_info%length, torus_grid%planar_torus_info%height)
+    !    write(*,*) " distance:", plane_torus_distance(  &
+    !      & torus_grid%verts%cartesian(vertex_no)%x(:),      &
+    !      & torus_grid%verts%cartesian(next_vertex_no)%x(:), &
+    !      & torus_grid%planar_torus_info%length, torus_grid%planar_torus_info%height)
+    !  ENDDO
+    !ENDDO
     
     
   END SUBROUTINE print_torus_grid

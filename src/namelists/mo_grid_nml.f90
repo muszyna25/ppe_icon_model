@@ -51,7 +51,6 @@ MODULE mo_grid_nml
   USE mo_physical_constants, ONLY: earth_angular_velocity
 !  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
 !                                    & open_and_restore_namelist, close_tmpfile
-
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
     & config_lfeedback                    => lfeedback,                    &
@@ -59,6 +58,7 @@ MODULE mo_grid_nml
     & config_start_time                   => start_time,                   &
     & config_end_time                     => end_time,                     &
     & config_lplane                       => lplane,                       &
+    & config_is_plane_torus               => is_plane_torus,               &
     & config_corio_lat                    => corio_lat,                    &
     & config_l_limited_area               => l_limited_area,               &
     & config_patch_weight                 => patch_weight,                 &
@@ -113,7 +113,9 @@ MODULE mo_grid_nml
     LOGICAL    :: l_limited_area            
 
     LOGICAL    :: lplane                   ! f-plane option
-    REAL(wp)   :: corio_lat                ! Latitude, where the f-plane is located if lplane=.true.
+    LOGICAL    :: is_plane_torus           ! f-plane with doubly periodic boundary==> like a plane torus
+    REAL(wp)   :: corio_lat                ! Latitude, where the f-plane is located if 
+                                           ! lplane or is_plane_torus=.true.
   
     REAL(wp)   :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
                                           ! for any of the first level child patches,
@@ -130,7 +132,7 @@ MODULE mo_grid_nml
 
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
-      &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
+      &  lplane, is_plane_torus, corio_lat, l_limited_area, grid_rescale_factor,   &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
@@ -165,6 +167,7 @@ MODULE mo_grid_nml
     start_time(:) = 0._wp
     end_time(:)   = 1.e30_wp
     lplane      = .FALSE.
+    is_plane_torus  = .FALSE.
     l_limited_area = .FALSE.
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
@@ -223,6 +226,7 @@ MODULE mo_grid_nml
     config_start_time        = start_time
     config_end_time          = end_time
     config_lplane            = lplane
+    config_is_plane_torus    = is_plane_torus
     config_corio_lat         = corio_lat
     config_l_limited_area    = l_limited_area
     config_patch_weight      = patch_weight

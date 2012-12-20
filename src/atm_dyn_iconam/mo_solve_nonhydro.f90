@@ -10,6 +10,9 @@
 !! @par Revision History
 !! Initial release by Guenther Zaengl (2010-10-13) based on earlier work
 !! by Almut Gassmann, MPI-M
+!! 
+!! Modified by Anurag Dipankar, MPIM (2012-20-12)
+!! -Adapted the calculation of scal_divdamp for flat torus case
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -54,7 +57,7 @@ MODULE mo_solve_nonhydro
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
+  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius, is_plane_torus
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
@@ -512,7 +515,9 @@ MODULE mo_solve_nonhydro
   !! @par Revision History
   !! Based on the initial release of divergent_modes by Almut Gassmann (2009-05-12)
   !! Modified by Guenther Zaengl starting on 2010-02-03
-  !!
+  !! Modified by Anurag Dipankar MPIM, 17-12-12
+  !! -the diffision coefficient "scal_divamp" has been modified for plane_torus
+  !!  Need to calculate such geometric coefficients in patch
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, mflx_avg, nnow, nnew, l_init, l_recompute, &
                        lsave_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
@@ -661,11 +666,19 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     IF (divdamp_order == 2) THEN
-      scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
-        & / REAL(20*nroot**2*4**(p_patch%level),wp)
+      IF(is_plane_torus)THEN
+         scal_divdamp = divdamp_fac*(p_patch%planar_torus_info%cell_edge_length)**2*0.5
+      ELSE
+         scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
+                        & / REAL(20*nroot**2*4**(p_patch%level),wp)
+      END IF
     ELSE IF (divdamp_order == 4) THEN
-      scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
-        & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
+      IF(is_plane_torus)THEN
+         scal_divdamp = divdamp_fac*((p_patch%planar_torus_info%cell_edge_length)**2*0.5)**2
+      ELSE
+         scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
+                         & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
+      END IF
     ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
@@ -975,7 +988,6 @@ MODULE mo_solve_nonhydro
             p_nh%diag%theta_v_ic(jc,jk,jb) * (z_exner_pr(jc,jk-1,jb)-      &
             z_exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
             z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
-
         ENDDO
       ENDDO
 
@@ -1514,7 +1526,7 @@ MODULE mo_solve_nonhydro
               + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
               + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
               + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-
+           
            ENDDO
         ENDDO
 
@@ -1813,6 +1825,7 @@ MODULE mo_solve_nonhydro
             ! contravariant vertical velocity times density for explicit part
             z_contr_w_fl_l(jc,jk) = p_nh%diag%rho_ic(jc,jk,jb)*(-p_nh%diag%w_concorr_c(jc,jk,jb) &
               + p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) )
+
           ENDDO
         ENDDO
       ELSE
@@ -1827,6 +1840,7 @@ MODULE mo_solve_nonhydro
             ! contravariant vertical velocity times density for explicit part
             z_contr_w_fl_l(jc,jk) = p_nh%diag%rho_ic(jc,jk,jb)*(-p_nh%diag%w_concorr_c(jc,jk,jb) &
               + p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) )
+
           ENDDO
         ENDDO
       ENDIF

@@ -48,7 +48,8 @@ MODULE mo_nh_testcases
   USE mo_namelist,             ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,             ONLY: nnml
   USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp
-  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area
+  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area, is_plane_torus, &
+                                     grid_sphere_radius
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_math_constants,       ONLY: pi
@@ -107,8 +108,10 @@ MODULE mo_nh_testcases
 
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
+  USE mo_math_utilities,       ONLY: plane_torus_distance
+  USE mo_nh_torus_exp,         ONLY: waveno_x, waveno_y, u0, v0, &
+                                     init_nh_state_prog_advtest 
 
-  
   IMPLICIT NONE  
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -161,8 +164,8 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho  
-
+                            lcoupled_rho, waveno_x, waveno_y, u0, v0  
+            
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
     &       ape_sst_case, ape_sst_val,                                       &
@@ -316,7 +319,12 @@ MODULE mo_nh_testcases
     ! for PA test cases:
     lcoupled_rho   = .FALSE.
 
-
+   ! for 2D wave testcase for flat torus
+    waveno_x   = 1._wp
+    waveno_y   = 1._wp
+    u0         = 0.0
+    v0         = 0.0
+  
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
     SELECT CASE (i_status)
@@ -344,7 +352,8 @@ MODULE mo_nh_testcases
   !! - moved initialization of topography into new subroutine 
   !!   init_nh_testtopo, which is called after the domain-decomposition.
   !!   (because of possible conflicts with the external-data type)
-  !! 
+  !! Modified by Anurag Dipankar, MPIM (2012-12-13)
+  !! - added plane_torus in BELL test case
   SUBROUTINE init_nh_testtopo (p_patch, ext_data)
 !
 ! !INPUT VARIABLES:
@@ -360,8 +369,15 @@ MODULE mo_nh_testcases
     &  routine = '(mo_nh_testcases) init_nh_testtopo:'
  
   LOGICAL       :: l_modified
-
+  REAL(wp)      :: torus_len(n_dom), torus_ht(n_dom)
 !-----------------------------------------------------------------------
+
+  IF(is_plane_torus)THEN
+    DO jg = 1,n_dom
+      torus_len(jg) = p_patch(jg)%planar_torus_info%length
+      torus_ht(jg)  = p_patch(jg)%planar_torus_info%height
+    END DO
+  END IF
 
   ! Initialize topography to zero if idealized topo is used
   IF ( itopo == 0 ) THEN
@@ -379,12 +395,16 @@ MODULE mo_nh_testcases
 
   CASE ('schaer')
  
-    IF(.NOT.lplane) CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
+    IF(lplane .OR. is_plane_torus)THEN
+        CALL message(TRIM(routine),'Initializing topography for Schaer test case')
+    ELSE
+         CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
+    END IF
 
     ! At present the mountain is at position lat=0,lon=0 (given in meters)
     z_x2_geo%lon = 0.0_wp
     z_x2_geo%lat = 0.0_wp
-
+    
     DO jg = 1, n_dom
       DO jb = 1, p_patch(jg)%nblks_int_c
         IF (jb /=  p_patch(jg)%nblks_int_c) THEN
@@ -393,7 +413,11 @@ MODULE mo_nh_testcases
           nlen =  p_patch(jg)%npromz_c
         ENDIF
         DO jc = 1, nlen
-          z_lon  = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
+          IF(is_plane_torus)THEN
+            z_lon = p_patch(jg)%cells%cartesian_center(jc,jb)%x(1)
+          ELSE
+            z_lon = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
+          END IF
           z_dist = z_lon-z_x2_geo%lon
           ext_data(jg)%atm%topography_c(jc,jb) = 250.0_wp &
           & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
@@ -408,7 +432,11 @@ MODULE mo_nh_testcases
           nlen =  p_patch(jg)%npromz_v
         ENDIF
         DO jv = 1, nlen
-          z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
+          IF(is_plane_torus)THEN
+            z_lon = p_patch(jg)%verts%cartesian(jv,jb)%x(1)
+          ELSE
+            z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
+          END IF
           z_dist = z_lon-z_x2_geo%lon
           ext_data(jg)%atm%topography_v(jv,jb) = 250.0_wp &
           & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
@@ -434,13 +462,18 @@ MODULE mo_nh_testcases
             z_lat  = 0.0_wp!p_patch(jg)%cells%center(jc,jb)%lat*torus_domain_length/pi*0.5_wp
             z_lon  = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
             z_dist = SQRT((z_lat-z_x2_geo%lat)**2+(z_lon-z_x2_geo%lon)**2)
+          ELSEIF(is_plane_torus)THEN
+            z_x1_cart        = p_patch(jg)%cells%cartesian_center(jc,jb)
+            z_x2_cart%x(1:3) = 0._wp
+            z_dist = plane_torus_distance(z_x2_cart%x,z_x1_cart%x,torus_len(jg),torus_ht(jg))
           ELSE
             z_x1_cart    = gc2cc(p_patch(jg)%cells%center(jc,jb))
             z_x2_cart    = gc2cc(z_x2_geo)
-            z_dist       = arc_length(z_x1_cart,z_x2_cart)
+            z_dist       = arc_length(z_x1_cart,z_x2_cart) * grid_sphere_radius
           ENDIF
-          ext_data(jg)%atm%topography_c(jc,jb) = mount_height/ &
-                 (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
+          !ext_data(jg)%atm%topography_c(jc,jb) = mount_height/ &
+          !       (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
+          ext_data(jg)%atm%topography_c(jc,jb) = mount_height * exp(-(z_dist/mount_half_width)**2)
         ENDDO
       ENDDO 
     ENDDO 
@@ -456,13 +489,18 @@ MODULE mo_nh_testcases
             z_lat  = 0.0_wp!p_patch(jg)%verts%vertex(jv,jb)%lat*torus_domain_length/pi*0.5_wp
             z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
             z_dist = SQRT((z_lat-z_x2_geo%lat)**2+(z_lon-z_x2_geo%lon)**2)
+          ELSEIF(is_plane_torus)THEN
+            z_x1_cart        = p_patch(jg)%verts%cartesian(jv,jb)
+            z_x2_cart%x(1:3) = 0._wp
+            z_dist = plane_torus_distance(z_x2_cart%x,z_x1_cart%x,torus_len(jg),torus_ht(jg))
           ELSE
             z_x1_cart    = gc2cc(p_patch(jg)%verts%vertex(jv,jb))
             z_x2_cart    = gc2cc(z_x2_geo)
-            z_dist       = arc_length(z_x1_cart,z_x2_cart)
+            z_dist       = arc_length(z_x1_cart,z_x2_cart) * grid_sphere_radius
           ENDIF
-          ext_data(jg)%atm%topography_v(jv,jb) = mount_height/ &
-                 (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
+          !ext_data(jg)%atm%topography_v(jv,jb) = mount_height/ &
+          !       (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
+          ext_data(jg)%atm%topography_c(jc,jb) = mount_height * exp(-(z_dist/mount_half_width)**2)
         ENDDO
       ENDDO 
     ENDDO
@@ -601,6 +639,13 @@ MODULE mo_nh_testcases
   CASE ('dcmip_tc_52')
     ! itopo == 0 --> The topography is initialized to 0 at the begining of this subroutine
     CALL message(TRIM(routine),'running DCMIP tropical cyclone testcase 52')
+
+  CASE ('CBL')
+
+    !IF(.NOT.is_plane_torus) CALL finish(TRIM(routine),'CBL case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
 
   CASE DEFAULT
 
@@ -1178,6 +1223,20 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End setup dcmip_tc_51/52')
+
+  CASE ('CBL')
+
+    DO jg = 1, n_dom
+      CALL init_nh_state_prog_advtest ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+
+     ! CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),   & ! in and out
+     !                         & 0.01_wp, nproma, nlev ) ! input
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
+
+    CALL message(TRIM(routine),'End setup CBL test')
 
   END SELECT
 

@@ -432,6 +432,7 @@ CONTAINS
       !
       IF (output_mode%l_vlist) THEN
         CALL write_output( time_config%cur_datetime )
+        CALL message(TRIM(routine),'Initial Output')
         l_have_output = .TRUE.
       END IF
 
@@ -440,7 +441,6 @@ CONTAINS
       END IF
 
     END IF ! not is_restart_run()
-
 
     ! for debug purpose: print var lists
     IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
