@@ -510,16 +510,14 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for evap flux failed')
     END IF
-    IF(no_tracer>=1)THEN
-      DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'deallocation for tracer forcing failed')
-      END IF
-      DEALLOCATE(p_sfc_flx%forc_tracer_relax, STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'deallocation for tracer relaxation failed')
-      END IF
-    ENDIF
+    DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for tracer forcing failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_tracer_relax, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for tracer relaxation failed')
+    END IF
     DEALLOCATE(p_sfc_flx%forc_wind_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for forcing wind cc failed')
@@ -1414,29 +1412,29 @@ CONTAINS
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
       &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
-    ice%newice(:,:) = 0.0_wp
+    ice % newice(:,:) = 0.0_wp
     ! This is where new ice forms
-   !WHERE (sst(:,:) < Tfw(:,:) .AND. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-   !  ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
-   !  ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
-   !  p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
-   !    &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
+    WHERE (sst < Tfw(:,:) .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+      ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
+      ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
+      p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
+        &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
-   !  ! New ice forms over open water - set temperature to Tfw
-   !  WHERE(.NOT.ice%isice(:,1,:))
-   !    ice%Tsurf(:,1,:) = Tfw(:,:)
-   !    ice%T2   (:,1,:) = Tfw(:,:)
-   !    ice%T1   (:,1,:) = Tfw(:,:)
-   !  ENDWHERE
+      ! New ice forms over open water - set temperature to Tfw
+      WHERE(.NOT.ice%isice(:,1,:))
+        ice%Tsurf(:,1,:) = Tfw(:,:)
+        ice%T2   (:,1,:) = Tfw(:,:)
+        ice%T1   (:,1,:) = Tfw(:,:)
+      ENDWHERE
 
-   !  ice%isice(:,1,:) = .TRUE.
-   !  old_conc (:,:)   = ice%conc(:,1,:)
-   !  ice%conc (:,1,:) = min( 1._wp, &
-   !    &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
-   !  ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
-   !  !  => hi <- newice/conc + hi*old_conc/conc
-   !  ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
-   !ENDWHERE
+      ice%isice(:,1,:) = .TRUE.
+      old_conc (:,:)   = ice%conc(:,1,:)
+      ice%conc (:,1,:) = min( 1._wp, & 
+        &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
+      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
+      !  => hi <- newice/conc + hi*old_conc/conc
+      ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
+    ENDWHERE
 
     ! This is where concentration changes due to ice melt
     WHERE (ice%hiold(:,1,:)-ice%hi(:,1,:) > 0._wp )

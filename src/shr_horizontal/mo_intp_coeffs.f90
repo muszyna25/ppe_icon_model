@@ -1033,9 +1033,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 inv_neighbor_id = 0
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,&
-!$OMP ibc3) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,&
+!!OMP ibc3) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1094,7 +1094,8 @@ DO jb = i_startblk, i_endblk
   ENDDO !cell loop
 
 END DO !block loop
-!$OMP END DO
+!!OMP END DO
+!!OMP PARALLEL
 
 ! Compute coefficients for bilinear interpolation for averaging
 ! from the neighboring cells to local cell center
@@ -1108,8 +1109,9 @@ END DO !block loop
 !<<>>
  
 IF(is_plane_torus)THEN
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
-!$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
+!!OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
@@ -1123,13 +1125,14 @@ IF(is_plane_torus)THEN
       
     ENDDO !cell loop
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
 ELSE !NOT is_plane_torus
 
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
-!$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
+!!OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1217,8 +1220,8 @@ ELSE !NOT is_plane_torus
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 END IF !IF(is_plane_torus)
 
 z_inv_neighbor_id = REAL(inv_neighbor_id,wp)
@@ -1249,9 +1252,9 @@ DO iter = 1, niter
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,inb1,&
-!$OMP inb2,inb3) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,inb1,&
+!!OMP inb2,inb3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1280,14 +1283,14 @@ DO iter = 1, niter
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
   rl_start = 3
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1305,15 +1308,15 @@ DO iter = 1, niter
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
 CALL sync_patch_array(SYNC_C,ptr_patch,resid)
 
 IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,&
-!$OMP ilc3,ibc3) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,&
+!!OMP ilc3,ibc3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1353,14 +1356,14 @@ IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
 
 ELSE ! In the last iteration, enforce the mass conservation condition
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1377,8 +1380,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !cell loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
 
@@ -1393,9 +1396,9 @@ ELSE ! In the last iteration, enforce the mass conservation condition
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,&
-!$OMP inb2,inb3,ie4,ie5) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,&
+!!OMP inb2,inb3,ie4,ie5) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1474,17 +1477,17 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%e_flx_avg)
 
   rl_start = 5
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,inb2,inb3,ie4,ie5, &
-!$OMP            ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4,iie1,iie2,iie3,iie4) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,inb2,inb3,ie4,ie5, &
+!!OMP            ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4,iie1,iie2,iie3,iie4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1601,13 +1604,15 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO
+!!OMP END DO
+!!OMP END PARALLEL
 
   ! Finally, the weighting coefficients are scaled in order to
   ! yield the right result for a constant wind field
 
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4, &
-!$OMP            z_nx1,z_nx2,z_nx3,z_nx4,z_nx5) ICON_OMP_DEFAULT_SCHEDULE
+!!OMP PARALLEL
+!!OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4, &
+!!OMP            z_nx1,z_nx2,z_nx3,z_nx4,z_nx5) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1650,8 +1655,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
     ENDDO !edge loop
 
   END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!OMP END DO NOWAIT
+!!OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%e_flx_avg)
@@ -1785,6 +1790,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 ! b) Nudging coefficients for edges
 i_startblk = ptr_patch%edges%start_blk(grf_nudge_start_e,1)
@@ -1792,6 +1798,7 @@ i_endblk   = ptr_patch%edges%end_blk(0,i_nchdom)
 
 IF (ptr_patch%id > 1 .AND. lfeedback(ptr_patch%id)) THEN
   ! Use nudging coefficients optimized for velocity boundary diffusion
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1810,8 +1817,10 @@ IF (ptr_patch%id > 1 .AND. lfeedback(ptr_patch%id)) THEN
 
   END DO !block loop
 !$OMP END DO NOWAIT
+!$OMP END PARALLEL
 ELSE
   ! Use nudging coefficients from namelist
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1831,9 +1840,8 @@ ELSE
 
   END DO !block loop
 !$OMP END DO NOWAIT
-ENDIF
-
 !$OMP END PARALLEL
+ENDIF
 
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%nudgecoeff_c)
 CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%nudgecoeff_e)
@@ -1922,6 +1930,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 ! b) Geometrical factor for rotation
 rl_start = 2
@@ -1940,6 +1949,7 @@ rl_end = min_rlvert
   !
   ! loop through all patch cells (and blocks)
   !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1966,6 +1976,7 @@ rl_end = min_rlvert
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 ! c) Geometrical factor for nabla2_scalar
 rl_start = 2
@@ -1977,6 +1988,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells (and blocks)
 !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
 !$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -2056,6 +2068,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 ! d) Geometrical factor for quad-cell divergence (triangles only)
 
@@ -2068,6 +2081,7 @@ IF (ptr_patch%cell_type == 3) THEN
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -2092,6 +2106,7 @@ IF (ptr_patch%cell_type == 3) THEN
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 ENDIF
 
@@ -2108,6 +2123,7 @@ IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe,ile1,ibe1,ile2,ibe2,ile3,ibe3,&
 !$OMP            ilc1,ilc2,ibc1,ibc2) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2229,6 +2245,7 @@ IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 ENDIF
 
@@ -2245,6 +2262,7 @@ ENDIF
       i_startblk = ptr_patch%edges%start_blk(rl_start,1)
       i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,z_pn_k,z_pt_k,&
 !$OMP ilc1,ibc1,ilc2,ibc2,ilv1,ibv1,ilv2,ibv2,je1,ile,ibe,z_proj,z_pn_j,&
 !$OMP jm,jn,nincr,ilr,ibr,jr1,z_lon,z_lat,z_norm,z_cart_no,z_cart_ea) ICON_OMP_DEFAULT_SCHEDULE
@@ -2521,6 +2539,7 @@ ENDIF
 
       ENDDO !jb
 !$OMP END DO
+!$OMP END PARALLEL
 
     ENDIF
 
@@ -2534,6 +2553,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells (and blocks)
 !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
 !$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -2732,6 +2752,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 
 rl_start = 1
@@ -2748,6 +2769,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! In addition, the fields for the inverse primal and dual edge lengths are
 ! initialized here.
 !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
@@ -2775,6 +2797,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 
 rl_start = 2
@@ -2786,6 +2809,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 ! Initialization of lateral boundary points
 IF (ptr_patch%id > 1) THEN
+!$OMP PARALLEL
 !$OMP WORKSHARE
   ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
   ptr_patch%edges%vertex_idx(:,1:i_startblk,3)            = 0
@@ -2802,10 +2826,12 @@ IF (ptr_patch%id > 1) THEN
   ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2 = 0._wp
   ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2 = 0._wp
 !$OMP END WORKSHARE
+!$OMP END PARALLEL
 ENDIF
 !
 ! loop through all patch edges
 !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
 !$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
 !$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
@@ -3088,7 +3114,6 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO NOWAIT
-
 !$OMP END PARALLEL
 
   ! primal_normal_cell must be sync'd before next loop,
@@ -3195,6 +3220,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
 rl_start = 1
 rl_end = min_rlcell
@@ -3205,8 +3231,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF(is_plane_torus)THEN
 
-  !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
-  !$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
+!$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3272,13 +3299,14 @@ IF(is_plane_torus)THEN
                          DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
     ENDDO
   END DO !block loop
-  !$OMP END DO NOWAIT
-  !$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
 ELSE !General case
 
-  !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
-  !$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
+!$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3338,8 +3366,8 @@ ELSE !General case
 
     ENDDO
   END DO !block loop
-  !$OMP END DO NOWAIT
-  !$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 END IF !IF(is_plane_torus) to calculate distance between cell center and its vertices
 
   DO je = 1, ptr_patch%cell_type
@@ -3571,6 +3599,7 @@ IF(is_plane_torus)THEN
       ENDDO ! edges
     ENDDO  ! blocks
 !$OMP END DO
+!$OMP END PARALLEL
 
 ELSE !Genereal case
 
@@ -3717,6 +3746,7 @@ ELSE !Genereal case
       ENDDO ! edges
     ENDDO  ! blocks
 !$OMP END DO
+!$OMP END PARALLEL
 END IF !IF(is_plane_torus)
 
 
@@ -3727,6 +3757,7 @@ END IF !IF(is_plane_torus)
     ! normalization not necessary fo cartesian vectors since these are
     ! exactly =1.
     !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,&
 !$OMP z_nx_quad,z_ny_quad) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk

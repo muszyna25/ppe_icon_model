@@ -62,6 +62,7 @@ MODULE mo_fortran_tools
   INTERFACE assign_if_present  ! purely internal
     MODULE PROCEDURE assign_if_present_character
     MODULE PROCEDURE assign_if_present_logical
+    MODULE PROCEDURE assign_if_present_logicals
     MODULE PROCEDURE assign_if_present_integer
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
@@ -85,6 +86,17 @@ CONTAINS
     LOGICAL, INTENT(in) ,OPTIONAL :: x
     IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_logical
+
+
+  SUBROUTINE assign_if_present_logicals (y,x)
+    LOGICAL, INTENT(inout)        :: y(:)
+    LOGICAL, INTENT(in) ,OPTIONAL :: x(:)
+    INTEGER :: n
+    IF (PRESENT(x)) THEN
+      n = MIN(SIZE(x), SIZE(y))
+      y(1:n) = x(1:n)
+    ENDIF
+  END SUBROUTINE assign_if_present_logicals
 
 
   SUBROUTINE assign_if_present_integer (y,x)

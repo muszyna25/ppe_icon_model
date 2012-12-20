@@ -2689,9 +2689,8 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     ! return, if nothing to do:
-    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) THEN
-      RETURN
-    END IF
+    IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0)))  RETURN
+
     ! consistency check:
     IF (UBOUND(uv_out,2) < nlevs_out) CALL finish("Wrong size of output field!")
 
