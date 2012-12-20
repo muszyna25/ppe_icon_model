@@ -1017,18 +1017,54 @@ TYPE(t_patch), POINTER :: p_patch_horz
   CALL sync_patch_array(SYNC_E, p_patch_horz, p_os%p_diag%vn_impl_vert_diff)
 
   IF(iswm_oce == 1)THEN
-    z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = &
-      &   ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
-      & + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+    !z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)&
+    !& = ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+    !&+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        DO jk=1,n_zlev 
+          !IF(p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+          z_vn_ab(je,jk,jb)=ab_gam*p_os%p_diag%vn_pred(je,jk,jb)&
+          &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(je,jk,jb)
+          !ENDIF
+        END DO
+      ENDDO
+    END DO
   ELSEIF(iswm_oce /= 1)THEN
     IF(expl_vertical_velocity_diff==1)THEN
-      z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = &
-        &   ab_gam*p_os%p_diag%vn_impl_vert_diff(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
-        & + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+!       z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+!       &= ab_gam*p_os%p_diag%vn_impl_vert_diff(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+!       &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
+          i_dolic_e =  p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)! v_base%dolic_e(je,jb)
+          DO jk=1,i_dolic_e 
+            !IF(p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+            z_vn_ab(je,jk,jb)=ab_gam*p_os%p_diag%vn_impl_vert_diff(je,jk,jb)&
+            &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(je,jk,jb)
+            !ENDIF
+          END DO
+        ENDDO
+      END DO
+
     ELSEIF(expl_vertical_velocity_diff==0)THEN
-      z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) = &
-        &   ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
-        & + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+      !z_vn_ab(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)&
+      !& = ab_gam*p_os%p_diag%vn_pred(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e) &
+      !&+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(1:nproma,1:n_zlev,1:p_patch_horz%nblks_e)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
+          i_dolic_e =  p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)! v_base%dolic_e(je,jb)
+          DO jk=1,i_dolic_e 
+            !IF(p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+            z_vn_ab(je,jk,jb)=ab_gam*p_os%p_diag%vn_pred(je,jk,jb)&
+            &+ (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn(je,jk,jb)
+            !ENDIF
+          END DO
+        ENDDO
+      END DO
     ENDIF
   ENDIF
 

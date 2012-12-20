@@ -811,7 +811,7 @@ CONTAINS
       &          ldims=(/nproma,nblks_c/))
       IF (nnew(1) == timelevel) THEN
         CALL add_var(ocean_restart_list, 'h', p_os_prog%h , &
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
@@ -825,7 +825,7 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
     IF (nnew(1)==timelevel) THEN
       CALL add_ref(ocean_restart_list,'vn'//TRIM(var_suffix),'vn', &
-        &          p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA, &
+        &          p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
         &          t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
         &          ldims=(/nproma,n_zlev,nblks_e/))
