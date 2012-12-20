@@ -29,13 +29,15 @@ if [ %NENS% -gt 0 ]
   else DIRENS=''
 fi
 
+# ifsdir for IFS initial condition
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+# locat
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon${DIRENS}
 TMPDIR="${TEMP}"
 mkdir -p ${IFSDATADIR}
 
 DATCONVCMD="/home/ms/de/dfr/routfox/bin/datconv"
-PERL5LIB="/home/ms/de/dfi0/routfox/perl"
+PERL5LIB="/home/ms/de/dfr/routfox/perl"
 
 export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 
@@ -48,8 +50,8 @@ cd ${IFSDATADIR}
 # Retrieve data from MARS ---------------------
 
 if [ %NENS% -gt 0 ]
-  then ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda %YMD%%INIHOUR% 0 255 1/to/91 %NMEM%
-  else ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+     %YMD%%INIHOUR% 0 255 1/to/91
+  then ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda %YMD%%INIHOUR% 0 399 1/to/91 %NMEM%
+  else ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+     %YMD%%INIHOUR% 0 799 1/to/91
 fi
 ls -lrt ${IFSDATADIR}
 

@@ -102,6 +102,7 @@ CONTAINS
     nlev = p_patch%nlev
     jg   = p_patch%id
 
+
     ! Vertical interpolation indices and weights
     DO jk = 1, nlev_soil-1
       IF (zml_soil(jk) < zsoil_ifs(1)) THEN
@@ -124,7 +125,6 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow)
-
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
         nlen = nproma
@@ -156,7 +156,7 @@ CONTAINS
       DO jc = 1, nlen
         ! Adjust skin temperature with the difference between the atmospheric
         ! temperatures at the lowest model level
-        prepicon%sfc%tskin(jc,jb)      = prepicon%sfc_in%tskin(jc,jb) +         &
+        prepicon%sfc%tskin(jc,jb)      = prepicon%sfc_in%tskin(jc,jb) +       &
           (prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb))
 
         ! Height adjustment for snow variables is not yet implemented
@@ -266,6 +266,7 @@ CONTAINS
     ENDDO
 !$OMP END DO 
 !$OMP END PARALLEL
+
 
   END SUBROUTINE process_sfcfields
 

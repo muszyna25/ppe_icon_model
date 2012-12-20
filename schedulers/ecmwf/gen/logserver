@@ -8,8 +8,9 @@
 
 set -x
 
-/usr/local/bin/start_logserver -d ${TEMP}/sms -m ${HOME}/sms:${TEMP}/sms
+/usr/local/bin/start_logserver -d ${SCRATCH}/sms -m ${HOME}/sms:${SCRATCH}/sms
 
+#/usr/local/bin/start_logserver -d ${TEMP}/sms -m ${HOME}/sms:${TEMP}/sms
 #TEMP=$TEMP/sms
 #/usr/local/bin/start_logserver -d ${TEMP}
 #/usr/local/bin/start_logserver -d /c1a/tmp/ms/de/deia/sms

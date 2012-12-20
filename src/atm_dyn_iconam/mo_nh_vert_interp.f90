@@ -46,23 +46,20 @@ MODULE mo_nh_vert_interp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                               t_nh_metrics
-  USE mo_opt_diagnostics,     ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
-    &                               vcoeff_allocate, vcoeff_deallocate
+  USE mo_opt_diagnostics,     ONLY: t_vcoeff, vcoeff_allocate, vcoeff_deallocate
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp,                ONLY: edges2cells_scalar, cell_avg, &
     &                               cells2edges_scalar
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_nh_pzlev_config,     ONLY: t_nh_pzlev_config
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_dynamics_config,     ONLY: nnow
   USE mo_impl_constants,      ONLY: icc, inwp, SUCCESS
   USE mo_exception,           ONLY: finish
   USE mo_prepicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
-                                    i_oper_mode, l_w_in, l_sfc_in, l_coarse2fine_mode
+                                    l_w_in, l_coarse2fine_mode
   USE mo_prepicon_types,      ONLY: t_prepicon_state
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
@@ -93,7 +90,8 @@ MODULE mo_nh_vert_interp
   REAL(wp), PARAMETER :: t_high = 290.5_wp
 
 
-  PUBLIC :: vertical_interpolation
+  PUBLIC :: vert_interp_atm
+  PUBLIC :: vert_interp_sfc
   PUBLIC :: prepare_lin_intp
   PUBLIC :: prepare_vert_interp_z
   PUBLIC :: prepare_vert_interp_p
@@ -109,15 +107,16 @@ CONTAINS
 
   !-------------
   !>
-  !! SUBROUTINE vertical_interpolation
+  !! SUBROUTINE vert_interp_atm
   !! Outer driver routine for vertical interpolation of analysis 
-  !! data interpolated horizontally by IFS2ICON to the ICON grid
+  !! data (atmosphere only) interpolated horizontally by IFS2ICON to 
+  !! the ICON grid
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vertical_interpolation(p_patch, p_int, p_grf, prepicon)
+  SUBROUTINE vert_interp_atm(p_patch, p_int, p_grf, prepicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
@@ -131,7 +130,6 @@ CONTAINS
 
     DO jg = 1, n_dom
 
-      IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE ! skip model domains not active at initial time
 
@@ -152,13 +150,54 @@ CONTAINS
       ENDDO
     ENDDO
 
-  END SUBROUTINE vertical_interpolation
+  END SUBROUTINE vert_interp_atm
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE vert_interp_sfc
+  !! Outer driver routine for vertical interpolation of analysis 
+  !! data (surface only) interpolated horizontally by IFS2ICON to 
+  !! the ICON grid
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-19)
+  !!
+  !!
+  SUBROUTINE vert_interp_sfc(p_patch, prepicon)
+
+    TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
+    TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon(:)
+
+    ! LOCAL VARIABLES
+    INTEGER :: jg
+
+!-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom
+
+      IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE ! skip model domains not active at initial time
+
+      !
+      ! process surface fields
+      !
+      CALL process_sfcfields(p_patch(jg), prepicon(jg))
+    ENDDO
+
+
+  END SUBROUTINE vert_interp_sfc
+
+
+
 
   !-------------
   !>
   !! SUBROUTINE vert_interp
   !! Domain-wise driver routine for vertical interpolation of analysis 
-  !! data interpolated horizontally by IFS2ICON to the ICON grid
+  !! data (atmosphere only) interpolated horizontally by IFS2ICON to 
+  !! the ICON grid
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
@@ -174,7 +213,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb
     INTEGER :: nlen, nlev, nlevp1
     LOGICAL :: lc2f
 
@@ -222,7 +261,7 @@ CONTAINS
     ! 1. Compute pressure and height of input data, using the IFS routines
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk, jc, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
+!$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
 !$OMP            rdalpha, geop_mc) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1,p_patch%nblks_c
@@ -406,10 +445,6 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_C,p_patch,prepicon%atm%w)
 
-    IF (l_sfc_in) THEN 
-      ! process surface fields
-      CALL process_sfcfields(p_patch, prepicon)
-    ENDIF
 
   END SUBROUTINE vert_interp
 
@@ -1329,7 +1364,7 @@ CONTAINS
     ! LOCAL VARIABLES
 
     INTEGER  :: jb, jk, jc, jk1, nlen
-    REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_up, dtvdz_down
+    REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_down
     REAL(wp), DIMENSION(nproma)           :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
     REAL(wp) :: p_up, p_down, t_extr
 
@@ -1339,7 +1374,7 @@ CONTAINS
     IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down,tmsl,tsfc_mod,tempv1,tempv2,& 
+!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_down,p_up,p_down,tmsl,tsfc_mod,tempv1,tempv2,& 
 !$OMP            vtgrad_up,sfc_inv,t_extr) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
@@ -1542,8 +1577,7 @@ CONTAINS
 
     INTEGER  :: jb, jk, jc, jk1, nlen
     REAL(wp), DIMENSION(nproma,nlevs_out) :: dtvdz_up, dtvdz_down
-    REAL(wp), DIMENSION(nproma)           :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
-    REAL(wp) :: p_up, p_down, t_extr
+    REAL(wp) :: p_up, p_down
 
 !-------------------------------------------------------------------------
 
@@ -1551,8 +1585,8 @@ CONTAINS
     IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down,tmsl,tsfc_mod,tempv1,tempv2,& 
-!$OMP            vtgrad_up,sfc_inv,t_extr) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up, &
+!$OMP            p_down) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN

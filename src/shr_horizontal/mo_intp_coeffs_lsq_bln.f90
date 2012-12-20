@@ -123,6 +123,10 @@
 !!    reconstruction.
 !!  Modification by Almut Gassmann, MPI-M (2010-01-12)
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
+!!  Modification by Anurag Dipankar, MPI-M(2012-12-12)
+!!  - made changes in the following routines to compute coefficients for planar
+!!    torus case to be used for HDCP2. Check:"is_plane_torus".
+!!    Routines changed: bln_int_coeff_e2c
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -178,8 +182,7 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
-USE mo_grid_config,         ONLY: grid_sphere_radius
-
+USE mo_grid_config,         ONLY: grid_sphere_radius, is_plane_torus
 USE mo_intp_data_strc
 
 IMPLICIT NONE
@@ -1532,99 +1535,124 @@ rl_end = min_rlcell
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
 !
 ! loop through all patch cells (and blocks)
-!
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
-!$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
-DO jb = i_startblk, i_endblk
+!<<>>
+! The weighting factors are based on the requirement that sum(w(i)*x(i)) = 0
+! and sum(w(i)*y(i)) = 0, which ensures that linear horizontal gradients
+! are not aliased into a checkerboard pattern between upward- and downward
+! directed cells. The third condition is sum(w(i)) = 1. Analytical elimination yields...
+!<<>>
 
-  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, rl_start, rl_end)
+IF(is_plane_torus)THEN
 
-  DO jc = i_startidx, i_endidx
+  !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
+  !$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+  
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+    DO jc = i_startidx, i_endidx
 
-    yloc = ptr_patch%cells%center(jc,jb)%lat
-    xloc = ptr_patch%cells%center(jc,jb)%lon
+      ! Simple for torus
+      ptr_int_state%e_bln_c_s(jc,1:3,jb) = 1._wp / 3._wp
 
-    ! Rotate local point into the equator for better accuracy of bilinear weights
-    IF (yloc >= 0._wp) THEN
-      pollat = yloc - pi2/4._wp
-    ELSE
-      pollat = yloc + pi2/4._wp
-    ENDIF
-    pollon = xloc
+    ENDDO !cell loop
+  END DO !block loop
+  !$OMP END DO
 
-    CALL rotate_latlon( yloc, xloc, pollat, pollon )
+ELSE! General case
 
-    !  get the line and block indices of the cell edges
+  !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
+  !$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+  
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+  
+    DO jc = i_startidx, i_endidx
+  
+      yloc = ptr_patch%cells%center(jc,jb)%lat
+      xloc = ptr_patch%cells%center(jc,jb)%lon
+  
+      ! Rotate local point into the equator for better accuracy of bilinear weights
+      IF (yloc >= 0._wp) THEN
+        pollat = yloc - pi2/4._wp
+      ELSE
+        pollat = yloc + pi2/4._wp
+      ENDIF
+      pollon = xloc
+  
+      CALL rotate_latlon( yloc, xloc, pollat, pollon )
+  
+      !  get the line and block indices of the cell edges
+  
+      ile1 = ptr_patch%cells%edge_idx(jc,jb,1)
+      ibe1 = ptr_patch%cells%edge_blk(jc,jb,1)
+      ile2 = ptr_patch%cells%edge_idx(jc,jb,2)
+      ibe2 = ptr_patch%cells%edge_blk(jc,jb,2)
+      ile3 = ptr_patch%cells%edge_idx(jc,jb,3)
+      ibe3 = ptr_patch%cells%edge_blk(jc,jb,3)
+  
+      ! x and y are the zonal and meridional distances from the local
+      ! cell point (ignoring the earth's radius, which drops out anyway)
+  
+      xtemp = ptr_patch%edges%center(ile1,ibe1)%lon
+      ytemp = ptr_patch%edges%center(ile1,ibe1)%lat
+      CALL rotate_latlon( ytemp, xtemp, pollat, pollon )
+  
+      y(1)  = ytemp-yloc
+      x(1)  = xtemp-xloc
+      ! This is needed when the date line is crossed
+      IF (x(1) >  3.5_wp) x(1) = x(1) - pi2
+      IF (x(1) < -3.5_wp) x(1) = x(1) + pi2
+  
+      xtemp = ptr_patch%edges%center(ile2,ibe2)%lon
+      ytemp = ptr_patch%edges%center(ile2,ibe2)%lat
+      CALL rotate_latlon( ytemp, xtemp, pollat, pollon )
+  
+      y(2)  = ytemp-yloc
+      x(2)  = xtemp-xloc
+      ! This is needed when the date line is crossed
+      IF (x(2) >  3.5_wp) x(2) = x(2) - pi2
+      IF (x(2) < -3.5_wp) x(2) = x(2) + pi2
+  
+      xtemp = ptr_patch%edges%center(ile3,ibe3)%lon
+      ytemp = ptr_patch%edges%center(ile3,ibe3)%lat
+      CALL rotate_latlon( ytemp, xtemp, pollat, pollon )
+  
+      y(3)  = ytemp-yloc
+      x(3)  = xtemp-xloc
+      ! This is needed when the date line is crossed
+      IF (x(3) >  3.5_wp) x(3) = x(3) - pi2
+      IF (x(3) < -3.5_wp) x(3) = x(3) + pi2
+  
+      ! Calculate weight factors
+  
+      IF (ABS(x(2)-x(1)) > 1.e-11_wp .AND. ABS(y(3)-y(1)) > 1.e-11_wp ) THEN
+        wgt(3) = 1.0_wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
+                    ( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
+        wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
+        wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+      ELSE
+        wgt(2) = 1.0_wp/( (y(2)-y(1)) - (x(2)-x(1))*(y(3)-y(1))/(x(3)-x(1)) ) * &
+                    ( -y(1) + x(1)*(y(3)-y(1))/(x(3)-x(1)) )
+        wgt(3) = (-x(1) - wgt(2)*(x(2)-x(1)))/(x(3)-x(1))
+        wgt(1) = 1.0_wp - wgt(2) - wgt(3)
+      ENDIF
+  
+      ! Store results in ptr_int_state%e_bln_c_s
+      ptr_int_state%e_bln_c_s(jc,1,jb) = wgt(1)
+      ptr_int_state%e_bln_c_s(jc,2,jb) = wgt(2)
+      ptr_int_state%e_bln_c_s(jc,3,jb) = wgt(3)
+  
+    ENDDO !cell loop
+  
+  END DO !block loop
+  !$OMP END DO
 
-    ile1 = ptr_patch%cells%edge_idx(jc,jb,1)
-    ibe1 = ptr_patch%cells%edge_blk(jc,jb,1)
-    ile2 = ptr_patch%cells%edge_idx(jc,jb,2)
-    ibe2 = ptr_patch%cells%edge_blk(jc,jb,2)
-    ile3 = ptr_patch%cells%edge_idx(jc,jb,3)
-    ibe3 = ptr_patch%cells%edge_blk(jc,jb,3)
-
-    ! x and y are the zonal and meridional distances from the local
-    ! cell point (ignoring the earth's radius, which drops out anyway)
-
-    xtemp = ptr_patch%edges%center(ile1,ibe1)%lon
-    ytemp = ptr_patch%edges%center(ile1,ibe1)%lat
-    CALL rotate_latlon( ytemp, xtemp, pollat, pollon )
-
-    y(1)  = ytemp-yloc
-    x(1)  = xtemp-xloc
-    ! This is needed when the date line is crossed
-    IF (x(1) >  3.5_wp) x(1) = x(1) - pi2
-    IF (x(1) < -3.5_wp) x(1) = x(1) + pi2
-
-    xtemp = ptr_patch%edges%center(ile2,ibe2)%lon
-    ytemp = ptr_patch%edges%center(ile2,ibe2)%lat
-    CALL rotate_latlon( ytemp, xtemp, pollat, pollon )
-
-    y(2)  = ytemp-yloc
-    x(2)  = xtemp-xloc
-    ! This is needed when the date line is crossed
-    IF (x(2) >  3.5_wp) x(2) = x(2) - pi2
-    IF (x(2) < -3.5_wp) x(2) = x(2) + pi2
-
-    xtemp = ptr_patch%edges%center(ile3,ibe3)%lon
-    ytemp = ptr_patch%edges%center(ile3,ibe3)%lat
-    CALL rotate_latlon( ytemp, xtemp, pollat, pollon )
-
-    y(3)  = ytemp-yloc
-    x(3)  = xtemp-xloc
-    ! This is needed when the date line is crossed
-    IF (x(3) >  3.5_wp) x(3) = x(3) - pi2
-    IF (x(3) < -3.5_wp) x(3) = x(3) + pi2
-
-    ! The weighting factors are based on the requirement that sum(w(i)*x(i)) = 0
-    ! and sum(w(i)*y(i)) = 0, which ensures that linear horizontal gradients
-    ! are not aliased into a checkerboard pattern between upward- and downward
-    ! directed cells. The third condition is sum(w(i)) = 1. Analytical elimination yields...
-
-    IF (ABS(x(2)-x(1)) > 1.e-11_wp .AND. ABS(y(3)-y(1)) > 1.e-11_wp ) THEN
-      wgt(3) = 1.0_wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
-                  ( -y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) )
-      wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)))/(x(2)-x(1))
-      wgt(1) = 1.0_wp - wgt(2) - wgt(3)
-    ELSE
-      wgt(2) = 1.0_wp/( (y(2)-y(1)) - (x(2)-x(1))*(y(3)-y(1))/(x(3)-x(1)) ) * &
-                  ( -y(1) + x(1)*(y(3)-y(1))/(x(3)-x(1)) )
-      wgt(3) = (-x(1) - wgt(2)*(x(2)-x(1)))/(x(3)-x(1))
-      wgt(1) = 1.0_wp - wgt(2) - wgt(3)
-    ENDIF
-
-    ! Store results in ptr_int_state%e_bln_c_s
-    ptr_int_state%e_bln_c_s(jc,1,jb) = wgt(1)
-    ptr_int_state%e_bln_c_s(jc,2,jb) = wgt(2)
-    ptr_int_state%e_bln_c_s(jc,3,jb) = wgt(3)
-
-  ENDDO !cell loop
-
-END DO !block loop
-!$OMP END DO
+END IF!IF(is_plane_torus)
 
 ! Now compute vector interpolation weights: These take the normal and tangential
 ! wind components at the edges and reconstruct u and v at the cell midpoints

@@ -122,7 +122,19 @@
 !!    reconstruction.
 !!  Modification by Almut Gassmann, MPI-M (2010-01-12)
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
-!!
+!!  Modification by Anurag Dipankar, MPIM (2012-12-07)
+!! - added some IF conditions with the argument "is_plane_torus"
+!!   to compute the RBF coeffs for planar torus to be used in HD(CP)2.
+!!   It is costly to introduce conditional statements in the middle of loops
+!!   but it is done only once in the begining.
+!!   IF REQUIRED, THESE CONDITIONAL STATEMENTS CAN BE REMOVED BY CREATING
+!!   AN ENTIRELY NEW FOR MODULE FOR HDCP2. SUGGESTIONS?
+!!  - Note that we currently use cells%cartesian_center, edge%cartesian_center, and 
+!!    verts%cartesian to get cartesian coord but these variables don't adjust
+!!    according to the decomposition. So this should change once plane_torus is ready
+!!    for parallel decomposition
+!!  - also used "ptr_int%cart_cell_coord" directly instead of gc2cc(ptr_patch%cells%center(jc,jb))
+!!   
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -184,6 +196,9 @@ USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_vec_dim_e, rbf_vec_dim_v,  
   &                               rbf_vec_kern_v, rbf_vec_scale_c, rbf_vec_scale_e,&
   &                               rbf_vec_scale_v
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
+USE mo_math_utilities,      ONLY: plane_torus_distance
+USE mo_grid_config,         ONLY: is_plane_torus
+USE mo_math_constants,      ONLY: pi2, pi_2, deg2rad
 
 IMPLICIT NONE
 
@@ -696,14 +711,19 @@ END SUBROUTINE rbf_vec_index_edge
 !
 !>
 !! This routine computes the coefficients needed for vector RBF interpolation,.
-!!
+!! 
 !! This routine computes the coefficients needed for vector RBF interpolation,
 !! which are then stored in the arrays <i>rbf_vec_coeff</i>.
 !! This computation involves the inversion of the interpolation
 !! matrix, which is performed by a Cholesky decomposition.
 !! The Cholesky decomposition is currently implemented by a home made routine
 !! which can be substituted by a call to a numerical library, if available.
-!!
+!! <<
+!!    The interpolation algo requires solving A_kj c_j = vn_k. Where A is a
+!!    matrix dependent on the distance, |x_k-x_j| between the points "k" and "j",
+!!    c_j are the coefficients, and vn_k are the normal velocities at "k" points.
+!!    To avoid computational cost [A_kj^{-1}]^T \times A_0j is stored here. 
+!! >>
 !! @par Revision History
 !! Developed and tested by Will Sawyer, ETHZ, adjusted and tested  for
 !! vector rbf by Luca Bonaventura (2005)
@@ -723,7 +743,6 @@ END SUBROUTINE rbf_vec_index_edge
 !! Modification by Guenther Zaengl, DWD (2009-04-20)
 !! - vector optimization and removal of unused options (polynomial
 !!   component in RBF kernel, multiquadric and thin-plate-spline kernel)
-!!
 SUBROUTINE rbf_vec_compute_coeff_cell( ptr_patch, ptr_int )
 !
 
@@ -772,7 +791,7 @@ INTEGER :: jg
 
 
 REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficients is correct
-
+REAL(wp) ::  torus_len, torus_ht, maxlen
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:rbf_vec_compute_coeff_cell', '')
@@ -786,6 +805,13 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
+
+  !plane torus info
+  IF(is_plane_torus)THEN
+    torus_len = ptr_patch%planar_torus_info%length
+    torus_ht  = ptr_patch%planar_torus_info%height
+    maxlen    = max(torus_len,torus_ht)
+  END IF
 
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_c,rbf_vec_dim_c),  &
@@ -844,8 +870,17 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
           !
           ! compute dot product of normal vectors and distance between edge midpoints
           !
-          z_nxprod = DOT_PRODUCT(z_nx1(jc,:),z_nx2(jc,:))
-          z_dist   = arc_length_v(cc_e1,cc_e2)
+          z_nxprod = DOT_PRODUCT(z_nx1(jc,:),z_nx2(jc,:))          
+
+          IF(is_plane_torus)THEN
+            !plane_torus_distance computes the cartesian distance between two "plane" torus points 
+            !which is then normalized to get the distance in radians--note it uses the maximum
+            !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
+            !is altering the "beta" factor in the gaussian kernel used in RBF
+            z_dist = plane_torus_distance(cc_e1,cc_e2,torus_len,torus_ht) * pi2 / maxlen
+          ELSE
+            z_dist = arc_length_v(cc_e1,cc_e2)
+          END IF
           !
           ! set up interpolation matrix
           !
@@ -877,23 +912,28 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
       !
       ! Solve immediately for coefficients
       !
-      ! convert coordinates of cell center to cartesian vector
-      !
-      cc_center = gc2cc(ptr_patch%cells%center(jc,jb))
-      cc_c(jc,1:3) = cc_center%x(1:3)
 
-      z_lon = ptr_patch%cells%center(jc,jb)%lon
-      z_lat  = ptr_patch%cells%center(jc,jb)%lat
+      !Get cartesian coordinate of the cell center
+      cc_c(jc,1:3) = ptr_int%cart_cell_coord(jc,jb,1:3)
+
+      ! Get unit vectors in Zonal and Meridional direction at the cell center
+      ! (For is_plane_torus lon/lat is set to get the cartesian unit vectors back. 
+      !  This way the flow of the code is maintained at an extra cost)
+      IF(is_plane_torus)THEN
+        z_lon  =  -pi_2 !-90 
+        z_lat  =   pi_2 !+90
+      ELSE
+        z_lon = ptr_patch%cells%center(jc,jb)%lon
+        z_lat = ptr_patch%cells%center(jc,jb)%lat
+      END IF
 
       ! Zonal wind component
       CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(jc,1),z_nx1(jc,2),z_nx1(jc,3))
-
       z_norm = SQRT( DOT_PRODUCT(z_nx1(jc,:),z_nx1(jc,:)) )
       z_nx1(jc,:)  = 1._wp/z_norm * z_nx1(jc,:)
 
       ! Meridional wind component
       CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(jc,1),z_nx2(jc,2),z_nx2(jc,3))
-
       z_norm = SQRT( DOT_PRODUCT(z_nx2(jc,:),z_nx2(jc,:)) )
       z_nx2(jc,:)  = 1._wp/z_norm * z_nx2(jc,:)
 
@@ -918,8 +958,15 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
         !
         cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
 
-        z_dist = arc_length_v(cc_c(jc,:), cc_e2)
-
+        IF(is_plane_torus)THEN
+           !plane_torus_distance computes the cartesian distance between two "plane" torus points 
+           !which is then normalized to get the distance in radians--note it uses the maximum
+           !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
+           !is altering the "beta" factor in the gaussian kernel used in RBF
+           z_dist = plane_torus_distance(cc_c(jc,:),cc_e2,torus_len,torus_ht) * pi2 / maxlen
+        ELSE
+           z_dist = arc_length_v(cc_c(jc,:), cc_e2)
+        END IF
         !
         ! get Cartesian orientation vector
         z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
@@ -1162,7 +1209,6 @@ END SUBROUTINE rbf_compute_coeff_c2grad
 !! - combine routines for normals and tangentials to avoid code duplication
 !! Modification by Almut Gassmann, MPI-M (2010-05-04)
 !! - we need only reconstruction from given normal components
-!!
 SUBROUTINE rbf_vec_compute_coeff_vertex( ptr_patch, ptr_int )
 !
 
@@ -1216,6 +1262,7 @@ REAL(wp) ::  checksum_u,checksum_v   ! to check if sum of interpolation coeffici
 TYPE(t_cartesian_coordinates), DIMENSION(:,:),   POINTER :: ptr_orient ! pointer to orientation vectors
 REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coefficients
 
+REAL(wp) :: torus_len, torus_ht, maxlen
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:rbf_vec_compute_coeff_vertex', '')
@@ -1239,6 +1286,12 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
   ! base unit for optional debug output
   i_outunit  = 520
 
+  !plane torus info
+  IF(is_plane_torus)THEN
+    torus_len = ptr_patch%planar_torus_info%length
+    torus_ht  = ptr_patch%planar_torus_info%height 
+    maxlen    = max(torus_len, torus_ht)
+  END IF
 
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_v,rbf_vec_dim_v),  &
@@ -1298,7 +1351,17 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
           ! compute dot product of normal vectors and distance between edge midpoints
           !
           z_nxprod = DOT_PRODUCT(z_nx1(jv,:),z_nx2(jv,:))
-          z_dist   = arc_length_v(cc_e1,cc_e2)
+
+          IF(is_plane_torus)THEN
+            !plane_torus_distance computes the cartesian distance between two "plane" torus points 
+            !which is then normalized to get the distance in radians--note it uses the maximum
+            !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
+            !is altering the "beta" factor in the gaussian kernel used in RBF
+            z_dist = plane_torus_distance(cc_e1,cc_e2,torus_len,torus_ht) * pi2 / maxlen
+          ELSE
+            z_dist = arc_length_v(cc_e1,cc_e2)
+          END IF
+
           !
           ! set up interpolation matrix
           !
@@ -1334,13 +1397,24 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
       !
       ! Solve immediately for coefficients
       !
-      ! convert coordinates of vertex to cartesian vector
-      !
-      cc_vertex = gc2cc(ptr_patch%verts%vertex(jv,jb))
-      cc_v(jv,1:3) = cc_vertex%x(1:3)
 
-      z_lon = ptr_patch%verts%vertex(jv,jb)%lon
-      z_lat = ptr_patch%verts%vertex(jv,jb)%lat
+      ! Get cartesian coordinate of the cell center
+      !    And
+      ! Get unit vectors in Zonal and Meridional direction at the cell center
+      ! (For is_plane_torus lon/lat is set to get the cartesian unit vectors back. 
+      !  This way the flow of the code is maintained at an extra cost)
+      IF(is_plane_torus)THEN
+        cc_v(jv,1:3)  = ptr_patch%verts%cartesian(jv,jb)%x(1:3)
+
+        z_lon  =  -pi_2 !-90 
+        z_lat  =   pi_2 !+90
+      ELSE
+        cc_vertex = gc2cc(ptr_patch%verts%vertex(jv,jb))
+        cc_v(jv,1:3) = cc_vertex%x(1:3)
+
+        z_lon = ptr_patch%verts%vertex(jv,jb)%lon
+        z_lat = ptr_patch%verts%vertex(jv,jb)%lat
+      END IF
 
       ! Zonal wind component
       CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(jv,1),z_nx1(jv,2),z_nx1(jv,3))
@@ -1375,7 +1449,16 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
         ibe2   = ptr_int%rbf_vec_blk_v(je2,jv,jb)
         !
         cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
-        z_dist = arc_length_v(cc_v(jv,:), cc_e2)
+
+        IF(is_plane_torus)THEN
+          !plane_torus_distance computes the cartesian distance between two "plane" torus points 
+          !which is then normalized to get the distance in radians--note it uses the maximum
+          !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
+          !is altering the "beta" factor in the gaussian kernel used in RBF
+          z_dist = plane_torus_distance(cc_v(jv,:), cc_e2, torus_len, torus_ht) * pi2 / maxlen
+        ELSE
+          z_dist = arc_length_v(cc_v(jv,:), cc_e2)
+        END IF
         !
         ! get Cartesian orientation vector
         z_nx3(jv,:) = ptr_orient(ile2,ibe2)%x(:)
@@ -1505,7 +1588,6 @@ END SUBROUTINE rbf_vec_compute_coeff_vertex
 !! - combine routines for normals and tangentials to avoid code duplication
 !! Modification by Almut Gassmann, MPI-M (2010-05-04)
 !! - we need only reconstruction from given normal components
-!!
 SUBROUTINE rbf_vec_compute_coeff_edge( ptr_patch, ptr_int )
 !
 
@@ -1562,7 +1644,7 @@ REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_coeff  ! pointer to output coefficien
 
 ! pointer to orientation of output vectors
 TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
-
+REAL(wp) :: torus_len, torus_ht, maxlen
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:rbf_vec_compute_coeff_edge', '')
@@ -1589,6 +1671,13 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
   ! base unit for optional debug output
   i_outunit  = 530
+
+  !plane torus info
+  IF(is_plane_torus)THEN
+    torus_len = ptr_patch%planar_torus_info%length
+    torus_ht  = ptr_patch%planar_torus_info%height
+    maxlen    = max(torus_len, torus_ht)
+  END IF
 
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_e,rbf_vec_dim_e),  &
@@ -1645,7 +1734,15 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
           ! compute dot product of normal vectors and distance between edge midpoints
           !
           z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
-          z_dist   = arc_length_v(cc_e1,cc_e2)
+          IF(is_plane_torus)THEN
+            !plane_torus_distance computes the cartesian distance between two "plane" torus points 
+            !which is then normalized to get the distance in radians--note it uses the maximum
+            !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
+            !is altering the "beta" factor in the gaussian kernel used in RBF
+            z_dist = plane_torus_distance(cc_e1, cc_e2, torus_len, torus_ht) * pi2 / maxlen
+          ELSE
+            z_dist = arc_length_v(cc_e1,cc_e2)
+          END IF
 
           ! set up interpolation matrix
           !
@@ -1684,15 +1781,17 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
       !
       ! convert coordinates of edge midpoint to cartesian vector
       !
-      cc_edge = gc2cc(ptr_patch%edges%center(je,jb))
-      cc_e(je,1:3) = cc_edge%x(1:3)
+      cc_e(je,1:3)  = ptr_int%cart_edge_coord(je,jb,:)
+      IF(is_plane_torus)THEN
+        z_nx1(je,1:3) = ptr_patch%edges%dual_cart_normal(je,jb)%x(1:3)
+      ELSE
+        z_nu  = ptr_orient_out(je,jb)%v1
+        z_nv  = ptr_orient_out(je,jb)%v2
+        z_lon = ptr_patch%edges%center(je,jb)%lon
+        z_lat = ptr_patch%edges%center(je,jb)%lat
 
-      z_nu  = ptr_orient_out(je,jb)%v1
-      z_nv  = ptr_orient_out(je,jb)%v2
-      z_lon = ptr_patch%edges%center(je,jb)%lon
-      z_lat = ptr_patch%edges%center(je,jb)%lat
-
-      CALL gvec2cvec(z_nu,z_nv,z_lon,z_lat,z_nx1(je,1),z_nx1(je,2),z_nx1(je,3))
+        CALL gvec2cvec(z_nu,z_nv,z_lon,z_lat,z_nx1(je,1),z_nx1(je,2),z_nx1(je,3))
+      END IF
 
       z_norm = SQRT( DOT_PRODUCT(z_nx1(je,:),z_nx1(je,:)) )
       z_nx1(je,:)  = 1._wp/z_norm * z_nx1(je,:)
@@ -1717,7 +1816,16 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
         ibe2   = ptr_int%rbf_vec_blk_e(je2,je,jb)
 
         cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
-        z_dist = arc_length_v(cc_e(je,:), cc_e2)
+     
+        IF(is_plane_torus)THEN
+          !plane_torus_distance computes the cartesian distance between two "plane" torus points 
+          !which is then normalized to get the distance in radians--note it uses the maximum
+          !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
+          !is altering the "beta" factor in the gaussian kernel used in RBF
+          z_dist = plane_torus_distance(cc_e(je,:), cc_e2, torus_len, torus_ht) * pi2 / maxlen
+        ELSE 
+          z_dist = arc_length_v(cc_e(je,:), cc_e2)
+        END IF
         !
         ! get Cartesian orientation vector
         z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)

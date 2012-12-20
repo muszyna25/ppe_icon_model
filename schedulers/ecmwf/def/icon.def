@@ -17,6 +17,7 @@
 # 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
+# 2012-end:    Switch co C2A (Martin Koehler and Stefan Koerner)
 #
 
 # import environment variables:
@@ -26,20 +27,20 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "004"                #---experiment number---
+set EXPNUM        "002"                #---experiment number---
 set FIRST_DATE    20120101
-set LAST_DATE     20120801
+set LAST_DATE     20120131
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 
 # HPC environment:
-set SCHOST      c1a
-set SCTEMP      /$SCHOST/tmp/ms/de/$ICON_ID/icon
+set SCHOST      c2a
+set SCTEMP      /scratch/ms/de/$ICON_ID/icon
 set ECTEMP      /scratch/ms/de/$ICON_ID/icon_data
 set SCPERM      /perm/ms/de/$USER
-set ECPERM      /$SCHOST$SCPERM            # mounted c1a perm on ecgate
+set ECPERM      /$SCHOST$SCPERM            # mounted c2a perm on ecgate
 set SCPERMIII   /perm/ms/de/$ICON_ID
-set ECPERMIII   /$SCHOST$SCPERMIII         # mounted c1a perm on ecgate
+set ECPERMIII   /$SCHOST$SCPERMIII         # mounted c2a perm on ecgate
 set SCBASEDIR   $SCPERM/icon-dev/schedulers/ecmwf
 set ECBASEDIR   $ECPERM/icon-dev/schedulers/ecmwf
 set SCSOFT      /perm/ms/de/deia
@@ -47,7 +48,7 @@ set SCSOFT      /perm/ms/de/deia
 # LOGDIR, LOGPORT
 #username=`id -u`          #use user deia
 #port=$((35000+username))  #then port=36730
-set SCLOGDIR    /$SCHOST/tmp/ms/de/$ICON_ID/sms
+set SCLOGDIR    /scratch/ms/de/$ICON_ID/sms
 set SCLOGPORT   36730
 
 # place where suite and tasks are defined
@@ -78,7 +79,7 @@ set WAITINTVL    10
 set SMSTRIES      1
 
 # -------------------------------------------------
-set ICONNODES        16
+set ICONNODES        32
 set ICONTASKSPERNODE 32
 set ICONTHREADS       2
 # -------------------------------------------------
@@ -90,16 +91,16 @@ define on_ecgate {
 
 define on_ecgate_submit {
   label host "$HOST submit"
-  edit SMSCMD  "/usr/local/share/sms_submit      $ICON_ID $HOST %SMSJOB%"
-  edit SMSKILL "/usr/local/share/sms_kill        $ICON_ID $HOST %SMSRID% %SMSJOB%"
-  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $HOST %SMSRID% %SMSJOB%"
+  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID $HOST %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID $HOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $HOST %SMSRID% %SMSJOB%"
 }
 
 define on_hpc_parallel {
   label host "$SCHOST parallel"
-  edit SMSCMD  "/usr/local/share/sms_submit      $ICON_ID %SCHOST% %SMSJOB%"
-  edit SMSKILL "/usr/local/share/sms_kill        $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
-  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
   edit SMSOUT     ${SCLOGDIR}
   edit SMSLOGHOST ${SCHOST}
   edit SMSLOGPORT ${SCLOGPORT}
@@ -109,6 +110,12 @@ define on_hpc_parallel {
 
 define on_hpc_serial {
   edit SCJOBTYPE serial
+  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSOUT     ${SCLOGDIR}
+  edit SMSLOGHOST ${SCHOST}
+  edit SMSLOGPORT ${SCLOGPORT}
   edit SCJOBCLASS ns
   edit SCTOTALTASKS 1
   on_hpc_parallel
@@ -199,20 +206,6 @@ suite $USER
             event enable_build
             event enable_dumpstate
 
-        task get_data
-            trigger (setup == complete) and (../once == complete)
-            complete ($ENABLE_GET_DATA == 0)
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 02:00:00
-
-        task init_data
-            trigger (get_data == complete)
-            complete ($ENABLE_INIT_DATA == 0)
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 00:60:00
-            event compute_weights
-            event ifs2icon
-
         family build
             trigger (setup == complete) and (../once == complete)
 
@@ -233,8 +226,8 @@ suite $USER
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
-                edit SCTOTALTASKS 4
-                edit SCCPUS       4
+                edit SCTOTALTASKS 8
+                edit SCCPUS       8
                 edit SCMEM        6200MB
                 edit SCWALLCLOCKLIMIT 05:00:00
                 event configure
@@ -247,6 +240,22 @@ suite $USER
                 edit SCWALLCLOCKLIMIT 00:02:00
 
         endfamily
+
+        task get_data
+            trigger (setup == complete) and (../once == complete)
+            complete ($ENABLE_GET_DATA == 0)
+            on_hpc_serial
+            edit SCMEM        3000MB
+            edit SCWALLCLOCKLIMIT 02:00:00
+
+        task init_data
+            trigger (get_data == complete) and (build == complete)
+            complete ($ENABLE_INIT_DATA == 0)
+            on_hpc_parallel
+            edit ICONNODES         4
+            edit ICONTASKSPERNODE  4
+            edit ICONTHREADS       1
+            edit SCWALLCLOCKLIMIT 00:60:00
 
     endfamily
 

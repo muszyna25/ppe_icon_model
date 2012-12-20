@@ -49,7 +49,8 @@ MODULE mo_remap_weights
   USE mo_remap_intp,         ONLY: t_intp_data, t_intp_data_mt,               &
     &                              reduce_mthreaded_weights,                  &
     &                              allocate_intp_data,  deallocate_intp_data, &
-    &                              merge_heaps, sync_foreign_wgts
+    &                              merge_heaps, sync_foreign_wgts,            &
+    &                              resize_intp_data_mthreaded
  
   IMPLICIT NONE
 
@@ -479,6 +480,9 @@ CONTAINS
       ! weight for foreign PE:
       nn = intp_data1%nforeign + 1
       intp_data1%nforeign = nn
+      IF (nn > SIZE(intp_data1%foreign_wgt)) THEN
+        CALL resize_intp_data_mthreaded(intp_data1)
+      END IF
       intp_data1%foreign_wgt(nn) = t_heap_data(wgt, jc_src,jb_src, jc_dst,jb_dst)
       intp_data1%foreign_pe (nn) = grid1%owner_c(idx_cov)
     END IF
@@ -528,7 +532,7 @@ CONTAINS
         c_blk = grid2%index_list%clist_blk( idx_no(iidx), blk_no(iidx), ilist )
 
         nsegments = 0  ! start index in segment list
-        coord_transform = LIST_DEFAULT
+        coord_transform = ilist
         ! loop over cell edges:
         DO iedge=1,grid2%p_patch%cell_type
 
@@ -586,10 +590,12 @@ CONTAINS
 
   !> Computes interpolation weights.
   !
-  SUBROUTINE prepare_interpolation(grid1, grid2, grid1_cov, grid2_cov, intp_data1, intp_data2)
+  SUBROUTINE prepare_interpolation(grid1, grid2, grid1_cov, grid2_cov, intp_data1, intp_data2, &
+    &                              max_nforeign)
     TYPE (t_grid),     INTENT(INOUT) :: grid1, grid2            !< local grid partition
     TYPE (t_grid),     INTENT(INOUT) :: grid1_cov, grid2_cov    !< local grid partition coverings
     TYPE(t_intp_data), INTENT(INOUT) :: intp_data1, intp_data2  !< interpolation coefficients (result)
+    INTEGER,           INTENT(IN)    :: max_nforeign            !< upper bounds for size of weight storage for other PEs
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation')
     TYPE (t_intp_data_mt) :: intp_data1_mt, intp_data2_mt
@@ -628,8 +634,8 @@ CONTAINS
     CALL compute_coordinate_transform(grid2_cov, LIST_SPOLE)
 
     ! allocate thread-safe data structure for interpolation weights
-    CALL allocate_intp_data(intp_data1_mt, nthreads)
-    CALL allocate_intp_data(intp_data2_mt, nthreads)
+    CALL allocate_intp_data(intp_data1_mt, nthreads, max_nforeign)
+    CALL allocate_intp_data(intp_data2_mt, nthreads, max_nforeign)
 
     ! allocate lookup tables
     CALL allocate_lookup_tables(grid1, grid2, nthreads)

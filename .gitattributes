@@ -1339,7 +1339,6 @@ src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
-src/prep_icon/mo_prepicon_old.f90 -text
 src/prep_icon/mo_prepicon_types.f90 -text
 src/prep_icon/mo_prepicon_utils.f90 -text
 src/prep_icon/mo_remap.f90 -text
@@ -1465,6 +1464,7 @@ src/testcases/mo_nh_lim_area_testcases.f90 -text
 src/testcases/mo_nh_mrw_exp.f90 -text
 src/testcases/mo_nh_pa_test.f90 -text
 src/testcases/mo_nh_testcases.f90 -text
+src/testcases/mo_nh_torus_exp.f90 -text
 src/testcases/mo_nh_wk_exp.f90 -text
 src/testcases/mo_pa_test.f90 -text
 src/testcases/mo_rh_test.f90 -text

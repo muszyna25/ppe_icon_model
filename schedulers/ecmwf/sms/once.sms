@@ -22,7 +22,7 @@
 
 echo "ONCE.SMS"
 
-# Create setup directory on c1a and copy ICON namelist there
+# Create setup directory on c2a and copy ICON namelist there
  
 if [ %NENS% -eq 0 ]
 then 

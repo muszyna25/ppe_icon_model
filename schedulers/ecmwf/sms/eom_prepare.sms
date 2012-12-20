@@ -25,7 +25,9 @@ echo "EOM_PREPARE.SMS"
 module load python
 module load netcdf
 module load grib_api
-cdo='%SCSOFT%/software/cdo-1.5.4_build/bin/cdo'
+#cdo='%SCSOFT%/software/cdo-1.5.4_build/bin/cdo'
+module load cdo
+## module load cdo/1.5.4  # to get specific version
 
 
 lecget=1
@@ -92,7 +94,7 @@ for levtype1 in PL HL ML; do
     if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-      export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+      export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
 
       mkdir -p grb_data
       if [[ ${levtype1} = 'HL' ]] ; then
@@ -193,10 +195,10 @@ if [[ $lcatdata = 1 ]] ; then
     cat ${base}*_DOM01_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
     cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
 
-    $cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
-    $cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
-    $cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
-    $cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
+    cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
+    cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
+    cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
+    cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
 
     grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb

@@ -44,7 +44,7 @@ MODULE mo_util_netcdf
 
   USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: message, finish, em_warn
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
@@ -265,6 +265,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by F. Prill, DWD (2012-02-15)
+  !! Optional switch to read 3D field in 2D slices: F. Prill, DWD (2012-12-19)
   !!
   SUBROUTINE read_netcdf_3d_single (ncid, varname, glb_arr_len, &
     &                               loc_arr_len, glb_index, &
@@ -285,12 +286,45 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_util_netcdf:read_netcdf_3d_single'
 
-    INTEGER :: varid, mpi_comm, j, jl, jb, jk
-    REAL(sp):: z_dummy_array(glb_arr_len,nlevs)!< SINGLE PRECISION local array
-  !-------------------------------------------------------------------------
+    ! enable this flag to use a 3d buffer (which may be faster)
+    LOGICAL, PARAMETER :: luse3dbuffer = .FALSE.
+
+    ! time level (fixed)
+    INTEGER, PARAMETER :: itime = 1
+
+    INTEGER :: varid, mpi_comm, j, jl, jb, jk, &
+      &        istart(3), icount(3), ierrstat, &
+      &        dimlen(3), dims(3)
+    ! SINGLE PRECISION local array
+    REAL(sp), ALLOCATABLE:: tmp_buf(:,:)
+
+    !-------------------------------------------------------------------------
+
+    ! allocate temporary buffer:
+    IF (luse3dbuffer) THEN
+      ALLOCATE(tmp_buf(glb_arr_len,nlevs), STAT=ierrstat)
+    ELSE
+      ALLOCATE(tmp_buf(glb_arr_len,1), STAT=ierrstat)
+    END IF
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) THEN
+      CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+
+      ! Check variable dimensions:
+      CALL nf(NF_INQ_VARDIMID(ncid, varid, dims(:)), routine)
+      DO j=1,3
+        CALL nf(NF_INQ_DIMLEN  (ncid, dims(j), dimlen(j)), routine)
+      END DO
+      IF ((dimlen(1) /= glb_arr_len) .OR.  &
+        & (dimlen(2) /= nlevs)) THEN
+        CALL finish(routine, "Incompatible dimensions!")
+      END IF
+    END IF
+
+    ! initialize output field:
+    var_out(:,:,:) = 0._wp
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -299,25 +333,51 @@ CONTAINS
     ENDIF
 
     ! I/O PE reads and broadcasts data
+    IF (luse3dbuffer) THEN
+      !-- 3D buffer implementation
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_real(ncid, varid, z_dummy_array(:,:)), routine)
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+      IF(my_process_is_stdio()) THEN
+        CALL nf(nf_get_var_real(ncid, varid, tmp_buf(:,:)), routine)
+      END IF
+      ! broadcast data: 
+      CALL p_bcast(tmp_buf, p_io, mpi_comm)
+      ! Set var_out from global data
+      DO jk = 1, nlevs
+        DO j = 1, loc_arr_len
+          jb = blk_no(j) ! Block index in distributed patch
+          jl = idx_no(j) ! Line  index in distributed patch
+          var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),jk), wp)
+        ENDDO
+      ENDDO
 
-    var_out(:,:,:) = 0._wp
+    ELSE
+      !-- 2D buffer implementation
 
-    ! Set var_out from global data
-     DO jk = 1, nlevs
-       DO j = 1, loc_arr_len
+      icount = (/ glb_arr_len,1,1 /)
+      DO jk=1,nlevs
+        istart = (/ 1,jk,itime /)
+        IF(my_process_is_stdio()) THEN
+          CALL nf(nf_get_vara_real(ncid, varid, &
+            &     istart, icount, tmp_buf(:,:)), routine)
+        END IF
 
-         jb = blk_no(j) ! Block index in distributed patch
-         jl = idx_no(j) ! Line  index in distributed patch
-               
-         var_out(jl,jk,jb) = REAL(z_dummy_array(glb_index(j),jk), wp)
+        ! broadcast data: 
+        CALL p_bcast(tmp_buf, p_io, mpi_comm)
+        ! Set var_out from global data
+        DO j = 1, loc_arr_len
+          jb = blk_no(j) ! Block index in distributed patch
+          jl = idx_no(j) ! Line  index in distributed patch
+          var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),1), wp)
+        ENDDO
+      END DO ! jk=1,nlevs
+      
+    END IF
+    
+    ! clean up
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-       ENDDO
-     ENDDO
-
-   END SUBROUTINE read_netcdf_3d_single
+  END SUBROUTINE read_netcdf_3d_single
 
 
   !-------------------------------------------------------------------------

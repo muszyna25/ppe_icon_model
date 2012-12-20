@@ -55,7 +55,7 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
     &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
-    &                              RAYLEIGH_CLASSIC 
+    &                              RAYLEIGH_CLASSIC, MODE_REMAP
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -105,7 +105,7 @@ MODULE mo_nml_crosscheck
     & testbed_process,  atmo_process, ocean_process, radiation_process
   
   USE mo_art_config,         ONLY: art_config
-  USE mo_prepicon_config,    ONLY: i_oper_mode, MODE_REMAP
+  USE mo_prepicon_config,    ONLY: i_oper_mode, l_sfc_in
 
   IMPLICIT NONE
 
@@ -343,6 +343,9 @@ CONTAINS
 
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
       'Currently only the hexagon model can run on a plane')
+
+    IF (is_plane_torus .AND. global_cell_type==6) CALL finish( TRIM(routine),&
+      'Currently only the triangular model can run on a plane torus')
 
     IF (global_cell_type==6.AND.idiv_method==2) THEN
       CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model')
@@ -859,6 +862,17 @@ CONTAINS
         & "because global 'timers_level' is > 9."
       CALL message('io_namelist', TRIM(message_text))
     END IF
+
+
+    !--------------------------------------------------------------------
+    ! Realcase runs
+    !--------------------------------------------------------------------
+    IF (.NOT. ltestcase .AND. iforcing == inwp .AND.                     &
+      &  atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
+        CALL finish('atm_crosscheck','A real-data run with surface scheme &
+                    &requires surface input data')
+    ENDIF
+
 
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)

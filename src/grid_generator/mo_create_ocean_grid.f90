@@ -79,6 +79,7 @@ MODULE mo_create_ocean_grid
   REAL(wp) :: set_min_sea_depth = 0.0_wp ! if negative, min depth will be set to this
   LOGICAL  :: only_get_sea_land_mask = .false.
   LOGICAL  :: smooth_ocean_boundary = .true.
+  LOGICAL  :: write_all_levels = .false.
   CHARACTER(LEN=filename_max) :: input_file  ! the input grid file
   INTEGER :: refine_iterations
   ! the netcdf file where elevations ares stored, and the related field name
@@ -114,7 +115,7 @@ CONTAINS
     NAMELIST /create_ocean_grid/ input_file, elevation_file, elevation_field, &
       & output_atmo_file, min_sea_depth, set_sea_depth, set_min_sea_depth, &
       & edge_elev_interp_method, only_get_sea_land_mask, output_ocean_file, &
-      & smooth_ocean_boundary, refine_iterations 
+      & smooth_ocean_boundary, refine_iterations, write_all_levels 
     !------------------------------------------------------------------------
     ! set default values
     parameter_file_name = param_file_name
@@ -196,7 +197,8 @@ CONTAINS
     INTEGER :: init_grid_id, ocean_grid_id, refined_grid_id
     TYPE(t_integer_list) :: sea_cell_list
 
-    INTEGER :: no_of_conditions, i
+    CHARACTER(LEN=filename_max) :: file_name
+    INTEGER :: no_of_conditions, i, level
 
     ! read initial grid and elevation
     init_grid_id = read_new_netcdf_grid(input_file)
@@ -243,13 +245,19 @@ CONTAINS
     ! write the initial ocean_grid_id grid with the sea-land mask
     ! CALL write_netcdf_grid(ocean_grid_id, output_ocean_file)
 
-   !------------------------------------------------------------------------
+    !------------------------------------------------------------------------
     ! refine initial grid
     DO i=1, refine_iterations
       refined_grid_id = refine_grid_edgebisection(init_grid_id)
       CALL set_grid_parent_id(refined_grid_id,0)
       CALL delete_grid(init_grid_id)
       CALL optimize_grid(refined_grid_id)
+      
+      IF (write_all_levels) THEN
+        level = get_grid_level(refined_grid_id)
+        WRITE(file_name,'(a,i2.2,a)')  TRIM(output_ocean_file), level, ".nc"
+        CALL write_netcdf_grid(refined_grid_id, file_name)
+      ENDIF
       
       init_grid_id = refined_grid_id
     ENDDO
@@ -268,21 +276,31 @@ CONTAINS
     !------------------------------------------------------------------------
 
     IF (.NOT. only_get_sea_land_mask) THEN
+    
       IF ( .NOT. smooth_ocean_boundary) &   ! if  smooth_ocean_boundary the  sea_cell_list is filled      
         & sea_cell_list = get_ocean_cell_list_from_depth(init_grid_id)
+      
+      CALL grid_set_parents_from(init_grid_id, parents_from_parentpointers)
       ocean_grid_id = get_grid_from_cell_list(init_grid_id, sea_cell_list)
       CALL delete_grid(init_grid_id)
+      
     ELSE
       ocean_grid_id=init_grid_id
     ENDIF
     !------------------------------------------------------------------------
     
-    CALL create_grid_hierarchy(ocean_grid_id)
+   ! CALL create_grid_hierarchy(ocean_grid_id)
     CALL set_edge_elev_fromcells(ocean_grid_id, edge_elev_interp_method)
 !     CALL fill_edges_sea_land_mask(ocean_grid_id)
     CALL check_ocean_grid_mask(ocean_grid_id)
     CALL set_boundary_edges_tozero(ocean_grid_id)
-    CALL write_netcdf_grid(ocean_grid_id, output_ocean_file)
+    IF (write_all_levels) THEN
+      level = get_grid_level(ocean_grid_id)
+      WRITE(file_name,'(a,i2.2,a)')  TRIM(output_ocean_file), level, ".nc"
+    ELSE
+      file_name=output_ocean_file
+    ENDIF
+    CALL write_netcdf_grid(ocean_grid_id, file_name)
     !CALL message('get_ocean_vertical_strc..','')
     !CALL get_ocean_vertical_strc(refined_grid_id)
     CALL delete_grid(ocean_grid_id)

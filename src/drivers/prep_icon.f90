@@ -33,12 +33,11 @@
 !!
 PROGRAM prep_icon
 
-  USE mo_prepicon_old,          ONLY: prepicon_main
-  USE mo_prepicon_config,       ONLY: i_oper_mode, MODE_GENERATE_COORDS, MODE_CONVERTIFS, &
-    &                                 MODE_VERTINTERP, MODE_REMAP
+  USE mo_prepicon_config,       ONLY: i_oper_mode
   USE mo_exception,             ONLY: message, finish
   USE mo_run_config,            ONLY: iforcing
-  USE mo_impl_constants,        ONLY: inwp
+  USE mo_impl_constants,        ONLY: inwp, MODE_DWDANA, MODE_IFSANA, MODE_COMBINED, &
+    &                                 MODE_REMAP 
   USE mo_extpar_config,         ONLY: itopo
   USE mo_parallel_config,       ONLY: l_test_openmp, num_io_procs, p_test_run
   USE mo_master_nml,            ONLY: lrestart, read_master_namelist
@@ -131,8 +130,8 @@ PROGRAM prep_icon
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
 
     SELECT CASE(i_oper_mode)
-    CASE (MODE_GENERATE_COORDS, MODE_CONVERTIFS, MODE_VERTINTERP)
-      CALL prepicon_main
+    CASE (MODE_DWDANA, MODE_IFSANA, MODE_COMBINED)
+      CALL finish("prep_icon", "Invalid operation mode!")
     CASE (MODE_REMAP) 
       CALL remap_main(TRIM(namelist_filename))
     CASE DEFAULT

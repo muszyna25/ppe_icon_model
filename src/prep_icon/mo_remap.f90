@@ -63,8 +63,9 @@ MODULE mo_remap
   PRIVATE
   PUBLIC :: remap_main
 
-  INTEGER,  PARAMETER :: rank0     = 0 !< Input process rank
-  INTEGER,  PARAMETER :: rank0_out = 0 !< Output process rank
+  INTEGER,  PARAMETER :: rank0        = 0 !< Input process rank
+  INTEGER,  PARAMETER :: rank0_out    = 0 !< Output process rank
+  INTEGER,  PARAMETER :: min_nforeign = 50000
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap'
 
@@ -99,7 +100,9 @@ CONTAINS
       &                       time_comm_tot, time_read_tot,      &
       &                       time_intp_tot, time_write_tot
 
-    INTEGER                :: ilev, maxblk, maxblks
+    INTEGER                :: ilev, maxblk, maxblks, fac,        &
+      &                       max_nforeignA, max_nforeignB,      &
+      &                       max_nforeign
     REAL                   :: time_intp
     REAL(wp), ALLOCATABLE  :: tmp_rfield3D(:,:,:)
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::remap_main'
@@ -162,8 +165,23 @@ CONTAINS
     ! free global grids, they are no longer needed:
     CALL finalize_grid(gridA_global, gridB_global)
 
+    ! estimate the number of cells of a covering which are foreign to
+    ! the local process (needed to set the dimension of a list which
+    ! will be communicated):
+    fac = 10 ! safety factor (>= 1)
+    max_nforeignA = fac * gridB_cov%p_patch%n_patch_cells * &
+      &   ((lat_range(IMAX) - lat_rangeA(IMAX)) + (lat_rangeA(IMIN) - lat_range(IMIN))) / &
+      &   (lat_range(IMAX) - lat_range(IMIN))
+    max_nforeignB = fac * gridA_cov%p_patch%n_patch_cells * &
+      &   ((lat_range(IMAX) - lat_rangeB(IMAX)) + (lat_rangeB(IMIN) - lat_range(IMIN))) / &
+      &   (lat_range(IMAX) - lat_range(IMIN))
+    max_nforeign = MAX(min_nforeign, MAX(max_nforeignA, max_nforeignB))
+
     ! performance measurement: stop
-    IF (dbg_level >= 2)  WRITE (0,*) "# > partitioning grids: elapsed time: ", toc(time_s), " sec."
+    IF (dbg_level >= 2)  THEN
+      WRITE (0,*) "# > partitioning grids: elapsed time: ", toc(time_s), " sec."
+      WRITE (0,*) "# allocating ", max_nforeign, " foreign weights."
+    END IF
 
     ! --------------------------------------------------------------------------
     ! compute weights
@@ -189,7 +207,7 @@ CONTAINS
 
     ! compute interpolation weights
     CALL prepare_interpolation(gridA, gridB, gridA_cov, gridB_cov, &
-      &                        intp_data_A, intp_data_B)
+      &                        intp_data_A, intp_data_B, max_nforeign)
 
     ! performance measurement: stop
     IF (dbg_level >= 2)  WRITE (0,*) "# > weight computation: elapsed time: ", toc(time_s), " sec."
@@ -285,8 +303,8 @@ CONTAINS
     DEALLOCATE(tmp_rfield3D)
 
     ! performance measurement: stop
-    IF (dbg_level >= 2)  WRITE (0,*) "# > interpolation and output: elapsed time: ", toc(time_s), " sec."
     IF (dbg_level >= 2) THEN
+      WRITE (0,*) "# > interpolation and output: elapsed time: ", toc(time_s), " sec."
       WRITE (0,*) "#     comm:  ", time_comm_tot,  " sec."
       WRITE (0,*) "#     read:  ", time_read_tot,  " sec."
       WRITE (0,*) "#     intp:  ", time_intp_tot,  " sec."

@@ -139,9 +139,9 @@ CONTAINS
             ! lat > 0, sens > 0, LWnet >0 , SWin > 0  for downward flux 
             ! dlatdT, dsensdT, dLWdT >0 for downward flux increasing with increasing Tsurf
             
-            B = -Qatm%dlatdT(jc,k,jb) - Qatm%dsensdT(jc,k,jb) - Qatm% dLWdT(jc,k,jb)       ! Eq.  8
-            A = -Qatm%lat(jc,k,jb) - Qatm%sens(jc,k,jb) - Qatm%LWnet(jc,k,jb)   &
-              &   - ( 1.0_wp - ice% alb(jc,k,jb) )*( 1._wp - I )*Qatm%SWin(jc,jb)  &
+            B = -Qatm%dlatdT(jc,k,jb) - Qatm%dsensdT(jc,k,jb) - Qatm%dLWdT(jc,k,jb)        ! Eq.  8
+            A = -Qatm%lat(jc,k,jb) - Qatm%sens(jc,k,jb) - Qatm%LWnet(jc,k,jb)     &
+              &   - ( 1.0_wp - ice%alb(jc,k,jb) )*( 1._wp - I )*Qatm%SWin(jc,jb)  &
               &   - ice%Tsurf(jc,k,jb)*B                                                   ! Eq.  7
 
             K1 =  4.0_wp*ki*ks/( ks*ice%hi(jc,k,jb) + 4.0_wp*ki*ice%hs(jc,k,jb) )          ! Eq.  5
@@ -177,21 +177,18 @@ CONTAINS
               ice%T1(jc,k,jb) = -( B1 + SQRT( B1*B1 - 4.0_wp*A1*C1 ) )/( 2.0_wp*A1 )       ! Eq. 21
               ice%Tsurf(jc,k,jb) = Tsurfm
 
-              ! Sum up heatfluxes available for melting at ice surface for each atmopheric time step.
-              ! ice%Qtop will be averaged in ave_fluxes
-              ice%Qtop(jc,k,jb) = ice%Qtop(jc,k,jb)                           &
-                &               + K1*( ice%T1(jc,k,jb) - ice%Tsurf(jc,k,jb) ) &
-                &               - ( A + B*ice%Tsurf(jc,k,jb) )                             ! Eq. 22
+              ! Heatfluxes available for melting at ice surface for each atmopheric time step.
+              ice%Qtop(jc,k,jb) = + K1*( ice%T1(jc,k,jb) - ice%Tsurf(jc,k,jb) ) &
+                &                                       - ( A + B*ice%Tsurf(jc,k,jb) )     ! Eq. 22
             END IF
      
             ice%T2(jc,k,jb) = ( 2.0_wp*dtime*K2*( ice%T1(jc,k,jb) + 2.0_wp*Tfw(jc,k,jb) ) &
               &                              + rhoi*ice%hi(jc,k,jb)*ci*ice%T2(jc,k,jb) )*D ! Eq. 15
 
-            ! Sum up conductive heatflux at ice-ocean interface for each atmospheric time step. ice%Qtop
-            ! will be averaged in ave_fluxes The ocean heat flux is calculated at the beginning of
-            ! ice_growth
-            ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) &
-              &            -4.0_wp*Ki*( Tfw(jc,k,jb) - ice%T2(jc,k,jb) )/ice%hi(jc,k,jb)   ! Eq. 23
+            ! Conductive heatflux at ice-ocean interface for each atmospheric time step.
+            ! The ocean heat flux is calculated at the beginning of ice_growth
+            ice%Qbot(jc,k,jb) = -4.0_wp*Ki*( Tfw(jc,k,jb) - ice%T2(jc,k,jb) ) &
+              &                                                         /ice%hi(jc,k,jb)   ! Eq. 23
           END IF
         END DO
       END DO

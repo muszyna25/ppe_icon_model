@@ -1479,6 +1479,7 @@ DO jg = n_dom_start, n_dom
 
   CALL complete_patchinfo( ptr_patch(jg), ptr_int_state(jg))
   CALL init_geo_factors(ptr_patch(jg), ptr_int_state(jg))
+
   IF (ptr_patch(jg)%cell_type==3)THEN
     CALL init_cellavg_wgt(ptr_patch(jg), ptr_int_state(jg))
     CALL bln_int_coeff_e2c( ptr_patch(jg), ptr_int_state(jg) )

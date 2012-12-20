@@ -7,172 +7,341 @@
 
   This script is part of the ICON SMS suite
   Initial implementation: F. Prill, DWD (2012-05-07)
+  2012-12-19: upgrade to prepicon instead of IFS2ICON (Martin Koehler)
 
   Corresponding author:
     Florian Prill, DWD, mailto:florian.prill@dwd.de
 
   Task objectives:
-  - retrieve IFS data from MARS 
+  - convert IFS data to ICON input
 %end
 
 # include the header file for remote jobs
-%include <init_job.h> 
+%include <init_icon_job.h> 
 
 # -------------------------------------------------
 
 
 echo "INIT_DATA.SMS"
 
-module load python
 
 if [ %NENS% -gt 0 ]
   then DIRENS=/%NMEM%
   else DIRENS=''
 fi
+if [ %NENS% -gt 0 ]
+  then TXTENS=_%NMEM%
+  else TXTENS=''
+fi
 
-IFSCONFIGFILE=%SCBASEDIR%/gen/ifs2icon_1279.conf
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon${DIRENS}
-IFSCELLDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon/cellweights
-IFSDATAOUTDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+# grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
-CDOBIN=%SCSOFT%/software/cdo-1.5.4_build/bin/cdo
-RUBYBIN=%SCSOFT%/software/ruby-1.9.3-p125/ruby
-IFS2ICON=%SCPERM%/icon-dev/scripts/preprocessing/ifs2icon.rb
+# ifsdir for IFS initial condition
+ifsdir=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+# base directory for model output
+outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 
+mkdir -p ${ifsdir}
+cd ${ifsdir}
 
-export CDOBIN
 # Important: ==================================
 # export the DWD GRIB short names:
-export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
 # =============================================
 
+IFS_FILENAME="ifs_oper_*_%YMD%%INIHOUR%.grb"
+res=`ls ${IFS_FILENAME} | cut -c 10-13`
+IFS_FILENAME="${ifsdir}/ifs_oper_${res}_%YMD%%INIHOUR%.grb"
 
-# Change directory ----------------------------
-#smsevent change_dir
-cd ${IFSDATADIR}
+ln -sf $GRIDDIR/icon*DOM*.nc .
 
-# create directories, if necessary
-mkdir -p ${IFSCELLDIR}
-#if [ ! -d ${IFSDATAOUTDIR} ]; then
-mkdir -p ${IFSDATAOUTDIR}
-#fi
+#set +x
 
-# move grib file to IFS2ICON directory
-mv ${IFSDATADIR}/ifs_oper_T255_%YMD%%INIHOUR%.grb ${IFSDATAOUTDIR}
-IFS_FILENAME="${IFSDATAOUTDIR}/ifs_oper_T255_%YMD%%INIHOUR%.grb"
+# -------------------------------------------------
 
-module unload cdo
-module load cdo/1.5.0
 
-# The following environment variable is important for the "cdo splitname" command (Otherwise: "Not enough space")
-export LDR_CNTRL=MAXDATA=0xD0000000@DSA
+export MP_WAIT_MODE=poll
+export MP_LABELIO=yes
+export MP_SHARED_MEMORY=yes
+export MP_ADAPTER_USE=shared
+export MP_INFOLEVEL=2
+export XLFRTEOPTS=err_recovery=no
 
-   
-# Compute weights for ifs2icon ----------------
+export ICON_THREADS=%ICONTHREADS%
+export OMP_STACKSIZE=400M
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export NC_BLOCKSIZE=128mb
 
-if [ -f "${IFSCELLDIR}/initialized.flag" ];
-then
-   echo "CDO cell weights already computed!"
-else
-   smsevent compute_weights
-   cd ${IFSCELLDIR}
+export F_PROGINF=DETAIL
 
-   # clean up:
-   find ${IFSCELLDIR} -name "*.nc" -exec rm {} \;
+# -------------------------------------------------
 
-   # Build a temporary shell script for CDO processing
 
-cat > ${IFSCELLDIR}/create_cellweights << EOF
-#!/bin/ksh
-set -x
-# cut path from file name
-CW_FILE_OUT=\`echo \$1 | awk -F/ '{print \$NF}'\`
-# process grid file:
-echo "Processing \$1..."
-# Note: We need a "cdo" here which has GRIB_API
-#       support compiled in.
-${CDOBIN} gencon,\$1 ${IFS_FILENAME} \${CW_FILE_OUT}
-echo "done."
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+
+# the namelist filename
+atmo_namelist=NAMELIST_${basename}
+
+
+# ---------------------------
+# create ICON master namelist
+# ---------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart                     = .FALSE.
+/
+&time_nml
+ ini_datetime_string          = "$start_date"
+ dt_restart                   = $dt_restart
+/
+&master_model_nml
+  model_type                  = 1
+  model_name                  = "ATMO"
+  model_namelist_filename     = "$atmo_namelist"
+  model_restart_info_filename = ""
+  model_min_rank              = 1
+  model_max_rank              = 65536
+  model_inc_rank              = 1
+/
 EOF
 
-   chmod +x ${IFSCELLDIR}/create_cellweights
 
-   find ${GRIDDIR} -name "*.nc" -exec ${IFSCELLDIR}/create_cellweights {} \;
+# ------------------------------
+# write ICON namelist parameters
+# ------------------------------
 
-  #rm ${IFSCELLDIR}/create_cellweights
-   touch "initialized.flag"
-   cd ${IFSDATADIR}
-fi
+# For a complete list see Namelist_overview and Namelist_overview.pdf
 
-
-# Prepare IFS data for ICON -------------------
-
-smsevent ifs2icon 
-
-cd ${TMPDIR}
-export INPUTFILE=${IFS_FILENAME}
-
-   # Build a temporary shell script for IFS2ICON processing
-
-cat > run_ifs2icon << EOF
-#!/bin/ksh
-set -x
-# cut path from file name
-GRIDFILENAME=\`echo \$1 | awk -F/ '{print \$NF}'\`
-# do not process DOM00 (reduced radiation grid):
-if [[ "\${GRIDFILENAME}" == *DOM00.nc ]]
-then
-  echo "Skipping reduced radiation grid \${GRIDFILENAME}"
-else
-    # set environment variables for Ruby script:
-    export INPUTFILE=${IFS_FILENAME}
-    export OUTPUTFILE=${IFSDATAOUTDIR}/ifs2icon_\${GRIDFILENAME}
-    export GRIDFILE=${GRIDDIR}/\${GRIDFILENAME}
-    export CELLWEIGHTFILE=${IFSCELLDIR}/\${GRIDFILENAME}
-    # process grid file:
-    echo "IFS2ICON: Processing \$1..."
-    ${RUBYBIN} ${IFS2ICON} -c ${IFSCONFIGFILE}
-fi
-echo "done."
+cat > NAMELIST_PREPICON << EOF
+&parallel_nml
+ nproma                       = 10
+/
+&prepicon_nml
+ i_oper_mode                  = 4
+/
+! interpolation regular grid-> ICON
+&remap_nml
+ in_grid_filename             = "${IFS_FILENAME}"
+ in_filename                  = "${IFS_FILENAME}"
+ in_type                      = 1
+ out_grid_filename            = "iconR2B06_DOM01.nc"
+ out_filename                 = "ifs2icon_R2B06_DOM01.nc"	
+ out_type                     = 2
+ s_maxsize                    = 500000
+ l_have3dbuffer               = .false.
+ in_file_gribedition          = 2
+/
+! DEFINITIONS FOR IFS INPUT DATA
+!
+&input_field_nml  ! temperature
+ inputname      = "T"         
+ outputname     = "T"          
+ code           = 130          
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! horiz. wind comp. u
+ inputname      = "U"         
+ outputname     = "U"
+ code           = 131          
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! horiz. wind comp. v
+ inputname      = "V"         
+ outputname     = "V"
+ code           = 132          
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA" 
+ outputname     = "W"
+ code           = 135
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! surface pressure
+ inputname      = "LNSP"
+ outputname     = "LNPS" 
+ code           = 152
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! geopotential
+ inputname      = "Z"
+ outputname     = "GEOSP" 
+ code           = 129
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! geopotential
+ inputname      = "FI"
+ outputname     = "GEOP_H" 
+ code           = 129
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! specific humidity
+ inputname      = "QV"
+ outputname     = "QV" 
+ code           = 133
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC" 
+ code           = 246
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI" 
+ code           = 247 
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR" 
+ code           = 75 
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS" 
+ code           = 76
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! ozone mixing ratio
+ inputname      = "O3"
+ outputname     = "O3" 
+ code           = 203
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! snow temperature
+ inputname      = "TSN"
+ outputname     = "T_SNOW" 
+ code           = 238
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! water content of snow
+ inputname      = "SD"
+ outputname     = "W_SNOW" 
+ code           = 141
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! density of snow
+ inputname      = "RSN"
+ outputname     = "RHO_SNOW" 
+ code           = 33
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! snow albedo
+ inputname      = "ASN"
+ outputname     = "ALB_SNOW" 
+ code           = 32
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! skin temperature
+ inputname      = "SKT"
+ outputname     = "SKT" 
+ code           = 235
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! sea surface temperature
+ inputname      = "SST"
+ outputname     = "SST" 
+ code           = 34
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil temperature level 1
+ inputname      = "STL1"
+ outputname     = "STL1" 
+ code           = 139
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil temperature level 2
+ inputname      = "STL2"
+ outputname     = "STL2" 
+ code           = 170
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil temperature level 3
+ inputname      = "STL3"
+ outputname     = "STL3" 
+ code           = 183
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil temperature level 4
+ inputname      = "STL4"
+ outputname     = "STL4" 
+ code           = 236
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! sea-ice cover
+ inputname      = "CI"
+ outputname     = "CI" 
+ code           = 31
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! water cont. of interception storage
+ inputname      = "SRC"
+ outputname     = "W_I" 
+ code           = 198 
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! surface roughness
+ inputname      = "SR"
+ outputname     = "Z0" 
+ code           = 173
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! Land/sea mask
+ inputname      = "LSM"
+ outputname     = "LSM" 
+ code           = 172 
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil moisture index layer 1
+ inputname      = "SWVL1"
+ outputname     = "SMIL1" 
+ code           = 80
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil moisture index layer 2
+ inputname      = "SWVL2"
+ outputname     = "SMIL2" 
+ code           = 81
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil moisture index layer 3
+ inputname      = "SWVL3"
+ outputname     = "SMIL3" 
+ code           = 82
+ type_of_layer  = "surface" 
+/
+&input_field_nml  ! soil moisture index layer 4
+ inputname      = "SWVL4"
+ outputname     = "SMIL4" 
+ code           = 83
+ type_of_layer  = "surface" 
+/
 EOF
-
-chmod +x run_ifs2icon
-find ${GRIDDIR} -name "*.nc" -exec ./run_ifs2icon {} \;
-
-rm run_ifs2icon
+ 
+# -------------------------------------------------
 
 
-# Rename the resulting files ------------------
-# (otherwise ICON does not recognize them)
+cp -p ${outbasedir}/bin/prep_icon ./prep_icon
 
-   # Build a temporary shell script
-
-cat > do_rename << EOF
-#!/bin/ksh
-set -x
-# cut path from file name
-GRIDFILENAME=\`echo \$1 | awk -F/ '{print \$NF}'\`
-# do not process DOM00 (reduced radiation grid):
-if [[ "\${GRIDFILENAME}" == *DOM00.nc ]]
-then
-  echo "Skipping reduced radiation grid \${GRIDFILENAME}"
-else
-    # original name of IFS2ICON result
-    IFS2ICONNAME="ifs2icon_\${GRIDFILENAME}"
-    # generate new file name
-    NEW_FILENAME=\`echo \${IFS2ICONNAME} | awk '{str=\$0;sub(/ifs2icon_icon/,"ifs2icon_",str);print str;}'\`
-    # rename file
-    mv ${IFSDATAOUTDIR}/\${IFS2ICONNAME} ${IFSDATAOUTDIR}/\${NEW_FILENAME}
-    # give status output
-    ${CDOBIN} infov ${IFSDATAOUTDIR}/\${NEW_FILENAME}
-fi
-EOF
-
-chmod +x do_rename
-find ${GRIDDIR} -name "*.nc" -exec do_rename {} \;
-
-rm do_rename
-
+echo "job::start"
+date
+export USE_SIGNAL_HANDLING=yes
+./prep_icon
+echo "job::end"
+date
 
 # -------------------------------------------------
 

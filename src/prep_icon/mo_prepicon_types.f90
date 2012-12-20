@@ -60,7 +60,6 @@ MODULE mo_prepicon_types
   PUBLIC :: t_pi_atm_in
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
-  PUBLIC :: t_pi_diag
   PUBLIC :: t_pi_sfc
 
 
@@ -96,15 +95,6 @@ MODULE mo_prepicon_types
 
 
   !
-  TYPE :: t_pi_diag
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:)     :: levels
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: u, v, temp, pres, qv, z3d
-
-  END TYPE t_pi_diag
-
-
-  !
   TYPE :: t_pi_sfc
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst,  snowalb, snowweq, snowdens, &
@@ -127,8 +117,6 @@ MODULE mo_prepicon_types
     TYPE (t_pi_atm_in) :: atm_in
     TYPE (t_pi_sfc_in) :: sfc_in
     TYPE (t_pi_atm)    :: atm
-    TYPE (t_pi_diag)   :: plev
-    TYPE (t_pi_diag)   :: zlev
     TYPE (t_pi_sfc)    :: sfc
 
   END TYPE t_prepicon_state

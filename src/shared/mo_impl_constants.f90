@@ -452,6 +452,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
   INTEGER, PARAMETER :: VINTP_METHOD_LIN_NLEVP1 = 5
 
+  !----- init ICON operation modes -----
+  INTEGER, PARAMETER :: MODE_DWDANA      = 1
+  INTEGER, PARAMETER :: MODE_IFSANA      = 2
+  INTEGER, PARAMETER :: MODE_COMBINED    = 3
+  INTEGER, PARAMETER :: MODE_REMAP       = 4 
+
+
   !----------------!
   !  MODEL OUTPUT  !
   !----------------!
@@ -459,7 +466,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: &
     max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
-    max_var_ml     = 400, & ! maximum number of output model-level variables
+    max_var_ml     = 600, & ! maximum number of output model-level variables
     max_var_pl     = 100, & ! maximum number of pressure-level variables
     max_var_hl     = 100, & ! maximum number of height-level variables
     max_var_il     = 100, & ! maximum number of variables on isentropes

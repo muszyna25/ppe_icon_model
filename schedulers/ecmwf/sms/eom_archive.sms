@@ -35,7 +35,8 @@ YYYYMM=`echo %YMD% | cut -c 1-6`
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
-emkdir -p $ecfsdir
+ECFSPATH=/usr/local/ecfs/new
+${ECFSPATH}/emkdir .p-p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
@@ -58,10 +59,10 @@ cd -
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
-tar cvf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
-gzip -f metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
-ecp  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
-\rm -rf metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
+tar cvf               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
+gzip -f               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
+${ECFSPATH}/ecp.p  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
+\rm -rf               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
 
 
 #-----------------------------------------------------------------------------
