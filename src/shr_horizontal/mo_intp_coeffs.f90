@@ -3304,7 +3304,7 @@ IF(is_plane_torus)THEN
 
 ELSE !General case
 
-!$OMP END PARALLEL
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
 !$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -3599,6 +3599,7 @@ IF(is_plane_torus)THEN
       ENDDO ! edges
     ENDDO  ! blocks
 !$OMP END DO
+!$OMP END PARALLEL
 
 ELSE !Genereal case
 
@@ -3745,6 +3746,7 @@ ELSE !Genereal case
       ENDDO ! edges
     ENDDO  ! blocks
 !$OMP END DO
+!$OMP END PARALLEL
 END IF !IF(is_plane_torus)
 
 
@@ -3755,6 +3757,7 @@ END IF !IF(is_plane_torus)
     ! normalization not necessary fo cartesian vectors since these are
     ! exactly =1.
     !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,&
 !$OMP z_nx_quad,z_ny_quad) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
