@@ -20,6 +20,7 @@
 
 # -------------------------------------------------
 
+#module swap fortran fortran/xlf/14.1.0.0
 
 echo "INIT_BUILD.SMS"
 
@@ -46,10 +47,6 @@ ls -lrt
 #  cd icon-dev
 
 #fi
-
-# load Fortran compiler environment
-# Note: On "c1b": fortran/xlf/13.1.0.7
-module swap fortran fortran/xlf/13.1.0.9
 
 # Run configure script ------------------------
 ./configure --with-openmp # --with-flags=hiopt

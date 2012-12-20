@@ -255,8 +255,6 @@ suite $USER
             edit ICONTASKSPERNODE  4
             edit ICONTHREADS       1
             edit SCWALLCLOCKLIMIT 00:60:00
-            event compute_weights
-            event ifs2icon
 
     endfamily
 
