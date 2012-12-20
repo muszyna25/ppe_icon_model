@@ -192,7 +192,7 @@ MODULE mo_nh_torus_exp
 
  !First model level
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,zlon,zlat,zlon_rot,zlat_rot, &
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx, &
 !$OMP            u_wind,v_wind)
      DO jb = i_startblk, nblks_e
 
