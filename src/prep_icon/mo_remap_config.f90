@@ -21,6 +21,6 @@ MODULE mo_remap_config
   INTEGER, PARAMETER :: dbg_level =  1
 
   ! max. name string length   
-  INTEGER, PARAMETER :: MAX_NAME_LENGTH = 32
+  INTEGER, PARAMETER :: MAX_NAME_LENGTH = 256
 
 END MODULE mo_remap_config
