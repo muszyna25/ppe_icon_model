@@ -50,8 +50,8 @@ cd ${IFSDATADIR}
 # Retrieve data from MARS ---------------------
 
 if [ %NENS% -gt 0 ]
-  then ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda %YMD%%INIHOUR% 0 255 1/to/91 %NMEM%
-  else ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+     %YMD%%INIHOUR% 0 255 1/to/91
+  then ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda %YMD%%INIHOUR% 0 399 1/to/91 %NMEM%
+  else ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+     %YMD%%INIHOUR% 0 799 1/to/91
 fi
 ls -lrt ${IFSDATADIR}
 

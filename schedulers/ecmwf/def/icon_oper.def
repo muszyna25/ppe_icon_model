@@ -32,7 +32,7 @@ setenv -i TMPDIR
 
 # global definitions:
 set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20121101
+set FIRST_DATE    20121219
 set LAST_DATE     20130630
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
@@ -234,8 +234,8 @@ suite $USER
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
-                edit SCTOTALTASKS 4
-                edit SCCPUS       4
+                edit SCTOTALTASKS 8
+                edit SCCPUS       8
                 edit SCMEM        6200MB
                 edit SCWALLCLOCKLIMIT 05:00:00
                 event configure
@@ -253,6 +253,7 @@ suite $USER
             trigger (setup == complete) and (../once == complete)
             complete ($ENABLE_GET_DATA == 0)
             on_hpc_serial
+            edit SCMEM        3000MB
             edit SCWALLCLOCKLIMIT 02:00:00
 
         task init_data
@@ -263,8 +264,6 @@ suite $USER
             edit ICONTASKSPERNODE  4
             edit ICONTHREADS       1
             edit SCWALLCLOCKLIMIT 00:60:00
-            event compute_weights
-            event ifs2icon
 
     endfamily
 

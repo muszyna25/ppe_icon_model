@@ -39,7 +39,6 @@ mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 # Create data directories on SCHOST
 
 SCDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%
-rsh %SCHOST% mkdir -p ${SCDATADIR}/input/ifs2icon
 rsh %SCHOST% mkdir -p ${SCDATADIR}/input/%YMD%%INIHOUR%
 rsh %SCHOST% mkdir -p ${SCDATADIR}/output/%YMD%%INIHOUR%
 

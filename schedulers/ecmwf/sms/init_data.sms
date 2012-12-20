@@ -43,9 +43,6 @@ outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 
-# architecture (corresponds to build/<build architecture>/bin/...)
-arch=powerpc-ibm-aix5.3.0.0  # compare with init_cp_binary.sms!
-
 mkdir -p ${ifsdir}
 cd ${ifsdir}
 
@@ -55,14 +52,16 @@ cd ${ifsdir}
 export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
 # =============================================
 
-IFS_FILENAME="${ifsdir}/ifs_oper_T255_%YMD%%INIHOUR%.grb"
+IFS_FILENAME="ifs_oper_*_%YMD%%INIHOUR%.grb"
+res=`ls ${IFS_FILENAME} | cut -c 10-13`
+IFS_FILENAME="${ifsdir}/ifs_oper_${res}_%YMD%%INIHOUR%.grb"
 
 ln -sf $GRIDDIR/icon*DOM*.nc .
 
 #set +x
 
-
 # -------------------------------------------------
+
 
 export MP_WAIT_MODE=poll
 export MP_LABELIO=yes
@@ -78,7 +77,6 @@ export OMP_DYNAMIC="false"
 export NC_BLOCKSIZE=128mb
 
 export F_PROGINF=DETAIL
-
 
 # -------------------------------------------------
 
@@ -333,7 +331,7 @@ cat > NAMELIST_PREPICON << EOF
 /
 EOF
  
-#-----------------------------------------------------------------------------
+# -------------------------------------------------
 
 
 cp -p ${outbasedir}/bin/prep_icon ./prep_icon
@@ -344,7 +342,6 @@ export USE_SIGNAL_HANDLING=yes
 ./prep_icon
 echo "job::end"
 date
-
 
 # -------------------------------------------------
 

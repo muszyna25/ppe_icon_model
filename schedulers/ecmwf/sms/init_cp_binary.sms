@@ -24,7 +24,7 @@
 echo "INIT_CP_BINARY.SMS"
 
 
-arch=rs6000-ibm-aix  # compare with model.sms!
+arch=rs6000-ibm-aix
 
 SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/bin
 mkdir -p ${SETDIRTMP}

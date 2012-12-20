@@ -226,8 +226,8 @@ suite $USER
                 on_hpc_parallel
                 edit SCJOBTYPE parallel
                 edit SCJOBCLASS np
-                edit SCTOTALTASKS 4
-                edit SCCPUS       4
+                edit SCTOTALTASKS 8
+                edit SCCPUS       8
                 edit SCMEM        6200MB
                 edit SCWALLCLOCKLIMIT 05:00:00
                 event configure
@@ -245,6 +245,7 @@ suite $USER
             trigger (setup == complete) and (../once == complete)
             complete ($ENABLE_GET_DATA == 0)
             on_hpc_serial
+            edit SCMEM        3000MB
             edit SCWALLCLOCKLIMIT 02:00:00
 
         task init_data

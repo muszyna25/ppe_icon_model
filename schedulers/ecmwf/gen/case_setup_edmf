@@ -153,7 +153,6 @@ cat > ${atmo_namelist} << EOF
  nlev_in                     = 91          ! number of levels of input data
  zpbl1                       = 500. 
  zpbl2                       = 1000. 
- l_zp_out                    = .TRUE.
  l_w_in                      = .TRUE.
  l_sfc_in                    = .TRUE.
 /
@@ -196,7 +195,7 @@ cat > ${atmo_namelist} << EOF
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
  hl_varlist                   = ${hl_varlist}
- output_grid                  = .TRUE.
+ output_grid                  = .FALSE.
  remap                        = 1
  reg_lon_def                  = 0.,1.,359.
  reg_lat_def                  = 90.,-1., -90.
