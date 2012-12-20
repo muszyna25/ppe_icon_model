@@ -674,7 +674,7 @@ MODULE mo_solve_nonhydro
       END IF
     ELSE IF (divdamp_order == 4) THEN
       IF(is_plane_torus)THEN
-         scal_divdamp = divdamp_fac*((p_patch%planar_torus_info%cell_edge_length)**2*0.5)**2
+         scal_divdamp = -divdamp_fac*((p_patch%planar_torus_info%cell_edge_length)**2*0.5)**2
       ELSE
          scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
                          & /REAL(20*nroot**2*4**(p_patch%level),wp))**2

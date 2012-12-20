@@ -48,8 +48,7 @@ MODULE mo_nh_testcases
   USE mo_namelist,             ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,             ONLY: nnml
   USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp
-  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area, is_plane_torus, &
-                                     grid_sphere_radius
+  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area, is_plane_torus
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_math_constants,       ONLY: pi
@@ -469,7 +468,7 @@ MODULE mo_nh_testcases
           ELSE
             z_x1_cart    = gc2cc(p_patch(jg)%cells%center(jc,jb))
             z_x2_cart    = gc2cc(z_x2_geo)
-            z_dist       = arc_length(z_x1_cart,z_x2_cart) * grid_sphere_radius
+            z_dist       = arc_length(z_x1_cart,z_x2_cart) 
           ENDIF
           !ext_data(jg)%atm%topography_c(jc,jb) = mount_height/ &
           !       (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
@@ -496,7 +495,7 @@ MODULE mo_nh_testcases
           ELSE
             z_x1_cart    = gc2cc(p_patch(jg)%verts%vertex(jv,jb))
             z_x2_cart    = gc2cc(z_x2_geo)
-            z_dist       = arc_length(z_x1_cart,z_x2_cart) * grid_sphere_radius
+            z_dist       = arc_length(z_x1_cart,z_x2_cart) 
           ENDIF
           !ext_data(jg)%atm%topography_v(jv,jb) = mount_height/ &
           !       (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
