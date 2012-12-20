@@ -103,7 +103,7 @@ CONTAINS
                                  & tracer_id)
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D_oce ),TARGET               :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -158,6 +158,9 @@ CONTAINS
       !                        & z_adv_flux_v)
     CASE(MIMETIC_MIURA)
 
+      !TODO review: here p_patch_3D%p_patch_1D(1)%prism_thick_c is used as a
+      !data variable, whereas it should only contain geometrics constant in
+      !time
       CALL upwind_vflux_ppm( p_patch_3D,                 &
                            & trac_old,                   &
                            & p_os%p_diag%w_time_weighted,&

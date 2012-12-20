@@ -612,13 +612,13 @@ CONTAINS
       ! initial conditions.
       jfile = 1
       CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
-      IF (lwrite_initial)       CALL init_output_files(jfile, lclose=.FALSE.)
+      IF (lwrite_initial)       CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
       IF (lwrite_initial) THEN
         IF (output_mode%l_nml) THEN
           CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
         ENDIF
         IF (output_mode%l_vlist) THEN
-          CALL write_output_oce( time_config%cur_datetime,&
+          CALL write_output_oce( time_config%cur_datetime,z_sim_time=(/1.0_wp/),&
          &p_patch_3D=p_patch_3D, p_os=v_ocean_state)
         ENDIF
       ENDIF

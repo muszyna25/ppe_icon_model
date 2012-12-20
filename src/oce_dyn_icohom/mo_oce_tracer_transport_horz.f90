@@ -115,7 +115,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
                                    & K_h,                 &
                                    & flux_horz)
  
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp)                                   :: trac_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET          :: p_os
   TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
@@ -920,7 +920,7 @@ END SUBROUTINE advect_diffuse_flux_horz
     REAL(wp), INTENT(INOUT)           :: p_cc             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: p_mass_flx_e     (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) !< horizontal mass flux
     REAL(wp), INTENT(INOUT)           :: p_mflx_tracer_h  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) !< calculated horizontal tracer mass flux
-    REAL(wp), INTENT(INOUT)           :: inv_prism_thick_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(IN)              :: inv_prism_thick_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     INTEGER, INTENT(IN), OPTIONAL     :: opt_slev !< optional vertical start level
     INTEGER, INTENT(IN), OPTIONAL     :: opt_elev !< optional vertical end level
@@ -1238,7 +1238,7 @@ END SUBROUTINE advect_diffuse_flux_horz
     REAL(wp), INTENT(INOUT)           :: p_cc             (1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: p_mass_flx_e     (1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) !horizontal mass flux(from dy core)
     REAL(wp), INTENT(INOUT)           :: adv_tracer_flux_h(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) !< calculated horizontal tracer flux
-    REAL(wp), INTENT(INOUT)           :: inv_prism_thick_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(IN)              :: inv_prism_thick_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     !TYPE(t_cartesian_coordinates)     :: flux_cc(1:nproma,1:n_zlev,1:p_patch%nblks_c)
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     INTEGER, INTENT(IN), OPTIONAL     :: opt_slev !< optional vertical start level
