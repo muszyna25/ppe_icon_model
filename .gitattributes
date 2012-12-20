@@ -1465,6 +1465,7 @@ src/testcases/mo_nh_lim_area_testcases.f90 -text
 src/testcases/mo_nh_mrw_exp.f90 -text
 src/testcases/mo_nh_pa_test.f90 -text
 src/testcases/mo_nh_testcases.f90 -text
+src/testcases/mo_nh_torus_exp.f90 -text
 src/testcases/mo_nh_wk_exp.f90 -text
 src/testcases/mo_pa_test.f90 -text
 src/testcases/mo_rh_test.f90 -text
