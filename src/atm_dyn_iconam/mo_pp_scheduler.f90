@@ -4,7 +4,6 @@
 ! [2012-11-08, F. Prill, DWD / 2012-11-27, J. Beismann, NEC]
 !option! -O overlap
 !option! -O nomove
-
 !>
 !! Scheduler for internal post-processing.
 !!
@@ -68,7 +67,6 @@ MODULE mo_pp_scheduler
   USE mo_kind,                    ONLY: wp
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY: SUCCESS,                       &
-    & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,                &
     & HINTP_TYPE_NONE, HINTP_TYPE_LONLAT,                              &
     & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
     & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,    &
@@ -79,10 +77,12 @@ MODULE mo_pp_scheduler
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
-    &                                   nvar_lists, var_lists
+    &                                   nvar_lists, var_lists, vintp_types, &
+    &                                   vintp_type_id
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
+  USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta, &
+    &                                   VINTP_TYPE_LIST
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list, &
     &                                   t_lon_lat_intp, p_int_state
   USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
@@ -507,7 +507,7 @@ CONTAINS
       &  TRIM("mo_pp_scheduler:pp_scheduler_init_ipz")
     INTEGER,      PARAMETER :: init_tasks(3) = &
       &  (/ TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I /)
-    CHARACTER,    parameter :: init_names(3) = &
+    CHARACTER,    PARAMETER :: init_names(3) = &
       &  (/ 'z', 'p', 'i' /)
     INTEGER                            :: &
       &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
@@ -522,16 +522,18 @@ CONTAINS
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
     TYPE(t_var_list),          POINTER :: p_opt_diag_list_p, p_opt_diag_list_z, &
       &                                   p_opt_diag_list_i, p_opt_diag_list
-    REAL(wp), POINTER                  :: p_opt_field_r3d(:,:,:)
+    REAL(wp),                  POINTER :: p_opt_field_r3d(:,:,:)
     TYPE(t_list_element),      POINTER :: element, new_element
     ! variable lists (for all domains + output name lists):
     INTEGER                            :: nvars_pl, nvars_hl, nvars_il, nvars, &
          &                                job_type
     CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: &
          &                                pl_varlist(:), hl_varlist(:), il_varlist(:)
-    CHARACTER(LEN=vname_len), POINTER  :: varlist(:)
+    CHARACTER(LEN=vname_len),  POINTER :: varlist(:)
     CHARACTER(LEN=10)                  :: prefix
-    TYPE(t_var_metadata), POINTER      :: info
+    TYPE(t_var_metadata),      POINTER :: info
+    INTEGER :: z_id, p_id, i_id
+    LOGICAL :: vert_intp_type(SIZE(VINTP_TYPE_LIST))
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     ndom = SIZE(p_nh_opt_diag)
@@ -548,6 +550,13 @@ CONTAINS
          &   il_varlist(ndom*max_var_il), &
          &   STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+!CDIR NOIEXPAND
+    z_id = vintp_type_id("Z")
+!CDIR NOIEXPAND
+    p_id = vintp_type_id("P")
+!CDIR NOIEXPAND
+    i_id = vintp_type_id("I")
 
     DOM_LOOP : DO jg=1,ndom
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
@@ -581,8 +590,10 @@ CONTAINS
           ! check, if "all" variables are desired:
           IF (toupper(TRIM(p_onl%pl_varlist(1))) == 'ALL') THEN
             IF (dbg_level > 8)  CALL message(routine, "ALL vars for p-level")
-            CALL get_all_var_names(pl_varlist, nvars_pl, &
-              &                    opt_vert_intp_type=VINTP_TYPE_P_OR_Z, &
+!CDIR NOIEXPAND
+            vert_intp_type(:) = vintp_types("P")
+            CALL get_all_var_names(pl_varlist, nvars_pl,              &
+              &                    opt_vert_intp_type=vert_intp_type, &
               &                    opt_loutput=.TRUE.)
             IF (nvars_pl > 0) l_intp_p = .TRUE.
             EXIT NML_LOOP_P
@@ -621,9 +632,10 @@ CONTAINS
           ! check, if "all" variables are desired:
           IF (toupper(TRIM(p_onl%hl_varlist(1))) == 'ALL') THEN
             IF (dbg_level > 8)  CALL message(routine, "ALL vars for z-level")
-            CALL get_all_var_names(hl_varlist, nvars_hl, &
-              &                    opt_vert_intp_type=VINTP_TYPE_Z,       &
-              &                    opt_vert_intp_type2=VINTP_TYPE_P_OR_Z, &
+!CDIR NOIEXPAND
+            vert_intp_type(:) = vintp_types("Z")
+            CALL get_all_var_names(hl_varlist, nvars_hl,               &
+              &                    opt_vert_intp_type=vert_intp_type,  &
               &                    opt_loutput=.TRUE.)
             IF (nvars_hl > 0) l_intp_z = .TRUE.
             EXIT NML_LOOP_H
@@ -662,9 +674,10 @@ CONTAINS
           ! check, if "all" variables are desired:
           IF (toupper(TRIM(p_onl%il_varlist(1))) == 'ALL') THEN
             IF (dbg_level > 8)  CALL message(routine, "ALL vars for i-level")
+!CDIR NOIEXPAND
+            vert_intp_type(:) = vintp_types("I")
             CALL get_all_var_names(il_varlist, nvars_il, &
-              &                    opt_vert_intp_type=VINTP_TYPE_Z,       &
-              &                    opt_vert_intp_type2=VINTP_TYPE_P_OR_Z, &
+              &                    opt_vert_intp_type=vert_intp_type,   &
               &                    opt_loutput=.TRUE.)
             IF (nvars_il > 0) l_intp_i = .TRUE.
             EXIT NML_LOOP_I
@@ -844,7 +857,7 @@ CONTAINS
           p_opt_diag_list => p_opt_diag_list_i
           job_type = TASK_INTP_VER_ILEV
         END IF
-        
+
         DO ivar=1,nvars
           IF (dbg_level > 8) &
             CALL message(routine, &
@@ -878,16 +891,14 @@ CONTAINS
               IF (.NOT. info%loutput) CYCLE
               ! Inspect element only if vertical interpolation matches
               IF (iaxis == 1) THEN
-                IF ((info%vert_interp%vert_intp_type/=VINTP_TYPE_Z) .AND.  &
-                  & (info%vert_interp%vert_intp_type/=VINTP_TYPE_P_OR_Z)) CYCLE
+                IF (.NOT. info%vert_interp%vert_intp_type(z_id)) CYCLE
               END IF
               IF (iaxis == 2) THEN
-                IF (info%vert_interp%vert_intp_type/=VINTP_TYPE_P_OR_Z) CYCLE
+                IF (.NOT. info%vert_interp%vert_intp_type(p_id)) CYCLE
               END IF
               IF (iaxis == 3) THEN
-                IF (info%vert_interp%vert_intp_type/=VINTP_TYPE_P_OR_Z) CYCLE
+                IF (.NOT. info%vert_interp%vert_intp_type(i_id)) CYCLE
               END IF
-              IF (info%vert_interp%vert_intp_type==VINTP_TYPE_NONE) CYCLE
 
               ! Check for matching name
               idx = INDEX(info%name,'.TL')

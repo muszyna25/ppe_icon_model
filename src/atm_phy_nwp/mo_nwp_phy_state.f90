@@ -67,7 +67,7 @@ MODULE mo_nwp_phy_state
 USE mo_kind,                ONLY: wp
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 USE mo_impl_constants,      ONLY: icc, success, max_char_length,      &
-  &                               VINTP_METHOD_UV, VINTP_TYPE_P_OR_Z, &
+  &                               VINTP_METHOD_UV,                    &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
   &                               TASK_COMPUTE_RH
 USE mo_parallel_config,     ONLY: nproma
@@ -81,7 +81,7 @@ USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list, &
-  &                               create_vert_interp_metadata, groups
+  &                               create_vert_interp_metadata, groups, vintp_types
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var
@@ -625,7 +625,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var(192, 201, 28, ibits, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
-                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_type=vintp_types("P", "Z", "I"),           &
                     &             vert_intp_method=VINTP_METHOD_QV,                    &
                     &             l_satlimit=.FALSE.,                                  & 
                     &             lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ),   &
@@ -640,7 +640,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var(192, 201, 31, ibits, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
-                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_type=vintp_types("P","Z","I"),             &
                     &             vert_intp_method=VINTP_METHOD_LIN,                   &
                     &             l_loglin=.FALSE.,                                    &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
@@ -656,7 +656,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var(192, 201, 33, ibits, GRID_REFERENCE, GRID_CELL),     &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
-                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_type=vintp_types("P","Z","I"),             &
                     &             vert_intp_method=VINTP_METHOD_LIN,                   &
                     &             l_loglin=.FALSE.,                                    &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
@@ -672,7 +672,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL),         &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
-                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_type=vintp_types("P","Z","I"),             &
                     &             vert_intp_method=VINTP_METHOD_LIN,                   &
                     &             l_loglin=.FALSE.,                                    &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
@@ -1695,7 +1695,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & cf_desc, grib2_desc,                                           &
                     & ldims=shape3d,                                                 &
                     & vert_interp=create_vert_interp_metadata(                       &
-                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                  &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.TRUE.,              &

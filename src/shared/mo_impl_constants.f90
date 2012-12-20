@@ -422,22 +422,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
-  !--------------------------!
-  !  VERTICAL INTERPOLATION  !
-  !--------------------------!
-
-  !-----  vertical interpolation: type of interpolation
-  CHARACTER(len=32), PARAMETER :: STR_VINTP_TYPE(3) = &
-    (/ "VINTP_TYPE_NONE  ",  &
-    &  "VINTP_TYPE_Z     ",  &
-    &  "VINTP_TYPE_P_OR_Z" /)
-  INTEGER, PARAMETER :: VINTP_TYPE_NONE    = 1
-  INTEGER, PARAMETER :: VINTP_TYPE_Z       = 2
-  INTEGER, PARAMETER :: VINTP_TYPE_P_OR_Z  = 3
-! To Do: Not yet implemented for isentropes
-!
-!  INTEGER, PARAMETER :: VINTP_TYPE_I       = 3
-
   !-----  horizontal interpolation: type of interpolation
   CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(2) = &
     (/ "HINTP_TYPE_NONE  ",  &
