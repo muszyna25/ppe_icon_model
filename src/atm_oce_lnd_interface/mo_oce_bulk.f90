@@ -154,7 +154,7 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: field_id(:)
     INTEGER               :: field_shape(3)
     REAL(wp), ALLOCATABLE :: buffer(:,:)
-    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp 
+    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp !TODO: use real month lenght
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
@@ -890,26 +890,22 @@ CONTAINS
       ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
       ! 
       ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
- 
+
+      ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(relaxation_param*seconds_per_month)
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
+
           IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
 
-            !z_relax = (v_base%del_zlev_m(1)) /(relaxation_param*seconds_per_month)
-            z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) & !+p_os%p_prog(nold(1))%h(jc,jb)&
-                     &/(relaxation_param*seconds_per_month)
-
-            !z_relax = p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)&
-            !         &/(relaxation_param*seconds_per_month)
-            !IF time variation of free surface should be taken into account:
-            !z_relax = (p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nold(1))%h(jc,jb))&
-            !&/(relaxation_param*seconds_per_month)
+            z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
+              &       (relaxation_param*seconds_per_month)
 
             p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
-            &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
-            &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
+              &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
+              &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
           ENDIF
@@ -956,14 +952,14 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-
           IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-            !Old: z_relax = (v_base%del_zlev_m(1)) /(relax_2d_mon_S*2.592e6_wp)
-            z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-                    &/(relaxation_param*seconds_per_month)
-            !IF time variation of free surface should be taken into account:
-            !z_relax = (p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nold(1))%h(jc,jb))&
-            !&/(relaxation_param*seconds_per_month)
+
+          !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+          !          &/(relaxation_param*seconds_per_month)
+
+
+          z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+            &       (relax_2d_mon_S*seconds_per_month)
 
               p_sfc_flx%forc_tracer(jc,jb,2) =                             &
              &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
@@ -1108,7 +1104,6 @@ CONTAINS
     REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
-    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp 
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------  
@@ -1119,7 +1114,7 @@ CONTAINS
     all_cells => p_patch%cells%all
 
     !Relaxation parameter from namelist for salinity.
-    z_relax = relaxation_param/seconds_per_month
+    z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1168,26 +1163,13 @@ CONTAINS
         !Now the freshwater flux calculation is finished; this is (65) in Marsland et al.
         !Relaxation of top layer salinity to observed salinity
         !
-        !Old
-        !p_sfc_flx%forc_tracer(jc,jb,2) =                 &
-        !  & (v_base%del_zlev_m(1)+z_Q_freshwater(jc,jb))/v_base%del_zlev_m(1)                   &
-        !  & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
-        !This is the old form (above) with 3D-depth:
-        !p_sfc_flx%forc_tracer(jc,jb,2) =                 &
-        !  & (p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)+z_Q_freshwater(jc,jb))&
-        !  &/p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)&
-        !  & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
-        !And this is the formula as given by Marsland et al (eq 65). Compared to above a Multiplicatio by sea-surface salinity is missing:
         !  Attention, check consistency in the model:
         !   - salinity relaxation is here in addition to the formulation at the end of update_sfcflx
         !   - also, according to (65) of Marsland, there is a bug below:
         !     multiplication with S1 (tracer(2)) is missing
         !   - has to be checked and merged with salinity boundary condition in update_sfcflx
         !
-
         p_sfc_flx%forc_tracer(jc,jb,2) =                 &
-!          & (p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)+z_Q_freshwater(jc,jb))*p_os%p_prog(nold(1))%tracer(jc,1,jb,2)&
-!          &/p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)&
           & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
           & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
           & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
