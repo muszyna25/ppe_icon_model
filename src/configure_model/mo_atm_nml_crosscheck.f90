@@ -105,7 +105,7 @@ MODULE mo_nml_crosscheck
     & testbed_process,  atmo_process, ocean_process, radiation_process
   
   USE mo_art_config,         ONLY: art_config
-  USE mo_prepicon_config,    ONLY: i_oper_mode
+  USE mo_prepicon_config,    ONLY: i_oper_mode, l_sfc_in
 
   IMPLICIT NONE
 
@@ -859,6 +859,17 @@ CONTAINS
         & "because global 'timers_level' is > 9."
       CALL message('io_namelist', TRIM(message_text))
     END IF
+
+
+    !--------------------------------------------------------------------
+    ! Realcase runs
+    !--------------------------------------------------------------------
+    IF (.NOT. ltestcase .AND. iforcing == inwp .AND.                     &
+      &  atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
+        CALL finish('atm_crosscheck','A real-data run with surface scheme &
+                    &requires surface input data')
+    ENDIF
+
 
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)

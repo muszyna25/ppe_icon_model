@@ -46,14 +46,12 @@ MODULE mo_nh_vert_interp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                               t_nh_metrics
-  USE mo_opt_diagnostics,     ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
-    &                               vcoeff_allocate, vcoeff_deallocate
+  USE mo_opt_diagnostics,     ONLY: t_vcoeff, vcoeff_allocate, vcoeff_deallocate
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp,                ONLY: edges2cells_scalar, cell_avg, &
     &                               cells2edges_scalar
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_nh_pzlev_config,     ONLY: t_nh_pzlev_config
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
@@ -61,7 +59,7 @@ MODULE mo_nh_vert_interp
   USE mo_impl_constants,      ONLY: icc, inwp, SUCCESS
   USE mo_exception,           ONLY: finish
   USE mo_prepicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
-                                    i_oper_mode, l_w_in, l_coarse2fine_mode
+                                    l_w_in, l_coarse2fine_mode
   USE mo_prepicon_types,      ONLY: t_prepicon_state
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
@@ -178,6 +176,10 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     DO jg = 1, n_dom
+
+      IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE ! skip model domains not active at initial time
+
       !
       ! process surface fields
       !

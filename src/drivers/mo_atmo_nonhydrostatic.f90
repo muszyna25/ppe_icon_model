@@ -83,11 +83,7 @@ USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
-USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, compute_coord_fields, &
-  &                               deallocate_prepicon, copy_prepicon2prog_atm,   &
-  &                               copy_prepicon2prog_sfc
-USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
-USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
+USE mo_prepicon_utils,       ONLY: init_icon
 USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
@@ -216,38 +212,7 @@ CONTAINS
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
-      !------------------------------------------------------------------
-      ! Prepare initial conditions for time integration.
-      !------------------------------------------------------------------
 
-    ! Initialize model with real atmospheric data if appropriate switches are set
-    ! This has been shifted before the allocation of the NH and physics state
-    ! in order to reduce the maximum amount of memory consumed
-    IF (l_realcase .AND. .NOT. is_restart_run()) THEN
-
-      CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
-
-      ! Allocate prepicon data type
-      ALLOCATE (prepicon(n_dom), stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'allocation for prepicon failed')
-      ENDIF
-
-      i_oper_mode = 3 ! For the time being, the only option that works when called
-                      ! from the main ICON program
-
-      IF (atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
-        CALL finish(TRIM(routine),'A real-data run with surface scheme requires &
-                                   &surface input data')
-      ENDIF
- 
-      ! allocate memory for topography and coordinate fields,
-      ! read topo data from netCDF file, 
-      ! optionally smooth topography data,
-      ! and, in case of nesting, perform topography blending and feedback
-      CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
-
-    ENDIF
 
     ! Now allocate memory for the states
     DO jg=1,n_dom
@@ -334,36 +299,23 @@ CONTAINS
       END IF
     END DO
 
-    ! Continue operations for real-data initialization
+
+
+    !------------------------------------------------------------------
+    ! Prepare initial conditions for time integration.
+    !------------------------------------------------------------------
+    !
+    ! Initialize model with real atmospheric data if appropriate switches are set
+    !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-      ! Compute the 3D coordinate fields
-      CALL compute_coord_fields(p_int_state(1:), prepicon)
+      CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
 
-      ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
-      ! and convert variables to the NH set of prognostic variables
-      CALL vert_interp_atm(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
-
-      ! Finally copy the results to the prognostic model variables
-      CALL copy_prepicon2prog_atm(prepicon, p_nh_state)
-
-      IF (l_sfc_in) THEN
-        ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
-        ! and convert variables to the NH set of prognostic variables
-        CALL vert_interp_sfc(p_patch(1:), prepicon)
-        ! Finally copy the results to the prognostic model variables
-        CALL copy_prepicon2prog_sfc(prepicon, p_lnd_state, ext_data )
-      ENDIF
-
-
-      ! Deallocate prepicon data type
-      CALL deallocate_prepicon(prepicon)
-      DEALLOCATE (prepicon, stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'deallocation for prepicon failed')
-      ENDIF
+      CALL init_icon (p_patch(1:), p_nh_state(1:), p_lnd_state(1:), &
+        &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
 
     ENDIF
+
 
     !---------------------------------------------------------
     ! The most primitive event handling algorithm: 

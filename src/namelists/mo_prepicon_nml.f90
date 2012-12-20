@@ -41,7 +41,7 @@ MODULE mo_prepicon_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom, MODE_IFSANA
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -109,12 +109,16 @@ CONTAINS
   !local variable
   INTEGER :: i_status
 
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = 'mo_prepicon_nml: read_prepicon_namelist'
+
   !------------------------------------------------------------
   ! 2.0 set up the default values for prepicon
   !------------------------------------------------------------
   !
   !
-  i_oper_mode = 1           ! operation mode
+  i_oper_mode = MODE_IFSANA ! For the time being, the only option that works when called
+                            ! from the main ICON program
   nlev_in     = 91          ! number of levels of input data
   nlevsoil_in = 4           ! number of soil levels of input data
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
@@ -159,7 +163,10 @@ CONTAINS
   ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  !currently no consistency check...
+  IF ( i_oper_mode /= MODE_IFSANA ) THEN
+    CALL finish( TRIM(routine),                         &
+      &  'Invalid operation mode. Must be i_oper_mode=2')
+  ENDIF
 
   ! write the contents of the namelist to an ASCII file
 
