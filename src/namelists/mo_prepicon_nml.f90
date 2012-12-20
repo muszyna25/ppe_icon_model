@@ -41,7 +41,8 @@ MODULE mo_prepicon_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom, MODE_IFSANA
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom, &
+    &                              MODE_IFSANA, MODE_REMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -163,9 +164,10 @@ CONTAINS
   ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  IF ( i_oper_mode /= MODE_IFSANA ) THEN
+  IF ( (i_oper_mode /= MODE_IFSANA) .AND. &
+    &  (i_oper_mode /= MODE_REMAP )) THEN
     CALL finish( TRIM(routine),                         &
-      &  'Invalid operation mode. Must be i_oper_mode=2')
+      &  'Invalid operation mode. Must be i_oper_mode=2 or 4')
   ENDIF
 
   ! write the contents of the namelist to an ASCII file
