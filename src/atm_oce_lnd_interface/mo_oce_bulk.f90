@@ -905,7 +905,7 @@ CONTAINS
           IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
 
             !z_relax = (v_base%del_zlev_m(1)) /(relaxation_param*seconds_per_month)
-            z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+            z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) & !+p_os%p_prog(nold(1))%h(jc,jb)&
                      &/(relaxation_param*seconds_per_month)
 
             !z_relax = p_os%p_diag%prism_thick_flat_sfc_c(jc,1,jb)&

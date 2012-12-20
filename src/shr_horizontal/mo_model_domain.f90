@@ -909,7 +909,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
 
-    REAL(wp), POINTER ::            &
+    REAL(wp), POINTER ::                &
       &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m]. This array
                                           ! includes the free surface. dimension: (nproma,n_zlev, nblks_c)
       &  prism_thick_e(:,:,:),          & ! individual prism thickness at edges. Unit [m]. This array 
@@ -918,7 +918,7 @@ MODULE mo_model_domain
                                           !  assumes a flat surface. dimension: (nproma,n_zlev, nblks_c)
       &  prism_thick_flat_sfc_e(:,:,:) ,& ! individual fluid column thickness at edges. Unit [m].This array
                                           !  assumes a flat surface. dimension: (nproma,n_zlev, nblks_c)
-      & prism_center_dist_c(:,:,:),     & ! distance between prism centers at cells. Unit [m].
+      &  prism_center_dist_c(:,:,:),    & ! distance between prism centers at cells. Unit [m].
                                           ! dimension: (nproma,n_zlev, nblks_c)
       &  inv_prism_thick_c(:,:,:) ,     & ! inverse individual fluid column thickness at cells. Unit [m].
                                           ! This array assumes a flat surface dimension: (nproma,n_zlev, nblks_c)
