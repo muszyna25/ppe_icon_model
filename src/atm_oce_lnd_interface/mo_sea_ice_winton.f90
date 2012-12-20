@@ -259,6 +259,8 @@ CONTAINS
 
     ! Necessary initialisation
     Q_surplus(:,:,:) = 0.0_wp
+    surfmelti1       = 0.0_wp
+    surfmelti2       = 0.0_wp
     !
     all_cells => p_patch%cells%all 
 
