@@ -753,8 +753,6 @@ TYPE(t_int_state), INTENT(inout) :: ptr_int
 
 REAL(wp) :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
 
-TYPE(t_cartesian_coordinates) :: cc_center    ! coordinates of cell centers
-
 REAL(wp) :: z_lon, z_lat          ! longitude and latitude
 
 ! 3d  normal velocity vectors at edge midpoints
@@ -828,7 +826,7 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
 !$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,      &
 !$OMP             ist,ile1,ibe1,cc_e1,z_lon,z_lat,z_norm,      &
 !$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,z_nx2,z_nxprod,z_dist,      &
-!$OMP             cc_center,z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP             z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
@@ -1600,8 +1598,6 @@ TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
 REAL(wp) :: cc_e1(3), cc_e2(3), cc_e(nproma,3) ! coordinates of edge midpoints
 
-TYPE(t_cartesian_coordinates) :: cc_edge      ! coordinates of edge
-
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 REAL(wp)           :: z_nu, z_nv            ! zonal and meridional component
                                             ! of normal velocity vectors
@@ -1693,7 +1689,7 @@ REAL(wp) :: torus_len, torus_ht, maxlen
 
 !$OMP DO PRIVATE (jb,je,i_startidx,i_endidx,je1,je2,istencil,        &
 !$OMP    ist,ile1,ibe1,cc_e1,z_nu,z_nv,z_lon,z_lat,z_norm,z_nx1,     &
-!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,cc_edge,&
+!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,&
 !$OMP checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 

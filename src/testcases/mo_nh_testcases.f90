@@ -397,7 +397,7 @@ MODULE mo_nh_testcases
     IF(lplane .OR. is_plane_torus)THEN
         CALL message(TRIM(routine),'Initializing topography for Schaer test case')
     ELSE
-         CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
+         CALL finish(TRIM(routine),'Schaer test case only for flat geometry')
     END IF
 
     ! At present the mountain is at position lat=0,lon=0 (given in meters)

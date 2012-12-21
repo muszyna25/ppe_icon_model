@@ -187,13 +187,13 @@ MODULE mo_nh_torus_exp
 
         END DO !jk
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO 
 !$OMP END PARALLEL
 
  !First model level
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx, &
-!$OMP            u_wind,v_wind)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,jcn,jbn,cc_cell,z_dist, &
+!$OMP            u_wind,v_wind,zvn1,zvn2) 
      DO jb = i_startblk, nblks_e
 
         CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e,  &

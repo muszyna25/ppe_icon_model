@@ -1526,7 +1526,7 @@ REAL(wp) :: xtemp,ytemp,wgt(3),xloc,yloc,x(3),y(3), &
             pollat,pollon
 
 !-----------------------------------------------------------------------
-
+	
 !$OMP PARALLEL PRIVATE(rl_start, rl_end,i_nchdom,i_startblk,i_endblk)
 rl_start = 1
 rl_end = min_rlcell
@@ -1547,8 +1547,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF(is_plane_torus)THEN
 
-  !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
-  !$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
   
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1560,12 +1559,12 @@ IF(is_plane_torus)THEN
 
     ENDDO !cell loop
   END DO !block loop
-  !$OMP END DO
+!$OMP END DO
 
 ELSE! General case
 
-  !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
-  !$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
+!$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
   
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1650,7 +1649,7 @@ ELSE! General case
     ENDDO !cell loop
   
   END DO !block loop
-  !$OMP END DO
+!$OMP END DO
 
 END IF!IF(is_plane_torus)
 
