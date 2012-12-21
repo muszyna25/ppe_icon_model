@@ -116,8 +116,8 @@ MODULE mo_prepicon_utils
   !>
   !! SUBROUTINE init_icon
   !! Initialization routine of prep_icon:
-  !! Reads in data and processes topography blending and feedback in the
-  !! presence of nested domains
+  !! Reads in either DWD or IFS analysis and processes topography blending 
+  !! and feedback in the presence of nested domains
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
@@ -184,10 +184,10 @@ MODULE mo_prepicon_utils
     SELECT CASE(i_oper_mode)
     CASE(MODE_DWDANA)
 
-      ! process DWD atmosphere analysis
+      ! process DWD atmosphere analysis data
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
 
-      ! process DWD land/surface analysis
+      ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, p_lnd_state)
 
     CASE(MODE_IFSANA)
@@ -232,7 +232,7 @@ MODULE mo_prepicon_utils
   !>
   !! SUBROUTINE process_dwdana_atm
   !! Initialization routine of icon:
-  !! - Reads in DWD first guess and DA increments (atmosphere only). 
+  !! - Reads DWD first guess and DA increments (atmosphere only). 
   !!   Data are directly written to the prognostic NH state and added.
   !! - resulting fields are converted to the NH set of prognostic variables
   !!
@@ -258,10 +258,6 @@ MODULE mo_prepicon_utils
     CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
-    ! read data assimilation increment (atmosphere only)
-!    CALL read_dwdinc_atm()
-
-
     ! convert variables to the NH set of prognostic variables
     CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
 
@@ -273,9 +269,9 @@ MODULE mo_prepicon_utils
   !>
   !! SUBROUTINE process_dwdana_sfc
   !! Initialization routine of icon:
-  !! - Reads in DWD first guess (land/surface only). Data are directly
+  !! - Reads DWD first guess (land/surface only). Data are directly
   !!   written to the prognostic model variables
-  !! - reads in DWD DA inrements (land/surface only). Data are written 
+  !! - reads DWD DA inrements (land/surface only). Data are written 
   !!   to intermediate prepicon variables
   !! - first guess and increments are added and resulting fields are 
   !!   converted to the NH set of prognostic variables
@@ -316,7 +312,7 @@ MODULE mo_prepicon_utils
   !>
   !! SUBROUTINE process_ifsana_atm
   !! Initialization routine of icon:
-  !! - Reads in IFS analysis (atmosphere only) data
+  !! - Reads IFS analysis data (atmosphere only)
   !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON 
   !!   grid and converts variables to the NH set of prognostic variables
   !! - finally copies the results to the prognostic model variables
@@ -367,7 +363,7 @@ MODULE mo_prepicon_utils
   !>
   !! SUBROUTINE process_ifsana_sfc
   !! Initialization routine of icon:
-  !! - Reads in IFS analysis (surface/land only) data
+  !! - Reads IFS analysis data (surface/land only)
   !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON 
   !!   grid and converts variables to the NH set of prognostic variables
   !! - finally copies the results to the prognostic model variables
@@ -413,9 +409,9 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! Read in horizontally interpolated IFS analysis (atmosphere only)
+  !! Read horizontally interpolated IFS analysis (atmosphere only)
   !!
-  !! Reads in horizontally interpolated IFS analysis atmosphere data
+  !! Reads horizontally interpolated IFS analysis atmosphere data
   !! and reads in vertical coordinate table. 
   !!
   !! @par Revision History
@@ -637,9 +633,9 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! Read in horizontally interpolated IFS analysis (surface only)
+  !! Read horizontally interpolated IFS analysis (surface only)
   !!
-  !! Reads in horizontally interpolated IFS analysis surface data
+  !! Reads horizontally interpolated IFS analysis surface data
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
@@ -902,8 +898,6 @@ MODULE mo_prepicon_utils
 
     ENDDO ! loop over model domains
 
-
-
   END SUBROUTINE read_ifs_sfc
 
 
@@ -913,9 +907,9 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! Read in DWD first guess and DA increments(atmosphere only)
+  !! Read DWD first guess and DA increments (atmosphere only)
   !!
-  !! Read in DWD first guess and DA increments (atmosphere only)
+  !! Read DWD first guess and DA increments (atmosphere only)
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -933,9 +927,10 @@ MODULE mo_prepicon_utils
     INTEGER :: ncid, dimid
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:read_dwdfg_sfc'
+      routine = 'mo_prepicon_utils:read_dwdana_sfc'
 
-    CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)
+    CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)  ! first guess
+    CHARACTER(LEN=filename_max) :: dwdinc_file(max_dom) ! increments
 
     !-------------------------------------------------------------------------
 
@@ -954,8 +949,9 @@ MODULE mo_prepicon_utils
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
 
-      ! Read in data from IFS2ICON
-      !
+      !--------------------------!
+      ! Read in DWD first guess  !
+      !--------------------------!
       IF(p_pe == p_io ) THEN 
         !
         ! generate file name
@@ -1001,8 +997,6 @@ MODULE mo_prepicon_utils
 
 
 
-     
-
       ! start reading first guess (atmosphere only)
       !
       CALL read_netcdf_data_single (ncid, 'temp', p_patch(jg)%n_patch_cells_g,        &
@@ -1046,27 +1040,117 @@ MODULE mo_prepicon_utils
         &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs))
 
 
-      ! read in and add DA increments
+      ! close file (first guess)
       !
-
-!!$      CALL read_netcdf_data_single (ncid, 'theta_v', p_patch(jg)%n_patch_cells_g,     &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%theta_v)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'exner', p_patch(jg)%n_patch_cells_g,       &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%exner)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'rho', p_patch(jg)%n_patch_cells_g,         &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%rho)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'rhotheta_v', p_patch(jg)%n_patch_cells_g,  &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%rhotheta_v)
+      IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
 
 
-      ! close file
+
+
+      !-------------------------------!
+      ! read in and add DA increments !
+      !-------------------------------!
+! TODO:  dwdinc_filename does not yet exist
+
+!!$      IF(p_pe == p_io ) THEN 
+!!$        !
+!!$        ! generate file name
+!!$        !
+!!$        dwdinc_file(jg) = generate_filename(dwdinc_filename, model_base_dir, &
+!!$          &                                   nroot, jlev, jg)
+!!$        INQUIRE (FILE=dwdinc_file(jg), EXIST=l_exist)
+!!$        IF (.NOT.l_exist) THEN
+!!$          CALL finish(TRIM(routine),'DWD INC file not found: '//TRIM(dwdinc_file(jg)))
+!!$        ENDIF
+!!$
+!!$        !
+!!$        ! open file
+!!$        !
+!!$        CALL nf(nf_open(TRIM(dwdinc_file(jg)), NF_NOWRITE, ncid), routine)
+!!$
+!!$        !
+!!$        ! get number of cells
+!!$        !
+!!$        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
+!!$        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+!!$
+!!$        !
+!!$        ! get number of vertical levels
+!!$        !
+!!$        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+!!$        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
+!!$
+!!$        !
+!!$        ! check the number of cells and vertical levels
+!!$        !
+!!$        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+!!$          CALL finish(TRIM(ROUTINE),&
+!!$          & 'Number of patch cells and cells in DWD FG file do not match.')
+!!$        ENDIF
+!!$
+!!$        IF(p_patch(jg)%nlev /= no_levels) THEN
+!!$          CALL finish(TRIM(ROUTINE),&
+!!$          & 'nlev does not match the number of levels in DWD FG file.')
+!!$        ENDIF
+!!$
+!!$      ENDIF  ! p_io
+
+
+      ! start reading DA increments (atmosphere only)
+      ! Increments are immediately added to the first guess (opt_lvalue_add=.TRUE.)
+      !
+      CALL read_netcdf_data_single (ncid, 'temp', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%diag%temp,                            &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%diag%pres,                            &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'u', p_patch(jg)%n_patch_cells_g,           &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%diag%u,                               &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'v', p_patch(jg)%n_patch_cells_g,           &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%diag%v,                               &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'w', p_patch(jg)%n_patch_cells_g,           &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlevp1, p_nh_state(jg)%prog(nnow(jg))%w,                   &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'qv', p_patch(jg)%n_patch_cells_g,          &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv),     &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'qc', p_patch(jg)%n_patch_cells_g,          &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc))
+
+      CALL read_netcdf_data_single (ncid, 'qi', p_patch(jg)%n_patch_cells_g,          &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi),     &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'qr', p_patch(jg)%n_patch_cells_g,          &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr),     &
+        &                  opt_lvalue_add=.TRUE.)
+
+      CALL read_netcdf_data_single (ncid, 'qs', p_patch(jg)%n_patch_cells_g,          &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs),     &
+        &                  opt_lvalue_add=.TRUE.)
+
+
+
+      ! close file (increments)
       !
       IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
 
@@ -1080,9 +1164,9 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! Read in DWD first guess (land/surface only)
+  !! Read DWD first guess (land/surface only)
   !!
-  !! Read in DWD first guess (land/surface only)
+  !! Read DWD first guess (land/surface only)
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1235,10 +1319,11 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! Add first guess and increments to generate analysis (atmosphere only)
+  !! !nalysis is converted to the NH set of prognostic variables 
   !!
-  !! First guess and increments are added and resulting fields are 
-  !! converted to the NH set of prognostic variables (atmosphere only)
+  !!
+  !! Analysis fields (first guess + DA increments) are converted 
+  !! to the NH set of prognostic variables (atmosphere only)
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1261,35 +1346,6 @@ MODULE mo_prepicon_utils
 
       ! Skip if model domain is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      ! First guess (FG) and increments (INC) are added up to create atmospheric
-      ! analysis fields.
-      !!!! DA increments to be added !!!!!
-! obsolete
-!!$      p_nh_state(jg)%diag%temp(:,:,:) = p_nh_state(jg)%diag%temp(:,:,:) 
-!!$
-!!$      p_nh_state(jg)%diag%pres(:,:,:) = p_nh_state(jg)%diag%pres(:,:,:)
-!!$
-!!$      p_nh_state(jg)%diag%u   (:,:,:) = p_nh_state(jg)%diag%u   (:,:,:)
-!!$
-!!$      p_nh_state(jg)%diag%v   (:,:,:) = p_nh_state(jg)%diag%v   (:,:,:) 
-!!$
-!!$      p_nh_state(jg)%prog(nnow(jg))%w(:,:,:) = p_nh_state(jg)%prog(nnow(jg))%w(:,:,:)
-!!$
-!!$      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv) =  &
-!!$        &   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-!!$
-!!$      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc) =  &
-!!$        &   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-!!$
-!!$      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi) =  &
-!!$        &   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-!!$
-!!$      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr) =  &
-!!$        &   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-!!$
-!!$      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs) =  &
-!!$        &   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
 
 
       ! Convert fields to the NH set of prognostic variables
