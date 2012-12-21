@@ -32,8 +32,11 @@ module load cdo
 
 
 lsplitdata=1
-lcpdata=1
-ldeldata=0
+case %SIMMODE% in
+  1) lcpdata=1  ;;    # pre-operations     
+  2) lcpdata=0  ;;    # monthly mean 10day forecasts
+esac
+ldeldata=1
 
 
 #-----------------------------------------------------------------------------

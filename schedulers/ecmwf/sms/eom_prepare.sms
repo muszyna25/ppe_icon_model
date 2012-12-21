@@ -31,11 +31,10 @@ echo "EOM_PREPARE.SMS"
 module load cdo
 
 
-case 
-%SIMMODE% in
-  1) lgetdata=1        #0: get no data, 1: get from ecfs
-     lsplitdata=1  ;;
-  2) lgetdata=0
+case %SIMMODE% in
+  1) lgetdata=1        # 0: get no data, 1: get from ecfs
+     lsplitdata=1  ;;  # pre-operations
+  2) lgetdata=0        # monthly mean 10day forecasts
      lsplitdata=0  ;;
 esac
 lcatdata=1
