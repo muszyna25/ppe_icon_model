@@ -63,7 +63,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
-    &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
+    &       lplane, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
 
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
@@ -111,9 +111,7 @@ INCLUDE 'netcdf.inc'
                                        ! 1=redistribute for radiaiton reading from file
 
   LOGICAL  :: lplane                   ! f-plane option
-  LOGICAL  :: is_plane_torus           ! f-plane with doubly periodic boundary==> like a plane torus
-  REAL(wp) :: corio_lat                ! Latitude, where the f-plane is located if 
-                                       ! lplane or is_plane_torus=.true.
+  REAL(wp) :: corio_lat                ! Latitude at which the f-plane is located 
 
   REAL(wp) :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
                                        ! for any of the first level child patches,

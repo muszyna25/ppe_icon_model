@@ -11,9 +11,6 @@
 !! Initial release by Guenther Zaengl (2010-10-13) based on earlier work
 !! by Almut Gassmann, MPI-M
 !! 
-!! Modified by Anurag Dipankar, MPIM (2012-20-12)
-!! -Adapted the calculation of scal_divdamp for flat torus case
-!!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -57,7 +54,7 @@ MODULE mo_solve_nonhydro
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius, is_plane_torus
+  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
@@ -515,9 +512,6 @@ MODULE mo_solve_nonhydro
   !! @par Revision History
   !! Based on the initial release of divergent_modes by Almut Gassmann (2009-05-12)
   !! Modified by Guenther Zaengl starting on 2010-02-03
-  !! Modified by Anurag Dipankar MPIM, 17-12-12
-  !! -the diffision coefficient "scal_divamp" has been modified for plane_torus
-  !!  Need to calculate such geometric coefficients in patch
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, mflx_avg, nnow, nnew, l_init, l_recompute, &
                        lsave_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
@@ -666,19 +660,11 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     IF (divdamp_order == 2) THEN
-      IF(is_plane_torus)THEN
-         scal_divdamp = divdamp_fac*(p_patch%planar_torus_info%cell_edge_length)**2*0.5
-      ELSE
-         scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
+       scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
                         & / REAL(20*nroot**2*4**(p_patch%level),wp)
-      END IF
     ELSE IF (divdamp_order == 4) THEN
-      IF(is_plane_torus)THEN
-         scal_divdamp = -divdamp_fac*((p_patch%planar_torus_info%cell_edge_length)**2*0.5)**2
-      ELSE
-         scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
-                         & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
-      END IF
+       scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
+                       & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
     ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 

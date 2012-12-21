@@ -126,15 +126,7 @@
 !!  Modification by Almut Gassmann, MPI-M (2012-04-19)
 !!  - added routine init_tplane_c, which projects vertices and mass points onto 
 !!    a plane tangent to cell centers.
-!!  Modification by Anurag Dipankar, MPI-M(2012-12-12)
-!!  - made changes in the following routines to compute coefficients for planar
-!!    torus case to be used for HDCP2. Check:"is_plane_torus".
-!!    Routines changed: init_cellavg_wt, init_geo_factors, complete_patchinfo, init_tplane_e
-!!  - Note that we currently use cells%cartesian_center, edge%cartesian_center, and 
-!!    verts%cartesian to get cartesian coord but these variables don't adjust
-!!    according to the decomposition. So this should change once plane_torus is ready
-!!    for parallel decomposition
-!!    
+!!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -205,8 +197,6 @@ USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,     
   &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-USE mo_math_utilities,      ONLY: plane_torus_distance, plane_torus_closest_coordinates
-USE mo_grid_config,         ONLY: is_plane_torus
 
 IMPLICIT NONE
 
@@ -990,13 +980,13 @@ INTEGER, DIMENSION(nproma) :: iie1, iie2, iie3, iie4
 REAL(wp), DIMENSION (nproma,3) :: z_nx1, z_nx2, z_nx3, z_nx4, z_nx5
 REAL(wp) :: checksum(nproma,ptr_patch%nblks_e)
 
-REAL(wp) :: xtemp,ytemp,wgt(3),xloc,yloc,x(3),y(3), cc_ref(3), &
+REAL(wp) :: xtemp,ytemp,wgt(3),xloc,yloc,x(3),y(3), &
             pollat,pollon,relax_coeff,wgt_loc,maxwgt_loc,minwgt_loc
 
 REAL(wp), DIMENSION(nproma,ptr_patch%nblks_c)  :: wgt_loc_sum, resid
 INTEGER, DIMENSION(nproma,ptr_patch%nblks_c,3) :: inv_neighbor_id
 REAL(wp), DIMENSION(nproma,ptr_patch%nblks_c,3) :: z_inv_neighbor_id
- 
+
 #ifdef DEBUG_COEFF
 REAL(wp) :: sum1
 #endif
@@ -1025,7 +1015,6 @@ rl_end = min_rlcell
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-
 !
 ! Compute inverse neighbor ID's
 ! The inverse neigbor ID of a neighbor cell (ilc1,ibc1) is the neighbor ID
@@ -1094,43 +1083,10 @@ DO jb = i_startblk, i_endblk
   ENDDO !cell loop
 
 END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!$OMP END DO
 
-! Compute coefficients for bilinear interpolation for averaging
-! from the neighboring cells to local cell center
-! 
-!<<>>
-! The weighting factors are based on the requirement that sum(w(i)*x(i)) = 0
-! and sum(w(i)*y(i)) = 0, which ensures that linear horizontal gradients
-! are not aliased into a checkerboard pattern between upward- and downward
-! directed cells. The third condition is sum(w(i)) = 1., and the weight
-! of the local point is 0.5 (see above). Analytical elimination yields...
-!<<>>
- 
-IF(is_plane_torus)THEN
+! Compute coefficients for bilinear interpolation
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, rl_start, rl_end)
-    DO jc = i_startidx, i_endidx
-
-      IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
-
-      ! Simple for plane torus
-      ptr_int%c_bln_avg(jc,1,jb)   = wgt_loc
-      ptr_int%c_bln_avg(jc,2:4,jb) = (1._wp - wgt_loc) / 3._wp     
-      
-    ENDDO !cell loop
-  END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-ELSE !NOT is_plane_torus
-
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
 !$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1197,7 +1153,11 @@ ELSE !NOT is_plane_torus
       IF (x(3) >  3.5_wp) x(3) = x(3) - pi2
       IF (x(3) < -3.5_wp) x(3) = x(3) + pi2
 
-      ! Calculate the weighting factors
+      ! The weighting factors are based on the requirement that sum(w(i)*x(i)) = 0
+      ! and sum(w(i)*y(i)) = 0, which ensures that linear horizontal gradients
+      ! are not aliased into a checkerboard pattern between upward- and downward
+      ! directed cells. The third condition is sum(w(i)) = 1., and the weight
+      ! of the local point is 0.5 (see above). Analytical elimination yields...
 
       IF (ABS(x(2)-x(1)) > 1.e-11_wp .AND. ABS(y(3)-y(1)) > 1.e-11_wp ) THEN
         wgt(3) = 1._wp/( (y(3)-y(1)) - (x(3)-x(1))*(y(2)-y(1))/(x(2)-x(1)) ) * &
@@ -1211,7 +1171,7 @@ ELSE !NOT is_plane_torus
         wgt(1) = 1._wp - wgt_loc - wgt(2) - wgt(3)
       ENDIF
 
-      ! Store results
+      ! Store results in ptr_patch%cells%avg_wgt
       ptr_int%c_bln_avg(jc,1,jb) = wgt_loc
       ptr_int%c_bln_avg(jc,2,jb) = wgt(1)
       ptr_int%c_bln_avg(jc,3,jb) = wgt(2)
@@ -1222,7 +1182,6 @@ ELSE !NOT is_plane_torus
   END DO !block loop
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-END IF !IF(is_plane_torus)
 
 z_inv_neighbor_id = REAL(inv_neighbor_id,wp)
 CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,1))
@@ -1362,7 +1321,6 @@ IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
 
 ELSE ! In the last iteration, enforce the mass conservation condition
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1606,12 +1564,10 @@ ELSE ! In the last iteration, enforce the mass conservation condition
 
   END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
   ! Finally, the weighting coefficients are scaled in order to
   ! yield the right result for a constant wind field
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4, &
 !$OMP            z_nx1,z_nx2,z_nx3,z_nx4,z_nx5) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1791,7 +1747,6 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! b) Nudging coefficients for edges
 i_startblk = ptr_patch%edges%start_blk(grf_nudge_start_e,1)
@@ -1799,7 +1754,6 @@ i_endblk   = ptr_patch%edges%end_blk(0,i_nchdom)
 
 IF (ptr_patch%id > 1 .AND. lfeedback(ptr_patch%id)) THEN
   ! Use nudging coefficients optimized for velocity boundary diffusion
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1818,10 +1772,8 @@ IF (ptr_patch%id > 1 .AND. lfeedback(ptr_patch%id)) THEN
 
   END DO !block loop
 !$OMP END DO NOWAIT
-!$OMP END PARALLEL
 ELSE
   ! Use nudging coefficients from namelist
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1841,8 +1793,9 @@ ELSE
 
   END DO !block loop
 !$OMP END DO NOWAIT
-!$OMP END PARALLEL
 ENDIF
+
+!$OMP END PARALLEL
 
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%nudgecoeff_c)
 CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%nudgecoeff_e)
@@ -1931,7 +1884,6 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! b) Geometrical factor for rotation
 rl_start = 2
@@ -1950,7 +1902,6 @@ rl_end = min_rlvert
   !
   ! loop through all patch cells (and blocks)
   !
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1977,7 +1928,6 @@ rl_end = min_rlvert
 
   END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! c) Geometrical factor for nabla2_scalar
 rl_start = 2
@@ -1989,7 +1939,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells (and blocks)
 !
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
 !$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -2069,7 +2018,6 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! d) Geometrical factor for quad-cell divergence (triangles only)
 
@@ -2082,7 +2030,6 @@ IF (ptr_patch%cell_type == 3) THEN
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -2107,7 +2054,6 @@ IF (ptr_patch%cell_type == 3) THEN
 
   END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 ENDIF
 
@@ -2124,7 +2070,6 @@ IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe,ile1,ibe1,ile2,ibe2,ile3,ibe3,&
 !$OMP            ilc1,ilc2,ibc1,ibc2) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2246,7 +2191,6 @@ IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
 
   END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 ENDIF
 
@@ -2263,7 +2207,6 @@ ENDIF
       i_startblk = ptr_patch%edges%start_blk(rl_start,1)
       i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,z_pn_k,z_pt_k,&
 !$OMP ilc1,ibc1,ilc2,ibc2,ilv1,ibv1,ilv2,ibv2,je1,ile,ibe,z_proj,z_pn_j,&
 !$OMP jm,jn,nincr,ilr,ibr,jr1,z_lon,z_lat,z_norm,z_cart_no,z_cart_ea) ICON_OMP_DEFAULT_SCHEDULE
@@ -2296,15 +2239,12 @@ ENDIF
             z_lon = -pi_2 !-90
             z_lat =  pi_2 !+90
           ENDIF
-
           CALL gvec2cvec(0.0_wp,1.0_wp,z_lon,z_lat,z_cart_no%x(1),z_cart_no%x(2),z_cart_no%x(3))
           z_norm = SQRT( DOT_PRODUCT(z_cart_no%x(1:3),z_cart_no%x(1:3)))
           z_cart_no%x(1:3) = z_cart_no%x(1:3) /z_norm
-
           CALL gvec2cvec(1.0_wp,0.0_wp,z_lon,z_lat,z_cart_ea%x(1),z_cart_ea%x(2),z_cart_ea%x(3))
           z_norm = SQRT( DOT_PRODUCT(z_cart_ea%x(1:3),z_cart_ea%x(1:3)))
           z_cart_ea%x(1:3) = z_cart_ea%x(1:3) /z_norm
-
           ! projection of local cell north(east) onto the edge normal
           ptr_int%cno_en(je,1,jb) = &
           &  DOT_PRODUCT(z_cart_no%x(:),ptr_patch%edges%primal_cart_normal(je,jb)%x(:))
@@ -2320,15 +2260,12 @@ ENDIF
             z_lon = -pi_2 !-90
             z_lat =  pi_2 !+90
           ENDIF
-
           CALL gvec2cvec(0.0_wp,1.0_wp,z_lon,z_lat,z_cart_no%x(1),z_cart_no%x(2),z_cart_no%x(3))
           z_norm = SQRT( DOT_PRODUCT(z_cart_no%x(1:3),z_cart_no%x(1:3)))
           z_cart_no%x(1:3) = z_cart_no%x(1:3) /z_norm
-
           CALL gvec2cvec(1.0_wp,0.0_wp,z_lon,z_lat,z_cart_ea%x(1),z_cart_ea%x(2),z_cart_ea%x(3))
           z_norm = SQRT( DOT_PRODUCT(z_cart_ea%x(1:3),z_cart_ea%x(1:3)))
           z_cart_ea%x(1:3) = z_cart_ea%x(1:3) /z_norm
-
           ! projection of local cell north(east) onto the edge normal
           ptr_int%cno_en(je,2,jb) = &
           &  DOT_PRODUCT(z_cart_no%x(:),ptr_patch%edges%primal_cart_normal(je,jb)%x(:))
@@ -2540,7 +2477,6 @@ ENDIF
 
       ENDDO !jb
 !$OMP END DO
-!$OMP END PARALLEL
 
     ENDIF
 
@@ -2554,7 +2490,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells (and blocks)
 !
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
 !$OMP    ilc2,ibc2,ilnc,ibnc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -2697,7 +2632,7 @@ TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 TYPE(t_int_state),     INTENT(inout) :: ptr_int
 !
 
-INTEGER :: jb, je, jc, jv
+INTEGER :: jb, je, jc
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -2708,7 +2643,7 @@ REAL(wp) :: z_nu, z_nv, z_lon, z_lat, z_nx1(3), z_nx2(3), z_norm
 
 TYPE(t_cartesian_coordinates) :: cc_edge, cc_cell, cc_ev3, cc_ev4, cc_v1, cc_v2, cc_v3, &
                                  cc_dis1, cc_dis2, cc_dis3
-REAL(wp) :: torus_len, torus_ht
+
 !-----------------------------------------------------------------------
 
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
@@ -2720,13 +2655,6 @@ rl_end = min_rlcell
 ! values for the blocking
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-
-!torus grid info
-IF(is_plane_torus)THEN
-  torus_len = ptr_patch%planar_torus_info%length
-  torus_ht  = ptr_patch%planar_torus_info%height
-END IF
-
 !
 ! First step: compute Cartesian coordinates of cell centers on full domain
 ! this is needed for least squares gradient reconstruction;
@@ -2742,18 +2670,14 @@ DO jb = i_startblk, i_endblk
     IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
     ! compute Cartesian coordinates (needed for RBF initialization)
-    IF(is_plane_torus)THEN
-      cc_cell = ptr_patch%cells%cartesian_center(jc,jb) 
-    ELSE
-      cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
-    END IF
+
+    cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
     ptr_int%cart_cell_coord(jc,jb,1:3)= cc_cell%x(1:3)
 
   ENDDO
 
 END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 
 rl_start = 1
@@ -2770,7 +2694,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! In addition, the fields for the inverse primal and dual edge lengths are
 ! initialized here.
 !
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
@@ -2782,15 +2705,13 @@ DO jb = i_startblk, i_endblk
     IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
     ! compute Cartesian coordinates (needed for RBF initialization)
-    IF(is_plane_torus)THEN
-      cc_edge = ptr_patch%edges%cartesian_center(je,jb) 
-    ELSE
-      cc_edge = gc2cc(ptr_patch%edges%center(je,jb))
-    END IF
+
+    cc_edge = gc2cc(ptr_patch%edges%center(je,jb))
     ptr_int%cart_edge_coord(je,jb,1:3)= cc_edge%x(1:3)
 
     ! finally, compute inverse primal edge length
     ! (dual follows below in the rl_start=2 section)
+
     ptr_patch%edges%inv_primal_edge_length(je,jb) = &
       1._wp/ptr_patch%edges%primal_edge_length(je,jb)
 
@@ -2798,8 +2719,6 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
-
 
 rl_start = 2
 rl_end = min_rledge
@@ -2810,7 +2729,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 ! Initialization of lateral boundary points
 IF (ptr_patch%id > 1) THEN
-!$OMP PARALLEL
 !$OMP WORKSHARE
   ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
   ptr_patch%edges%vertex_idx(:,1:i_startblk,3)            = 0
@@ -2827,12 +2745,10 @@ IF (ptr_patch%id > 1) THEN
   ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2 = 0._wp
   ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2 = 0._wp
 !$OMP END WORKSHARE
-!$OMP END PARALLEL
 ENDIF
 !
 ! loop through all patch edges
 !
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
 !$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
 !$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
@@ -2945,33 +2861,21 @@ DO jb = i_startblk, i_endblk
     ilv4 = ptr_patch%edges%vertex_idx(je,jb,4)
     ibv4 = ptr_patch%edges%vertex_blk(je,jb,4)
 
-    IF(is_plane_torus)THEN
-      cc_ev3 = ptr_patch%verts%cartesian(ilv3,ibv3)
-      cc_ev4 = ptr_patch%verts%cartesian(ilv4,ibv4)
-    ELSE
-      cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
-      cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
-    END IF
+    cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
+    cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
 
     ! inverse length bewtween vertices 3 and 4
-    IF(ptr_patch%cell_type == 3)THEN
-      IF (is_plane_torus ) THEN
-        ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/ &
-          & plane_torus_distance(cc_ev3%x,cc_ev4%x,torus_len,torus_ht)
-      ELSE
-        ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
-          & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4))
-      ENDIF
-    END IF
+    IF (ptr_patch%cell_type == 3 ) THEN
+      ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
+        & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4))
+    ENDIF
 
     ! next step: compute projected orientation vectors for cells and vertices
     ! bordering to each edge (incl. vertices 3 and 4 intorduced above)
 
-    !transform orientation vectors at local edge center to Cartesian space
-
-    !commented these two because they were not used: AD
-    !z_lon = ptr_patch%edges%center(je,jb)%lon
-    !z_lat = ptr_patch%edges%center(je,jb)%lat
+    ! transform orientation vectors at local edge center to Cartesian space
+    z_lon = ptr_patch%edges%center(je,jb)%lon
+    z_lat = ptr_patch%edges%center(je,jb)%lat
 
     ! transform primal normal to cartesian vector z_nx1
     z_nx1(:)=ptr_patch%edges%primal_cart_normal(je,jb)%x(:)
@@ -2980,13 +2884,10 @@ DO jb = i_startblk, i_endblk
     z_nx2(:)=ptr_patch%edges%dual_cart_normal(je,jb)%x(:)
 
     ! get location of cell 1
-    IF(is_plane_torus)THEN
-      z_lon = -pi_2
-      z_lat =  pi_2
-    ELSE
-      z_lon = ptr_patch%cells%center(ilc1,ibc1)%lon
-      z_lat = ptr_patch%cells%center(ilc1,ibc1)%lat
-    END IF
+
+    z_lon = ptr_patch%cells%center(ilc1,ibc1)%lon
+    z_lat = ptr_patch%cells%center(ilc1,ibc1)%lat
+
     ! compute local primal and dual normals at cell 1
 
     CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
@@ -3002,15 +2903,12 @@ DO jb = i_startblk, i_endblk
     ptr_patch%edges%dual_normal_cell(je,jb,1)%v2 = z_nv/z_norm
 
     ! get location of cell 2
-    IF(is_plane_torus)THEN
-      z_lon = -pi_2
-      z_lat =  pi_2
-    ELSE
-      z_lon = ptr_patch%cells%center(ilc2,ibc2)%lon
-      z_lat = ptr_patch%cells%center(ilc2,ibc2)%lat
-    END IF
+
+    z_lon = ptr_patch%cells%center(ilc2,ibc2)%lon
+    z_lat = ptr_patch%cells%center(ilc2,ibc2)%lat
 
     ! compute local primal and dual normals at cell 2
+
     CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
     z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
 
@@ -3024,15 +2922,12 @@ DO jb = i_startblk, i_endblk
     ptr_patch%edges%dual_normal_cell(je,jb,2)%v2 = z_nv/z_norm
 
     ! get location of vertex 1
-    IF(is_plane_torus)THEN
-      z_lon = -pi_2
-      z_lat =  pi_2
-    ELSE
-      z_lon = ptr_patch%verts%vertex(ilv1,ibv1)%lon
-      z_lat = ptr_patch%verts%vertex(ilv1,ibv1)%lat
-    END IF
+
+    z_lon = ptr_patch%verts%vertex(ilv1,ibv1)%lon
+    z_lat = ptr_patch%verts%vertex(ilv1,ibv1)%lat
 
     ! compute local primal and dual normals at vertex 1
+
     CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
     z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
 
@@ -3046,15 +2941,12 @@ DO jb = i_startblk, i_endblk
     ptr_patch%edges%dual_normal_vert(je,jb,1)%v2 = z_nv/z_norm
 
     ! get location of vertex 2
-    IF(is_plane_torus)THEN
-      z_lon = -pi_2
-      z_lat =  pi_2
-    ELSE
-      z_lon = ptr_patch%verts%vertex(ilv2,ibv2)%lon
-      z_lat = ptr_patch%verts%vertex(ilv2,ibv2)%lat
-    END IF
+
+    z_lon = ptr_patch%verts%vertex(ilv2,ibv2)%lon
+    z_lat = ptr_patch%verts%vertex(ilv2,ibv2)%lat
 
     ! compute local primal and dual normals at vertex 2
+
     CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
     z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
 
@@ -3068,15 +2960,12 @@ DO jb = i_startblk, i_endblk
     ptr_patch%edges%dual_normal_vert(je,jb,2)%v2 = z_nv/z_norm
 
     ! get location of vertex 3
-    IF(is_plane_torus)THEN
-      z_lon = -pi_2
-      z_lat =  pi_2
-    ELSE
-      z_lon = ptr_patch%verts%vertex(ilv3,ibv3)%lon
-      z_lat = ptr_patch%verts%vertex(ilv3,ibv3)%lat
-    END IF
+
+    z_lon = ptr_patch%verts%vertex(ilv3,ibv3)%lon
+    z_lat = ptr_patch%verts%vertex(ilv3,ibv3)%lat
 
     ! compute local primal and dual normals at vertex 3
+
     CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
     z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
 
@@ -3090,15 +2979,12 @@ DO jb = i_startblk, i_endblk
     ptr_patch%edges%dual_normal_vert(je,jb,3)%v2 = z_nv/z_norm
 
     ! get location of vertex 4
-    IF(is_plane_torus)THEN
-      z_lon = -pi_2
-      z_lat =  pi_2
-    ELSE
-      z_lon = ptr_patch%verts%vertex(ilv4,ibv4)%lon
-      z_lat = ptr_patch%verts%vertex(ilv4,ibv4)%lat
-    END IF
+
+    z_lon = ptr_patch%verts%vertex(ilv4,ibv4)%lon
+    z_lat = ptr_patch%verts%vertex(ilv4,ibv4)%lat
 
     ! compute local primal and dual normals at vertex 2
+
     CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
     z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
 
@@ -3115,6 +3001,7 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO NOWAIT
+
 !$OMP END PARALLEL
 
   ! primal_normal_cell must be sync'd before next loop,
@@ -3221,7 +3108,6 @@ DO jb = i_startblk, i_endblk
 
 END DO !block loop
 !$OMP END DO
-!$OMP END PARALLEL
 
 rl_start = 1
 rl_end = min_rlcell
@@ -3229,147 +3115,71 @@ rl_end = min_rlcell
 ! Compute cell-vertex distances for gradient limiter
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-
-IF(is_plane_torus)THEN
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
-!$OMP            z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, rl_start, rl_end)
-
-    DO jc =  i_startidx, i_endidx
-
-      cc_cell%x(1:3) = ptr_int%cart_cell_coord(jc,jb,1:3)
- 
-      !Unit vectors in local coordinate
-      z_nx1(1)  = 1._wp; z_nx1(2:3) = 0._wp
-      z_nx2(1)  = 0._wp; z_nx2(2) = 1._wp; z_nx2(3) = 0._wp
-
-      ilv1 = ptr_patch%cells%vertex_idx(jc,jb,1)
-      ibv1 = ptr_patch%cells%vertex_blk(jc,jb,1)
-      ilv2 = ptr_patch%cells%vertex_idx(jc,jb,2)
-      ibv2 = ptr_patch%cells%vertex_blk(jc,jb,2)
-      ilv3 = ptr_patch%cells%vertex_idx(jc,jb,3)
-      ibv3 = ptr_patch%cells%vertex_blk(jc,jb,3)
-
-      cc_v1  =  ptr_patch%verts%cartesian(ilv1,ibv1)
-      cc_v2  =  ptr_patch%verts%cartesian(ilv2,ibv2)
-      cc_v3  =  ptr_patch%verts%cartesian(ilv3,ibv3)
-
-      cc_v1  = plane_torus_closest_coordinates(cc_cell%x(1:3),cc_v1%x(1:3),torus_len,torus_ht)
-      cc_v2  = plane_torus_closest_coordinates(cc_cell%x(1:3),cc_v2%x(1:3),torus_len,torus_ht)
-      cc_v3  = plane_torus_closest_coordinates(cc_cell%x(1:3),cc_v3%x(1:3),torus_len,torus_ht)
-
-      cc_dis1%x(1:3) = cc_v1%x(1:3) - cc_cell%x(1:3)
-      z_norm = SQRT( DOT_PRODUCT(cc_dis1%x(1:3),cc_dis1%x(1:3)) )
-      cc_dis1%x(1:3) = cc_dis1%x(1:3)/z_norm
-
-      cc_dis2%x(1:3) = cc_v2%x(1:3) - cc_cell%x(1:3)
-      z_norm = SQRT( DOT_PRODUCT(cc_dis2%x(1:3),cc_dis2%x(1:3)) )
-      cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
-
-      cc_dis3%x(1:3) = cc_v3%x(1:3) - cc_cell%x(1:3)
-      z_norm = SQRT( DOT_PRODUCT(cc_dis3%x(1:3),cc_dis3%x(1:3)) )
-      cc_dis3%x(1:3) = cc_dis3%x(1:3)/z_norm
-
-      ptr_int%cell_vert_dist(jc,1,1,jb) =  &
-                        plane_torus_distance(cc_cell%x(1:3),cc_v1%x(1:3),torus_len,torus_ht) * &
-                        DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
-
-      ptr_int%cell_vert_dist(jc,2,1,jb) =  &
-                         plane_torus_distance(cc_cell%x(1:3),cc_v2%x(1:3),torus_len,torus_ht) * &
-                         DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
-
-      ptr_int%cell_vert_dist(jc,3,1,jb) =  &
-                         plane_torus_distance(cc_cell%x(1:3),cc_v3%x(1:3),torus_len,torus_ht) * &
-                         DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
-
-      ptr_int%cell_vert_dist(jc,1,2,jb) =  &
-                         plane_torus_distance(cc_cell%x(1:3),cc_v1%x(1:3),torus_len,torus_ht) * &
-                         DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
-
-      ptr_int%cell_vert_dist(jc,2,2,jb) =  &
-                         plane_torus_distance(cc_cell%x(1:3),cc_v2%x(1:3),torus_len,torus_ht) * &
-                         DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
-
-      ptr_int%cell_vert_dist(jc,3,2,jb) =  &
-                         plane_torus_distance(cc_cell%x(1:3),cc_v3%x(1:3),torus_len,torus_ht) * &
-                         DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
-    ENDDO
-  END DO !block loop
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-ELSE !General case
-
-!$OMP PARALLEL
+!
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell,cc_v1,cc_v2,cc_v3,cc_dis1,cc_dis2,cc_dis3, &
 !$OMP            z_lon,z_lat,z_nx1,z_nx2,z_norm,ilv1,ibv1,ilv2,ibv2,ilv3,ibv3) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
+DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, rl_start, rl_end)
+  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end)
 
-    DO jc =  i_startidx, i_endidx
+  DO jc =  i_startidx, i_endidx
 
-      cc_cell%x(1:3) = ptr_int%cart_cell_coord(jc,jb,1:3)
-   
-      z_lon   = ptr_patch%cells%center(jc,jb)%lon
-      z_lat   = ptr_patch%cells%center(jc,jb)%lat
+    cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
+    z_lon   = ptr_patch%cells%center(jc,jb)%lon
+    z_lat   = ptr_patch%cells%center(jc,jb)%lat
 
-      CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(1),z_nx1(2),z_nx1(3))
-      z_norm = SQRT( DOT_PRODUCT(z_nx1(1:3),z_nx1(1:3)) )
-      z_nx1(1:3)  = 1._wp/z_norm * z_nx1(1:3)
+    CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(1),z_nx1(2),z_nx1(3))
+    z_norm = SQRT( DOT_PRODUCT(z_nx1(1:3),z_nx1(1:3)) )
+    z_nx1(1:3)  = 1._wp/z_norm * z_nx1(1:3)
 
-      CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(1),z_nx2(2),z_nx2(3))
-      z_norm = SQRT( DOT_PRODUCT(z_nx2(1:3),z_nx2(1:3)) )
-      z_nx2(1:3)  = 1._wp/z_norm * z_nx2(1:3)
+    CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(1),z_nx2(2),z_nx2(3))
+    z_norm = SQRT( DOT_PRODUCT(z_nx2(1:3),z_nx2(1:3)) )
+    z_nx2(1:3)  = 1._wp/z_norm * z_nx2(1:3)
 
-      ilv1 = ptr_patch%cells%vertex_idx(jc,jb,1)
-      ibv1 = ptr_patch%cells%vertex_blk(jc,jb,1)
-      ilv2 = ptr_patch%cells%vertex_idx(jc,jb,2)
-      ibv2 = ptr_patch%cells%vertex_blk(jc,jb,2)
-      ilv3 = ptr_patch%cells%vertex_idx(jc,jb,3)
-      ibv3 = ptr_patch%cells%vertex_blk(jc,jb,3)
+    ilv1 = ptr_patch%cells%vertex_idx(jc,jb,1)
+    ibv1 = ptr_patch%cells%vertex_blk(jc,jb,1)
+    ilv2 = ptr_patch%cells%vertex_idx(jc,jb,2)
+    ibv2 = ptr_patch%cells%vertex_blk(jc,jb,2)
+    ilv3 = ptr_patch%cells%vertex_idx(jc,jb,3)
+    ibv3 = ptr_patch%cells%vertex_blk(jc,jb,3)
 
-      cc_v1 = gc2cc(ptr_patch%verts%vertex(ilv1,ibv1))
-      cc_v2 = gc2cc(ptr_patch%verts%vertex(ilv2,ibv2))
-      cc_v3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
+    cc_v1 = gc2cc(ptr_patch%verts%vertex(ilv1,ibv1))
+    cc_v2 = gc2cc(ptr_patch%verts%vertex(ilv2,ibv2))
+    cc_v3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
 
-      cc_dis1%x(1:3) = cc_v1%x(1:3) - cc_cell%x(1:3)
-      z_norm = SQRT( DOT_PRODUCT(cc_dis1%x(1:3),cc_dis1%x(1:3)) )
-      cc_dis1%x(1:3) = cc_dis1%x(1:3)/z_norm
+    cc_dis1%x(1:3) = cc_v1%x(1:3) - cc_cell%x(1:3)
+    z_norm = SQRT( DOT_PRODUCT(cc_dis1%x(1:3),cc_dis1%x(1:3)) )
+    cc_dis1%x(1:3) = cc_dis1%x(1:3)/z_norm
 
-      cc_dis2%x(1:3) = cc_v2%x(1:3) - cc_cell%x(1:3)
-      z_norm = SQRT( DOT_PRODUCT(cc_dis2%x(1:3),cc_dis2%x(1:3)) )
-      cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
+    cc_dis2%x(1:3) = cc_v2%x(1:3) - cc_cell%x(1:3)
+    z_norm = SQRT( DOT_PRODUCT(cc_dis2%x(1:3),cc_dis2%x(1:3)) )
+    cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
 
-      cc_dis3%x(1:3) = cc_v3%x(1:3) - cc_cell%x(1:3)
-      z_norm = SQRT( DOT_PRODUCT(cc_dis3%x(1:3),cc_dis3%x(1:3)) )
-      cc_dis3%x(1:3) = cc_dis3%x(1:3)/z_norm
+    cc_dis3%x(1:3) = cc_v3%x(1:3) - cc_cell%x(1:3)
+    z_norm = SQRT( DOT_PRODUCT(cc_dis3%x(1:3),cc_dis3%x(1:3)) )
+    cc_dis3%x(1:3) = cc_dis3%x(1:3)/z_norm
 
-      ptr_int%cell_vert_dist(jc,1,1,jb) = grid_sphere_radius* &
-        arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
-      ptr_int%cell_vert_dist(jc,2,1,jb) = grid_sphere_radius* &
-        arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
-      ptr_int%cell_vert_dist(jc,3,1,jb) = grid_sphere_radius* &
-        arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
+    ptr_int%cell_vert_dist(jc,1,1,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
+    ptr_int%cell_vert_dist(jc,2,1,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
+    ptr_int%cell_vert_dist(jc,3,1,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
 
-      ptr_int%cell_vert_dist(jc,1,2,jb) = grid_sphere_radius* &
-        arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
-      ptr_int%cell_vert_dist(jc,2,2,jb) = grid_sphere_radius* &
-        arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
-      ptr_int%cell_vert_dist(jc,3,2,jb) = grid_sphere_radius* &
-        arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
+    ptr_int%cell_vert_dist(jc,1,2,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
+    ptr_int%cell_vert_dist(jc,2,2,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
+    ptr_int%cell_vert_dist(jc,3,2,jb) = grid_sphere_radius* &
+      arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
 
-    ENDDO
-  END DO !block loop
+  ENDDO
+
+END DO !block loop
 !$OMP END DO NOWAIT
+
 !$OMP END PARALLEL
-END IF !IF(is_plane_torus) to calculate distance between cell center and its vertices
 
   DO je = 1, ptr_patch%cell_type
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%primal_normal_ec(:,:,je,1))
@@ -3408,7 +3218,7 @@ END SUBROUTINE complete_patchinfo
   !! Initial revision by Daniel Reinert, DWD (2010-03-12)
   !! Modification by Daniel Reinert, DWD (2010-05-12)
   !! - added projection of edge vertices onto tangential plane
-  !! 
+  !!
   SUBROUTINE init_tplane_e (ptr_patch, ptr_int)
 
     TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
@@ -3442,15 +3252,6 @@ END SUBROUTINE complete_patchinfo
     REAL(wp) :: z_nx_quad(3),    &    !< primal/dual normal at quadrilateral
       &         z_ny_quad(3)          !< edges in cartesian coordinates
 
-    REAL(wp) :: torus_len, torus_ht   !height and length of plane torus
-
-    !CC of points on the plane torus grid
-    TYPE(t_cartesian_coordinates) :: cc_n1, cc_n2, cc_quad(4), cc_ve(2), cc_edge
-
-    !relative location of those points w.r.t cc_edge
-    TYPE(t_cartesian_coordinates) :: cc_plane_n1, cc_plane_n2, cc_plane_quad(4), &
-                                     cc_plane_ve(2)
-
     INTEGER :: ilc1, ilc2, ibc1, ibc2 !< line and block indices of neighbour
                                       !< cell centers
     INTEGER :: ilq, ibq               !< line and block indices of quadrilateral edges
@@ -3460,7 +3261,6 @@ END SUBROUTINE complete_patchinfo
     INTEGER :: jb, je                 !< loop indices for block and edges
     INTEGER :: ne, nv                 !< loop index for quadrilateral edges and
                                       !< edge vertices
-       
   !-------------------------------------------------------------------------
 
     CALL message('mo_interpolation:init_tplane_e', '')
@@ -3471,10 +3271,6 @@ END SUBROUTINE complete_patchinfo
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
     i_endblk   = ptr_patch%nblks_int_e
 
-   IF(is_plane_torus)THEN
-     torus_len = ptr_patch%planar_torus_info%length
-     torus_ht  = ptr_patch%planar_torus_info%height
-   END IF
 
     !
     ! compute position of adjacent cell circumcenters, edge vertices and edge
@@ -3483,126 +3279,6 @@ END SUBROUTINE complete_patchinfo
     ! geographical (\lambda-\Phi) system. Then we rotate the coordinates of
     ! these points into a new system with coordinate directions normal and
     ! tangential to the edge.
-    !<< AD
-    ! Modification for is_plane_torus for HDCP2: the planar distance between any two
-    ! points is same as the Gnomonic projected distance
-    ! AD >>
-
-IF(is_plane_torus)THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,ne,nv,ilc1,ibc1,ilc2,ibc2,ilq,ibq,ilv,ibv,i_startidx, &
-!$OMP            i_endidx,cc_edge,cc_n1,cc_n2,cc_plane_n1,       &
-!$OMP            cc_plane_n2,cc_quad,cc_plane_quad,cc_ve,        &
-!$OMP            cc_plane_ve) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                        i_startidx, i_endidx, i_rcstartlev)
-
-      DO je = i_startidx, i_endidx
-
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
-
-        ! 1. CC of neighboring cell centers; z index is 0
-        cc_edge = ptr_patch%edges%cartesian_center(je,jb)
-
-        ! get line and block indices of neighbour cells
-        ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
-        ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
-        ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
-        ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
-
-        ! get CC of the cell centers
-        cc_n1 = ptr_patch%cells%cartesian_center(ilc1,ibc1)
-        cc_n2 = ptr_patch%cells%cartesian_center(ilc2,ibc2)
-
-        !now calculate the separation vector between the edge and cell centers
-        cc_n1 =  plane_torus_closest_coordinates(cc_edge%x,cc_n1%x,torus_len,torus_ht)
-        cc_plane_n1%x(:) = cc_n1%x(:) - cc_edge%x(:) 
- 
-        cc_n2 =  plane_torus_closest_coordinates(cc_edge%x,cc_n2%x,torus_len,torus_ht)
-        cc_plane_n2%x(:) = cc_n2%x(:) - cc_edge%x(:) 
-    
-        ! 2. Edge midpoints of the quadrilateral
-        DO ne = 1,4
-
-          ! get line and block indices of edge midpoints
-          ilq = ptr_patch%edges%quad_idx(je,jb,ne)
-          ibq = ptr_patch%edges%quad_blk(je,jb,ne)
-
-          ! get CC coordinates of edge midpoints
-          cc_quad(ne) = ptr_patch%edges%cartesian_center(ilq,ibq)
-
-          !now calculate the separation vector between the edge and cell centers
-          cc_quad(ne) =  plane_torus_closest_coordinates(cc_edge%x,cc_quad(ne)%x,torus_len,torus_ht)
-          cc_plane_quad(ne)%x(:) = cc_quad(ne)%x(:) - cc_edge%x(:) 
-
-        END DO
-        !
-        ! 3. Edge vertices
-        !
-        DO nv = 1,2
-
-          ! get line and block indices of edge vertices
-          ilv = ptr_patch%edges%vertex_idx(je,jb,nv)
-          ibv = ptr_patch%edges%vertex_blk(je,jb,nv)
-
-          ! get CC coordinates of edge vertices
-          cc_ve(nv) = ptr_patch%verts%cartesian(ilv,ibv)
-
-          !now calculate the separation vector between the edge and cell centers
-          cc_ve(nv) =  plane_torus_closest_coordinates(cc_edge%x,cc_ve(nv)%x,torus_len,torus_ht)
-          cc_plane_ve(nv)%x(:) = cc_ve(nv)%x(:) - cc_edge%x(:) 
-
-        END DO
-
-        !
-        ! 4. rotate these vectors into a new local cartesian system. In this rotated
-        !    system the coordinate axes point into the local normal and tangential
-        !    direction at each edge. All these vectors are 2D so no point using the
-        !    z coordinate
-        !
-
-        ! centers
-        !
-        ptr_int%pos_on_tplane_e(je,jb,1,1) = SUM(      &
-          &  cc_plane_n1%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
-
-        ptr_int%pos_on_tplane_e(je,jb,1,2) = SUM(      &
-          &  cc_plane_n1%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
-
-        ptr_int%pos_on_tplane_e(je,jb,2,1) = SUM(      &
-          &  cc_plane_n2%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
-
-        ptr_int%pos_on_tplane_e(je,jb,2,2) = SUM(      &
-          &  cc_plane_n2%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
-        
-        ! edges
-        !
-        DO ne = 1,4
-          ptr_int%pos_on_tplane_e(je,jb,2+ne,1) = SUM(      &
-            &  cc_plane_quad(ne)%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
-
-          ptr_int%pos_on_tplane_e(je,jb,2+ne,2) = SUM(      &
-            &  cc_plane_quad(ne)%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
-        END DO
-
-        ! vertices
-        !
-        DO nv = 1,2
-          ptr_int%pos_on_tplane_e(je,jb,6+nv,1) = SUM(      &
-            &  cc_plane_ve(nv)%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
-
-          ptr_int%pos_on_tplane_e(je,jb,6+nv,2) = SUM(      &
-            &  cc_plane_ve(nv)%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
-        END DO
-
-      ENDDO ! edges
-    ENDDO  ! blocks
-!$OMP END DO
-!$OMP END PARALLEL
-
-ELSE !Genereal case
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,ne,nv,ilc1,ibc1,ilc2,ibc2,ilq,ibq,ilv,ibv,i_startidx, &
@@ -3747,8 +3423,7 @@ ELSE !Genereal case
       ENDDO ! edges
     ENDDO  ! blocks
 !$OMP END DO
-!$OMP END PARALLEL
-END IF !IF(is_plane_torus)
+
 
 
     !
@@ -3758,7 +3433,6 @@ END IF !IF(is_plane_torus)
     ! normalization not necessary fo cartesian vectors since these are
     ! exactly =1.
     !
-!$OMP PARALLEL
 !$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,&
 !$OMP z_nx_quad,z_ny_quad) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk

@@ -124,9 +124,7 @@ MODULE mo_model_domimp_patches
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
     & radiation_grid_filename,  global_cell_type, lplane, &
-    & grid_area_rescale_factor, grid_length_rescale_factor, &
-    & is_plane_torus
-  USE mo_grid_geometry_info, ONLY: planar_torus_geometry  
+    & grid_area_rescale_factor, grid_length_rescale_factor
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
@@ -298,7 +296,6 @@ CONTAINS
     TYPE(t_patch), POINTER ::  &
       & p_single_patch => NULL()
     
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/import_basic_patch'
     !-----------------------------------------------------------------------
     
     CALL message ('mo_model_domimp_patches:import_basic_patches', &
@@ -471,7 +468,6 @@ CONTAINS
     CALL complete_parent_index(p_patch)
     CALL set_pc_idx(p_patch)
     
-
   END SUBROUTINE import_basic_patches
   !-------------------------------------------------------------------------
   
@@ -534,7 +530,7 @@ CONTAINS
       ! calculate Cartesian components of primal normal
       ! (later these should be provided by the grid generator)
       ! these are read from the grid file, kept though for backwards compatibility
-      CALL calculate_cart_normal( lplane, is_plane_torus, p_patch(jg) )
+      CALL calculate_cart_normal( lplane, p_patch(jg) )
       
       ! Initialize the data for the quadrilateral cells
       ! formed by the two adjacent cells of an edge.
@@ -548,7 +544,7 @@ CONTAINS
         CALL init_butterfly_idx( p_patch(jg) )
       ENDIF
 
-      CALL init_coriolis( lcoriolis, lplane, is_plane_torus, p_patch(jg) )
+      CALL init_coriolis( lcoriolis, lplane, p_patch(jg) )
       
       CALL set_verts_phys_id( p_patch(jg) )
       
@@ -562,8 +558,8 @@ CONTAINS
       
       IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
         CALL disable_sync_checks
-        CALL calculate_cart_normal( lplane, is_plane_torus, p_patch_local_parent(jg) )
-        CALL init_coriolis( lcoriolis, lplane, is_plane_torus, p_patch_local_parent(jg) )
+        CALL calculate_cart_normal( lplane, p_patch_local_parent(jg) )
+        CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
         CALL set_verts_phys_id( p_patch_local_parent(jg) )
         CALL enable_sync_checks
       ENDIF
@@ -1486,7 +1482,6 @@ CONTAINS
     
     TYPE(t_patch), POINTER :: p_p
     
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/read_remaining_patch'
     !-----------------------------------------------------------------------
     
     CALL message ('mo_model_domimp_patches:read_remaining_patch', &
@@ -2153,17 +2148,7 @@ CONTAINS
     IF (return_status /= nf_noerr) p_p%geometry_type = 0 ! undefined
     IF (p_p%geometry_type == planar_torus_geometry) &
       CALL read_planar_torus_info(ncid, p_p%planar_torus_info)
-
-     !Check for plane_torus case
-    IF(p_p%geometry_type == planar_torus_geometry .AND. .NOT. is_plane_torus) THEN
-      CALL message(TRIM(routine), &
-        & "Grid is plane torus: turning on is_plane_torus automatically")    
-      is_plane_torus = .TRUE. 
-    END IF
-
-    IF(p_p%geometry_type/=planar_torus_geometry .AND. is_plane_torus) &
-      CALL finish(TRIM(routine),"Input grid is NOT plane torus, Stopping")    
-      
+    
             
     !-------------------------------------------------
 
