@@ -17,7 +17,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_icon_job.h> 
+%include <init_job.h> 
 
 # -------------------------------------------------
 

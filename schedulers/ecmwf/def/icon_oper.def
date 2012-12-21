@@ -232,8 +232,8 @@ suite $USER
                 trigger (init_svn == complete)
                 complete (/${USER}:DOW ne $compday)
                 on_hpc_parallel
-                edit SCJOBTYPE parallel
-                edit SCJOBCLASS np
+                edit SCJOBTYPE    parallel
+                edit SCJOBCLASS   np
                 edit SCTOTALTASKS 8
                 edit SCCPUS       8
                 edit SCMEM        6200MB
@@ -252,7 +252,11 @@ suite $USER
         task get_data
             trigger (setup == complete) and (../once == complete)
             complete ($ENABLE_GET_DATA == 0)
-            on_hpc_serial
+            on_hpc_parallel
+            edit SCJOBTYPE    parallel
+            edit SCJOBCLASS   np
+            edit SCTOTALTASKS 4
+            edit SCCPUS       4
             edit SCMEM        3000MB
             edit SCWALLCLOCKLIMIT 02:00:00
 
@@ -260,9 +264,10 @@ suite $USER
             trigger (get_data == complete) and (build == complete)
             complete ($ENABLE_INIT_DATA == 0)
             on_hpc_parallel
-            edit ICONNODES         4
-            edit ICONTASKSPERNODE  4
-            edit ICONTHREADS       1
+            edit SCJOBTYPE    parallel
+            edit SCJOBCLASS   np
+            edit SCTOTALTASKS 32
+            edit SCCPUS       4
             edit SCWALLCLOCKLIMIT 00:60:00
 
     endfamily
@@ -312,47 +317,45 @@ suite $USER
 
     # POST-PROCESS---------------------------------
 
-    if ($ENABLE_POST == 1) then
-       family post
-           repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-           trigger (forecast:YMD gt post:YMD)
-           #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
-           #trigger (../forecast/model:model_complete)
+    family post
+        repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+        trigger (forecast:YMD gt post:YMD)
+        #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
+        #trigger (../forecast/model:model_complete)
+        complete ($ENABLE_POST == 0)
 
-           task post_prepare   
-               on_hpc_serial
-               edit SCWALLCLOCKLIMIT 00:40:00
-               event meteogram_data
+        task post_prepare   
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 00:40:00
+            event meteogram_data
    
-           task meteogram
-               trigger (post_prepare:meteogram_data)
-               on_ecgate_submit
+        task meteogram
+            trigger (post_prepare:meteogram_data)
+            on_ecgate_submit
    
-           family metview_all 
-             trigger (post_prepare == complete)
-             for set 1 4 ; do
-               set tsk `printf %3.3i $set`
-               family $tsk
-                 task metview
-                   on_ecgate_submit
-                   edit metproc $set
-               endfamily
-             endfor  
-           endfamily
+        family metview_all 
+          trigger (post_prepare == complete)
+          for set 1 4 ; do
+            set tsk `printf %3.3i $set`
+            family $tsk
+              task metview
+                on_ecgate_submit
+                edit metproc $set
+            endfamily
+          endfor  
+        endfamily
 
-           task post_archive
-               trigger meteogram==complete and metview_all==complete 
-               on_ecgate_submit
-   
-       endfamily
-    endif
+        task post_archive
+            trigger meteogram==complete and metview_all==complete 
+            on_ecgate_submit
+    endfamily
 
 
     # END OF MONTH---------------------------------
 
     family endofmonth
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (post:YMD gt endofmonth:YMD)
+        trigger (post:YMD gt endofmonth:YMD) and (forecast:YMD gt endofmonth:YMD)
 
         task testday
             on_ecgate

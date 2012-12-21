@@ -149,7 +149,7 @@ cat > ${atmo_namelist} << EOF
  ifeedback_type               = 2
 /
 &prepicon_nml
- i_oper_mode                 = 3           ! operation mode
+ i_oper_mode                 = 2           ! operation mode (2 for model, 4 for prepicon)
  nlev_in                     = 91          ! number of levels of input data
  zpbl1                       = 500. 
  zpbl2                       = 1000. 
@@ -227,7 +227,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 1
+ inwp_turb                    = 1   ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -251,7 +251,7 @@ cat > ${atmo_namelist} << EOF
  ntiles                       = 3
  nlev_snow                    = 2
  lmulti_snow                  = .true.
- idiag_snowfrac               = 2
+ idiag_snowfrac               = 3
  lsnowtile                    = .false.
  lseaice                      = .true.
 /
