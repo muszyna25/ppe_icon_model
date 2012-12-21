@@ -170,6 +170,16 @@ case varfile of
  'ttendlw' :  varfile = '192.162.101' end
 end case
 
+varfile = lowercase(varfile)
+
+#verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
+varfile2 = varfile
+case varname of
+ 'QV':      varfile2 = 'q1'          end
+ 'QC':      varfile2 = 'q2'          end
+ 'QI':      varfile2 = 'q3'          end
+end case
+
 
 for nd=1 to ndays do 
 
@@ -187,12 +197,12 @@ for nd=1 to ndays do
 
   if lmonth = 0 then
     source_ini_icon = datafile&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
-    source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
+    source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
   else
     source_ini_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
-    source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile 
+    source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
   end if
