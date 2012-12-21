@@ -715,7 +715,7 @@ CONTAINS
     nblks_v  = p_patch%nblks_v
     npromz_v = p_patch%npromz_v
     
-    IF(lplane .OR. is_plane_torus)is_plane=.TRUE.
+    IF(lplane .OR. is_plane_torus) is_plane=.TRUE.
 
     IF (lcorio .AND. .NOT. is_plane) THEN
       

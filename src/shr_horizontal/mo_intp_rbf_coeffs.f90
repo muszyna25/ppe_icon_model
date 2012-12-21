@@ -807,6 +807,7 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
   !plane torus info
+  maxlen = 1.0_wp
   IF(is_plane_torus)THEN
     torus_len = ptr_patch%planar_torus_info%length
     torus_ht  = ptr_patch%planar_torus_info%height
@@ -1287,6 +1288,7 @@ REAL(wp) :: torus_len, torus_ht, maxlen
   i_outunit  = 520
 
   !plane torus info
+  maxlen = 1.0_wp
   IF(is_plane_torus)THEN
     torus_len = ptr_patch%planar_torus_info%length
     torus_ht  = ptr_patch%planar_torus_info%height 
@@ -1673,6 +1675,7 @@ REAL(wp) :: torus_len, torus_ht, maxlen
   i_outunit  = 530
 
   !plane torus info
+  maxlen = 1.0_wp
   IF(is_plane_torus)THEN
     torus_len = ptr_patch%planar_torus_info%length
     torus_ht  = ptr_patch%planar_torus_info%height

@@ -2155,8 +2155,9 @@ CONTAINS
       CALL read_planar_torus_info(ncid, p_p%planar_torus_info)
 
      !Check for plane_torus case
-    IF(p_p%geometry_type==planar_torus_geometry .AND. .NOT.is_plane_torus)THEN
-      CALL message(TRIM(routine),"Grid is plane torus: turning on is_plane_torus automatically")    
+    IF(p_p%geometry_type == planar_torus_geometry .AND. .NOT. is_plane_torus) THEN
+      CALL message(TRIM(routine), &
+        & "Grid is plane torus: turning on is_plane_torus automatically")    
       is_plane_torus = .TRUE. 
     END IF
 
