@@ -25,7 +25,10 @@
 echo "POST_ARCHIVE.SMS" 
 
 
-ldeldata=1
+case %SIMMODE% in
+  1) ldeldata=1  ;;
+  2) ldeldata=0  ;;
+esac
 
 
 #-----------------------------------------------------------------------------

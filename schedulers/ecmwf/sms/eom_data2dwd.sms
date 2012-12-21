@@ -25,8 +25,6 @@ echo "EOM_DATA2DWD.SMS"
 lprocess=0
 ltransfer=0
 
-use cdo
-
 
 #-----------------------------------------------------------------------------
 # Retrieve IFS analysis data for comparison to ICON

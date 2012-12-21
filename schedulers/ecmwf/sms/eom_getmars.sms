@@ -26,7 +26,7 @@ lgetecfs=0    # optionally get monthly means if previously calculated by eom_pre
 lgetmars=1    # read IFS data
 lmean=1       # monthly mean IFS data
 
-use cdo
+cdo=/usr/local/apps/cdo/1.5.6.1/LP64/bin/cdo
 
 
 #-----------------------------------------------------------------------------
@@ -102,15 +102,15 @@ if [[ $lmean = 1 ]] ; then
   DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
   DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
 
-  cdo timselavg,${DDm1},0,100   ifs_oper_1x1_${YYYYMM}.sfc.grb           \
-                                ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb
-  cdo timselavg,${DDm10},9,100  ifs_oper_1x1_${YYYYMM}.sfc.grb           \
-                                ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb
+  $cdo timselavg,${DDm1},0,100   ifs_oper_1x1_${YYYYMM}.sfc.grb           \
+                                 ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb
+  $cdo timselavg,${DDm10},9,100  ifs_oper_1x1_${YYYYMM}.sfc.grb           \
+                                 ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb
 
-  cdo timselavg,${DDm1},1,100   ifs_oper_1x1_${YYYYMM}.pl.grb            \
-                                ifs_oper_1x1_${YYYYMM}.pl.mn2-${DD}.grb
-  cdo timselavg,${DDm10},10,100 ifs_oper_1x1_${YYYYMM}.pl.grb            \
-                                ifs_oper_1x1_${YYYYMM}.pl.mn11-${DD}.grb
+  $cdo timselavg,${DDm1},1,100   ifs_oper_1x1_${YYYYMM}.pl.grb            \
+                                 ifs_oper_1x1_${YYYYMM}.pl.mn2-${DD}.grb
+  $cdo timselavg,${DDm10},10,100 ifs_oper_1x1_${YYYYMM}.pl.grb            \
+                                 ifs_oper_1x1_${YYYYMM}.pl.mn11-${DD}.grb
 
   grib_set -s date=${YYYYMM}02  ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb  out.grb
                      mv out.grb ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb

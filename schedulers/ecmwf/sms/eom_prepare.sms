@@ -16,32 +16,31 @@
   - generate plots 
 %end
 
-# -------------------------------------------------
 # include the header file for remote jobs
 %include <init_job.h> 
 
+# -------------------------------------------------
+
+
 echo "EOM_PREPARE.SMS" 
 
-module load python
-module load netcdf
-module load grib_api
-#cdo='%SCSOFT%/software/cdo-1.5.4_build/bin/cdo'
-module load cdo
+## module load python
+## module load netcdf
+## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
+module load cdo
 
 
-lecget=1
-lsplitdata=1
+case 
+%SIMMODE% in
+  1) lgetdata=1        #0: get no data, 1: get from ecfs
+     lsplitdata=1  ;;
+  2) lgetdata=0
+     lsplitdata=0  ;;
+esac
 lcatdata=1
 lcpdata=1
 ldeldata=1
-
-
-#-----------------------------------------------------------------------------
-# ectrans data to DWD from diagnostic plotting by Uli Damrath
-# (script by Helmut Frank, requires to set-up ectrans)
-
-#ICON_VERSION=3 ECTrans_ASSOCIATION=ECtoHPC ~dw7/ICON/iconECFS2DWD -e icon_003_ICON_r2B06_10d/2012060100 -d 2012060100 -d 2012060200
 
 
 #-----------------------------------------------------------------------------
@@ -66,8 +65,8 @@ for levtype1 in PL HL ML; do
 # directories
 
     dd=`echo ${ymdh} | cut -c 7-8`
-    outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
-    gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}"
+    outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/
+    gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}
     rsh ecgate mkdir -p ${gatedir}
     cd ${outdir}
 
@@ -81,11 +80,12 @@ for levtype1 in PL HL ML; do
 #-----------------------------------------------------------------------------
 # GRIB: rename and copy to ecgate
 
-    if [[ $lecget = 1 ]] ; then
-      outfile=${basename}_DOM01_${levtype1}_0001.grb
-      ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${ymdh}/$outfile .
-      smsmeter ecget  ${dd}
-    fi
+    outfile=${basename}_DOM01_${levtype1}_0001.grb
+    case $lgetdata in
+      1) ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${ymdh}/$outfile .  ;;
+#     2) cp %SCTEMP%/%SUITE%/%EXPNUM%/${ymdh}/$outfile . ;;
+    esac
+    smsmeter ecget ${dd}
 
 
 #-----------------------------------------------------------------------------
@@ -101,10 +101,6 @@ for levtype1 in PL HL ML; do
         grib_copy  ${basename}_DOM01_HL_0001.grb  \
           grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
       else
-       #grib_set -s centre=98 ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.grb      \
-       #                      ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.temp.grb
-       #\mv                   ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.temp.grb \
-       #                      ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.grb
         grib_copy  ${basename}_DOM01_${levtype1}_0001.grb  \
           grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
       fi

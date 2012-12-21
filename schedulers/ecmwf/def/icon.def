@@ -67,6 +67,9 @@ set SMSOUT      "$ICON_HOME/sms"
 set NSTEPS       12000
 #set NSTEPS       2880
 
+# simulation modes: 1:oper, 2:monthly 10day forecasts
+set SIMMODE      2
+
 # no. of ensemble members (dummies here)
 #set NENS         10
 set NENS         0   # default for no ensemble run
@@ -153,7 +156,10 @@ suite $USER
     set ENABLE_FORECAST           1
     set     ENABLE_DUMPSTATE      0
     set     ENABLE_MODEL          1
-    set ENABLE_POST               0    #turn on/off POST family
+    set ENABLE_POST               1
+    set     ENABLE_METEOGRAM      0
+    set     ENABLE_POST_METVIEW   0
+    set     ENABLE_POST_ARCHIVE   0
 
     # enable this flag, if we do not perform a complete "svn export"
     # but simply an "svn update" and "gmake distclean":
@@ -168,6 +174,7 @@ suite $USER
 
     edit EXPNUM     $EXPNUM
     edit NSTEPS     $NSTEPS
+    edit SIMMODE    $SIMMODE
     edit NENS       $NENS
     edit NMEM       $NMEM
     edit WAITINTVL  $WAITINTVL
@@ -330,10 +337,12 @@ suite $USER
    
         task meteogram
             trigger (post_prepare:meteogram_data)
+            complete ($ENABLE_METEOGRAM == 0)
             on_ecgate_submit_old
    
         family metview_all 
           trigger (post_prepare == complete)
+          complete ($ENABLE_POST_METVIEW == 0)
           for set 1 4 ; do
             set tsk `printf %3.3i $set`
             family $tsk
@@ -346,6 +355,7 @@ suite $USER
 
         task post_archive
             trigger meteogram==complete and metview_all==complete 
+            complete ($ENABLE_POST_ARCHIVE == 0)
             on_ecgate_submit
     endfamily
 
