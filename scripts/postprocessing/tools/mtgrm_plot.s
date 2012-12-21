@@ -10,7 +10,7 @@
 # Martin Koehler, Dec 2011
 # -------------------------------------------------------
 
-set -ex
+#set -ex
 
 dates=${1}
 res=${2}
@@ -41,9 +41,9 @@ set -A varName3D \
   REL_HUM  RHO      THETAV   U        V        CLC      TKVM     TKVH     \
   W        Phalf    t_so     w_so     w_so_ice
 
-#set -A iStation   1 
-#set -A varNameSfc T2M
-#set -A varName3D  T
+set -A iStation   1 
+set -A varNameSfc T2M
+set -A varName3D  T
 
 # -------------------------------------------------------
 
@@ -55,17 +55,18 @@ do
     ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
    #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
-    convert -density 100 ${oFile}.eps ${oFile}.png || true
+   #convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 
-  for var in ${varName3D[*]}
-  do
-    oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
-    ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
-      varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
-   #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
-    convert -density 100 ${oFile}.eps ${oFile}.png || true
-  done	
+#  for var in ${varName3D[*]}
+#  do
+#    oFile=${dir}"/meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
+#    ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
+#      varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
+#   #convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
+#    convert -density 100 ${oFile}.eps ${oFile}.png || true
+#  done	
 done	
+
 
 exit

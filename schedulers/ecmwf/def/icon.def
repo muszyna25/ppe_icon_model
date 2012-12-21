@@ -96,6 +96,13 @@ define on_ecgate_submit {
   edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $HOST %SMSRID% %SMSJOB%"
 }
 
+define on_ecgate_submit_old {
+  label host "$HOST submit"
+  edit SMSCMD       "/usr/local/share/sms_submit $ICON_ID $HOST %SMSJOB%"
+  edit SMSKILL      "/usr/local/share/sms_kill   $ICON_ID $HOST %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $HOST %SMSRID% %SMSJOB%"
+}
+
 define on_hpc_parallel {
   label host "$SCHOST parallel"
   edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
@@ -323,7 +330,7 @@ suite $USER
    
         task meteogram
             trigger (post_prepare:meteogram_data)
-            on_ecgate_submit
+            on_ecgate_submit_old
    
         family metview_all 
           trigger (post_prepare == complete)

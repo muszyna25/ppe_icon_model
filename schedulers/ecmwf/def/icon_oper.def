@@ -103,6 +103,13 @@ define on_ecgate_submit {
   edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $HOST %SMSRID% %SMSJOB%"
 }
 
+define on_ecgate_submit_old {
+  label host "$HOST submit"
+  edit SMSCMD       "/usr/local/share/sms_submit $ICON_ID $HOST %SMSJOB%"
+  edit SMSKILL      "/usr/local/share/sms_kill   $ICON_ID $HOST %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $HOST %SMSRID% %SMSJOB%"
+}
+
 define on_hpc_parallel {
   label host "$SCHOST parallel"
   edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
@@ -207,9 +214,9 @@ suite $USER
         extern /ifs_trigger/fct_ifs
 
         task setup
-           #time 06:00                                  # use this for tasks running daily (not catch-up mode)
+            time 06:00                                  # use this for tasks running daily (not catch-up mode)
            #trigger  /ifs_trigger/fct_ifs == complete
-            trigger  ../init:YMD le /${USER}:SMSDATE-1
+           #trigger  ../init:YMD le /${USER}:SMSDATE-1
             on_ecgate
             event enable_build
             event enable_dumpstate
@@ -331,7 +338,7 @@ suite $USER
    
         task meteogram
             trigger (post_prepare:meteogram_data)
-            on_ecgate_submit
+            on_ecgate_submit_old
    
         family metview_all 
           trigger (post_prepare == complete)
