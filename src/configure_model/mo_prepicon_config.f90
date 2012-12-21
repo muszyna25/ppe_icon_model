@@ -47,6 +47,7 @@ MODULE mo_prepicon_config
   PUBLIC :: l_w_in, l_sfc_in, l_hice_in, l_sst_in     
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
+  PUBLIC :: dwdfg_filename
   PUBLIC :: generate_filename
 
 
@@ -74,12 +75,15 @@ MODULE mo_prepicon_config
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
 
+  ! DWD-FG input filename, may contain keywords, by default
+  ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdfg_filename
 
 CONTAINS
   
-  FUNCTION generate_filename(ifs2icon_filename, model_base_dir, &
+  FUNCTION generate_filename(input_filename, model_base_dir, &
     &                        nroot, jlev, idom)  RESULT(result_str)
-    CHARACTER(len=*), INTENT(IN)   :: ifs2icon_filename, &
+    CHARACTER(len=*), INTENT(IN)   :: input_filename, &
       &                               model_base_dir
     INTEGER,          INTENT(IN)   :: nroot, jlev, idom
     CHARACTER(len=MAX_STRING_LEN)  :: result_str
@@ -89,7 +93,7 @@ CONTAINS
     CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i1)")),   keywords)
     CALL associate_keyword("<jlev>",   TRIM(int2string(jlev, "(i2.2)")), keywords)
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
-    ! replace keywords in "ifs2icon_filename", which is by default
+    ! replace keywords in "input_filename", which is by default
     ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
     result_str = TRIM(with_keywords(keywords, TRIM(ifs2icon_filename)))
 
