@@ -73,7 +73,7 @@ MODULE mo_pp_scheduler
     & TASK_FINALIZE_IPZ,                                               &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,        &
     & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,              &
-    & TASK_INTP_VER_ILEV, max_phys_dom
+    & TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL, max_phys_dom
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
@@ -111,7 +111,7 @@ MODULE mo_pp_scheduler
   USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
-    &                                   pp_task_intp_msl,                                   & 
+    &                                   pp_task_intp_msl, pp_task_edge2cell,                & 
     &                                   t_data_input, t_data_output,                        &
     &                                   t_simulation_status, t_job_queue, job_queue,        &
     &                                   MAX_NAME_LENGTH, HIGH_PRIORITY,                     &
@@ -1052,19 +1052,28 @@ CONTAINS
       END IF
 
       SELECT CASE ( ptr_task%job_type )
+        ! initialize vertical interpolation:
       CASE ( TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I, &
            & TASK_FINALIZE_IPZ)
         CALL pp_task_ipzlev_setup(ptr_task)
+        ! perform horizontal interpolation:
       CASE ( TASK_INTP_HOR_LONLAT )
         CALL pp_task_lonlat(ptr_task)
+        ! perform vertical interpolation:
       CASE ( TASK_INTP_VER_PLEV, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV )
         CALL pp_task_ipzlev(ptr_task)
+        ! synchronize halo regions:
       CASE ( TASK_INTP_SYNC )
         CALL pp_task_sync()
+        ! compute mean sea level pressure:
       CASE ( TASK_INTP_MSL )
-        CALL pp_task_intp_msl(ptr_task) ! mean sea level pressure
+        CALL pp_task_intp_msl(ptr_task)
+        ! compute relative humidty
       CASE ( TASK_COMPUTE_RH )
-        call pp_task_compute_field(ptr_task)
+        CALL pp_task_compute_field(ptr_task)
+        ! vector reconstruction on cell centers:
+      CASE ( TASK_INTP_EDGE2CELL )
+        CALL pp_task_edge2cell(ptr_task)
       CASE DEFAULT
         CALL finish(routine, "Unknown post-processing job.")
       END SELECT

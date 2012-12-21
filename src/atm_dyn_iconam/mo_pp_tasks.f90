@@ -56,6 +56,7 @@ MODULE mo_pp_tasks
   USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
+  USE mo_intp_rbf,                ONLY: rbf_vec_interpol_cell
   USE mo_nh_vert_interp,          ONLY: prepare_vert_interp_z,              &
     &                                   prepare_vert_interp_p,              &
     &                                   prepare_vert_interp_i,              &
@@ -114,6 +115,7 @@ MODULE mo_pp_tasks
   PUBLIC :: pp_task_ipzlev
   PUBLIC :: pp_task_intp_msl
   PUBLIC :: pp_task_compute_field
+  PUBLIC :: pp_task_edge2cell
   ! variables
   PUBLIC :: job_queue
   ! data types
@@ -847,5 +849,53 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE pp_task_compute_field
+
+
+  !---------------------------------------------------------------
+  !> Performs interpolation of a edge-based variable onto cell centers.
+  !
+  !  This is only a wrapper for the corresponding routines from the
+  !  interpolation module.
+  SUBROUTINE pp_task_edge2cell(ptr_task)
+    TYPE(t_job_queue), POINTER :: ptr_task
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_edge2cell")
+    INTEGER :: &
+      &  in_var_idx, out_var_idx_1, out_var_idx_2
+    TYPE (t_var_list_element), POINTER :: in_var, out_var_1, out_var_2
+    TYPE (t_var_metadata),     POINTER :: p_info
+    TYPE(t_patch),             POINTER :: p_patch
+    TYPE(t_int_state),         POINTER :: intp_hrz
+
+    p_patch        => ptr_task%data_input%p_patch      ! patch
+    intp_hrz       => ptr_task%data_input%p_int_state
+    in_var         => ptr_task%data_input%var
+    p_info         => ptr_task%data_input%var%info
+
+    ! Consistency check: We make the following assumptions:
+    ! - This is a 3D variable
+    IF (is_2d_field(p_info%vgrid))  CALL finish(routine, "Internal error!")
+    ! - We have two output components:
+    IF (.NOT. ASSOCIATED(ptr_task%data_output%var) .OR.  &
+      & .NOT. ASSOCIATED(ptr_task%data_output%var_2)) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
+
+    in_var_idx        = 1
+    IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
+
+    out_var_1      => ptr_task%data_output%var
+    out_var_idx_1  = 1
+    IF (out_var_1%info%lcontained) out_var_idx_1 = out_var_1%info%ncontained
+    out_var_2      => ptr_task%data_output%var_2
+    out_var_idx_2  =  1
+    IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
+
+    CALL rbf_vec_interpol_cell(in_var%r_ptr(:,:,:,in_var_idx,1),        &   !< normal wind comp.
+      &                        p_patch, intp_hrz,                       &   !< patch, interpolation state
+      &                        out_var_1%r_ptr(:,:,:,out_var_idx_1,1),  &
+      &                        out_var_2%r_ptr(:,:,:,out_var_idx_2,1) )     !< reconstr. u,v wind
+
+  END SUBROUTINE pp_task_edge2cell
 
 END MODULE mo_pp_tasks

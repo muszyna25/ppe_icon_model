@@ -481,8 +481,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_ILEV     = 9  !< task: vertical isentropic levels
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 10 !< task: synchronizes halo regions
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_MSL          = 11 !< task: intp. to mean sea level
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_EDGE2CELL    = 12 !< task: intp. from edge midpoints to cell centers
   !------ computation of optional diagnostic fields
-  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 12 !< task: compute relative humidity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
 
 
 !--------------------------------------------------------------------
