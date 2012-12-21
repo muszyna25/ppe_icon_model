@@ -213,7 +213,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &  TRIM(TRIM(modname)//'::resize_intp_data_mthreaded')
-    INTEGER :: ierrstat, max_size, new_max_size, i
+    INTEGER :: max_size, new_max_size, i
     TYPE (t_heap_data), ALLOCATABLE :: tmp_wgt(:)
     INTEGER           , ALLOCATABLE :: tmp_pe(:)
 
