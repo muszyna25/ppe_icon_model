@@ -33,10 +33,11 @@ module load cdo
 
 lsplitdata=1
 case %SIMMODE% in
-  1) lcpdata=1  ;;    # pre-operations     
-  2) lcpdata=0  ;;    # monthly mean 10day forecasts
+  1) lcpdata=1        # pre-operations     
+     ldeldata=1  ;;
+  2) lcpdata=0        # monthly mean 10day forecasts
+     ldeldata=0  ;;
 esac
-ldeldata=1
 
 
 #-----------------------------------------------------------------------------
@@ -142,12 +143,14 @@ if [[ $lsplitdata = 1 ]] ; then
   for levtype2 in sfc ml pl zl ; do
     for bad in unknown '~' ; do
       grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb \
-                grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype}.grb || true
+                grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
       \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
     done
   done
 
 fi
+
+ls -l grb_data
 
 
 #-----------------------------------------------------------------------------
