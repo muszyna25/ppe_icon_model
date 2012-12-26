@@ -46,7 +46,7 @@ MODULE mo_nh_diffusion
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_buffer_memory
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: nroot, l_limited_area, lfeedback, grid_sphere_radius
+  USE mo_grid_config,         ONLY: l_limited_area, lfeedback, grid_sphere_radius
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff

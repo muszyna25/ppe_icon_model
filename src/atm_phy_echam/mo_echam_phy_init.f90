@@ -59,7 +59,7 @@ MODULE mo_echam_phy_init
   USE mo_ha_testcases,         ONLY: ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
 
-  USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
+!   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
 
   ! radiation
   USE mo_radiation_config,     ONLY: ssi, tsi
@@ -85,7 +85,6 @@ MODULE mo_echam_phy_init
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_grid_config,          ONLY: nroot
 
   ! atmospheric state
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm
@@ -214,8 +213,10 @@ CONTAINS
     ndomain = SIZE(p_patch)
  
     DO jg= 1,ndomain
-      CALL sphere_cell_mean_char_length (p_patch(jg)%n_patch_cells_g, &
-        & mean_charlen(jg))
+      ! read it directly from the patch%geometry_info
+      mean_charlen(jg) = p_patch(jg)%geometry_info%mean_characteristic_length
+!       CALL sphere_cell_mean_char_length (p_patch(jg)%n_patch_cells_g, &
+!         & mean_charlen(jg))
     ENDDO
     
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)

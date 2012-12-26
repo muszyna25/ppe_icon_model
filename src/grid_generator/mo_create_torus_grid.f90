@@ -124,7 +124,7 @@ MODULE mo_create_torus_grid
   USE mo_io_units,        ONLY: nnml, filename_max
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
   USE mo_exception,       ONLY: message, message_text, finish
-  USE mo_grid_geometry_info,  ONLY: planar_torus_geometry
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry, triangular_cell
   USE mo_local_grid,      ONLY: t_grid, &
     & new_grid, delete_grid,get_grid, allocate_grid_object,        &
     & undefined, set_grid_creation, grid_set_exist_eq_allocated,   &
@@ -266,11 +266,8 @@ CONTAINS
     torus_grid%cells%max_no_of_vertices = max_cell_vertices
     torus_grid%verts%max_connectivity   = max_vertex_connect
     
-    torus_grid%geometry_type = planar_torus_geometry
-
     CALL allocate_grid_object(torus_grid_id)
     CALL grid_set_exist_eq_allocated(torus_grid_id)
-    CALL set_grid_creation(torus_grid_id, undefined)
     !--------------------------------------------------------------
 
     CALL create_torus_topology()
@@ -463,7 +460,9 @@ CONTAINS
     REAL(wp) :: dual_edge_length,triangle_area,hexagon_area
     REAL(wp) :: sin60
 
-    REAL(wp), PARAMETER :: max_lat = pi /2 !/ 18.0_wp
+!     REAL(wp), PARAMETER :: max_lat = pi / 2.0_wp !/ 18.0_wp
+    ! the pi / 2 will not work for the decomposition, it needs to be near the equator
+    REAL(wp), PARAMETER :: max_lat = pi / 18.0_wp !/ 18.0_wp
 
     sin60 = SQRT(0.75_wp) 
     !--------------------------------------------------------------
@@ -486,13 +485,17 @@ CONTAINS
     
     !--------------------------------------------------------------
     ! write planar torus geometry properties
-    torus_grid%planar_torus_info%center%x(1)  = x_center
-    torus_grid%planar_torus_info%center%x(2)  = y_center
-    torus_grid%planar_torus_info%center%x(3)  = 0.0_wp
-    torus_grid%planar_torus_info%cell_edge_length  = edge_length
-    torus_grid%planar_torus_info%length  = x_step * REAL(x_no_of_columns,wp)
-    torus_grid%planar_torus_info%height  = y_step * REAL(y_no_of_rows,wp)
-    
+    torus_grid%geometry_info%cell_type          = triangular_cell
+    torus_grid%geometry_info%geometry_type      = planar_torus_geometry
+    torus_grid%geometry_info%center%x(1)        = x_center
+    torus_grid%geometry_info%center%x(2)        = y_center
+    torus_grid%geometry_info%center%x(3)        = 0.0_wp
+    torus_grid%geometry_info%mean_edge_length   = edge_length
+    torus_grid%geometry_info%mean_cell_area     = triangle_area
+    torus_grid%geometry_info%domain_length      = x_step * REAL(x_no_of_columns,wp)
+    torus_grid%geometry_info%domain_height      = y_step * REAL(y_no_of_rows,wp)
+    torus_grid%geometry_info%sphere_radius      = 0.0_wp
+   
    !--------------------------------------------------------------
     !  get  coordinates
     DO y=0, y_no_of_rows-1
@@ -620,7 +623,7 @@ CONTAINS
     WRITE(*,*) TRIM(message_text)
     WRITE(message_text,*) '    ==  TORUS GRID  ==='
     WRITE(*,*) TRIM(message_text)
-    write(*,*) " Center:", torus_grid%planar_torus_info%center%x 
+    write(*,*) " Center:", torus_grid%geometry_info%center%x
     WRITE(message_text,*) '-------------------------------'
     WRITE(*,*) TRIM(message_text)
     ! print vertices

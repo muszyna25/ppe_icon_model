@@ -38,7 +38,7 @@ MODULE mo_grid_config
   USE mo_exception,          ONLY: message_text, finish
   USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
-  USE mo_physical_constants, ONLY: earth_radius
+  USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
   USE mo_parallel_config,    ONLY: division_method, division_file_name
 
 #ifndef NOMPI
@@ -63,7 +63,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
-    &       lplane, corio_lat, l_limited_area, patch_weight, &
+    &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
 
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
@@ -111,18 +111,20 @@ INCLUDE 'netcdf.inc'
                                        ! 1=redistribute for radiaiton reading from file
 
   LOGICAL  :: lplane                   ! f-plane option
-  REAL(wp) :: corio_lat                ! Latitude at which the f-plane is located 
+  LOGICAL  :: is_plane_torus = .false. ! f-plane with doubly periodic boundary==> like a plane torus
+  REAL(wp) :: corio_lat                ! Latitude, where the f-plane is located if 
+                                       ! lplane or is_plane_torus=.true.
 
   REAL(wp) :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
                                        ! for any of the first level child patches,
                                        ! processor splitting will be performed
 
-  REAL(wp) :: grid_rescale_factor = 0.0_wp
-  REAL(wp) :: grid_length_rescale_factor = 0.0_wp
-  REAL(wp) :: grid_area_rescale_factor = 0.0_wp
-  REAL(wp) :: grid_sphere_radius  = 0.0_wp
-  REAL(wp) :: grid_angular_velocity  = 0.0_wp
-  REAL(wp) :: namelst_grid_angular_velocity  = 0.0_wp
+  REAL(wp) :: grid_rescale_factor = 1.0_wp
+  REAL(wp) :: grid_length_rescale_factor = 1.0_wp
+  REAL(wp) :: grid_area_rescale_factor = 1.0_wp
+  REAL(wp) :: grid_sphere_radius  = earth_radius
+  REAL(wp) :: grid_angular_velocity  = earth_angular_velocity
+  REAL(wp) :: namelst_grid_angular_velocity  = earth_angular_velocity
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)

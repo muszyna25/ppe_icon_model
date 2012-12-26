@@ -44,8 +44,8 @@ MODULE mo_nwp_phy_init
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt
-  USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
-  USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
+!   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
+  USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -368,7 +368,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !--------------------------------------------------------------
   !< characteristic gridlength needed by convection and turbulence
   !--------------------------------------------------------------
-  CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
+!   CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
+  ! read it directly from the patch%geometry_info
+  phy_params%mean_charlen = p_patch%geometry_info%mean_characteristic_length
+!   write(0,*) "=============================================="
+!   write(0,*) "mean_charlen=", phy_params%mean_charlen, &
+!     & p_patch%geometry_info%mean_characteristic_length
+!   write(0,*) "=============================================="
 
 
   !--------------------------------------------------------------
@@ -677,7 +683,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! Please take care for scale-dependent initializations!
     ! Spectral resolution corresponding to ICON
     ! needed for RTAU - CAPE calculation
-    nsmax = INT(2._wp*pi*grid_sphere_radius/phy_params%mean_charlen)
+    ! adapted for more general gemoetries
+!     nsmax = INT(2._wp*pi*grid_sphere_radius/phy_params%mean_charlen)
+    nsmax = INT(MAX(p_patch%geometry_info%domain_length, p_patch%geometry_info%domain_height) &
+      & / p_patch%geometry_info%mean_characteristic_length)
+    
 
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))

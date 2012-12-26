@@ -54,7 +54,7 @@ MODULE mo_solve_nonhydro
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
+  USE mo_grid_config,       ONLY: l_limited_area
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
@@ -609,10 +609,10 @@ MODULE mo_solve_nonhydro
     REAL(wp), DIMENSION(:,:,:),   POINTER :: ptr_vn
     ! Pointers needed for igradp_method = 3
     INTEGER,  DIMENSION(:),   POINTER :: iplev, ipeidx, ipeblk
-    REAL(wp) :: sphere_radius_squared
+!     REAL(wp) :: sphere_radius_squared
 
     !-----------------------------------------------------------------------
-    sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
+!     sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
 
     !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN
@@ -660,11 +660,17 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     IF (divdamp_order == 2) THEN
-       scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
-                        & / REAL(20*nroot**2*4**(p_patch%level),wp)
+!        scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
+!                         & / REAL(20*nroot**2*4**(p_patch%level),wp)
+      ! get the mean cell area directly from the p_patch%geometry_info
+      ! this should work for any (near-uniform) grid geometry
+      scal_divdamp = divdamp_fac * p_patch%geometry_info%mean_cell_area 
     ELSE IF (divdamp_order == 4) THEN
-       scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
-                       & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
+!        scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
+!                        & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
+      ! get the mean cell area directly from the p_patch%geometry_info
+      ! this should work for any (near-uniform) grid geometry
+       scal_divdamp = -divdamp_fac * (p_patch%geometry_info%mean_cell_area**2)
     ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 

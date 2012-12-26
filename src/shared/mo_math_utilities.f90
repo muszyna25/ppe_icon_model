@@ -157,7 +157,7 @@ MODULE mo_math_utilities
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
-  PUBLIC :: sphere_cell_mean_char_length
+!   PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
@@ -2047,15 +2047,16 @@ CONTAINS
   !! @par Revision History
   !! Implemented by Kristina Froehlich, DWD (2010-10-29).
   !! moved to a more general place, Kristina Froehlich, MPI-M (2011-10-06)
-  !!
-  SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
-    
-    INTEGER , INTENT(in)  :: total_number_of_cells 
-    REAL(wp), INTENT(out) :: mean_charlen
-    
-    mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
-    
-  END SUBROUTINE sphere_cell_mean_char_length
+  !! Changed to use total number odf cells insted of root/level by LL, MPI-M (2012-12)
+  !! Not used since the charecteristic lenntgh os now part of the grid_geometry_info. LL, MPI-M (2012-12)
+!   SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
+!     
+!     INTEGER , INTENT(in)  :: total_number_of_cells 
+!     REAL(wp), INTENT(out) :: mean_charlen
+!     
+!     mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
+!     
+!   END SUBROUTINE sphere_cell_mean_char_length
   !-------------------------------------------------------------------------
   
   

@@ -90,6 +90,11 @@ INTERFACE p_nf_get_att_int
    MODULE PROCEDURE p_nf_get_att_int_1
 END INTERFACE
 
+INTERFACE p_nf_get_att_double
+   MODULE PROCEDURE p_nf_get_att_double_single
+   MODULE PROCEDURE p_nf_get_att_double_array
+END INTERFACE
+
 !-------------------------------------------------------------------------
 
 CONTAINS
@@ -294,16 +299,16 @@ INTEGER FUNCTION p_nf_get_att_text(ncid, varid, name, tval)
   CALL p_bcast(tval, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_text
+!-----------------------------------------------------------
 
 !-----------------------------------------------------------
 !>
 !!               Wrapper for nf_get_att_double
 !!
-!!
 !! @par Revision History
 !! Initial version by Leonidas Linardakis, May 2012
 !!
-INTEGER FUNCTION p_nf_get_att_double(ncid, varid, name, dvalue)
+INTEGER FUNCTION p_nf_get_att_double_single(ncid, varid, name, dvalue)
 
 !
    INTEGER, INTENT(IN) :: ncid, varid
@@ -317,11 +322,39 @@ INTEGER FUNCTION p_nf_get_att_double(ncid, varid, name, dvalue)
    ENDIF
 
    CALL p_bcast(res, p_io, p_comm_input_bcast)
-   p_nf_get_att_double = res
+   p_nf_get_att_double_single = res
 
    CALL p_bcast(dvalue, p_io, p_comm_input_bcast)
 
-END FUNCTION p_nf_get_att_double
+END FUNCTION p_nf_get_att_double_single
+!-----------------------------------------------------------------------
+
+!-----------------------------------------------------------
+!>
+!!               Wrapper for nf_get_att_double
+!!
+!! @par Revision History
+!! Initial version by Leonidas Linardakis, May 2012
+!!
+INTEGER FUNCTION p_nf_get_att_double_array(ncid, varid, name, dvalue)
+
+!
+   INTEGER, INTENT(IN) :: ncid, varid
+   CHARACTER*(*), INTENT(IN) :: name
+   REAL(dp), INTENT(OUT) :: dvalue(:)
+
+   INTEGER :: res
+
+   IF(p_pe == p_io) THEN
+      res = nf_get_att_double(ncid, varid, name, dvalue)
+   ENDIF
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_get_att_double_array = res
+
+   CALL p_bcast(dvalue, p_io, p_comm_input_bcast)
+
+END FUNCTION p_nf_get_att_double_array
 !-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------

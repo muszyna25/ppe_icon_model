@@ -115,16 +115,16 @@ MODULE mo_model_domimp_patches
     & min_rlvert, max_rlvert, &
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges
+  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_model_domain,       ONLY: p_patch_local_parent
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, init_butterfly_idx
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
     & radiation_grid_filename,  global_cell_type, lplane, &
-    & grid_area_rescale_factor, grid_length_rescale_factor
+    & grid_area_rescale_factor, grid_length_rescale_factor, &
+    & is_plane_torus, grid_sphere_radius
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
@@ -136,11 +136,12 @@ MODULE mo_model_domimp_patches
   USE mo_name_list_output_config, ONLY: is_grib_output
   USE mo_master_nml,         ONLY: model_base_dir
 
-  USE mo_grid_geometry_info, ONLY: planar_torus_geometry
-  USE mo_io_utils_grid,      ONLY: read_planar_torus_info
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
+    &  set_grid_geometry_derived_info, copy_grid_geometry_info, read_geometry_info
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
+  USE mo_math_constants,      ONLY: pi
   
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -296,6 +297,7 @@ CONTAINS
     TYPE(t_patch), POINTER ::  &
       & p_single_patch => NULL()
     
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/import_basic_patch'
     !-----------------------------------------------------------------------
     
     CALL message ('mo_model_domimp_patches:import_basic_patches', &
@@ -468,6 +470,7 @@ CONTAINS
     CALL complete_parent_index(p_patch)
     CALL set_pc_idx(p_patch)
     
+
   END SUBROUTINE import_basic_patches
   !-------------------------------------------------------------------------
   
@@ -483,6 +486,7 @@ CONTAINS
     TYPE(t_patch), INTENT(inout) :: p_patch(n_dom_start:)
     
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
     
     DO jg = n_dom_start, n_dom
       ! Allocate and preset remaining arrays in patch
@@ -524,7 +528,8 @@ CONTAINS
         CALL rescale_grid( p_patch_local_parent(jg) )
       ENDDO
     ENDIF
-    
+
+          
     ! do other stuff  
     DO jg = n_dom_start, n_dom
       ! calculate Cartesian components of primal normal
@@ -568,8 +573,51 @@ CONTAINS
     
   END SUBROUTINE complete_patches
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> 
+  ! calculate mean geometry properties for old grids,
+  ! the new grids should have these values filled
+  ! All the patches should have the same geometry type
+  SUBROUTINE set_grid_mean_geometry_info( patch )
+    TYPE(t_patch), INTENT(inout), TARGET ::  patch  
+    
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:set_grid_mean_geometry_info'
+    
+    !-----------------------------------------------------------------------
+    SELECT CASE(patch%geometry_info%geometry_type)
+    
+    CASE (planar_torus_geometry)
+
+      CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
+
+    CASE (sphere_geometry)
+      ! note that the grid_sphere_radius is already rescaled
+      patch%geometry_info%sphere_radius = grid_sphere_radius / grid_length_rescale_factor
+      ! divide the sphere surface by the number of cells
+      ! Note: this works only for old grids
+      patch%geometry_info%mean_cell_area = &
+        & 4._wp * pi * patch%geometry_info%sphere_radius**2 &
+        & / REAL(20*nroot**2*4**(patch%level),wp)
+        
+      patch%geometry_info%domain_length  = 2.0_wp * pi * patch%geometry_info%sphere_radius
+      patch%geometry_info%domain_height  = patch%geometry_info%domain_length
+      
+      ! Note: the mean_edge_length is not used for the sphere geometry,
+      ! and calculating will require global communication. Set to 0
+      patch%geometry_info%mean_edge_length = 0
+    
+    CASE default    
+      CALL finish(method_name, "Undefined geometry type")
+      
+    END SELECT
+    
+  END SUBROUTINE set_grid_mean_geometry_info
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !> Rescale grids
+  ! Note: this does not rescale the cartesian coordinates for the torus
   SUBROUTINE rescale_grid( patch )
     
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
@@ -587,6 +635,30 @@ CONTAINS
       & patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
     patch%edges%edge_vert_length(:,:,:) = &
       & patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
+
+    ! rescale geometry parameters
+    patch%geometry_info%mean_edge_length = &
+      & patch%geometry_info%mean_edge_length * grid_length_rescale_factor
+    patch%geometry_info%mean_cell_area   = &
+      & patch%geometry_info%mean_cell_area   * grid_area_rescale_factor
+    patch%geometry_info%domain_length    = &
+      & patch%geometry_info%domain_length    * grid_length_rescale_factor
+    patch%geometry_info%domain_height    = &
+      & patch%geometry_info%domain_height    * grid_length_rescale_factor
+    patch%geometry_info%sphere_radius    = &
+      & patch%geometry_info%sphere_radius    * grid_length_rescale_factor
+    patch%geometry_info%mean_characteristic_length    = &
+      & patch%geometry_info%mean_characteristic_length * grid_length_rescale_factor
+
+!     write(0,*) "Rescale grid_length_rescale_factor:", &
+!       & grid_length_rescale_factor
+!     write(0,*) "Rescale mean_cell_area:", &
+!       & patch%geometry_info%mean_cell_area
+!     write(0,*) "Rescale mean_characteristic_length:", &
+!       & patch%geometry_info%mean_characteristic_length
+
+    IF (patch%geometry_info%mean_characteristic_length == 0.0_wp) &
+      & CALL finish("rescale_grid", "mean_characteristic_length=0")
     
   END SUBROUTINE rescale_grid
   !-------------------------------------------------------------------------
@@ -738,35 +810,6 @@ CONTAINS
   END SUBROUTINE set_pc_idx
   !-------------------------------------------------------------------------
   
-  !-------------------------------------------------------------------------
-  ! not used
-!   SUBROUTINE get_patch_attributes(patch)
-!   
-!     TYPE(t_patch), INTENT(inout) :: patch
-!     
-!     INTEGER :: netcd_status, ncid
-!     
-!     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-!     !--------------------------------------
-!     ! get geometry parameters
-!     netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', patch%geometry_type)
-!     IF (netcd_status /= nf_noerr) patch%geometry_type = 0
-!     netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', patch%sphere_radius)
-!     IF (netcd_status /= nf_noerr) THEN
-!       ! by default this is the earth sphere
-!       ! we should add here the case of torus, ellipsoides, etc. 
-!       patch%sphere_radius = earth_radius
-!       patch%earth_rescale_factor = 1.0_wp
-!     ELSE
-!       netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
-!         & patch%earth_rescale_factor)
-!       IF (netcd_status /= nf_noerr) &
-!         & CALL finish("get_patch_attributes", "earth_rescale_factor not defined")
-!     ENDIF
-!     CALL nf(nf_close(ncid))
-!     
-!   END SUBROUTINE get_patch_attributes
-  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
   !>
@@ -1480,8 +1523,9 @@ CONTAINS
 
     INTEGER :: return_status
     
-    TYPE(t_patch), POINTER :: p_p
+    TYPE(t_patch), POINTER :: p_p, patch0
     
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/read_remaining_patch'
     !-----------------------------------------------------------------------
     
     CALL message ('mo_model_domimp_patches:read_remaining_patch', &
@@ -1489,6 +1533,8 @@ CONTAINS
     
     CALL nf(nf_open(TRIM(p_patch%grid_filename), nf_nowrite, ncid))
     
+            
+    !-------------------------------------------------
     !
     ! allocate temporary arrays to read in data from the grid/patch generator
     !
@@ -2142,17 +2188,48 @@ CONTAINS
       ENDIF
       
     ENDIF ! (global_cell_type == 3) THEN
+    
     !-------------------------------------------------
     ! read geometry parameters
-    return_status = nf_get_att_int(ncid, nf_global,'grid_geometry', p_p%geometry_type)
-    IF (return_status /= nf_noerr) p_p%geometry_type = 0 ! undefined
-    IF (p_p%geometry_type == planar_torus_geometry) &
-      CALL read_planar_torus_info(ncid, p_p%planar_torus_info)
+    patch0 => get_patch_ptr(0)
+    return_status = read_geometry_info(ncid, patch0%geometry_info)
+    IF (return_status /= 0 ) THEN
+      ! the information was missing from the file (ie old grids)
+      ! calclulate basic settings
+!       CALL finish("","did not read from file")
+      CALL set_grid_mean_geometry_info(patch0)
+    ENDIF
+    CALL set_grid_geometry_derived_info(patch0%geometry_info)
     
-            
-    !-------------------------------------------------
+    ! We have to account for running on the dual grid
+    ! This will be removed once the dual grid is read from the file
+    ! instead of being computed
+    patch0%geometry_info%cell_type = global_cell_type
 
+    
+    DO ip = 1, n_lp
+      p_p => get_patch_ptr(ip)
+      CALL copy_grid_geometry_info(from_geometry_info = patch0%geometry_info, &
+        &                            to_geometry_info = p_p%geometry_info)
+      p_p%geometry_info%cell_type = global_cell_type
+!       write(0,*) "-------------------------------------------------------"
+!       write(0,*) "area, char_lenght=", p_p%geometry_info%mean_cell_area, &
+!         & p_p%geometry_info%mean_characteristic_length
+!       write(0,*) "-------------------------------------------------------"
+    ENDDO
+                       
     CALL nf(nf_close(ncid))
+    !-------------------------------------------------
+     !Check for plane_torus case
+    IF(p_p%geometry_info%geometry_type == planar_torus_geometry .AND. .NOT. is_plane_torus) THEN
+      CALL message(TRIM(routine), &
+        & "Grid is plane torus: turning on is_plane_torus automatically")    
+      is_plane_torus = .TRUE. 
+    END IF
+
+    IF(p_p%geometry_info%geometry_type /= planar_torus_geometry .AND. is_plane_torus) &
+      CALL finish(TRIM(routine),"Input grid is NOT plane torus, Stopping")
+    !-------------------------------------------------
         
         
     !

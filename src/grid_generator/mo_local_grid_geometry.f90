@@ -40,9 +40,9 @@ MODULE mo_local_grid_geometry
 
   !-------------------------------------------------------------------------
   USE mo_kind,            ONLY: wp
-  USE mo_math_constants,  ONLY: rad2deg, deg2rad
+  USE mo_math_constants,  ONLY: pi, rad2deg, deg2rad
   USE mo_exception,       ONLY: finish! , message
-  USE mo_grid_geometry_info,  ONLY: sphere_geometry
+  USE mo_grid_geometry_info,ONLY: sphere_geometry, triangular_cell
   USE mo_local_grid
   USE mo_math_utilities,  ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,  triangle_area, &
@@ -226,7 +226,6 @@ CONTAINS
     no_of_cells = cells%no_of_existcells
     no_of_edges = edges%no_of_existedges
     no_of_verts = verts%no_of_existvertices
-    compute_grid%geometry_type = sphere_geometry
 
     IF (cells%max_no_of_vertices /= 3) THEN
       CALL finish('compute_sphere_grid_geometry','Not a triangular grid')
@@ -437,7 +436,7 @@ CONTAINS
         
      CALL order_cell_connectivity(in_grid_id)
     
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(sphere_radius, sphere_radius_squared)
     !------------------------------------------
     ! compute verts%dual_area
 !$OMP DO PRIVATE(vertex_index,edge_index,i,cell_1,cell_2,cartesian_c)
@@ -492,8 +491,8 @@ CONTAINS
 
     !----------------------------------------------------------
     ! Finally,rescale distances by radius of the sphere
-    sphere_radius         = compute_grid%sphere_radius
-    sphere_radius_squared = sphere_radius*sphere_radius
+    sphere_radius         = compute_grid%geometry_info%sphere_radius
+    sphere_radius_squared = sphere_radius * sphere_radius
 !$OMP DO PRIVATE(vertex_index)
     DO vertex_index=1,no_of_verts
       verts%dual_area(vertex_index) = &
@@ -524,6 +523,19 @@ CONTAINS
     CALL get_cell_barycenters(in_grid_id, output_centers=cells%cartesian_barycenter)
     CALL cartesian_to_geographical(cells%cartesian_barycenter, no_of_cells, cells%barycenter)
     !----------------------------------
+    
+    !--------------------------------------------------------------
+    ! write sphere geometry properties
+    compute_grid%geometry_info%cell_type        = triangular_cell
+    compute_grid%geometry_info%geometry_type    = sphere_geometry
+    compute_grid%geometry_info%center%x(:)      = 0.0_wp
+    compute_grid%geometry_info%mean_edge_length = &
+      & SUM(edges%primal_edge_length(1:no_of_edges)) / REAL(no_of_edges,wp)
+    compute_grid%geometry_info%mean_cell_area   = &
+      & SUM(cells%area(1:no_of_cells)) / REAL(no_of_cells,wp)      
+    compute_grid%geometry_info%domain_length    = 2.0_wp * pi * compute_grid%geometry_info%sphere_radius
+    compute_grid%geometry_info%domain_height    = compute_grid%geometry_info%domain_length
+    ! compute_grid%geometry_info%sphere_radius is already filled
 
     !----------------------------------
     CALL timer_stop(timer_set_sphere_geom_grid)

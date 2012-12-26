@@ -1244,7 +1244,6 @@ src/grid_generator/mo_icosahedron_grid.f90 -text
 src/grid_generator/mo_io_graph.f90 -text
 src/grid_generator/mo_io_grid.f90 -text
 src/grid_generator/mo_io_local_grid.f90 -text
-src/grid_generator/mo_io_utils_grid.f90 -text
 src/grid_generator/mo_local_grid.f90 -text
 src/grid_generator/mo_local_grid_geometry.f90 -text
 src/grid_generator/mo_local_grid_hierarchy.f90 -text

@@ -85,10 +85,8 @@ MODULE mo_io_local_grid
   USE mo_math_constants,     ONLY: pi,pi_2!, eps
 !   USE mo_physical_constants, ONLY: re
   USE mo_local_grid
-  USE mo_grid_geometry_info, ONLY: sphere_geometry, planar_torus_geometry, &
-    & t_planar_torus_geometry_info
-  USE mo_io_utils_grid,      ONLY: read_planar_torus_info, write_planar_torus_info, &
-    & nf
+  USE mo_grid_geometry_info, ONLY: sphere_geometry, planar_torus_geometry, t_grid_geometry_info, &
+    & read_geometry_info
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
     & min_rlvert, max_rlvert, min_rledge, max_rledge
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
@@ -116,6 +114,16 @@ MODULE mo_io_local_grid
 
 CONTAINS
 
+  !--------------------------------------------------------------------
+  SUBROUTINE nf(return_status)
+    INTEGER, INTENT(in) :: return_status
+
+    IF (return_status /= nf_noerr) THEN
+      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
+    ENDIF
+
+  END SUBROUTINE nf
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE read_netcdf_cell_elevation(grid_id, file_name, elevation_field)
@@ -314,7 +322,7 @@ CONTAINS
     INTEGER :: max_vert_connect, max_cell_vertices
     INTEGER, POINTER :: tmp_index(:,:)
     REAL(wp), POINTER :: tmp_real(:,:)
-    INTEGER :: i,netcd_status, start_subgrid_id
+    INTEGER :: i,return_status, start_subgrid_id
 
     CHARACTER(*), PARAMETER :: method_name = "mo_io_local_grid:read_netcdf_grid"
     
@@ -343,32 +351,22 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, grid_obj%verts%max_connectivity))
     
-    netcd_status = nf_inq_attid(ncid, nf_global, 'no_of_subgrids', varid)
-    IF (netcd_status == nf_noerr) THEN
+    return_status = nf_inq_attid(ncid, nf_global, 'no_of_subgrids', varid)
+    IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'no_of_subgrids', grid_obj%no_of_subgrids))
     ELSE
        grid_obj%no_of_subgrids = 1
     ENDIF
-    netcd_status = nf_inq_attid(ncid, nf_global, 'start_subgrid_id', varid)
-    IF (netcd_status == nf_noerr) THEN
+    return_status = nf_inq_attid(ncid, nf_global, 'start_subgrid_id', varid)
+    IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'start_subgrid_id', start_subgrid_id))
     ELSE
        start_subgrid_id = 0
     ENDIF
-    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%geometry_type)
-    IF (netcd_status /= nf_noerr) grid_obj%geometry_type = undefined
-    netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', grid_obj%sphere_radius)
-    IF (netcd_status /= nf_noerr) THEN
-      CALL set_default_geometry_parameters(to_grid_id=grid_id)
-    ELSE
-      netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
-        & grid_obj%earth_rescale_factor)
-      IF (netcd_status /= nf_noerr) &
-        & CALL finish(method_name, "earth_rescale_factor not defined")
-    ENDIF
     
-    IF (grid_obj%geometry_type == planar_torus_geometry) &
-      CALL read_planar_torus_info(ncid, grid_obj%planar_torus_info)
+    return_status = read_geometry_info(ncid, grid_obj%geometry_info)
+    IF (return_status /= 0) &
+      CALL warning(method_name, "Cannot not read geometry_info")
         
     print *, 'Read ', grid_obj%ncells, ' cells...'
     CALL allocate_grid_object(grid_id)
@@ -392,8 +390,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%area))
 
-    netcd_status = nf_inq_varid(ncid, 'cell_elevation', varid)
-    IF (netcd_status == nf_noerr) THEN
+    return_status = nf_inq_varid(ncid, 'cell_elevation', varid)
+    IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%elevation))
     ENDIF
 
@@ -473,8 +471,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'edgequad_area', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%quad_area))
 
-    netcd_status = nf_inq_varid(ncid, 'edge_elevation', varid)
-    IF (netcd_status == nf_noerr) THEN
+    return_status = nf_inq_varid(ncid, 'edge_elevation', varid)
+    IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%elevation))
     ENDIF
 
@@ -543,8 +541,8 @@ CONTAINS
 
     !-------------------------------
     ! additional cartesian info
-    netcd_status = nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid)
-    IF (netcd_status /= nf_noerr) THEN
+    return_status = nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid)
+    IF (return_status /= nf_noerr) THEN
       CALL warning(method_name, "Did not find cartesian grid info")
     ! fill some basic fields
 !       CALL geographical_to_cartesian(grid_obj%cells%center, no_of_cells,&
@@ -636,8 +634,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'refin_v_ctrl', varid))
     CALL nf(nf_get_var_int   (ncid, varid, grid_obj%verts%refin_ctrl))
 
-    netcd_status = nf_inq_varid(ncid, 'phys_edge_id', varid)
-    IF (netcd_status == nf_noerr) THEN
+    return_status = nf_inq_varid(ncid, 'phys_edge_id', varid)
+    IF (return_status == nf_noerr) THEN
       CALL nf(nf_get_var_int   (ncid, varid, grid_obj%edges%subgrid_id))
       CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
       CALL nf(nf_get_var_int   (ncid, varid, grid_obj%cells%subgrid_id))
@@ -669,8 +667,8 @@ CONTAINS
 
     !----------------------------------
     !  read decompositions
-    netcd_status = nf_inq_varid(ncid, 'cell_domain_id', varid)
-    IF (netcd_status == nf_noerr) THEN
+    return_status = nf_inq_varid(ncid, 'cell_domain_id', varid)
+    IF (return_status == nf_noerr) THEN
       CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%domain_id(:,:)))
       CALL nf(nf_inq_varid(ncid, 'cell_no_of_domains', varid))
       CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%no_of_domains))
@@ -766,6 +764,8 @@ CONTAINS
     INTEGER :: itype_optimize=0
     LOGICAL :: l_c_grid = .false.
 
+    INTEGER :: return_status
+
     !-------------------------------------------------------------------------
     ! get unique grid file identifier for GRIB2 and updated CF-Convention
     CALL uuid_generate(uuid)
@@ -826,16 +826,10 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'ellipsoid_name' , 6, 'Sphere'))
 !    CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, re))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'semi_major_axis' , nf_double, 1, &
-      & grid_obj%sphere_radius))
+      & grid_obj%geometry_info%sphere_radius))
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, ilevel))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
-    CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_geometry', nf_int, 1, &
-      & grid_obj%geometry_type))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'sphere_radius' , nf_double, 1, &
-      & grid_obj%sphere_radius))
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'earth_rescale_factor' , nf_double, 1, &
-      & grid_obj%earth_rescale_factor))
     
     ! The following three attributes are nontrivial in the presence of grid refinement
     ! and are set here because they are checked in the ICON code
@@ -875,7 +869,7 @@ CONTAINS
       & rotation_vector))
 
 
-    CALL write_planar_torus_info(ncid, grid_obj%planar_torus_info)
+    return_status = write_geometry_info(ncid, grid_obj%geometry_info)
       
     !----------------------------------------------------------------------
     ! Dimensions
@@ -1955,6 +1949,42 @@ CONTAINS
 
 
   END SUBROUTINE write_netcdf_grid
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  INTEGER FUNCTION write_geometry_info(ncid, geometry_info)
+    INTEGER, INTENT(in) :: ncid
+    TYPE(t_grid_geometry_info) :: geometry_info
+
+    write_geometry_info = -1
+    
+    CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_geometry', nf_int, 1,     &
+      & geometry_info%geometry_type))
+    
+    CALL nf(nf_put_att_int   (ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
+      & geometry_info%mean_edge_length))
+
+    CALL nf(nf_put_att_double(ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
+      & geometry_info%mean_edge_length))
+      
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'mean_cell_area' , nf_double, 1, &
+      & geometry_info%mean_cell_area))
+      
+    CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_length' , nf_double, 1, &
+      & geometry_info%domain_length))
+    
+    CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_height' , nf_double, 1, &
+      & geometry_info%domain_height))
+    
+    CALL nf(nf_put_att_double   (ncid, nf_global, 'sphere_radius' , nf_double, 1, &
+      & geometry_info%sphere_radius))
+    
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'domain_cartesian_center', nf_double, 3, &
+      & geometry_info%center%x))
+      
+    write_geometry_info = 0
+
+  END FUNCTION write_geometry_info
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
