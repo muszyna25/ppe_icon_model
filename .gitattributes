@@ -1377,6 +1377,7 @@ src/shared/mo_kind.f90 -text
 src/shared/mo_linked_list.f90 -text
 src/shared/mo_loopindices.f90 -text
 src/shared/mo_math_constants.f90 -text
+src/shared/mo_math_types.f90 -text
 src/shared/mo_math_utilities.f90 -text
 src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_namelist.f90 -text
